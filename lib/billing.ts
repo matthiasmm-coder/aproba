@@ -1,0 +1,72 @@
+import "server-only";
+import Stripe from "stripe";
+import type { PlanId } from "@/lib/planes";
+
+// Facturation SaaS (abonnement du despacho à Aproba) via Stripe.
+// Tout est conçu en « repli propre » : sans STRIPE_SECRET_KEY, l'app garde le
+// comportement actuel (prueba gratuita, plan stocké en DB, aucun cobro réel).
+// Les precios Stripe se résolvent par lookup_key (créés par scripts/stripe-setup.mjs),
+// pas par des IDs en dur dans le code.
+
+export const stripeDisponible = () => Boolean(process.env.STRIPE_SECRET_KEY);
+
+let cliente: Stripe | null = null;
+export function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY no está configurada — la facturación real está desactivada.");
+  }
+  if (!cliente) cliente = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return cliente;
+}
+
+// lookup_key Stripe ↔ plan Aproba (montants gérés côté Stripe par le setup script).
+export const PLAN_LOOKUP: Record<PlanId, string> = {
+  STARTER: "aproba_starter_mensual",
+  PRO: "aproba_pro_mensual",
+  BUSINESS: "aproba_business_mensual",
+};
+export const LOOKUP_PLAN: Record<string, PlanId> = {
+  aproba_starter_mensual: "STARTER",
+  aproba_pro_mensual: "PRO",
+  aproba_business_mensual: "BUSINESS",
+};
+
+// Cache module : lookup_key → price id (une seule liste par process).
+const precios = new Map<string, string>();
+export async function precioDePlan(plan: PlanId): Promise<string> {
+  const lk = PLAN_LOOKUP[plan];
+  if (!precios.has(lk)) {
+    const res = await getStripe().prices.list({ lookup_keys: Object.values(PLAN_LOOKUP), limit: 10 });
+    for (const p of res.data) if (p.lookup_key) precios.set(p.lookup_key, p.id);
+  }
+  const id = precios.get(lk);
+  if (!id) throw new Error(`No existe el precio Stripe '${lk}'. Ejecuta: node scripts/stripe-setup.mjs`);
+  return id;
+}
+
+// status Stripe → enum SubscriptionEstado.
+export function mapEstadoStripe(status: string): "TRIAL" | "ACTIVA" | "PAST_DUE" | "CANCELADA" {
+  if (status === "trialing") return "TRIAL";
+  if (status === "active") return "ACTIVA";
+  if (status === "past_due" || status === "unpaid" || status === "incomplete") return "PAST_DUE";
+  return "CANCELADA"; // canceled, incomplete_expired, paused
+}
+
+// Champs à synchroniser en DB depuis un objet Subscription Stripe.
+// current_period_end vit sur l'item depuis l'API « basil » (2025) — on lit les deux.
+export function patchDesdeStripe(sub: Stripe.Subscription): Record<string, unknown> {
+  const item = sub.items?.data?.[0];
+  const legacy = (sub as unknown as { current_period_end?: number }).current_period_end;
+  const periodEnd = (item as unknown as { current_period_end?: number } | undefined)?.current_period_end ?? legacy;
+  const lookup = item?.price?.lookup_key ?? "";
+  const cancelado = sub.status === "canceled" || sub.status === "incomplete_expired";
+  return {
+    estado: mapEstadoStripe(sub.status),
+    // une suscripción anulada ne doit plus bloquer un nouveau checkout
+    stripeSubscriptionId: cancelado ? null : sub.id,
+    stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
+    ...(LOOKUP_PLAN[lookup] ? { plan: LOOKUP_PLAN[lookup] } : {}),
+    ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000).toISOString() } : {}),
+    ...(sub.trial_end ? { trialEndsAt: new Date(sub.trial_end * 1000).toISOString() } : {}),
+  };
+}

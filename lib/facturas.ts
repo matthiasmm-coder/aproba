@@ -1,0 +1,73 @@
+export type FacturaEstado = "BORRADOR" | "EMITIDA" | "PAGADA" | "VENCIDA";
+
+export type Factura = {
+  id: string;
+  numero: string;
+  cliente: string;
+  concepto: string;
+  base: number; // base imponible
+  estado: FacturaEstado;
+  fecha: string; // dd/mm/aaaa
+  vence?: string;
+  origen?: "MANUAL" | "AUTOMATICA"; // AUTOMATICA = pago del cliente en plataforma
+  momento?: "ANTICIPO" | "FINAL" | null;
+};
+
+export const IVA = 0.21;
+export const ivaDe = (b: number) => Math.round(b * IVA * 100) / 100;
+export const totalDe = (b: number) => Math.round(b * (1 + IVA) * 100) / 100;
+
+// Format monétaire espagnol : 4356.5 → "4.356,50 €"
+export function eur(n: number): string {
+  const [int, dec] = n.toFixed(2).split(".");
+  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${dec} €`;
+}
+
+export const FACTURA_ESTADO_META: Record<FacturaEstado, { label: string; pill: string }> = {
+  BORRADOR: { label: "Borrador", pill: "bg-slate-100 text-slate-500" },
+  EMITIDA: { label: "Emitida", pill: "bg-amber-100 text-amber-700" },
+  PAGADA: { label: "Pagada", pill: "bg-aproba-100 text-aproba-700" },
+  VENCIDA: { label: "Vencida", pill: "bg-red-100 text-red-700" },
+};
+
+export const FACTURAS: Factura[] = [
+  { id: "fa-48", numero: "2026-0048", cliente: "Julia Mendoza", concepto: "Tramitación arraigo social", base: 350, estado: "EMITIDA", fecha: "09/06/2026", vence: "09/07/2026" },
+  { id: "fa-47", numero: "2026-0047", cliente: "Liu Wei", concepto: "Reagrupación familiar", base: 420, estado: "EMITIDA", fecha: "06/06/2026", vence: "06/07/2026" },
+  { id: "fa-46", numero: "2026-0046", cliente: "Aïcha Diallo", concepto: "Tramitación arraigo laboral", base: 350, estado: "PAGADA", fecha: "03/06/2026" },
+  { id: "fa-45", numero: "2026-0045", cliente: "Karim Benali", concepto: "Renovación TIE", base: 180, estado: "EMITIDA", fecha: "01/06/2026", vence: "01/07/2026" },
+  { id: "fa-44", numero: "2026-0044", cliente: "Oksana Koval", concepto: "Solicitud de nacionalidad", base: 600, estado: "PAGADA", fecha: "28/05/2026" },
+  { id: "fa-43", numero: "2026-0043", cliente: "Fatima El Amrani", concepto: "Renovación TIE", base: 180, estado: "VENCIDA", fecha: "02/05/2026", vence: "01/06/2026" },
+  { id: "fa-42", numero: "2026-0042", cliente: "Andrés Patiño", concepto: "Tramitación arraigo social", base: 350, estado: "PAGADA", fecha: "27/05/2026" },
+  { id: "fa-41", numero: "2026-0041", cliente: "Mohammed Khan", concepto: "Reagrupación familiar", base: 420, estado: "EMITIDA", fecha: "26/05/2026", vence: "25/06/2026" },
+  { id: "fa-40", numero: "2026-0040", cliente: "Ioana Popescu", concepto: "Asesoramiento extranjería", base: 90, estado: "PAGADA", fecha: "24/05/2026" },
+  { id: "fa-39", numero: "2026-0039", cliente: "Carlos Mendoza", concepto: "Tramitación arraigo social", base: 350, estado: "PAGADA", fecha: "22/05/2026" },
+  { id: "fa-38", numero: "2026-0038", cliente: "Rosa Chávez", concepto: "Renovación TIE", base: 180, estado: "VENCIDA", fecha: "28/04/2026", vence: "28/05/2026" },
+  { id: "fa-37", numero: "2026-0037", cliente: "María Fernández", concepto: "Solicitud de nacionalidad", base: 600, estado: "PAGADA", fecha: "20/05/2026" },
+  { id: "fa-36", numero: "2026-0036", cliente: "Pedro Sousa", concepto: "Asesoramiento extranjería", base: 120, estado: "BORRADOR", fecha: "18/05/2026" },
+  { id: "fa-35", numero: "2026-0035", cliente: "Camila Restrepo", concepto: "Tramitación arraigo social", base: 350, estado: "PAGADA", fecha: "15/05/2026" },
+];
+
+export function getFactura(id: string): Factura | undefined {
+  return FACTURAS.find((f) => f.id === id);
+}
+
+export function parseFecha(f: string): Date {
+  const [d, m, y] = f.split("/").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+export const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+export function fmtFecha(d: Date): string {
+  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export const CONCEPTOS = [
+  "Tramitación arraigo social",
+  "Tramitación arraigo laboral",
+  "Renovación TIE",
+  "Reagrupación familiar",
+  "Solicitud de nacionalidad",
+  "Asesoramiento extranjería",
+];

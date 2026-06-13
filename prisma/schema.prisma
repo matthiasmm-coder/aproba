@@ -1,0 +1,396 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Aproba — schéma de données canonique (multi-tenant)
+//
+// Principes :
+//  • Tout est scopé à un Workspace (la gestoría / le despacho). L'isolation entre
+//    tenants est garantie par Row Level Security côté Postgres/Supabase — voir
+//    prisma/rls.sql (à appliquer en migration). Prisma ne gère pas les policies RLS.
+//  • Vocabulaire NEUTRE et extensible (Expediente, pas "tramite") pour pouvoir
+//    activer le module Legal (avocats) en V2 sans refactor — cf. champs `tipo`,
+//    feature flags WorkspaceFeature, et enums extensibles.
+//  • Le rôle (gestor/abogado) vit sur Membership et WorkspaceTipo dès la V1, même
+//    si on ne s'en sert pas encore : zéro lock-in pour la stratégie land-and-expand.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  GESTOR
+  ASISTENTE
+  // V2 legal : ABOGADO, PROCURADOR
+}
+
+enum WorkspaceTipo {
+  GESTORIA
+  DESPACHO_JURIDICO
+  MIXTO
+}
+
+enum Plan {
+  STARTER // 49 €  · solo, <25 expedientes/mois
+  PRO // 149 € · équipe, 25-100/mois
+  BUSINESS // 299 € · >100/mois ou multi-bureau
+}
+
+enum SubscriptionEstado {
+  TRIAL
+  ACTIVA
+  PAST_DUE
+  CANCELADA
+}
+
+enum TipoTramite {
+  NIE
+  TIE
+  ARRAIGO_SOCIAL
+  ARRAIGO_LABORAL
+  ARRAIGO_FAMILIAR
+  REAGRUPACION
+  RENOVACION
+  RESIDENCIA_LARGA
+  NACIONALIDAD
+  OTRO
+}
+
+enum ExpedienteEstado {
+  BORRADOR
+  DOCS_PENDIENTES
+  DOCS_VALIDADOS
+  FORM_GENERADO
+  PRESENTADO
+  RESUELTO
+  RECHAZADO
+}
+
+enum DocumentoTipo {
+  PASAPORTE
+  TARJETA_RESIDENCIA_TIE
+  CERTIFICADO_NIE
+  EMPADRONAMIENTO
+  CONTRATO_TRABAJO
+  NOMINA
+  ANTECEDENTES_PENALES
+  CERTIFICADO_BANCARIO
+  LIBRO_FAMILIA
+  TITULO_ESTUDIOS
+  OTRO
+}
+
+enum DocumentoEstado {
+  PENDIENTE // attendu, pas encore reçu
+  PROCESANDO // upload reçu, extraction IA en cours
+  VALIDADO // extrait + jugé conforme
+  RECHAZADO // illisible / périmé / non conforme
+}
+
+enum FormularioTipo {
+  EX15
+  EX17
+  EX18
+  EX19
+  TASA_790_012
+}
+
+enum FacturaEstado {
+  BORRADOR
+  EMITIDA
+  PAGADA
+  VENCIDA
+  ANULADA
+}
+
+enum EventoTipo {
+  CREADO
+  DOC_SUBIDO
+  DOC_VALIDADO
+  DOC_RECHAZADO
+  FORM_GENERADO
+  ESTADO_CAMBIADO
+  PRESENTADO
+  NOTIFICACION_ENVIADA
+  COMENTARIO
+}
+
+// ── Tenancy & identité ───────────────────────────────────────────────────────
+
+model Workspace {
+  id        String        @id @default(cuid())
+  nombre    String
+  tipo      WorkspaceTipo @default(GESTORIA)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  memberships  Membership[]
+  clientes     Cliente[]
+  expedientes  Expediente[]
+  facturas     Factura[]
+  features     WorkspaceFeature[]
+  subscription Subscription?
+  servicios    ServicioConfig[]
+  avisos       AvisoConfig[]
+  cuentas      CuentaBancaria[]
+}
+
+// Comptes bancaires du despacho (réception des paiements clients).
+// Un seul actif par workspace — garanti par un index unique partiel
+// (WHERE activa), que Prisma ne sait pas exprimer : voir la migration SQL.
+model CuentaBancaria {
+  id          String   @id @default(cuid())
+  workspaceId String
+  titular     String
+  iban        String
+  banco       String?
+  activa      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+// Catalogue de services du workspace : tarifas (anticipo/resto), documents requis,
+// activation. `clave` est l'identifiant stable (arraigo_social…) qui relie
+// TipoTramite → tarifa pour la facturation automatique.
+model ServicioConfig {
+  id          String   @id @default(cuid())
+  workspaceId String
+  clave       String
+  label       String
+  descripcion String?
+  docs        String[]
+  active      Boolean  @default(true)
+  anticipo    Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al firmar
+  resto       Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al finalizar
+  orden       Int      @default(0)
+  updatedAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, clave])
+  @@index([workspaceId])
+}
+
+// Avisos automáticos au client (templates WhatsApp/email par événement).
+model AvisoConfig {
+  id          String   @id @default(cuid())
+  workspaceId String
+  clave       String
+  evento      String
+  template    String
+  canal       String   @default("whatsapp") // whatsapp | email
+  activo      Boolean  @default(true)
+  orden       Int      @default(0)
+  updatedAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, clave])
+  @@index([workspaceId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  nombre    String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  memberships     Membership[]
+  expedientes     Expediente[]       @relation("Asignado")
+  eventos         ExpedienteEvento[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        Role      @default(GESTOR)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+// Feature flags par workspace → active les modules V2 (Legal) sans toucher au code.
+model WorkspaceFeature {
+  id          String    @id @default(cuid())
+  workspaceId String
+  feature     String // ex. "recursos", "lexnet", "jurisprudencia", "facturacion_sii"
+  habilitado  Boolean   @default(false)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, feature])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  workspaceId          String             @unique
+  plan                 Plan               @default(STARTER)
+  estado               SubscriptionEstado @default(TRIAL)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+  workspace            Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ── Métier ───────────────────────────────────────────────────────────────────
+
+model Cliente {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  nombre          String
+  apellidos       String?
+  email           String?
+  telefono        String?
+  nacionalidad    String?
+  numeroDocumento String? // NIE / pasaporte
+  idioma          String?  @default("es") // langue de communication client
+  // Ficha del solicitante (remplie dans le portail, lue par les formulaires).
+  sexo            String?
+  fechaNacimiento String?
+  lugarNacimiento String?
+  paisNacimiento  String?
+  estadoCivil     String?
+  via             String?
+  numeroVia       String?
+  piso            String?
+  codigoPostal    String?
+  provincia       String?
+  municipio       String?
+  nombrePadre     String?
+  nombreMadre     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expedientes Expediente[]
+
+  @@index([workspaceId])
+}
+
+model Expediente {
+  id                String           @id @default(cuid())
+  workspaceId       String
+  clienteId         String
+  referencia        String // ex. "EXP-2026-0042"
+  portalToken       String? // lien client /j/[token] — index unique partiel (WHERE NOT NULL) en SQL
+  tipo              TipoTramite
+  estado            ExpedienteEstado @default(BORRADOR)
+  asignadoAId       String?
+  notas             String?
+  fechaPresentacion DateTime?
+  fechaLimite       DateTime? // plazo (utile aussi pour le module legal V2)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  asignadoA   User?              @relation("Asignado", fields: [asignadoAId], references: [id])
+  documentos  Documento[]
+  formularios Formulario[]
+  eventos     ExpedienteEvento[]
+  facturas    Factura[]
+
+  @@unique([workspaceId, referencia])
+  @@index([workspaceId, estado])
+  @@index([clienteId])
+}
+
+model Documento {
+  id           String          @id @default(cuid())
+  expedienteId String
+  tipo         DocumentoTipo
+  estado       DocumentoEstado @default(PENDIENTE)
+  nombreArchivo String?
+  storagePath  String? // Supabase Storage
+  mimeType     String?
+  sizeBytes    Int?
+  uploadedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  expediente Expediente  @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  extraction Extraction?
+
+  @@index([expedienteId])
+}
+
+// Sortie du module IA (miroir du schéma du POC poc-vision).
+model Extraction {
+  id              String   @id @default(cuid())
+  documentoId     String   @unique
+  tipoDetectado   String
+  confianzaGlobal Float
+  legibilidad     String // legible | parcial | ilegible
+  datos           Json // tous les champs extraits (nombre, NIE, fechas, …)
+  alertas         String[] // ex. ["documento caducado"]
+  modelo          String // ex. "claude-opus-4-8"
+  inputTokens     Int?
+  outputTokens    Int?
+  createdAt       DateTime @default(now())
+
+  documento Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+}
+
+model Formulario {
+  id           String         @id @default(cuid())
+  expedienteId String
+  tipo         FormularioTipo
+  pdfPath      String? // Supabase Storage
+  datos        Json // valeurs mappées dans le formulaire
+  generadoAt   DateTime       @default(now())
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+
+  @@index([expedienteId])
+}
+
+model ExpedienteEvento {
+  id           String     @id @default(cuid())
+  expedienteId String
+  tipo         EventoTipo
+  descripcion  String
+  userId       String?
+  createdAt    DateTime   @default(now())
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id])
+
+  @@index([expedienteId])
+}
+
+model Factura {
+  id              String        @id @default(cuid())
+  workspaceId     String
+  expedienteId    String? // plusieurs facturas par expediente (anticipo + final)
+  numero          String // numérotation séquentielle légale ES
+  clienteNombre   String
+  concepto        String
+  baseImponible   Decimal       @db.Decimal(10, 2)
+  iva             Decimal       @db.Decimal(10, 2)
+  total           Decimal       @db.Decimal(10, 2)
+  estado          FacturaEstado @default(BORRADOR)
+  origen          String        @default("MANUAL") // MANUAL | AUTOMATICA (pago en plataforma)
+  momento         String? // ANTICIPO | FINAL (solo facturas automáticas)
+  metodoPago      String? // TARJETA | TRANSFERENCIA | EFECTIVO
+  fechaEmision    DateTime?
+  fechaVencimiento DateTime?
+  createdAt       DateTime      @default(now())
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expediente Expediente? @relation(fields: [expedienteId], references: [id])
+
+  @@unique([workspaceId, numero])
+  @@index([workspaceId, estado])
+}
