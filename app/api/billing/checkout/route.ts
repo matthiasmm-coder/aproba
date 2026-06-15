@@ -37,39 +37,46 @@ export async function POST(req: Request) {
   if (!sub) return fail("No se encontró la suscripción del despacho.", 404);
   if (sub.stripeSubscriptionId) return fail("Este despacho ya tiene una suscripción activa. Usa «Gestionar facturación».", 409);
 
-  const stripe = getStripe();
+  try {
+    const stripe = getStripe();
 
-  // Customer Stripe (réutilisé entre tentatives de checkout).
-  let customerId: string = sub.stripeCustomerId ?? "";
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      name: wsNombre,
-      metadata: { workspaceId: ws },
+    // Customer Stripe (réutilisé entre tentatives de checkout).
+    let customerId: string = sub.stripeCustomerId ?? "";
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+        name: wsNombre,
+        metadata: { workspaceId: ws },
+      });
+      customerId = customer.id;
+      await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
+    }
+
+    const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER");
+
+    // Conserver les jours d'essai restants (la carte n'est débitée qu'à la fin).
+    const trialMs = sub.trialEndsAt ? Date.parse(sub.trialEndsAt as string) - Date.now() : 0;
+    const trialEnd = trialMs > 120_000 ? Math.floor(Date.parse(sub.trialEndsAt as string) / 1000) : undefined;
+
+    const origin = baseUrlFromRequest(req);
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price, quantity: 1 }],
+      subscription_data: {
+        metadata: { workspaceId: ws },
+        ...(trialEnd ? { trial_end: trialEnd } : {}),
+      },
+      allow_promotion_codes: true,
+      success_url: `${origin}${volverA}?billing=ok`,
+      cancel_url: `${origin}${volverA}?billing=cancelado`,
     });
-    customerId = customer.id;
-    await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
+
+    return NextResponse.json({ url: session.url });
+  } catch (e) {
+    // Surface la vraie cause (ex. precio Stripe inexistant → setup live non lancé).
+    const msg = e instanceof Error ? e.message : "Error de Stripe";
+    console.error("[billing/checkout]", msg);
+    return fail(`No se pudo iniciar el pago: ${msg}`, 502);
   }
-
-  const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER");
-
-  // Conserver les jours d'essai restants (la carte n'est débitée qu'à la fin).
-  const trialMs = sub.trialEndsAt ? Date.parse(sub.trialEndsAt as string) - Date.now() : 0;
-  const trialEnd = trialMs > 120_000 ? Math.floor(Date.parse(sub.trialEndsAt as string) / 1000) : undefined;
-
-  const origin = baseUrlFromRequest(req);
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price, quantity: 1 }],
-    subscription_data: {
-      metadata: { workspaceId: ws },
-      ...(trialEnd ? { trial_end: trialEnd } : {}),
-    },
-    allow_promotion_codes: true,
-    success_url: `${origin}${volverA}?billing=ok`,
-    cancel_url: `${origin}${volverA}?billing=cancelado`,
-  });
-
-  return NextResponse.json({ url: session.url });
 }
