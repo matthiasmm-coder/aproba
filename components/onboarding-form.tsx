@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
-import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, newServicio, type Servicio } from "@/lib/servicios";
 import { guardarServicios } from "@/lib/config-browser";
 import { parseClientesCsv, PLANTILLA_CSV, type FilaCsv } from "@/lib/csv-clientes";
 
@@ -258,6 +258,9 @@ export function OnboardingForm() {
               </div>
             ))}
           </div>
+          <button type="button" onClick={() => setServicios((l) => [...l, { ...newServicio(), label: "Nuevo servicio" }])} className="text-sm font-semibold text-aproba-700 hover:underline">
+            + Añadir un servicio
+          </button>
           <Nav onBack={anterior} onNext={siguiente} onSkip={siguiente} skipLabel="Usar estos por defecto" />
         </div>
       )}

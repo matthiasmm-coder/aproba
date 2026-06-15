@@ -374,6 +374,10 @@ export function ClientPortal({
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
             <p className="mt-2 text-slate-600">{t("s2.intro")}</p>
+            <p className="mt-3 flex items-start gap-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+              {t("s2.puedesDespues")}
+            </p>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
 
             <div className="mt-6 space-y-3">

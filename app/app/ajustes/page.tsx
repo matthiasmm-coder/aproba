@@ -121,10 +121,16 @@ export default async function Ajustes() {
             </div>
           </div>
 
-          {/* Cuentas bancarias (réception des paiements) */}
-          <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
+          {/* Cuentas bancarias (réception des paiements) — solo administradores:
+              datos sensibles, ni siquiera visibles en modo solo lectura. */}
+          {puedeEditar ? (
             <CuentasBancarias inicial={cuentas} />
-          </fieldset>
+          ) : (
+            <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3 text-sm text-slate-500">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <span>Las cuentas bancarias solo son accesibles para los administradores.</span>
+            </div>
+          )}
         </AjustesSection>
       </div>
     </div>

@@ -41,7 +41,7 @@ const fmtFecha = (iso: string) => {
 export function EquipoManager({ inicial }: { inicial: Equipo }) {
   const [miembros, setMiembros] = useState<Miembro[]>(inicial.miembros);
   const [plan, setPlan] = useState<string>(inicial.plan);
-  const { miRol, estado, trialEndsAt, currentPeriodEnd, suscripcionStripe, billingDisponible } = inicial;
+  const { miRol, estado, trialEndsAt, currentPeriodEnd, suscripcionStripe, billingDisponible, tarjeta } = inicial;
 
   const puedeGestionar = puedeGestionarEquipo(miRol);
   const max = plyMax(plan);
@@ -177,10 +177,27 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
           </span>
         </div>
 
-        {/* Activation / gestion de la facturation (Stripe) — visible solo para administradores */}
+        {/* Tarjeta de pago de la suscripción — solo administradores. La suscripción
+            se activa sola al final de la prueba con la tarjeta añadida al registrarse;
+            aquí el admin ve y cambia la tarjeta que paga. */}
         {puedeGestionar && billingDisponible && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            {suscripcionStripe ? (
+            {tarjeta ? (
+              <>
+                <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+                  Paga con <span className="font-semibold capitalize">{tarjeta.brand}</span> ···· {tarjeta.last4}
+                </span>
+                <button
+                  type="button"
+                  disabled={billingBusy}
+                  onClick={() => abrirBilling("portal")}
+                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-50"
+                >
+                  {billingBusy ? "Abriendo…" : "Cambiar tarjeta"}
+                </button>
+              </>
+            ) : suscripcionStripe ? (
               <button
                 type="button"
                 disabled={billingBusy}
@@ -190,16 +207,18 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                 {billingBusy ? "Abriendo…" : "Gestionar facturación"}
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={billingBusy}
-                onClick={() => abrirBilling("checkout")}
-                className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
-              >
-                {billingBusy ? "Abriendo…" : "Activar suscripción"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={billingBusy}
+                  onClick={() => abrirBilling("checkout")}
+                  className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                >
+                  {billingBusy ? "Abriendo…" : "Añadir tarjeta de pago"}
+                </button>
+                <span className="text-xs text-slate-400">Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.</span>
+              </>
             )}
-            {!suscripcionStripe && <span className="text-xs text-slate-400">Añade una tarjeta — no se cobra hasta el final de la prueba.</span>}
             {billingError && <span className="text-sm text-red-600">{billingError}</span>}
           </div>
         )}

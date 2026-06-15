@@ -124,6 +124,13 @@ const UI: Record<string, Tr> = {
   "s2.continuarIgual": { es: "Continuar de todos modos", en: "Continue anyway", fr: "Continuer quand même", it: "Continua comunque", de: "Trotzdem fortfahren" },
   "s2.seguirSubiendo": { es: "Seguir subiendo", en: "Keep uploading", fr: "Continuer à téléverser", it: "Continua a caricare", de: "Weiter hochladen" },
   "s2.continuar": { es: "Continuar", en: "Continue", fr: "Continuer", it: "Continua", de: "Weiter" },
+  "s2.puedesDespues": {
+    es: "Sube los que tengas ahora. Podrás subir los que falten más tarde desde el enlace de seguimiento que te enviaremos.",
+    en: "Upload the ones you have now. You can add any missing documents later from the tracking link we'll send you.",
+    fr: "Téléverse ceux que tu as. Tu pourras ajouter les documents manquants plus tard depuis le lien de suivi que nous t'enverrons.",
+    it: "Carica quelli che hai ora. Potrai aggiungere i documenti mancanti più tardi dal link di monitoraggio che ti invieremo.",
+    de: "Lade jetzt die vorhandenen hoch. Fehlende Dokumente kannst du später über den Tracking-Link nachreichen, den wir dir senden.",
+  },
 
   "s3.titulo": { es: "Pago inicial", en: "Initial payment", fr: "Paiement initial", it: "Pagamento iniziale", de: "Anzahlung" },
   "s3.intro": {
@@ -201,6 +208,16 @@ const UI: Record<string, Tr> = {
     de: "Hallo {nombre}, wir haben deinen Antrag erhalten. Über diesen Link kannst du den Fortschritt verfolgen und fehlende Dokumente jederzeit hochladen.",
   },
   "notif.seg.boton": { es: "Seguir mi expediente", en: "Track my file", fr: "Suivre mon dossier", it: "Segui la mia pratica", de: "Antrag verfolgen" },
+
+  // ── Vue « ya completado » (lien initial /j après l'onboarding) ─────────────
+  "done.titulo": { es: "Ya has enviado tu solicitud", en: "Your request is already sent", fr: "Votre demande a déjà été envoyée", it: "La tua richiesta è già stata inviata", de: "Dein Antrag wurde bereits gesendet" },
+  "done.intro": {
+    es: "Ya completaste este paso. Tu gestoría tiene tus datos. Desde el seguimiento puedes ver el avance de tu expediente y subir los documentos que falten.",
+    en: "You've completed this step. Your agency has your details. From the tracking page you can see your file's progress and upload any missing documents.",
+    fr: "Vous avez terminé cette étape. Votre cabinet a vos informations. Depuis le suivi, vous pouvez voir l'avancement de votre dossier et déposer les documents manquants.",
+    it: "Hai completato questo passaggio. Il tuo studio ha i tuoi dati. Dalla pagina di monitoraggio puoi vedere l'avanzamento e caricare i documenti mancanti.",
+    de: "Du hast diesen Schritt abgeschlossen. Deine Kanzlei hat deine Daten. Auf der Tracking-Seite siehst du den Fortschritt und kannst fehlende Dokumente hochladen.",
+  },
 };
 
 // Étiquettes des champs de la ficha (par clé ClienteFicha).
@@ -214,7 +231,7 @@ const FIELD_LABELS: Record<string, Tr> = {
   lugarNacimiento: { es: "Lugar de nacimiento (ciudad)", en: "Place of birth (city)", fr: "Lieu de naissance (ville)", it: "Luogo di nascita (città)", de: "Geburtsort (Stadt)" },
   paisNacimiento: { es: "País de nacimiento", en: "Country of birth", fr: "Pays de naissance", it: "Paese di nascita", de: "Geburtsland" },
   numeroDocumento: { es: "NIE / Pasaporte", en: "NIE / Passport", fr: "NIE / Passeport", it: "NIE / Passaporto", de: "NIE / Reisepass" },
-  nombrePadre: { es: "Nombre del padre", en: "Father's name", fr: "Nom du père", it: "Nome del padre", de: "Name des Vaters" },
+  nombrePadre: { es: "Apellidos de los padres", en: "Parents' surname", fr: "Nom de famille des parents", it: "Cognome dei genitori", de: "Nachname der Eltern" },
   nombreMadre: { es: "Nombre de la madre", en: "Mother's name", fr: "Nom de la mère", it: "Nome della madre", de: "Name der Mutter" },
   via: { es: "Domicilio (calle, plaza…)", en: "Address (street, square…)", fr: "Adresse (rue, place…)", it: "Indirizzo (via, piazza…)", de: "Adresse (Straße, Platz…)" },
   numeroVia: { es: "Número", en: "Number", fr: "Numéro", it: "Numero", de: "Hausnummer" },

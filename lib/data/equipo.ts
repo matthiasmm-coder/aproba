@@ -1,4 +1,6 @@
+import type Stripe from "stripe";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { getStripe, stripeDisponible } from "@/lib/billing";
 import type { RolId } from "@/lib/planes";
 
 export type Miembro = {
@@ -23,6 +25,7 @@ export type Equipo = {
   suscripcionStripe: boolean; // un abonnement Stripe est rattaché
   cancelAtPeriodEnd: boolean; // résiliation programmée à la fin de période
   billingDisponible: boolean; // STRIPE_SECRET_KEY présente côté serveur
+  tarjeta: { brand: string; last4: string } | null; // carte de paiement (admin)
   miembros: Miembro[];
 };
 
@@ -67,9 +70,21 @@ export async function fetchEquipo(): Promise<Equipo | null> {
 
   const s = sub as {
     plan?: string; estado?: string;
-    trialEndsAt?: string | null; currentPeriodEnd?: string | null; stripeSubscriptionId?: string | null;
+    trialEndsAt?: string | null; currentPeriodEnd?: string | null;
+    stripeSubscriptionId?: string | null; stripeCustomerId?: string | null;
     cancelAtPeriodEnd?: boolean | null;
   } | null;
+
+  // Carte de paiement (marque + 4 derniers chiffres) — lue depuis Stripe.
+  let tarjeta: { brand: string; last4: string } | null = null;
+  if (s?.stripeCustomerId && stripeDisponible()) {
+    try {
+      const cust = await getStripe().customers.retrieve(s.stripeCustomerId, { expand: ["invoice_settings.default_payment_method"] });
+      const pm = (cust as Stripe.Customer).invoice_settings?.default_payment_method as Stripe.PaymentMethod | null;
+      if (pm && typeof pm !== "string" && pm.card) tarjeta = { brand: pm.card.brand, last4: pm.card.last4 };
+    } catch { /* carte non lisible → on n'affiche rien */ }
+  }
+
   return {
     miUserId: user.id,
     miMembershipId: (myMem as { id: string }).id,
@@ -82,6 +97,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     suscripcionStripe: Boolean(s?.stripeSubscriptionId),
     cancelAtPeriodEnd: Boolean(s?.cancelAtPeriodEnd),
     billingDisponible: Boolean(process.env.STRIPE_SECRET_KEY),
+    tarjeta,
     miembros,
   };
 }
