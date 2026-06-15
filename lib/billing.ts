@@ -8,14 +8,18 @@ import type { PlanId } from "@/lib/planes";
 // Les precios Stripe se résolvent par lookup_key (créés par scripts/stripe-setup.mjs),
 // pas par des IDs en dur dans le code.
 
-export const stripeDisponible = () => Boolean(process.env.STRIPE_SECRET_KEY);
+// Clé Stripe nettoyée : un retour-ligne / espace / guillemets collé par erreur dans
+// la variable d'env casse l'en-tête HTTP d'auth → "connection error". On défend.
+const stripeKey = () => (process.env.STRIPE_SECRET_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+export const stripeDisponible = () => Boolean(stripeKey());
 
 let cliente: Stripe | null = null;
 export function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const key = stripeKey();
+  if (!key) {
     throw new Error("STRIPE_SECRET_KEY no está configurada — la facturación real está desactivada.");
   }
-  if (!cliente) cliente = new Stripe(process.env.STRIPE_SECRET_KEY);
+  if (!cliente) cliente = new Stripe(key, { maxNetworkRetries: 2 });
   return cliente;
 }
 
