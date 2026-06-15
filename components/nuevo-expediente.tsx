@@ -36,13 +36,19 @@ export function NuevoExpediente() {
   const [telefono, setTelefono] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [copied, setCopied] = useState(false);
+  const [gestoriaNombre, setGestoriaNombre] = useState("");
 
-  // Charger le fichier clients (RLS).
+  // Charger le fichier clients (RLS) + le nom du despacho (pour le message WhatsApp).
   useEffect(() => {
     (async () => {
       const supabase = createSupabaseBrowser();
-      const { data } = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad").order("nombre");
-      setClientes((data ?? []) as ClienteRow[]);
+      const [{ data: cli }, { data: mem }] = await Promise.all([
+        supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad").order("nombre"),
+        supabase.from("Membership").select("Workspace(nombre)").limit(1).maybeSingle(),
+      ]);
+      setClientes((cli ?? []) as ClienteRow[]);
+      const ws = mem ? (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace) : null;
+      if (ws?.nombre) setGestoriaNombre(ws.nombre as string);
     })();
   }, []);
 
@@ -122,16 +128,18 @@ export function NuevoExpediente() {
     }
   }
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://aproba-software.com";
   const host = typeof window !== "undefined" ? window.location.host : "aproba-software.com";
-  const portalUrl = `${host}/j/${token}`;
+  const portalUrl = `${host}/j/${token}`;      // affichage (sans schéma)
+  const portalFull = `${origin}/j/${token}`;   // lien complet (https en prod)
   const portalHref = `/j/${token}`;
-  const waMsg = `Hola ${nombreCliente.split(" ")[0]}, soy de Gestoría Vallès. Para empezar tu trámite de extranjería, entra aquí, elige tu trámite y sube tus documentos: http://${portalUrl}`;
+  const waMsg = `Hola ${nombreCliente.split(" ")[0]}, soy de ${gestoriaNombre || "tu gestoría"}. Para empezar tu trámite de extranjería, entra aquí, elige tu trámite y sube tus documentos: ${portalFull}`;
   const waLink = telefono
     ? `https://wa.me/${telefono.replace(/\D/g, "")}?text=${encodeURIComponent(waMsg)}`
     : `https://wa.me/?text=${encodeURIComponent(waMsg)}`;
 
   function copiar() {
-    navigator.clipboard?.writeText(`http://${portalUrl}`).then(() => {
+    navigator.clipboard?.writeText(portalFull).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     });

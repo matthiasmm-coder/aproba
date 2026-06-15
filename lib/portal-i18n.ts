@@ -124,6 +124,13 @@ const UI: Record<string, Tr> = {
   "s2.continuarIgual": { es: "Continuar de todos modos", en: "Continue anyway", fr: "Continuer quand même", it: "Continua comunque", de: "Trotzdem fortfahren" },
   "s2.seguirSubiendo": { es: "Seguir subiendo", en: "Keep uploading", fr: "Continuer à téléverser", it: "Continua a caricare", de: "Weiter hochladen" },
   "s2.continuar": { es: "Continuar", en: "Continue", fr: "Continuer", it: "Continua", de: "Weiter" },
+  "s2.todosOk": {
+    es: "¡Listo! Todos tus documentos se han subido y validado correctamente.",
+    en: "All done! All your documents have been uploaded and validated successfully.",
+    fr: "C'est bon ! Tous tes documents ont été téléversés et validés avec succès.",
+    it: "Fatto! Tutti i tuoi documenti sono stati caricati e convalidati correttamente.",
+    de: "Fertig! Alle deine Dokumente wurden hochgeladen und erfolgreich geprüft.",
+  },
   "s2.puedesDespues": {
     es: "Sube los que tengas ahora. Podrás subir los que falten más tarde desde el enlace de seguimiento que te enviaremos.",
     en: "Upload the ones you have now. You can add any missing documents later from the tracking link we'll send you.",

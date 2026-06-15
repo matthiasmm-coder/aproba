@@ -23,6 +23,7 @@ export type Equipo = {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   suscripcionStripe: boolean; // un abonnement Stripe est rattaché
+  suscripcionId: string | null; // id de l'abonnement Stripe vivant (pour résilier)
   cancelAtPeriodEnd: boolean; // résiliation programmée à la fin de période
   billingDisponible: boolean; // STRIPE_SECRET_KEY présente côté serveur
   tarjeta: { brand: string; last4: string } | null; // carte de paiement (admin)
@@ -75,23 +76,33 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     cancelAtPeriodEnd?: boolean | null;
   } | null;
 
-  // Carte de paiement (marque + 4 derniers chiffres) — lecture robuste en 3 niveaux :
-  //  1) customer.invoice_settings.default_payment_method (cobro recurrente fijado)
-  //  2) subscription.default_payment_method (cas essai : Stripe la laisse ici, pas sur le customer)
-  //  3) paymentMethods.list (toute carte rattachée au customer)
-  // Customer absent du mode Stripe courant (live↔test) ou supprimé → catch → on n'affiche rien.
+  // Carte + état réel de l'abonnement, lus depuis Stripe. Le webhook pouvant être en
+  // retard ou mal configuré, on ne dépend pas uniquement des colonnes DB (sinon le
+  // bouton « Cancelar suscripción » n'apparaît jamais tant que le webhook n'a pas synchronisé).
   let tarjeta: { brand: string; last4: string } | null = null;
+  let suscripcionViva: { id: string; cancelAtPeriodEnd: boolean; currentPeriodEnd: string | null } | null = null;
   if (s?.stripeCustomerId && stripeDisponible()) {
     try {
       const stripe = getStripe();
       const carteDe = (pm: Stripe.PaymentMethod | string | null | undefined) =>
         pm && typeof pm !== "string" && pm.card ? { brand: pm.card.brand, last4: pm.card.last4 } : null;
 
+      // Abonnement vivant (trialing/active/past_due…) directement chez Stripe.
+      const subs = await stripe.subscriptions.list({ customer: s.stripeCustomerId, status: "all", limit: 3 });
+      const viva = subs.data.find((x) => x.status !== "canceled" && x.status !== "incomplete_expired");
+      if (viva) {
+        const item = viva.items?.data?.[0];
+        const pe = (item as unknown as { current_period_end?: number } | undefined)?.current_period_end
+          ?? (viva as unknown as { current_period_end?: number }).current_period_end;
+        suscripcionViva = { id: viva.id, cancelAtPeriodEnd: Boolean(viva.cancel_at_period_end), currentPeriodEnd: pe ? new Date(pe * 1000).toISOString() : null };
+      }
+
+      // Carte en 3 niveaux : invoice_settings → subscription.default_payment_method → paymentMethods.list.
       const cust = await stripe.customers.retrieve(s.stripeCustomerId, { expand: ["invoice_settings.default_payment_method"] });
       tarjeta = carteDe((cust as Stripe.Customer).invoice_settings?.default_payment_method as Stripe.PaymentMethod | null);
-
-      if (!tarjeta && s.stripeSubscriptionId) {
-        const sp = await stripe.subscriptions.retrieve(s.stripeSubscriptionId, { expand: ["default_payment_method"] });
+      const subId = suscripcionViva?.id ?? s.stripeSubscriptionId;
+      if (!tarjeta && subId) {
+        const sp = await stripe.subscriptions.retrieve(subId, { expand: ["default_payment_method"] });
         tarjeta = carteDe(sp.default_payment_method as Stripe.PaymentMethod | null);
       }
       if (!tarjeta) {
@@ -99,8 +110,8 @@ export async function fetchEquipo(): Promise<Equipo | null> {
         tarjeta = carteDe(pms.data[0]);
       }
     } catch (e) {
-      // carte non lisible (id Stripe d'un autre mode, customer supprimé…) → on n'affiche rien.
-      console.warn("[equipo] tarjeta no legible para", s.stripeCustomerId, e instanceof Error ? e.message : e);
+      // Stripe non lisible (id d'un autre mode, customer supprimé…) → on n'affiche rien.
+      console.warn("[equipo] Stripe no legible para", s.stripeCustomerId, e instanceof Error ? e.message : e);
     }
   }
 
@@ -112,9 +123,10 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     plan: s?.plan ?? "STARTER",
     estado: s?.estado ?? "TRIAL",
     trialEndsAt: s?.trialEndsAt ?? null,
-    currentPeriodEnd: s?.currentPeriodEnd ?? null,
-    suscripcionStripe: Boolean(s?.stripeSubscriptionId),
-    cancelAtPeriodEnd: Boolean(s?.cancelAtPeriodEnd),
+    currentPeriodEnd: suscripcionViva?.currentPeriodEnd ?? s?.currentPeriodEnd ?? null,
+    suscripcionStripe: Boolean(suscripcionViva) || Boolean(s?.stripeSubscriptionId),
+    suscripcionId: suscripcionViva?.id ?? s?.stripeSubscriptionId ?? null,
+    cancelAtPeriodEnd: suscripcionViva ? suscripcionViva.cancelAtPeriodEnd : Boolean(s?.cancelAtPeriodEnd),
     billingDisponible: Boolean(process.env.STRIPE_SECRET_KEY),
     tarjeta,
     miembros,

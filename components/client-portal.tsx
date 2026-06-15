@@ -70,7 +70,6 @@ export function ClientPortal({
   });
   const [guardandoDatos, setGuardandoDatos] = useState(false);
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
-  const [confirmarParcial, setConfirmarParcial] = useState(false); // avertir si docs manquants
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active));
   const [pagando, setPagando] = useState(false);
@@ -80,6 +79,7 @@ export function ClientPortal({
   const [alertasReales, setAlertasReales] = useState<Record<number, string[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docPendienteRef = useRef<number | null>(null);
+  const docsRef = useRef<HTMLDivElement>(null); // pour « seguir subiendo » → remonter à la liste
 
   const t = makeT(lang);
 
@@ -198,7 +198,6 @@ export function ClientPortal({
   // Avance depuis l'étape documents (vers pago ou listo) — autorisé même si tous
   // les documents ne sont pas encore validés (le client les complétera plus tard).
   function proceder() {
-    setConfirmarParcial(false);
     // Parcours sans paiement : fin du parcours → lien de suivi (email + WhatsApp).
     if (!conPago && token) {
       void fetch("/api/portal/completar", {
@@ -374,13 +373,9 @@ export function ClientPortal({
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
             <p className="mt-2 text-slate-600">{t("s2.intro")}</p>
-            <p className="mt-3 flex items-start gap-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
-              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
-              {t("s2.puedesDespues")}
-            </p>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
 
-            <div className="mt-6 space-y-3">
+            <div ref={docsRef} className="mt-6 space-y-3">
               {requiredDocs.map((label, i) => {
                 const st = docs[i]?.status ?? "pending";
                 const ayuda = docHelp(label, lang);
@@ -453,26 +448,28 @@ export function ClientPortal({
               })}
             </div>
 
-            {/* Avertissement si le client continue sans tous les documents */}
-            {confirmarParcial && !allValidated && (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+            {/* État du dépôt : encadré jaune dès le début si incomplet (envoyer / continuer
+                à téléverser), sinon confirmation verte. Le bouton Retour reste dans les deux cas. */}
+            {allValidated ? (
+              <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-3.5">
+                <p className="flex items-start gap-2 text-sm font-medium text-aproba-700">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" /> {t("s2.todosOk")}
+                </p>
+                <div className="mt-3 flex gap-3">
+                  <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+                  <button onClick={proceder} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{conPago ? t("s2.continuarPago") : t("s2.enviar")}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
                 <p className="text-xs leading-relaxed text-amber-700">{t("s2.faltanDocs")}</p>
-                <div className="mt-2.5 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button onClick={proceder} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.continuarIgual")}</button>
-                  <button onClick={() => setConfirmarParcial(false)} className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400">{t("s2.seguirSubiendo")}</button>
+                  <button onClick={() => docsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400">{t("s2.seguirSubiendo")}</button>
+                  <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400">{t("common.atras")}</button>
                 </div>
               </div>
             )}
-
-            <div className="mt-7 flex gap-3">
-              <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
-              <button
-                onClick={() => (allValidated ? proceder() : setConfirmarParcial(true))}
-                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700"
-              >
-                {allValidated ? (conPago ? t("s2.continuarPago") : t("s2.enviar")) : t("s2.continuar")}
-              </button>
-            </div>
           </div>
         )}
 
