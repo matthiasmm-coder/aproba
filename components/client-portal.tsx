@@ -70,6 +70,7 @@ export function ClientPortal({
   });
   const [guardandoDatos, setGuardandoDatos] = useState(false);
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
+  const [confirmarParcial, setConfirmarParcial] = useState(false); // avertir si docs manquants
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active));
   const [pagando, setPagando] = useState(false);
@@ -194,6 +195,19 @@ export function ClientPortal({
     }
   }
 
+  // Avance depuis l'étape documents (vers pago ou listo) — autorisé même si tous
+  // les documents ne sont pas encore validés (le client les complétera plus tard).
+  function proceder() {
+    setConfirmarParcial(false);
+    // Parcours sans paiement : fin du parcours → lien de suivi (email + WhatsApp).
+    if (!conPago && token) {
+      void fetch("/api/portal/completar", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
+      }).catch(() => {});
+    }
+    setStep(conPago ? PASO_PAGO : PASO_LISTO);
+  }
+
   return (
     <div className="min-h-screen bg-cream-50">
       {/* Barre supérieure (marque de la gestoría) */}
@@ -227,21 +241,19 @@ export function ClientPortal({
         {/* ── Step 0 · Trámite ── */}
         {step === 0 && (
           <div>
-            {/* Sélecteur de langue */}
-            <div className="mb-5 flex flex-wrap gap-1.5">
-              {LANGS.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => elegirLang(l.code)}
-                  aria-pressed={lang === l.code}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                    lang === l.code ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 text-slate-500 hover:border-slate-300"
-                  }`}
-                >
-                  <span aria-hidden>{l.flag}</span>
-                  {l.label}
-                </button>
-              ))}
+            {/* Sélecteur de langue — liste déroulante élégante */}
+            <div className="mb-5">
+              <label htmlFor="portal-lang" className="mb-1 block text-xs font-medium text-slate-500">{t("lang.selectLabel")}</label>
+              <select
+                id="portal-lang"
+                value={lang}
+                onChange={(e) => elegirLang(e.target.value as Lang)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+              >
+                {LANGS.map((l) => (
+                  <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
+                ))}
+              </select>
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s0.hola", { nombre: nombreCliente })}</h1>
@@ -346,7 +358,7 @@ export function ClientPortal({
               <button
                 disabled={guardandoDatos || !datosOk}
                 onClick={async () => {
-                  if (token) { setGuardandoDatos(true); await fetch("/api/portal/datos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ficha }) }).catch(() => {}); setGuardandoDatos(false); }
+                  if (token) { setGuardandoDatos(true); await fetch("/api/portal/datos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ficha, idioma: lang }) }).catch(() => {}); setGuardandoDatos(false); }
                   setStep(2);
                 }}
                 className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
@@ -437,14 +449,24 @@ export function ClientPortal({
               })}
             </div>
 
+            {/* Avertissement si le client continue sans tous les documents */}
+            {confirmarParcial && !allValidated && (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+                <p className="text-xs leading-relaxed text-amber-700">{t("s2.faltanDocs")}</p>
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <button onClick={proceder} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.continuarIgual")}</button>
+                  <button onClick={() => setConfirmarParcial(false)} className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400">{t("s2.seguirSubiendo")}</button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-7 flex gap-3">
               <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
               <button
-                disabled={!allValidated}
-                onClick={() => setStep(conPago ? PASO_PAGO : PASO_LISTO)}
-                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                onClick={() => (allValidated ? proceder() : setConfirmarParcial(true))}
+                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700"
               >
-                {allValidated ? (conPago ? t("s2.continuarPago") : t("s2.enviar")) : t("s2.subeTodos")}
+                {allValidated ? (conPago ? t("s2.continuarPago") : t("s2.enviar")) : t("s2.continuar")}
               </button>
             </div>
           </div>

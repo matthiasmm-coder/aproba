@@ -5,7 +5,7 @@ import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 // Le client enregistre sa ficha depuis le portail (/j/[token]). On résout
 // l'expediente par son token, puis on met à jour le Cliente rattaché.
 export async function POST(req: Request) {
-  let body: { token?: string; ficha?: ClienteFicha };
+  let body: { token?: string; ficha?: ClienteFicha; idioma?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const token = (body.token ?? "").trim();
   if (!token) return NextResponse.json({ error: "Falta el enlace." }, { status: 400 });
@@ -21,6 +21,8 @@ export async function POST(req: Request) {
     const v = (ficha as Record<string, unknown>)[k];
     if (typeof v === "string") patch[k] = v.trim();
   }
+  // Langue choisie par le client (pour les notifications + la page de suivi).
+  if (typeof body.idioma === "string" && ["es", "en", "fr", "it", "de"].includes(body.idioma)) patch.idioma = body.idioma;
   // nombre/apellidos alimentent aussi les colonnes principales du Cliente.
   patch.updatedAt = new Date().toISOString();
 

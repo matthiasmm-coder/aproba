@@ -65,6 +65,7 @@ export function patchDesdeStripe(sub: Stripe.Subscription): Record<string, unkno
     // une suscripción anulada ne doit plus bloquer un nouveau checkout
     stripeSubscriptionId: cancelado ? null : sub.id,
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
+    cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end), // résiliation programmée à la fin de période
     ...(LOOKUP_PLAN[lookup] ? { plan: LOOKUP_PLAN[lookup] } : {}),
     ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000).toISOString() } : {}),
     ...(sub.trial_end ? { trialEndsAt: new Date(sub.trial_end * 1000).toISOString() } : {}),

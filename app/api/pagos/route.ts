@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ivaDe, totalDe } from "@/lib/facturas";
+import { enviarSeguimiento } from "@/lib/notificaciones";
+import { baseUrlFromRequest } from "@/lib/base-url";
 
 // Paiement du client (portail) → factura générée automatiquement.
 //  • momento ANTICIPO : à l'onboarding, après l'envoi des documents.
@@ -105,6 +107,11 @@ export async function POST(req: Request) {
     tipo: "COMENTARIO",
     descripcion: `💳 Pago ${momento === "ANTICIPO" ? "del anticipo" : "final"} recibido en plataforma · Factura ${numero} generada automáticamente`,
   });
+
+  // Fin du parcours (paiement initial) → lien de suivi au client (email + WhatsApp).
+  if (momento === "ANTICIPO") {
+    await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl: baseUrlFromRequest(req) });
+  }
 
   return NextResponse.json({ ok: true, numero, total });
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 export function LoginForm() {
@@ -46,7 +47,10 @@ export function LoginForm() {
         />
       </div>
       <div>
-        <label htmlFor="password" className="text-sm font-medium text-slate-700">Contraseña</label>
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="password" className="text-sm font-medium text-slate-700">Contraseña</label>
+          <Link href="/forgot-password" className="text-xs font-medium text-aproba-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+        </div>
         <input
           id="password"
           type="password"

@@ -621,3 +621,8 @@ create policy avi_write on public."AvisoConfig" for all using (app_is_admin("wor
 drop policy if exists cta_tenant on public."CuentaBancaria";
 create policy cta_read  on public."CuentaBancaria" for select using ("workspaceId" in (select app_workspace_ids()));
 create policy cta_write on public."CuentaBancaria" for all using (app_is_admin("workspaceId")) with check (app_is_admin("workspaceId"));
+
+-- ── Lot feedback 2 (2026-06-15) ──────────────────────────────────────────────
+-- Résiliation programmée (fin de période) + NIF du despacho (onboarding complet).
+alter table public."Subscription" add column if not exists "cancelAtPeriodEnd" boolean not null default false;
+alter table public."Workspace"   add column if not exists "nif" text;

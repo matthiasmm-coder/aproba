@@ -18,6 +18,7 @@ type Tr = Record<Lang, string>;
 const UI: Record<string, Tr> = {
   "header.con": { es: "con", en: "with", fr: "avec", it: "con", de: "mit" },
   "lang.elige": { es: "Idioma", en: "Language", fr: "Langue", it: "Lingua", de: "Sprache" },
+  "lang.selectLabel": { es: "Elige tu idioma", en: "Choose your language", fr: "Choisissez votre langue", it: "Scegli la tua lingua", de: "Wähle deine Sprache" },
 
   "step.tramite": { es: "Trámite", en: "Service", fr: "Démarche", it: "Pratica", de: "Verfahren" },
   "step.datos": { es: "Tus datos", en: "Your details", fr: "Vos infos", it: "I tuoi dati", de: "Deine Daten" },
@@ -113,6 +114,16 @@ const UI: Record<string, Tr> = {
   "s2.enviar": { es: "Enviar a mi gestoría", en: "Send to my agency", fr: "Envoyer à mon cabinet", it: "Invia al mio studio", de: "An meine Kanzlei senden" },
   "s2.subeTodos": { es: "Sube todos los documentos", en: "Upload all documents", fr: "Téléversez tous les documents", it: "Carica tutti i documenti", de: "Alle Dokumente hochladen" },
   "s2.queEsto": { es: "¿Qué es esto?", en: "What's this?", fr: "Qu'est-ce que c'est ?", it: "Cos'è?", de: "Was ist das?" },
+  "s2.faltanDocs": {
+    es: "Aún te faltan documentos. Puedes enviarlos ahora o subirlos más tarde desde este mismo enlace; tu gestoría no podrá presentar el expediente hasta tenerlos todos.",
+    en: "Some documents are still missing. You can send now and upload the rest later from this same link; your agency can't submit the file until they're all in.",
+    fr: "Il manque encore des documents. Vous pouvez envoyer maintenant et téléverser le reste plus tard depuis ce lien ; votre cabinet ne pourra pas déposer le dossier tant qu'ils ne sont pas tous là.",
+    it: "Mancano ancora alcuni documenti. Puoi inviare ora e caricare il resto più tardi da questo stesso link; il tuo studio non potrà presentare la pratica finché non ci sono tutti.",
+    de: "Es fehlen noch Dokumente. Du kannst jetzt senden und den Rest später über denselben Link hochladen; deine Kanzlei kann den Antrag erst einreichen, wenn alle vorliegen.",
+  },
+  "s2.continuarIgual": { es: "Continuar de todos modos", en: "Continue anyway", fr: "Continuer quand même", it: "Continua comunque", de: "Trotzdem fortfahren" },
+  "s2.seguirSubiendo": { es: "Seguir subiendo", en: "Keep uploading", fr: "Continuer à téléverser", it: "Continua a caricare", de: "Weiter hochladen" },
+  "s2.continuar": { es: "Continuar", en: "Continue", fr: "Continuer", it: "Continua", de: "Weiter" },
 
   "s3.titulo": { es: "Pago inicial", en: "Initial payment", fr: "Paiement initial", it: "Pagamento iniziale", de: "Anzahlung" },
   "s3.intro": {
@@ -157,6 +168,39 @@ const UI: Record<string, Tr> = {
     it: "Abbiamo inviato la fattura {numero} alla tua email. Il pagamento finale sarà richiesto al termine della pratica.",
     de: "Wir haben die Rechnung {numero} an deine E-Mail gesendet. Die Schlusszahlung wird am Ende fällig.",
   },
+
+  // ── Page de suivi (/s/[token]) ────────────────────────────────────────────
+  "seg.titulo": { es: "Seguimiento de tu expediente", en: "Track your file", fr: "Suivi de votre dossier", it: "Stato della tua pratica", de: "Verfolge deinen Antrag" },
+  "seg.intro": {
+    es: "Aquí puedes ver el avance de tu trámite y los documentos que faltan.",
+    en: "Here you can see your procedure's progress and any missing documents.",
+    fr: "Vous pouvez suivre l'avancement de votre démarche et les documents manquants.",
+    it: "Qui puoi vedere l'avanzamento della pratica e i documenti mancanti.",
+    de: "Hier siehst du den Fortschritt deines Verfahrens und fehlende Dokumente.",
+  },
+  "seg.progreso": { es: "Avance", en: "Progress", fr: "Avancement", it: "Avanzamento", de: "Fortschritt" },
+  "seg.docsTitulo": { es: "Tus documentos", en: "Your documents", fr: "Vos documents", it: "I tuoi documenti", de: "Deine Dokumente" },
+  "seg.docOk": { es: "Recibido", en: "Received", fr: "Reçu", it: "Ricevuto", de: "Erhalten" },
+  "seg.docPendiente": { es: "Por subir", en: "To upload", fr: "À fournir", it: "Da caricare", de: "Hochzuladen" },
+  "seg.docRechazado": { es: "Vuelve a subirlo", en: "Re-upload", fr: "À renvoyer", it: "Ricarica", de: "Erneut hochladen" },
+  "seg.todoAlDia": { es: "¡Todo al día! Tu gestoría se encarga del resto.", en: "All up to date! Your agency handles the rest.", fr: "Tout est à jour ! Votre cabinet s'occupe du reste.", it: "Tutto in regola! Il tuo studio pensa al resto.", de: "Alles aktuell! Deine Kanzlei kümmert sich um den Rest." },
+  "seg.faltan": { es: "Te faltan documentos por subir.", en: "You still have documents to upload.", fr: "Il vous reste des documents à fournir.", it: "Hai ancora documenti da caricare.", de: "Du hast noch Dokumente hochzuladen." },
+  "mil.recibido": { es: "Solicitud recibida", en: "Request received", fr: "Demande reçue", it: "Richiesta ricevuta", de: "Antrag erhalten" },
+  "mil.validado": { es: "Documentos validados", en: "Documents validated", fr: "Documents validés", it: "Documenti validati", de: "Dokumente geprüft" },
+  "mil.formularios": { es: "Formularios preparados", en: "Forms prepared", fr: "Formulaires préparés", it: "Moduli preparati", de: "Formulare vorbereitet" },
+  "mil.presentado": { es: "Presentado ante la Administración", en: "Submitted to the authorities", fr: "Déposé auprès de l'Administration", it: "Presentato alle autorità", de: "Bei der Behörde eingereicht" },
+  "mil.resuelto": { es: "Resolución", en: "Decision", fr: "Décision", it: "Decisione", de: "Entscheidung" },
+
+  // ── Notification de fin de parcours (email + WhatsApp) ─────────────────────
+  "notif.seg.subject": { es: "Sigue tu expediente con {gestoria}", en: "Track your file with {gestoria}", fr: "Suivez votre dossier avec {gestoria}", it: "Segui la tua pratica con {gestoria}", de: "Verfolge deinen Antrag mit {gestoria}" },
+  "notif.seg.body": {
+    es: "Hola {nombre}, hemos recibido tu solicitud. Desde este enlace puedes seguir el avance de tu expediente y subir los documentos que falten cuando quieras.",
+    en: "Hi {nombre}, we've received your request. From this link you can track your file's progress and upload any missing documents whenever you like.",
+    fr: "Bonjour {nombre}, nous avons reçu votre demande. Depuis ce lien, vous pouvez suivre l'avancement de votre dossier et déposer les documents manquants quand vous le souhaitez.",
+    it: "Ciao {nombre}, abbiamo ricevuto la tua richiesta. Da questo link puoi seguire l'avanzamento della pratica e caricare i documenti mancanti quando vuoi.",
+    de: "Hallo {nombre}, wir haben deinen Antrag erhalten. Über diesen Link kannst du den Fortschritt verfolgen und fehlende Dokumente jederzeit hochladen.",
+  },
+  "notif.seg.boton": { es: "Seguir mi expediente", en: "Track my file", fr: "Suivre mon dossier", it: "Segui la mia pratica", de: "Antrag verfolgen" },
 };
 
 // Étiquettes des champs de la ficha (par clé ClienteFicha).

@@ -31,9 +31,9 @@ const TRAMITES = [
 const DOCS = ["Pasaporte", "Empadronamiento", "Contrato de trabajo", "Antecedentes penales"];
 const FILES = ["pasaporte.jpg", "empadronamiento.jpg", "contrato.pdf", "antecedentes.pdf"];
 const DATOS = [
-  { label: "Nombre completo", value: "Julia Mendoza" },
+  { label: "Nombre", value: "Julia" },
+  { label: "Apellidos", value: "Mendoza Restrepo" },
   { label: "Nacionalidad", value: "Colombia" },
-  { label: "Fecha de nacimiento", value: "14/03/1992" },
   { label: "Nº de pasaporte", value: "AY0429317" },
 ];
 
@@ -284,12 +284,13 @@ function TramiteSelector({ active }: { active: boolean }) {
 
   return (
     <div className="space-y-2 p-3">
-      {/* Sélecteur de langue — le client choisit parmi 5 langues (nouveauté produit) */}
-      <div className="mb-1 flex items-center gap-1">
-        {["🇪🇸", "🇬🇧", "🇫🇷", "🇮🇹", "🇩🇪"].map((f, i) => (
-          <span key={f} className={`rounded-full border px-1.5 py-0.5 text-[12px] leading-none transition ${i === 0 ? "border-aproba-600 bg-aproba-50" : "border-slate-200 opacity-60"}`}>{f}</span>
-        ))}
-        <span className="ml-auto text-[9px] font-medium text-slate-400">5 idiomas</span>
+      {/* Sélecteur de langue (liste déroulante) — fidèle au portail réel */}
+      <div className="mb-1.5">
+        <p className="mb-1 text-[9px] font-medium text-slate-400">Elige tu idioma</p>
+        <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] text-slate-700">
+          <span>🇪🇸 Español</span>
+          <svg className="h-3 w-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+        </div>
       </div>
       {TRAMITES.map((t, i) => {
         const selected = picked && i === 0;

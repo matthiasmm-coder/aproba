@@ -21,6 +21,7 @@ export type Equipo = {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   suscripcionStripe: boolean; // un abonnement Stripe est rattaché
+  cancelAtPeriodEnd: boolean; // résiliation programmée à la fin de période
   billingDisponible: boolean; // STRIPE_SECRET_KEY présente côté serveur
   miembros: Miembro[];
 };
@@ -67,6 +68,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
   const s = sub as {
     plan?: string; estado?: string;
     trialEndsAt?: string | null; currentPeriodEnd?: string | null; stripeSubscriptionId?: string | null;
+    cancelAtPeriodEnd?: boolean | null;
   } | null;
   return {
     miUserId: user.id,
@@ -78,6 +80,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     trialEndsAt: s?.trialEndsAt ?? null,
     currentPeriodEnd: s?.currentPeriodEnd ?? null,
     suscripcionStripe: Boolean(s?.stripeSubscriptionId),
+    cancelAtPeriodEnd: Boolean(s?.cancelAtPeriodEnd),
     billingDisponible: Boolean(process.env.STRIPE_SECRET_KEY),
     miembros,
   };

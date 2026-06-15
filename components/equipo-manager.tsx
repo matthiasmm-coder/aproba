@@ -66,6 +66,27 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
 
+  // Résiliation (à la fin de période) / réactivation
+  const [cancelAtEnd, setCancelAtEnd] = useState(inicial.cancelAtPeriodEnd);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [confirmarCancel, setConfirmarCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  async function cancelarSuscripcion(reactivar: boolean) {
+    setCancelError(null);
+    setCancelBusy(true);
+    const res = await fetch("/api/billing/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: reactivar ? "reactivar" : "cancelar" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setCancelBusy(false);
+    if (!res.ok) { setCancelError(String(data.error ?? "No se pudo completar la operación.")); return; }
+    setCancelAtEnd(!reactivar);
+    setConfirmarCancel(false);
+  }
+
   const estadoSub = ESTADOS_SUB[estado] ?? ESTADOS_SUB.TRIAL;
   const diasPrueba = trialEndsAt ? Math.ceil((Date.parse(trialEndsAt) - Date.now()) / 86_400_000) : null;
 
@@ -180,6 +201,35 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
             )}
             {!suscripcionStripe && <span className="text-xs text-slate-400">Añade una tarjeta — no se cobra hasta el final de la prueba.</span>}
             {billingError && <span className="text-sm text-red-600">{billingError}</span>}
+          </div>
+        )}
+
+        {/* Résiliation / réactivation (admin, abonnement Stripe actif) */}
+        {puedeGestionar && billingDisponible && suscripcionStripe && (
+          <div className="mt-3">
+            {cancelAtEnd ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <span className="text-amber-700">
+                  Tu suscripción se cancelará{currentPeriodEnd ? ` el ${fmtFecha(currentPeriodEnd)}` : " al final del periodo"}. Mantienes el acceso hasta entonces.
+                </span>
+                <button type="button" disabled={cancelBusy} onClick={() => cancelarSuscripcion(true)} className="ml-auto rounded-lg border border-aproba-300 bg-white px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-50">
+                  {cancelBusy ? "…" : "Reactivar suscripción"}
+                </button>
+              </div>
+            ) : confirmarCancel ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm">
+                <p className="text-red-700">¿Seguro que quieres cancelar? Mantendrás el acceso hasta el final del periodo{currentPeriodEnd ? ` (${fmtFecha(currentPeriodEnd)})` : ""} y no se te volverá a cobrar.</p>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" disabled={cancelBusy} onClick={() => cancelarSuscripcion(false)} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{cancelBusy ? "Cancelando…" : "Sí, cancelar"}</button>
+                  <button type="button" onClick={() => setConfirmarCancel(false)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400">Volver</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => { setCancelError(null); setConfirmarCancel(true); }} className="text-xs font-medium text-slate-400 underline-offset-2 transition hover:text-red-600 hover:underline">
+                Cancelar suscripción
+              </button>
+            )}
+            {cancelError && <p className="mt-1 text-sm text-red-600">{cancelError}</p>}
           </div>
         )}
 

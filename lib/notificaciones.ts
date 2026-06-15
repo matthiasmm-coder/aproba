@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { makeT, type Lang } from "@/lib/portal-i18n";
 
 // Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
 // Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
@@ -108,5 +109,78 @@ export async function dispararAviso(
   } catch (e) {
     // Un aviso ne doit JAMAIS casser le flux appelant.
     console.error("[dispararAviso]", e instanceof Error ? e.message : e);
+  }
+}
+
+// Notification de fin de parcours : envoie au client (email + WhatsApp) un lien de
+// SUIVI (/s/[token]) dans SA langue (Cliente.idioma). Idempotente par expediente
+// (ne renvoie pas si déjà envoyée). Ne casse jamais le flux appelant.
+export async function enviarSeguimiento(
+  admin: SupabaseClient,
+  opts: { expedienteId: string; baseUrl?: string },
+): Promise<void> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("portalToken, Cliente(nombre, email, telefono, idioma), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as (ExpRow & { Cliente: ({ idioma?: string | null } & ExpRow["Cliente"]) }) | null;
+    if (!exp?.portalToken) return;
+
+    // Idempotence : ne pas renvoyer si la notif de suivi a déjà été journalisée.
+    const { data: yaEnviado } = await admin
+      .from("ExpedienteEvento")
+      .select("id")
+      .eq("expedienteId", opts.expedienteId)
+      .eq("tipo", "NOTIFICACION_ENVIADA")
+      .ilike("descripcion", "%seguimiento%")
+      .limit(1)
+      .maybeSingle();
+    if (yaEnviado) return;
+
+    const cliente = uno(exp.Cliente ?? null) as { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null;
+    const gestoria = uno(exp.Workspace ?? null)?.nombre ?? "Tu gestoría";
+    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const t = makeT(lang);
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+    const link = opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
+
+    const subject = t("notif.seg.subject", { gestoria });
+    const cuerpo = t("notif.seg.body", { nombre });
+    const boton = t("notif.seg.boton");
+
+    let estado: Estado = "SIMULADO";
+    let destino = cliente?.email ?? "";
+    if (!destino) {
+      estado = "SIN_CONTACTO";
+    } else if (resendDisponible() && link) {
+      const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b">
+  <p style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 16px">${gestoria}</p>
+  <p style="font-size:15px;line-height:1.6;margin:0">${cuerpo}</p>
+  <p style="margin:24px 0"><a href="${link}" style="background:#0E8C5F;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;display:inline-block">${boton}</a></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
+  <p style="font-size:12px;color:#94a3b8;margin:0">${gestoria} · Aproba</p>
+</div>`;
+      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject, html, text: `${cuerpo} ${link}` });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[seguimiento email]", error.message ?? error);
+    }
+
+    console.log(`[seguimiento ${estado}] email → ${destino || "(sin contacto)"} | ${link ?? ""}`);
+    // WhatsApp (simulé) — l'auto réelle = WhatsApp Business API (chantier).
+    const tel = cliente?.telefono ?? "";
+    console.log(`[seguimiento whatsapp ${tel ? "SIMULADO" : "SIN_CONTACTO"}] → ${tel || "(sin teléfono)"} | ${link ?? ""}`);
+
+    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin contacto" : estado === "ERROR" ? " — error" : " (simulado)";
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `📍 Enlace de seguimiento enviado al cliente${sufijo}`,
+    });
+  } catch (e) {
+    console.error("[enviarSeguimiento]", e instanceof Error ? e.message : e);
   }
 }
