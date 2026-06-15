@@ -5,15 +5,22 @@ import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios";
 import { eur, totalDe } from "@/lib/facturas";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
+import {
+  LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
+  servicioLabel, servicioDesc, docLabel, docHelp, type Lang,
+} from "@/lib/portal-i18n";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
-// Le paiement appelle /api/pagos qui génère la factura automatiquement côté gestor.
-// La referencia est figée pour la démo (en prod : dérivée du token /j/[token]).
+// Le client choisit sa langue (5) à la 1re étape (i18n via lib/portal-i18n).
 
 type DocStatus = "pending" | "analyzing" | "validado" | "alerta";
 
 const REFERENCIA_DEMO = "EXP-2026-0042";
+const LANG_KEY = "aproba.portal.lang";
+
+// Champs obligatoires : tous sauf « piso / puerta ».
+const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso").map((f) => f.k);
 
 const EXTRACTED: Record<string, [string, string][]> = {
   Pasaporte: [["Nombre", "Julia Mendoza"], ["Nº", "AV284917"], ["Caducidad", "22/08/2029"]],
@@ -47,6 +54,7 @@ export function ClientPortal({
   token?: string;
 }) {
   const [step, setStep] = useState(0);
+  const [lang, setLang] = useState<Lang>("es");
   const [tramiteId, setTramiteId] = useState<string | null>(null);
   const nombreCliente = clienteNombre ?? "Julia";
   const nombreGestoria = gestoria ?? "Gestoría Vallès";
@@ -61,42 +69,56 @@ export function ClientPortal({
     return base;
   });
   const [guardandoDatos, setGuardandoDatos] = useState(false);
+  const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
-  // Services du workspace (config DB, passée par le serveur). Fallback : defaults.
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active));
   const [pagando, setPagando] = useState(false);
   const [pagoError, setPagoError] = useState<string | null>(null);
   const [facturaNumero, setFacturaNumero] = useState<string | null>(null);
-  // Mode réel (lien token) : résultats de la validation IA par document.
   const [camposReales, setCamposReales] = useState<Record<number, [string, string][]>>({});
   const [alertasReales, setAlertasReales] = useState<Record<number, string[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docPendienteRef = useRef<number | null>(null);
+
+  const t = makeT(lang);
+
+  // Langue : préférence sauvegardée, sinon celle du navigateur.
+  useEffect(() => {
+    const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;
+    setLang(saved && LANGS.some((l) => l.code === saved) ? saved : detectarLang());
+  }, []);
+  function elegirLang(l: Lang) {
+    setLang(l);
+    try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
+  }
 
   // Sans prop serveur (anciennes routes) : config locale du gestor si présente.
   useEffect(() => {
     if (!serviciosProp) setServicios(loadServicios().filter((s) => s.active));
   }, [serviciosProp]);
 
-  const tramite = servicios.find((t) => t.id === tramiteId);
+  const tramite = servicios.find((tr) => tr.id === tramiteId);
   const requiredDocs = tramite?.docs ?? [];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const anticipo = tramite?.anticipo ?? 0;
   const resto = tramite?.resto ?? 0;
-  const conPago = anticipo > 0; // le gestor a configuré un paiement à l'onboarding
+  const conPago = anticipo > 0;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
 
-  const stepLabels = ["Trámite", "Tus datos", "Documentos", ...(conPago ? ["Pago"] : [])];
+  // Validation des données (active en mode réel) : compte les champs requis vides.
+  const faltan = REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length;
+  const validacionActiva = Boolean(token);
+  const datosOk = !validacionActiva || faltan === 0;
+
+  const stepLabels = [t("step.tramite"), t("step.datos"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])];
 
   function upload(i: number) {
     if (token) {
-      // Mode réel : choisir un fichier → /api/portal/documentos (Storage + IA).
       docPendienteRef.current = i;
       fileInputRef.current?.click();
       return;
     }
-    // Mode démo : simulation (le 2º documento falla la 1ª vez).
     setDocs((d) => {
       const attempts = (d[i]?.attempts ?? 0) + 1;
       return { ...d, [i]: { status: "analyzing", attempts } };
@@ -124,24 +146,23 @@ export function ClientPortal({
       fd.append("file", file);
       const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "No se pudo validar el documento.");
+      if (!res.ok) throw new Error(data.error ?? t("s2.noSeLee"));
       if (data.estado === "VALIDADO") {
         setCamposReales((m) => ({ ...m, [i]: (data.campos as { label: string; value: string }[]).slice(0, 6).map((c) => [c.label, c.value]) }));
         if (data.alertas?.length) setAlertasReales((m) => ({ ...m, [i]: data.alertas }));
         setDocs((d) => ({ ...d, [i]: { status: "validado", attempts: d[i]?.attempts ?? 1 } }));
       } else {
-        setAlertasReales((m) => ({ ...m, [i]: data.alertas?.length ? data.alertas : ["El documento no se lee bien. Vuelve a subirlo."] }));
+        setAlertasReales((m) => ({ ...m, [i]: data.alertas?.length ? data.alertas : [t("s2.noSeLee")] }));
         setDocs((d) => ({ ...d, [i]: { status: "alerta", attempts: d[i]?.attempts ?? 1 } }));
       }
     } catch (err) {
-      setAlertasReales((m) => ({ ...m, [i]: [err instanceof Error ? err.message : "Error al subir. Inténtalo de nuevo."] }));
+      setAlertasReales((m) => ({ ...m, [i]: [err instanceof Error ? err.message : t("s2.errorSubir")] }));
       setDocs((d) => ({ ...d, [i]: { status: "alerta", attempts: d[i]?.attempts ?? 1 } }));
     } finally {
       docPendienteRef.current = null;
     }
   }
 
-  // Le client confirme son trámite → l'expediente réel se met à jour côté gestor.
   function confirmarTramite() {
     if (token && tramiteId) {
       void fetch("/api/portal/iniciar", {
@@ -153,7 +174,6 @@ export function ClientPortal({
     setStep(1);
   }
 
-  // Paiement de l'anticipo → /api/pagos génère la factura côté gestor.
   async function pagar() {
     setPagando(true);
     setPagoError(null);
@@ -164,11 +184,11 @@ export function ClientPortal({
         body: JSON.stringify({ referencia: referencia ?? REFERENCIA_DEMO, momento: "ANTICIPO" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "No se pudo procesar el pago.");
+      if (!res.ok) throw new Error(data.error ?? t("s3.errorPago"));
       setFacturaNumero(data.numero);
       setStep(PASO_LISTO);
     } catch (err) {
-      setPagoError(err instanceof Error ? err.message : "No se pudo procesar el pago.");
+      setPagoError(err instanceof Error ? err.message : t("s3.errorPago"));
     } finally {
       setPagando(false);
     }
@@ -184,7 +204,7 @@ export function ClientPortal({
             <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>
           </div>
           <span className="flex items-center gap-1 text-[10px] text-slate-400">
-            con <AprobaMark size={13} />
+            {t("header.con")} <AprobaMark size={13} />
           </span>
         </div>
       </header>
@@ -207,39 +227,56 @@ export function ClientPortal({
         {/* ── Step 0 · Trámite ── */}
         {step === 0 && (
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Hola {nombreCliente} 👋</h1>
-            <p className="mt-2 text-slate-600">Tu gestoría te ayuda con tu trámite de extranjería. ¿Cuál necesitas?</p>
+            {/* Sélecteur de langue */}
+            <div className="mb-5 flex flex-wrap gap-1.5">
+              {LANGS.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => elegirLang(l.code)}
+                  aria-pressed={lang === l.code}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    lang === l.code ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 text-slate-500 hover:border-slate-300"
+                  }`}
+                >
+                  <span aria-hidden>{l.flag}</span>
+                  {l.label}
+                </button>
+              ))}
+            </div>
+
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s0.hola", { nombre: nombreCliente })}</h1>
+            <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
             <div className="mt-6 space-y-3">
               {servicios.length === 0 && (
                 <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
-                  Tu gestoría aún no ha configurado los servicios disponibles.
+                  {t("s0.sinServicios")}
                 </p>
               )}
-              {servicios.map((t) => (
+              {servicios.map((tr) => (
                 <button
-                  key={t.id}
-                  onClick={() => setTramiteId(t.id)}
+                  key={tr.id}
+                  onClick={() => setTramiteId(tr.id)}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
-                    tramiteId === t.id ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    tramiteId === tr.id ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-semibold text-slate-900">{t.label}</p>
-                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe(t.anticipo + t.resto))}</p>
+                      <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
+                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe(tr.anticipo + tr.resto))}</p>
                     </div>
-                    <p className="text-sm text-slate-500">{t.desc}</p>
+                    <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     <p className="mt-1 text-xs text-slate-400">
-                      {t.anticipo > 0 && t.resto > 0
-                        ? `${eur(totalDe(t.anticipo))} al empezar + ${eur(totalDe(t.resto))} al finalizar`
-                        : t.anticipo > 0
-                          ? "Pago único al empezar"
-                          : "Pago al finalizar el trámite"}
-                      {" · IVA incluido"}
+                      {tr.anticipo > 0 && tr.resto > 0
+                        ? t("pago.split", { a: eur(totalDe(tr.anticipo)), b: eur(totalDe(tr.resto)) })
+                        : tr.anticipo > 0
+                          ? t("pago.unico")
+                          : t("pago.final")}
+                      {" · "}{t("pago.ivaIncluido")}
                     </p>
                   </div>
-                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === t.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
-                    {tramiteId === t.id && <Check className="h-3 w-3" />}
+                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
+                    {tramiteId === tr.id && <Check className="h-3 w-3" />}
                   </span>
                 </button>
               ))}
@@ -249,7 +286,7 @@ export function ClientPortal({
               onClick={confirmarTramite}
               className="mt-7 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
             >
-              Continuar
+              {t("common.continuar")}
             </button>
           </div>
         )}
@@ -257,49 +294,64 @@ export function ClientPortal({
         {/* ── Step 1 · Datos ── */}
         {step === 1 && (
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tus datos</h1>
-            <p className="mt-2 text-slate-600">Con estos datos preparamos tus formularios oficiales. Rellénalos una sola vez.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.datos")}</h1>
+            <p className="mt-2 text-slate-600">{t("s1.intro")}</p>
             <div className="mt-6 space-y-5">
               {GRUPOS.map((grupo) => (
                 <div key={grupo}>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{grupo}</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{grupoLabel(grupo, lang)}</p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {FICHA_CAMPOS.filter((f) => f.grupo === grupo).map((f) => (
-                      <div key={f.k} className={f.w === "full" ? "sm:col-span-2" : ""}>
-                        <label className="text-[13px] font-medium text-slate-600">{f.label}</label>
-                        {f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
-                          <select
-                            value={ficha[f.k] ?? ""}
-                            onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
-                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
-                          >
-                            {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                          </select>
-                        ) : (
-                          <input
-                            type={f.tipo === "date" ? "date" : "text"}
-                            value={ficha[f.k] ?? ""}
-                            onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
-                            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
-                          />
-                        )}
-                      </div>
-                    ))}
+                    {FICHA_CAMPOS.filter((f) => f.grupo === grupo).map((f) => {
+                      const req = f.k !== "piso";
+                      const vacio = !((ficha[f.k] ?? "").trim());
+                      return (
+                        <div key={f.k} className={f.w === "full" ? "sm:col-span-2" : ""}>
+                          <label className="text-[13px] font-medium text-slate-600">
+                            {fieldLabel(f.k, lang)}
+                            {req ? <span className="text-red-500"> *</span> : <span className="text-slate-400"> ({t("s1.opcional")})</span>}
+                          </label>
+                          {f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
+                            <select
+                              value={ficha[f.k] ?? ""}
+                              onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
+                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                            >
+                              {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v]) => (
+                                <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={f.tipo === "date" ? "date" : "text"}
+                              value={ficha[f.k] ?? ""}
+                              onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
+                              className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 ${
+                                validacionActiva && req && vacio ? "border-amber-300 bg-amber-50/40" : "border-slate-300"
+                              }`}
+                            />
+                          )}
+                          {f.k === "apellidos" && <p className="mt-1 text-[11px] text-slate-400">{t("s1.apellidosHint")}</p>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-7 flex gap-3">
-              <button onClick={() => setStep(0)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
+            {validacionActiva && faltan > 0 && (
+              <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{t("s1.faltan", { n: faltan })}</p>
+            )}
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setStep(0)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
               <button
-                disabled={guardandoDatos}
+                disabled={guardandoDatos || !datosOk}
                 onClick={async () => {
                   if (token) { setGuardandoDatos(true); await fetch("/api/portal/datos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ficha }) }).catch(() => {}); setGuardandoDatos(false); }
                   setStep(2);
                 }}
-                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
-                {guardandoDatos ? "Guardando…" : "Continuar"}
+                {guardandoDatos ? t("s1.guardando") : t("common.continuar")}
               </button>
             </div>
           </div>
@@ -308,32 +360,50 @@ export function ClientPortal({
         {/* ── Step 2 · Documentos ── */}
         {step === 2 && (
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tus documentos</h1>
-            <p className="mt-2 text-slate-600">Haz una foto o sube cada documento. La IA comprueba al instante que sea legible y esté vigente.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
+            <p className="mt-2 text-slate-600">{t("s2.intro")}</p>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
 
             <div className="mt-6 space-y-3">
               {requiredDocs.map((label, i) => {
                 const st = docs[i]?.status ?? "pending";
+                const ayuda = docHelp(label, lang);
                 return (
                   <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${st === "validado" ? "bg-aproba-100 text-aproba-600" : st === "alerta" ? "bg-amber-100 text-amber-600" : "bg-cream-50 text-slate-400"}`}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${st === "validado" ? "bg-aproba-100 text-aproba-600" : st === "alerta" ? "bg-amber-100 text-amber-600" : "bg-cream-50 text-slate-400"}`}>
                           {st === "validado" ? <Check className="h-4 w-4" /> : st === "alerta" ? (
                             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
                           ) : (
                             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                           )}
                         </span>
-                        <span className="text-sm font-medium text-slate-800">{label}</span>
+                        <span className="truncate text-sm font-medium text-slate-800">{docLabel(label, lang)}</span>
+                        {ayuda && (
+                          <button
+                            type="button"
+                            onClick={() => setDocInfo((cur) => (cur === i ? null : i))}
+                            aria-label={t("s2.queEsto")}
+                            aria-expanded={docInfo === i}
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
+                              docInfo === i ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 text-slate-400 hover:border-aproba-400 hover:text-aproba-600"
+                            }`}
+                          >
+                            i
+                          </button>
+                        )}
                       </div>
                       {st === "pending" && (
-                        <button onClick={() => upload(i)} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">Subir</button>
+                        <button onClick={() => upload(i)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
                       )}
-                      {st === "analyzing" && <span className="text-xs font-medium text-amber-600">Analizando…</span>}
-                      {st === "validado" && <span className="text-xs font-semibold text-aproba-700">Validado</span>}
+                      {st === "analyzing" && <span className="shrink-0 text-xs font-medium text-amber-600">{t("s2.analizando")}</span>}
+                      {st === "validado" && <span className="shrink-0 text-xs font-semibold text-aproba-700">{t("s2.validado")}</span>}
                     </div>
+
+                    {docInfo === i && ayuda && (
+                      <p className="mt-3 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-600">{ayuda}</p>
+                    )}
 
                     {st === "analyzing" && (
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
@@ -356,10 +426,10 @@ export function ClientPortal({
 
                     {st === "alerta" && (
                       <div className="mt-3">
-                        {(alertasReales[i] ?? ["La foto está borrosa y no se lee bien. Vuelve a hacerla con buena luz."]).map((a) => (
+                        {(alertasReales[i] ?? [t("s2.borrosa")]).map((a) => (
                           <p key={a} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{a}</p>
                         ))}
-                        <button onClick={() => upload(i)} className="mt-1 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50">Volver a subir</button>
+                        <button onClick={() => upload(i)} className="mt-1 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50">{t("s2.volverSubir")}</button>
                       </div>
                     )}
                   </div>
@@ -368,13 +438,13 @@ export function ClientPortal({
             </div>
 
             <div className="mt-7 flex gap-3">
-              <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
+              <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
               <button
                 disabled={!allValidated}
                 onClick={() => setStep(conPago ? PASO_PAGO : PASO_LISTO)}
                 className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
-                {allValidated ? (conPago ? "Continuar al pago" : "Enviar a mi gestoría") : "Sube todos los documentos"}
+                {allValidated ? (conPago ? t("s2.continuarPago") : t("s2.enviar")) : t("s2.subeTodos")}
               </button>
             </div>
           </div>
@@ -383,33 +453,31 @@ export function ClientPortal({
         {/* ── Step 3 · Pago del anticipo ── */}
         {step === PASO_PAGO && tramite && (
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Pago inicial</h1>
-            <p className="mt-2 text-slate-600">Para iniciar tu trámite, tu gestoría solicita un pago al empezar. Recibirás la factura al instante.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s3.titulo")}</h1>
+            <p className="mt-2 text-slate-600">{t("s3.intro")}</p>
 
-            {/* Résumé du paiement */}
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">{tramite.label} — anticipo</span>
+                <span className="text-slate-500">{t("s3.anticipo", { label: servicioLabel(tramite.id, tramite.label, lang) })}</span>
                 <span className="font-medium text-slate-800">{eur(anticipo)}</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between text-sm">
-                <span className="text-slate-500">IVA (21 %)</span>
+                <span className="text-slate-500">{t("s3.iva")}</span>
                 <span className="font-medium text-slate-800">{eur(totalDe(anticipo) - anticipo)}</span>
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                <span className="font-semibold text-slate-900">Total a pagar hoy</span>
+                <span className="font-semibold text-slate-900">{t("s3.totalHoy")}</span>
                 <span className="text-lg font-bold text-slate-900">{eur(totalDe(anticipo))}</span>
               </div>
               {resto > 0 && (
                 <p className="mt-3 rounded-lg bg-cream-50 px-3 py-2 text-xs text-slate-500">
-                  Quedará un pago de <span className="font-semibold text-slate-700">{eur(totalDe(resto))}</span> al finalizar el trámite. Te avisaremos.
+                  {t("s3.queda", { monto: eur(totalDe(resto)) })}
                 </p>
               )}
             </div>
 
-            {/* Carte (démo) */}
             <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Tarjeta</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s3.tarjeta")}</p>
               <div className="space-y-3">
                 <input defaultValue="4242 4242 4242 4242" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
                 <div className="flex gap-3">
@@ -419,20 +487,20 @@ export function ClientPortal({
               </div>
               <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                Pago seguro · demo
+                {t("s3.pagoSeguro")}
               </p>
             </div>
 
             {pagoError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{pagoError}</p>}
 
             <div className="mt-6 flex gap-3">
-              <button onClick={() => setStep(2)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
+              <button onClick={() => setStep(2)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
               <button
                 onClick={pagar}
                 disabled={pagando}
                 className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
               >
-                {pagando ? "Procesando…" : `Pagar ${eur(totalDe(anticipo))}`}
+                {pagando ? t("s3.procesando") : t("s3.pagar", { monto: eur(totalDe(anticipo)) })}
               </button>
             </div>
           </div>
@@ -444,25 +512,23 @@ export function ClientPortal({
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-aproba-600">
               <Check className="h-10 w-10 text-white" />
             </div>
-            <h1 className="mt-6 text-2xl font-bold tracking-tight text-slate-900">¡Todo enviado!</h1>
-            <p className="mt-3 max-w-xs leading-relaxed text-slate-600">
-              Tu gestoría ya tiene tus datos y documentos validados. Se encarga del resto y te avisará en cada paso.
-            </p>
+            <h1 className="mt-6 text-2xl font-bold tracking-tight text-slate-900">{t("s4.titulo")}</h1>
+            <p className="mt-3 max-w-xs leading-relaxed text-slate-600">{t("s4.intro")}</p>
             <div className="mt-8 w-full rounded-xl border border-slate-200 bg-white p-4 text-left">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Resumen</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s4.resumen")}</p>
               <div className="mt-2 space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Trámite</span><span className="font-medium text-slate-800">{tramite?.label}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Documentos</span><span className="font-medium text-aproba-700">{requiredDocs.length} validados ✓</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("step.tramite")}</span><span className="font-medium text-slate-800">{tramite ? servicioLabel(tramite.id, tramite.label, lang) : ""}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("s4.documentos")}</span><span className="font-medium text-aproba-700">{t("s4.nValidados", { n: requiredDocs.length })}</span></div>
                 {facturaNumero && (
-                  <div className="flex justify-between"><span className="text-slate-500">Pago inicial</span><span className="font-medium text-aproba-700">{eur(totalDe(anticipo))} ✓ · Factura {facturaNumero}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{t("s3.titulo")}</span><span className="font-medium text-aproba-700">{eur(totalDe(anticipo))} ✓ · {facturaNumero}</span></div>
                 )}
-                <div className="flex justify-between"><span className="text-slate-500">Gestoría</span><span className="font-medium text-slate-800">{nombreGestoria}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("s4.gestoria")}</span><span className="font-medium text-slate-800">{nombreGestoria}</span></div>
               </div>
             </div>
             {facturaNumero && (
-              <p className="mt-4 max-w-xs text-xs text-slate-400">Hemos enviado la factura {facturaNumero} a tu email. El pago final se solicitará al terminar el trámite.</p>
+              <p className="mt-4 max-w-xs text-xs text-slate-400">{t("s4.facturaEmail", { numero: facturaNumero })}</p>
             )}
-            <p className="mt-6 flex items-center gap-1 text-xs text-slate-400">con <AprobaMark size={13} /> aproba</p>
+            <p className="mt-6 flex items-center gap-1 text-xs text-slate-400">{t("header.con")} <AprobaMark size={13} /> aproba</p>
           </div>
         )}
       </div>

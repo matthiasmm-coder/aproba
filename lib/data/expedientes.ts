@@ -75,6 +75,8 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
     id: string;
     tipo: string;
     estado: string;
+    nombreArchivo: string | null;
+    storagePath: string | null;
     // PostgREST renvoie un tableau (il ne détecte pas le one-to-one via index unique).
     extraction: ExtractionRow | ExtractionRow[] | null;
   }[];
@@ -119,7 +121,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
       `id, referencia, tipo, estado, fechaLimite, createdAt,
        cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
        asignadoA:User(nombre),
-       documentos:Documento(id, tipo, estado, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
+       documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
        formularios:Formulario(id, tipo),
        eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
        facturas:Factura(numero, total, estado, origen, momento)`,
@@ -136,6 +138,8 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
       id: d.id,
       tipoLabel: DOC_LABEL[d.tipo] ?? d.tipo,
       estado: d.estado as DocumentoUI["estado"],
+      tieneArchivo: Boolean(d.storagePath),
+      nombreArchivo: d.nombreArchivo ?? undefined,
       extraction: ext
         ? {
             tipoDetectado: ext.tipoDetectado,

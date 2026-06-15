@@ -29,6 +29,8 @@ export interface Documento {
   id: string;
   tipoLabel: string;
   estado: DocumentoEstado;
+  tieneArchivo?: boolean; // un fichier a été téléversé (téléchargeable par le gestor)
+  nombreArchivo?: string;
   extraction?: DocExtraction;
 }
 

@@ -13,6 +13,10 @@ const fail = (msg: string, status = 400) => NextResponse.json({ error: msg }, { 
 export async function POST(req: Request) {
   if (!stripeDisponible()) return fail("La facturación todavía no está configurada en este entorno.", 503);
 
+  // Destination de retour (par défaut Ajustes ; l'onboarding passe "/app").
+  const body = (await req.json().catch(() => ({}))) as { volverA?: string };
+  const volverA = typeof body.volverA === "string" && body.volverA.startsWith("/") ? body.volverA : "/app/ajustes";
+
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return fail("No autenticado.", 401);
@@ -63,8 +67,8 @@ export async function POST(req: Request) {
       ...(trialEnd ? { trial_end: trialEnd } : {}),
     },
     allow_promotion_codes: true,
-    success_url: `${origin}/app/ajustes?billing=ok`,
-    cancel_url: `${origin}/app/ajustes?billing=cancelado`,
+    success_url: `${origin}${volverA}?billing=ok`,
+    cancel_url: `${origin}${volverA}?billing=cancelado`,
   });
 
   return NextResponse.json({ url: session.url });

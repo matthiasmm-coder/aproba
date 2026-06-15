@@ -44,6 +44,7 @@ const SIN = [
   "Formularios EX rellenados a mano, uno a uno",
   "Seguimiento en una hoja de Excel",
   "Llamadas constantes del cliente",
+  "Clientes que no entienden los formularios en español",
   "Errores que descubres cuando ya está rechazado",
 ];
 
@@ -52,6 +53,7 @@ const CON = [
   "EX y 790-012 generados automáticamente",
   "Tablero con el estado de cada expediente",
   "Avisos automáticos en cada paso",
+  "El cliente lo completa en su idioma (5 idiomas)",
   "La IA detecta caducados o ilegibles antes de presentar",
 ];
 

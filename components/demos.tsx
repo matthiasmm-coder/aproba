@@ -14,7 +14,7 @@ const DURATIONS = [2200, 2800, 2400, 1500, 1500, 1500, 1500, 2400];
 const CAPTIONS = [
   "Le envías un enlace por WhatsApp. Sin apps que instalar, sin explicaciones.",
   "Tu cliente rellena sus propios datos. Tú no tecleas nada.",
-  "Elige su trámite en dos toques.",
+  "Elige su trámite en dos toques — en su propio idioma (5 idiomas).",
   "Sube sus documentos desde el móvil, uno tras otro.",
   "La IA los lee y valida al instante, según los suben.",
   "Detecta borrosos o caducados antes de que lleguen a ti.",
@@ -284,6 +284,13 @@ function TramiteSelector({ active }: { active: boolean }) {
 
   return (
     <div className="space-y-2 p-3">
+      {/* Sélecteur de langue — le client choisit parmi 5 langues (nouveauté produit) */}
+      <div className="mb-1 flex items-center gap-1">
+        {["🇪🇸", "🇬🇧", "🇫🇷", "🇮🇹", "🇩🇪"].map((f, i) => (
+          <span key={f} className={`rounded-full border px-1.5 py-0.5 text-[12px] leading-none transition ${i === 0 ? "border-aproba-600 bg-aproba-50" : "border-slate-200 opacity-60"}`}>{f}</span>
+        ))}
+        <span className="ml-auto text-[9px] font-medium text-slate-400">5 idiomas</span>
+      </div>
       {TRAMITES.map((t, i) => {
         const selected = picked && i === 0;
         return (

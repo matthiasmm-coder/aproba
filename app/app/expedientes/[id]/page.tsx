@@ -22,7 +22,7 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
-function DocumentoRow({ d }: { d: Documento }) {
+function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: string }) {
   const meta = DOC_ESTADO_META[d.estado];
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -33,7 +33,20 @@ function DocumentoRow({ d }: { d: Documento }) {
           </span>
           <span className="font-medium text-slate-900">{d.tipoLabel}</span>
         </div>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.pill}`}>{meta.label}</span>
+        <div className="flex items-center gap-2">
+          {d.tieneArchivo && (
+            <a
+              href={`/api/expedientes/${expedienteId}/documentos/${d.id}`}
+              download
+              title={d.nombreArchivo ? `Descargar ${d.nombreArchivo}` : "Descargar el documento del cliente"}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-aproba-300 hover:bg-aproba-50 hover:text-aproba-700"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Descargar
+            </a>
+          )}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.pill}`}>{meta.label}</span>
+        </div>
       </div>
 
       {d.extraction && (
@@ -119,7 +132,7 @@ export default async function ExpedienteDetail({
           </h2>
           <div className="space-y-3">
             {e.documentos.length > 0 ? (
-              e.documentos.map((d) => <DocumentoRow key={d.id} d={d} />)
+              e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)
             ) : (
               <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400">
                 Sin documentos en este expediente.

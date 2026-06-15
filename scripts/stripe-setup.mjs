@@ -1,5 +1,6 @@
 // Crée les produits/prix Stripe d'Aproba (idempotent, mode test ou live selon la clé).
-// Lancer : node scripts/stripe-setup.mjs   (lit web/.env.local → STRIPE_SECRET_KEY)
+// Lancer : node scripts/stripe-setup.mjs            (lit web/.env.local → STRIPE_SECRET_KEY)
+//   ou   : STRIPE_SECRET_KEY=sk_live_… node scripts/stripe-setup.mjs   (priorité à la clé en ligne)
 // - 3 produits « Aproba Starter/Pro/Business » avec prix mensuel EUR et lookup_key
 //   stable (aproba_*_mensual) — le code résout les prix par lookup_key, jamais par ID.
 // - 1 configuration du Customer Portal (moyen de paiement, facturas, anulación).
@@ -16,12 +17,14 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!env.STRIPE_SECRET_KEY) {
-  console.error("✗ STRIPE_SECRET_KEY manquante dans web/.env.local");
+// Priorité à la clé passée en ligne de commande (ex. sk_live), sinon celle de .env.local.
+const SECRET = process.env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY;
+if (!SECRET) {
+  console.error("✗ STRIPE_SECRET_KEY manquante (ni en ligne de commande ni dans web/.env.local)");
   process.exit(1);
 }
-const stripe = new Stripe(env.STRIPE_SECRET_KEY);
-const modo = env.STRIPE_SECRET_KEY.startsWith("sk_test") ? "TEST" : "LIVE";
+const stripe = new Stripe(SECRET);
+const modo = SECRET.startsWith("sk_test") ? "TEST" : "LIVE";
 console.log(`Stripe en mode ${modo}\n`);
 
 const PLANES = [

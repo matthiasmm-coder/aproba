@@ -5,6 +5,7 @@ import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { stripeDisponible } from "@/lib/billing";
 import { WORKSPACE } from "@/lib/mock-data";
 
 // Session + workspace réels (Supabase). Fallback mock le temps de la migration.
@@ -17,15 +18,22 @@ async function getContexto() {
     if (!user) return null;
     const nombre = (user.user_metadata?.nombre as string) || user.email || "Usuario";
     const [{ data: mem }, { data: perfil }] = await Promise.all([
-      supabase.from("Membership").select("Workspace(nombre, Subscription(plan))").limit(1).maybeSingle(),
+      supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId))").limit(1).maybeSingle(),
       supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle(),
     ]);
     if (!mem) return "SIN_WORKSPACE" as const;
-    const ws = (mem as { Workspace?: { nombre?: string; Subscription?: { plan?: string } | { plan?: string }[] } } | null)?.Workspace;
+    type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null };
+    const ws = (mem as { Workspace?: { nombre?: string; Subscription?: SubInfo | SubInfo[] } } | null)?.Workspace;
     // PostgREST renvoie la relation 1-1 Subscription comme tableau (créée via index unique).
     const subRaw = ws?.Subscription;
     const sub = Array.isArray(subRaw) ? subRaw[0] : subRaw;
     const plan = sub?.plan;
+    // Garde « carte obligatoire » : un despacho en essai qui n'a jamais lancé le
+    // checkout (pas de customer Stripe) doit poser une carte avant d'entrer.
+    // La démo (estado ACTIVA) est exemptée ; si Stripe n'est pas configuré, on n'impose rien.
+    if (stripeDisponible() && sub?.estado === "TRIAL" && !sub?.stripeCustomerId) {
+      return "SIN_TARJETA" as const;
+    }
     return {
       usuario: nombre,
       iniciales: nombre.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase(),
@@ -41,6 +49,7 @@ async function getContexto() {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctxOrSentinel = await getContexto();
   if (ctxOrSentinel === "SIN_WORKSPACE") redirect("/onboarding");
+  if (ctxOrSentinel === "SIN_TARJETA") redirect("/onboarding/pago");
   const ctx = ctxOrSentinel ?? {
     usuario: WORKSPACE.usuario.nombre,
     iniciales: WORKSPACE.usuario.iniciales,
