@@ -29,10 +29,20 @@ export async function POST(req: Request) {
   if (!sub?.stripeCustomerId) return fail("Este despacho todavía no tiene facturación activada.", 409);
 
   const origin = baseUrlFromRequest(req);
-  const session = await getStripe().billingPortal.sessions.create({
-    customer: sub.stripeCustomerId as string,
-    return_url: `${origin}/app/ajustes`,
-  });
-
-  return NextResponse.json({ url: session.url });
+  try {
+    const session = await getStripe().billingPortal.sessions.create({
+      customer: sub.stripeCustomerId as string,
+      return_url: `${origin}/app/ajustes`,
+    });
+    return NextResponse.json({ url: session.url });
+  } catch (e) {
+    // Customer d'un autre mode Stripe (live↔test) ou supprimé → message actionnable
+    // au lieu d'un 500 opaque (sinon « Gestionar facturación » casse sans explication).
+    const err = e as { code?: string; message?: string };
+    if (err?.code === "resource_missing") {
+      return fail("Tu facturación se creó en otro entorno de Stripe. Vuelve a añadir la tarjeta para regenerarla.", 409);
+    }
+    console.error("[billing/portal]", err?.message ?? e);
+    return fail(`No se pudo abrir la facturación: ${err?.message ?? "error de Stripe"}`, 502);
+  }
 }

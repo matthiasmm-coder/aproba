@@ -14,13 +14,47 @@ const stripeKey = () => (process.env.STRIPE_SECRET_KEY ?? "").trim().replace(/^[
 export const stripeDisponible = () => Boolean(stripeKey());
 
 let cliente: Stripe | null = null;
+let claveCacheada = "";
 export function getStripe(): Stripe {
   const key = stripeKey();
   if (!key) {
     throw new Error("STRIPE_SECRET_KEY no está configurada — la facturación real está desactivada.");
   }
-  if (!cliente) cliente = new Stripe(key, { maxNetworkRetries: 2 });
+  // Recrée le client si la clé a changé (bascule test↔live) et purge le cache de
+  // precios : les price ids dépendent du mode, les réutiliser donnerait "No such price".
+  if (!cliente || key !== claveCacheada) {
+    cliente = new Stripe(key, { maxNetworkRetries: 2 });
+    claveCacheada = key;
+    precios.clear();
+  }
   return cliente;
+}
+
+// Garantit un customer Stripe valide DANS LE MODE COURANT (test vs live).
+// Un id 'cus_…' créé en live n'existe pas en test (et inversement) ; un customer
+// supprimé revient en { deleted:true } sans lever. Dans les deux cas on en recrée
+// un et on renvoie { id, recreado } pour que l'appelant réécrive la DB.
+export async function ensureCustomer(datos: {
+  id?: string | null;
+  email?: string | null;
+  name?: string;
+  workspaceId: string;
+}): Promise<{ id: string; recreado: boolean }> {
+  const stripe = getStripe();
+  if (datos.id) {
+    try {
+      const c = await stripe.customers.retrieve(datos.id);
+      if (!(c as { deleted?: boolean }).deleted) return { id: datos.id, recreado: false };
+    } catch (e) {
+      // resource_missing = id d'un autre mode / inexistant → on recrée plus bas.
+      if ((e as { code?: string }).code !== "resource_missing") throw e;
+    }
+  }
+  const c = await stripe.customers.create(
+    { email: datos.email ?? undefined, name: datos.name, metadata: { workspaceId: datos.workspaceId } },
+    { idempotencyKey: `cust_${datos.workspaceId}` },
+  );
+  return { id: c.id, recreado: true };
 }
 
 // lookup_key Stripe ↔ plan Aproba (montants gérés côté Stripe par le setup script).

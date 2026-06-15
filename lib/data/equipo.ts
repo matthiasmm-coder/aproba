@@ -75,14 +75,33 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     cancelAtPeriodEnd?: boolean | null;
   } | null;
 
-  // Carte de paiement (marque + 4 derniers chiffres) — lue depuis Stripe.
+  // Carte de paiement (marque + 4 derniers chiffres) — lecture robuste en 3 niveaux :
+  //  1) customer.invoice_settings.default_payment_method (cobro recurrente fijado)
+  //  2) subscription.default_payment_method (cas essai : Stripe la laisse ici, pas sur le customer)
+  //  3) paymentMethods.list (toute carte rattachée au customer)
+  // Customer absent du mode Stripe courant (live↔test) ou supprimé → catch → on n'affiche rien.
   let tarjeta: { brand: string; last4: string } | null = null;
   if (s?.stripeCustomerId && stripeDisponible()) {
     try {
-      const cust = await getStripe().customers.retrieve(s.stripeCustomerId, { expand: ["invoice_settings.default_payment_method"] });
-      const pm = (cust as Stripe.Customer).invoice_settings?.default_payment_method as Stripe.PaymentMethod | null;
-      if (pm && typeof pm !== "string" && pm.card) tarjeta = { brand: pm.card.brand, last4: pm.card.last4 };
-    } catch { /* carte non lisible → on n'affiche rien */ }
+      const stripe = getStripe();
+      const carteDe = (pm: Stripe.PaymentMethod | string | null | undefined) =>
+        pm && typeof pm !== "string" && pm.card ? { brand: pm.card.brand, last4: pm.card.last4 } : null;
+
+      const cust = await stripe.customers.retrieve(s.stripeCustomerId, { expand: ["invoice_settings.default_payment_method"] });
+      tarjeta = carteDe((cust as Stripe.Customer).invoice_settings?.default_payment_method as Stripe.PaymentMethod | null);
+
+      if (!tarjeta && s.stripeSubscriptionId) {
+        const sp = await stripe.subscriptions.retrieve(s.stripeSubscriptionId, { expand: ["default_payment_method"] });
+        tarjeta = carteDe(sp.default_payment_method as Stripe.PaymentMethod | null);
+      }
+      if (!tarjeta) {
+        const pms = await stripe.paymentMethods.list({ customer: s.stripeCustomerId, type: "card", limit: 1 });
+        tarjeta = carteDe(pms.data[0]);
+      }
+    } catch (e) {
+      // carte non lisible (id Stripe d'un autre mode, customer supprimé…) → on n'affiche rien.
+      console.warn("[equipo] tarjeta no legible para", s.stripeCustomerId, e instanceof Error ? e.message : e);
+    }
   }
 
   return {

@@ -32,9 +32,16 @@ export async function POST(req: Request) {
   if (!sub?.stripeSubscriptionId) return fail("Este despacho no tiene una suscripción activa.", 409);
 
   // Résiliation douce : l'accès reste jusqu'à la fin de la période déjà payée.
-  const actualizada = await getStripe().subscriptions.update(sub.stripeSubscriptionId as string, {
-    cancel_at_period_end: !reactivar,
-  });
+  let actualizada;
+  try {
+    actualizada = await getStripe().subscriptions.update(sub.stripeSubscriptionId as string, {
+      cancel_at_period_end: !reactivar,
+    });
+  } catch (e) {
+    // Abonnement d'un autre mode Stripe (live↔test) ou inexistant → erreur actionnable.
+    console.error("[billing/cancel]", e instanceof Error ? e.message : e);
+    return fail("No se pudo actualizar la suscripción: no existe en este entorno de Stripe.", 409);
+  }
 
   // Persiste tout de suite (sans attendre le webhook) pour un UI cohérent.
   await admin.from("Subscription").update({ cancelAtPeriodEnd: !reactivar }).eq("workspaceId", mem.workspaceId as string);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { getStripe, precioDePlan, stripeDisponible } from "@/lib/billing";
+import { getStripe, precioDePlan, stripeDisponible, ensureCustomer } from "@/lib/billing";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { puedeGestionarEquipo, type PlanId } from "@/lib/planes";
 
@@ -40,23 +40,32 @@ export async function POST(req: Request) {
   try {
     const stripe = getStripe();
 
-    // Customer Stripe (réutilisé entre tentatives de checkout).
-    let customerId: string = sub.stripeCustomerId ?? "";
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email ?? undefined,
-        name: wsNombre,
-        metadata: { workspaceId: ws },
-      });
-      customerId = customer.id;
+    // Customer Stripe valide dans le mode courant : un id stocké venant d'un autre
+    // mode (live↔test) ou supprimé est recréé, et on réécrit la DB le cas échéant.
+    const { id: customerId, recreado } = await ensureCustomer({
+      id: sub.stripeCustomerId,
+      email: user.email,
+      name: wsNombre,
+      workspaceId: ws,
+    });
+    if (recreado) {
       await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
     }
 
     const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER");
 
-    // Conserver les jours d'essai restants (la carte n'est débitée qu'à la fin).
-    const trialMs = sub.trialEndsAt ? Date.parse(sub.trialEndsAt as string) - Date.now() : 0;
-    const trialEnd = trialMs > 120_000 ? Math.floor(Date.parse(sub.trialEndsAt as string) / 1000) : undefined;
+    // Conserver les jours d'essai restants (carte non débitée avant la fin de l'essai).
+    // Stripe rejette un trial_end à moins de ~48 h dans le futur → on défend.
+    const MIN_TRIAL_MS = 48 * 60 * 60 * 1000;
+    const restanteMs = sub.trialEndsAt ? Date.parse(sub.trialEndsAt as string) - Date.now() : 0;
+    let trialEnd: number | undefined;
+    if (restanteMs >= MIN_TRIAL_MS) {
+      trialEnd = Math.floor(Date.parse(sub.trialEndsAt as string) / 1000);
+    } else if (sub.estado === "TRIAL") {
+      // Essai DB (presque) écoulé mais despacho encore en TRIAL : on accorde un plancher
+      // de 48 h pour ne pas débiter par surprise une carte qu'on vient d'ajouter.
+      trialEnd = Math.floor((Date.now() + MIN_TRIAL_MS) / 1000);
+    }
 
     const origin = baseUrlFromRequest(req);
     const session = await stripe.checkout.sessions.create({
@@ -70,6 +79,9 @@ export async function POST(req: Request) {
       allow_promotion_codes: true,
       success_url: `${origin}${volverA}?billing=ok`,
       cancel_url: `${origin}${volverA}?billing=cancelado`,
+    }, {
+      // Évite deux sessions sur un double-clic dans la même minute.
+      idempotencyKey: `co_${ws}_${sub.plan}_${Math.floor(Date.now() / 60000)}`,
     });
 
     return NextResponse.json({ url: session.url });
