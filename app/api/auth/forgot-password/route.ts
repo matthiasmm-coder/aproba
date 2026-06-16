@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     });
     const link = data?.properties?.action_link;
     if (error || !link) {
-      // compte inexistant (ou autre) → on ne révèle rien
-      console.log("[forgot-password] no link for", correo, error?.message ?? "");
+      // compte inexistant (ou autre) → on ne révèle rien, et on ne logue PAS l'email (PII).
+      if (error) console.error("[forgot-password] generateLink", error.message);
       return NextResponse.json({ ok: true });
     }
     if (process.env.RESEND_API_KEY) {

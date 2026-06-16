@@ -626,3 +626,20 @@ create policy cta_write on public."CuentaBancaria" for all using (app_is_admin("
 -- Résiliation programmée (fin de période) + NIF du despacho (onboarding complet).
 alter table public."Subscription" add column if not exists "cancelAtPeriodEnd" boolean not null default false;
 alter table public."Workspace"   add column if not exists "nif" text;
+
+-- ── Widget de feedback beta (2026-06-16) ─────────────────────────────────────
+-- Retours des cabinets testeurs. Table VERROUILLÉE côté client (RLS activé, aucune
+-- policy) : seule la route /api/feedback écrit, en service_role. Le fondateur lit
+-- via le dashboard Supabase / service_role.
+create table if not exists public."Feedback" (
+  id            text primary key default gen_random_uuid()::text,
+  "workspaceId" text references public."Workspace"(id) on delete set null,
+  "userId"      text references public."User"(id) on delete set null,
+  categoria     text not null default 'otro',   -- bug | idea | otro
+  mensaje       text not null,
+  pagina        text,                            -- chemin d'où le retour a été envoyé
+  "userAgent"   text,
+  "createdAt"   timestamptz not null default now()
+);
+alter table public."Feedback" enable row level security;
+-- (aucune policy : le client ne peut ni lire ni écrire ; le service_role bypasse le RLS)

@@ -4,6 +4,7 @@ import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { FeedbackWidget } from "@/components/feedback-widget";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
 import { WORKSPACE } from "@/lib/mock-data";
@@ -92,6 +93,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         <main className="p-4 pb-24 sm:p-6 md:pb-6 print:p-0">{children}</main>
       </div>
+
+      {/* Bouton de feedback flottant (beta) */}
+      <FeedbackWidget />
 
       {/* Nav mobile (bas) */}
       <MobileNav />
