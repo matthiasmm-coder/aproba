@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BOARD_COLUMNS, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
-import { WORKSPACE } from "@/lib/mock-data";
 
 export type DashItem = {
   id: string;
@@ -82,7 +81,7 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">Hola, {(usuario ?? WORKSPACE.usuario.nombre).split(" ")[0]}</h1>
+        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">Hola{usuario ? `, ${usuario.split(" ")[0]}` : ""}</h1>
         <p className="text-sm text-slate-500">
           <span className="font-semibold text-aproba-700">{accion.length} expedientes</span> requieren tu acción
           {vencidos > 0 && <> · <span className="font-semibold text-red-600">{vencidos} vencidos</span></>}.

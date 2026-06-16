@@ -7,7 +7,6 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
-import { WORKSPACE } from "@/lib/mock-data";
 
 // Session + workspace réels (Supabase). Fallback mock le temps de la migration.
 // Renvoie "SIN_WORKSPACE" si l'utilisateur est authentifié mais sans appartenance
@@ -39,8 +38,8 @@ async function getContexto() {
       usuario: nombre,
       iniciales: nombre.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase(),
       avatarUrl: (perfil as { avatarUrl?: string | null } | null)?.avatarUrl ?? null,
-      workspace: ws?.nombre ?? WORKSPACE.nombre,
-      plan: plan ? plan.charAt(0) + plan.slice(1).toLowerCase() : WORKSPACE.plan,
+      workspace: ws?.nombre ?? "Mi despacho",
+      plan: plan ? plan.charAt(0) + plan.slice(1).toLowerCase() : "Starter",
     };
   } catch {
     return null;
@@ -51,12 +50,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctxOrSentinel = await getContexto();
   if (ctxOrSentinel === "SIN_WORKSPACE") redirect("/onboarding");
   if (ctxOrSentinel === "SIN_TARJETA") redirect("/onboarding/pago");
+  // Repli neutre (jamais la démo) si le contexte échoue à charger.
   const ctx = ctxOrSentinel ?? {
-    usuario: WORKSPACE.usuario.nombre,
-    iniciales: WORKSPACE.usuario.iniciales,
+    usuario: "Mi cuenta",
+    iniciales: "··",
     avatarUrl: null,
-    workspace: WORKSPACE.nombre,
-    plan: WORKSPACE.plan,
+    workspace: "Mi despacho",
+    plan: "Starter",
   };
 
   return (

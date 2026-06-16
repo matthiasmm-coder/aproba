@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-export type Cli = { nombre: string; nacionalidad: string; expedientes: number; ultimo: string };
+export type Cli = { id: string; nombre: string; nacionalidad: string; expedientes: number; ultimo: string };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
@@ -43,7 +43,7 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
           <span className="w-20 text-right">Exp.</span>
         </div>
         {filtrados.map((c) => (
-          <Link key={c.nombre} href={`/app/clientes/${encodeURIComponent(c.nombre)}`} className="flex items-center border-b border-slate-50 px-5 py-3 transition last:border-0 hover:bg-cream-50">
+          <Link key={c.id} href={`/app/clientes/${c.id}`} className="flex items-center border-b border-slate-50 px-5 py-3 transition last:border-0 hover:bg-cream-50">
             <span className="flex flex-1 items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-xs font-semibold text-aproba-700">{initials(c.nombre)}</span>
               <span className="font-medium text-slate-800">{c.nombre}</span>

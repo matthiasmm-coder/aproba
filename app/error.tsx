@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Error boundary de segment (Next.js). Évite la page blanche sur un crash React :
-// affiche un message propre + reintentar. La trace part dans les logs serveur
-// (Vercel) ; brancher Sentry.captureException ici quand le DSN sera configuré.
+// affiche un message propre + reintentar. Trace en logs serveur + Sentry (no-op sans DSN).
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("[app error]", error.digest ?? "", error.message);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

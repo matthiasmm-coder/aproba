@@ -9,6 +9,7 @@ export const metadata = { title: "Clientes" };
 // chaque gestor ne voit que les clientes de SON workspace.
 
 type Row = {
+  id: string;
   nombre: string;
   apellidos: string | null;
   nacionalidad: string | null;
@@ -19,12 +20,13 @@ export default async function Clientes() {
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
     .from("Cliente")
-    .select("nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)")
+    .select("id, nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)")
     .order("nombre");
 
   const lista: Cli[] = ((data ?? []) as Row[]).map((c) => {
     const exps = [...(c.expedientes ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return {
+      id: c.id,
       nombre: `${c.nombre} ${c.apellidos ?? ""}`.trim(),
       nacionalidad: c.nacionalidad ?? "—",
       expedientes: exps.length,

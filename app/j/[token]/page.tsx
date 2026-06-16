@@ -1,5 +1,6 @@
 import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
+import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
@@ -33,6 +34,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let gestoria: string | undefined;
   let portalToken: string | undefined;
   let completado = false;
+  let valido = false;
   let clienteIdioma = "es";
 
   try {
@@ -45,6 +47,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
     const exp = data as unknown as ExpedienteToken | null;
     if (exp?.workspace) {
+      valido = true;
       referencia = exp.referencia;
       clienteNombre = exp.cliente?.nombre;
       clienteFicha = fichaDe(exp.cliente);
@@ -62,13 +65,23 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
         .limit(1)
         .maybeSingle();
       completado = Boolean(fin);
-    } else {
-      // Démo : lien générique → workspace de la Gestoría Vallès.
-      const { data: ws } = await admin.from("Workspace").select("id").eq("nombre", "Gestoría Vallès").limit(1).maybeSingle();
-      if (ws) servicios = await fetchServiciosDeWorkspace(admin, ws.id);
     }
   } catch {
-    /* fallback defaults */
+    /* token illisible → traité comme lien invalide ci-dessous */
+  }
+
+  // Token inconnu / expiré → ce n'est PAS la démo (celle-ci vit sur /portal) : lien invalide.
+  if (!valido) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-cream-50 px-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
+        </div>
+        <h1 className="mt-5 text-xl font-bold text-slate-900">Este enlace no es válido</h1>
+        <p className="mt-2 max-w-sm text-sm text-slate-500">El enlace ha caducado o no es correcto. Pide a tu gestoría que te envíe uno nuevo.</p>
+        <p className="mt-6 flex items-center gap-1 text-xs text-slate-400">con <AprobaMark size={13} /> aproba</p>
+      </div>
+    );
   }
 
   // Lien initial déjà utilisé jusqu'au bout → on ne rejoue pas l'onboarding.

@@ -1,4 +1,3 @@
-import { WORKSPACE } from "@/lib/mock-data";
 import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias } from "@/lib/data/config";
 import { fetchEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
@@ -48,9 +47,9 @@ export default async function Ajustes() {
     fetchEquipo().catch(() => null),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
-  const despachoNombre = equipo?.workspace.nombre ?? WORKSPACE.nombre;
-  const despachoTipo = equipo ? (TIPO_LABEL[equipo.workspace.tipo] ?? equipo.workspace.tipo) : WORKSPACE.tipo;
-  const despachoPlan = equipo ? planLabel(equipo.plan) : WORKSPACE.plan;
+  const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
+  const despachoTipo = equipo ? (TIPO_LABEL[equipo.workspace.tipo] ?? equipo.workspace.tipo) : "—";
+  const despachoPlan = equipo ? planLabel(equipo.plan) : "Starter";
   // Les ajustes (servicios, avisos, cuentas) ne sont éditables que par un administrador.
   // La RLS l'impose côté base ; ici on désactive l'UI pour éviter les échecs silencieux.
   const puedeEditar = equipo ? puedeGestionarEquipo(equipo.miRol) : true;
@@ -115,8 +114,8 @@ export default async function Ajustes() {
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Cuenta</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="font-medium text-slate-800">{yo?.nombre ?? WORKSPACE.usuario.nombre}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="font-medium text-slate-800">{yo?.email ?? WORKSPACE.usuario.email}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
               </div>
             </div>
           </div>

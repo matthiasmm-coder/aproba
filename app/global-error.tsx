@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Error boundary RACINE (remplace tout le document si le layout lui-même crashe).
 // Doit rendre ses propres <html>/<body>. Styles inline (le CSS global peut ne pas
-// être chargé à ce stade). Brancher Sentry.captureException ici aussi plus tard.
+// être chargé à ce stade). Trace en logs serveur + Sentry (no-op sans DSN).
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("[global error]", error.digest ?? "", error.message);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

@@ -1,22 +1,48 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EXPEDIENTES } from "@/lib/mock-data";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import { ESTADO_META } from "@/lib/types";
-import { FACTURAS, FACTURA_ESTADO_META, eur, totalDe } from "@/lib/facturas";
+import { TIPO_LABEL, fmtFechaCorta } from "@/lib/tramites";
+import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/facturas";
 
+// Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
+// facturas du workspace. Clé = id réel du cliente (plus de données démo).
 function initials(name: string) {
-  return name.split(" ").map((p) => p[0]).join("").slice(0, 2);
+  return name.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 }
+
+const ESTADO_FALLBACK = { dot: "bg-slate-300", pill: "bg-slate-100 text-slate-600", label: "—" };
 
 export default async function ClienteDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const nombre = decodeURIComponent(id);
+  const supabase = await createSupabaseServer();
 
-  const expedientes = EXPEDIENTES.filter((e) => e.clienteNombre === nombre);
-  const facturas = FACTURAS.filter((f) => f.cliente === nombre);
-  if (expedientes.length === 0 && facturas.length === 0) notFound();
+  const { data: cliente } = await supabase
+    .from("Cliente")
+    .select("id, nombre, apellidos, nacionalidad")
+    .eq("id", id)
+    .maybeSingle();
+  if (!cliente) notFound();
 
-  const nacionalidad = expedientes[0]?.clienteNacionalidad ?? "—";
+  const nombre = `${cliente.nombre} ${cliente.apellidos ?? ""}`.trim();
+
+  const [{ data: expRows }, { data: facRows }] = await Promise.all([
+    supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false }),
+    // Factura est dénormalisée par nom de client (pas de FK clienteId).
+    supabase.from("Factura").select("id, numero, concepto, baseImponible, estado, fechaEmision").eq("clienteNombre", nombre).order("numero", { ascending: false }),
+  ]);
+
+  const expedientes = (expRows ?? []) as { id: string; referencia: string; tipo: string; estado: string; createdAt: string }[];
+  const facturas = ((facRows ?? []) as { id: string; numero: string; concepto: string; baseImponible: number | string; estado: string; fechaEmision: string | null }[]).map((f) => ({
+    id: f.id,
+    numero: f.numero,
+    concepto: f.concepto,
+    base: Number(f.baseImponible),
+    estado: f.estado as FacturaEstado,
+    fecha: fmtFechaCorta(f.fechaEmision) ?? "—",
+  }));
+
+  const nacionalidad = cliente.nacionalidad ?? "—";
   const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR").reduce((s, f) => s + totalDe(f.base), 0);
 
   return (
@@ -50,12 +76,12 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
           <div className="space-y-1">
             {expedientes.map((e) => {
-              const meta = ESTADO_META[e.estado];
+              const meta = ESTADO_META[e.estado as keyof typeof ESTADO_META] ?? { ...ESTADO_FALLBACK, label: e.estado };
               return (
                 <Link key={e.id} href={`/app/expedientes/${e.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-cream-50">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-800">{e.tipoLabel}</p>
+                    <p className="truncate text-sm font-medium text-slate-800">{TIPO_LABEL[e.tipo] ?? e.tipo}</p>
                     <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{meta.label}</span>
