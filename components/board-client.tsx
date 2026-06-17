@@ -113,12 +113,12 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
 
       {/* Vue active : kanban */}
       {view === "activos" ? (
-        <div className="no-scrollbar flex gap-4 overflow-x-auto pb-4">
+        <div className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
           {BOARD_COLUMNS.map((estado) => {
             const cards = visibles.filter((e) => e.estado === estado);
             const meta = ESTADO_META[estado];
             return (
-              <div key={estado} className="w-72 shrink-0">
+              <div key={estado} className="w-[82vw] max-w-xs shrink-0 snap-start sm:w-72 sm:max-w-none">
                 <div className="mb-3 flex items-center gap-2 px-1">
                   <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
                   <span className="text-sm font-semibold text-slate-700">{meta.label}</span>

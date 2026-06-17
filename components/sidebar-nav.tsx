@@ -49,7 +49,7 @@ export function MobileNav() {
       {NAV.map((n) => {
         const active = isActive(n.href);
         return (
-          <Link key={n.href} href={n.href} className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${active ? "text-aproba-700" : "text-slate-400"}`}>
+          <Link key={n.href} href={n.href} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${active ? "text-aproba-700" : "text-slate-400"}`}>
             <NavIcon name={n.icon} />
             {n.label}
           </Link>

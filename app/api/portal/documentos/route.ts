@@ -160,3 +160,41 @@ export async function POST(req: Request) {
     confianza: resultado.confianzaGlobal,
   });
 }
+
+// Suppression d'un document soumis par erreur, depuis le portail (token).
+// Retire le fichier du Storage + la ligne Documento (+ son Extraction) + journalise.
+export async function DELETE(req: Request) {
+  const { token, label } = (await req.json().catch(() => ({}))) as { token?: string; label?: string };
+  if (!token || !label) return NextResponse.json({ error: "token y label requeridos" }, { status: 400 });
+
+  const admin = createSupabaseAdmin();
+  const { data: exp } = await admin.from("Expediente").select("id, estado").eq("portalToken", token).maybeSingle();
+  if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
+
+  const docTipo = labelADocTipo(label);
+  const { data: doc } = await admin
+    .from("Documento")
+    .select("id, storagePath")
+    .eq("expedienteId", exp.id)
+    .eq("tipo", docTipo)
+    .limit(1)
+    .maybeSingle();
+  if (!doc) return NextResponse.json({ ok: true }); // rien à supprimer
+
+  if (doc.storagePath) await admin.storage.from("documentos").remove([doc.storagePath]);
+  await admin.from("Extraction").delete().eq("documentoId", doc.id);
+  const { error: eDel } = await admin.from("Documento").delete().eq("id", doc.id);
+  if (eDel) return NextResponse.json({ error: eDel.message }, { status: 500 });
+
+  await admin.from("ExpedienteEvento").insert({
+    id: uuid(), expedienteId: exp.id, tipo: "COMENTARIO",
+    descripcion: `El cliente eliminó un documento: ${label}`,
+  });
+
+  // Un document requis a été retiré → l'expediente n'est plus « validé ».
+  if (exp.estado === "DOCS_VALIDADOS") {
+    await admin.from("Expediente").update({ estado: "DOCS_PENDIENTES", updatedAt: new Date().toISOString() }).eq("id", exp.id);
+  }
+
+  return NextResponse.json({ ok: true });
+}

@@ -89,6 +89,7 @@ const UI: Record<string, Tr> = {
   "s2.analizando": { es: "Analizando…", en: "Analyzing…", fr: "Analyse…", it: "Analisi…", de: "Wird geprüft…" },
   "s2.validado": { es: "Validado", en: "Validated", fr: "Validé", it: "Validato", de: "Geprüft" },
   "s2.volverSubir": { es: "Volver a subir", en: "Upload again", fr: "Réessayer", it: "Ricarica", de: "Erneut hochladen" },
+  "s2.eliminar": { es: "Eliminar documento", en: "Remove document", fr: "Supprimer le document", it: "Elimina documento", de: "Dokument entfernen" },
   "s2.borrosa": {
     es: "La foto está borrosa y no se lee bien. Vuelve a hacerla con buena luz.",
     en: "The photo is blurry and hard to read. Retake it with good lighting.",

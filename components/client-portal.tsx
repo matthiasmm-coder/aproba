@@ -164,6 +164,25 @@ export function ClientPortal({
     }
   }
 
+  // Suppression d'un document soumis par erreur → on remet le slot à zéro (et on supprime
+  // côté serveur en mode réel). Le client peut alors re-téléverser le bon fichier.
+  async function quitarDoc(i: number) {
+    const label = requiredDocs[i];
+    setDocs((d) => { const c = { ...d }; delete c[i]; return c; });
+    setCamposReales((m) => { const c = { ...m }; delete c[i]; return c; });
+    setAlertasReales((m) => { const c = { ...m }; delete c[i]; return c; });
+    setDocInfo((cur) => (cur === i ? null : cur));
+    if (token) {
+      try {
+        await fetch("/api/portal/documentos", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, label }),
+        });
+      } catch { /* le reset local suffit pour re-téléverser */ }
+    }
+  }
+
   function confirmarTramite() {
     if (token && tramiteId) {
       void fetch("/api/portal/iniciar", {
@@ -410,6 +429,11 @@ export function ClientPortal({
                       )}
                       {st === "analyzing" && <span className="shrink-0 text-xs font-medium text-amber-600">{t("s2.analizando")}</span>}
                       {st === "validado" && <span className="shrink-0 text-xs font-semibold text-aproba-700">{t("s2.validado")}</span>}
+                      {(st === "validado" || st === "alerta") && (
+                        <button type="button" onClick={() => quitarDoc(i)} aria-label={t("s2.eliminar")} title={t("s2.eliminar")} className="shrink-0 rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600">
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" /></svg>
+                        </button>
+                      )}
                     </div>
 
                     {docInfo === i && ayuda && (

@@ -20,7 +20,9 @@ export function OnboardingForm() {
   const [nif, setNif] = useState("");
   const [tipo, setTipo] = useState("GESTORIA");
   const [plan, setPlan] = useState<PlanId>("PRO");
-  const [servicios, setServicios] = useState<Servicio[]>(() => DEFAULT_SERVICIOS.map((s) => ({ ...s })));
+  // Au démarrage de la config, les prix sont à 0 € : le gestor pose consciemment ses
+  // propres tarifs (évite la confusion avec des montants par défaut qui ne sont pas les siens).
+  const [servicios, setServicios] = useState<Servicio[]>(() => DEFAULT_SERVICIOS.map((s) => ({ ...s, anticipo: 0, resto: 0, precio: 0 })));
   const [banco, setBanco] = useState<Banco>({ titular: "", iban: "", banco: "" });
   const [clientes, setClientes] = useState<FilaCsv[] | null>(null);
   const [csvNombre, setCsvNombre] = useState("");
