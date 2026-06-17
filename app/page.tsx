@@ -125,7 +125,7 @@ function Tick({ ok }: { ok: boolean }) {
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="min-h-screen overflow-x-clip bg-cream-50">
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-cream-50/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">

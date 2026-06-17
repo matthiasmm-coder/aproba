@@ -4,6 +4,7 @@ import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes
 import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
 import { CuentasBancarias } from "@/components/cuentas-bancarias";
+import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 
@@ -118,6 +119,11 @@ export default async function Ajustes() {
                 <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
               </div>
             </div>
+          </div>
+
+          {/* Instalar como app (PWA) */}
+          <div className="mt-4">
+            <InstallPWA />
           </div>
 
           {/* Cuentas bancarias (réception des paiements) — solo administradores:

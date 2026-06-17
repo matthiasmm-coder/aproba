@@ -570,11 +570,11 @@ export function HowItWorks() {
         </div>
 
         <div className="mt-14 grid items-start gap-10 lg:grid-cols-2">
-          <div className="order-2 lg:order-1">
+          <div className="order-2 min-w-0 lg:order-1">
             <p className="mb-5 text-center text-sm font-semibold uppercase tracking-wide text-slate-400">Lo que ve tu cliente</p>
             <Phone step={step} />
           </div>
-          <div className="order-1 lg:order-2">
+          <div className="order-1 min-w-0 lg:order-2">
             <p className="mb-5 text-center text-sm font-semibold uppercase tracking-wide text-slate-400">Lo que ves tú</p>
             <Dashboard step={step} />
           </div>
