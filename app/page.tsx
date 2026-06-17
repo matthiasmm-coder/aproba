@@ -166,7 +166,7 @@ export default function Landing() {
 
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pb-14 pt-16 lg:grid-cols-2 lg:gap-8">
           {/* Texte */}
-          <div className="text-center lg:text-left">
+          <div className="min-w-0 text-center lg:text-left">
             <span className="inline-flex items-center gap-2 rounded-full bg-aproba-100 px-3 py-1 text-xs font-semibold text-aproba-700">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-aproba-600" /> Para gestorías y abogados de extranjería
             </span>
@@ -189,7 +189,7 @@ export default function Landing() {
           </div>
 
           {/* Animation */}
-          <div className="animate-fadein" style={{ animationDelay: "0.15s", animationFillMode: "both" }}>
+          <div className="min-w-0 animate-fadein" style={{ animationDelay: "0.15s", animationFillMode: "both" }}>
             <HeroAnimation />
           </div>
         </div>
