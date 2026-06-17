@@ -453,7 +453,7 @@ function Dashboard({ step }: { step: number }) {
   const formsListos = step >= 7;
   const docsCount = DOCS.length;
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card">
+    <div className="h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card">
       {/* Barre navigateur */}
       <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -581,7 +581,7 @@ export function HowItWorks() {
         </div>
 
         <div className="mx-auto mt-10 max-w-xl text-center">
-          <p className="min-h-[3rem] text-lg font-medium text-slate-700 transition-all duration-300">{CAPTIONS[step]}</p>
+          <p className="flex min-h-[3.75rem] items-center justify-center text-lg font-medium text-slate-700 transition-all duration-300">{CAPTIONS[step]}</p>
           <div className="mt-4 flex items-center justify-center gap-2">
             {Array.from({ length: STEPS }).map((_, i) => (
               <button

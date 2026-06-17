@@ -28,7 +28,12 @@ export async function POST(req: Request) {
       email: correo,
       options: { redirectTo: `${origin}/auth/reset` },
     });
-    const link = data?.properties?.action_link;
+    // On NE renvoie PAS l'action_link Supabase (flux PKCE → échoue car le navigateur
+    // qui ouvre l'email n'a pas le code_verifier, et les scanners d'email le consomment).
+    // À la place : un lien vers /auth/reset avec le token_hash, vérifié côté client par
+    // verifyOtp (pas de PKCE, résistant au pré-chargement des scanners).
+    const hashed = data?.properties?.hashed_token;
+    const link = hashed ? `${origin}/auth/reset?token_hash=${hashed}&type=recovery` : undefined;
     if (error || !link) {
       // compte inexistant (ou autre) → on ne révèle rien, et on ne logue PAS l'email (PII).
       if (error) console.error("[forgot-password] generateLink", error.message);

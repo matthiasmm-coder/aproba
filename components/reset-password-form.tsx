@@ -19,15 +19,19 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     const sb = createSupabaseBrowser();
-    let resuelto = false;
-    const { data: sub } = sb.auth.onAuthStateChange((_e, session) => {
-      if (session) { resuelto = true; setEstado("listo"); }
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    if (!tokenHash) {
+      // Pas de token dans l'URL : peut-être une session déjà active, sinon lien invalide.
+      sb.auth.getSession().then(({ data }) => setEstado(data.session ? "listo" : "invalido"));
+      return;
+    }
+    // Vérifie l'OTP de récupération (sans PKCE) → établit la session de recovery.
+    sb.auth.verifyOtp({ type: "recovery", token_hash: tokenHash }).then(({ data, error }) => {
+      if (error || !data.session) { setEstado("invalido"); return; }
+      setEstado("listo");
+      window.history.replaceState(null, "", "/auth/reset"); // token à usage unique → on nettoie l'URL
     });
-    sb.auth.getSession().then(({ data }) => {
-      if (data.session) { resuelto = true; setEstado("listo"); }
-      else window.setTimeout(() => { if (!resuelto) setEstado("invalido"); }, 2500);
-    });
-    return () => sub.subscription.unsubscribe();
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
