@@ -5,8 +5,10 @@ import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { FeedbackWidget } from "@/components/feedback-widget";
+import { LangProvider } from "@/components/lang-provider";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
+import { getLang, getT } from "@/lib/app-lang";
 
 // Session + workspace réels (Supabase). Fallback mock le temps de la migration.
 // Renvoie "SIN_WORKSPACE" si l'utilisateur est authentifié mais sans appartenance
@@ -58,8 +60,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     workspace: "Mi despacho",
     plan: "Starter",
   };
+  const lang = await getLang();
+  const t = await getT();
 
   return (
+    <LangProvider lang={lang}>
     <div className="flex min-h-screen bg-cream-50">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-slate-200 bg-white md:flex print:hidden">
@@ -88,7 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{ctx.plan}</span>
           </div>
           <Link href="/app/expedientes/nuevo" className="rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 sm:px-4">
-            <span className="sm:hidden">+ Nuevo</span><span className="hidden sm:inline">+ Nuevo expediente</span>
+            <span className="sm:hidden">{t("+ Nuevo")}</span><span className="hidden sm:inline">{t("+ Nuevo expediente")}</span>
           </Link>
         </header>
         <main className="p-4 pb-24 sm:p-6 md:pb-6 print:p-0">{children}</main>
@@ -100,5 +105,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* Nav mobile (bas) */}
       <MobileNav />
     </div>
+    </LangProvider>
   );
 }

@@ -7,6 +7,8 @@ import { CuentasBancarias } from "@/components/cuentas-bancarias";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
+import { LangSelector } from "@/components/lang-selector";
+import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Ajustes" };
 
@@ -55,22 +57,23 @@ export default async function Ajustes() {
   // La RLS l'impose côté base ; ici on désactive l'UI pour éviter les échecs silencieux.
   const puedeEditar = equipo ? puedeGestionarEquipo(equipo.miRol) : true;
   const miRolLabel = equipo ? ROLES[equipo.miRol]?.label ?? equipo.miRol : "";
+  const t = await getT();
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold tracking-tightest text-slate-900">Ajustes</h1>
-      <p className="mt-1 text-slate-500">Configura tus servicios, los avisos a tus clientes y los datos de tu despacho.</p>
+      <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Ajustes")}</h1>
+      <p className="mt-1 text-slate-500">{t("Configura tus servicios, los avisos a tus clientes y los datos de tu despacho.")}</p>
 
       {!puedeEditar && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
           <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-          <span>Solo los administradores pueden editar los ajustes. Tu rol ({miRolLabel}) tiene acceso de solo lectura.</span>
+          <span>{t("Solo los administradores pueden editar los ajustes. Tu rol ({rol}) tiene acceso de solo lectura.").replace("{rol}", miRolLabel)}</span>
         </div>
       )}
 
       <div className="mt-6 space-y-3">
         <AjustesSection
-          title="Servicios"
-          subtitle="Trámites, pagos y documentos que pide cada uno"
+          title={t("Servicios")}
+          subtitle={t("Trámites, pagos y documentos que pide cada uno")}
           icon={IconServicios}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
@@ -79,8 +82,8 @@ export default async function Ajustes() {
         </AjustesSection>
 
         <AjustesSection
-          title="Notificaciones al cliente"
-          subtitle="Avisos automáticos por WhatsApp o email en cada paso"
+          title={t("Notificaciones al cliente")}
+          subtitle={t("Avisos automáticos por WhatsApp o email en cada paso")}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
@@ -90,8 +93,8 @@ export default async function Ajustes() {
 
         {equipo && (
           <AjustesSection
-            title="Plan y equipo"
-            subtitle={`${despachoPlan} · ${equipo.miembros.length} ${equipo.miembros.length === 1 ? "usuario" : "usuarios"}`}
+            title={t("Plan y equipo")}
+            subtitle={`${despachoPlan} · ${equipo.miembros.length} ${equipo.miembros.length === 1 ? t("usuario") : t("usuarios")}`}
             icon={IconEquipo}
           >
             <EquipoManager inicial={equipo} />
@@ -99,26 +102,31 @@ export default async function Ajustes() {
         )}
 
         <AjustesSection
-          title="Despacho y cuenta"
-          subtitle="Datos de tu gestoría y de tu usuario"
+          title={t("Despacho y cuenta")}
+          subtitle={t("Datos de tu gestoría y de tu usuario")}
           icon={IconCuenta}
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Despacho</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Despacho")}</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="font-medium text-slate-800">{despachoNombre}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Tipo</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Plan</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{despachoNombre}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Tipo")}</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Plan")}</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
               </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Cuenta</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Cuenta")}</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Email")}</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
               </div>
             </div>
+          </div>
+
+          {/* Idioma de la interfaz */}
+          <div className="mt-4">
+            <LangSelector />
           </div>
 
           {/* Instalar como app (PWA) */}
@@ -133,7 +141,7 @@ export default async function Ajustes() {
           ) : (
             <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3 text-sm text-slate-500">
               <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span>Las cuentas bancarias solo son accesibles para los administradores.</span>
+              <span>{t("Las cuentas bancarias solo son accesibles para los administradores.")}</span>
             </div>
           )}
         </AjustesSection>

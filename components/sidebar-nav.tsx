@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/components/lang-provider";
 
 const NAV = [
   { href: "/app", label: "Inicio", icon: "home" },
@@ -27,6 +28,7 @@ function useIsActive() {
 
 export function SidebarNav() {
   const isActive = useIsActive();
+  const t = useT();
   return (
     <nav className="flex-1 space-y-1 px-3 py-2">
       {NAV.map((n) => {
@@ -34,7 +36,7 @@ export function SidebarNav() {
         return (
           <Link key={n.href} href={n.href} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-aproba-50 text-aproba-700" : "text-slate-600 hover:bg-cream-50 hover:text-slate-900"}`}>
             <span className={active ? "text-aproba-600" : "text-slate-400"}><NavIcon name={n.icon} /></span>
-            {n.label}
+            {t(n.label)}
           </Link>
         );
       })}
@@ -44,6 +46,7 @@ export function SidebarNav() {
 
 export function MobileNav() {
   const isActive = useIsActive();
+  const t = useT();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
       {NAV.map((n) => {
@@ -51,7 +54,7 @@ export function MobileNav() {
         return (
           <Link key={n.href} href={n.href} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${active ? "text-aproba-700" : "text-slate-400"}`}>
             <NavIcon name={n.icon} />
-            {n.label}
+            {t(n.label)}
           </Link>
         );
       })}
