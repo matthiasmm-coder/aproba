@@ -230,7 +230,7 @@ export function OnboardingForm() {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-800">{t("Elige tu plan")}</p>
-            <p className="text-xs text-slate-500">{t("14 días gratis. Te pediremos una tarjeta al final, sin cobro hasta el final de la prueba.")}</p>
+            <p className="text-xs text-slate-500">{esPrueba ? t("Prueba gratis de 1 mes, sin tarjeta. Elige el plan que probarás.") : t("14 días gratis. Te pediremos una tarjeta al final, sin cobro hasta el final de la prueba.")}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {PLAN_IDS.map((id) => {
                 const p = PLANES[id]; const activo = plan === id;
