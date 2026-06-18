@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Expediente } from "@/lib/types";
+import { useT } from "@/components/lang-provider";
 import { Tasa790Modal } from "./tasa790-modal";
 
 const IconDescarga = (
@@ -11,6 +12,7 @@ const IconDescarga = (
 );
 
 export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expediente; oficiales?: string[]; todos?: { code: string; label: string }[] }) {
+  const t = useT();
   const router = useRouter();
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
@@ -32,18 +34,18 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
       <div className="mb-6 flex items-center justify-between">
         <Link href={`/app/expedientes/${exp.id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-          Volver al expediente
+          {t("Volver al expediente")}
         </Link>
       </div>
 
       <div className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">Formularios oficiales</h1>
+        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Formularios oficiales")}</h1>
         <p className="text-sm text-slate-500">{exp.clienteNombre} · {exp.tipoLabel}</p>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-800">Modelos del Ministerio, rellenados con los datos del expediente</p>
-        <p className="mt-1 text-xs text-slate-500">Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.</p>
+        <p className="text-sm font-semibold text-slate-800">{t("Modelos del Ministerio, rellenados con los datos del expediente")}</p>
+        <p className="mt-1 text-xs text-slate-500">{t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {mostrados.map((tipo) => (
@@ -53,7 +55,7 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
               className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700"
             >
               {IconDescarga}
-              {tipo} rellenado
+              {tipo} {t("rellenado")}
             </a>
           ))}
 
@@ -64,13 +66,13 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
         {/* Añadir un modelo que no está vinculado automáticamente al trámite */}
         {porAñadir.length > 0 && (
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-slate-400">¿Necesitas otro modelo?</span>
+            <span className="text-xs text-slate-400">{t("¿Necesitas otro modelo?")}</span>
             <select
               value=""
               onChange={(e) => { if (e.target.value) setExtra((x) => [...x, e.target.value]); }}
               className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 outline-none focus:border-aproba-600"
             >
-              <option value="">+ Añadir formulario…</option>
+              <option value="">{t("+ Añadir formulario…")}</option>
               {porAñadir.map((t) => (
                 <option key={t.code} value={t.code}>{t.code} — {t.label}</option>
               ))}
@@ -84,8 +86,8 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
             disabled={marcando || marcado}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60"
           >
-            {marcado ? (<><svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>Marcados como generados</>)
-              : marcando ? "Guardando…" : "Marcar como generados"}
+            {marcado ? (<><svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Marcados como generados")}</>)
+              : marcando ? t("Guardando…") : t("Marcar como generados")}
           </button>
         </div>
       </div>

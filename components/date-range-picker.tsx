@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MESES } from "@/lib/facturas";
+import { useT } from "@/components/lang-provider";
 
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -18,6 +19,7 @@ export function DateRangePicker({
   onChange: (from: Date, to: Date) => void;
   initialMonth: Date;
 }) {
+  const t = useT();
   const [view, setView] = useState(new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1));
   const [start, setStart] = useState<Date | null>(null); // début d'une sélection en cours
 
@@ -54,15 +56,15 @@ export function DateRangePicker({
   return (
     <div className="w-[280px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-card">
       <div className="mb-2 flex items-center justify-between px-1">
-        <button onClick={() => setView(new Date(year, month - 1, 1))} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Mes anterior">
+        <button onClick={() => setView(new Date(year, month - 1, 1))} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={t("Mes anterior")}>
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
         </button>
         <span className="text-sm font-semibold capitalize text-slate-800">{MESES[month]} {year}</span>
-        <button onClick={() => setView(new Date(year, month + 1, 1))} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Mes siguiente">
+        <button onClick={() => setView(new Date(year, month + 1, 1))} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={t("Mes siguiente")}>
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
         </button>
       </div>
-      {start && <p className="mb-1.5 px-1 text-[11px] text-aproba-700">Elige la fecha final…</p>}
+      {start && <p className="mb-1.5 px-1 text-[11px] text-aproba-700">{t("Elige la fecha final…")}</p>}
       <div className="grid grid-cols-7 gap-0.5">
         {DIAS.map((d) => <span key={d} className="py-1 text-center text-[10px] font-semibold text-slate-400">{d}</span>)}
         {cells.map((d, i) => {

@@ -7,12 +7,14 @@ import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyM
 import { DEFAULT_SERVICIOS, newServicio, type Servicio } from "@/lib/servicios";
 import { guardarServicios } from "@/lib/config-browser";
 import { parseClientesCsv, PLANTILLA_CSV, type FilaCsv } from "@/lib/csv-clientes";
+import { useT } from "@/components/lang-provider";
 
 const ibanValido = (iban: string) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban.replace(/\s+/g, "").toUpperCase());
 type Banco = { titular: string; iban: string; banco: string };
 type Invitado = { email: string; nombre: string; role: RolId };
 
 export function OnboardingForm() {
+  const t = useT();
   const router = useRouter();
 
   // ── Datos collectés (tout en mémoire jusqu'à la création finale) ──
@@ -48,8 +50,8 @@ export function OnboardingForm() {
   const anterior = () => ir(PASOS[Math.max(idx - 1, 0)]);
 
   const TITULOS: Record<Paso, string> = {
-    despacho: "Tu despacho", servicios: "Tus servicios", banco: "Cuenta bancaria",
-    clientes: "Importa tus clientes", foto: "Foto de perfil", equipo: "Invita a tu equipo", pago: "Empieza tu prueba",
+    despacho: t("Tu despacho"), servicios: t("Tus servicios"), banco: t("Cuenta bancaria"),
+    clientes: t("Importa tus clientes"), foto: t("Foto de perfil"), equipo: t("Invita a tu equipo"), pago: t("Empieza tu prueba"),
   };
 
   function patchSrv(id: string, p: Partial<Servicio>) {
@@ -64,7 +66,7 @@ export function OnboardingForm() {
     setError(null);
     file.text().then((txt) => {
       try { setClientes(parseClientesCsv(txt)); }
-      catch (err) { setClientes(null); setError(err instanceof Error ? err.message : "CSV no válido."); }
+      catch (err) { setClientes(null); setError(err instanceof Error ? err.message : t("CSV no válido.")); }
     });
   }
 
@@ -99,13 +101,13 @@ export function OnboardingForm() {
 
   // ── Création finale : workspace + toutes les données collectées + checkout ──
   async function finalizar() {
-    if (nombre.trim().length < 2) { ir("despacho"); setError("Indica el nombre de tu despacho."); return; }
+    if (nombre.trim().length < 2) { ir("despacho"); setError(t("Indica el nombre de tu despacho.")); return; }
     setError(null);
     setLoading(true);
     const supabase = createSupabaseBrowser();
 
     const { error: rpcError } = await supabase.rpc("create_workspace", { p_nombre: nombre.trim(), p_tipo: tipo, p_plan: plan });
-    if (rpcError) { setLoading(false); setError(rpcError.message ?? "No se pudo crear el espacio."); return; }
+    if (rpcError) { setLoading(false); setError(rpcError.message ?? t("No se pudo crear el espacio.")); return; }
 
     // NIF (route admin — table Workspace verrouillée côté client).
     if (nif.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim() }) }); } catch { /* */ } }
@@ -159,19 +161,19 @@ export function OnboardingForm() {
     return (
       <div className="space-y-5">
         <div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-900">Equipo invitado ✓</h2>
-          <p className="mt-1 text-sm text-slate-500">Comparte estas credenciales con tu equipo (podrán cambiar su contraseña). También las tienes en Ajustes → Equipo.</p>
+          <h2 className="text-lg font-bold tracking-tight text-slate-900">{t("Equipo invitado")} ✓</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("Comparte estas credenciales con tu equipo (podrán cambiar su contraseña). También las tienes en Ajustes → Equipo.")}</p>
         </div>
         <div className="space-y-2">
           {credenciales.map((c) => (
             <div key={c.email} className="rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700">
-              <p>Email: <strong>{c.email}</strong></p>
-              <p>Contraseña: <strong>{c.password}</strong></p>
+              <p>{t("Email")}: <strong>{c.email}</strong></p>
+              <p>{t("Contraseña")}: <strong>{c.password}</strong></p>
             </div>
           ))}
         </div>
         <button onClick={irAlPago} disabled={loading} className="w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-          {loading ? "Preparando el pago…" : "Continuar — empezar prueba de 14 días"}
+          {loading ? t("Preparando el pago…") : t("Continuar — empezar prueba de 14 días")}
         </button>
       </div>
     );
@@ -185,7 +187,7 @@ export function OnboardingForm() {
       <div className="mb-6">
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span className="font-semibold text-aproba-700">{TITULOS[paso]}</span>
-          <span>Paso {idx + 1} de {PASOS.length}</span>
+          <span>{t("Paso")} {idx + 1} {t("de")} {PASOS.length}</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
           <div className="h-full rounded-full bg-aproba-600 transition-all duration-300" style={{ width: `${((idx + 1) / PASOS.length) * 100}%` }} />
@@ -197,51 +199,51 @@ export function OnboardingForm() {
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="text-sm font-semibold text-slate-800">Nombre de tu despacho</label>
-              <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Gestoría Vallès" className={`mt-2 ${inputCls}`} />
+              <label className="text-sm font-semibold text-slate-800">{t("Nombre de tu despacho")}</label>
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t("Gestoría Vallès")} className={`mt-2 ${inputCls}`} />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-sm font-semibold text-slate-800">NIF / CIF <span className="font-normal text-slate-400">(opcional)</span></label>
+              <label className="text-sm font-semibold text-slate-800">{t("NIF / CIF")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
               <input value={nif} onChange={(e) => setNif(e.target.value)} placeholder="B12345678" className={`mt-2 ${inputCls}`} />
             </div>
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800">Tipo de despacho</p>
+            <p className="text-sm font-semibold text-slate-800">{t("Tipo de despacho")}</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              {TIPOS.map((t) => (
-                <button key={t.id} type="button" onClick={() => setTipo(t.id)} className={`rounded-xl border p-3 text-left transition ${tipo === t.id ? "border-aproba-600 bg-aproba-50 ring-1 ring-aproba-600" : "border-slate-200 hover:border-slate-300"}`}>
-                  <p className="text-sm font-semibold text-slate-800">{t.label}</p>
-                  <p className="mt-0.5 text-xs leading-snug text-slate-500">{t.desc}</p>
+              {TIPOS.map((tp) => (
+                <button key={tp.id} type="button" onClick={() => setTipo(tp.id)} className={`rounded-xl border p-3 text-left transition ${tipo === tp.id ? "border-aproba-600 bg-aproba-50 ring-1 ring-aproba-600" : "border-slate-200 hover:border-slate-300"}`}>
+                  <p className="text-sm font-semibold text-slate-800">{t(tp.label)}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-slate-500">{t(tp.desc)}</p>
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800">Elige tu plan</p>
-            <p className="text-xs text-slate-500">14 días gratis. Te pediremos una tarjeta al final, sin cobro hasta el final de la prueba.</p>
+            <p className="text-sm font-semibold text-slate-800">{t("Elige tu plan")}</p>
+            <p className="text-xs text-slate-500">{t("14 días gratis. Te pediremos una tarjeta al final, sin cobro hasta el final de la prueba.")}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {PLAN_IDS.map((id) => {
                 const p = PLANES[id]; const activo = plan === id;
                 return (
                   <button key={id} type="button" onClick={() => setPlan(id)} className={`relative flex flex-col rounded-2xl border p-4 text-left transition ${activo ? "border-aproba-600 bg-aproba-50/60 ring-1 ring-aproba-600" : "border-slate-200 hover:border-slate-300"}`}>
-                    {id === "PRO" && <span className="absolute -top-2 right-3 rounded-full bg-aproba-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}
-                    <span className="text-sm font-bold text-slate-900">{p.label}</span>
-                    <p className="mt-1"><span className="text-2xl font-extrabold tracking-tight text-slate-900">{p.precio}€</span><span className="text-xs text-slate-500">/mes</span></p>
-                    <p className="mt-1 text-xs text-slate-500">{p.para}</p>
+                    {id === "PRO" && <span className="absolute -top-2 right-3 rounded-full bg-aproba-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{t("Popular")}</span>}
+                    <span className="text-sm font-bold text-slate-900">{t(p.label)}</span>
+                    <p className="mt-1"><span className="text-2xl font-extrabold tracking-tight text-slate-900">{p.precio}€</span><span className="text-xs text-slate-500">{t("/mes")}</span></p>
+                    <p className="mt-1 text-xs text-slate-500">{t(p.para)}</p>
                   </button>
                 );
               })}
             </div>
           </div>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <button type="button" onClick={() => { if (nombre.trim().length < 2) { setError("Indica el nombre de tu despacho."); return; } siguiente(); }} className="block w-full rounded-lg bg-aproba-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-aproba-700">Continuar</button>
+          <button type="button" onClick={() => { if (nombre.trim().length < 2) { setError(t("Indica el nombre de tu despacho.")); return; } siguiente(); }} className="block w-full rounded-lg bg-aproba-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Continuar")}</button>
         </div>
       )}
 
       {/* ── Servicios ── */}
       {paso === "servicios" && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-500">Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Lo puedes cambiar después en Ajustes.</p>
+          <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Lo puedes cambiar después en Ajustes.")}</p>
           <div className="space-y-3">
             {servicios.map((s) => (
               <div key={s.id} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"}`}>
@@ -253,32 +255,32 @@ export function OnboardingForm() {
                 </div>
                 {s.active && (
                   <div className="mt-3 flex flex-wrap gap-4">
-                    <label className="text-xs text-slate-500">Al empezar (€)<input type="number" min={0} value={s.anticipo} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                    <label className="text-xs text-slate-500">Al finalizar (€)<input type="number" min={0} value={s.resto} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
                   </div>
                 )}
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setServicios((l) => [...l, { ...newServicio(), label: "Nuevo servicio" }])} className="text-sm font-semibold text-aproba-700 hover:underline">
-            + Añadir un servicio
+          <button type="button" onClick={() => setServicios((l) => [...l, { ...newServicio(), label: t("Nuevo servicio") }])} className="text-sm font-semibold text-aproba-700 hover:underline">
+            {t("+ Añadir un servicio")}
           </button>
-          <Nav onBack={anterior} onNext={siguiente} onSkip={siguiente} skipLabel="Usar estos por defecto" />
+          <Nav onBack={anterior} onNext={siguiente} onSkip={siguiente} skipLabel={t("Usar estos por defecto")} />
         </div>
       )}
 
       {/* ── Banco ── */}
       {paso === "banco" && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-500">La cuenta donde recibirás los pagos de tus clientes. Puedes añadirla ahora o más tarde en Ajustes.</p>
+          <p className="text-sm text-slate-500">{t("La cuenta donde recibirás los pagos de tus clientes. Puedes añadirla ahora o más tarde en Ajustes.")}</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <input value={banco.titular} onChange={(e) => setBanco((b) => ({ ...b, titular: e.target.value }))} placeholder="Titular (ej. Gestoría Vallès SL)" className={inputCls} />
-            <input value={banco.banco} onChange={(e) => setBanco((b) => ({ ...b, banco: e.target.value }))} placeholder="Banco (opcional)" className={inputCls} />
+            <input value={banco.titular} onChange={(e) => setBanco((b) => ({ ...b, titular: e.target.value }))} placeholder={t("Titular (ej. Gestoría Vallès SL)")} className={inputCls} />
+            <input value={banco.banco} onChange={(e) => setBanco((b) => ({ ...b, banco: e.target.value }))} placeholder={t("Banco (opcional)")} className={inputCls} />
           </div>
-          <input value={banco.iban} onChange={(e) => setBanco((b) => ({ ...b, iban: e.target.value }))} placeholder="IBAN — ES76 2100 0418 4502 0005 1332" className={`${inputCls} font-mono`} />
-          {banco.iban && !ibanValido(banco.iban) && <p className="text-xs text-amber-600">El IBAN no parece válido.</p>}
+          <input value={banco.iban} onChange={(e) => setBanco((b) => ({ ...b, iban: e.target.value }))} placeholder={t("IBAN — ES76 2100 0418 4502 0005 1332")} className={`${inputCls} font-mono`} />
+          {banco.iban && !ibanValido(banco.iban) && <p className="text-xs text-amber-600">{t("El IBAN no parece válido.")}</p>}
           {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Nav onBack={anterior} onNext={() => { if (banco.titular.trim() && !ibanValido(banco.iban)) { setError("Revisa el IBAN o salta este paso."); return; } siguiente(); }} onSkip={() => { setBanco({ titular: "", iban: "", banco: "" }); siguiente(); }} />
+          <Nav onBack={anterior} onNext={() => { if (banco.titular.trim() && !ibanValido(banco.iban)) { setError(t("Revisa el IBAN o salta este paso.")); return; } siguiente(); }} onSkip={() => { setBanco({ titular: "", iban: "", banco: "" }); siguiente(); }} />
         </div>
       )}
 
@@ -286,18 +288,18 @@ export function OnboardingForm() {
       {paso === "clientes" && (
         <div className="space-y-5">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-slate-500">¿Ya tienes clientes? Impórtalos desde un CSV. Columnas: <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, idioma</span>.</p>
-            <button type="button" onClick={descargarPlantilla} className="shrink-0 text-sm font-semibold text-aproba-700 hover:underline">Plantilla</button>
+            <p className="text-sm text-slate-500">{t("¿Ya tienes clientes? Impórtalos desde un CSV. Columnas:")} <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, idioma</span>.</p>
+            <button type="button" onClick={descargarPlantilla} className="shrink-0 text-sm font-semibold text-aproba-700 hover:underline">{t("Plantilla")}</button>
           </div>
           <label className="flex w-full cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-7 text-slate-500 transition hover:border-aproba-400 hover:text-aproba-700">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
-            <span className="text-sm font-medium">{csvNombre || "Elegir un fichero CSV"}</span>
+            <span className="text-sm font-medium">{csvNombre || t("Elegir un fichero CSV")}</span>
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={onCsv} />
           </label>
           {clientes && (
             <p className="rounded-lg bg-aproba-50 px-3 py-2 text-sm text-aproba-700">
-              {clientes.filter((f) => f.estado === "ok").length} clientes nuevos detectados
-              {clientes.filter((f) => f.estado !== "ok").length > 0 && ` · ${clientes.filter((f) => f.estado !== "ok").length} omitidos (duplicados o sin nombre)`}
+              {clientes.filter((f) => f.estado === "ok").length} {t("clientes nuevos detectados")}
+              {clientes.filter((f) => f.estado !== "ok").length > 0 && ` · ${clientes.filter((f) => f.estado !== "ok").length} ${t("omitidos (duplicados o sin nombre)")}`}
             </p>
           )}
           {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -308,13 +310,13 @@ export function OnboardingForm() {
       {/* ── Foto ── */}
       {paso === "foto" && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-500">Una foto de perfil para tu cuenta (opcional).</p>
+          <p className="text-sm text-slate-500">{t("Una foto de perfil para tu cuenta (opcional).")}</p>
           <div className="flex items-center gap-4">
             <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-aproba-100 text-2xl font-bold text-aproba-700">
               {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : (nombre.slice(0, 2).toUpperCase() || "AB")}
             </span>
             <label className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700">
-              {fotoSubiendo ? "Subiendo…" : avatarUrl ? "Cambiar foto" : "Subir una foto"}
+              {fotoSubiendo ? t("Subiendo…") : avatarUrl ? t("Cambiar foto") : t("Subir una foto")}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={subirFoto} />
             </label>
           </div>
@@ -325,20 +327,20 @@ export function OnboardingForm() {
       {/* ── Equipo (Pro/Business) ── */}
       {paso === "equipo" && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-500">Invita a tu equipo. Recibirán acceso a este despacho. Tu plan permite hasta {maxInvitados + 1} usuarios.</p>
+          <p className="text-sm text-slate-500">{t("Invita a tu equipo. Recibirán acceso a este despacho. Tu plan permite hasta")} {maxInvitados + 1} {t("usuarios.")}</p>
           <div className="space-y-2">
             {invitados.map((v, i) => (
               <div key={i} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto]">
                 <input value={v.email} onChange={(e) => setInvitado(i, { email: e.target.value })} placeholder="email@despacho.es" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
-                <input value={v.nombre} onChange={(e) => setInvitado(i, { nombre: e.target.value })} placeholder="Nombre" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
+                <input value={v.nombre} onChange={(e) => setInvitado(i, { nombre: e.target.value })} placeholder={t("Nombre")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
                 <select value={v.role} onChange={(e) => setInvitado(i, { role: e.target.value as RolId })} className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-aproba-600">
-                  {rolesAsignables.map((r) => <option key={r} value={r}>{ROLES[r].label}</option>)}
+                  {rolesAsignables.map((r) => <option key={r} value={r}>{t(ROLES[r].label)}</option>)}
                 </select>
               </div>
             ))}
           </div>
           {invitados.length < maxInvitados && (
-            <button type="button" onClick={addInvitado} className="text-sm font-semibold text-aproba-700 hover:underline">+ Añadir invitación</button>
+            <button type="button" onClick={addInvitado} className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Añadir invitación")}</button>
           )}
           <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setInvitados([]); siguiente(); }} />
         </div>
@@ -348,21 +350,21 @@ export function OnboardingForm() {
       {paso === "pago" && (
         <div className="space-y-5">
           <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5 text-sm">
-            <p className="font-semibold text-slate-800">{nombre || "Tu despacho"} · {PLANES[plan].label}</p>
+            <p className="font-semibold text-slate-800">{nombre || t("Tu despacho")} · {t(PLANES[plan].label)}</p>
             <ul className="mt-2 space-y-1 text-slate-500">
-              <li>✓ {servicios.filter((s) => s.active).length} servicios configurados</li>
-              {banco.titular.trim() && ibanValido(banco.iban) && <li>✓ Cuenta bancaria añadida</li>}
-              {clientes && clientes.filter((f) => f.estado === "ok").length > 0 && <li>✓ {clientes.filter((f) => f.estado === "ok").length} clientes a importar</li>}
-              {avatarUrl && <li>✓ Foto de perfil</li>}
-              {invitados.filter((v) => v.email.trim()).length > 0 && <li>✓ {invitados.filter((v) => v.email.trim()).length} invitaciones de equipo</li>}
+              <li>✓ {servicios.filter((s) => s.active).length} {t("servicios configurados")}</li>
+              {banco.titular.trim() && ibanValido(banco.iban) && <li>✓ {t("Cuenta bancaria añadida")}</li>}
+              {clientes && clientes.filter((f) => f.estado === "ok").length > 0 && <li>✓ {clientes.filter((f) => f.estado === "ok").length} {t("clientes a importar")}</li>}
+              {avatarUrl && <li>✓ {t("Foto de perfil")}</li>}
+              {invitados.filter((v) => v.email.trim()).length > 0 && <li>✓ {invitados.filter((v) => v.email.trim()).length} {t("invitaciones de equipo")}</li>}
             </ul>
           </div>
-          <p className="text-sm text-slate-500">Para empezar tu <strong className="text-slate-700">prueba de 14 días</strong> te pediremos una tarjeta. No se cobra nada hasta el final de la prueba, y puedes cancelar cuando quieras.</p>
+          <p className="text-sm text-slate-500">{t("Para empezar tu")} <strong className="text-slate-700">{t("prueba de 14 días")}</strong> {t("te pediremos una tarjeta. No se cobra nada hasta el final de la prueba, y puedes cancelar cuando quieras.")}</p>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex gap-3">
-            <button type="button" onClick={anterior} disabled={loading} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">Atrás</button>
+            <button type="button" onClick={anterior} disabled={loading} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{t("Atrás")}</button>
             <button type="button" onClick={finalizar} disabled={loading} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-              {loading ? "Preparando tu espacio…" : "Empezar prueba de 14 días"}
+              {loading ? t("Preparando tu espacio…") : t("Empezar prueba de 14 días")}
             </button>
           </div>
         </div>
@@ -372,12 +374,13 @@ export function OnboardingForm() {
 }
 
 // Barre de navigation d'une étape skippable.
-function Nav({ onBack, onNext, onSkip, skipLabel = "Saltar por ahora" }: { onBack: () => void; onNext: () => void; onSkip: () => void; skipLabel?: string }) {
+function Nav({ onBack, onNext, onSkip, skipLabel }: { onBack: () => void; onNext: () => void; onSkip: () => void; skipLabel?: string }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-3 pt-1">
-      <button type="button" onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
-      <button type="button" onClick={onSkip} className="text-sm font-medium text-slate-400 hover:text-slate-600">{skipLabel}</button>
-      <button type="button" onClick={onNext} className="ml-auto rounded-lg bg-aproba-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">Continuar</button>
+      <button type="button" onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Atrás")}</button>
+      <button type="button" onClick={onSkip} className="text-sm font-medium text-slate-400 hover:text-slate-600">{skipLabel ?? t("Saltar por ahora")}</button>
+      <button type="button" onClick={onNext} className="ml-auto rounded-lg bg-aproba-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Continuar")}</button>
     </div>
   );
 }

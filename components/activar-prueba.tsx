@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/lang-provider";
 
 // Bouton qui lance le Stripe Checkout (carte obligatoire, essai 14 j) puis
 // redirige vers la pasarela. Utilisé sur /onboarding/pago.
 export function ActivarPrueba() {
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,9 +21,9 @@ export function ActivarPrueba() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) { window.location.href = data.url; return; }
-      setError(data.error ?? "No se pudo iniciar el pago. Inténtalo de nuevo.");
+      setError(data.error ?? t("No se pudo iniciar el pago. Inténtalo de nuevo."));
     } catch {
-      setError("No se pudo iniciar el pago. Inténtalo de nuevo.");
+      setError(t("No se pudo iniciar el pago. Inténtalo de nuevo."));
     } finally {
       setLoading(false);
     }
@@ -35,7 +37,7 @@ export function ActivarPrueba() {
         disabled={loading}
         className="w-full rounded-lg bg-aproba-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
       >
-        {loading ? "Abriendo el pago seguro…" : "Añadir tarjeta y empezar la prueba"}
+        {loading ? t("Abriendo el pago seguro…") : t("Añadir tarjeta y empezar la prueba")}
       </button>
     </div>
   );

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { newServicio, type Servicio } from "@/lib/servicios";
 import { guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
+import { useT } from "@/components/lang-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
+  const t = useT();
   const [servicios, setServicios] = useState<Servicio[]>(inicial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [nuevoDoc, setNuevoDoc] = useState<Record<string, string>>({});
@@ -53,11 +55,11 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos} activos</span> de {servicios.length}</p>
+        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos} {t("activos")}</span> {t("de")} {servicios.length}</p>
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
-          {saveState === "saving" && "Guardando…"}
-          {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>Guardado</>)}
-          {saveState === "error" && "Error al guardar — reintenta"}
+          {saveState === "saving" && t("Guardando…")}
+          {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Guardado")}</>)}
+          {saveState === "error" && t("Error al guardar — reintenta")}
         </span>
       </div>
 
@@ -68,7 +70,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
             <div className="flex items-center gap-3">
               <input
                 value={s.label}
-                placeholder="Nombre del servicio"
+                placeholder={t("Nombre del servicio")}
                 onChange={(e) => update(s.id, { label: e.target.value })}
                 className="flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
               />
@@ -82,7 +84,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
               </button>
               <button
                 onClick={() => { removed.current.add(s.id); setServicios((list) => list.filter((x) => x.id !== s.id)); }}
-                aria-label="Eliminar servicio"
+                aria-label={t("Eliminar servicio")}
                 className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
@@ -91,17 +93,17 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
 
             <input
               value={s.desc}
-              placeholder="Descripción breve (la verá el cliente)"
+              placeholder={t("Descripción breve (la verá el cliente)")}
               onChange={(e) => update(s.id, { desc: e.target.value })}
               className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
             />
 
             {/* Pago del cliente : anticipo (al firmar) + resto (al finalizar) */}
             <div className="mt-3 border-t border-slate-100 pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pago del cliente</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Pago del cliente")}</p>
               <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
                 <label className="block">
-                  <span className="mb-1 block text-xs text-slate-500">Al firmar</span>
+                  <span className="mb-1 block text-xs text-slate-500">{t("Al firmar")}</span>
                   <div className="relative">
                     <input type="number" min={0} step={10} value={s.anticipo || ""} placeholder="0"
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { anticipo: v, precio: v + s.resto }); }}
@@ -111,7 +113,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 </label>
                 <span className="pb-2.5 text-slate-300">+</span>
                 <label className="block">
-                  <span className="mb-1 block text-xs text-slate-500">Al finalizar</span>
+                  <span className="mb-1 block text-xs text-slate-500">{t("Al finalizar")}</span>
                   <div className="relative">
                     <input type="number" min={0} step={10} value={s.resto || ""} placeholder="0"
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { resto: v, precio: s.anticipo + v }); }}
@@ -120,44 +122,44 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                   </div>
                 </label>
                 <div className="pb-2 text-xs text-slate-400">
-                  Total <span className="font-semibold text-slate-700">{eur(s.anticipo + s.resto)}</span>
-                  <span className="mx-1">·</span> IVA inc. <span className="font-semibold text-slate-600">{eur(totalDe(s.anticipo + s.resto))}</span>
+                  {t("Total")} <span className="font-semibold text-slate-700">{eur(s.anticipo + s.resto)}</span>
+                  <span className="mx-1">·</span> {t("IVA inc.")} <span className="font-semibold text-slate-600">{eur(totalDe(s.anticipo + s.resto))}</span>
                 </div>
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 {s.anticipo > 0 && s.resto > 0
-                  ? "El cliente paga en la plataforma al enviar sus documentos y al finalizar — cada pago genera su factura automáticamente."
+                  ? t("El cliente paga en la plataforma al enviar sus documentos y al finalizar — cada pago genera su factura automáticamente.")
                   : s.anticipo > 0
-                    ? "El cliente paga todo en la plataforma al enviar sus documentos — la factura se genera automáticamente."
+                    ? t("El cliente paga todo en la plataforma al enviar sus documentos — la factura se genera automáticamente.")
                     : s.resto > 0
-                      ? "El cliente paga todo en la plataforma al finalizar el trámite — la factura se genera automáticamente."
-                      : "Sin cobro configurado: no se pedirá pago en la plataforma."}
+                      ? t("El cliente paga todo en la plataforma al finalizar el trámite — la factura se genera automáticamente.")
+                      : t("Sin cobro configurado: no se pedirá pago en la plataforma.")}
               </p>
             </div>
 
             {/* Documentos requeridos */}
             <div className="mt-3 border-t border-slate-100 pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Documentos requeridos</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Documentos requeridos")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {s.docs.map((d, i) => (
                   <span key={i} className="flex items-center gap-1 rounded-md border border-slate-200 bg-white py-1 pl-2.5 pr-1 text-xs text-slate-600">
-                    {d}
-                    <button onClick={() => removeDoc(s.id, i)} aria-label={`Quitar ${d}`} className="rounded p-0.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                    {t(d)}
+                    <button onClick={() => removeDoc(s.id, i)} aria-label={`${t("Quitar")} ${d}`} className="rounded p-0.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                     </button>
                   </span>
                 ))}
-                {s.docs.length === 0 && <span className="text-xs text-slate-400">Sin documentos.</span>}
+                {s.docs.length === 0 && <span className="text-xs text-slate-400">{t("Sin documentos.")}</span>}
               </div>
               <div className="mt-2 flex gap-2">
                 <input
                   value={nuevoDoc[s.id] ?? ""}
                   onChange={(e) => setNuevoDoc((m) => ({ ...m, [s.id]: e.target.value }))}
                   onKeyDown={(e) => { if (e.key === "Enter") addDoc(s.id); }}
-                  placeholder="Añadir documento…"
+                  placeholder={t("Añadir documento…")}
                   className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
                 />
-                <button onClick={() => addDoc(s.id)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400">Añadir</button>
+                <button onClick={() => addDoc(s.id)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400">{t("Añadir")}</button>
               </div>
             </div>
           </div>
@@ -169,7 +171,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
         className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-aproba-400 hover:text-aproba-700"
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-        Nuevo servicio
+        {t("Nuevo servicio")}
       </button>
     </div>
   );

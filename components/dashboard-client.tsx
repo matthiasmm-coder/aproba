@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BOARD_COLUMNS, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
+import { useT } from "@/components/lang-provider";
 
 export type DashItem = {
   id: string;
@@ -23,12 +24,13 @@ const dayVal = (f?: string) => {
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
 function AccionRow({ e }: { e: DashItem }) {
+  const t = useT();
   const dv = dayVal(e.fechaLimite);
   const vencido = dv < TODAY;
   const pronto = dv >= TODAY && dv <= TODAY + 7;
   const accion = e.estado === "FORM_GENERADO"
-    ? { label: "Presentar en sede", cls: "bg-blue-100 text-blue-700" }
-    : { label: "Generar formularios", cls: "bg-aproba-100 text-aproba-700" };
+    ? { label: t("Presentar en sede"), cls: "bg-blue-100 text-blue-700" }
+    : { label: t("Generar formularios"), cls: "bg-aproba-100 text-aproba-700" };
   return (
     <Link href={`/app/expedientes/${e.id}`} className="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5 transition last:border-0 hover:bg-cream-50">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{initials(e.clienteNombre)}</span>
@@ -37,7 +39,7 @@ function AccionRow({ e }: { e: DashItem }) {
         <p className="truncate text-xs text-slate-400">{e.tipoLabel}</p>
       </div>
       <span className={`hidden shrink-0 rounded-md px-2 py-1 text-xs font-semibold sm:inline ${accion.cls}`}>{accion.label}</span>
-      {e.fechaLimite && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${vencido ? "bg-red-100 text-red-700" : pronto ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{vencido ? "Vencido" : e.fechaLimite}</span>}
+      {e.fechaLimite && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${vencido ? "bg-red-100 text-red-700" : pronto ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{vencido ? t("Vencido") : e.fechaLimite}</span>}
       <span className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-semibold text-aproba-700 md:flex">{initials(e.asignadoA)}</span>
     </Link>
   );
@@ -52,6 +54,7 @@ function Icon({ name }: { name: string }) {
 }
 
 export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario?: string }) {
+  const t = useT();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   useEffect(() => { setArchivados(loadArchivados()); }, []);
 
@@ -72,19 +75,19 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
   const maxCarga = Math.max(1, ...carga.map(([, n]) => n));
 
   const KPIS = [
-    { n: accion.length, label: "Requieren tu acción", tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
-    { n: vencenSemana.length, label: "Vencen esta semana", sub: vencidos ? `${vencidos} vencidos` : undefined, tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
-    { n: activos.length, label: "Expedientes activos", sub: `${esperandoCliente} esperando cliente`, tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
-    { n: resueltos, label: "Resueltos", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "check", emph: false },
+    { n: accion.length, label: t("Requieren tu acción"), tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
+    { n: vencenSemana.length, label: t("Vencen esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
+    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")}`, tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
+    { n: resueltos, label: t("Resueltos"), tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "check", emph: false },
   ];
 
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">Hola{usuario ? `, ${usuario.split(" ")[0]}` : ""}</h1>
+        <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Hola")}{usuario ? `, ${usuario.split(" ")[0]}` : ""}</h1>
         <p className="text-sm text-slate-500">
-          <span className="font-semibold text-aproba-700">{accion.length} expedientes</span> requieren tu acción
-          {vencidos > 0 && <> · <span className="font-semibold text-red-600">{vencidos} vencidos</span></>}.
+          <span className="font-semibold text-aproba-700">{accion.length} {t("expedientes")}</span> {t("requieren tu acción")}
+          {vencidos > 0 && <> · <span className="font-semibold text-red-600">{vencidos} {t("vencidos")}</span></>}.
         </p>
       </div>
 
@@ -101,23 +104,23 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">Requieren tu acción</h2>
-          <Link href="/app/expedientes" className="text-sm font-semibold text-aproba-700 hover:underline">Ver tablero →</Link>
+          <h2 className="font-semibold text-slate-900">{t("Requieren tu acción")}</h2>
+          <Link href="/app/expedientes" className="text-sm font-semibold text-aproba-700 hover:underline">{t("Ver tablero")} →</Link>
         </div>
         <div>{accion.slice(0, 8).map((e) => <AccionRow key={e.id} e={e} />)}</div>
-        {accion.length > 8 && <Link href="/app/expedientes" className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-800">Ver los {accion.length} expedientes →</Link>}
-        {accion.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Nada pendiente. ¡Buen trabajo!</p>}
+        {accion.length > 8 && <Link href="/app/expedientes" className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-800">{t("Ver los")} {accion.length} {t("expedientes")} →</Link>}
+        {accion.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("Nada pendiente. ¡Buen trabajo!")}</p>}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Por estado</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Por estado")}</h2>
           <div className="space-y-2.5">
             {porEstado.map(({ estado, count }) => {
               const meta = ESTADO_META[estado];
               return (
                 <div key={estado} className="flex items-center gap-3">
-                  <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600"><span className={`h-2 w-2 rounded-full ${meta.dot}`} />{meta.label}</span>
+                  <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600"><span className={`h-2 w-2 rounded-full ${meta.dot}`} />{t(meta.label)}</span>
                   <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${meta.dot}`} style={{ width: `${(count / maxEstado) * 100}%` }} /></div>
                   <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{count}</span>
                 </div>
@@ -127,7 +130,7 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Carga del equipo · activos</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Carga del equipo · activos")}</h2>
           <div className="space-y-2.5">
             {carga.map(([nombre, n]) => (
               <div key={nombre} className="flex items-center gap-3">
@@ -142,9 +145,9 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link href="/app/expedientes/nuevo" className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">+ Nuevo expediente</Link>
-        <Link href="/app/expedientes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Ver tablero</Link>
-        <Link href="/app/ajustes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Configurar servicios</Link>
+        <Link href="/app/expedientes/nuevo" className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">+ {t("Nuevo expediente")}</Link>
+        <Link href="/app/expedientes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver tablero")}</Link>
+        <Link href="/app/ajustes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Configurar servicios")}</Link>
       </div>
     </div>
   );

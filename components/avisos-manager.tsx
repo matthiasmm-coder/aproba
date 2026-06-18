@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { rellenar, type Aviso, type Canal } from "@/lib/avisos";
 import { guardarAvisos } from "@/lib/config-browser";
+import { useT } from "@/components/lang-provider";
 
 function CanalIcon({ canal, className = "" }: { canal: Canal; className?: string }) {
   if (canal === "whatsapp")
@@ -13,6 +14,7 @@ function CanalIcon({ canal, className = "" }: { canal: Canal; className?: string
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: Aviso[]; envioEmailActivo?: boolean }) {
+  const t = useT();
   const [avisos, setAvisos] = useState<Aviso[]>(inicial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const mounted = useRef(false);
@@ -48,17 +50,17 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
         </svg>
         <span>
           {envioEmailActivo
-            ? <><span className="font-semibold">Envíos por email activos.</span> Los avisos con canal Email se envían de verdad a tus clientes.</>
-            : <><span className="font-semibold">Modo simulación.</span> Los avisos se registran en el historial del expediente pero no se envían todavía (falta configurar el envío por email). WhatsApp automático llegará más adelante.</>}
+            ? <><span className="font-semibold">{t("Envíos por email activos.")}</span> {t("Los avisos con canal Email se envían de verdad a tus clientes.")}</>
+            : <><span className="font-semibold">{t("Modo simulación.")}</span> {t("Los avisos se registran en el historial del expediente pero no se envían todavía (falta configurar el envío por email). WhatsApp automático llegará más adelante.")}</>}
         </span>
       </div>
 
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos.length} activos</span> de {avisos.length}</p>
+        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos.length} {t("activos")}</span> {t("de")} {avisos.length}</p>
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
-          {saveState === "saving" && "Guardando…"}
-          {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>Guardado</>)}
-          {saveState === "error" && "Error al guardar — reintenta"}
+          {saveState === "saving" && t("Guardando…")}
+          {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Guardado")}</>)}
+          {saveState === "error" && t("Error al guardar — reintenta")}
         </span>
       </div>
 
@@ -68,13 +70,13 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
           {avisos.map((a) => (
             <div key={a.id} className={`rounded-xl border bg-white p-4 transition-colors ${a.activo ? "border-slate-200" : "border-slate-200 bg-slate-50/60"}`}>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-slate-900">{a.evento}</span>
+                <span className="text-sm font-semibold text-slate-900">{t(a.evento)}</span>
                 <div className="flex items-center gap-2">
                   {/* canal */}
                   <div className="inline-flex overflow-hidden rounded-md border border-slate-200">
                     {(["whatsapp", "email"] as Canal[]).map((c) => (
                       <button key={c} onClick={() => update(a.id, { canal: c })} className={`flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition ${a.canal === c ? "bg-aproba-50 text-aproba-700" : "text-slate-400 hover:text-slate-600"}`}>
-                        <CanalIcon canal={c} className="h-3 w-3" />{c === "whatsapp" ? "WhatsApp" : "Email"}
+                        <CanalIcon canal={c} className="h-3 w-3" />{c === "whatsapp" ? t("WhatsApp") : t("Email")}
                       </button>
                     ))}
                   </div>
@@ -92,12 +94,12 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
               />
             </div>
           ))}
-          <p className="text-xs text-slate-400">Placeholders disponibles: <span className="font-mono">{"{nombre}"}</span> <span className="font-mono">{"{documento}"}</span> <span className="font-mono">{"{fecha}"}</span> — se rellenan solos.</p>
+          <p className="text-xs text-slate-400">{t("Placeholders disponibles:")} <span className="font-mono">{"{nombre}"}</span> <span className="font-mono">{"{documento}"}</span> <span className="font-mono">{"{fecha}"}</span> {t("— se rellenan solos.")}</p>
         </div>
 
         {/* Aperçu téléphone */}
         <div className="lg:col-span-2">
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Lo que recibe tu cliente</p>
+          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Lo que recibe tu cliente")}</p>
           <div className="mx-auto w-[230px]">
             <div className="relative overflow-hidden rounded-[2rem] border-[6px] border-slate-900 bg-white shadow-xl">
               <div className="flex h-5 items-center justify-center bg-white"><div className="h-3 w-14 rounded-full bg-slate-900" /></div>
@@ -106,7 +108,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
                 <span className="text-[12px] font-medium">Gestoría Vallès</span>
               </div>
               <div className="space-y-2 bg-[#ECE5DD] p-3" style={{ minHeight: 330 }}>
-                {activos.length === 0 && <p className="mt-10 text-center text-[11px] text-slate-400">Sin avisos activos</p>}
+                {activos.length === 0 && <p className="mt-10 text-center text-[11px] text-slate-400">{t("Sin avisos activos")}</p>}
                 {activos.map((a) => (
                   <div key={a.id} className="max-w-[88%] rounded-lg rounded-tl-none bg-white p-2 text-[11px] leading-snug text-slate-700 shadow-sm">
                     {rellenar(a.template)}

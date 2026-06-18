@@ -2,10 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/components/lang-provider";
 
 // Avatar cliquable : ouvre le sélecteur de fichier, uploade vers /api/perfil/avatar,
 // puis rafraîchit le layout (la photo remplace les initiales).
 export function AvatarUploader({ iniciales, avatarUrl }: { iniciales: string; avatarUrl?: string | null }) {
+  const t = useT();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -36,8 +38,8 @@ export function AvatarUploader({ iniciales, avatarUrl }: { iniciales: string; av
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        title={error ? "Error al subir — reintenta" : "Cambiar foto de perfil"}
-        aria-label="Cambiar foto de perfil"
+        title={error ? t("Error al subir — reintenta") : t("Cambiar foto de perfil")}
+        aria-label={t("Cambiar foto de perfil")}
         className={`group relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-aproba-300 ${error ? "ring-2 ring-red-300" : ""}`}
       >
         {avatarUrl ? (

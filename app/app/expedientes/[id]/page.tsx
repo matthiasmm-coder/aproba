@@ -6,6 +6,7 @@ import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { CobrosPanel } from "@/components/cobros-panel";
+import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
 
@@ -22,7 +23,7 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
-function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: string }) {
+function DocumentoRow({ d, expedienteId, t }: { d: Documento; expedienteId: string; t: (s: string) => string }) {
   const meta = DOC_ESTADO_META[d.estado];
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -38,21 +39,21 @@ function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: string 
             <a
               href={`/api/expedientes/${expedienteId}/documentos/${d.id}`}
               download
-              title={d.nombreArchivo ? `Descargar ${d.nombreArchivo}` : "Descargar el documento del cliente"}
+              title={d.nombreArchivo ? `${t("Descargar")} ${d.nombreArchivo}` : t("Descargar el documento del cliente")}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-aproba-300 hover:bg-aproba-50 hover:text-aproba-700"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-              Descargar
+              {t("Descargar")}
             </a>
           )}
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.pill}`}>{meta.label}</span>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
         </div>
       </div>
 
       {d.extraction && (
         <div className="mt-4 rounded-lg bg-cream-50 p-4">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Datos extraídos por IA</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Datos extraídos por IA")}</span>
             <ConfidenceBar value={d.extraction.confianzaGlobal} />
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
@@ -73,10 +74,10 @@ function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: string 
       )}
 
       {d.estado === "PROCESANDO" && (
-        <p className="mt-3 text-sm text-amber-600">⏳ Extrayendo datos con IA…</p>
+        <p className="mt-3 text-sm text-amber-600">⏳ {t("Extrayendo datos con IA…")}</p>
       )}
       {d.estado === "PENDIENTE" && (
-        <p className="mt-3 text-sm text-slate-400">Esperando que el cliente lo suba.</p>
+        <p className="mt-3 text-sm text-slate-400">{t("Esperando que el cliente lo suba.")}</p>
       )}
     </div>
   );
@@ -88,6 +89,7 @@ export default async function ExpedienteDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await getT();
   const e = await fetchExpedienteDetalle(id);
   if (!e) notFound();
 
@@ -101,7 +103,7 @@ export default async function ExpedienteDetail({
     <div className="mx-auto max-w-5xl">
       <Link href="/app/expedientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        Expedientes
+        {t("Expedientes")}
       </Link>
 
       {/* En-tête */}
@@ -113,14 +115,14 @@ export default async function ExpedienteDetail({
             <p className="text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{meta.label}</span>
+            <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
             <ArchivarButton id={e.id} />
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-slate-100 pt-4 text-sm">
-          <div><span className="text-slate-400">Asignado a </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
-          <div><span className="text-slate-400">Creado </span><span className="font-medium text-slate-700">{e.creado}</span></div>
-          {e.fechaLimite && <div><span className="text-slate-400">Fecha límite </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
+          <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
+          <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
+          {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
         </div>
       </div>
 
@@ -128,14 +130,14 @@ export default async function ExpedienteDetail({
         {/* Documentos */}
         <div className="lg:col-span-2">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Documentos ({e.documentos.length})
+            {t("Documentos")} ({e.documentos.length})
           </h2>
           <div className="space-y-3">
             {e.documentos.length > 0 ? (
-              e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)
+              e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} t={t} />)
             ) : (
               <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400">
-                Sin documentos en este expediente.
+                {t("Sin documentos en este expediente.")}
               </div>
             )}
           </div>
@@ -143,9 +145,9 @@ export default async function ExpedienteDetail({
           {/* Formularios */}
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Formularios</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Formularios")}</h2>
               <Link href={`/app/expedientes/${e.id}/formularios`} className="text-sm font-semibold text-aproba-700 hover:underline">
-                {e.formularios.length > 0 ? "Ver / imprimir →" : "Generar →"}
+                {e.formularios.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
               </Link>
             </div>
             {e.formularios.length > 0 ? (
@@ -161,7 +163,7 @@ export default async function ExpedienteDetail({
             ) : (
               <Link href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
                 <svg className="h-5 w-5 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
-                Generar EX + 790-012 desde los datos validados
+                {t("Generar EX + 790-012 desde los datos validados")}
               </Link>
             )}
           </div>
@@ -175,7 +177,7 @@ export default async function ExpedienteDetail({
             resto={servicio?.resto ?? 0}
             facturas={e.facturasPago}
           />
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Historial</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Historial")}</h2>
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <ol className="space-y-4">
               {e.eventos.map((ev, i) => (

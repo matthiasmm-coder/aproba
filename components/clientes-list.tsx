@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useT } from "@/components/lang-provider";
 
 export type Cli = { id: string; nombre: string; nacionalidad: string; expedientes: number; ultimo: string };
 
@@ -9,6 +10,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
 export function ClientesList({ lista }: { lista: Cli[] }) {
+  const t = useT();
   const [q, setQ] = useState("");
 
   const filtrados = useMemo(() => {
@@ -25,11 +27,11 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nombre o nacionalidad…"
+          placeholder={t("Buscar por nombre o nacionalidad…")}
           className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-9 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
         />
         {q && (
-          <button onClick={() => setQ("")} aria-label="Borrar" className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600">
+          <button onClick={() => setQ("")} aria-label={t("Borrar")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         )}
@@ -37,10 +39,10 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="hidden border-b border-slate-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:flex">
-          <span className="flex-1">Cliente</span>
-          <span className="w-32">Nacionalidad</span>
-          <span className="w-40">Último trámite</span>
-          <span className="w-20 text-right">Exp.</span>
+          <span className="flex-1">{t("Cliente")}</span>
+          <span className="w-32">{t("Nacionalidad")}</span>
+          <span className="w-40">{t("Último trámite")}</span>
+          <span className="w-20 text-right">{t("Exp.")}</span>
         </div>
         {filtrados.map((c) => (
           <Link key={c.id} href={`/app/clientes/${c.id}`} className="flex items-center border-b border-slate-50 px-5 py-3 transition last:border-0 hover:bg-cream-50">
@@ -49,12 +51,12 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
               <span className="font-medium text-slate-800">{c.nombre}</span>
             </span>
             <span className="hidden w-32 text-sm text-slate-500 sm:block">{c.nacionalidad}</span>
-            <span className="hidden w-40 truncate text-sm text-slate-500 sm:block">{c.ultimo}</span>
+            <span className="hidden w-40 truncate text-sm text-slate-500 sm:block">{t(c.ultimo)}</span>
             <span className="w-20 text-right"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{c.expedientes}</span></span>
           </Link>
         ))}
         {filtrados.length === 0 && (
-          <p className="px-5 py-10 text-center text-sm text-slate-400">Sin resultados para «{q}».</p>
+          <p className="px-5 py-10 text-center text-sm text-slate-400">{t("Sin resultados para")} «{q}».</p>
         )}
       </div>
     </div>
