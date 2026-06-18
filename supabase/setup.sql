@@ -643,3 +643,10 @@ create table if not exists public."Feedback" (
 );
 alter table public."Feedback" enable row level security;
 -- (aucune policy : le client ne peut ni lire ni écrire ; le service_role bypasse le RLS)
+
+-- ── Essai testeur 1 mois sans carte (2026-06-18) ─────────────────────────────
+-- modoPrueba = true : essai gratuit de 30 jours SANS carte (bouton « Prueba 1 mes » de
+-- la landing). La garde du layout /app laisse passer tant que trialEndsAt n'est pas
+-- dépassé, puis bloque (PRUEBA_EXPIRADA) et propose de s'abonner. Un essai NORMAL
+-- (modoPrueba=false) exige toujours une carte d'emblée (SIN_TARJETA).
+alter table public."Subscription" add column if not exists "modoPrueba" boolean not null default false;

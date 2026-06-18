@@ -19,22 +19,33 @@ async function getContexto() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const nombre = (user.user_metadata?.nombre as string) || user.email || "Usuario";
-    const [{ data: mem }, { data: perfil }] = await Promise.all([
-      supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId))").limit(1).maybeSingle(),
-      supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle(),
-    ]);
+    const perfilP = supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle();
+    // Défensif : si la colonne modoPrueba n'existe pas encore (migration pas appliquée),
+    // on réessaie sans elle → l'app ne casse jamais (le testeur degrade en essai normal).
+    let memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt, modoPrueba))").limit(1).maybeSingle();
+    if (memRes.error) {
+      memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt))").limit(1).maybeSingle();
+    }
+    const mem = memRes.data;
+    const { data: perfil } = await perfilP;
     if (!mem) return "SIN_WORKSPACE" as const;
-    type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null };
+    type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null; trialEndsAt?: string | null; modoPrueba?: boolean | null };
     const ws = (mem as { Workspace?: { nombre?: string; Subscription?: SubInfo | SubInfo[] } } | null)?.Workspace;
     // PostgREST renvoie la relation 1-1 Subscription comme tableau (créée via index unique).
     const subRaw = ws?.Subscription;
     const sub = Array.isArray(subRaw) ? subRaw[0] : subRaw;
     const plan = sub?.plan;
-    // Garde « carte obligatoire » : un despacho en essai qui n'a jamais lancé le
-    // checkout (pas de customer Stripe) doit poser une carte avant d'entrer.
-    // La démo (estado ACTIVA) est exemptée ; si Stripe n'est pas configuré, on n'impose rien.
+    // Garde essai / carte. Un despacho en essai sans customer Stripe :
+    //  - essai TESTEUR (modoPrueba) : on laisse passer 30 j gratuits ; à l'expiration → blocage (s'abonner).
+    //  - essai NORMAL : carte obligatoire d'emblée (SIN_TARJETA).
+    // La démo (estado ACTIVA) est exemptée ; sans Stripe configuré, on n'impose rien.
     if (stripeDisponible() && sub?.estado === "TRIAL" && !sub?.stripeCustomerId) {
-      return "SIN_TARJETA" as const;
+      const expirado = sub?.trialEndsAt ? Date.parse(sub.trialEndsAt) <= Date.now() : false;
+      if (sub?.modoPrueba) {
+        if (expirado) return "PRUEBA_EXPIRADA" as const;
+      } else {
+        return "SIN_TARJETA" as const;
+      }
     }
     return {
       usuario: nombre,
@@ -52,6 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctxOrSentinel = await getContexto();
   if (ctxOrSentinel === "SIN_WORKSPACE") redirect("/onboarding");
   if (ctxOrSentinel === "SIN_TARJETA") redirect("/onboarding/pago");
+  if (ctxOrSentinel === "PRUEBA_EXPIRADA") redirect("/onboarding/pago?prueba=expirada");
   // Repli neutre (jamais la démo) si le contexte échoue à charger.
   const ctx = ctxOrSentinel ?? {
     usuario: "Mi cuenta",

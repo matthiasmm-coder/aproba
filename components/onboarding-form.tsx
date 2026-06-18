@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
@@ -35,6 +35,9 @@ export function OnboardingForm() {
   const [loading, setLoading] = useState(false);
   const [fotoSubiendo, setFotoSubiendo] = useState(false);
   const [credenciales, setCredenciales] = useState<{ email: string; password: string }[] | null>(null);
+  // Essai TESTEUR (bouton violet de la landing) : 30 jours, sans carte (cookie aproba.modo=prueba).
+  const [esPrueba, setEsPrueba] = useState(false);
+  useEffect(() => { setEsPrueba(typeof document !== "undefined" && document.cookie.includes("aproba.modo=prueba")); }, []);
 
   const conEquipo = plan !== "STARTER";
   const maxInvitados = plyMax(plan) - 1; // hors propriétaire
@@ -149,6 +152,13 @@ export function OnboardingForm() {
 
   async function irAlPago() {
     setLoading(true);
+    // Essai TESTEUR : aucune carte → on active 30 jours gratuits et on entre dans l'app.
+    if (esPrueba) {
+      try { await fetch("/api/onboarding/prueba", { method: "POST" }); } catch { /* */ }
+      document.cookie = "aproba.modo=; path=/; max-age=0";
+      router.push("/app"); router.refresh();
+      return;
+    }
     try {
       const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ volverA: "/app" }) });
       if (res.ok) { const { url } = await res.json(); if (url) { window.location.href = url; return; } }
@@ -172,8 +182,8 @@ export function OnboardingForm() {
             </div>
           ))}
         </div>
-        <button onClick={irAlPago} disabled={loading} className="w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-          {loading ? t("Preparando el pago…") : t("Continuar — empezar prueba de 14 días")}
+        <button onClick={irAlPago} disabled={loading} className={`w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:bg-slate-300 ${esPrueba ? "bg-purple-600 hover:bg-purple-700" : "bg-aproba-600 hover:bg-aproba-700"}`}>
+          {loading ? t("Preparando…") : esPrueba ? t("Continuar — empezar mi mes gratis") : t("Continuar — empezar prueba de 14 días")}
         </button>
       </div>
     );
@@ -359,12 +369,16 @@ export function OnboardingForm() {
               {invitados.filter((v) => v.email.trim()).length > 0 && <li>✓ {invitados.filter((v) => v.email.trim()).length} {t("invitaciones de equipo")}</li>}
             </ul>
           </div>
-          <p className="text-sm text-slate-500">{t("Para empezar tu")} <strong className="text-slate-700">{t("prueba de 14 días")}</strong> {t("te pediremos una tarjeta. No se cobra nada hasta el final de la prueba, y puedes cancelar cuando quieras.")}</p>
+          {esPrueba ? (
+            <p className="text-sm text-slate-500"><strong className="text-slate-700">{t("Prueba gratis de 1 mes, sin tarjeta.")}</strong> {t("Al terminar el mes, podrás suscribirte para seguir usando Aproba.")}</p>
+          ) : (
+            <p className="text-sm text-slate-500">{t("Para empezar tu")} <strong className="text-slate-700">{t("prueba de 14 días")}</strong> {t("te pediremos una tarjeta. No se cobra nada hasta el final de la prueba, y puedes cancelar cuando quieras.")}</p>
+          )}
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <div className="flex gap-3">
             <button type="button" onClick={anterior} disabled={loading} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{t("Atrás")}</button>
-            <button type="button" onClick={finalizar} disabled={loading} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-              {loading ? t("Preparando tu espacio…") : t("Empezar prueba de 14 días")}
+            <button type="button" onClick={finalizar} disabled={loading} className={`flex-1 rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:bg-slate-300 ${esPrueba ? "bg-purple-600 hover:bg-purple-700" : "bg-aproba-600 hover:bg-aproba-700"}`}>
+              {loading ? t("Preparando tu espacio…") : esPrueba ? t("Empezar mi mes gratis") : t("Empezar prueba de 14 días")}
             </button>
           </div>
         </div>
