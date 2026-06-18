@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
@@ -11,6 +11,9 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Arrivée via le bouton violet « Prueba 1 mes » (cookie posé par /prueba).
+  const [esPrueba, setEsPrueba] = useState(false);
+  useEffect(() => { setEsPrueba(typeof document !== "undefined" && document.cookie.includes("aproba.modo=prueba")); }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,7 +98,7 @@ export function SignupForm() {
       >
         {loading ? "Creando tu cuenta…" : "Crear cuenta gratis"}
       </button>
-      <p className="text-center text-xs text-slate-400">14 días de prueba · sin tarjeta</p>
+      <p className="text-center text-xs text-slate-400">{esPrueba ? "1 mes de prueba · sin tarjeta" : "14 días de prueba · sin tarjeta"}</p>
     </form>
   );
 }
