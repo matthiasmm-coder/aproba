@@ -547,7 +547,7 @@ begin
   values (gen_random_uuid()::text, v_uid, v_ws, 'OWNER', now());
 
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
-  values (gen_random_uuid()::text, v_ws, 'STARTER', 'TRIAL', now() + interval '14 days', now());
+  values (gen_random_uuid()::text, v_ws, 'STARTER', 'TRIAL', now() + interval '15 days', now());
 
   return v_ws;
 end;
@@ -596,7 +596,7 @@ begin
   insert into public."Membership" (id, "userId", "workspaceId", role, "createdAt")
     values (gen_random_uuid()::text, v_uid, v_ws, 'OWNER', now());
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
-    values (gen_random_uuid()::text, v_ws, coalesce(nullif(p_plan,''),'STARTER')::"Plan", 'TRIAL', now() + interval '14 days', now());
+    values (gen_random_uuid()::text, v_ws, coalesce(nullif(p_plan,''),'STARTER')::"Plan", 'TRIAL', now() + interval '15 days', now());
   return v_ws;
 end; $$;
 grant execute on function public.create_workspace(text, text, text) to authenticated;

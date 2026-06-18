@@ -98,7 +98,7 @@ export function SignupForm() {
       >
         {loading ? "Creando tu cuenta…" : "Crear cuenta gratis"}
       </button>
-      <p className="text-center text-xs text-slate-400">{esPrueba ? "1 mes de prueba · sin tarjeta" : "14 días de prueba · sin tarjeta"}</p>
+      <p className="text-center text-xs text-slate-400">{esPrueba ? "1 mes de prueba · sin tarjeta" : "15 días de prueba · sin tarjeta"}</p>
     </form>
   );
 }
