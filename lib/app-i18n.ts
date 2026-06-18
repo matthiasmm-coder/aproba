@@ -198,6 +198,7 @@ export const CA: Record<string, string> = {
   "Importar": "Importar",
   "cliente": "client",
   "Descargar": "Descarregar",
+  "Genera un formulario oficial autorrellenado con los datos de este cliente.": "Genera un formulari oficial autoemplenat amb les dades d'aquest client.",
   "Descargar el documento del cliente": "Descarregar el document del client",
   "Datos extraídos por IA": "Dades extretes per IA",
   "Extrayendo datos con IA…": "Extraient dades amb IA…",

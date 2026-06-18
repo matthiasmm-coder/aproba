@@ -1,4 +1,5 @@
 import type { Expediente } from "./types";
+import type { ClienteFicha } from "./ficha";
 
 // Génère les formulaires officiels remplis à partir des données d'un expediente.
 // v1 : EX-10 (arraigo / circunstancias excepcionales) + tasa 790-012.
@@ -190,4 +191,18 @@ export function datosNormalizados(exp: Expediente): DatosForm {
     telefono: limpio(fi.telefono ?? "") || limpio(exp.clienteTelefono ?? ""),
     email: limpio(fi.email ?? "") || limpio(exp.clienteEmail ?? ""),
   };
+}
+
+// Variante CLIENT (sans expediente) : remplit un formulaire officiel depuis la SEULE
+// ficha du cliente — indépendamment d'un service/expediente. Réutilise toute la
+// normalisation via un expediente factice sans documents.
+export function datosDeCliente(ficha: ClienteFicha, nombreCompleto: string, telefono?: string | null, email?: string | null): DatosForm {
+  const fakeExp = {
+    clienteFicha: ficha,
+    clienteNombre: nombreCompleto,
+    clienteTelefono: telefono ?? "",
+    clienteEmail: email ?? "",
+    documentos: [],
+  } as unknown as Expediente;
+  return datosNormalizados(fakeExp);
 }

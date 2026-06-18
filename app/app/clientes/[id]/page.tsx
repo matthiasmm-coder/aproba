@@ -4,6 +4,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { ESTADO_META } from "@/lib/types";
 import { TIPO_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/facturas";
+import { formulariosDisponibles } from "@/lib/ex-forms";
+import { ClienteFormularios } from "@/components/cliente-formularios";
 import { getT } from "@/lib/app-lang";
 
 // Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
@@ -118,6 +120,9 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
+
+      {/* Formularios officiels autorrellenés depuis la ficha du cliente (sans expediente) */}
+      <ClienteFormularios clienteId={cliente.id} formularios={formulariosDisponibles()} />
     </div>
   );
 }
