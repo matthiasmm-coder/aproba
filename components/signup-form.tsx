@@ -11,9 +11,18 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Arrivée via le bouton violet « Prueba 1 mes » (cookie posé par /prueba).
+  // Source unique de vérité : le paramètre d'URL ?modo=prueba (bouton violet).
+  // On le lit ici ET on pose/efface le cookie lu ensuite par l'onboarding (handoff
+  // signup → /app). Déterministe → plus aucun effet de bord lié au préchargement des <Link>.
   const [esPrueba, setEsPrueba] = useState(false);
-  useEffect(() => { setEsPrueba(typeof document !== "undefined" && document.cookie.includes("aproba.modo=prueba")); }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isPrueba = new URLSearchParams(window.location.search).get("modo") === "prueba";
+    setEsPrueba(isPrueba);
+    document.cookie = isPrueba
+      ? "aproba.modo=prueba; path=/; max-age=3600; samesite=lax"
+      : "aproba.modo=; path=/; max-age=0";
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -139,10 +139,10 @@ export default function Landing() {
             <Link href="/login" className="rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 sm:px-3">
               Entrar
             </Link>
-            <Link href="/prueba" className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
+            <Link href="/signup?modo=prueba" className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
               Prueba 1 mes gratis
             </Link>
-            <Link href="/empezar" className="hidden rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:inline-block">
+            <Link href="/signup" className="hidden rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:inline-block">
               Empieza gratis
             </Link>
           </div>
@@ -181,7 +181,7 @@ export default function Landing() {
               Lo que te llevaba 4 horas, en 30 minutos.
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-              <Link href="/empezar" className="w-full rounded-lg bg-aproba-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:w-auto">
+              <Link href="/signup" className="w-full rounded-lg bg-aproba-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:w-auto">
                 Empieza gratis 15 días
               </Link>
               <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
@@ -311,7 +311,7 @@ export default function Landing() {
                 <ul className="mt-6 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>
-                <Link href="/empezar" className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${p.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Empezar</Link>
+                <Link href="/signup" className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${p.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Empezar</Link>
               </div>
             ))}
           </div>
@@ -341,7 +341,7 @@ export default function Landing() {
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
           <p className="mx-auto mt-3 max-w-lg text-aproba-100">Únete a las gestorías que ya validan documentos en segundos, no en horas.</p>
-          <Link href="/empezar" className="mt-8 inline-block rounded-lg bg-white px-6 py-3 text-sm font-semibold text-aproba-700 shadow-sm transition hover:bg-aproba-50">
+          <Link href="/signup" className="mt-8 inline-block rounded-lg bg-white px-6 py-3 text-sm font-semibold text-aproba-700 shadow-sm transition hover:bg-aproba-50">
             Empieza gratis 15 días
           </Link>
         </div>

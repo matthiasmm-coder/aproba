@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
-// Entrée « essai testeur 1 mois sans carte » (bouton violet de la landing).
-// Pose un cookie qui marque le parcours d'inscription comme essai testeur, puis
-// redirige vers /signup. L'onboarding lit ce cookie → 30 jours, sans carte.
+// Compat héritage (anciens liens / landing en cache du bouton violet).
+// Simple redirection vers /signup?modo=prueba — AUCUN effet de bord (c'est le
+// formulaire /signup qui pose seul le cookie), donc safe même si une vieille
+// landing en cache la précharge en <Link>.
 export function GET(req: Request) {
-  const res = NextResponse.redirect(new URL("/signup", req.url));
-  res.cookies.set("aproba.modo", "prueba", { path: "/", maxAge: 3600, sameSite: "lax" });
-  return res;
+  return NextResponse.redirect(new URL("/signup?modo=prueba", req.url));
 }
