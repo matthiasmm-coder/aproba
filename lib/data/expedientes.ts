@@ -87,11 +87,12 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   }[];
   formularios: { id: string; tipo: string }[];
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
-  facturas: { numero: string; total: number | string; estado: string; origen: string | null; momento: string | null }[];
+  facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null }[];
 };
 
 // Facturas liées (pour le panneau Cobros du détail).
 export type FacturaPago = {
+  id: string;
   numero: string;
   total: number;
   estado: string;
@@ -134,7 +135,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
        documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
        formularios:Formulario(id, tipo),
        eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
-       facturas:Factura(numero, total, estado, origen, momento)`,
+       facturas:Factura(id, numero, total, estado, origen, momento)`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -191,6 +192,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
     servicioClave: e.servicioClave ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
+      id: f.id,
       numero: f.numero,
       total: Number(f.total),
       estado: f.estado,
