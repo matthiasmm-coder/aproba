@@ -143,12 +143,6 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
           </div>
         </div>
       </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link href="/app/expedientes/nuevo" className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">+ {t("Nuevo expediente")}</Link>
-        <Link href="/app/expedientes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver tablero")}</Link>
-        <Link href="/app/ajustes" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Configurar servicios")}</Link>
-      </div>
     </div>
   );
 }
