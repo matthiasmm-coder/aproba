@@ -31,6 +31,8 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     active: s.active,
     anticipo: s.anticipo,
     resto: s.resto,
+    citaPresencial: s.citaPresencial ?? false,
+    citaQuien: s.citaPresencial ? (s.citaQuien ?? "cliente") : null,
     orden: i,
     updatedAt: new Date().toISOString(),
   }));

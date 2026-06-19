@@ -205,9 +205,11 @@ const UI: Record<string, Tr> = {
   "mil.formularios": { es: "Formularios preparados", en: "Forms prepared", fr: "Formulaires préparés", it: "Moduli preparati", de: "Formulare vorbereitet" },
   "mil.presentado": { es: "Presentado ante la Administración", en: "Submitted to the authorities", fr: "Déposé auprès de l'Administration", it: "Presentato alle autorità", de: "Bei der Behörde eingereicht" },
   "mil.resuelto": { es: "Resolución favorable", en: "Favorable decision", fr: "Décision favorable", it: "Esito favorevole", de: "Positive Entscheidung" },
-  "mil.cita": { es: "Cita para huellas (TIE)", en: "Fingerprint appointment (TIE)", fr: "RDV empreintes (TIE)", it: "Appuntamento impronte (TIE)", de: "Termin Fingerabdrücke (TIE)" },
+  "mil.cita": { es: "Cita presencial", en: "In-person appointment", fr: "Rendez-vous en personne", it: "Appuntamento di persona", de: "Persönlicher Termin" },
   "mil.tie": { es: "Trámite completado", en: "Process completed", fr: "Démarche terminée", it: "Pratica completata", de: "Vorgang abgeschlossen" },
   "seg.citaFecha": { es: "Tu cita es el", en: "Your appointment is on", fr: "Votre rendez-vous est le", it: "Il tuo appuntamento è il", de: "Dein Termin ist am" },
+  "seg.citaCliente": { es: "Debes acudir en persona con tu documentación.", en: "You must attend in person with your documents.", fr: "Vous devez vous y rendre en personne avec vos documents.", it: "Devi presentarti di persona con i tuoi documenti.", de: "Du musst persönlich mit deinen Unterlagen erscheinen." },
+  "seg.citaGestor": { es: "Tu gestoría acude a la cita en tu nombre; te mantendremos informado.", en: "Your agency attends the appointment on your behalf; we'll keep you posted.", fr: "Votre cabinet se rend au rendez-vous en votre nom ; nous vous tiendrons informé.", it: "Il tuo studio si reca all'appuntamento per tuo conto; ti terremo aggiornato.", de: "Deine Kanzlei nimmt den Termin in deinem Namen wahr; wir halten dich auf dem Laufenden." },
 
   // ── Notification de fin de parcours (email + WhatsApp) ─────────────────────
   "notif.seg.subject": { es: "Sigue tu expediente con {gestoria}", en: "Track your file with {gestoria}", fr: "Suivez votre dossier avec {gestoria}", it: "Segui la tua pratica con {gestoria}", de: "Verfolge deinen Antrag mit {gestoria}" },

@@ -162,6 +162,40 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 <button onClick={() => addDoc(s.id)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400">{t("Añadir")}</button>
               </div>
             </div>
+
+            {/* Cita presencial : ce trámite implique-t-il un RDV physique, et qui s'y rend ? */}
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Cita presencial")}</span>
+                <button
+                  onClick={() => update(s.id, { citaPresencial: !s.citaPresencial })}
+                  role="switch"
+                  aria-checked={Boolean(s.citaPresencial)}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${s.citaPresencial ? "bg-aproba-600" : "bg-slate-300"}`}
+                >
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${s.citaPresencial ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+              {s.citaPresencial ? (
+                <div className="mt-2">
+                  <p className="mb-1.5 text-xs text-slate-500">{t("¿Quién acude a la cita?")}</p>
+                  <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
+                    {(["cliente", "gestor"] as const).map((q) => (
+                      <button key={q} onClick={() => update(s.id, { citaQuien: q })} className={`px-3 py-1.5 text-xs font-medium transition ${(s.citaQuien ?? "cliente") === q ? "bg-aproba-50 text-aproba-700" : "text-slate-400 hover:text-slate-600"}`}>
+                        {q === "cliente" ? t("El cliente") : t("El gestor")}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    {(s.citaQuien ?? "cliente") === "cliente"
+                      ? t("El cliente recibirá la fecha, hora, lugar e instrucciones de la cita.")
+                      : t("El cliente solo será informado de la fecha; acude el gestor en su nombre.")}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-slate-400">{t("Este trámite no requiere cita presencial — el expediente pasa directamente a finalizado.")}</p>
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -96,7 +96,9 @@ export default async function ExpedienteDetail({
 
   // Tarifa del servicio (config du workspace) pour le panneau Cobros.
   const { servicios } = await fetchServiciosConfig();
-  const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[e.tipoEnum]);
+  // On retrouve le service par sa clave mémorisée (gère les services custom), avec repli
+  // sur le mapping par type pour les anciens expedientes sans servicioClave.
+  const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
 
   const meta = ESTADO_META[e.estado];
 
@@ -117,7 +119,7 @@ export default async function ExpedienteDetail({
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-            <SiguientePaso id={e.id} estado={e.estado} />
+            <SiguientePaso id={e.id} estado={e.estado} citaPresencial={Boolean(servicio?.citaPresencial)} citaQuien={servicio?.citaQuien ?? "cliente"} />
             <ArchivarButton id={e.id} />
           </div>
         </div>

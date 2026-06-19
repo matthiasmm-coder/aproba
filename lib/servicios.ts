@@ -2,6 +2,8 @@
 // Persisté en localStorage (en attendant Supabase) pour que la config faite dans
 // Ajustes se reflète dans le portail client, dans le même navigateur.
 
+export type CitaQuien = "cliente" | "gestor";
+
 export type Servicio = {
   id: string;
   label: string;
@@ -11,19 +13,21 @@ export type Servicio = {
   precio: number; // total honorarios (sin IVA) = anticipo + resto
   anticipo: number; // € sin IVA, pagadero al iniciar (a la firma)
   resto: number; // € sin IVA, pagadero al finalizar el trámite
+  citaPresencial?: boolean; // ce trámite implique-t-il un rendez-vous physique ?
+  citaQuien?: CitaQuien; // si oui : qui s'y rend (le client, ou le gestor pour lui)
 };
 
 export const STORAGE_KEY = "aproba.servicios.v1";
 
 // Catalogue par défaut. Les 4 premiers actifs ; les autres proposés à activer.
 export const DEFAULT_SERVICIOS: Servicio[] = [
-  { id: "arraigo_social", label: "Arraigo social", desc: "Residencia por arraigo", active: true, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Certificado de empadronamiento", "Contrato de trabajo", "Antecedentes penales"] },
-  { id: "renovacion_tie", label: "Renovación de TIE", desc: "Renovar tu tarjeta de residencia", active: true, precio: 180, anticipo: 80, resto: 100, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"] },
-  { id: "reagrupacion", label: "Reagrupación familiar", desc: "Traer a tu familia", active: true, precio: 420, anticipo: 200, resto: 220, docs: ["Pasaporte", "Libro de familia", "Justificante de vivienda", "Justificante de medios económicos"] },
-  { id: "nacionalidad", label: "Nacionalidad española", desc: "Solicitar la nacionalidad", active: true, precio: 600, anticipo: 300, resto: 300, docs: ["Pasaporte", "Certificado de nacimiento", "Certificado de empadronamiento", "Antecedentes penales"] },
-  { id: "arraigo_laboral", label: "Arraigo laboral", desc: "Residencia por arraigo laboral", active: false, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Informe de vida laboral", "Certificado de empadronamiento", "Antecedentes penales"] },
-  { id: "larga_duracion", label: "Residencia de larga duración", desc: "Residencia permanente", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"] },
-  { id: "nie", label: "Asignación de NIE", desc: "Obtener tu número de identidad", active: false, precio: 90, anticipo: 90, resto: 0, docs: ["Pasaporte"] },
+  { id: "arraigo_social", label: "Arraigo social", desc: "Residencia por arraigo", active: true, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Certificado de empadronamiento", "Contrato de trabajo", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "renovacion_tie", label: "Renovación de TIE", desc: "Renovar tu tarjeta de residencia", active: true, precio: 180, anticipo: 80, resto: 100, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "reagrupacion", label: "Reagrupación familiar", desc: "Traer a tu familia", active: true, precio: 420, anticipo: 200, resto: 220, docs: ["Pasaporte", "Libro de familia", "Justificante de vivienda", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "nacionalidad", label: "Nacionalidad española", desc: "Solicitar la nacionalidad", active: true, precio: 600, anticipo: 300, resto: 300, docs: ["Pasaporte", "Certificado de nacimiento", "Certificado de empadronamiento", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "arraigo_laboral", label: "Arraigo laboral", desc: "Residencia por arraigo laboral", active: false, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Informe de vida laboral", "Certificado de empadronamiento", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "larga_duracion", label: "Residencia de larga duración", desc: "Residencia permanente", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "nie", label: "Asignación de NIE", desc: "Obtener tu número de identidad", active: false, precio: 90, anticipo: 90, resto: 0, docs: ["Pasaporte"], citaPresencial: true, citaQuien: "cliente" },
 ];
 
 // Garantit que chaque service a anticipo/resto/precio cohérents, même si la config
@@ -70,5 +74,7 @@ export function newServicio(): Servicio {
     precio: 0,
     anticipo: 0,
     resto: 0,
+    citaPresencial: false,
+    citaQuien: "cliente",
   };
 }

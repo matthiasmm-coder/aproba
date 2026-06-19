@@ -8,15 +8,6 @@ export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" 
 
 const LANG_KEY = "aproba.portal.lang";
 const ORDEN: Record<string, number> = { BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3, PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4 };
-const MILESTONES: { key: string; at: number }[] = [
-  { key: "mil.recibido", at: 1 },
-  { key: "mil.validado", at: 2 },
-  { key: "mil.formularios", at: 3 },
-  { key: "mil.presentado", at: 4 },
-  { key: "mil.resuelto", at: 5 },
-  { key: "mil.cita", at: 6 },
-  { key: "mil.tie", at: 7 },
-];
 // AAAA-MM-JJ → JJ/MM/AAAA (date de cita stockée en ISO).
 const fmtCita = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
 
@@ -25,9 +16,10 @@ function Check({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, clienteNombre, idioma, referencia, estado, fechaCita, docs: docsIniciales,
+  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales,
 }: {
-  token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string; fechaCita?: string | null; docs: SegDoc[];
+  token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string;
+  citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[];
 }) {
   const [lang, setLang] = useState<Lang>((["es", "en", "fr", "it", "de"].includes(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
@@ -48,6 +40,16 @@ export function Seguimiento({
   }
 
   const idx = ORDEN[estado] ?? 0;
+  // Le jalon « cita » n'apparaît que si le service a une cita présentielle.
+  const MILESTONES = [
+    { key: "mil.recibido", at: 1 },
+    { key: "mil.validado", at: 2 },
+    { key: "mil.formularios", at: 3 },
+    { key: "mil.presentado", at: 4 },
+    { key: "mil.resuelto", at: 5 },
+    ...(citaPresencial ? [{ key: "mil.cita", at: 6 }] : []),
+    { key: "mil.tie", at: 7 },
+  ];
   const inicial = gestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const faltan = docs.filter((d) => d.status === "pendiente" || d.status === "rechazado").length;
 
@@ -124,16 +126,27 @@ export function Seguimiento({
           </ol>
         </div>
 
-        {/* Cita de huellas — date mise en avant (le client doit s'y rendre en personne) */}
-        {estado === "CITA_HUELLAS" && fechaCita && (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-purple-200 bg-purple-50 p-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-purple-400">{t("mil.cita")}</p>
-              <p className="text-sm font-medium text-purple-800">{t("seg.citaFecha")} {fmtCita(fechaCita)}</p>
+        {/* Cita présentielle — détails complets (le client s'y rend) ou simple info de date (le gestor) */}
+        {estado === "CITA_HUELLAS" && cita?.fecha && (
+          <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-400">{t("mil.cita")}</p>
+                <p className="text-sm font-medium text-purple-800">{t("seg.citaFecha")} {fmtCita(cita.fecha)}{cita.hora ? ` · ${cita.hora}` : ""}</p>
+              </div>
             </div>
+            {citaQuien === "cliente" ? (
+              <div className="mt-2 space-y-1 border-t border-purple-100 pt-2 text-xs text-purple-700">
+                {cita.lugar && <p>📍 {cita.lugar}</p>}
+                {cita.notas && <p>{cita.notas}</p>}
+                <p className="font-semibold">{t("seg.citaCliente")}</p>
+              </div>
+            ) : (
+              <p className="mt-2 border-t border-purple-100 pt-2 text-xs text-purple-700">{t("seg.citaGestor")}</p>
+            )}
           </div>
         )}
 

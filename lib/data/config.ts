@@ -15,6 +15,8 @@ type ServicioRow = {
   anticipo: number | string;
   resto: number | string;
   orden: number;
+  citaPresencial?: boolean | null;
+  citaQuien?: string | null;
 };
 
 export function mapServicioRow(r: ServicioRow): Servicio {
@@ -29,10 +31,12 @@ export function mapServicioRow(r: ServicioRow): Servicio {
     anticipo,
     resto,
     precio: anticipo + resto,
+    citaPresencial: Boolean(r.citaPresencial),
+    citaQuien: r.citaQuien === "gestor" ? "gestor" : "cliente",
   };
 }
 
-const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden";
+const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
 
 // Servicios du workspace de l'utilisateur connecté. Fallback : defaults (workspace pas encore configuré).
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {

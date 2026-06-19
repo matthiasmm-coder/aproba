@@ -660,3 +660,14 @@ alter table public."Subscription" add column if not exists "modoPrueba" boolean 
 alter type "ExpedienteEstado" add value if not exists 'CITA_HUELLAS';
 alter type "ExpedienteEstado" add value if not exists 'FINALIZADO';
 alter table public."Expediente" add column if not exists "fechaCita" text;
+
+-- ───────────────────────── MIGRATION 2026-06-19 : cita présentielle configurable ─────────────────────────
+-- La cita n'est plus systématique : chaque service indique s'il y a un RDV physique et
+-- qui s'y rend (le client, ou le gestor en son nom). Lien expediente↔service mémorisé
+-- (servicioClave) + détails de la cita (heure, lieu, instructions).
+alter table public."ServicioConfig" add column if not exists "citaPresencial" boolean not null default false;
+alter table public."ServicioConfig" add column if not exists "citaQuien" text;
+alter table public."Expediente" add column if not exists "servicioClave" text;
+alter table public."Expediente" add column if not exists "citaHora" text;
+alter table public."Expediente" add column if not exists "citaLugar" text;
+alter table public."Expediente" add column if not exists "citaNotas" text;

@@ -12,12 +12,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const { data } = await admin
     .from("Expediente")
-    .select("id, referencia, estado, tipo, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(tipo, estado)")
+    .select("id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(tipo, estado)")
     .eq("portalToken", token)
     .maybeSingle();
 
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
+    servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     documentos: { tipo: string; estado: string }[] | null;
@@ -29,7 +30,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const cliente = uno(exp.cliente ?? null);
   const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
-  const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[exp.tipo]);
+  const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
   const requeridos: string[] = servicio?.docs ?? [];
 
   // Statut de chaque document requis (par type normalisé).
@@ -41,15 +42,6 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     return { label, status };
   });
 
-  // Date de cita lue à part, uniquement en état CITA_HUELLAS (la colonne fechaCita
-  // n'existe qu'après la migration ; cet état n'est atteignable qu'après elle aussi →
-  // jamais d'erreur sur la requête principale avant migration).
-  let fechaCita: string | null = null;
-  if (exp.estado === "CITA_HUELLAS") {
-    const { data: c } = await admin.from("Expediente").select("fechaCita").eq("id", exp.id).maybeSingle();
-    fechaCita = (c as { fechaCita?: string | null } | null)?.fechaCita ?? null;
-  }
-
   return (
     <Seguimiento
       token={token}
@@ -58,7 +50,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       idioma={cliente?.idioma ?? "es"}
       referencia={exp.referencia}
       estado={exp.estado}
-      fechaCita={fechaCita}
+      citaPresencial={Boolean(servicio?.citaPresencial)}
+      citaQuien={servicio?.citaQuien ?? "cliente"}
+      cita={{ fecha: exp.fechaCita, hora: exp.citaHora, lugar: exp.citaLugar, notas: exp.citaNotas }}
       docs={docs}
     />
   );

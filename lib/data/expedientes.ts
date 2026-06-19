@@ -71,6 +71,11 @@ type ExtractionRow = {
 
 type DetalleRow = Omit<ResumenRow, "documentos"> & {
   createdAt: string;
+  servicioClave: string | null;
+  fechaCita: string | null;
+  citaHora: string | null;
+  citaLugar: string | null;
+  citaNotas: string | null;
   documentos: {
     id: string;
     tipo: string;
@@ -94,7 +99,12 @@ export type FacturaPago = {
   momento: "ANTICIPO" | "FINAL" | null;
 };
 
-export type ExpedienteDetalle = ExpedienteUI & { tipoEnum: string; facturasPago: FacturaPago[] };
+export type ExpedienteDetalle = ExpedienteUI & {
+  tipoEnum: string;
+  facturasPago: FacturaPago[];
+  servicioClave: string | null;
+  cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
+};
 
 // JSON `datos` d'une Extraction → liste de champs {label, value} pour l'UI.
 function camposDe(datos: unknown): { label: string; value: string }[] {
@@ -118,7 +128,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   const { data, error } = await supabase
     .from("Expediente")
     .select(
-      `id, referencia, tipo, estado, fechaLimite, createdAt,
+      `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, fechaCita, citaHora, citaLugar, citaNotas,
        cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
        asignadoA:User(nombre),
        documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -178,6 +188,8 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
     formularios: (e.formularios ?? []).map((f) => ({ id: f.id, tipo: FORM_LABEL[f.tipo] ?? f.tipo })),
     eventos,
     tipoEnum: e.tipo,
+    servicioClave: e.servicioClave ?? null,
+    cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
       numero: f.numero,
       total: Number(f.total),

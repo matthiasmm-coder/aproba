@@ -26,8 +26,11 @@ export const DEFAULT_AVISOS: Aviso[] = [
   { id: "resuelto_favorable", evento: "Resolución favorable", template: "¡Buenas noticias, {nombre}! Tu trámite ha sido resuelto favorablemente. Te explicamos enseguida los siguientes pasos.", canal: "email", activo: true },
   // Denegación = mauvaise nouvelle : désactivé par défaut (souvent annoncé en personne par le gestor).
   { id: "denegado", evento: "Resolución desfavorable", template: "Tu solicitud ha tenido una resolución desfavorable. Te contactamos para revisar juntos las opciones (recurso, nueva solicitud…).", canal: "email", activo: false },
-  { id: "cita_huellas", evento: "Cita de huellas", template: "Tienes cita el {fecha} para la toma de huellas (TIE). Debes acudir en persona con tu pasaporte. Te esperamos.", canal: "email", activo: true },
-  { id: "tie_entregado", evento: "Trámite completado (TIE)", template: "¡Enhorabuena, {nombre}! Tu trámite está completado. Te indicamos cómo y cuándo recoger tu TIE.", canal: "email", activo: true },
+  // Cita présentielle — deux variantes selon qui s'y rend (le {fecha} est assemblé par
+  // la route : date + heure + lieu pour le client, juste la date pour le gestor).
+  { id: "cita_cliente", evento: "Cita presencial (acude el cliente)", template: "Hola {nombre}, tienes una cita presencial {fecha}. Debes acudir en persona. {notas}", canal: "email", activo: true },
+  { id: "cita_gestor", evento: "Cita presencial (acude el gestor)", template: "Hola {nombre}, hemos solicitado tu cita {fecha}. Nosotros nos encargamos de acudir en tu nombre y te mantendremos informado.", canal: "email", activo: true },
+  { id: "tie_entregado", evento: "Trámite completado", template: "¡Enhorabuena, {nombre}! Tu trámite ha quedado completado. Te avisamos de los últimos pasos si los hubiera.", canal: "email", activo: true },
 ];
 
 // Remplit les placeholders avec des exemples (pour l'aperçu dans Ajustes).

@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     .from("Expediente")
     .update({
       tipo,
+      servicioClave: clave, // mémorise le service choisi (gère les services custom, sans équivalent enum)
       // l'expediente démarre vraiment : on attend désormais ses documents
       estado: exp.estado === "BORRADOR" ? "DOCS_PENDIENTES" : exp.estado,
       updatedAt: new Date().toISOString(),
