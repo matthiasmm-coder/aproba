@@ -83,7 +83,7 @@ export default async function Ajustes() {
 
         <AjustesSection
           title={t("Notificaciones al cliente")}
-          subtitle={t("Avisos automáticos por WhatsApp o email en cada paso")}
+          subtitle={t("Avisos automáticos por email en cada paso")}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">

@@ -68,48 +68,36 @@ export async function dispararAviso(
     const cliente = uno(exp?.Cliente ?? null);
     const gestoria = uno(exp?.Workspace ?? null)?.nombre ?? "Tu gestoría";
     const nombre = cliente?.nombre ?? "cliente";
-    const canal = aviso.canal === "email" ? "email" : "whatsapp";
-
     const cuerpo = render(aviso.template, { nombre: primerNombre(nombre), ...(opts.vars ?? {}) });
     const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
+    // Email uniquement : l'envoi WhatsApp automatique n'existe pas (canal retiré d'Ajustes).
     let estado: Estado = "SIMULADO";
-    let destino = "";
-
-    if (canal === "email") {
-      destino = cliente?.email ?? "";
-      if (!destino) {
-        estado = "SIN_CONTACTO";
-      } else if (resendDisponible()) {
-        const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-          from, to: destino, subject: aviso.evento, html: emailHtml(gestoria, cuerpo, portalUrl), text: cuerpo,
-        });
-        estado = error ? "ERROR" : "ENVIADO";
-        if (error) console.error("[aviso email]", error.message ?? error);
-      } else {
-        estado = "SIMULADO";
-      }
+    const destino = cliente?.email ?? "";
+    if (!destino) {
+      estado = "SIN_CONTACTO";
+    } else if (resendDisponible()) {
+      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: aviso.evento, html: emailHtml(gestoria, cuerpo, portalUrl), text: cuerpo,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[aviso email]", error.message ?? error);
     } else {
-      // WhatsApp : l'automatisation réelle = WhatsApp Business API (intégration de lancement).
-      // Pour l'instant on journalise/enregistre ; le gestor garde le lien wa.me manuel.
-      destino = cliente?.telefono ?? "";
-      estado = destino ? "SIMULADO" : "SIN_CONTACTO";
+      estado = "SIMULADO";
     }
 
-    console.log(`[aviso ${estado}] ${canal} → ${destino || "(sin contacto)"} | ${aviso.evento} | ${cuerpo}`);
+    console.log(`[aviso ${estado}] email → ${destino || "(sin email)"} | ${aviso.evento} | ${cuerpo}`);
 
-    const icono = canal === "email" ? "📧" : "💬";
-    const canalLabel = canal === "email" ? "email" : "WhatsApp";
     const sufijo =
       estado === "ENVIADO" ? "" :
       estado === "SIMULADO" ? " (simulado)" :
-      estado === "SIN_CONTACTO" ? " — sin contacto del cliente" : " — error de envío";
+      estado === "SIN_CONTACTO" ? " — sin email del cliente" : " — error de envío";
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `${icono} Aviso al cliente (${canalLabel})${sufijo}: ${aviso.evento}`,
+      descripcion: `📧 Aviso al cliente${sufijo}: ${aviso.evento}`,
     });
   } catch (e) {
     // Un aviso ne doit JAMAIS casser le flux appelant.
