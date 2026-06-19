@@ -30,10 +30,10 @@ export default function NuevaFactura() {
       // Émetteur réel (despacho) pour l'aperçu de la facture.
       try {
         const sb = createSupabaseBrowser();
-        const { data: mem } = await sb.from("Membership").select("Workspace(nombre, nif)").limit(1).maybeSingle();
-        const wsRaw = (mem as { Workspace?: { nombre?: string; nif?: string | null } | { nombre?: string; nif?: string | null }[] } | null)?.Workspace;
+        const { data: mem } = await sb.from("Membership").select("Workspace(nombre, nif, domicilio, emailFacturacion)").limit(1).maybeSingle();
+        const wsRaw = (mem as { Workspace?: Record<string, string | null> | Record<string, string | null>[] } | null)?.Workspace;
         const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
-        if (ws) setEmisor({ nombre: ws.nombre ?? "Mi despacho", nif: ws.nif ?? null });
+        if (ws) setEmisor({ nombre: ws.nombre ?? "Mi despacho", nif: ws.nif ?? null, domicilio: ws.domicilio ?? null, email: ws.emailFacturacion ?? null });
       } catch { /* fallback */ }
       let activos: ServicioTarifa[] = [];
       try {

@@ -21,6 +21,8 @@ export function OnboardingForm() {
   // ── Datos collectés (tout en mémoire jusqu'à la création finale) ──
   const [nombre, setNombre] = useState("");
   const [nif, setNif] = useState("");
+  const [domicilio, setDomicilio] = useState("");
+  const [emailFact, setEmailFact] = useState("");
   const [tipo, setTipo] = useState("GESTORIA");
   const [plan, setPlan] = useState<PlanId>("PRO");
   // Au démarrage de la config, les prix sont à 0 € : le gestor pose consciemment ses
@@ -114,7 +116,7 @@ export function OnboardingForm() {
     if (rpcError) { setLoading(false); setError(rpcError.message ?? t("No se pudo crear el espacio.")); return; }
 
     // NIF (route admin — table Workspace verrouillée côté client).
-    if (nif.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim() }) }); } catch { /* */ } }
+    if (nif.trim() || domicilio.trim() || emailFact.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim(), domicilio: domicilio.trim(), emailFacturacion: emailFact.trim() }) }); } catch { /* */ } }
     // Servicios.
     try { await guardarServicios(servicios, []); } catch { /* */ }
     // Avisos automáticos : seed des défauts pour que le nouveau despacho ait des
@@ -219,6 +221,14 @@ export function OnboardingForm() {
             <div className="sm:col-span-2">
               <label className="text-sm font-semibold text-slate-800">{t("NIF / CIF")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
               <input value={nif} onChange={(e) => setNif(e.target.value)} placeholder="B12345678" className={`mt-2 ${inputCls}`} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-semibold text-slate-800">{t("Domicilio (para tus facturas)")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
+              <input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} placeholder={t("C/ Mayor 1, 28013 Madrid")} className={`mt-2 ${inputCls}`} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-semibold text-slate-800">{t("Email de facturación")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
+              <input type="email" value={emailFact} onChange={(e) => setEmailFact(e.target.value)} placeholder="facturacion@tudespacho.es" className={`mt-2 ${inputCls}`} />
             </div>
           </div>
           <div>

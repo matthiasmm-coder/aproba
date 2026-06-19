@@ -4,13 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { FACTURA_ESTADO_META, eur, ivaDe, totalDe, parseFecha, fmtFecha, MESES, type Factura } from "@/lib/facturas";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { DatosFacturacion } from "@/components/datos-facturacion";
+import type { Despacho } from "@/lib/data/config";
 import { useT } from "@/components/lang-provider";
 
 type Mode = "mtd" | "ytd" | "custom";
 const HOY = new Date(2026, 5, 11); // "hoy" de référence pour la démo (11 jun 2026)
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-export function FacturasClient({ facturas }: { facturas: Factura[] }) {
+export function FacturasClient({ facturas, despacho }: { facturas: Factura[]; despacho: Despacho }) {
   const t = useT();
   const [mode, setMode] = useState<Mode>("mtd");
   const [from, setFrom] = useState<Date | null>(new Date(HOY.getFullYear(), HOY.getMonth(), 1));
@@ -97,6 +99,8 @@ export function FacturasClient({ facturas }: { facturas: Factura[] }) {
           <Link href="/app/facturas/nueva" className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva factura")}</Link>
         </div>
       </div>
+
+      <DatosFacturacion despacho={despacho} />
 
       {/* Sélecteur de période */}
       <div className="mb-4 flex flex-wrap items-center gap-3">

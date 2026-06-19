@@ -68,6 +68,25 @@ export type CuentaBancaria = {
   activa: boolean;
 };
 
+// Datos de facturación du despacho (émetteur des factures). Défensif : retombe sur
+// nombre+nif si les colonnes domicilio/emailFacturacion ne sont pas encore migrées.
+export type Despacho = { nombre: string; nif: string | null; domicilio: string | null; emailFacturacion: string | null };
+
+export async function fetchDespacho(): Promise<Despacho> {
+  const supabase = await createSupabaseServer();
+  const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
+  let res = await q("nombre, nif, domicilio, emailFacturacion");
+  if (res.error) res = await q("nombre, nif");
+  const wsRaw = (res.data as { Workspace?: Record<string, unknown> | Record<string, unknown>[] } | null)?.Workspace;
+  const ws = (Array.isArray(wsRaw) ? wsRaw[0] : wsRaw) ?? {};
+  return {
+    nombre: (ws.nombre as string) ?? "Mi despacho",
+    nif: (ws.nif as string | null) ?? null,
+    domicilio: (ws.domicilio as string | null) ?? null,
+    emailFacturacion: (ws.emailFacturacion as string | null) ?? null,
+  };
+}
+
 // Comptes bancaires du workspace (réception des paiements clients).
 export async function fetchCuentasBancarias(): Promise<CuentaBancaria[]> {
   const supabase = await createSupabaseServer();

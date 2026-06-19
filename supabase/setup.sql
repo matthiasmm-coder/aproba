@@ -671,3 +671,9 @@ alter table public."Expediente" add column if not exists "servicioClave" text;
 alter table public."Expediente" add column if not exists "citaHora" text;
 alter table public."Expediente" add column if not exists "citaLugar" text;
 alter table public."Expediente" add column if not exists "citaNotas" text;
+
+-- ───────────────────────── MIGRATION 2026-06-19 : datos de facturación del despacho ─────────────────────────
+-- Domicilio + email de facturación du despacho, affichés sur les factures (émetteur).
+-- Demandés à l'inscription, complétables ensuite depuis le menu Facturas.
+alter table public."Workspace" add column if not exists "domicilio" text;
+alter table public."Workspace" add column if not exists "emailFacturacion" text;
