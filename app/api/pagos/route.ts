@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   // Expediente + cliente.
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, workspaceId, tipo, referencia, cliente:Cliente(nombre, apellidos)")
+    .select("id, workspaceId, tipo, servicioClave, referencia, cliente:Cliente(nombre, apellidos)")
     .eq("referencia", referencia)
     .limit(1)
     .maybeSingle();
@@ -45,7 +45,9 @@ export async function POST(req: Request) {
 
   // Tarifa del servicio — config réelle du workspace (table ServicioConfig).
   const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
-  const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[exp.tipo]);
+  // Service retrouvé par sa clave mémorisée (gère les services custom / tipo OTRO),
+  // avec repli sur le mapping par type pour les anciens expedientes.
+  const servicio = servicios.find((s) => s.id === ((exp as { servicioClave?: string | null }).servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
   const base = momento === "ANTICIPO" ? servicio?.anticipo ?? 0 : servicio?.resto ?? 0;
   if (base <= 0) {
     return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
