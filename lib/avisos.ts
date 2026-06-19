@@ -23,6 +23,11 @@ export const DEFAULT_AVISOS: Aviso[] = [
   { id: "doc_rechazado", evento: "Documento rechazado", template: "Tu {documento} no se lee bien. Por favor, vuelve a subirlo desde tu enlace.", canal: "email", activo: true },
   { id: "form_generado", evento: "Formularios preparados", template: "Hola {nombre}, ya hemos preparado tus formularios oficiales. Seguimos avanzando con tu trámite.", canal: "email", activo: true },
   { id: "presentado", evento: "Expediente presentado", template: "Tu expediente ya está presentado en la Administración. Te avisaremos en cuanto haya resolución.", canal: "email", activo: true },
+  { id: "resuelto_favorable", evento: "Resolución favorable", template: "¡Buenas noticias, {nombre}! Tu trámite ha sido resuelto favorablemente. Te explicamos enseguida los siguientes pasos.", canal: "email", activo: true },
+  // Denegación = mauvaise nouvelle : désactivé par défaut (souvent annoncé en personne par le gestor).
+  { id: "denegado", evento: "Resolución desfavorable", template: "Tu solicitud ha tenido una resolución desfavorable. Te contactamos para revisar juntos las opciones (recurso, nueva solicitud…).", canal: "email", activo: false },
+  { id: "cita_huellas", evento: "Cita de huellas", template: "Tienes cita el {fecha} para la toma de huellas (TIE). Debes acudir en persona con tu pasaporte. Te esperamos.", canal: "email", activo: true },
+  { id: "tie_entregado", evento: "Trámite completado (TIE)", template: "¡Enhorabuena, {nombre}! Tu trámite está completado. Te indicamos cómo y cuándo recoger tu TIE.", canal: "email", activo: true },
 ];
 
 // Remplit les placeholders avec des exemples (pour l'aperçu dans Ajustes).

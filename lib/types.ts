@@ -7,8 +7,10 @@ export type ExpedienteEstado =
   | "DOCS_VALIDADOS"
   | "FORM_GENERADO"
   | "PRESENTADO"
-  | "RESUELTO"
-  | "RECHAZADO";
+  | "RESUELTO" // resolución favorable
+  | "CITA_HUELLAS" // cita de huellas asignada (toma de huellas / TIE)
+  | "FINALIZADO" // TIE entregado, trámite completado
+  | "RECHAZADO"; // resolución desfavorable / denegado
 
 export type DocumentoEstado = "PENDIENTE" | "PROCESANDO" | "VALIDADO" | "RECHAZADO";
 
@@ -72,8 +74,10 @@ export const ESTADO_META: Record<
   DOCS_VALIDADOS: { label: "Docs validados", dot: "bg-aproba-500", pill: "bg-aproba-100 text-aproba-700" },
   FORM_GENERADO: { label: "Formularios listos", dot: "bg-blue-500", pill: "bg-blue-100 text-blue-700" },
   PRESENTADO: { label: "Presentado", dot: "bg-indigo-500", pill: "bg-indigo-100 text-indigo-700" },
-  RESUELTO: { label: "Resuelto", dot: "bg-aproba-600", pill: "bg-aproba-100 text-aproba-700" },
-  RECHAZADO: { label: "Rechazado", dot: "bg-red-500", pill: "bg-red-100 text-red-700" },
+  RESUELTO: { label: "Resolución favorable", dot: "bg-aproba-600", pill: "bg-aproba-100 text-aproba-700" },
+  CITA_HUELLAS: { label: "Cita de huellas", dot: "bg-purple-500", pill: "bg-purple-100 text-purple-700" },
+  FINALIZADO: { label: "Finalizado", dot: "bg-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
+  RECHAZADO: { label: "Denegado", dot: "bg-red-500", pill: "bg-red-100 text-red-700" },
 };
 
 export const DOC_ESTADO_META: Record<
@@ -88,6 +92,8 @@ export const DOC_ESTADO_META: Record<
 
 // Colonnes du board, dans l'ordre du workflow.
 // BORRADOR = expediente créé, lien envoyé, le client n'a pas encore choisi son trámite.
+// Colonnes du board, dans l'ordre du workflow (RECHAZADO = sortie, hors board actif →
+// les dossiers denegados restent visibles dans la liste avec leur badge rouge).
 export const BOARD_COLUMNS: ExpedienteEstado[] = [
   "BORRADOR",
   "DOCS_PENDIENTES",
@@ -95,4 +101,6 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
   "FORM_GENERADO",
   "PRESENTADO",
   "RESUELTO",
+  "CITA_HUELLAS",
+  "FINALIZADO",
 ];

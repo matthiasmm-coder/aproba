@@ -204,7 +204,10 @@ const UI: Record<string, Tr> = {
   "mil.validado": { es: "Documentos validados", en: "Documents validated", fr: "Documents validés", it: "Documenti validati", de: "Dokumente geprüft" },
   "mil.formularios": { es: "Formularios preparados", en: "Forms prepared", fr: "Formulaires préparés", it: "Moduli preparati", de: "Formulare vorbereitet" },
   "mil.presentado": { es: "Presentado ante la Administración", en: "Submitted to the authorities", fr: "Déposé auprès de l'Administration", it: "Presentato alle autorità", de: "Bei der Behörde eingereicht" },
-  "mil.resuelto": { es: "Resolución", en: "Decision", fr: "Décision", it: "Decisione", de: "Entscheidung" },
+  "mil.resuelto": { es: "Resolución favorable", en: "Favorable decision", fr: "Décision favorable", it: "Esito favorevole", de: "Positive Entscheidung" },
+  "mil.cita": { es: "Cita para huellas (TIE)", en: "Fingerprint appointment (TIE)", fr: "RDV empreintes (TIE)", it: "Appuntamento impronte (TIE)", de: "Termin Fingerabdrücke (TIE)" },
+  "mil.tie": { es: "Trámite completado", en: "Process completed", fr: "Démarche terminée", it: "Pratica completata", de: "Vorgang abgeschlossen" },
+  "seg.citaFecha": { es: "Tu cita es el", en: "Your appointment is on", fr: "Votre rendez-vous est le", it: "Il tuo appuntamento è il", de: "Dein Termin ist am" },
 
   // ── Notification de fin de parcours (email + WhatsApp) ─────────────────────
   "notif.seg.subject": { es: "Sigue tu expediente con {gestoria}", en: "Track your file with {gestoria}", fr: "Suivez votre dossier avec {gestoria}", it: "Segui la tua pratica con {gestoria}", de: "Verfolge deinen Antrag mit {gestoria}" },

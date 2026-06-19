@@ -5,7 +5,7 @@ import { fetchServiciosConfig } from "@/lib/data/config";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
-import { PresentarButton } from "@/components/presentar-button";
+import { SiguientePaso } from "@/components/siguiente-paso";
 import { CobrosPanel } from "@/components/cobros-panel";
 import { getT } from "@/lib/app-lang";
 
@@ -117,7 +117,7 @@ export default async function ExpedienteDetail({
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-            {e.estado === "FORM_GENERADO" && <PresentarButton id={e.id} />}
+            <SiguientePaso id={e.id} estado={e.estado} />
             <ArchivarButton id={e.id} />
           </div>
         </div>

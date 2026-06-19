@@ -650,3 +650,13 @@ alter table public."Feedback" enable row level security;
 -- dépassé, puis bloque (PRUEBA_EXPIRADA) et propose de s'abonner. Un essai NORMAL
 -- (modoPrueba=false) exige toujours une carte d'emblée (SIN_TARJETA).
 alter table public."Subscription" add column if not exists "modoPrueba" boolean not null default false;
+
+-- ───────────────────────── MIGRATION 2026-06-19 : workflow post-presentación ─────────────────────────
+-- Cycle de vie après la présentation : resolución (favorable=RESUELTO / denegada=RECHAZADO)
+-- → cita de huellas (toma de huellas para el TIE) → TIE entregado (FINALIZADO).
+-- On réutilise RESUELTO/RECHAZADO (déjà dans l'enum) et on ajoute les 2 états manquants
+-- + la date de la cita. (PG15 : ADD VALUE IF NOT EXISTS OK ; on n'utilise pas la valeur
+-- dans la même transaction, juste on l'ajoute → pas de souci.)
+alter type "ExpedienteEstado" add value if not exists 'CITA_HUELLAS';
+alter type "ExpedienteEstado" add value if not exists 'FINALIZADO';
+alter table public."Expediente" add column if not exists "fechaCita" text;

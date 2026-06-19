@@ -41,6 +41,15 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     return { label, status };
   });
 
+  // Date de cita lue à part, uniquement en état CITA_HUELLAS (la colonne fechaCita
+  // n'existe qu'après la migration ; cet état n'est atteignable qu'après elle aussi →
+  // jamais d'erreur sur la requête principale avant migration).
+  let fechaCita: string | null = null;
+  if (exp.estado === "CITA_HUELLAS") {
+    const { data: c } = await admin.from("Expediente").select("fechaCita").eq("id", exp.id).maybeSingle();
+    fechaCita = (c as { fechaCita?: string | null } | null)?.fechaCita ?? null;
+  }
+
   return (
     <Seguimiento
       token={token}
@@ -49,6 +58,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       idioma={cliente?.idioma ?? "es"}
       referencia={exp.referencia}
       estado={exp.estado}
+      fechaCita={fechaCita}
       docs={docs}
     />
   );
