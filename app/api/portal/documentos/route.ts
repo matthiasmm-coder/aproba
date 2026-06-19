@@ -135,16 +135,18 @@ export async function POST(req: Request) {
       const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
       const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[exp.tipo]);
       const requeridos = servicio?.docs.length ?? 0;
-      const { count } = await admin
-        .from("Documento")
-        .select("id", { count: "exact", head: true })
-        .eq("expedienteId", exp.id)
-        .eq("estado", "VALIDADO");
-      if (requeridos > 0 && (count ?? 0) >= requeridos) {
+      const { data: todos } = await admin.from("Documento").select("estado").eq("expedienteId", exp.id);
+      const total = todos?.length ?? 0;
+      const validados = (todos ?? []).filter((d) => d.estado === "VALIDADO").length;
+      // Service identifié (tipo standard) → tous les documents requis validés.
+      // Service inconnu (tipo OTRO / service custom sans équivalent dans l'enum) → on se
+      // base sur les documents RÉELLEMENT soumis : promotion quand tous sont validés.
+      const listo = requeridos > 0 ? validados >= requeridos : total > 0 && validados === total;
+      if (listo) {
         await admin.from("Expediente").update({ estado: "DOCS_VALIDADOS", updatedAt: new Date().toISOString() }).eq("id", exp.id);
         await admin.from("ExpedienteEvento").insert({
           id: uuid(), expedienteId: exp.id, tipo: "ESTADO_CAMBIADO",
-          descripcion: `IA validó ${count}/${requeridos} documentos — expediente listo para formularios`,
+          descripcion: `IA validó ${validados}/${requeridos || total} documentos — expediente listo para formularios`,
         });
       }
     } catch {
