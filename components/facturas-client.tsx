@@ -9,11 +9,11 @@ import type { Despacho } from "@/lib/data/config";
 import { useT } from "@/components/lang-provider";
 
 type Mode = "mtd" | "ytd" | "custom";
-const HOY = new Date(2026, 5, 11); // "hoy" de référence pour la démo (11 jun 2026)
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 export function FacturasClient({ facturas, despacho }: { facturas: Factura[]; despacho: Despacho }) {
   const t = useT();
+  const HOY = startOfDay(new Date()); // aujourd'hui (date réelle)
   const [mode, setMode] = useState<Mode>("mtd");
   const [from, setFrom] = useState<Date | null>(new Date(HOY.getFullYear(), HOY.getMonth(), 1));
   const [to, setTo] = useState<Date | null>(HOY);
