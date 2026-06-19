@@ -80,7 +80,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 aria-checked={s.active}
                 className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${s.active ? "bg-aproba-600" : "bg-slate-300"}`}
               >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${s.active ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${s.active ? "left-[22px]" : "left-0.5"}`} />
               </button>
               <button
                 onClick={() => { removed.current.add(s.id); setServicios((list) => list.filter((x) => x.id !== s.id)); }}
@@ -173,7 +173,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                   aria-checked={Boolean(s.citaPresencial)}
                   className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${s.citaPresencial ? "bg-aproba-600" : "bg-slate-300"}`}
                 >
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${s.citaPresencial ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${s.citaPresencial ? "left-[22px]" : "left-0.5"}`} />
                 </button>
               </div>
               {s.citaPresencial ? (

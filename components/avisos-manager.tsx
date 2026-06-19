@@ -70,7 +70,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold text-slate-900">{t(a.evento)}</span>
                 <button onClick={() => update(a.id, { activo: !a.activo })} role="switch" aria-checked={a.activo} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${a.activo ? "bg-aproba-600" : "bg-slate-300"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${a.activo ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${a.activo ? "left-[22px]" : "left-0.5"}`} />
                 </button>
               </div>
               <textarea
