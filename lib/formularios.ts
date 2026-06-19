@@ -178,7 +178,10 @@ export function datosNormalizados(exp: Expediente): DatosForm {
   return {
     pasaporte, nie1, nie2, nie3,
     apellido1, apellido2, nombre, sexo, estadoCivil,
-    nombrePadre: limpio(fi.nombrePadre ?? ""), nombreMadre: limpio(fi.nombreMadre ?? ""),
+    // Règle métier : sur les formulaires officiels, « nombre del padre » = 1er apellido,
+    // « nombre de la madre » = 2e apellido (convention de filiation espagnole). On dérive
+    // donc des apellidos du solicitante (les champs parents ne sont plus saisis à part).
+    nombrePadre: apellido1, nombreMadre: apellido2,
     fechaD, fechaM, fechaA,
     lugarNac: pref(fi.lugarNacimiento, "Lugar de nacimiento"),
     paisNac: pref(fi.paisNacimiento),

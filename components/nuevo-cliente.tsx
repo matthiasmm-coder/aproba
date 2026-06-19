@@ -5,22 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { useT } from "@/components/lang-provider";
+import {
+  FICHA_KEYS, FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia,
+  type ClienteFicha,
+} from "@/lib/ficha";
 
-// Création de clients existants du gestor : saisie manuelle d'une fiche complète,
-// ou import CSV en masse (avec détection des doublons et des lignes invalides).
+// Création de clients existants du gestor : saisie manuelle d'une FICHE COMPLÈTE
+// (mêmes champs que le portail « Tus datos » → les formulaires officiels EX/790
+// se remplissent intégralement), ou import CSV en masse (doublons + lignes invalides).
 // Rien à voir avec « Nuevo expediente » : ici on alimente le fichier clients.
 
-type Campos = {
-  nombre: string;
-  apellidos: string;
-  email: string;
-  telefono: string;
-  nacionalidad: string;
-  numeroDocumento: string;
-  idioma: string;
-};
-
-const VACIO: Campos = { nombre: "", apellidos: "", email: "", telefono: "", nacionalidad: "", numeroDocumento: "", idioma: "es" };
+type Campos = Record<keyof ClienteFicha, string> & { idioma: string };
+const VACIO: Campos = { ...(fichaVacia() as Record<keyof ClienteFicha, string>), idioma: "es" };
 
 const IDIOMAS = [
   ["es", "Español"],
@@ -31,6 +27,15 @@ const IDIOMAS = [
   ["ro", "Română"],
   ["zh", "中文"],
 ] as const;
+
+// Placeholders d'aide pour quelques champs texte.
+const PLACEHOLDER: Partial<Record<keyof ClienteFicha, string>> = {
+  nombre: "María Camila", apellidos: "García López", email: "maria@email.com",
+  telefono: "612 345 678", nacionalidad: "Colombia", numeroDocumento: "Y1234567Z",
+  lugarNacimiento: "Bogotá", paisNacimiento: "Colombia",
+  via: "Calle Mayor", numeroVia: "23", piso: "4ºB", codigoPostal: "28013",
+  municipio: "Madrid", provincia: "Madrid",
+};
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
@@ -63,14 +68,26 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
-// En-têtes reconnus (insensible aux accents/majuscules).
-const CABECERAS: Record<keyof Omit<Campos, "idioma">, string[]> & { idioma: string[] } = {
+// En-têtes CSV reconnus (insensible aux accents/majuscules). On gère la fiche complète :
+// les colonnes absentes restent vides → null en base (jamais bloquant).
+const CABECERAS: Partial<Record<keyof Campos, string[]>> = {
   nombre: ["nombre", "name", "prenom"],
   apellidos: ["apellidos", "apellido", "surname", "nom"],
-  email: ["email", "correo", "e-mail", "mail"],
-  telefono: ["telefono", "tel", "movil", "phone", "telephone"],
-  nacionalidad: ["nacionalidad", "pais", "country", "nationalite"],
+  email: ["email", "correo", "mail"],
+  telefono: ["telefono", "tel", "movil", "phone"],
+  nacionalidad: ["nacionalidad", "nationalite"],
   numeroDocumento: ["documento", "numerodocumento", "ndocumento", "nie", "pasaporte", "dni", "passport"],
+  sexo: ["sexo", "sex", "genero"],
+  fechaNacimiento: ["fechanacimiento", "nacimiento", "fechadenacimiento", "birth", "birthdate"],
+  lugarNacimiento: ["lugarnacimiento", "lugardenacimiento", "ciudadnacimiento"],
+  paisNacimiento: ["paisnacimiento", "paisdenacimiento"],
+  estadoCivil: ["estadocivil", "civil"],
+  via: ["via", "domicilio", "direccion", "calle", "address"],
+  numeroVia: ["numero", "numerovia", "num"],
+  piso: ["piso", "puerta"],
+  codigoPostal: ["codigopostal", "cp", "zip"],
+  municipio: ["municipio", "localidad", "ciudad", "city"],
+  provincia: ["provincia", "province"],
   idioma: ["idioma", "lengua", "language", "langue"],
 };
 
@@ -101,19 +118,19 @@ export function NuevoCliente() {
     return { supabase, ws: mem.workspaceId as string };
   }
 
+  // Construit la ligne Cliente avec TOUTE la fiche (nombre obligatoire, reste null si vide).
   function filaACliente(f: Campos, ws: string) {
-    return {
+    const row: Record<string, unknown> = {
       id: crypto.randomUUID(),
       workspaceId: ws,
-      nombre: f.nombre.trim(),
-      apellidos: f.apellidos.trim() || null,
-      email: f.email.trim() || null,
-      telefono: f.telefono.trim() || null,
-      nacionalidad: f.nacionalidad.trim() || null,
-      numeroDocumento: f.numeroDocumento.trim() || null,
       idioma: f.idioma || "es",
       updatedAt: new Date().toISOString(),
     };
+    for (const k of FICHA_KEYS) {
+      const v = (f[k] ?? "").trim();
+      row[k] = k === "nombre" ? v : (v || null);
+    }
+    return row;
   }
 
   // ── Création manuelle ──
@@ -123,11 +140,12 @@ export function NuevoCliente() {
     setError(null);
     try {
       const { supabase, ws } = await contexto();
+      const nombreGuardado = campos.nombre.trim();
       const { error: e } = await supabase.from("Cliente").insert(filaACliente(campos, ws));
       if (e) throw new Error(e.message);
       if (otro) {
         setCampos(VACIO);
-        setToast(`✓ ${campos.nombre.trim()} ${t("añadido")}`);
+        setToast(`✓ ${nombreGuardado} ${t("añadido")}`);
         window.setTimeout(() => setToast(null), 2500);
       } else {
         router.push("/app/clientes");
@@ -156,7 +174,7 @@ export function NuevoCliente() {
       const headers = rows[0].map(norm);
       const idx: Partial<Record<keyof Campos, number>> = {};
       (Object.keys(CABECERAS) as (keyof Campos)[]).forEach((campo) => {
-        const i = headers.findIndex((h) => CABECERAS[campo].includes(h.replace(/[^a-z]/g, "")));
+        const i = headers.findIndex((h) => CABECERAS[campo]!.includes(h.replace(/[^a-z]/g, "")));
         if (i >= 0) idx[campo] = i;
       });
       if (idx.nombre === undefined) throw new Error(t('No se encontró la columna "nombre". Descarga la plantilla para ver el formato.'));
@@ -172,10 +190,9 @@ export function NuevoCliente() {
 
       const parsed: Fila[] = rows.slice(1).map((r) => {
         const get = (k: keyof Campos) => (idx[k] !== undefined ? (r[idx[k]!] ?? "").trim() : "");
-        const f: Campos = {
-          nombre: get("nombre"), apellidos: get("apellidos"), email: get("email"), telefono: get("telefono"),
-          nacionalidad: get("nacionalidad"), numeroDocumento: get("numeroDocumento"), idioma: get("idioma") || "es",
-        };
+        const f: Campos = { ...VACIO };
+        (Object.keys(CABECERAS) as (keyof Campos)[]).forEach((k) => { f[k] = get(k) || (VACIO[k] ?? ""); });
+        f.idioma = get("idioma") || "es";
         let estado: Fila["estado"] = "ok";
         if (!f.nombre) estado = "sin_nombre";
         else if ((f.email && llaves.has("e:" + norm(f.email))) || llaves.has("n:" + norm(`${f.nombre} ${f.apellidos}`))) estado = "duplicado";
@@ -217,7 +234,8 @@ export function NuevoCliente() {
   }
 
   function descargarPlantilla() {
-    const csv = "﻿nombre;apellidos;email;telefono;nacionalidad;documento;idioma\nJulia;Mendoza;julia@email.com;612345678;Colombia;AY0429317;es\n";
+    const csv = "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma\n"
+      + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es\n";
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
@@ -228,6 +246,20 @@ export function NuevoCliente() {
 
   const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
   const nValidas = filas?.filter((f) => f.estado === "ok").length ?? 0;
+
+  const set = (k: keyof ClienteFicha | "idioma", v: string) => setCampos((c) => ({ ...c, [k]: v }));
+
+  // Rend l'input adapté au type du champ de la fiche.
+  function CampoInput({ c }: { c: (typeof FICHA_CAMPOS)[number] }) {
+    const val = campos[c.k] ?? "";
+    if (c.tipo === "sexo")
+      return <select value={val} onChange={(e) => set(c.k, e.target.value)} className={`${input} bg-white`}>{SEXOS.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}</select>;
+    if (c.tipo === "estadoCivil")
+      return <select value={val} onChange={(e) => set(c.k, e.target.value)} className={`${input} bg-white`}>{ESTADOS_CIVILES.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}</select>;
+    if (c.tipo === "date")
+      return <input type="date" value={val} onChange={(e) => set(c.k, e.target.value)} className={input} />;
+    return <input value={val} onChange={(e) => set(c.k, e.target.value)} placeholder={PLACEHOLDER[c.k] ?? ""} className={input} />;
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -251,38 +283,29 @@ export function NuevoCliente() {
       {/* ── Manuel ── */}
       {tab === "manual" && (
         <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Nombre *")}</label>
-              <input value={campos.nombre} onChange={(e) => setCampos((c) => ({ ...c, nombre: e.target.value }))} placeholder="Julia" className={input} />
+          <p className="mb-4 text-sm text-slate-500">{t("Cuantos más datos rellenes, más completos saldrán los formularios oficiales. Solo el nombre es obligatorio.")}</p>
+
+          {GRUPOS.map((grupo) => (
+            <div key={grupo} className="mt-6 first:mt-0">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-aproba-700">{t(grupo)}</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {FICHA_CAMPOS.filter((c) => c.grupo === grupo).map((c) => (
+                  <div key={c.k} className={c.w === "full" ? "sm:col-span-2" : ""}>
+                    <label className="text-sm font-medium text-slate-700">{t(c.label)}{c.k === "nombre" ? " *" : ""}</label>
+                    <CampoInput c={c} />
+                  </div>
+                ))}
+                {grupo === "Contacto" && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">{t("Idioma de comunicación")}</label>
+                    <select value={campos.idioma} onChange={(e) => set("idioma", e.target.value)} className={`${input} bg-white`}>
+                      {IDIOMAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Apellidos")}</label>
-              <input value={campos.apellidos} onChange={(e) => setCampos((c) => ({ ...c, apellidos: e.target.value }))} placeholder="Mendoza Restrepo" className={input} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Email")}</label>
-              <input type="email" value={campos.email} onChange={(e) => setCampos((c) => ({ ...c, email: e.target.value }))} placeholder="julia@email.com" className={input} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Teléfono")}</label>
-              <input value={campos.telefono} onChange={(e) => setCampos((c) => ({ ...c, telefono: e.target.value }))} placeholder="612 345 678" className={input} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Nacionalidad")}</label>
-              <input value={campos.nacionalidad} onChange={(e) => setCampos((c) => ({ ...c, nacionalidad: e.target.value }))} placeholder="Colombia" className={input} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Nº documento (NIE / pasaporte)")}</label>
-              <input value={campos.numeroDocumento} onChange={(e) => setCampos((c) => ({ ...c, numeroDocumento: e.target.value }))} placeholder="AY0429317" className={input} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">{t("Idioma de comunicación")}</label>
-              <select value={campos.idioma} onChange={(e) => setCampos((c) => ({ ...c, idioma: e.target.value }))} className={`${input} bg-white`}>
-                {IDIOMAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </div>
+          ))}
 
           {toast && <p className="mt-4 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-700">{toast}</p>}
           {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -322,7 +345,7 @@ export function NuevoCliente() {
             <>
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-500">
-                  {t("Columnas reconocidas")}: <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, idioma</span>. {t("Separador")} <span className="font-mono text-xs">;</span> {t("o")} <span className="font-mono text-xs">,</span>.
+                  {t("Columnas reconocidas")}: <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma</span>. {t("Separador")} <span className="font-mono text-xs">;</span> {t("o")} <span className="font-mono text-xs">,</span>.
                 </p>
                 <button onClick={descargarPlantilla} className="shrink-0 text-sm font-semibold text-aproba-700 hover:underline">{t("Descargar plantilla")}</button>
               </div>
