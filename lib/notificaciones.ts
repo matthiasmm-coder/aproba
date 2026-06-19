@@ -177,3 +177,74 @@ export async function enviarSeguimiento(
     console.error("[enviarSeguimiento]", e instanceof Error ? e.message : e);
   }
 }
+
+// Demande de paiement par VIREMENT : envoie au client un email avec le montant, le
+// concept, le nº de facture et les coordonnées bancaires (IBAN) du despacho — pas de
+// carte, pas de débit automatique. Ne casse jamais le flux appelant.
+const fmtEur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
+
+export async function enviarSolicitudPago(
+  admin: SupabaseClient,
+  opts: { expedienteId: string; numero: string; total: number; concepto: string; baseUrl?: string },
+): Promise<void> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("workspaceId, portalToken, Cliente(nombre, email), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as { workspaceId: string; portalToken: string | null; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    if (!exp) return;
+    const cliente = uno(exp.Cliente);
+    const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+
+    // Compte bancaire actif du despacho (pour le virement).
+    const { data: cuentas } = await admin.from("CuentaBancaria").select("titular, iban, banco").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
+    const cuenta = (cuentas ?? [])[0] as { titular?: string | null; iban?: string | null; banco?: string | null } | undefined;
+
+    const datosBanco = cuenta?.iban
+      ? `<table style="font-size:14px;color:#1e293b;border-collapse:collapse;margin:8px 0">
+          ${cuenta.titular ? `<tr><td style="padding:2px 12px 2px 0;color:#64748b">Titular</td><td style="font-weight:600">${cuenta.titular}</td></tr>` : ""}
+          <tr><td style="padding:2px 12px 2px 0;color:#64748b">IBAN</td><td style="font-weight:600;font-family:monospace">${cuenta.iban}</td></tr>
+          ${cuenta.banco ? `<tr><td style="padding:2px 12px 2px 0;color:#64748b">Banco</td><td style="font-weight:600">${cuenta.banco}</td></tr>` : ""}
+          <tr><td style="padding:2px 12px 2px 0;color:#64748b">Concepto</td><td style="font-weight:600">${opts.numero}</td></tr>
+        </table>`
+      : `<p style="font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
+
+    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b">
+  <p style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 16px">${gestoria}</p>
+  <p style="font-size:15px;line-height:1.6;margin:0 0 8px">Hola ${nombre}, te enviamos la factura <strong>${opts.numero}</strong> (${opts.concepto}).</p>
+  <p style="font-size:15px;line-height:1.6;margin:0 0 4px">Importe a pagar: <strong style="font-size:18px">${fmtEur(opts.total)}</strong> (IVA incluido).</p>
+  <p style="font-size:14px;line-height:1.6;margin:12px 0 4px">Puedes pagar por <strong>transferencia bancaria</strong> a:</p>
+  ${datosBanco}
+  <p style="font-size:13px;color:#64748b;line-height:1.6;margin:12px 0 0">Indica el número de factura (${opts.numero}) en el concepto. Cuando recibamos el pago, lo confirmaremos.</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
+  <p style="font-size:12px;color:#94a3b8;margin:0">Aviso automático de ${gestoria}.</p>
+</div>`;
+
+    let estado: Estado = "SIMULADO";
+    const destino = cliente?.email ?? "";
+    if (!destino) {
+      estado = "SIN_CONTACTO";
+    } else if (resendDisponible()) {
+      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: `Factura ${opts.numero} · ${fmtEur(opts.total)}`, html, text: `Factura ${opts.numero}: ${fmtEur(opts.total)}. ${cuenta?.iban ? `IBAN: ${cuenta.iban}` : ""}`,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[solicitudPago email]", error.message ?? error);
+    }
+
+    console.log(`[solicitudPago ${estado}] email → ${destino || "(sin email)"} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
+    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin email del cliente" : estado === "ERROR" ? " — error" : " (simulado)";
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `💳 Solicitud de pago enviada al cliente (factura ${opts.numero}, ${fmtEur(opts.total)})${sufijo}`,
+    });
+  } catch (e) {
+    console.error("[enviarSolicitudPago]", e instanceof Error ? e.message : e);
+  }
+}

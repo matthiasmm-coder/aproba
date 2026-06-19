@@ -55,9 +55,13 @@ export function CobrosPanel({
         <p className="text-sm text-slate-700">{label}</p>
         <p className="text-xs text-slate-400">{eur(totalDe(monto))} {t("IVA inc.")}</p>
       </div>
-      {pago ? (
+      {pago?.estado === "PAGADA" ? (
         <span className="shrink-0 rounded-full bg-aproba-100 px-2.5 py-0.5 text-xs font-semibold text-aproba-700">
           {t("Pagado ✓ ·")} {pago.numero}
+        </span>
+      ) : pago ? (
+        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+          {t("Enviada · pendiente")} · {pago.numero}
         </span>
       ) : (
         <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">{t("Pendiente")}</span>
@@ -84,7 +88,7 @@ export function CobrosPanel({
               {pidiendo ? t("Solicitando…") : `${t("Solicitar pago final ·")} ${eur(totalDe(resto))}`}
             </button>
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-              {t("El cliente recibe el enlace de pago y la factura se genera sola. (Demo: se confirma al instante.)")}
+              {t("El cliente recibe un email con la factura y los datos bancarios para pagar por transferencia. Marca la factura como pagada cuando recibas el pago.")}
             </p>
           </>
         )}

@@ -6,7 +6,7 @@ import { eur, ivaDe, totalDe, IVA, type Factura } from "@/lib/facturas";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { fmtFechaCorta } from "@/lib/tramites";
-import { FacturaView } from "@/components/factura-view";
+import { FacturaView, type Emisor } from "@/components/factura-view";
 import { useT } from "@/components/lang-provider";
 
 const GENERICOS = ["Asesoramiento extranjería", "Otro concepto"];
@@ -22,10 +22,19 @@ export default function NuevaFactura() {
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [factura, setFactura] = useState<Factura | null>(null);
+  const [emisor, setEmisor] = useState<Emisor>({ nombre: "Mi despacho", nif: null });
 
   // Charger los servicios activos (tarifas réelles du workspace) et préselectionner le premier.
   useEffect(() => {
     (async () => {
+      // Émetteur réel (despacho) pour l'aperçu de la facture.
+      try {
+        const sb = createSupabaseBrowser();
+        const { data: mem } = await sb.from("Membership").select("Workspace(nombre, nif)").limit(1).maybeSingle();
+        const wsRaw = (mem as { Workspace?: { nombre?: string; nif?: string | null } | { nombre?: string; nif?: string | null }[] } | null)?.Workspace;
+        const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
+        if (ws) setEmisor({ nombre: ws.nombre ?? "Mi despacho", nif: ws.nif ?? null });
+      } catch { /* fallback */ }
       let activos: ServicioTarifa[] = [];
       try {
         const supabase = createSupabaseBrowser();
@@ -133,7 +142,7 @@ export default function NuevaFactura() {
           ✓ {t("Factura")} <span className="font-mono font-semibold">{factura.numero}</span> {t("creada y guardada.")}{" "}
           <Link href="/app/facturas" className="font-semibold underline">{t("Ver todas →")}</Link>
         </div>
-        <FacturaView f={factura} />
+        <FacturaView f={factura} emisor={emisor} />
       </div>
     );
   }

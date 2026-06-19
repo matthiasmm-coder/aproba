@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ivaDe, totalDe } from "@/lib/facturas";
-import { enviarSeguimiento } from "@/lib/notificaciones";
+import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
 // Paiement du client (portail) → factura générée automatiquement.
@@ -84,6 +84,9 @@ export async function POST(req: Request) {
   const concepto = `${etiqueta} — ${TIPO_LABEL[exp.tipo] ?? exp.tipo} (${exp.referencia})`;
   const total = totalDe(base);
 
+  // La facture est ÉMISE (pas payée) : le client paie par virement. Échéance à 14 jours.
+  const ahora = new Date();
+  const vencimiento = new Date(ahora.getTime() + 14 * 864e5);
   const { error: e4 } = await admin.from("Factura").insert({
     id: uuid(),
     workspaceId: exp.workspaceId,
@@ -94,11 +97,12 @@ export async function POST(req: Request) {
     baseImponible: base,
     iva: ivaDe(base),
     total,
-    estado: "PAGADA",
+    estado: "EMITIDA",
     origen: "AUTOMATICA",
     momento,
-    metodoPago: "TARJETA",
-    fechaEmision: new Date().toISOString(),
+    metodoPago: "TRANSFERENCIA",
+    fechaEmision: ahora.toISOString(),
+    fechaVencimiento: vencimiento.toISOString(),
   });
   if (e4) return NextResponse.json({ error: e4.message }, { status: 500 });
 
@@ -107,13 +111,16 @@ export async function POST(req: Request) {
     id: uuid(),
     expedienteId: exp.id,
     tipo: "COMENTARIO",
-    descripcion: `💳 Pago ${momento === "ANTICIPO" ? "del anticipo" : "final"} recibido en plataforma · Factura ${numero} generada automáticamente`,
+    descripcion: `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · pendiente de pago por transferencia`,
   });
 
-  // Fin du parcours (paiement initial) → lien de suivi au client (email + WhatsApp).
+  const baseUrl = baseUrlFromRequest(req);
+  // Email au client : facture + coordonnées bancaires (IBAN) pour payer par virement.
+  await enviarSolicitudPago(admin, { expedienteId: exp.id, numero, total, concepto, baseUrl });
+  // Au premier paiement demandé, on (re)donne aussi le lien de suivi.
   if (momento === "ANTICIPO") {
-    await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl: baseUrlFromRequest(req) });
+    await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl });
   }
 
-  return NextResponse.json({ ok: true, numero, total });
+  return NextResponse.json({ ok: true, numero, total, estado: "EMITIDA" });
 }
