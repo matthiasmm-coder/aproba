@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
-import { DEFAULT_AVISOS, type Aviso, type Canal } from "@/lib/avisos";
+import { DEFAULT_AVISOS, type Aviso } from "@/lib/avisos";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Config du workspace (servicios + avisos) — Supabase, sous RLS.
@@ -91,15 +91,16 @@ export async function fetchAvisosConfig(): Promise<{ avisos: Aviso[]; desdeDb: b
     .select("clave, evento, template, canal, activo, orden")
     .order("orden");
   if (error) throw new Error(`AvisoConfig: ${error.message}`);
-  if (!data || data.length === 0) return { avisos: DEFAULT_AVISOS, desdeDb: false };
-  return {
-    avisos: (data as AvisoRow[]).map((r) => ({
-      id: r.clave,
-      evento: r.evento,
-      template: r.template,
-      canal: (r.canal === "email" ? "email" : "whatsapp") as Canal,
-      activo: r.activo,
-    })),
-    desdeDb: true,
-  };
+  const byClave = new Map(((data as AvisoRow[]) ?? []).map((r) => [r.clave, r]));
+  // On part TOUJOURS de la liste canonique (DEFAULT_AVISOS) : les claves obsolètes en
+  // base (ex. cita_asignada/resolucion héritées) ne s'affichent plus, et les avisos
+  // récents (ex. form_generado) apparaissent même absents de la base. On conserve les
+  // personnalisations du gestor (texte + activo) là où une ligne existe. Canal = email.
+  const avisos: Aviso[] = DEFAULT_AVISOS.map((def) => {
+    const row = byClave.get(def.id);
+    return row
+      ? { id: def.id, evento: def.evento, template: row.template || def.template, canal: "email", activo: row.activo }
+      : def;
+  });
+  return { avisos, desdeDb: byClave.size > 0 };
 }
