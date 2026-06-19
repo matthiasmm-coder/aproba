@@ -4,6 +4,9 @@ import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { buildFormularios, datosNormalizados } from "@/lib/formularios";
 import { formularioToPdf } from "@/lib/formularios-pdf";
 import { rellenarOficial } from "@/lib/ex-forms";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { dispararAviso } from "@/lib/notificaciones";
+import { baseUrlFromRequest } from "@/lib/base-url";
 
 const nombreArchivo = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, "_");
 
@@ -57,7 +60,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 // POST → marque les formulaires comme generados (avance l'expediente + evento).
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -71,6 +74,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // Avance d'état seulement depuis DOCS_VALIDADOS (idempotent : ne régresse jamais).
   if (exp.estado === "DOCS_VALIDADOS") {
     await supabase.from("Expediente").update({ estado: "FORM_GENERADO", updatedAt: new Date().toISOString() }).eq("id", id);
+    // Avise le client (selon Ajustes) que ses formulaires sont prêts — uniquement à la
+    // transition, donc une seule fois. Ne casse jamais le flux.
+    try {
+      const admin = createSupabaseAdmin();
+      const { data: w } = await admin.from("Expediente").select("workspaceId").eq("id", id).maybeSingle();
+      if (w?.workspaceId) await dispararAviso(admin, { workspaceId: w.workspaceId as string, expedienteId: id, clave: "form_generado", baseUrl: baseUrlFromRequest(req) });
+    } catch { /* un aviso ne doit jamais empêcher la génération */ }
   }
   await supabase.from("ExpedienteEvento").insert({
     id: crypto.randomUUID(), expedienteId: id, tipo: "FORM_GENERADO",

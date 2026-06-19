@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
 import { DEFAULT_SERVICIOS, newServicio, type Servicio } from "@/lib/servicios";
-import { guardarServicios } from "@/lib/config-browser";
+import { guardarServicios, guardarAvisos } from "@/lib/config-browser";
+import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, PLANTILLA_CSV, type FilaCsv } from "@/lib/csv-clientes";
 import { useT } from "@/components/lang-provider";
 
@@ -116,6 +117,9 @@ export function OnboardingForm() {
     if (nif.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim() }) }); } catch { /* */ } }
     // Servicios.
     try { await guardarServicios(servicios, []); } catch { /* */ }
+    // Avisos automáticos : seed des défauts pour que le nouveau despacho ait des
+    // notifications fonctionnelles dès le départ (modifiables ensuite dans Ajustes).
+    try { await guardarAvisos(DEFAULT_AVISOS); } catch { /* */ }
     // Compte bancaire.
     if (banco.titular.trim() && ibanValido(banco.iban)) {
       try {

@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang } from "@/lib/portal-i18n";
+import { DEFAULT_AVISOS } from "@/lib/avisos";
 
 // Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
 // Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
@@ -46,13 +47,17 @@ export async function dispararAviso(
   opts: { workspaceId: string; expedienteId: string; clave: string; vars?: Record<string, string>; baseUrl?: string },
 ): Promise<void> {
   try {
-    const { data: aviso } = await admin
+    const { data: row } = await admin
       .from("AvisoConfig")
       .select("evento, template, canal, activo")
       .eq("workspaceId", opts.workspaceId)
       .eq("clave", opts.clave)
       .maybeSingle();
-    if (!aviso || !aviso.activo) return; // pas configuré ou désactivé → rien
+    // Repli sur le défaut si le workspace n'a pas (encore) personnalisé cet aviso →
+    // les avisos fonctionnent out-of-the-box, sans config manuelle préalable.
+    const def = DEFAULT_AVISOS.find((a) => a.id === opts.clave);
+    const aviso = row ?? (def ? { evento: def.evento, template: def.template, canal: def.canal, activo: def.activo } : null);
+    if (!aviso || !aviso.activo) return; // inconnu/non configuré ou désactivé → rien
 
     const { data: expRaw } = await admin
       .from("Expediente")
