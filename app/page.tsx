@@ -58,9 +58,14 @@ const CON = [
 ];
 
 const PLANES = [
-  { nombre: "Starter", precio: "49", para: "Autónomo · hasta 25 expedientes/mes", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012", "1 usuario", "Soporte por email"], destacado: false },
-  { nombre: "Pro", precio: "99", para: "Equipo · 25-100 expedientes/mes", features: ["Todo lo de Starter", "Hasta 5 usuarios", "Avisos automáticos al cliente", "Portal del cliente con tu marca", "Soporte prioritario"], destacado: true },
-  { nombre: "Business", precio: "199", para: "+100 expedientes/mes o multi-oficina", features: ["Todo lo de Pro", "Usuarios ilimitados", "Facturación integrada", "Multi-oficina", "Onboarding dedicado"], destacado: false },
+  { nombre: "Starter", precio: "49", anual: "490", incluidos: "25", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
+  { nombre: "Pro", precio: "99", anual: "990", incluidos: "60", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Generación automática de facturas", "Portal del cliente con tu marca", "Facturación integrada", "Hasta 5 usuarios"], destacado: true },
+  { nombre: "Business", precio: "199", anual: "1.990", incluidos: "100", para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Multi-oficina", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
+];
+
+const SERVICIOS = [
+  { nombre: "Puesta en marcha", desde: "140", para: "Empieza sin mover un dedo", features: ["Configuración de tu cuenta", "Migración de tus datos y expedientes"], destacado: false },
+  { nombre: "Aproba Despegue", desde: "240", para: "Tu equipo, operativo desde el día uno", features: ["Configuración de tu cuenta", "Migración de tus datos y expedientes", "Formación: 2 h en directo + vídeos y documentación"], destacado: true },
 ];
 
 const FAQ = [
@@ -300,20 +305,42 @@ export default function Landing() {
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Precios por volumen, no por profesión</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Empieza gratis 15 días. Sin permanencia.</p>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Empieza gratis 15 días, sin permanencia. Precios sin IVA.</p>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {PLANES.map((p) => (
-              <div key={p.nombre} className={`relative rounded-2xl border p-7 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
+              <div key={p.nombre} className={`relative flex h-full flex-col rounded-2xl border p-7 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
                 {p.destacado && <span className="absolute -top-3 left-7 rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
                 <h3 className="text-lg font-semibold text-slate-900">{p.nombre}</h3>
                 <p className="mt-1 text-sm text-slate-500">{p.para}</p>
-                <p className="mt-5"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}€</span><span className="text-slate-500">/mes</span></p>
-                <ul className="mt-6 space-y-3 text-sm text-slate-600">
+                <p className="mt-5"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}€</span><span className="text-slate-500">/mes + IVA</span></p>
+                <p className="mt-1 text-xs text-slate-500">o {p.anual}€/año · 2 meses gratis</p>
+                <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-xs font-medium text-aproba-700">{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></p>
+                <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>
                 <Link href="/signup" className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${p.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Empezar</Link>
               </div>
             ))}
+          </div>
+
+          {/* Servicios de implantación */}
+          <div className="mt-16">
+            <h3 className="text-center text-xl font-semibold tracking-tightest text-slate-900">Servicios de implantación <span className="font-normal text-slate-500">(opcionales)</span></h3>
+            <p className="mx-auto mt-2 max-w-xl text-center text-sm text-slate-600">Te dejamos la cuenta lista y a tu equipo formado. Se añaden al contratar cualquier plan.</p>
+            <div className="mx-auto mt-8 grid max-w-4xl gap-6 md:grid-cols-2">
+              {SERVICIOS.map((s) => (
+                <div key={s.nombre} className={`relative rounded-2xl border p-7 ${s.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
+                  {s.destacado && <span className="absolute -top-3 left-7 rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Recomendado</span>}
+                  <h4 className="text-lg font-semibold text-slate-900">{s.nombre}</h4>
+                  <p className="mt-1 text-sm text-slate-500">{s.para}</p>
+                  <p className="mt-5"><span className="text-sm text-slate-500">desde </span><span className="text-3xl font-bold tracking-tightest text-slate-900">{s.desde}€</span></p>
+                  <ul className="mt-6 space-y-3 text-sm text-slate-600">
+                    {s.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-slate-400">Migración según volumen de expedientes · autoservicio gratuito · bonificada con plan anual.</p>
           </div>
         </div>
       </section>
