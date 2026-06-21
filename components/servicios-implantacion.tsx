@@ -2,7 +2,9 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 
-const SERVICIOS = [
+type Svc = { nombre: string; desde: string; para: string; features: string[]; destacado: boolean };
+
+const SERVICIOS: Svc[] = [
   { nombre: "Puesta en marcha", desde: "140", para: "Empieza sin mover un dedo", features: ["Configuración de tu cuenta", "Migración de tus datos y expedientes"], destacado: false },
   { nombre: "Aproba Despegue", desde: "240", para: "Tu equipo, operativo desde el día uno", features: ["Configuración de tu cuenta", "Migración de tus datos y expedientes", "Formación: 2 h en directo + vídeos y documentación"], destacado: true },
 ];
@@ -12,7 +14,7 @@ function Tick() {
 }
 
 export function ServiciosImplantacion() {
-  const [openSvc, setOpenSvc] = useState<string | null>(null);
+  const [openSvc, setOpenSvc] = useState<Svc | null>(null);
 
   return (
     <div className="mt-16">
@@ -28,7 +30,7 @@ export function ServiciosImplantacion() {
             <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
               {s.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick />{f}</li>))}
             </ul>
-            <button onClick={() => setOpenSvc(s.nombre)} className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${s.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Solicitar presupuesto</button>
+            <button onClick={() => setOpenSvc(s)} className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${s.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Solicitar presupuesto</button>
           </div>
         ))}
       </div>
@@ -38,13 +40,14 @@ export function ServiciosImplantacion() {
   );
 }
 
-function PresupuestoModal({ servicio, onClose }: { servicio: string; onClose: () => void }) {
+function PresupuestoModal({ servicio, onClose }: { servicio: Svc; onClose: () => void }) {
+  const esDespegue = servicio.nombre === "Aproba Despegue";
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ servicio, nombre: "", empresa: "", email: "", telefono: "", expedientes: "", participantes: "", disponibilidad: "", comentarios: "", website: "" });
+  const [form, setForm] = useState({ servicio: servicio.nombre, nombre: "", empresa: "", email: "", telefono: "", expedientes: "", participantes: "", comentarios: "", website: "" });
 
-  const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+  const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function submit(e: FormEvent) {
@@ -52,6 +55,10 @@ function PresupuestoModal({ servicio, onClose }: { servicio: string; onClose: ()
     setError(null);
     if (form.nombre.trim().length < 2) { setError("Indica tu nombre."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError("Introduce un email válido."); return; }
+    if (!form.empresa.trim()) { setError("Indica tu despacho o empresa."); return; }
+    if (!form.telefono.trim()) { setError("Indica un teléfono de contacto."); return; }
+    if (!form.expedientes.trim()) { setError("Indica el nº de expedientes a migrar."); return; }
+    if (esDespegue && !form.participantes.trim()) { setError("Indica el nº de personas a formar."); return; }
     setEnviando(true);
     try {
       const r = await fetch("/api/presupuesto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
@@ -88,27 +95,27 @@ function PresupuestoModal({ servicio, onClose }: { servicio: string; onClose: ()
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3.5">
-            <div>
-              <label className={label}>Servicio</label>
-              <select value={form.servicio} onChange={set("servicio")} className={inp}>
-                <option>Puesta en marcha</option>
-                <option>Aproba Despegue</option>
-              </select>
+            <div className="rounded-lg border border-aproba-100 bg-aproba-50 px-3.5 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">{servicio.nombre}</p>
+                <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{servicio.desde} €</span></p>
+              </div>
+              <p className="mt-1 text-xs italic leading-relaxed text-slate-600">Incluye: {servicio.features.join(" · ")}.</p>
+              <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · precio sin IVA.</p>
             </div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Nombre y apellidos *</label><input value={form.nombre} onChange={set("nombre")} className={inp} placeholder="Tu nombre" /></div>
-              <div><label className={label}>Despacho / empresa</label><input value={form.empresa} onChange={set("empresa")} className={inp} placeholder="Opcional" /></div>
+              <div><label className={label}>Despacho / empresa *</label><input value={form.empresa} onChange={set("empresa")} className={inp} placeholder="Nombre de tu despacho" /></div>
             </div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Email *</label><input type="email" value={form.email} onChange={set("email")} className={inp} placeholder="tucorreo@despacho.com" /></div>
-              <div><label className={label}>Teléfono</label><input value={form.telefono} onChange={set("telefono")} className={inp} placeholder="Opcional" /></div>
+              <div><label className={label}>Teléfono *</label><input type="tel" value={form.telefono} onChange={set("telefono")} className={inp} placeholder="600 000 000" /></div>
             </div>
-            <div className="grid gap-3.5 sm:grid-cols-2">
-              <div><label className={label}>Expedientes a migrar</label><input inputMode="numeric" value={form.expedientes} onChange={set("expedientes")} className={inp} placeholder="Nº aproximado" /></div>
-              <div><label className={label}>Personas a formar</label><input inputMode="numeric" value={form.participantes} onChange={set("participantes")} className={inp} placeholder="Solo Aproba Despegue" /></div>
+            <div className={`grid gap-3.5 ${esDespegue ? "sm:grid-cols-2" : ""}`}>
+              <div><label className={label}>Expedientes a migrar *</label><input inputMode="numeric" value={form.expedientes} onChange={set("expedientes")} className={inp} placeholder="Nº aproximado" /></div>
+              {esDespegue && <div><label className={label}>Personas a formar *</label><input inputMode="numeric" value={form.participantes} onChange={set("participantes")} className={inp} placeholder="Nº de asistentes" /></div>}
             </div>
-            <div><label className={label}>Disponibilidad / fechas preferidas</label><input value={form.disponibilidad} onChange={set("disponibilidad")} className={inp} placeholder="Ej. la semana del 7 de julio, por las mañanas…" /></div>
-            <div><label className={label}>Comentarios</label><textarea value={form.comentarios} onChange={set("comentarios")} rows={3} className={inp} placeholder="Cuéntanos tu situación: programa actual, volumen, plazos…" /></div>
+            <div><label className={label}>Comentarios</label><textarea value={form.comentarios} onChange={set("comentarios")} rows={3} className={inp} placeholder="Cuéntanos tu situación: programa actual, plazos…" /></div>
             <input type="text" tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} className="hidden" aria-hidden="true" />
             {error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{error}</p>}
             <div className="flex items-center justify-end gap-3 pt-1">

@@ -19,20 +19,28 @@ export async function POST(req: Request) {
   const nombre = clamp(body.nombre, 120);
   const email = clamp(body.email, 160).toLowerCase();
   const servicio = SERVICIOS.includes(clamp(body.servicio, 60)) ? clamp(body.servicio, 60) : SERVICIOS[0];
+  const esDespegue = servicio === "Aproba Despegue";
+  const empresa = clamp(body.empresa, 160);
+  const telefono = clamp(body.telefono, 40);
+  const expedientes = clamp(body.expedientes, 20);
+  const participantes = clamp(body.participantes, 20);
   if (nombre.length < 2) return fail("Indica tu nombre.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Email no válido.");
+  if (!empresa) return fail("Indica tu despacho o empresa.");
+  if (!telefono) return fail("Indica un teléfono de contacto.");
+  if (!expedientes) return fail("Indica el nº de expedientes a migrar.");
+  if (esDespegue && !participantes) return fail("Indica el nº de personas a formar.");
 
   const rows: [string, string][] = [
     ["Servicio", servicio],
     ["Nombre", nombre],
-    ["Despacho / empresa", clamp(body.empresa, 160) || "—"],
+    ["Despacho / empresa", empresa],
     ["Email", email],
-    ["Teléfono", clamp(body.telefono, 40) || "—"],
-    ["Expedientes a migrar", clamp(body.expedientes, 20) || "—"],
-    ["Personas a formar", clamp(body.participantes, 20) || "—"],
-    ["Disponibilidad", clamp(body.disponibilidad, 200) || "—"],
-    ["Comentarios", clamp(body.comentarios, 2000) || "—"],
+    ["Teléfono", telefono],
+    ["Expedientes a migrar", expedientes],
   ];
+  if (esDespegue) rows.push(["Personas a formar", participantes]);
+  rows.push(["Comentarios", clamp(body.comentarios, 2000) || "—"]);
 
   // Copia de seguridad en logs (recuperable desde el panel de logs si el email falla).
   console.log("[presupuesto]", JSON.stringify(Object.fromEntries(rows)));
