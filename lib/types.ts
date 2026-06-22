@@ -104,3 +104,28 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
   "CITA_HUELLAS",
   "FINALIZADO",
 ];
+
+// Fases del board : agrupan los 8 estados en 4 etapas del pipeline para que el tablero
+// quepa en pantalla y se lea como UN flujo (no 8 columnas sueltas). El estado fino sigue
+// visible en cada tarjeta. RECHAZADO queda fuera (igual que en BOARD_COLUMNS).
+export type BoardTint = "amber" | "aproba" | "indigo" | "emerald";
+export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEstado[]; tint: BoardTint }[] = [
+  { key: "recepcion",    label: "Recepción",    estados: ["BORRADOR", "DOCS_PENDIENTES"],   tint: "amber" },
+  { key: "preparacion",  label: "Preparación",  estados: ["DOCS_VALIDADOS", "FORM_GENERADO"], tint: "aproba" },
+  { key: "presentacion", label: "Presentación", estados: ["PRESENTADO", "RESUELTO"],         tint: "indigo" },
+  { key: "cierre",       label: "Cierre",       estados: ["CITA_HUELLAS", "FINALIZADO"],     tint: "emerald" },
+];
+
+// Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice
+// qué toca hacer). `espera: true` = no depende del gestor (en gris), si no = su turno.
+export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: boolean }> = {
+  BORRADOR:        { label: "Enviar enlace al cliente" },
+  DOCS_PENDIENTES: { label: "Esperando documentos", espera: true },
+  DOCS_VALIDADOS:  { label: "Generar formularios" },
+  FORM_GENERADO:   { label: "Presentar en Mercurio" },
+  PRESENTADO:      { label: "Esperando resolución", espera: true },
+  RESUELTO:        { label: "Agendar cita de huellas" },
+  CITA_HUELLAS:    { label: "Recoger TIE y finalizar" },
+  FINALIZADO:      { label: "Expediente cerrado", espera: true },
+  RECHAZADO:       { label: "Expediente denegado", espera: true },
+};

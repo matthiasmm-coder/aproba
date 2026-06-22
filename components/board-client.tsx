@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BOARD_COLUMNS, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, ACCION_ESTADO, type BoardTint, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, saveArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 
@@ -22,33 +22,68 @@ export type BoardItem = {
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 
+// Clases por matiz de fase — literales para que Tailwind no las purgue (no interpolar).
+const TINT: Record<BoardTint, { head: string; soft: string }> = {
+  amber: { head: "text-amber-700", soft: "bg-amber-50" },
+  aproba: { head: "text-aproba-700", soft: "bg-aproba-50" },
+  indigo: { head: "text-indigo-700", soft: "bg-indigo-50" },
+  emerald: { head: "text-emerald-700", soft: "bg-emerald-50" },
+};
+// Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
+const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
+
 function ArchiveIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="5" rx="1" /><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9M10 13h4" /></svg>;
+}
+function ArrowIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+}
+function ChevronIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>;
 }
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const router = useRouter();
   const t = useT();
+  const meta = ESTADO_META[e.estado];
+  const accion = ACCION_ESTADO[e.estado];
+  const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
   return (
-    <div onClick={() => router.push(`/app/expedientes/${e.id}`)} className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
+    <div onClick={() => router.push(`/app/expedientes/${e.id}`)} className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
       <button
         onClick={(ev) => { ev.stopPropagation(); onArchive(e.id); }}
         aria-label={t("Archivar")}
         title={t("Archivar")}
-        className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 opacity-0 shadow-sm transition hover:border-aproba-300 hover:text-aproba-600 group-hover:opacity-100"
+        className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 opacity-0 shadow-sm transition hover:border-aproba-500 hover:text-aproba-600 group-hover:opacity-100"
       >
         <ArchiveIcon className="h-3.5 w-3.5" />
       </button>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-xs text-slate-400">{e.referencia}</span>
-        {e.fechaLimite && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
+
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold leading-tight text-slate-900">{e.clienteNombre}</p>
+        {e.fechaLimite && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
       </div>
-      <p className="mt-2 font-semibold text-slate-900">{e.clienteNombre}</p>
-      <p className="text-sm text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
-      <div className="mt-3 flex items-center justify-between">
-        {e.total > 0 ? <span className="text-xs text-slate-500">{e.validados}/{e.total} {t("docs validados")}</span> : <span className="text-xs text-slate-400">—</span>}
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
+      <p className="mt-0.5 text-[13px] text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
+        </span>
+        {e.total > 0 && (
+          <span className="flex items-center gap-1 text-[11px] text-slate-400">
+            <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
+            {e.validados}/{e.total}
+          </span>
+        )}
+        <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
+
+      {accion && (
+        <div className={`mt-2 flex items-center gap-1 border-t border-slate-100 pt-2 text-[12px] ${accion.espera ? "text-slate-400" : "font-medium text-aproba-700"}`}>
+          {accion.espera ? <span className="text-slate-300">○</span> : <ArrowIcon className="h-3.5 w-3.5" />}
+          {t(accion.label)}
+        </div>
+      )}
     </div>
   );
 }
@@ -114,24 +149,32 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
         </div>
       </div>
 
-      {/* Vue active : kanban */}
+      {/* Vue active : pipeline en 4 fases (cabe en pantalla, lectura izq→der como un flujo) */}
       {view === "activos" ? (
-        <div className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
-          {BOARD_COLUMNS.map((estado) => {
-            const cards = visibles.filter((e) => e.estado === estado);
-            const meta = ESTADO_META[estado];
+        <div className="no-scrollbar flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 sm:snap-none sm:gap-2 sm:overflow-visible">
+          {BOARD_PHASES.map((ph, i) => {
+            const tint = TINT[ph.tint];
+            const cards = visibles
+              .filter((e) => ph.estados.includes(e.estado))
+              .sort((a, b) => (ORDEN[a.estado] ?? 0) - (ORDEN[b.estado] ?? 0));
             return (
-              <div key={estado} className="w-[82vw] max-w-xs shrink-0 snap-start sm:w-72 sm:max-w-none">
-                <div className="mb-3 flex items-center gap-2 px-1">
-                  <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
-                  <span className="text-sm font-semibold text-slate-700">{t(meta.label)}</span>
-                  <span className="text-xs text-slate-400">{cards.length}</span>
+              <Fragment key={ph.key}>
+                <div className="flex w-[82vw] max-w-xs shrink-0 snap-start flex-col sm:w-auto sm:max-w-none sm:flex-1 sm:shrink">
+                  <div className={`mb-3 flex items-center justify-between rounded-lg ${tint.soft} px-3 py-2`}>
+                    <span className={`text-[13px] font-bold ${tint.head}`}>{i + 1}. {t(ph.label)}</span>
+                    <span className={`rounded-full bg-white/70 px-1.5 text-xs font-semibold ${tint.head}`}>{cards.length}</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {cards.map((e) => <Card key={e.id} e={e} onArchive={(id) => setArchivado(id, true)} />)}
+                    {cards.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">—</div>}
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  {cards.map((e) => <Card key={e.id} e={e} onArchive={(id) => setArchivado(id, true)} />)}
-                  {cards.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">{t("Vacío")}</div>}
-                </div>
-              </div>
+                {i < BOARD_PHASES.length - 1 && (
+                  <div className="hidden shrink-0 self-start pt-2.5 text-slate-300 sm:block" aria-hidden>
+                    <ChevronIcon className="h-4 w-4" />
+                  </div>
+                )}
+              </Fragment>
             );
           })}
         </div>
@@ -150,7 +193,7 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
                   </div>
                 </a>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-                <button onClick={() => setArchivado(e.id, false)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700">{t("Restaurar")}</button>
+                <button onClick={() => setArchivado(e.id, false)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-aproba-500 hover:text-aproba-700">{t("Restaurar")}</button>
               </div>
             );
           })}
