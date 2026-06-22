@@ -35,7 +35,7 @@ export function RellenarMercurio({ campos, referencia, rellenos, total }: { camp
   }
 
   return (
-    <div className="mt-8 rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-aproba-50 text-aproba-600">

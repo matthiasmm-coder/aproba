@@ -3,15 +3,27 @@ import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
-import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
+import { DOC_ESTADO_META, ESTADO_META, ACCION_ESTADO, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { SiguientePaso } from "@/components/siguiente-paso";
 import { CobrosPanel } from "@/components/cobros-panel";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
+import { PhaseStepper } from "@/components/phase-stepper";
+import { ArrowIcon } from "@/components/icons";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
+
+// Encabezado de sección con el mismo verde de marca que las fases del tablero.
+function SeccionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center justify-between rounded-lg bg-aproba-50 px-3 py-2">
+      <span className="text-[13px] font-bold text-aproba-700">{children}</span>
+      {right}
+    </div>
+  );
+}
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -103,45 +115,71 @@ export default async function ExpedienteDetail({
   const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
 
   const meta = ESTADO_META[e.estado];
+  const accion = ACCION_ESTADO[e.estado];
+  const tuTurno = Boolean(accion) && !accion.espera;
 
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-4xl">
       <Link href="/app/expedientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         {t("Expedientes")}
       </Link>
 
-      {/* En-tête */}
+      {/* En-tête + position dans le pipeline */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{e.clienteNombre}</h1>
             <p className="text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-            <SiguientePaso id={e.id} estado={e.estado} citaPresencial={Boolean(servicio?.citaPresencial)} citaQuien={servicio?.citaQuien ?? "cliente"} />
             <ArchivarButton id={e.id} />
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 border-t border-slate-100 pt-4 text-sm">
+
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <PhaseStepper activeEstado={e.estado} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
           {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      {/* Driver : qué toca hacer ahora */}
+      <div className={`mt-4 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${tuTurno ? "border-aproba-200 bg-aproba-50" : "border-slate-200 bg-slate-50"}`}>
+        <div className="flex items-center gap-3">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tuTurno ? "bg-aproba-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+            {tuTurno ? <ArrowIcon className="h-5 w-5" /> : <span className="text-xl leading-none">○</span>}
+          </span>
+          <div>
+            <p className={`text-[11px] font-semibold uppercase tracking-wide ${tuTurno ? "text-aproba-700" : "text-slate-400"}`}>{t("Siguiente paso")}</p>
+            <p className="font-semibold text-slate-900">{accion ? t(accion.label) : t("Sin acciones pendientes")}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {e.estado === "DOCS_VALIDADOS" && (
+            <Link href={`/app/expedientes/${e.id}/formularios`} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+              {t("Generar formularios")} <ArrowIcon className="h-4 w-4" />
+            </Link>
+          )}
+          <SiguientePaso id={e.id} estado={e.estado} citaPresencial={Boolean(servicio?.citaPresencial)} citaQuien={servicio?.citaQuien ?? "cliente"} />
+        </div>
+      </div>
+
+      {/* Le parcours, de haut en bas */}
+      <div className="mt-6 space-y-6">
         {/* Documentos */}
-        <div className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            {t("Documentos")} ({e.documentos.length})
-          </h2>
+        <section>
+          <SeccionHeader>{t("Documentos")} ({e.documentos.length})</SeccionHeader>
           <div className="space-y-3">
             {e.documentos.length > 0 ? (
               e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} t={t} />)
@@ -151,45 +189,47 @@ export default async function ExpedienteDetail({
               </div>
             )}
           </div>
+        </section>
 
-          {/* Formularios */}
-          <div className="mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Formularios")}</h2>
-              <Link href={`/app/expedientes/${e.id}/formularios`} className="text-sm font-semibold text-aproba-700 hover:underline">
-                {e.formularios.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
-              </Link>
-            </div>
-            {e.formularios.length > 0 ? (
-              <Link href={`/app/expedientes/${e.id}/formularios`} className="flex flex-wrap gap-3">
-                {e.formularios.map((f) => (
-                  <span key={f.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 transition hover:border-aproba-300 hover:shadow-sm">
-                    <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                    <span className="text-sm font-medium text-slate-700">{f.tipo}</span>
-                    <span className="text-xs text-aproba-700">PDF</span>
-                  </span>
-                ))}
-              </Link>
-            ) : (
-              <Link href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
-                <svg className="h-5 w-5 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
-                {t("Generar EX + 790-012 desde los datos validados")}
-              </Link>
-            )}
-          </div>
+        {/* Formularios */}
+        <section>
+          <SeccionHeader right={
+            <Link href={`/app/expedientes/${e.id}/formularios`} className="text-xs font-semibold text-aproba-700 hover:underline">
+              {e.formularios.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
+            </Link>
+          }>{t("Formularios")}</SeccionHeader>
+          {e.formularios.length > 0 ? (
+            <Link href={`/app/expedientes/${e.id}/formularios`} className="flex flex-wrap gap-3">
+              {e.formularios.map((f) => (
+                <span key={f.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 transition hover:border-aproba-300 hover:shadow-sm">
+                  <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                  <span className="text-sm font-medium text-slate-700">{f.tipo}</span>
+                  <span className="text-xs text-aproba-700">PDF</span>
+                </span>
+              ))}
+            </Link>
+          ) : (
+            <Link href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+              <svg className="h-5 w-5 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
+              {t("Generar EX + 790-012 desde los datos validados")}
+            </Link>
+          )}
+        </section>
 
-          <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} />
-        </div>
+        {/* Presentar en Mercurio */}
+        <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} />
 
-        {/* Cobros + Timeline */}
-        <div>
-          <CobrosPanel
-            referencia={e.referencia}
-            anticipo={servicio?.anticipo ?? 0}
-            resto={servicio?.resto ?? 0}
-            facturas={e.facturasPago}
-          />
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Historial")}</h2>
+        {/* Cobro */}
+        <CobrosPanel
+          referencia={e.referencia}
+          anticipo={servicio?.anticipo ?? 0}
+          resto={servicio?.resto ?? 0}
+          facturas={e.facturasPago}
+        />
+
+        {/* Historial */}
+        <section>
+          <SeccionHeader>{t("Historial")}</SeccionHeader>
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <ol className="space-y-4">
               {e.eventos.map((ev, i) => (
@@ -206,7 +246,7 @@ export default async function ExpedienteDetail({
               ))}
             </ol>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

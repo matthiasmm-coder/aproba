@@ -2,9 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, saveArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
+import { ArchiveIcon, ChevronIcon } from "@/components/icons";
+import { NextAction } from "@/components/next-action";
 
 export type BoardItem = {
   id: string;
@@ -25,21 +27,10 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
-function ArchiveIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="5" rx="1" /><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9M10 13h4" /></svg>;
-}
-function ArrowIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
-}
-function ChevronIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>;
-}
-
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const router = useRouter();
   const t = useT();
   const meta = ESTADO_META[e.estado];
-  const accion = ACCION_ESTADO[e.estado];
   const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
   return (
     <div onClick={() => router.push(`/app/expedientes/${e.id}`)} className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
@@ -71,12 +62,9 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
 
-      {accion && (
-        <div className={`mt-2 flex items-center gap-1 border-t border-slate-100 pt-2 text-[12px] ${accion.espera ? "text-slate-400" : "font-medium text-aproba-700"}`}>
-          {accion.espera ? <span className="text-slate-300">○</span> : <ArrowIcon className="h-3.5 w-3.5" />}
-          {t(accion.label)}
-        </div>
-      )}
+      <div className="mt-2 border-t border-slate-100 pt-2">
+        <NextAction estado={e.estado} />
+      </div>
     </div>
   );
 }
