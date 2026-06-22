@@ -110,4 +110,5 @@ export const PAGINAS_LEGALES = [
   { href: "/legal/cookies", label: "Cookies" },
   { href: "/legal/terminos", label: "Términos" },
   { href: "/legal/dpa", label: "Encargado del tratamiento (DPA)" },
+  { href: "/legal/extension", label: "Extensión Mercurio" },
 ] as const;
