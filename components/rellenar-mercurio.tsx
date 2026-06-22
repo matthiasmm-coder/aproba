@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import type { MercurioCampo } from "@/lib/mercurio";
 
-// URL de inicio de Mercurio (presentación telemática de extranjería).
-const MERCURIO_URL = "https://sede.administracionespublicas.gob.es/mercurio/inicioMercurio.html";
+// URL de Mercurio (presentación telemática de extranjería). Nueva dirección desde
+// el 8 de abril de 2025; la antigua (sede.administracionespublicas.gob.es) es ahora
+// una página informativa.
+const MERCURIO_URL = "https://mercurio.delegaciondelgobierno.gob.es/mercurio/";
 
 export function RellenarMercurio({ campos, referencia, rellenos, total }: { campos: MercurioCampo[]; referencia: string; rellenos: number; total: number }) {
   const t = useT();
