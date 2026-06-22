@@ -7,6 +7,8 @@ import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { SiguientePaso } from "@/components/siguiente-paso";
 import { CobrosPanel } from "@/components/cobros-panel";
+import { RellenarMercurio } from "@/components/rellenar-mercurio";
+import { camposMercurioFlat } from "@/lib/mercurio";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
@@ -102,6 +104,10 @@ export default async function ExpedienteDetail({
 
   const meta = ESTADO_META[e.estado];
 
+  // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
+  const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
+  const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
+
   return (
     <div className="mx-auto max-w-5xl">
       <Link href="/app/expedientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
@@ -171,6 +177,8 @@ export default async function ExpedienteDetail({
               </Link>
             )}
           </div>
+
+          <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} />
         </div>
 
         {/* Cobros + Timeline */}
