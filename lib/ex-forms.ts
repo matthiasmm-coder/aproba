@@ -68,7 +68,7 @@ function vec(
   };
 }
 
-const FORMS: Record<string, Mapa> = {
+export const FORMS: Record<string, Mapa> = {
   // ── Modèles vectoriels (overlay) — positions relevées via pdfjs ────────────
   "EX-31": vec({ P: 687, A: 670, N: 649, F: 631, NAC: 613, D: 577, L: 559, T: 541 }, [651, 461, 501, 525], [612, 404, 433, 461, 490, 519], [594, 56, 305], { fx: [152, 179, 205], pisoX: 547 }),
   "EX-02": vec({ P: 687, A: 670, N: 652, F: 631, NAC: 616, D: 580, L: 562, T: 544 }, [651, 336, 372, 400], [615, 396, 424, 452, 483, 512], [597, 51, 297]),

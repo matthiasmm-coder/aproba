@@ -31,3 +31,4 @@ yarn-error.log*
 
 # Claude Code local dev tooling
 .claude/
+veille-ex-report.md

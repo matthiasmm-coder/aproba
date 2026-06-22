@@ -1,0 +1,73 @@
+{
+  "EX-01": [
+    {
+      "slug": "/documents/d/migraciones/ex01-formulario-autorizacion-de-residencia-temporal-no-lucrativa-1",
+      "sha256": "beb33238a72bb61d7454480da185dcb7abe43f4584e9914ec092e1e06ce400a4",
+      "bytes": 642848
+    }
+  ],
+  "EX-02": [
+    {
+      "slug": "/documents/d/migraciones/ex02-formulario-autorizacion-de-residencia-temporal-por-reagrupacion-familiar.pdf",
+      "sha256": "27a89807594acfeba6f741272c4e56fa043bc211b1ed1661b893ede90a2f7e7d",
+      "bytes": 249142
+    },
+    {
+      "slug": "/documents/d/migraciones/ex02.pdf",
+      "sha256": "699977b07aefa1852b1a280f6adba7b550e2ddc2d3525b48cdd0cab8df323795",
+      "bytes": 186236
+    }
+  ],
+  "EX-03": [
+    {
+      "slug": "/documents/d/migraciones/ex03-formulario-autorizacion-de-residencia-temporal-y-trabajo-por-cuenta-ajena-o-autorizacion-de-trabajo-por-cuenta-ajena-1",
+      "sha256": "1e80fa26cc43e764bc1febf633c0bd582b7f85c974249a3d572d35663c14bfd0",
+      "bytes": 151958
+    }
+  ],
+  "EX-10": [
+    {
+      "slug": "/documents/d/migraciones/ex10-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-",
+      "sha256": "7b5f2addd7da00fac6cd234a45d27fea23f174017bec650ff7541035f141ef17",
+      "bytes": 1563208
+    },
+    {
+      "slug": "/documents/d/migraciones/ex10.pdf",
+      "sha256": "b690598b328909bd8352e6e4fcb29df24779e3062d3c8d645b5376e909911550",
+      "bytes": 1665071
+    }
+  ],
+  "EX-11": [
+    {
+      "slug": "/documents/d/migraciones/ex11-formulario-autorizacion-de-residencia-de-larga-duracion-o-de-larga-duracion-ue-1",
+      "sha256": "8cd2f96a3bdce21cc5f5a3c676f62ac0d49c922dde88e34e4d8ee21678e5cb0b",
+      "bytes": 146993
+    }
+  ],
+  "EX-15": [
+    {
+      "slug": "/documents/d/migraciones/ex15-formulario-solicitud-numero-de-identidad-de-extranjero-y-certificados",
+      "sha256": "2defc88df4530464a4dd24e4cad394dff952f60764eb395db95af7fe29d35ed2",
+      "bytes": 145503
+    }
+  ],
+  "EX-17": [
+    {
+      "slug": "/documents/d/migraciones/ex17-formulario-solicitud-tarjeta-de-identidad-de-extranjero",
+      "sha256": "968e47b0429ae7c93bbba4a2cf6316704d623c4fae14d355efbb0288b327530a",
+      "bytes": 179128
+    }
+  ],
+  "EX-31": [
+    {
+      "slug": "/documents/d/migraciones/ex31-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-por-razon-de-arraigo-solicitantes-pi-da20-.pdf",
+      "sha256": "4b112c0cb0a88bc9b9fc6e2744956f5dfbc5071d1c18b10746e06e4b4ef074f5",
+      "bytes": 917613
+    },
+    {
+      "slug": "/documents/d/migraciones/ex31-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-por-razon-de-arraigo.pdf",
+      "sha256": "2478be691e1b092904da8960b5543e3f867be60b41918c64094d9196c588a4ea",
+      "bytes": 778329
+    }
+  ]
+}

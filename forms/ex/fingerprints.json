@@ -1,0 +1,50 @@
+{
+  "EX-01": {
+    "sha256": "beb33238a72bb61d7454480da185dcb7abe43f4584e9914ec092e1e06ce400a4",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-02": {
+    "sha256": "699977b07aefa1852b1a280f6adba7b550e2ddc2d3525b48cdd0cab8df323795",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-03": {
+    "sha256": "1e80fa26cc43e764bc1febf633c0bd582b7f85c974249a3d572d35663c14bfd0",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-10": {
+    "sha256": "cb70af0918748cc798eb7c8ae9f178fcfc9366c7c7c8dfdd6102d2d9e493c768",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-11": {
+    "sha256": "8cd2f96a3bdce21cc5f5a3c676f62ac0d49c922dde88e34e4d8ee21678e5cb0b",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-15": {
+    "sha256": "2defc88df4530464a4dd24e4cad394dff952f60764eb395db95af7fe29d35ed2",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-17": {
+    "sha256": "968e47b0429ae7c93bbba4a2cf6316704d623c4fae14d355efbb0288b327530a",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-31": {
+    "sha256": "2478be691e1b092904da8960b5543e3f867be60b41918c64094d9196c588a4ea",
+    "paginas": 6,
+    "ancho": 595,
+    "alto": 842
+  }
+}
