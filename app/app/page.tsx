@@ -44,8 +44,6 @@ export default async function Dashboard() {
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
-    validados: e.validados,
-    total: e.total,
   }));
   return (
     <>
