@@ -4,12 +4,13 @@
 // datos registrales). El resto del texto legal referencia estos campos.
 
 export const TITULAR = {
-  // Identidad del prestador (LSSI-CE art. 10) — completar:
-  razonSocial: "[RAZÓN SOCIAL O NOMBRE Y APELLIDOS DEL TITULAR]",
-  nif: "[NIF / CIF]",
-  domicilio: "[DOMICILIO FISCAL COMPLETO, España]",
-  // Datos registrales (solo si es sociedad mercantil) — dejar como "" si autónomo:
-  registro: "[Registro Mercantil de ___, Tomo ___, Folio ___, Hoja ___]",
+  // Identidad del prestador (LSSI-CE art. 10).
+  razonSocial: "ExpatfrancesCKNA07 S.L.",
+  nif: "B22993539",
+  domicilio: "Avenida Mediterráneo, 14 — 08380 Malgrat de Mar (Barcelona), España",
+  // Datos registrales: pendiente de completar (Registro Mercantil de Barcelona, Tomo,
+  // Folio, Hoja). Mientras esté vacío, la línea se omite en el Aviso legal.
+  registro: "",
 
   // Marca y contacto (operativos):
   nombreComercial: "Aproba",
@@ -20,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "13 de junio de 2026";
+export const ULTIMA_ACTUALIZACION = "22 de junio de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {

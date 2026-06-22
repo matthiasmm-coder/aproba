@@ -23,7 +23,7 @@ export default function AvisoLegal() {
         <li><strong>Titular:</strong> <Dato>{TITULAR.razonSocial}</Dato></li>
         <li><strong>NIF/CIF:</strong> <Dato>{TITULAR.nif}</Dato></li>
         <li><strong>Domicilio:</strong> <Dato>{TITULAR.domicilio}</Dato></li>
-        <li><strong>Datos registrales:</strong> <Dato>{TITULAR.registro}</Dato></li>
+        {TITULAR.registro ? <li><strong>Datos registrales:</strong> <Dato>{TITULAR.registro}</Dato></li> : null}
         <li><strong>Correo electrónico:</strong> <a href={`mailto:${TITULAR.email}`}>{TITULAR.email}</a></li>
         <li><strong>Sitio web:</strong> <a href={TITULAR.web}>{TITULAR.dominio}</a></li>
         <li><strong>Nombre comercial:</strong> {TITULAR.nombreComercial}</li>
