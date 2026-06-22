@@ -96,7 +96,7 @@ export function CobrosPanel({
 
   return (
     <div>
-      <h2 className="mb-3 rounded-lg bg-aproba-50 px-3 py-2 text-[13px] font-bold text-aproba-700">{t("Cobro del expediente")}</h2>
+      <h2 className="mb-3 text-sm font-semibold text-slate-700">{t("Cobro del expediente")}</h2>
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="divide-y divide-slate-100">
           {anticipo > 0 && <Fila label={t("Pago inicial (al firmar)")} monto={anticipo} pago={pagoAnticipo} />}

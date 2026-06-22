@@ -72,6 +72,7 @@ type ExtractionRow = {
 type DetalleRow = Omit<ResumenRow, "documentos"> & {
   createdAt: string;
   servicioClave: string | null;
+  portalToken: string | null;
   fechaCita: string | null;
   citaHora: string | null;
   citaLugar: string | null;
@@ -104,6 +105,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   tipoEnum: string;
   facturasPago: FacturaPago[];
   servicioClave: string | null;
+  portalToken: string | null;
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
 };
 
@@ -129,7 +131,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   const { data, error } = await supabase
     .from("Expediente")
     .select(
-      `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, fechaCita, citaHora, citaLugar, citaNotas,
+      `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, fechaCita, citaHora, citaLugar, citaNotas,
        cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
        asignadoA:User(nombre),
        documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -190,6 +192,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
     eventos,
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
+    portalToken: e.portalToken ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
       id: f.id,

@@ -3,23 +3,22 @@ import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
-import { DOC_ESTADO_META, ESTADO_META, ACCION_ESTADO, type Documento } from "@/lib/types";
+import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
-import { SiguientePaso } from "@/components/siguiente-paso";
 import { CobrosPanel } from "@/components/cobros-panel";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
-import { ArrowIcon } from "@/components/icons";
+import { DriverBanner } from "@/components/driver-banner";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
 
-// Encabezado de sección con el mismo verde de marca que las fases del tablero.
+// Encabezado de sección (neutro — el verde se reserva al stepper y al driver).
 function SeccionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between rounded-lg bg-aproba-50 px-3 py-2">
-      <span className="text-[13px] font-bold text-aproba-700">{children}</span>
+    <div className="mb-3 flex items-center justify-between">
+      <span className="text-sm font-semibold text-slate-700">{children}</span>
       {right}
     </div>
   );
@@ -115,8 +114,6 @@ export default async function ExpedienteDetail({
   const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
 
   const meta = ESTADO_META[e.estado];
-  const accion = ACCION_ESTADO[e.estado];
-  const tuTurno = Boolean(accion) && !accion.espera;
 
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
@@ -154,26 +151,15 @@ export default async function ExpedienteDetail({
         </div>
       </div>
 
-      {/* Driver : qué toca hacer ahora */}
-      <div className={`mt-4 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${tuTurno ? "border-aproba-200 bg-aproba-50" : "border-slate-200 bg-slate-50"}`}>
-        <div className="flex items-center gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tuTurno ? "bg-aproba-600 text-white" : "bg-slate-200 text-slate-500"}`}>
-            {tuTurno ? <ArrowIcon className="h-5 w-5" /> : <span className="text-xl leading-none">○</span>}
-          </span>
-          <div>
-            <p className={`text-[11px] font-semibold uppercase tracking-wide ${tuTurno ? "text-aproba-700" : "text-slate-400"}`}>{t("Siguiente paso")}</p>
-            <p className="font-semibold text-slate-900">{accion ? t(accion.label) : t("Sin acciones pendientes")}</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {e.estado === "DOCS_VALIDADOS" && (
-            <Link href={`/app/expedientes/${e.id}/formularios`} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
-              {t("Generar formularios")} <ArrowIcon className="h-4 w-4" />
-            </Link>
-          )}
-          <SiguientePaso id={e.id} estado={e.estado} citaPresencial={Boolean(servicio?.citaPresencial)} citaQuien={servicio?.citaQuien ?? "cliente"} />
-        </div>
-      </div>
+      {/* Driver : la flèche déclenche directement l'action suivante */}
+      <DriverBanner
+        id={e.id}
+        estado={e.estado}
+        citaPresencial={Boolean(servicio?.citaPresencial)}
+        citaQuien={servicio?.citaQuien ?? "cliente"}
+        portalToken={e.portalToken}
+        formulariosHref={`/app/expedientes/${e.id}/formularios`}
+      />
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
