@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, ACCION_ESTADO, type BoardTint, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, saveArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 
@@ -22,13 +22,6 @@ export type BoardItem = {
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 
-// Clases por matiz de fase — literales para que Tailwind no las purgue (no interpolar).
-const TINT: Record<BoardTint, { head: string; soft: string }> = {
-  amber: { head: "text-amber-700", soft: "bg-amber-50" },
-  aproba: { head: "text-aproba-700", soft: "bg-aproba-50" },
-  indigo: { head: "text-indigo-700", soft: "bg-indigo-50" },
-  emerald: { head: "text-emerald-700", soft: "bg-emerald-50" },
-};
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
@@ -153,16 +146,15 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
       {view === "activos" ? (
         <div className="no-scrollbar flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 sm:snap-none sm:gap-2 sm:overflow-visible">
           {BOARD_PHASES.map((ph, i) => {
-            const tint = TINT[ph.tint];
             const cards = visibles
               .filter((e) => ph.estados.includes(e.estado))
               .sort((a, b) => (ORDEN[a.estado] ?? 0) - (ORDEN[b.estado] ?? 0));
             return (
               <Fragment key={ph.key}>
                 <div className="flex w-[82vw] max-w-xs shrink-0 snap-start flex-col sm:w-auto sm:max-w-none sm:flex-1 sm:shrink">
-                  <div className={`mb-3 flex items-center justify-between rounded-lg ${tint.soft} px-3 py-2`}>
-                    <span className={`text-[13px] font-bold ${tint.head}`}>{i + 1}. {t(ph.label)}</span>
-                    <span className={`rounded-full bg-white/70 px-1.5 text-xs font-semibold ${tint.head}`}>{cards.length}</span>
+                  <div className="mb-3 flex items-center justify-between rounded-lg bg-aproba-50 px-3 py-2">
+                    <span className="text-[13px] font-bold text-aproba-700">{i + 1}. {t(ph.label)}</span>
+                    <span className="rounded-full bg-white/70 px-1.5 text-xs font-semibold text-aproba-700">{cards.length}</span>
                   </div>
                   <div className="space-y-2.5">
                     {cards.map((e) => <Card key={e.id} e={e} onArchive={(id) => setArchivado(id, true)} />)}
