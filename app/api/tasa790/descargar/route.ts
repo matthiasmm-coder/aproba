@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 // Proxy 790-012 — étape 2 : on renvoie au générateur officiel TOUS les champs +
 // le captcha tapé par le gestor, avec la même session, et on récupère le PDF
@@ -15,10 +16,11 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { sid?: string; campos?: Campos };
+  let body: { expedienteId?: string; sid?: string; campos?: Campos };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const sid = body.sid ?? "";
   const c = body.campos ?? {};
+  const expedienteId = body.expedienteId ?? "";
   if (!/JSESSIONID/.test(sid) || !c.codSeguridadForm) {
     return NextResponse.json({ error: "Sesión o código de seguridad ausentes." }, { status: 400 });
   }
@@ -62,6 +64,21 @@ export async function POST(req: Request) {
       { error: "El código de seguridad no coincide (distingue mayúsculas/minúsculas y es de un solo uso). Escribe el nuevo código que aparece e inténtalo otra vez.", captcha: true },
       { status: 422 },
     );
+  }
+
+  // Guarda la tasa para que el cliente la descargue desde su seguimiento. Defensivo:
+  // verifica que el gestor es dueño del expediente (RLS) y nunca rompe la descarga.
+  if (expedienteId) {
+    try {
+      const { data: own } = await supabase.from("Expediente").select("id").eq("id", expedienteId).maybeSingle();
+      if (own) {
+        const admin = createSupabaseAdmin();
+        const path = `${expedienteId}/tasa-790-012.pdf`;
+        await admin.storage.from("documentos").upload(path, buf, { contentType: "application/pdf", upsert: true });
+        const { error: errU } = await admin.from("Expediente").update({ tasaPath: path }).eq("id", expedienteId);
+        if (errU) console.warn("[tasa790] no se pudo guardar tasaPath (¿migración pendiente?):", errU.message);
+      }
+    } catch (e) { console.warn("[tasa790] no se pudo guardar la tasa:", e instanceof Error ? e.message : e); }
   }
 
   return new Response(buf, {

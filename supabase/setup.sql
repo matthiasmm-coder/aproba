@@ -677,3 +677,9 @@ alter table public."Expediente" add column if not exists "citaNotas" text;
 -- Demandés à l'inscription, complétables ensuite depuis le menu Facturas.
 alter table public."Workspace" add column if not exists "domicilio" text;
 alter table public."Workspace" add column if not exists "emailFacturacion" text;
+
+-- Formularios que el gestor ha generado realmente para el expediente (códigos EX) y la
+-- tasa 790 guardada en Storage. Sirven para que el cliente descargue EXACTAMENTE lo
+-- preparado desde su página de seguimiento (no todos los modelos del trámite).
+alter table public."Expediente" add column if not exists "formulariosGenerados" text[];
+alter table public."Expediente" add column if not exists "tasaPath" text;

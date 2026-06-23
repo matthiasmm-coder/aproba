@@ -63,7 +63,7 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
     if (!datos) return;
     setEnviando(true); setError(null);
     const importe = datos.tramites.find((t) => t.value === tramite)?.importe ?? "";
-    const body = { sid: datos.sid, campos: { ...campos, tramiteSeleccionado: tramite, total: importe, efectivoOAdeudo: "efectivo", codSeguridadForm: captcha } };
+    const body = { expedienteId, sid: datos.sid, campos: { ...campos, tramiteSeleccionado: tramite, total: importe, efectivoOAdeudo: "efectivo", codSeguridadForm: captcha } };
     const r = await fetch("/api/tasa790/descargar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (r.headers.get("content-type")?.includes("pdf")) {
       const blob = await r.blob();

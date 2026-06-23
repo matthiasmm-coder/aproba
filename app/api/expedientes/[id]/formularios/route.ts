@@ -69,7 +69,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const exp = await fetchExpedienteDetalle(id);
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
-  const tipos = buildFormularios(exp).map((f) => f.tipo).join(", ");
+  // Modelos que el gestor declara como generados (curados en la UI). Repli sur le set
+  // auto si le corps est vide (compat ascendante).
+  let seleccion: string[] = [];
+  try { const b = await req.json(); if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string"); } catch { /* sans corps */ }
+  if (seleccion.length === 0) seleccion = buildFormularios(exp).map((f) => f.tipo);
+
+  // Persiste la selección EXACTA → el cliente verá solo esos (defensivo: la columna
+  // puede no existir antes de la migración; en ese caso se ignora sin romper nada).
+  const { error: errSel } = await supabase.from("Expediente").update({ formulariosGenerados: seleccion }).eq("id", id);
+  if (errSel) console.warn("[formularios] no se pudo persistir la selección (¿migración pendiente?):", errSel.message);
+
+  const tipos = seleccion.join(", ");
 
   // Avance d'état seulement depuis DOCS_VALIDADOS (idempotent : ne régresse jamais).
   if (exp.estado === "DOCS_VALIDADOS") {

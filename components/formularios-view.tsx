@@ -16,15 +16,20 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
   const router = useRouter();
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
-  const [extra, setExtra] = useState<string[]>([]);
+  // Selección curada por el gestor (lo que el cliente verá). Parte de los modelos del
+  // trámite; el gestor quita los que no apliquen y añade los que falten.
+  const [seleccion, setSeleccion] = useState<string[]>(oficiales);
 
-  const mostrados = [...new Set([...oficiales, ...extra])];
-  const porAñadir = todos.filter((t) => !mostrados.includes(t.code));
+  const porAñadir = todos.filter((t) => !seleccion.includes(t.code));
   const urlOficial = (tipo: string) => `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial`;
+  const quitar = (tipo: string) => { setSeleccion((s) => s.filter((x) => x !== tipo)); setMarcado(false); };
+  const añadir = (tipo: string) => { setSeleccion((s) => [...new Set([...s, tipo])]); setMarcado(false); };
 
   async function marcarGenerados() {
     setMarcando(true);
-    const res = await fetch(`/api/expedientes/${exp.id}/formularios`, { method: "POST" });
+    const res = await fetch(`/api/expedientes/${exp.id}/formularios`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: seleccion }),
+    });
     setMarcando(false);
     if (res.ok) { setMarcado(true); router.refresh(); }
   }
@@ -48,16 +53,17 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
         <p className="mt-1 text-xs text-slate-500">{t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {mostrados.map((tipo) => (
-            <a
-              key={tipo}
-              href={urlOficial(tipo)}
-              className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700"
-            >
-              {IconDescarga}
-              {tipo} {t("rellenado")}
-            </a>
+          {seleccion.map((tipo) => (
+            <span key={tipo} className="inline-flex items-center overflow-hidden rounded-lg bg-aproba-600 text-sm font-semibold text-white">
+              <a href={urlOficial(tipo)} className="inline-flex items-center gap-2 px-3.5 py-2 transition hover:bg-aproba-700">
+                {IconDescarga}{tipo} {t("rellenado")}
+              </a>
+              <button onClick={() => quitar(tipo)} title={t("Quitar")} aria-label={`${t("Quitar")} ${tipo}`} className="self-stretch border-l border-white/25 px-2 transition hover:bg-aproba-700">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </span>
           ))}
+          {seleccion.length === 0 && <span className="text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector de abajo.")}</span>}
 
           {/* Tasa oficial (proxy Sede Policía Nacional) */}
           <Tasa790Modal expedienteId={exp.id} />
@@ -69,7 +75,7 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
             <span className="text-xs text-slate-400">{t("¿Necesitas otro modelo?")}</span>
             <select
               value=""
-              onChange={(e) => { if (e.target.value) setExtra((x) => [...x, e.target.value]); }}
+              onChange={(e) => { if (e.target.value) añadir(e.target.value); }}
               className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 outline-none focus:border-aproba-600"
             >
               <option value="">{t("+ Añadir formulario…")}</option>

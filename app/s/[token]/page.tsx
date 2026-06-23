@@ -14,15 +14,16 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const { token } = await params;
   const admin = createSupabaseAdmin();
 
-  const { data } = await admin
-    .from("Expediente")
-    .select("id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(id, tipo, estado, storagePath)")
-    .eq("portalToken", token)
-    .maybeSingle();
+  const SELECT = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(id, tipo, estado, storagePath)";
+  // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas.
+  let res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
+  const data = res.data;
 
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
+    formulariosGenerados?: string[] | null; tasaPath?: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     documentos: { id: string; tipo: string; estado: string; storagePath: string | null }[] | null;
@@ -46,8 +47,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     return { label, status, docId: d?.storagePath ? d.id : undefined };
   });
 
-  // Formularios oficiales del trámite, descargables una vez generados.
-  const formularios = FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo) : [];
+  // Formularios descargables: la selección EXACTA que el gestor generó (persistida);
+  // si no está (expedientes antiguos / antes de la migración), repli sobre los modelos
+  // del trámite una vez generados. La tasa se muestra si el gestor la guardó.
+  const formularios = (exp.formulariosGenerados && exp.formulariosGenerados.length)
+    ? exp.formulariosGenerados
+    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo) : []);
+  const tasaDisponible = Boolean(exp.tasaPath);
 
   return (
     <Seguimiento
@@ -62,6 +68,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       cita={{ fecha: exp.fechaCita, hora: exp.citaHora, lugar: exp.citaLugar, notas: exp.citaNotas }}
       docs={docs}
       formularios={formularios}
+      tasaDisponible={tasaDisponible}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchExpedienteDetallePorToken } from "@/lib/data/expedientes";
 import { datosNormalizados } from "@/lib/formularios";
 import { rellenarOficial, formulariosDelTramite } from "@/lib/ex-forms";
@@ -24,7 +25,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   if ((ORDEN[exp.estado] ?? 0) < ORDEN.FORM_GENERADO) {
     return NextResponse.json({ error: "Los formularios aún no están listos." }, { status: 403 });
   }
-  if (!formulariosDelTramite(exp.tipoEnum).includes(tipo)) {
+  // El modelo debe estar en lo que el gestor generó (selección persistida). Repli sobre
+  // los modelos del trámite si la columna aún no existe (antes de la migración).
+  let permitidos: string[] | null = null;
+  try {
+    const admin = createSupabaseAdmin();
+    const { data, error } = await admin.from("Expediente").select("formulariosGenerados").eq("portalToken", token).maybeSingle();
+    const fg = (data as { formulariosGenerados?: string[] | null } | null)?.formulariosGenerados;
+    if (!error && Array.isArray(fg)) permitidos = fg;
+  } catch { /* repli */ }
+  const lista = permitidos && permitidos.length ? permitidos : formulariosDelTramite(exp.tipoEnum);
+  if (!lista.includes(tipo)) {
     return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
   }
 
