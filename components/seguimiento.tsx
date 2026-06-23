@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, type Lang } from "@/lib/portal-i18n";
 
-export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente" };
+export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string };
 
 const LANG_KEY = "aproba.portal.lang";
 const ORDEN: Record<string, number> = { BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3, PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4 };
@@ -14,12 +14,15 @@ const fmtCita = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso
 function Check({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
+function Download({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>;
+}
 
 export function Seguimiento({
-  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales,
+  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [],
 }: {
   token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string;
-  citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[];
+  citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[];
 }) {
   const [lang, setLang] = useState<Lang>((["es", "en", "fr", "it", "de"].includes(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
@@ -177,11 +180,18 @@ export function Seguimiento({
                         </p>
                       </div>
                     </div>
-                    {(d.status === "pendiente" || d.status === "rechazado") && (
-                      <button onClick={() => pedirArchivo(i)} disabled={subiendoEste} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-                        {subiendoEste ? t("s2.analizando") : t("s2.subir")}
-                      </button>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {d.docId && (
+                        <a href={`/api/seguimiento/${token}/documento/${d.docId}`} download aria-label={t("seg.descargar")} title={t("seg.descargar")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+                          <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t("seg.descargar")}</span>
+                        </a>
+                      )}
+                      {(d.status === "pendiente" || d.status === "rechazado") && (
+                        <button onClick={() => pedirArchivo(i)} disabled={subiendoEste} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+                          {subiendoEste ? t("s2.analizando") : t("s2.subir")}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {ayuda && (d.status === "pendiente" || d.status === "rechazado") && (
                     <p className="mt-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-500">{ayuda}</p>
@@ -191,6 +201,34 @@ export function Seguimiento({
             })}
           </div>
         </div>
+
+        {/* Formularios oficiales generados por la gestoría — descargables uno a uno */}
+        {formularios.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.formularios")}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{t("seg.formulariosSub")}</p>
+            <div className="mt-2 space-y-2">
+              {formularios.map((f) => (
+                <a
+                  key={f}
+                  href={`/api/seguimiento/${token}/formulario?tipo=${encodeURIComponent(f)}`}
+                  download
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-400 hover:shadow-sm"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aproba-100 text-aproba-600">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                    </span>
+                    <span className="truncate text-sm font-medium text-slate-800">{f} <span className="text-xs font-normal text-aproba-700">PDF</span></span>
+                  </span>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-aproba-700">
+                    <Download className="h-3.5 w-3.5" />{t("seg.descargar")}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="mt-8 flex items-center justify-center gap-1 text-xs text-slate-400">{t("header.con")} <AprobaMark size={13} /> aproba</p>
       </div>

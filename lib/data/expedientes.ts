@@ -1,4 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
@@ -126,24 +127,16 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
   return [];
 }
 
-export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDetalle | null> {
-  const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
-    .from("Expediente")
-    .select(
-      `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, fechaCita, citaHora, citaLugar, citaNotas,
-       cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
-       asignadoA:User(nombre),
-       documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
-       formularios:Formulario(id, tipo),
-       eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
-       facturas:Factura(id, numero, total, estado, origen, momento)`,
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(`Expediente ${id}: ${error.message}`);
-  if (!data) return null;
+const DETALLE_SELECT =
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, fechaCita, citaHora, citaLugar, citaNotas,
+   cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
+   asignadoA:User(nombre),
+   documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
+   formularios:Formulario(id, tipo),
+   eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
+   facturas:Factura(id, numero, total, estado, origen, momento)`;
 
+function mapearDetalle(data: unknown): ExpedienteDetalle {
   const e = data as unknown as DetalleRow;
   const documentos: DocumentoUI[] = (e.documentos ?? []).map((d) => {
     const ext = Array.isArray(d.extraction) ? d.extraction[0] : d.extraction;
@@ -203,4 +196,21 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
       momento: f.momento === "ANTICIPO" || f.momento === "FINAL" ? f.momento : null,
     })),
   };
+}
+
+export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDetalle | null> {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
+  if (error) throw new Error(`Expediente ${id}: ${error.message}`);
+  return data ? mapearDetalle(data) : null;
+}
+
+// Variante por token (página de seguimiento del cliente, sin sesión): el portalToken ES
+// la credencial. Usa service_role → llamar SOLO desde rutas que ya validan el token.
+export async function fetchExpedienteDetallePorToken(token: string): Promise<ExpedienteDetalle | null> {
+  if (!token) return null;
+  const admin = createSupabaseAdmin();
+  const { data, error } = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  if (error) throw new Error(`Expediente token: ${error.message}`);
+  return data ? mapearDetalle(data) : null;
 }
