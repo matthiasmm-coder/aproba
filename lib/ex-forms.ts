@@ -130,6 +130,13 @@ export function formulariosParaTramite(tipoEnum: string): string[] {
   return (TRAMITE_FORMS[tipoEnum] ?? Object.keys(FORMS)).filter(formularioOficialDisponible);
 }
 
+// Variante SIN repli sobre "todos los modelos": solo los del trámite (vacío si no hay
+// mapeo). La usa la vista del cliente: NUNCA debe ver todos los modelos, solo los de SU
+// trámite. (El gestor sí usa formulariosParaTramite para poder elegir cualquiera.)
+export function formulariosDelTramite(tipoEnum: string): string[] {
+  return (TRAMITE_FORMS[tipoEnum] ?? []).filter(formularioOficialDisponible);
+}
+
 export async function rellenarOficial(code: string, datos: DatosForm, tramite?: string): Promise<Uint8Array | null> {
   const mapa = FORMS[code];
   if (!mapa) return null;

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
-import { formulariosParaTramite } from "@/lib/ex-forms";
+import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 
 // Estados en los que los formularios ya están generados (se exponen al cliente).
@@ -47,7 +47,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   });
 
   // Formularios oficiales del trámite, descargables una vez generados.
-  const formularios = FORM_LISTOS.has(exp.estado) ? formulariosParaTramite(exp.tipo) : [];
+  const formularios = FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo) : [];
 
   return (
     <Seguimiento

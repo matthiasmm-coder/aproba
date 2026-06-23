@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchExpedienteDetallePorToken } from "@/lib/data/expedientes";
 import { datosNormalizados } from "@/lib/formularios";
-import { rellenarOficial, formulariosParaTramite } from "@/lib/ex-forms";
+import { rellenarOficial, formulariosDelTramite } from "@/lib/ex-forms";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   if ((ORDEN[exp.estado] ?? 0) < ORDEN.FORM_GENERADO) {
     return NextResponse.json({ error: "Los formularios aún no están listos." }, { status: 403 });
   }
-  if (!formulariosParaTramite(exp.tipoEnum).includes(tipo)) {
+  if (!formulariosDelTramite(exp.tipoEnum).includes(tipo)) {
     return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
   }
 
