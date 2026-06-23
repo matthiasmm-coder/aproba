@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BOARD_COLUMNS, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 
@@ -68,8 +68,8 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
   const resueltos = live.filter((e) => e.estado === "RESUELTO").length;
   const esperandoCliente = live.filter((e) => e.estado === "DOCS_PENDIENTES").length;
 
-  const porEstado = BOARD_COLUMNS.map((estado) => ({ estado, count: live.filter((e) => e.estado === estado).length }));
-  const maxEstado = Math.max(1, ...porEstado.map((p) => p.count));
+  const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => ph.estados.includes(e.estado)).length }));
+  const maxFase = Math.max(1, ...porFase.map((p) => p.count));
 
   const carga = Object.entries(activos.reduce<Record<string, number>>((acc, e) => { acc[e.asignadoA] = (acc[e.asignadoA] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
   const maxCarga = Math.max(1, ...carga.map(([, n]) => n));
@@ -114,18 +114,18 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Por estado")}</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Por fase")}</h2>
           <div className="space-y-2.5">
-            {porEstado.map(({ estado, count }) => {
-              const meta = ESTADO_META[estado];
-              return (
-                <div key={estado} className="flex items-center gap-3">
-                  <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600"><span className={`h-2 w-2 rounded-full ${meta.dot}`} />{t(meta.label)}</span>
-                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${meta.dot}`} style={{ width: `${(count / maxEstado) * 100}%` }} /></div>
-                  <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{count}</span>
-                </div>
-              );
-            })}
+            {porFase.map(({ ph, count }, i) => (
+              <div key={ph.key} className="flex items-center gap-3">
+                <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-bold text-aproba-700">{i + 1}</span>
+                  {t(ph.label)}
+                </span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-aproba-500" style={{ width: `${(count / maxFase) * 100}%` }} /></div>
+                <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{count}</span>
+              </div>
+            ))}
           </div>
         </div>
 
