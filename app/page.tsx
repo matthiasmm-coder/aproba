@@ -236,6 +236,21 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Vídeo demo */}
+      <section id="como-funciona" className="scroll-mt-20 border-y border-slate-200 bg-cream-50 py-24">
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <span className="text-sm font-semibold text-aproba-700">En acción</span>
+          <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 90 segundos</h2>
+          <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento del cliente a la presentación del expediente, sin teclear un solo formulario.</p>
+          <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-float">
+            <video controls preload="metadata" playsInline poster="/demo-poster.jpg" className="h-auto w-full">
+              <source src="/demo.mp4" type="video/mp4" />
+              Tu navegador no admite la reproducción de vídeo.
+            </video>
+          </div>
+        </div>
+      </section>
+
       {/* Cómo funciona — animation */}
       <HowItWorks />
 

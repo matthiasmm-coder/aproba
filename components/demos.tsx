@@ -561,7 +561,7 @@ export function HowItWorks() {
   }, [step]);
 
   return (
-    <section id="como-funciona" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
+    <section className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center">
           <span className="text-sm font-semibold text-aproba-700">Cómo funciona</span>
