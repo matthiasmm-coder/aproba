@@ -124,7 +124,8 @@ export function NuevoExpediente() {
       setStep(1);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("No se pudo crear el expediente."));
+      console.error("[nuevo-expediente]", err);
+      setError(t("No se pudo crear el expediente. Vuelve a intentarlo."));
     } finally {
       setCreando(false);
     }

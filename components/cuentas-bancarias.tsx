@@ -5,13 +5,11 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { useT } from "@/components/lang-provider";
 import type { CuentaBancaria } from "@/lib/data/config";
+import { fmtIban, ibanValido } from "@/lib/iban";
 
 // Comptes bancaires du despacho — un seul actif (celui qui reçoit les paiements).
 // Mutations sous RLS (browser client) ; l'index unique partiel côté DB garantit
 // l'unicité du compte actif même en cas de course.
-
-const fmtIban = (iban: string) => iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
-const ibanValido = (iban: string) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban.replace(/\s+/g, "").toUpperCase());
 
 export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
   const t = useT();
@@ -68,7 +66,7 @@ export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
   function añadir() {
     const ibanLimpio = iban.replace(/\s+/g, "").toUpperCase();
     if (!titular.trim()) return setError(t("Indica el titular de la cuenta."));
-    if (!ibanValido(ibanLimpio)) return setError(t("El IBAN no parece válido (ej. ES76 2100 0418 4502 0005 1332)."));
+    if (!ibanValido(ibanLimpio)) return setError(t("El IBAN no parece válido. Revisa que esté completo y bien copiado (ej. ES91 2100 0418 4502 0005 1332)."));
     void withBusy(async () => {
       const supabase = createSupabaseBrowser();
       const ws = await workspaceId(supabase);

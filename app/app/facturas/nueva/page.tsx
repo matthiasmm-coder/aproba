@@ -129,7 +129,8 @@ export default function NuevaFactura() {
         vence: fmtFechaCorta(row.fechaVencimiento),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("No se pudo crear la factura."));
+      console.error("[nueva-factura]", err);
+      setError(t("No se pudo crear la factura. Vuelve a intentarlo."));
     } finally {
       setCreando(false);
     }

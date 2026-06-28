@@ -161,6 +161,8 @@ const UI: Record<string, Tr> = {
   "s3.tarjeta": { es: "Tarjeta", en: "Card", fr: "Carte", it: "Carta", de: "Karte" },
   "s3.pagoSeguro": { es: "Pago seguro", en: "Secure payment", fr: "Paiement sécurisé", it: "Pagamento sicuro", de: "Sichere Zahlung" },
   "s3.pagar": { es: "Pagar {monto}", en: "Pay {monto}", fr: "Payer {monto}", it: "Paga {monto}", de: "{monto} zahlen" },
+  "s3.confirmar": { es: "Confirmar", en: "Confirm", fr: "Confirmer", it: "Conferma", de: "Bestätigen" },
+  "s3.transferencia": { es: "Al confirmar, recibirás por email la factura con los datos para pagar por transferencia bancaria.", en: "Once confirmed, you'll receive the invoice by email with the bank-transfer details.", fr: "Après confirmation, tu recevras par email la facture avec les coordonnées pour payer par virement.", it: "Dopo la conferma, riceverai via email la fattura con i dati per il bonifico.", de: "Nach der Bestätigung erhältst du die Rechnung per E-Mail mit den Überweisungsdaten." },
   "s3.procesando": { es: "Procesando…", en: "Processing…", fr: "Traitement…", it: "Elaborazione…", de: "Wird verarbeitet…" },
   "s3.errorPago": { es: "No se pudo procesar el pago.", en: "The payment could not be processed.", fr: "Le paiement n'a pas pu être traité.", it: "Impossibile elaborare il pagamento.", de: "Die Zahlung konnte nicht verarbeitet werden." },
 

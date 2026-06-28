@@ -9,8 +9,8 @@ import { guardarServicios, guardarAvisos } from "@/lib/config-browser";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, PLANTILLA_CSV, type FilaCsv } from "@/lib/csv-clientes";
 import { useT } from "@/components/lang-provider";
+import { ibanValido } from "@/lib/iban";
 
-const ibanValido = (iban: string) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban.replace(/\s+/g, "").toUpperCase());
 type Banco = { titular: string; iban: string; banco: string };
 type Invitado = { email: string; nombre: string; role: RolId };
 

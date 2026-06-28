@@ -77,7 +77,7 @@ export async function dispararAviso(
     if (!destino) {
       estado = "SIN_CONTACTO";
     } else if (resendDisponible()) {
-      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from, to: destino, subject: aviso.evento, html: emailHtml(gestoria, cuerpo, portalUrl), text: cuerpo,
       });
@@ -155,7 +155,7 @@ export async function enviarSeguimiento(
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
   <p style="font-size:12px;color:#94a3b8;margin:0">${gestoria} · Aproba</p>
 </div>`;
-      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject, html, text: `${cuerpo} ${link}` });
       estado = error ? "ERROR" : "ENVIADO";
       if (error) console.error("[seguimiento email]", error.message ?? error);
@@ -228,7 +228,7 @@ export async function enviarSolicitudPago(
     if (!destino) {
       estado = "SIN_CONTACTO";
     } else if (resendDisponible()) {
-      const from = `${gestoria} <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from, to: destino, subject: `Factura ${opts.numero} · ${fmtEur(opts.total)}`, html, text: `Factura ${opts.numero}: ${fmtEur(opts.total)}. ${cuenta?.iban ? `IBAN: ${cuenta.iban}` : ""}`,
       });

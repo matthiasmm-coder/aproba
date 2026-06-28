@@ -71,7 +71,7 @@ export function ClientPortal({
   const [guardandoDatos, setGuardandoDatos] = useState(false);
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
-  const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active));
+  const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active && s.label.trim()));
   const [pagando, setPagando] = useState(false);
   const [pagoError, setPagoError] = useState<string | null>(null);
   const [facturaNumero, setFacturaNumero] = useState<string | null>(null);
@@ -523,19 +523,9 @@ export function ClientPortal({
               )}
             </div>
 
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s3.tarjeta")}</p>
-              <div className="space-y-3">
-                <input defaultValue="4242 4242 4242 4242" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
-                <div className="flex gap-3">
-                  <input defaultValue="12/28" className="w-24 rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
-                  <input defaultValue="123" className="w-20 rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
-                </div>
-              </div>
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                {t("s3.pagoSeguro")}
-              </p>
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm leading-relaxed text-slate-600">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <span>{t("s3.transferencia")}</span>
             </div>
 
             {pagoError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{pagoError}</p>}
@@ -547,7 +537,7 @@ export function ClientPortal({
                 disabled={pagando}
                 className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
               >
-                {pagando ? t("s3.procesando") : t("s3.pagar", { monto: eur(totalDe(anticipo)) })}
+                {pagando ? t("s3.procesando") : t("s3.confirmar")}
               </button>
             </div>
           </div>
