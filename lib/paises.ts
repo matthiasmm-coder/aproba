@@ -7,6 +7,7 @@ type Pais = { pais: string; nac: string; nacM?: string; alias: string[] };
 
 // nac = forma por defecto (femenina o invariable) · nacM = masculina (si difiere).
 const PAISES: Pais[] = [
+  { pais: "España", nac: "Española", nacM: "Español", alias: ["es", "esp", "spain", "espagne", "spanish", "espana", "espanola", "espanol", "espagnole", "espagnol"] },
   { pais: "Francia", nac: "Francesa", nacM: "Francés", alias: ["fr", "fra", "france", "french", "francaise", "francais"] },
   { pais: "Marruecos", nac: "Marroquí", alias: ["ma", "mar", "morocco", "maroc", "marocaine", "marocain"] },
   { pais: "Argelia", nac: "Argelina", nacM: "Argelino", alias: ["dz", "dza", "algeria", "algerie", "algerien"] },
