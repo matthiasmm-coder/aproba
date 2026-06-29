@@ -75,7 +75,7 @@ export const ESTADO_META: Record<
   FORM_GENERADO: { label: "Formularios listos", dot: "bg-blue-500", pill: "bg-blue-100 text-blue-700" },
   PRESENTADO: { label: "Presentado", dot: "bg-indigo-500", pill: "bg-indigo-100 text-indigo-700" },
   RESUELTO: { label: "Resolución favorable", dot: "bg-aproba-600", pill: "bg-aproba-100 text-aproba-700" },
-  CITA_HUELLAS: { label: "Cita de huellas", dot: "bg-purple-500", pill: "bg-purple-100 text-purple-700" },
+  CITA_HUELLAS: { label: "Cita", dot: "bg-purple-500", pill: "bg-purple-100 text-purple-700" },
   FINALIZADO: { label: "Finalizado", dot: "bg-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
   RECHAZADO: { label: "Denegado", dot: "bg-red-500", pill: "bg-red-100 text-red-700" },
 };
