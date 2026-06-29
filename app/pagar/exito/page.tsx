@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchStripeKeyDeWorkspace, stripeConClave, marcarFacturaPagada } from "@/lib/cobros-tarjeta";
+import { enviarConfirmacionPago } from "@/lib/notificaciones";
 
 export const metadata = { title: "Pago recibido" };
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export default async function PagoExito({ searchParams }: { searchParams: Promis
     const admin = createSupabaseAdmin();
     const { data: fac } = await admin
       .from("Factura")
-      .select("id, workspaceId, numero, total, estado, Workspace(nombre)")
+      .select("id, workspaceId, expedienteId, numero, total, estado, Workspace(nombre)")
       .eq("id", f)
       .maybeSingle();
     if (fac) {
@@ -33,8 +35,16 @@ export default async function PagoExito({ searchParams }: { searchParams: Promis
           try {
             const sess = await stripeConClave(key).checkout.sessions.retrieve(s);
             if (sess.payment_status === "paid") {
-              await marcarFacturaPagada(admin, String(fac.id), "TARJETA");
+              const r = await marcarFacturaPagada(admin, String(fac.id), "TARJETA");
               pagada = true;
+              // Confirmación al cliente (sin IBAN) solo en la transición real a pagada.
+              if (r === "nuevo" && fac.expedienteId) {
+                const h = await headers();
+                const host = h.get("x-forwarded-host") ?? h.get("host");
+                const proto = h.get("x-forwarded-proto") ?? "https";
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || (host ? `${proto}://${host}` : undefined);
+                await enviarConfirmacionPago(admin, { expedienteId: String(fac.expedienteId), numero, total, metodo: "TARJETA", baseUrl });
+              }
             }
           } catch { /* verificación fallida → se muestra estado pendiente */ }
         }

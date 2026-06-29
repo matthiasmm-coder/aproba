@@ -81,24 +81,27 @@ export function stripeConClave(key: string): Stripe {
 }
 
 // Marca una factura como PAGADA (idempotente) y deja traza en el historial.
+// Devuelve "nuevo" si la marca AHORA (transición real), "ya" si ya estaba pagada,
+// null si no existe / error → el llamador sabe si debe enviar la confirmación.
 export async function marcarFacturaPagada(
   admin: SupabaseClient,
   facturaId: string,
-  metodo: "TARJETA" | "TRANSFERENCIA" = "TARJETA",
-): Promise<boolean> {
+  metodo: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" = "TARJETA",
+): Promise<"nuevo" | "ya" | null> {
   const { data: f } = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
-  if (!f) return false;
-  if (f.estado === "PAGADA") return true;
+  if (!f) return null;
+  if (f.estado === "PAGADA") return "ya";
   const { error } = await admin.from("Factura").update({ estado: "PAGADA", metodoPago: metodo }).eq("id", facturaId);
-  if (error) return false;
+  if (error) return null;
   if (f.expedienteId) {
-    const via = metodo === "TARJETA" ? "con tarjeta" : "por transferencia";
+    const via = metodo === "TARJETA" ? "con tarjeta" : metodo === "EFECTIVO" ? "en efectivo" : "por transferencia";
+    const emoji = metodo === "TARJETA" ? "💳" : "🏦";
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: f.expedienteId,
       tipo: "COMENTARIO",
-      descripcion: `💳 Factura ${f.numero} pagada ${via} (${Number(f.total).toFixed(2).replace(".", ",")} €)`,
+      descripcion: `${emoji} Factura ${f.numero} pagada ${via} (${Number(f.total).toFixed(2).replace(".", ",")} €)`,
     });
   }
-  return true;
+  return "nuevo";
 }

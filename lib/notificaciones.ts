@@ -313,3 +313,61 @@ export async function enviarSolicitudPago(
     console.error("[enviarSolicitudPago]", e instanceof Error ? e.message : e);
   }
 }
+
+// Confirmación de pago RECIBIDO (tarjeta o transferencia) → email al cliente SIN IBAN
+// (ya está pagada): solo agradecimiento + enlace de seguimiento. Se envía cuando una
+// factura pasa a PAGADA. No casser el flux appelant.
+export async function enviarConfirmacionPago(
+  admin: SupabaseClient,
+  opts: { expedienteId: string; numero: string; total: number; metodo?: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO"; baseUrl?: string },
+): Promise<void> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("portalToken, Cliente(nombre, email), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as { portalToken: string | null; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    if (!exp) return;
+    const cliente = uno(exp.Cliente);
+    const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+    const via = opts.metodo === "TARJETA" ? "con tarjeta" : opts.metodo === "EFECTIVO" ? "en efectivo" : "por transferencia";
+    const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
+
+    const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
+      <p style="margin:0">hemos recibido tu pago ${via} de la factura <strong>${opts.numero}</strong> (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.</p>`;
+    const html = emailLayout({
+      gestoria,
+      titulo: "Pago recibido ✓",
+      cuerpoHtml,
+      cta: link ? { url: link, label: "Ver mi expediente" } : null,
+      footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: `Pago recibido · factura ${opts.numero} · ${fmtEur(opts.total)}`,
+    });
+
+    let estado: Estado = "SIMULADO";
+    const destino = cliente?.email ?? "";
+    if (!destino) {
+      estado = "SIN_CONTACTO";
+    } else if (resendDisponible()) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: `Pago recibido · factura ${opts.numero}`, html, text: `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias!`,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[confirmacionPago email]", error.message ?? error);
+    }
+
+    console.log(`[confirmacionPago ${estado}] email → ${destino || "(sin email)"} | factura ${opts.numero} | ${via}`);
+    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin email del cliente" : estado === "ERROR" ? " — error" : " (simulado)";
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `📧 Confirmación de pago enviada al cliente (factura ${opts.numero})${sufijo}`,
+    });
+  } catch (e) {
+    console.error("[enviarConfirmacionPago]", e instanceof Error ? e.message : e);
+  }
+}
