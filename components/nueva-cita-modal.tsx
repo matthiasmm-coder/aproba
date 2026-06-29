@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import type { ClienteMin } from "@/lib/data/citas";
 
-// Modal para crear una CITA PREVIA (consulta). El gestor escribe el nombre: si coincide
-// con un cliente existente puede seleccionarlo (rellena email/teléfono y la vincula),
-// o deja un nombre libre (prospecto / walk-in). Fecha obligatoria; aviso por email opcional.
-export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; onClose: () => void }) {
+// Modal para crear o EDITAR una CITA PREVIA (consulta). El gestor escribe el nombre: si
+// coincide con un cliente existente puede seleccionarlo (rellena email/teléfono y la
+// vincula), o deja un nombre libre (prospecto). Fecha obligatoria; aviso por email opcional.
+// Con `citaId` entra en modo edición (carga la cita y hace PUT en vez de POST).
+export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: ClienteMin[]; onClose: () => void; citaId?: string }) {
   const t = useT();
   const router = useRouter();
+  const edicion = Boolean(citaId);
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -26,6 +28,25 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
   const [foco, setFoco] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Modo edición: carga la cita y rellena el formulario.
+  useEffect(() => {
+    if (!citaId) return;
+    (async () => {
+      try {
+        const r = await fetch(`/api/citas-previas?id=${encodeURIComponent(citaId)}`);
+        const c = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(c.error);
+        setNombre(c.nombre ?? ""); setClienteId(c.clienteId ?? null);
+        setEmail(c.email ?? ""); setTelefono(c.telefono ?? "");
+        setFecha(c.fecha ?? ""); setHora(c.hora ?? "");
+        setDuracion(typeof c.duracion === "number" ? c.duracion : 30);
+        setPrecio(c.precio != null ? String(c.precio) : "");
+        setLugar(c.lugar ?? ""); setMotivo(c.motivo ?? ""); setNotas(c.notas ?? "");
+        setNotificar(false); // en edición, no re-notificar por defecto
+      } catch { setError(t("No se pudo cargar la cita.")); }
+    })();
+  }, [citaId, t]);
 
   const q = nombre.trim().toLowerCase();
   const matches = clienteId || q.length < 2 ? [] : clientes
@@ -43,16 +64,17 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
   async function crear() {
     setBusy(true); setError(null);
     try {
+      const datos = { clienteId, nombre, email, telefono, fecha, hora, duracion, precio: precio.trim() ? Number(precio) : undefined, lugar, motivo, notas };
       const res = await fetch("/api/citas-previas", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, nombre, email, telefono, fecha, hora, duracion, precio: precio.trim() ? Number(precio) : undefined, lugar, motivo, notas, notificar: notificar && Boolean(email.trim()) }),
+        method: edicion ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(edicion ? { id: citaId, ...datos } : { ...datos, notificar: notificar && Boolean(email.trim()) }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error ?? t("No se pudo crear la cita."));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar la cita."));
       router.refresh();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("No se pudo crear la cita."));
+      setError(e instanceof Error ? e.message : t("No se pudo guardar la cita."));
     } finally { setBusy(false); }
   }
 
@@ -62,7 +84,7 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !busy && onClose()}>
       <div className="mt-8 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
-          <h2 className="text-lg font-bold text-slate-900">{t("Nueva cita")}</h2>
+          <h2 className="text-lg font-bold text-slate-900">{edicion ? t("Editar cita") : t("Nueva cita")}</h2>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Cerrar")}>
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
@@ -140,17 +162,19 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
           </div>
         </div>
 
-        <label className={`mt-4 flex items-center gap-2 text-sm ${email.trim() ? "text-slate-600" : "text-slate-300"}`}>
-          <input type="checkbox" checked={notificar && Boolean(email.trim())} disabled={!email.trim()} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
-          {t("Enviar confirmación por email al cliente")}
-        </label>
+        {!edicion && (
+          <label className={`mt-4 flex items-center gap-2 text-sm ${email.trim() ? "text-slate-600" : "text-slate-300"}`}>
+            <input type="checkbox" checked={notificar && Boolean(email.trim())} disabled={!email.trim()} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+            {t("Enviar confirmación por email al cliente")}
+          </label>
+        )}
 
         {error && <p role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">{t("Cancelar")}</button>
           <button onClick={crear} disabled={busy || !nombre.trim() || !fecha} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-            {busy ? t("Creando…") : t("Crear cita")}
+            {busy ? t("Guardando…") : edicion ? t("Guardar cambios") : t("Crear cita")}
           </button>
         </div>
       </div>
