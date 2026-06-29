@@ -18,17 +18,51 @@ const primerNombre = (n: string) => (n || "").trim().split(/\s+/)[0] || (n || "c
 const render = (tpl: string, vars: Record<string, string>) =>
   tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
 
-function emailHtml(gestoria: string, cuerpo: string, portalUrl: string | null): string {
-  const boton = portalUrl
-    ? `<p style="margin:24px 0"><a href="${portalUrl}" style="background:#1f7a5a;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600;display:inline-block">Acceder a mi expediente</a></p>`
+const inicialesDe = (s: string) =>
+  ((s || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2)) || "?";
+
+const FUENTE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+// Layout email partagé : soigné, white-label (marque = la gestoría ; « α aproba »
+// discret en pied) et compatible (table-based, styles inline) pour Gmail/Outlook/Apple.
+function emailLayout(opts: {
+  gestoria: string;
+  titulo: string;
+  cuerpoHtml: string;
+  cta?: { url: string; label: string } | null;
+  footerNota?: string;
+  preheader?: string;
+}): string {
+  const { gestoria, titulo, cuerpoHtml, cta, footerNota, preheader } = opts;
+  const ini = inicialesDe(gestoria);
+  const boton = cta
+    ? `<tr><td style="padding-top:24px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${cta.url}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${cta.label}</a></td></tr></table></td></tr>`
     : "";
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b">
-  <p style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 16px">${gestoria}</p>
-  <p style="font-size:15px;line-height:1.6;margin:0">${cuerpo}</p>
-  ${boton}
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
-  <p style="font-size:12px;color:#94a3b8;margin:0">Aviso automático de ${gestoria}. Por favor, no respondas a este correo.</p>
-</div>`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f6f4;-webkit-font-smoothing:antialiased">
+${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0">${preheader}</div>` : ""}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6f4"><tr><td align="center" style="padding:28px 14px">
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e6eae8;border-radius:16px;overflow:hidden">
+    <tr><td height="4" style="height:4px;background:#0E8C5F;line-height:4px;font-size:0">&nbsp;</td></tr>
+    <tr><td style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td width="42" height="42" align="center" valign="middle" bgcolor="#ECFDF5" style="width:42px;height:42px;border-radius:11px;font-family:${FUENTE};font-size:15px;font-weight:700;color:#0D6E4D">${ini}</td>
+        <td style="width:12px">&nbsp;</td>
+        <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:28px 30px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="font-family:${FUENTE};font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;line-height:1.3;padding-bottom:12px">${titulo}</td></tr>
+      <tr><td style="font-family:${FUENTE};font-size:15px;line-height:1.65;color:#475569">${cuerpoHtml}</td></tr>
+      ${boton}
+    </table></td></tr>
+    <tr><td style="padding:18px 30px;border-top:1px solid #eef1f0;background:#fafbfb">
+      <p style="margin:0;font-family:${FUENTE};font-size:12px;line-height:1.5;color:#94a3b8">${footerNota ?? `Mensaje de ${gestoria}.`}</p>
+      <p style="margin:7px 0 0;font-family:${FUENTE};font-size:11px;color:#cbd5e1">Con la tecnología de <span style="color:#0E8C5F;font-weight:700">α</span> <span style="color:#64748b;font-weight:600">aproba</span></p>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
 }
 
 type ExpRow = {
@@ -79,7 +113,14 @@ export async function dispararAviso(
     } else if (resendDisponible()) {
       const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: aviso.evento, html: emailHtml(gestoria, cuerpo, portalUrl), text: cuerpo,
+        from, to: destino, subject: aviso.evento,
+        html: emailLayout({
+          gestoria, titulo: aviso.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
+          cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
+          footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+          preheader: cuerpo,
+        }),
+        text: cuerpo,
       });
       estado = error ? "ERROR" : "ENVIADO";
       if (error) console.error("[aviso email]", error.message ?? error);
@@ -148,13 +189,13 @@ export async function enviarSeguimiento(
     if (!destino) {
       estado = "SIN_CONTACTO";
     } else if (resendDisponible() && link) {
-      const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b">
-  <p style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 16px">${gestoria}</p>
-  <p style="font-size:15px;line-height:1.6;margin:0">${cuerpo}</p>
-  <p style="margin:24px 0"><a href="${link}" style="background:#0E8C5F;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;display:inline-block">${boton}</a></p>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
-  <p style="font-size:12px;color:#94a3b8;margin:0">${gestoria} · Aproba</p>
-</div>`;
+      const html = emailLayout({
+        gestoria,
+        titulo: t("notif.seg.titulo"),
+        cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
+        cta: { url: link, label: boton },
+        preheader: cuerpo,
+      });
       const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject, html, text: `${cuerpo} ${link}` });
       estado = error ? "ERROR" : "ENVIADO";
@@ -203,25 +244,34 @@ export async function enviarSolicitudPago(
     const { data: cuentas } = await admin.from("CuentaBancaria").select("titular, iban, banco").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
     const cuenta = (cuentas ?? [])[0] as { titular?: string | null; iban?: string | null; banco?: string | null } | undefined;
 
-    const datosBanco = cuenta?.iban
-      ? `<table style="font-size:14px;color:#1e293b;border-collapse:collapse;margin:8px 0">
-          ${cuenta.titular ? `<tr><td style="padding:2px 12px 2px 0;color:#64748b">Titular</td><td style="font-weight:600">${cuenta.titular}</td></tr>` : ""}
-          <tr><td style="padding:2px 12px 2px 0;color:#64748b">IBAN</td><td style="font-weight:600;font-family:monospace">${cuenta.iban}</td></tr>
-          ${cuenta.banco ? `<tr><td style="padding:2px 12px 2px 0;color:#64748b">Banco</td><td style="font-weight:600">${cuenta.banco}</td></tr>` : ""}
-          <tr><td style="padding:2px 12px 2px 0;color:#64748b">Concepto</td><td style="font-weight:600">${opts.numero}</td></tr>
+    const bancoBox = cuenta?.iban
+      ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagar por <strong>transferencia bancaria</strong> a esta cuenta:</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">
+          ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b">Titular</td><td style="font-weight:600">${cuenta.titular}</td></tr>` : ""}
+          <tr><td style="padding:3px 16px 3px 0;color:#64748b">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em">${cuenta.iban}</td></tr>
+          ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b">Banco</td><td style="font-weight:600">${cuenta.banco}</td></tr>` : ""}
+          <tr><td style="padding:3px 16px 3px 0;color:#64748b">Concepto</td><td style="font-weight:600">${opts.numero}</td></tr>
         </table>`
-      : `<p style="font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
+      : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
 
-    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b">
-  <p style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 16px">${gestoria}</p>
-  <p style="font-size:15px;line-height:1.6;margin:0 0 8px">Hola ${nombre}, te enviamos la factura <strong>${opts.numero}</strong> (${opts.concepto}).</p>
-  <p style="font-size:15px;line-height:1.6;margin:0 0 4px">Importe a pagar: <strong style="font-size:18px">${fmtEur(opts.total)}</strong> (IVA incluido).</p>
-  <p style="font-size:14px;line-height:1.6;margin:12px 0 4px">Puedes pagar por <strong>transferencia bancaria</strong> a:</p>
-  ${datosBanco}
-  <p style="font-size:13px;color:#64748b;line-height:1.6;margin:12px 0 0">Indica el número de factura (${opts.numero}) en el concepto. Cuando recibamos el pago, lo confirmaremos.</p>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px">
-  <p style="font-size:12px;color:#94a3b8;margin:0">Aviso automático de ${gestoria}.</p>
-</div>`;
+    const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
+      <p style="margin:0">aquí tienes tu factura <strong>${opts.numero}</strong>. Puedes abonarla por transferencia.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:16px 18px">
+        <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Importe a pagar · IVA incluido</p>
+        <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.total)}</p>
+        <p style="margin:5px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b">${opts.concepto}</p>
+      </td></tr></table>
+      ${bancoBox}
+      <p style="margin:16px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Indica el número de factura (<strong>${opts.numero}</strong>) en el concepto. En cuanto recibamos el pago, te lo confirmaremos. ¡Gracias!</p>`;
+
+    const html = emailLayout({
+      gestoria,
+      titulo: "Tu factura está lista",
+      cuerpoHtml,
+      cta: exp.portalToken && opts.baseUrl ? { url: `${opts.baseUrl}/s/${exp.portalToken}`, label: "Ver mi expediente" } : null,
+      footerNota: `Factura emitida por ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: `Factura ${opts.numero} · ${fmtEur(opts.total)}`,
+    });
 
     let estado: Estado = "SIMULADO";
     const destino = cliente?.email ?? "";

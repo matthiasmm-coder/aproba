@@ -219,6 +219,7 @@ const UI: Record<string, Tr> = {
 
   // ── Notification de fin de parcours (email + WhatsApp) ─────────────────────
   "notif.seg.subject": { es: "Sigue tu expediente con {gestoria}", en: "Track your file with {gestoria}", fr: "Suivez votre dossier avec {gestoria}", it: "Segui la tua pratica con {gestoria}", de: "Verfolge deinen Antrag mit {gestoria}" },
+  "notif.seg.titulo": { es: "Tu expediente está en marcha", en: "Your file is underway", fr: "Votre dossier est lancé", it: "La tua pratica è in corso", de: "Dein Antrag ist unterwegs" },
   "notif.seg.body": {
     es: "Hola {nombre}, hemos recibido tu solicitud. Desde este enlace puedes seguir el avance de tu expediente y subir los documentos que falten cuando quieras.",
     en: "Hi {nombre}, we've received your request. From this link you can track your file's progress and upload any missing documents whenever you like.",
