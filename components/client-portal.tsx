@@ -71,6 +71,7 @@ export function ClientPortal({
   const [guardandoDatos, setGuardandoDatos] = useState(false);
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
+  const [prog, setProg] = useState<Record<number, number>>({}); // % de progreso por documento (subida + análisis)
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active && s.label.trim()));
   const [pagando, setPagando] = useState(false);
   const [pagoError, setPagoError] = useState<string | null>(null);
@@ -133,6 +134,37 @@ export function ClientPortal({
     }, 1400);
   }
 
+  // Subida con progreso real (XHR): 0-55 % mientras sube el archivo, luego un
+  // avance animado 55→92 % mientras la IA analiza (sin señal de progreso), y
+  // 100 % al recibir la respuesta. El servidor recibe el mismo multipart.
+  function subirConProgreso(i: number, file: File, label: string): Promise<{ ok: boolean; data: { estado?: string; campos?: { label: string; value: string }[]; alertas?: string[]; error?: string } | null }> {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append("token", token ?? "");
+      fd.append("label", label);
+      fd.append("file", file);
+      const xhr = new XMLHttpRequest();
+      let creep: ReturnType<typeof setInterval> | null = null;
+      const subir = (v: number) => setProg((p) => ({ ...p, [i]: Math.max(p[i] ?? 0, Math.min(100, v)) }));
+      xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) subir(Math.round((ev.loaded / ev.total) * 55)); };
+      xhr.upload.onload = () => {
+        subir(55);
+        creep = setInterval(() => setProg((p) => { const c = p[i] ?? 55; return c >= 92 ? p : { ...p, [i]: c + 1 }; }), 130);
+      };
+      const stop = () => { if (creep) { clearInterval(creep); creep = null; } };
+      xhr.onload = () => {
+        stop();
+        setProg((p) => ({ ...p, [i]: 100 }));
+        let data = null;
+        try { data = JSON.parse(xhr.responseText); } catch { /* respuesta no-JSON */ }
+        resolve({ ok: xhr.status >= 200 && xhr.status < 300, data });
+      };
+      xhr.onerror = () => { stop(); reject(new Error(t("s2.errorSubir"))); };
+      xhr.open("POST", "/api/portal/documentos");
+      xhr.send(fd);
+    });
+  }
+
   async function onArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -140,20 +172,17 @@ export function ClientPortal({
     if (!file || i === null || !token) return;
     const label = requiredDocs[i];
     setDocs((d) => ({ ...d, [i]: { status: "analyzing", attempts: (d[i]?.attempts ?? 0) + 1 } }));
+    setProg((p) => ({ ...p, [i]: 0 }));
     try {
-      const fd = new FormData();
-      fd.append("token", token);
-      fd.append("label", label);
-      fd.append("file", file);
-      const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? t("s2.noSeLee"));
+      const { ok, data } = await subirConProgreso(i, file, label);
+      if (!ok || !data) throw new Error(data?.error ?? t("s2.noSeLee"));
+      const alertas: string[] = data.alertas ?? [];
       if (data.estado === "VALIDADO") {
-        setCamposReales((m) => ({ ...m, [i]: (data.campos as { label: string; value: string }[]).slice(0, 6).map((c) => [c.label, c.value]) }));
-        if (data.alertas?.length) setAlertasReales((m) => ({ ...m, [i]: data.alertas }));
+        setCamposReales((m) => ({ ...m, [i]: (data.campos ?? []).slice(0, 6).map((c) => [c.label, c.value]) }));
+        if (alertas.length) setAlertasReales((m) => ({ ...m, [i]: alertas }));
         setDocs((d) => ({ ...d, [i]: { status: "validado", attempts: d[i]?.attempts ?? 1 } }));
       } else {
-        setAlertasReales((m) => ({ ...m, [i]: data.alertas?.length ? data.alertas : [t("s2.noSeLee")] }));
+        setAlertasReales((m) => ({ ...m, [i]: alertas.length ? alertas : [t("s2.noSeLee")] }));
         setDocs((d) => ({ ...d, [i]: { status: "alerta", attempts: d[i]?.attempts ?? 1 } }));
       }
     } catch (err) {
@@ -427,7 +456,7 @@ export function ClientPortal({
                       {st === "pending" && (
                         <button onClick={() => upload(i)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
                       )}
-                      {st === "analyzing" && <span className="shrink-0 text-xs font-medium text-amber-600">{t("s2.analizando")}</span>}
+                      {st === "analyzing" && <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{prog[i] ?? 0}%</span>}
                       {st === "validado" && <span className="shrink-0 text-xs font-semibold text-aproba-700">{t("s2.validado")}</span>}
                       {(st === "validado" || st === "alerta") && (
                         <button type="button" onClick={() => quitarDoc(i)} aria-label={t("s2.eliminar")} title={t("s2.eliminar")} className="shrink-0 rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600">
@@ -442,7 +471,7 @@ export function ClientPortal({
 
                     {st === "analyzing" && (
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-full w-2/3 animate-pulse rounded-full bg-aproba-500" />
+                        <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200 ease-out" style={{ width: `${prog[i] ?? 0}%` }} />
                       </div>
                     )}
 
