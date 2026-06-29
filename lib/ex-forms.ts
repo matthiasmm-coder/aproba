@@ -77,6 +77,12 @@ export const FORMS: Record<string, Mapa> = {
   "EX-17": vec({ P: 642, A: 624, N: 606, F: 585, NAC: 570, D: 531, L: 513, T: 495 }, [606, 459, 495, 519], [570, 399, 427, 456, 485, 514], [549, 51, 300]),
   "EX-01": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
   "EX-11": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
+  // Layout EX-01 estándar (etiquetas x=51), solo cambian las filas Y (probe pdfjs).
+  "EX-18": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 568, D: 532, L: 514, T: 496 }, [604, 458, 495, 519], [568, 399, 427, 456, 485, 514], [550, 51, 300]),
+  "EX-23": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 569, D: 532, L: 514, T: 496 }, [604, 460, 495, 519], [569, 399, 427, 456, 485, 514], [550, 51, 300]),
+  "EX-26": vec({ P: 677, A: 660, N: 641, F: 620, NAC: 604, D: 567, L: 549, T: 531 }, [639, 458, 495, 519], [604, 399, 427, 456, 485, 514], [586, 51, 300]),
+  // EX-32 (7 pág., familia DA): etiquetas desplazadas +5 (x=56); fecha/piso a calibrar al render.
+  "EX-32": vec({ P: 672, A: 655, N: 635, F: 615, NAC: 599, D: 562, L: 544, T: 526 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [580, 56, 305], { fx: [152, 179, 205], pisoX: 546 }),
 
   // ── EX-10 : AcroForm (noms trompeurs, mapping par probe visuel) ─────────────
   "EX-10": {
@@ -115,6 +121,10 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-15": "NIE y certificados",
   "EX-17": "TIE",
   "EX-31": "Arraigo (RD 1155/2024)",
+  "EX-18": "Registro/Residencia ciudadano UE",
+  "EX-23": "Tarjeta Acuerdo de Retirada (Brexit)",
+  "EX-26": "Modificación de autorización",
+  "EX-32": "Arraigo DA 21ª (RD 1155/2024)",
 };
 export const formulariosDisponibles = (): { code: string; label: string }[] =>
   Object.keys(FORMS).sort().map((code) => ({ code, label: FORM_LABEL[code] ?? code }));

@@ -46,5 +46,29 @@
     "paginas": 6,
     "ancho": 595,
     "alto": 842
+  },
+  "EX-18": {
+    "sha256": "c4825d1f1289039fb1f6fbdc7ec67d81066aaba758bb3274ce12e94b714776fb",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-23": {
+    "sha256": "68f75fc0eeaf8d95cc0e933df011e63fb18ec8fe1bb451956f5f08245a182ee5",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-26": {
+    "sha256": "46d145beb886fc0a80ec28556f41c20b595c77bcc914f52cbcf3c71c09990f00",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-32": {
+    "sha256": "163a42f459f6697189491f376ce9c6101df06770ad99f3135e145ec7a4d6c3e3",
+    "paginas": 7,
+    "ancho": 595,
+    "alto": 842
   }
 }
