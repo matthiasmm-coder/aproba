@@ -172,16 +172,17 @@ const UI: Record<string, Tr> = {
 
   "s4.titulo": { es: "¡Todo enviado!", en: "All done!", fr: "Tout est envoyé !", it: "Tutto inviato!", de: "Alles erledigt!" },
   "s4.intro": {
-    es: "Tu gestoría ya tiene tus datos y documentos validados. Se encarga del resto y te avisará en cada paso.",
-    en: "Your agency now has your validated details and documents. They'll handle the rest and keep you posted.",
-    fr: "Votre cabinet a vos données et documents validés. Il s'occupe du reste et vous tiendra informé à chaque étape.",
-    it: "Il tuo studio ha i tuoi dati e documenti validati. Penserà al resto e ti aggiornerà a ogni passo.",
-    de: "Deine Kanzlei hat deine geprüften Daten und Dokumente. Sie übernimmt den Rest und hält dich auf dem Laufenden.",
+    es: "Tu gestoría ya tiene tus datos. Se encarga del resto y te avisará en cada paso.",
+    en: "Your agency now has your details. They'll handle the rest and keep you posted.",
+    fr: "Ton cabinet a tes données. Il s'occupe du reste et te tiendra informé à chaque étape.",
+    it: "Il tuo studio ha i tuoi dati. Penserà al resto e ti aggiornerà a ogni passo.",
+    de: "Deine Kanzlei hat deine Daten. Sie übernimmt den Rest und hält dich auf dem Laufenden.",
   },
   "s4.resumen": { es: "Resumen", en: "Summary", fr: "Récapitulatif", it: "Riepilogo", de: "Zusammenfassung" },
   "s4.documentos": { es: "Documentos", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente" },
   "s4.nValidados": { es: "{n} validados ✓", en: "{n} validated ✓", fr: "{n} validés ✓", it: "{n} validati ✓", de: "{n} geprüft ✓" },
   "s4.pendiente": { es: "Pendiente", en: "Pending", fr: "En attente", it: "In attesa", de: "Ausstehend" },
+  "s4.docsParciales": { es: "{n} de {total} · pendientes", en: "{n} of {total} · pending", fr: "{n} sur {total} · en attente", it: "{n} di {total} · in attesa", de: "{n} von {total} · ausstehend" },
   "s4.gestoria": { es: "Gestoría", en: "Agency", fr: "Cabinet", it: "Studio", de: "Kanzlei" },
   "s4.facturaEmail": {
     es: "Te hemos enviado la factura {numero} por email con los datos para pagar el anticipo por transferencia. En cuanto recibamos el pago, tu gestoría sigue con tu trámite.",

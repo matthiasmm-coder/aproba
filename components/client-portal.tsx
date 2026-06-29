@@ -103,6 +103,7 @@ export function ClientPortal({
   const tramite = servicios.find((tr) => tr.id === tramiteId);
   const requiredDocs = tramite?.docs ?? [];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
+  const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   const anticipo = tramite?.anticipo ?? 0;
   const resto = tramite?.resto ?? 0;
   const conPago = anticipo > 0;
@@ -650,7 +651,13 @@ export function ClientPortal({
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s4.resumen")}</p>
               <div className="mt-2 space-y-1.5 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">{t("step.tramite")}</span><span className="font-medium text-slate-800">{tramite ? servicioLabel(tramite.id, tramite.label, lang) : ""}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">{t("s4.documentos")}</span><span className="font-medium text-aproba-700">{t("s4.nValidados", { n: requiredDocs.length })}</span></div>
+                {requiredDocs.length > 0 && (
+                  <div className="flex justify-between"><span className="text-slate-500">{t("s4.documentos")}</span>
+                    {allValidated
+                      ? <span className="font-medium text-aproba-700">{t("s4.nValidados", { n: requiredDocs.length })}</span>
+                      : <span className="font-medium text-amber-600">{t("s4.docsParciales", { n: nValidados, total: requiredDocs.length })}</span>}
+                  </div>
+                )}
                 {facturaNumero && (
                   <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("s3.titulo")}</span><span className="text-right font-medium text-amber-600">{eur(totalDe(anticipo))} · {t("s4.pendiente")} · {facturaNumero}</span></div>
                 )}
