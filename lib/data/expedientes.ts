@@ -153,6 +153,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     const ext = Array.isArray(d.extraction) ? d.extraction[0] : d.extraction;
     return {
       id: d.id,
+      tipo: d.tipo,
       tipoLabel: DOC_LABEL[d.tipo] ?? d.tipo,
       estado: d.estado as DocumentoUI["estado"],
       tieneArchivo: Boolean(d.storagePath),

@@ -14,10 +14,13 @@ import type { ExpedienteEstado } from "@/lib/types";
 //   resolver_desfavorable PRESENTADO            → RECHAZADO
 //   cita (+ fecha/hora…)  RESUELTO              → CITA_HUELLAS  (uniquement si le service a une cita)
 //   finalizar             RESUELTO|CITA_HUELLAS  → FINALIZADO
-type Accion = "presentar" | "resolver_favorable" | "resolver_desfavorable" | "cita" | "finalizar";
+//   forzar_validados      DOCS_PENDIENTES       → DOCS_VALIDADOS  (el gestor avanza sin esperar todos los documentos)
+type Accion = "presentar" | "resolver_favorable" | "resolver_desfavorable" | "cita" | "finalizar" | "forzar_validados";
 type EventoTipo = "PRESENTADO" | "ESTADO_CAMBIADO";
 
 const TRANSICIONES: Record<Exclude<Accion, "cita">, { desde: ExpedienteEstado[]; hacia: ExpedienteEstado; evento: EventoTipo; desc: string; aviso: string }> = {
+  // aviso vacío = no se notifica al cliente (es una decisión interna del gestor).
+  forzar_validados: { desde: ["DOCS_PENDIENTES"], hacia: "DOCS_VALIDADOS", evento: "ESTADO_CAMBIADO", desc: "El gestor continúa sin esperar todos los documentos (quedan documentos pendientes)", aviso: "" },
   presentar: { desde: ["FORM_GENERADO"], hacia: "PRESENTADO", evento: "PRESENTADO", desc: "Expediente presentado en la Administración", aviso: "presentado" },
   resolver_favorable: { desde: ["PRESENTADO"], hacia: "RESUELTO", evento: "ESTADO_CAMBIADO", desc: "Resolución favorable", aviso: "resuelto_favorable" },
   resolver_desfavorable: { desde: ["PRESENTADO"], hacia: "RECHAZADO", evento: "ESTADO_CAMBIADO", desc: "Resolución desfavorable (denegado)", aviso: "denegado" },

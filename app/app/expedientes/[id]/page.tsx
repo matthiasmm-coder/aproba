@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { TIPO_A_SERVICIO } from "@/lib/tramites";
+import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { CobrosPanel } from "@/components/cobros-panel";
@@ -113,6 +113,14 @@ export default async function ExpedienteDetail({
   // sur le mapping par type pour les anciens expedientes sans servicioClave.
   const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
 
+  // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
+  // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
+  const subidos = new Map(e.documentos.map((d) => [d.tipo, d.estado]));
+  const docsPendientes = (servicio?.docs ?? []).filter((label) => {
+    const st = subidos.get(labelADocTipo(label));
+    return st !== "VALIDADO" && st !== "PROCESANDO";
+  });
+
   const meta = ESTADO_META[e.estado];
 
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
@@ -160,6 +168,18 @@ export default async function ExpedienteDetail({
         portalToken={e.portalToken}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
       />
+
+      {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
+      {docsPendientes.length > 0 && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <div className="min-w-0 text-sm text-amber-800">
+            <p className="font-semibold">{t("Faltan documentos del cliente")} ({docsPendientes.length})</p>
+            <p className="mt-0.5">{docsPendientes.join(" · ")}</p>
+            <p className="mt-1 text-xs text-amber-700">{t("El cliente puede enviarlos desde su enlace en cualquier momento, aunque hayas avanzado de paso.")}</p>
+          </div>
+        </div>
+      )}
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">

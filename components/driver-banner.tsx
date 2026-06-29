@@ -27,7 +27,7 @@ export function DriverBanner({
   const [citaOpen, setCitaOpen] = useState(false);
   const [cita, setCita] = useState({ fecha: "", hora: "", lugar: "", notas: "" });
 
-  async function avanzar(accion: string, extra?: Record<string, unknown>) {
+  async function avanzar(accion: string, extra?: Record<string, unknown>, navHref?: string) {
     setLoading(true); setError(null);
     try {
       const res = await fetch(`/api/expedientes/${id}/avanzar`, {
@@ -35,7 +35,7 @@ export function DriverBanner({
         body: JSON.stringify({ accion, ...extra }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo completar la acción.")); }
-      router.refresh();
+      if (navHref) router.push(navHref); else router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo completar la acción."));
     } finally { setLoading(false); }
@@ -53,7 +53,7 @@ export function DriverBanner({
   type Prim =
     | { kind: "espera"; label: string }
     | { kind: "nav"; label: string; href: string }
-    | { kind: "avanzar"; label: string; accion: string; confirm?: string }
+    | { kind: "avanzar"; label: string; accion: string; confirm?: string; navAfter?: string }
     | { kind: "cita"; label: string }
     | { kind: "copiar"; label: string };
 
@@ -65,7 +65,7 @@ export function DriverBanner({
     case "BORRADOR":
       prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
       break;
-    case "DOCS_PENDIENTES": prim = { kind: "espera", label: t("Esperando documentos del cliente") }; break;
+    case "DOCS_PENDIENTES": prim = { kind: "avanzar", label: t("Generar formularios"), accion: "forzar_validados", confirm: t("Aún faltan documentos del cliente. ¿Quieres pasar al siguiente paso igualmente? Podrás generar los formularios ahora, y el cliente seguirá pudiendo enviar los que falten desde su enlace."), navAfter: formulariosHref }; break;
     case "DOCS_VALIDADOS": prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref }; break;
     case "FORM_GENERADO": prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") }; break;
     case "PRESENTADO":
@@ -85,7 +85,7 @@ export function DriverBanner({
   function onPrimary() {
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
-    else if (prim.kind === "avanzar") { if (!prim.confirm || window.confirm(prim.confirm)) avanzar(prim.accion); }
+    else if (prim.kind === "avanzar") { if (!prim.confirm || window.confirm(prim.confirm)) avanzar(prim.accion, undefined, prim.navAfter); }
     else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
   }

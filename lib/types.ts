@@ -29,6 +29,7 @@ export interface DocExtraction {
 
 export interface Documento {
   id: string;
+  tipo?: string; // clave técnica del tipo de documento (para casar con los requeridos)
   tipoLabel: string;
   estado: DocumentoEstado;
   tieneArchivo?: boolean; // un fichier a été téléversé (téléchargeable par le gestor)
