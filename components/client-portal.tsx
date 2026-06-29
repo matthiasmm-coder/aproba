@@ -474,7 +474,15 @@ export function ClientPortal({
 
             {/* État du dépôt : encadré jaune dès le début si incomplet (envoyer / continuer
                 à téléverser), sinon confirmation verte. Le bouton Retour reste dans les deux cas. */}
-            {allValidated ? (
+            {requiredDocs.length === 0 ? (
+              <div className="mt-6 rounded-xl border border-slate-200 bg-cream-50 p-3.5">
+                <p className="text-sm leading-relaxed text-slate-600">{t("s2.sinDocs")}</p>
+                <div className="mt-3 flex gap-3">
+                  <button onClick={() => setStep(1)} className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+                  <button onClick={proceder} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{conPago ? t("s2.continuarPago") : t("s2.enviar")}</button>
+                </div>
+              </div>
+            ) : allValidated ? (
               <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-3.5">
                 <p className="flex items-start gap-2 text-sm font-medium text-aproba-700">
                   <Check className="mt-0.5 h-4 w-4 shrink-0" /> {t("s2.todosOk")}

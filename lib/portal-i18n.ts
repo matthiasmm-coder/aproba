@@ -122,6 +122,7 @@ const UI: Record<string, Tr> = {
     it: "Mancano ancora alcuni documenti. Puoi inviare ora e caricare il resto più tardi da questo stesso link; il tuo studio non potrà presentare la pratica finché non ci sono tutti.",
     de: "Es fehlen noch Dokumente. Du kannst jetzt senden und den Rest später über denselben Link hochladen; deine Kanzlei kann den Antrag erst einreichen, wenn alle vorliegen.",
   },
+  "s2.sinDocs": { es: "Para este trámite no necesitas subir ningún documento. Puedes continuar.", en: "This procedure doesn't require you to upload any documents. You can continue.", fr: "Ce dossier ne nécessite aucun document à téléverser. Vous pouvez continuer.", it: "Per questa pratica non devi caricare alcun documento. Puoi continuare.", de: "Für diesen Vorgang musst du keine Dokumente hochladen. Du kannst fortfahren." },
   "s2.continuarIgual": { es: "Continuar de todos modos", en: "Continue anyway", fr: "Continuer quand même", it: "Continua comunque", de: "Trotzdem fortfahren" },
   "s2.seguirSubiendo": { es: "Seguir subiendo", en: "Keep uploading", fr: "Continuer à téléverser", it: "Continua a caricare", de: "Weiter hochladen" },
   "s2.continuar": { es: "Continuar", en: "Continue", fr: "Continuer", it: "Continua", de: "Weiter" },

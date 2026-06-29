@@ -149,7 +149,8 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                     </button>
                   </span>
                 ))}
-                {s.docs.length === 0 && <span className="text-xs text-slate-400">{t("Sin documentos.")}</span>}
+                {s.docs.length === 0 && s.active && <span className="text-xs font-medium text-amber-600">⚠️ {t("Sin documentos: el cliente no podrá subir nada en su portal.")}</span>}
+                {s.docs.length === 0 && !s.active && <span className="text-xs text-slate-400">{t("Sin documentos.")}</span>}
               </div>
               <div className="mt-2 flex gap-2">
                 <input
