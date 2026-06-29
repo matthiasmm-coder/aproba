@@ -229,6 +229,8 @@ export default async function ExpedienteDetail({
           anticipo={servicio?.anticipo ?? 0}
           resto={servicio?.resto ?? 0}
           facturas={e.facturasPago}
+          clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
+          conceptoFinal={`Liquidación final — ${servicio?.label?.trim() || e.tipoLabel} (${e.referencia})`}
         />
 
         {/* Historial */}

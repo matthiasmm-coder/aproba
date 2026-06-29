@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
-import { ivaDe, totalDe } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -23,7 +23,11 @@ const SELECT_EXP = "id, workspaceId, tipo, servicioClave, referencia, cliente:Cl
 type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; referencia: string; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
-  let body: { token?: string; expedienteId?: string; momento?: string };
+  let body: {
+    token?: string; expedienteId?: string; momento?: string;
+    // Factura editada desde el popup del gestor (opcional). Si falta → automática por tarifa.
+    factura?: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null };
+  };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +41,7 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdmin();
 
   let exp: ExpRow | null = null;
+  let viaGestor = false; // solo el gestor autenticado puede editar la factura
   if (body.token?.trim()) {
     // Portal del cliente: el token es único.
     const { data, error } = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
@@ -50,51 +55,66 @@ export async function POST(req: Request) {
     const { data, error } = await supa.from("Expediente").select(SELECT_EXP).eq("id", body.expedienteId.trim()).maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     exp = data as ExpRow | null;
+    viaGestor = true;
   } else {
     return NextResponse.json({ error: "token o expedienteId requerido" }, { status: 400 });
   }
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado" }, { status: 404 });
 
-  // Tarifa del servicio — config réelle du workspace (table ServicioConfig).
-  const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
-  // Service retrouvé par sa clave mémorisée (gère les services custom / tipo OTRO),
-  // avec repli sur le mapping par type pour les anciens expedientes.
-  const servicio = servicios.find((s) => s.id === ((exp as { servicioClave?: string | null }).servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-  const base = momento === "ANTICIPO" ? servicio?.anticipo ?? 0 : servicio?.resto ?? 0;
-  if (base <= 0) {
-    return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
+  // Importe de la factura. Por defecto sale de la tarifa del servicio; si el gestor envía
+  // una factura editada desde el popup (body.factura), se usa ÉSA — recalculando los totales
+  // en el SERVIDOR (no nos fiamos del cliente) con la regla suplidos-sin-IVA.
+  // SEGURIDAD: la factura editable solo se acepta del gestor autenticado, NUNCA del portal
+  // del cliente (token) — si no, un cliente podría fijarse su propio importe.
+  const fac = viaGestor ? body.factura : undefined;
+  let baseImponible: number, iva: number, total: number;
+  let lineas: { concepto: string; base: number }[] | null = null;
+  let suplidos: { concepto: string; importe: number }[] | null = null;
+  let notas: string | null = null;
+
+  if (fac) {
+    const ls = Array.isArray(fac.lineas) ? fac.lineas.filter((l) => l?.concepto?.trim() && Number(l.base) > 0) : [];
+    if (ls.length) {
+      const ss = Array.isArray(fac.suplidos) ? fac.suplidos.filter((s) => s?.concepto?.trim() && Number(s.importe) > 0) : [];
+      const tt = totalesFactura(ls, ss);
+      baseImponible = tt.base; iva = tt.iva; total = tt.total;
+      lineas = ls; suplidos = ss; notas = fac.notas?.trim() || null;
+    } else {
+      baseImponible = Number(fac.baseImponible) || 0; iva = ivaDe(baseImponible); total = totalDe(baseImponible);
+    }
+    if (total <= 0) return NextResponse.json({ error: "El importe de la factura debe ser mayor que 0" }, { status: 400 });
+  } else {
+    // Tarifa del servicio — config réelle du workspace (table ServicioConfig). Service
+    // retrouvé par sa clave mémorisée (services custom / tipo OTRO), repli par type.
+    const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
+    const servicio = servicios.find((s) => s.id === ((exp as { servicioClave?: string | null }).servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
+    const b = momento === "ANTICIPO" ? servicio?.anticipo ?? 0 : servicio?.resto ?? 0;
+    if (b <= 0) return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
+    baseImponible = b; iva = ivaDe(b); total = totalDe(b);
   }
 
-  // Idempotence : un seul paiement par (expediente, momento).
-  const { data: previa, error: e2 } = await admin
-    .from("Factura")
-    .select("id, numero, total")
-    .eq("expedienteId", exp.id)
-    .eq("momento", momento)
-    .maybeSingle();
+  // Idempotence : un seul paiement par (expediente, momento). Para reeditar una factura ya
+  // emitida, el gestor usa el endpoint de edición (PUT /api/facturas/[id]), no éste.
+  const { data: previa, error: e2 } = await admin.from("Factura").select("id, numero, total").eq("expedienteId", exp.id).eq("momento", momento).maybeSingle();
   if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
   if (previa) {
     return NextResponse.json({ ok: true, yaExistia: true, facturaId: previa.id, numero: previa.numero, total: Number(previa.total) });
   }
 
-  // Numérotation séquentielle de l'année.
+  // Numérotation séquentielle de l'année (salvo nº personalizado del popup).
   const year = new Date().getFullYear();
-  const { data: last, error: e3 } = await admin
-    .from("Factura")
-    .select("numero")
-    .eq("workspaceId", exp.workspaceId)
-    .like("numero", `${year}-%`)
-    .order("numero", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (e3) return NextResponse.json({ error: e3.message }, { status: 500 });
-  const numero = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`;
+  let numero = fac?.numero?.trim() || "";
+  if (!numero) {
+    const { data: last, error: e3 } = await admin.from("Factura").select("numero").eq("workspaceId", exp.workspaceId).like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle();
+    if (e3) return NextResponse.json({ error: e3.message }, { status: 500 });
+    numero = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`;
+  }
 
   const cliente = exp.cliente as { nombre?: string; apellidos?: string } | null;
-  const clienteNombre = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim() || "Cliente";
+  const clienteAuto = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim() || "Cliente";
+  const clienteNombre = fac?.clienteNombre?.trim() || clienteAuto;
   const etiqueta = momento === "ANTICIPO" ? "Anticipo" : "Liquidación final";
-  const concepto = `${etiqueta} — ${TIPO_LABEL[exp.tipo] ?? exp.tipo} (${exp.referencia})`;
-  const total = totalDe(base);
+  const concepto = fac?.concepto?.trim() || `${etiqueta} — ${TIPO_LABEL[exp.tipo] ?? exp.tipo} (${exp.referencia})`;
 
   // La facture est ÉMISE (pas payée) : le client paie par virement. Échéance à 14 jours.
   const ahora = new Date();
@@ -107,8 +127,8 @@ export async function POST(req: Request) {
     numero,
     clienteNombre,
     concepto,
-    baseImponible: base,
-    iva: ivaDe(base),
+    baseImponible,
+    iva,
     total,
     estado: "EMITIDA",
     origen: "AUTOMATICA",
@@ -116,8 +136,18 @@ export async function POST(req: Request) {
     metodoPago: "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(),
     fechaVencimiento: vencimiento.toISOString(),
+    ...(lineas ? { lineas, suplidos, notas } : {}),
   });
-  if (e4) return NextResponse.json({ error: e4.message }, { status: 500 });
+  if (e4) {
+    // Carrera de doble emisión: si el índice único opcional (expediente, momento) salta,
+    // la factura ya existía → devolvemos esa, no un error.
+    if (/Factura_expediente_momento_key/i.test(e4.message)) {
+      const { data: ya } = await admin.from("Factura").select("id, numero, total").eq("expedienteId", exp.id).eq("momento", momento).maybeSingle();
+      if (ya) return NextResponse.json({ ok: true, yaExistia: true, facturaId: ya.id, numero: ya.numero, total: Number(ya.total) });
+    }
+    const dup = /duplicate|unique/i.test(e4.message);
+    return NextResponse.json({ error: dup ? "Ese número de factura ya existe. Cámbialo." : e4.message }, { status: dup ? 409 : 500 });
+  }
 
   // Trace dans l'historial de l'expediente.
   await admin.from("ExpedienteEvento").insert({
