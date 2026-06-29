@@ -1,10 +1,11 @@
-import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias } from "@/lib/data/config";
+import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho } from "@/lib/data/config";
 import { fetchEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
 import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
 import { CuentasBancarias } from "@/components/cuentas-bancarias";
 import { CobroTarjetaConfig } from "@/components/cobro-tarjeta-config";
+import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
@@ -44,11 +45,12 @@ const IconEquipo = (
 
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
-  const [{ servicios }, { avisos }, cuentas, equipo] = await Promise.all([
+  const [{ servicios }, { avisos }, cuentas, equipo, despacho] = await Promise.all([
     fetchServiciosConfig(),
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null })),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -145,6 +147,7 @@ export default async function Ajustes() {
               <span>{t("Las cuentas bancarias solo son accesibles para los administradores.")}</span>
             </div>
           )}
+          {puedeEditar && <DespachoFacturacion inicial={despacho} />}
           {puedeEditar && <CobroTarjetaConfig />}
         </AjustesSection>
       </div>

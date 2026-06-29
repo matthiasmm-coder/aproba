@@ -42,10 +42,12 @@ export default function NuevaFactura() {
     (async () => {
       const sb = createSupabaseBrowser();
       try {
-        const { data: mem } = await sb.from("Membership").select("Workspace(nombre, nif, domicilio, emailFacturacion)").limit(1).maybeSingle();
-        const wsRaw = (mem as { Workspace?: Record<string, string | null> | Record<string, string | null>[] } | null)?.Workspace;
+        const sel = (cols: string) => sb.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
+        let mr = await sel("nombre, nif, domicilio, emailFacturacion, logoUrl"); // logoUrl: columna nueva (4b)
+        if (mr.error) mr = await sel("nombre, nif, domicilio, emailFacturacion");
+        const wsRaw = (mr.data as { Workspace?: Record<string, string | null> | Record<string, string | null>[] } | null)?.Workspace;
         const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
-        if (ws) setEmisor({ nombre: ws.nombre ?? "Mi despacho", nif: ws.nif ?? null, domicilio: ws.domicilio ?? null, email: ws.emailFacturacion ?? null });
+        if (ws) setEmisor({ nombre: ws.nombre ?? "Mi despacho", nif: ws.nif ?? null, domicilio: ws.domicilio ?? null, email: ws.emailFacturacion ?? null, logo: ws.logoUrl ?? null });
       } catch { /* fallback */ }
       try {
         const { data: sub } = await sb.from("Subscription").select("plan").limit(1).maybeSingle();

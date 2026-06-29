@@ -7,7 +7,7 @@ import { AprobaMark } from "./logo";
 import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 
-export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null };
+export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
 export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
   const t = useT();
@@ -59,6 +59,10 @@ export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
       <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
         <div className="flex items-start justify-between">
           <div>
+            {emisor.logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={emisor.logo} alt={emisor.nombre} className="mb-2 max-h-14 max-w-[180px] object-contain" />
+            )}
             <p className="text-lg font-bold text-slate-900">{emisor.nombre}</p>
             {contacto.length > 0 && (
               <p className="mt-1 text-xs leading-relaxed text-slate-500">

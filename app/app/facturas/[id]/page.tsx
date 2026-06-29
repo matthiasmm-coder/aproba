@@ -10,7 +10,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
 
   // Émetteur = le vrai despacho de l'utilisateur (nom, NIF, domicilio, email de facturación).
   const d = await fetchDespacho();
-  const emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };
+  const emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
 
   return <FacturaView f={f} emisor={emisor} />;
 }
