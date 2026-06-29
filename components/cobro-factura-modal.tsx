@@ -19,7 +19,7 @@ export function CobroFacturaModal({
   modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose,
 }: {
   modo: "crear" | "editar";
-  expedienteId: string;
+  expedienteId?: string; // requerido para crear; en editar el servidor lo resuelve de la factura
   clienteNombre?: string;
   conceptoFinal?: string;
   baseFinal?: number;
@@ -35,6 +35,7 @@ export function CobroFacturaModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificar, setNotificar] = useState(false); // edición: reenviar corregida
+  const [tieneExpediente, setTieneExpediente] = useState(false); // solo se puede reenviar si la factura está ligada a un expediente (cliente con portal/email)
   const [forceAvanzada, setForceAvanzada] = useState(false); // editar una factura con líneas/suplidos usa el editor rico aunque el plan sea Starter (no perder datos)
   const avanzada = facturacionAvanzada(plan) || forceAvanzada;
 
@@ -54,6 +55,7 @@ export function CobroFacturaModal({
           const fc = await r.json();
           if (!r.ok) throw new Error(fc.error);
           setNumeroFactura(fc.numero ?? "");
+          setTieneExpediente(Boolean(fc.expedienteId));
           const tieneAvanzado = (Array.isArray(fc.lineas) && fc.lineas.length > 0) || (Array.isArray(fc.suplidos) && fc.suplidos.length > 0);
           setForceAvanzada(tieneAvanzado);
           const lineas = Array.isArray(fc.lineas) && fc.lineas.length ? fc.lineas : [{ concepto: fc.concepto || "", base: Number(fc.baseImponible) || 0 }];
@@ -124,7 +126,7 @@ export function CobroFacturaModal({
             busy={busy}
             error={error}
             submitLabel={modo === "editar" ? t("Guardar cambios") : t("Validar y enviar al cliente")}
-            extra={modo === "editar" ? (
+            extra={modo === "editar" && tieneExpediente ? (
               <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" checked={notificar} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                 {t("Reenviar la factura corregida al cliente por email")}

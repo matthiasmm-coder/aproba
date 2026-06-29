@@ -12,5 +12,5 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   const d = await fetchDespacho();
   const emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
 
-  return <FacturaView f={f} emisor={emisor} />;
+  return <FacturaView f={f} emisor={emisor} editable />;
 }

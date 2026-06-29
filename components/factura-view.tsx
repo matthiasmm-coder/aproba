@@ -5,15 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AprobaMark } from "./logo";
 import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
+import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { useT } from "@/components/lang-provider";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
-export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
+// `editable`: muestra el botón "Editar" (abre el popup de edición). Solo en la ficha de la
+// factura; en la vista previa de "Nueva factura" se deja en false.
+export function FacturaView({ f, emisor, editable = false }: { f: Factura; emisor: Emisor; editable?: boolean }) {
   const t = useT();
   const router = useRouter();
   const meta = FACTURA_ESTADO_META[f.estado];
   const [marcando, setMarcando] = useState(false);
+  const [editando, setEditando] = useState(false);
   const contacto = [emisor.nif ? `${t("NIF/CIF")} ${emisor.nif}` : null, emisor.domicilio, emisor.email].filter(Boolean);
 
   // Líneas: el desglose si existe, si no una sola línea (concepto/base). Suplidos sin IVA.
@@ -42,6 +46,12 @@ export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
         </Link>
         <div className="flex items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
+          {editable && f.estado !== "PAGADA" && (
+            <button onClick={() => setEditando(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+              {t("Editar")}
+            </button>
+          )}
           {f.estado === "EMITIDA" && (
             <button onClick={marcarPagada} disabled={marcando} className="inline-flex items-center gap-1.5 rounded-lg border border-aproba-300 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
@@ -140,6 +150,8 @@ export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
           <span>{t("Forma de pago: transferencia")}</span>
         </div>
       </div>
+
+      {editando && <CobroFacturaModal modo="editar" facturaId={f.id} onClose={() => setEditando(false)} />}
     </div>
   );
 }
