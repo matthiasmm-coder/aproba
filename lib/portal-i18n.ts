@@ -241,6 +241,15 @@ const UI: Record<string, Tr> = {
     de: "Hallo {nombre}, wir haben deinen Antrag erhalten. Über diesen Link kannst du den Fortschritt verfolgen und fehlende Dokumente jederzeit hochladen.",
   },
   "notif.seg.boton": { es: "Seguir mi expediente", en: "Track my file", fr: "Suivre mon dossier", it: "Segui la mia pratica", de: "Antrag verfolgen" },
+  "notif.seg.tituloFaltan": { es: "Faltan documentos por enviar", en: "Documents still needed", fr: "Des documents restent à envoyer", it: "Mancano documenti da inviare", de: "Es fehlen noch Dokumente" },
+  "notif.seg.bodyFaltan": {
+    es: "Hola {nombre}, hemos recibido tu solicitud, pero aún tienes documentos pendientes por enviar y son necesarios para continuar. Para subirlos, tienes que acceder a tu expediente: pulsa el botón de abajo y añádelos.",
+    en: "Hi {nombre}, we've received your request, but you still have documents to upload and they're required to continue. To add them you need to open your file: tap the button below and upload them.",
+    fr: "Bonjour {nombre}, nous avons reçu votre demande, mais il vous reste des documents à envoyer et ils sont nécessaires pour continuer. Pour les déposer, vous devez accéder à votre dossier : cliquez sur le bouton ci-dessous et ajoutez-les.",
+    it: "Ciao {nombre}, abbiamo ricevuto la tua richiesta, ma mancano ancora dei documenti da inviare e sono necessari per continuare. Per caricarli devi accedere alla tua pratica: premi il pulsante qui sotto e aggiungili.",
+    de: "Hallo {nombre}, wir haben deinen Antrag erhalten, aber es fehlen noch Dokumente, die zum Fortfahren nötig sind. Um sie hochzuladen, musst du deinen Antrag öffnen: Tippe unten auf die Schaltfläche und füge sie hinzu.",
+  },
+  "notif.seg.botonSubir": { es: "Subir mis documentos", en: "Upload my documents", fr: "Déposer mes documents", it: "Carica i miei documenti", de: "Dokumente hochladen" },
 
   // ── Vue « ya completado » (lien initial /j après l'onboarding) ─────────────
   "done.titulo": { es: "Ya has enviado tu solicitud", en: "Your request is already sent", fr: "Votre demande a déjà été envoyée", it: "La tua richiesta è già stata inviata", de: "Dein Antrag wurde bereits gesendet" },

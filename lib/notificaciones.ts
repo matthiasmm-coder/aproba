@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 
 // Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
 // Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
@@ -157,10 +159,17 @@ export async function enviarSeguimiento(
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("portalToken, Cliente(nombre, email, telefono, idioma), Workspace(nombre)")
+      .select("portalToken, tipo, servicioClave, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
-    const exp = expRaw as (ExpRow & { Cliente: ({ idioma?: string | null } & ExpRow["Cliente"]) }) | null;
+    const exp = expRaw as {
+      portalToken: string | null;
+      tipo: string;
+      servicioClave: string | null;
+      Cliente: { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null }[] | null;
+      Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
+      documentos: { tipo: string; estado: string }[] | null;
+    } | null;
     if (!exp?.portalToken) return;
 
     // Idempotence : ne pas renvoyer si la notif de suivi a déjà été journalisée.
@@ -175,15 +184,30 @@ export async function enviarSeguimiento(
     if (yaEnviado) return;
 
     const cliente = uno(exp.Cliente ?? null) as { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null;
-    const gestoria = uno(exp.Workspace ?? null)?.nombre ?? "Tu gestoría";
+    const ws = uno(exp.Workspace ?? null);
+    const gestoria = ws?.nombre ?? "Tu gestoría";
     const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
 
+    // ¿Faltan documentos por enviar? Misma lógica que la página de seguimiento /s/[token]:
+    // un requerido cuenta como pendiente salvo que esté VALIDADO o PROCESANDO (subido).
+    let faltanDocs = false;
+    try {
+      if (ws?.id) {
+        const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+        const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
+        const requeridos = servicio?.docs ?? [];
+        const subido = new Map((exp.documentos ?? []).map((d) => [d.tipo, d.estado]));
+        faltanDocs = requeridos.some((label) => { const st = subido.get(labelADocTipo(label)); return st !== "VALIDADO" && st !== "PROCESANDO"; });
+      }
+    } catch { /* repli propre : sin info de docs, email de seguimiento normal */ }
+
     const subject = t("notif.seg.subject", { gestoria });
-    const cuerpo = t("notif.seg.body", { nombre });
-    const boton = t("notif.seg.boton");
+    const titulo = faltanDocs ? t("notif.seg.tituloFaltan") : t("notif.seg.titulo");
+    const cuerpo = faltanDocs ? t("notif.seg.bodyFaltan", { nombre }) : t("notif.seg.body", { nombre });
+    const boton = faltanDocs ? t("notif.seg.botonSubir") : t("notif.seg.boton");
 
     let estado: Estado = "SIMULADO";
     let destino = cliente?.email ?? "";
@@ -192,7 +216,7 @@ export async function enviarSeguimiento(
     } else if (resendDisponible() && link) {
       const html = emailLayout({
         gestoria,
-        titulo: t("notif.seg.titulo"),
+        titulo,
         cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
         cta: { url: link, label: boton },
         preheader: cuerpo,
