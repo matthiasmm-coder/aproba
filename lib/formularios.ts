@@ -1,5 +1,6 @@
 import type { Expediente } from "./types";
 import type { ClienteFicha } from "./ficha";
+import { normalizaPais, normalizaNacionalidad } from "./paises";
 
 // Génère les formulaires officiels remplis à partir des données d'un expediente.
 // v1 : EX-10 (arraigo / circunstancias excepcionales) + tasa 790-012.
@@ -178,14 +179,15 @@ export function datosNormalizados(exp: Expediente): DatosForm {
   return {
     pasaporte, nie1, nie2, nie3,
     apellido1, apellido2, nombre, sexo, estadoCivil,
-    // Règle métier : sur les formulaires officiels, « nombre del padre » = 1er apellido,
-    // « nombre de la madre » = 2e apellido (convention de filiation espagnole). On dérive
-    // donc des apellidos du solicitante (les champs parents ne sont plus saisis à part).
-    nombrePadre: apellido1, nombreMadre: apellido2,
+    // « Nombre del padre / de la madre » = los nombres reales que el cliente
+    // rellena en su ficha (NO derivar del apellido: la casilla pide el NOMBRE
+    // del progenitor). Si no los rellenó, van vacíos.
+    nombrePadre: pref(fi.nombrePadre), nombreMadre: pref(fi.nombreMadre),
     fechaD, fechaM, fechaA,
     lugarNac: pref(fi.lugarNacimiento, "Lugar de nacimiento"),
-    paisNac: pref(fi.paisNacimiento),
-    nacionalidad: pref(fi.nacionalidad, "Nacionalidad"),
+    // País y nacionalidad → forma española ("France"→"Francia", "FR"→"Francés/a").
+    paisNac: normalizaPais(pref(fi.paisNacimiento)),
+    nacionalidad: normalizaNacionalidad(pref(fi.nacionalidad, "Nacionalidad"), sexo),
     domicilio: pref(fi.via, "Dirección"),
     numero: limpio(fi.numeroVia ?? ""), piso: limpio(fi.piso ?? ""),
     localidad: pref(fi.municipio, "Municipio"),
