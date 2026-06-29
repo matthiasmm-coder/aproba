@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
+import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 
 // Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
 // Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
@@ -226,7 +227,7 @@ const fmtEur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 
 export async function enviarSolicitudPago(
   admin: SupabaseClient,
-  opts: { expedienteId: string; numero: string; total: number; concepto: string; baseUrl?: string },
+  opts: { expedienteId: string; facturaId?: string; numero: string; total: number; concepto: string; baseUrl?: string },
 ): Promise<void> {
   try {
     const { data: expRaw } = await admin
@@ -254,21 +255,35 @@ export async function enviarSolicitudPago(
         </table>`
       : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
 
+    // Cobro con tarjeta: activo solo si la gestoría configuró su clave Stripe (opt-in).
+    const tarjetaOn = Boolean(opts.facturaId) && Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspaceId));
+    const fraseFinal = "En cuanto recibamos el pago, te lo confirmaremos. ¡Gracias!";
+    const indicaLine = tarjetaOn
+      ? `Si pagas por transferencia, indica el número de factura (<strong>${opts.numero}</strong>) en el concepto. También puedes pagarla con tarjeta:`
+      : `Indica el número de factura (<strong>${opts.numero}</strong>) en el concepto. ${fraseFinal}`;
+    const botonTarjeta = tarjetaOn
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:18px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.baseUrl}/api/pagos/checkout?f=${opts.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(opts.total)} con tarjeta</a></td></tr></table></td></tr></table>
+      <p style="margin:16px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6;text-align:center">${fraseFinal}</p>`
+      : "";
+
     const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
-      <p style="margin:0">aquí tienes tu factura <strong>${opts.numero}</strong>. Puedes abonarla por transferencia.</p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:16px 18px">
+      <p style="margin:0">aquí tienes tu factura <strong>${opts.numero}</strong>. Puedes abonarla por ${tarjetaOn ? "transferencia o tarjeta" : "transferencia"}.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
         <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Importe a pagar · IVA incluido</p>
         <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.total)}</p>
         <p style="margin:5px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b">${opts.concepto}</p>
       </td></tr></table>
       ${bancoBox}
-      <p style="margin:16px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Indica el número de factura (<strong>${opts.numero}</strong>) en el concepto. En cuanto recibamos el pago, te lo confirmaremos. ¡Gracias!</p>`;
+      <p style="margin:16px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">${indicaLine}</p>
+      ${botonTarjeta}`;
 
     const html = emailLayout({
       gestoria,
       titulo: "Tu factura está lista",
       cuerpoHtml,
-      cta: exp.portalToken && opts.baseUrl ? { url: `${opts.baseUrl}/s/${exp.portalToken}`, label: "Ver mi expediente" } : null,
+      // Con tarjeta: el botón va dentro del cuerpo (para poner la frase final debajo).
+      // Sin tarjeta: se mantiene el botón «Ver mi expediente» del layout.
+      cta: tarjetaOn ? null : (exp.portalToken && opts.baseUrl ? { url: `${opts.baseUrl}/s/${exp.portalToken}`, label: "Ver mi expediente" } : null),
       footerNota: `Factura emitida por ${gestoria}. Por favor, no respondas a este correo.`,
       preheader: `Factura ${opts.numero} · ${fmtEur(opts.total)}`,
     });

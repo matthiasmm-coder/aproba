@@ -99,8 +99,9 @@ export async function POST(req: Request) {
   // La facture est ÉMISE (pas payée) : le client paie par virement. Échéance à 14 jours.
   const ahora = new Date();
   const vencimiento = new Date(ahora.getTime() + 14 * 864e5);
+  const facturaId = uuid();
   const { error: e4 } = await admin.from("Factura").insert({
-    id: uuid(),
+    id: facturaId,
     workspaceId: exp.workspaceId,
     expedienteId: exp.id,
     numero,
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
 
   const baseUrl = baseUrlFromRequest(req);
   // Email au client : facture + coordonnées bancaires (IBAN) pour payer par virement.
-  await enviarSolicitudPago(admin, { expedienteId: exp.id, numero, total, concepto, baseUrl });
+  await enviarSolicitudPago(admin, { expedienteId: exp.id, facturaId, numero, total, concepto, baseUrl });
   // Au premier paiement demandé, on (re)donne aussi le lien de suivi.
   if (momento === "ANTICIPO") {
     await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl });

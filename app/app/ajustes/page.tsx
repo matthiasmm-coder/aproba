@@ -4,6 +4,7 @@ import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes
 import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
 import { CuentasBancarias } from "@/components/cuentas-bancarias";
+import { CobroTarjetaConfig } from "@/components/cobro-tarjeta-config";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
@@ -144,6 +145,7 @@ export default async function Ajustes() {
               <span>{t("Las cuentas bancarias solo son accesibles para los administradores.")}</span>
             </div>
           )}
+          {puedeEditar && <CobroTarjetaConfig />}
         </AjustesSection>
       </div>
     </div>

@@ -140,6 +140,7 @@ model Workspace {
   servicios    ServicioConfig[]
   avisos       AvisoConfig[]
   cuentas      CuentaBancaria[]
+  stripeCuenta StripeCuenta?
 }
 
 // Comptes bancaires du despacho (réception des paiements clients).
@@ -156,6 +157,17 @@ model CuentaBancaria {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
+}
+
+// Cobro con tarjeta: clave secreta Stripe de la gestoría, CIFRADA (AES-256-GCM).
+// RLS deny-all → solo service_role la lee/escribe; nunca llega al navegador.
+model StripeCuenta {
+  workspaceId  String    @id
+  secretKeyEnc String
+  activa       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 // Catalogue de services du workspace : tarifas (anticipo/resto), documents requis,
