@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
+import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
+import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { CobrosPanel } from "@/components/cobros-panel";
@@ -115,11 +116,7 @@ export default async function ExpedienteDetail({
 
   // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
-  const subidos = new Map(e.documentos.map((d) => [d.tipo, d.estado]));
-  const docsPendientes = (servicio?.docs ?? []).filter((label) => {
-    const st = subidos.get(labelADocTipo(label));
-    return st !== "VALIDADO" && st !== "PROCESANDO";
-  });
+  const docsPendientes = docsFaltantes(servicio?.docs ?? [], e.documentos);
 
   const meta = ESTADO_META[e.estado];
 
@@ -177,6 +174,7 @@ export default async function ExpedienteDetail({
             <p className="font-semibold">{t("Faltan documentos del cliente")} ({docsPendientes.length})</p>
             <p className="mt-0.5">{docsPendientes.join(" · ")}</p>
             <p className="mt-1 text-xs text-amber-700">{t("El cliente puede enviarlos desde su enlace en cualquier momento, aunque hayas avanzado de paso.")}</p>
+            <RecordarDocsButton expedienteId={e.id} />
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ import { makeT, type Lang } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
+import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
 
 // Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
 // Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
@@ -198,9 +198,7 @@ export async function enviarSeguimiento(
       if (ws?.id) {
         const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
         const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-        const requeridos = servicio?.docs ?? [];
-        const subido = new Map((exp.documentos ?? []).map((d) => [d.tipo, d.estado]));
-        faltanDocs = requeridos.some((label) => { const st = subido.get(labelADocTipo(label)); return st !== "VALIDADO" && st !== "PROCESANDO"; });
+        faltanDocs = docsFaltantes(servicio?.docs ?? [], exp.documentos ?? []).length > 0;
       }
     } catch { /* repli propre : sin info de docs, email de seguimiento normal */ }
 
@@ -393,5 +391,84 @@ export async function enviarConfirmacionPago(
     });
   } catch (e) {
     console.error("[enviarConfirmacionPago]", e instanceof Error ? e.message : e);
+  }
+}
+
+// Recordatorio MANUAL (el gestor pulsa «Recordar al cliente»): email al cliente con la
+// LISTA de documentos que faltan + botón para subirlos. NO idempotente (se puede reenviar).
+// Devuelve el resultado para que la ruta informe al gestor.
+export async function enviarRecordatorioDocs(
+  admin: SupabaseClient,
+  opts: { expedienteId: string; baseUrl?: string },
+): Promise<{ enviado: boolean; faltan: number; motivo?: "sin_faltan" | "sin_email" | "simulado" | "error" }> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("portalToken, tipo, servicioClave, Cliente(nombre, email, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as {
+      portalToken: string | null;
+      tipo: string;
+      servicioClave: string | null;
+      Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null;
+      Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
+      documentos: { tipo: string; estado: string }[] | null;
+    } | null;
+    if (!exp) return { enviado: false, faltan: 0, motivo: "error" };
+    const cliente = uno(exp.Cliente);
+    const ws = uno(exp.Workspace);
+    const gestoria = ws?.nombre ?? "Tu gestoría";
+    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const t = makeT(lang);
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+    const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
+
+    let faltantes: string[] = [];
+    if (ws?.id) {
+      const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+      const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
+      faltantes = docsFaltantes(servicio?.docs ?? [], exp.documentos ?? []);
+    }
+    if (!faltantes.length) return { enviado: false, faltan: 0, motivo: "sin_faltan" };
+    const destino = cliente?.email ?? "";
+    if (!destino) return { enviado: false, faltan: faltantes.length, motivo: "sin_email" };
+
+    const lista = faltantes.map((d) => `<li style="margin:3px 0">${d}</li>`).join("");
+    const cuerpoHtml = `<p style="margin:0 0 10px">${t("notif.recDocs.intro", { nombre })}</p>
+      <ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul>
+      <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
+    const html = emailLayout({
+      gestoria,
+      titulo: t("notif.recDocs.titulo"),
+      cuerpoHtml,
+      cta: link ? { url: link, label: t("notif.seg.botonSubir") } : null,
+      footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: t("notif.recDocs.titulo"),
+    });
+
+    let estado: Estado = "SIMULADO";
+    if (resendDisponible() && link) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: t("notif.recDocs.subject", { gestoria }), html,
+        text: `${t("notif.recDocs.intro", { nombre })} ${faltantes.join(", ")}. ${link ?? ""}`,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[recordatorioDocs email]", error.message ?? error);
+    }
+
+    const sufijo = estado === "ENVIADO" ? "" : estado === "ERROR" ? " — error" : " (simulado)";
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `📧 Recordatorio de documentos enviado al cliente (${faltantes.length})${sufijo}`,
+    });
+    if (estado === "ERROR") return { enviado: false, faltan: faltantes.length, motivo: "error" };
+    return { enviado: estado === "ENVIADO", faltan: faltantes.length, motivo: estado === "SIMULADO" ? "simulado" : undefined };
+  } catch (e) {
+    console.error("[enviarRecordatorioDocs]", e instanceof Error ? e.message : e);
+    return { enviado: false, faltan: 0, motivo: "error" };
   }
 }

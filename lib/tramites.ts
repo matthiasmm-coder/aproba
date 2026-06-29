@@ -44,6 +44,19 @@ export function labelADocTipo(label: string): string {
   return "OTRO";
 }
 
+// Documentos requeridos que aún faltan (no VALIDADO/PROCESANDO). Fuente única usada
+// en /s/[token], el aviso de seguimiento, el detalle del gestor y el recordatorio.
+export function docsFaltantes(
+  requeridos: string[],
+  subidos: { tipo?: string | null; estado: string | null }[],
+): string[] {
+  const m = new Map(subidos.map((d) => [d.tipo ?? "", d.estado]));
+  return requeridos.filter((label) => {
+    const st = m.get(labelADocTipo(label));
+    return st !== "VALIDADO" && st !== "PROCESANDO";
+  });
+}
+
 // DocumentoTipo → tipo_documento du schéma d'extraction (contrôle de cohérence).
 export const DOC_A_TIPO_IA: Record<string, string> = {
   PASAPORTE: "pasaporte",
