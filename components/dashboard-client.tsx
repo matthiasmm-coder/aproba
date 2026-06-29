@@ -5,6 +5,8 @@ import Link from "next/link";
 import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
+import { ProximasCitas } from "@/components/proximas-citas";
+import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
 
 export type DashItem = {
   id: string;
@@ -53,7 +55,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario?: string }) {
+export function DashboardClient({ items, usuario, citas, clientes }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[] }) {
   const t = useT();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   useEffect(() => { setArchivados(loadArchivados()); }, []);
@@ -110,6 +112,10 @@ export function DashboardClient({ items, usuario }: { items: DashItem[]; usuario
         <div>{accion.slice(0, 8).map((e) => <AccionRow key={e.id} e={e} />)}</div>
         {accion.length > 8 && <Link href="/app/expedientes" className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-800">{t("Ver los")} {accion.length} {t("expedientes")} →</Link>}
         {accion.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("Nada pendiente. ¡Buen trabajo!")}</p>}
+      </div>
+
+      <div className="mt-6">
+        <ProximasCitas citas={citas} clientes={clientes} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

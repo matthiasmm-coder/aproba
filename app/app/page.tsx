@@ -1,4 +1,5 @@
 import { fetchExpedientesResumen } from "@/lib/data/expedientes";
+import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
 import { OnboardingChecklist, type ChecklistItem } from "@/components/onboarding-checklist";
@@ -31,10 +32,12 @@ async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabase
 export default async function Dashboard() {
   const t = await getT();
   const supabase = await createSupabaseServer();
-  const [{ data: { user } }, expedientes, checklist] = await Promise.all([
+  const [{ data: { user } }, expedientes, checklist, citas, clientes] = await Promise.all([
     supabase.auth.getUser(),
     fetchExpedientesResumen(),
     fetchChecklist(supabase, t),
+    fetchProximasCitas(),
+    fetchClientesMin(),
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
   const items: DashItem[] = expedientes.map((e) => ({
@@ -48,7 +51,7 @@ export default async function Dashboard() {
   return (
     <>
       <OnboardingChecklist items={checklist} />
-      <DashboardClient items={items} usuario={usuario} />
+      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} />
     </>
   );
 }

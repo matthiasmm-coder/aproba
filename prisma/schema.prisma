@@ -141,6 +141,7 @@ model Workspace {
   avisos       AvisoConfig[]
   cuentas      CuentaBancaria[]
   stripeCuenta StripeCuenta?
+  citasPrevias CitaPrevia[]
 }
 
 // Comptes bancaires du despacho (réception des paiements clients).
@@ -286,10 +287,37 @@ model Cliente {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  expedientes Expediente[]
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expedientes  Expediente[]
+  citasPrevias CitaPrevia[]
 
   @@index([workspaceId])
+}
+
+// Cita previa: consulta/asesoría con un cliente (existente o nombre libre), sin
+// expediente. Ver supabase/cita-previa.sql (tabla + RLS, migración manual).
+model CitaPrevia {
+  id          String   @id
+  workspaceId String
+  clienteId   String?
+  nombre      String
+  email       String?
+  telefono    String?
+  fecha       String // YYYY-MM-DD
+  hora        String?
+  lugar       String?
+  motivo      String?
+  notas       String?
+  estado      String   @default("confirmada") // pendiente | confirmada | realizada | cancelada
+  asignadoAId String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cliente   Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([clienteId])
+  @@index([workspaceId, fecha])
 }
 
 model Expediente {

@@ -394,6 +394,38 @@ export async function enviarConfirmacionPago(
   }
 }
 
+// Confirmación de CITA PREVIA (consulta) al cliente: fecha/hora/lugar/motivo. Sin DB,
+// solo envía si hay email y Resend. Devuelve true si se envió.
+export async function enviarConfirmacionCitaPrevia(opts: {
+  nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; lugar?: string | null; motivo?: string | null;
+}): Promise<boolean> {
+  try {
+    if (!opts.email || !resendDisponible()) return false;
+    const [a, m, d] = String(opts.fecha).split("-");
+    const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}`;
+    const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b">${k}</td><td style="font-weight:600">${v}</td></tr>`;
+    const detalle = [fila("Fecha", cuando), opts.lugar ? fila("Lugar", opts.lugar) : "", opts.motivo ? fila("Motivo", opts.motivo) : ""].join("");
+    const cuerpoHtml = `<p style="margin:0 0 12px">Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
+    const html = emailLayout({
+      gestoria: opts.gestoria,
+      titulo: "Tu cita está confirmada",
+      cuerpoHtml,
+      footerNota: `Mensaje de ${opts.gestoria}. Por favor, no respondas a este correo.`,
+      preheader: `Cita: ${cuando}`,
+    });
+    const from = `"${String(opts.gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+    const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from, to: opts.email, subject: `Cita confirmada · ${opts.gestoria}`, html,
+      text: `Tu cita con ${opts.gestoria}: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+    });
+    return !error;
+  } catch (e) {
+    console.error("[enviarConfirmacionCitaPrevia]", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
 // Recordatorio MANUAL (el gestor pulsa «Recordar al cliente»): email al cliente con la
 // LISTA de documentos que faltan + botón para subirlos. NO idempotente (se puede reenviar).
 // Devuelve el resultado para que la ruta informe al gestor.
