@@ -36,7 +36,7 @@ function emailLayout(opts: {
   const { gestoria, titulo, cuerpoHtml, cta, footerNota, preheader } = opts;
   const ini = inicialesDe(gestoria);
   const boton = cta
-    ? `<tr><td style="padding-top:24px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${cta.url}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${cta.label}</a></td></tr></table></td></tr>`
+    ? `<tr><td align="center" style="padding-top:24px;text-align:center"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${cta.url}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${cta.label}</a></td></tr></table></td></tr>`
     : "";
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f3f6f4;-webkit-font-smoothing:antialiased">
