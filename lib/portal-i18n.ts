@@ -181,13 +181,14 @@ const UI: Record<string, Tr> = {
   "s4.resumen": { es: "Resumen", en: "Summary", fr: "Récapitulatif", it: "Riepilogo", de: "Zusammenfassung" },
   "s4.documentos": { es: "Documentos", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente" },
   "s4.nValidados": { es: "{n} validados ✓", en: "{n} validated ✓", fr: "{n} validés ✓", it: "{n} validati ✓", de: "{n} geprüft ✓" },
+  "s4.pendiente": { es: "Pendiente", en: "Pending", fr: "En attente", it: "In attesa", de: "Ausstehend" },
   "s4.gestoria": { es: "Gestoría", en: "Agency", fr: "Cabinet", it: "Studio", de: "Kanzlei" },
   "s4.facturaEmail": {
-    es: "Hemos enviado la factura {numero} a tu email. El pago final se solicitará al terminar el trámite.",
-    en: "We've sent invoice {numero} to your email. The final payment will be requested when the procedure ends.",
-    fr: "Nous avons envoyé la facture {numero} à votre e-mail. Le paiement final sera demandé à la fin de la démarche.",
-    it: "Abbiamo inviato la fattura {numero} alla tua email. Il pagamento finale sarà richiesto al termine della pratica.",
-    de: "Wir haben die Rechnung {numero} an deine E-Mail gesendet. Die Schlusszahlung wird am Ende fällig.",
+    es: "Te hemos enviado la factura {numero} por email con los datos para pagar el anticipo por transferencia. En cuanto recibamos el pago, tu gestoría sigue con tu trámite.",
+    en: "We've emailed you invoice {numero} with the bank details to pay the deposit by transfer. As soon as we receive it, your agency continues with your procedure.",
+    fr: "Nous t'avons envoyé la facture {numero} par e-mail avec les coordonnées pour payer l'acompte par virement. Dès réception du paiement, ton cabinet poursuit ta démarche.",
+    it: "Ti abbiamo inviato la fattura {numero} via email con i dati per pagare l'anticipo con bonifico. Appena riceviamo il pagamento, il tuo studio prosegue con la pratica.",
+    de: "Wir haben dir die Rechnung {numero} per E-Mail mit den Bankdaten für die Anzahlung per Überweisung gesendet. Sobald wir die Zahlung erhalten, macht deine Kanzlei weiter.",
   },
 
   // ── Page de suivi (/s/[token]) ────────────────────────────────────────────

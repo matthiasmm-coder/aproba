@@ -652,7 +652,7 @@ export function ClientPortal({
                 <div className="flex justify-between"><span className="text-slate-500">{t("step.tramite")}</span><span className="font-medium text-slate-800">{tramite ? servicioLabel(tramite.id, tramite.label, lang) : ""}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("s4.documentos")}</span><span className="font-medium text-aproba-700">{t("s4.nValidados", { n: requiredDocs.length })}</span></div>
                 {facturaNumero && (
-                  <div className="flex justify-between"><span className="text-slate-500">{t("s3.titulo")}</span><span className="font-medium text-aproba-700">{eur(totalDe(anticipo))} ✓ · {facturaNumero}</span></div>
+                  <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("s3.titulo")}</span><span className="text-right font-medium text-amber-600">{eur(totalDe(anticipo))} · {t("s4.pendiente")} · {facturaNumero}</span></div>
                 )}
                 <div className="flex justify-between"><span className="text-slate-500">{t("s4.gestoria")}</span><span className="font-medium text-slate-800">{nombreGestoria}</span></div>
               </div>
