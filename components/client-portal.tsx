@@ -104,6 +104,9 @@ export function ClientPortal({
   const requiredDocs = tramite?.docs ?? [];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
+  // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
+  // la pantalla final no debe afirmar que todo está enviado (faltan documentos).
+  const docsCompletos = requiredDocs.length === 0 || allValidated;
   const anticipo = tramite?.anticipo ?? 0;
   const resto = tramite?.resto ?? 0;
   const conPago = anticipo > 0;
@@ -642,11 +645,15 @@ export function ClientPortal({
         {/* ── Step 4 · Listo ── */}
         {step === PASO_LISTO && (
           <div className="flex flex-col items-center pt-12 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-aproba-600">
-              <Check className="h-10 w-10 text-white" />
+            <div className={`flex h-20 w-20 items-center justify-center rounded-full ${docsCompletos ? "bg-aproba-600" : "bg-amber-500"}`}>
+              {docsCompletos ? (
+                <Check className="h-10 w-10 text-white" />
+              ) : (
+                <svg className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l2.5 1.5" /></svg>
+              )}
             </div>
-            <h1 className="mt-6 text-2xl font-bold tracking-tight text-slate-900">{t("s4.titulo")}</h1>
-            <p className="mt-3 max-w-xs leading-relaxed text-slate-600">{t("s4.intro")}</p>
+            <h1 className="mt-6 text-2xl font-bold tracking-tight text-slate-900">{docsCompletos ? t("s4.titulo") : t("s4.tituloIncompleto")}</h1>
+            <p className="mt-3 max-w-xs leading-relaxed text-slate-600">{docsCompletos ? t("s4.intro") : t("s4.introIncompleto")}</p>
             <div className="mt-8 w-full rounded-xl border border-slate-200 bg-white p-4 text-left">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s4.resumen")}</p>
               <div className="mt-2 space-y-1.5 text-sm">

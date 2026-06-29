@@ -171,6 +171,14 @@ const UI: Record<string, Tr> = {
   "s3.errorPago": { es: "No se pudo procesar el pago.", en: "The payment could not be processed.", fr: "Le paiement n'a pas pu être traité.", it: "Impossibile elaborare il pagamento.", de: "Die Zahlung konnte nicht verarbeitet werden." },
 
   "s4.titulo": { es: "¡Todo enviado!", en: "All done!", fr: "Tout est envoyé !", it: "Tutto inviato!", de: "Alles erledigt!" },
+  "s4.tituloIncompleto": { es: "¡Casi listo!", en: "Almost there!", fr: "Presque terminé !", it: "Ci siamo quasi!", de: "Fast geschafft!" },
+  "s4.introIncompleto": {
+    es: "Hemos recibido tus datos, pero aún te faltan documentos por enviar. Vuelve a este enlace cuando los tengas listos para completar tu solicitud.",
+    en: "We've received your details, but some documents are still missing. Come back to this link when you have them ready to complete your request.",
+    fr: "Nous avons reçu tes données, mais il te reste des documents à envoyer. Reviens sur ce lien quand tu les as prêts pour compléter ta demande.",
+    it: "Abbiamo ricevuto i tuoi dati, ma mancano ancora alcuni documenti. Torna a questo link quando li hai pronti per completare la richiesta.",
+    de: "Wir haben deine Daten erhalten, aber es fehlen noch Dokumente. Komm zu diesem Link zurück, wenn du sie bereit hast, um deine Anfrage abzuschließen.",
+  },
   "s4.intro": {
     es: "Tu gestoría ya tiene tus datos. Se encarga del resto y te avisará en cada paso.",
     en: "Your agency now has your details. They'll handle the rest and keep you posted.",
