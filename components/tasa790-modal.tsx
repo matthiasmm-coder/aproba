@@ -39,7 +39,9 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
   const [cargando, setCargando] = useState(false);
   const [datos, setDatos] = useState<Datos | null>(null);
   const [campos, setCampos] = useState<Prefill>({});
-  const [tramite, setTramite] = useState("3");
+  // Sin línea pre-seleccionada: la categoría de tasa la elige el gestor (no se marca
+  // ninguna casilla automáticamente; depende del trámite concreto y es su decisión).
+  const [tramite, setTramite] = useState("");
   const [captcha, setCaptcha] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fallback, setFallback] = useState<string | null>(null);
@@ -120,12 +122,14 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
                     </div>
                   ))}
                   <div className="sm:col-span-6">
-                    <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Trámite (tasa)")}</label>
-                    <select className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" value={tramite} onChange={(e) => setTramite(e.target.value)}>
+                    <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Trámite (tasa)")}<span className="text-amber-500"> *</span></label>
+                    <select className={`w-full rounded-md border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-aproba-100 ${tramite ? "border-slate-300 focus:border-aproba-600" : "border-amber-400 bg-amber-50/40 text-slate-500"}`} value={tramite} onChange={(e) => setTramite(e.target.value)}>
+                      <option value="" disabled>{t("— Elige la línea de tasa para este trámite —")}</option>
                       {datos.tramites.map((t) => (
                         <option key={t.value} value={t.value}>{t.importe ? `${t.importe} € — ` : ""}{t.label}</option>
                       ))}
                     </select>
+                    <p className="mt-1 text-[11px] text-slate-400">{t("No se marca ninguna casilla automáticamente: elige tú la línea correcta según el trámite.")}</p>
                   </div>
                 </div>
 
@@ -143,13 +147,13 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
                 </div>
 
                 {error && !fallback && <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-                {faltan.length > 0 && <p className="mt-2 text-xs text-amber-600">{t("Faltan datos obligatorios:")} {faltan.join(", ")}.</p>}
+                {(faltan.length > 0 || !tramite) && <p className="mt-2 text-xs text-amber-600">{t("Faltan datos obligatorios:")} {[...(!tramite ? [t("Trámite (tasa)")] : []), ...faltan].join(", ")}.</p>}
 
                 <div className="mt-5 flex items-center justify-between gap-2">
                   <a href="https://sede.policia.gob.es/Tasa790_012/" target="_blank" rel="noreferrer" className="text-xs text-slate-400 underline hover:text-slate-600">{t("Abrir en la Sede oficial")}</a>
                   <div className="flex gap-2">
                     <button onClick={() => setOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">{t("Cancelar")}</button>
-                    <button onClick={descargar} disabled={enviando || !captcha.trim() || faltan.length > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+                    <button onClick={descargar} disabled={enviando || !captcha.trim() || !tramite || faltan.length > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
                       {enviando ? t("Generando…") : t("Descargar tasa rellenada")}
                     </button>
                   </div>

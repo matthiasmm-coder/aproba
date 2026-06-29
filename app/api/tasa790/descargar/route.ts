@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     numJustificante7: "", numJustificante6: "", numJustificante5: "", numJustificante4: "", numJustificante3: "", numJustificante2: "", numJustificante1: "",
     complementariaImporteEntero: "", complementariaImporteDecimal: "",
     numeroDiasProrrogaEstanciaSinVisado: "", numeroCertificadosInformes: "",
-    tramiteSeleccionado: c.tramiteSeleccionado ?? "3",
+    tramiteSeleccionado: c.tramiteSeleccionado ?? "", // sin línea por defecto: la elige el gestor (no auto-marcar una casilla)
     localidad: c.localidad ?? "", fecha: c.fecha ?? "", total: c.total ?? "",
     efectivoOAdeudo: c.efectivoOAdeudo ?? "efectivo", iban: c.iban ?? "",
     tipoCaptcha: "", codSeguridadForm: c.codSeguridadForm,
