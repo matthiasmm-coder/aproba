@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; lugar?: string; motivo?: string; notas?: string; notificar?: boolean };
+  let body: { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
   const nombre = (body.nombre ?? "").trim();
@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     telefono: body.telefono?.trim() || null,
     fecha,
     hora: body.hora?.trim() || null,
+    duracion: Number.isFinite(body.duracion) && Number(body.duracion) > 0 ? Math.round(Number(body.duracion)) : null,
+    precio: Number.isFinite(body.precio) && Number(body.precio) >= 0 ? Number(body.precio) : null,
     lugar: body.lugar?.trim() || null,
     motivo: body.motivo?.trim() || null,
     notas: body.notas?.trim() || null,
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
 
   let avisado = false;
   if (body.notificar && fila.email) {
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, lugar: fila.lugar, motivo: fila.motivo });
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo });
   }
   return NextResponse.json({ ok: true, id: fila.id, avisado });
 }

@@ -17,6 +17,8 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
   const [telefono, setTelefono] = useState("");
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
+  const [duracion, setDuracion] = useState(30);
+  const [precio, setPrecio] = useState("");
   const [lugar, setLugar] = useState("");
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
@@ -43,7 +45,7 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
     try {
       const res = await fetch("/api/citas-previas", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, nombre, email, telefono, fecha, hora, lugar, motivo, notas, notificar: notificar && Boolean(email.trim()) }),
+        body: JSON.stringify({ clienteId, nombre, email, telefono, fecha, hora, duracion, precio: precio.trim() ? Number(precio) : undefined, lugar, motivo, notas, notificar: notificar && Boolean(email.trim()) }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo crear la cita."));
@@ -106,6 +108,22 @@ export function NuevaCitaModal({ clientes, onClose }: { clientes: ClienteMin[]; 
           <div>
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Hora")}</label>
             <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={fld} />
+          </div>
+
+          <div>
+            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Duración")}</label>
+            <select value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} className={`${fld} bg-white`}>
+              <option value={15}>15 min</option>
+              <option value={30}>30 min</option>
+              <option value={45}>45 min</option>
+              <option value={60}>1 h</option>
+              <option value={90}>1 h 30</option>
+              <option value={120}>2 h</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Precio (€)")}</label>
+            <input type="number" min={0} step={5} value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder={t("Opcional")} className={fld} />
           </div>
 
           <div className="sm:col-span-2">

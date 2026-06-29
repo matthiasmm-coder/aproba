@@ -18,6 +18,8 @@ export type ItemAgenda = {
   motivo?: string | null; // previa
   estado?: string | null; // previa
   clienteId?: string | null; // previa
+  duracion?: number | null; // previa — minutos
+  precio?: number | null; // previa — €
   expedienteId?: string; // administracion (link)
   referencia?: string; // administracion
 };
@@ -32,17 +34,14 @@ export async function fetchProximasCitas(): Promise<ItemAgenda[]> {
   const today = hoy();
   const items: ItemAgenda[] = [];
 
-  // (a) Citas previas próximas (no canceladas ni realizadas).
+  // (a) Citas previas próximas (no canceladas ni realizadas). duracion/precio son
+  // columnas nuevas: si la migración no se aplicó, se reintenta sin ellas.
   try {
-    const { data } = await supabase
-      .from("CitaPrevia")
-      .select("id, nombre, fecha, hora, lugar, motivo, estado, clienteId")
-      .gte("fecha", today)
-      .not("estado", "in", "(cancelada,realizada)")
-      .order("fecha", { ascending: true })
-      .limit(30);
-    for (const c of data ?? []) {
-      items.push({ id: c.id as string, tipo: "previa", fecha: c.fecha as string, hora: (c.hora as string) ?? null, lugar: (c.lugar as string) ?? null, clienteNombre: c.nombre as string, motivo: (c.motivo as string) ?? null, estado: (c.estado as string) ?? null, clienteId: (c.clienteId as string) ?? null });
+    const sel = (cols: string) => supabase.from("CitaPrevia").select(cols).gte("fecha", today).not("estado", "in", "(cancelada,realizada)").order("fecha", { ascending: true }).limit(30);
+    let res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId, duracion, precio");
+    if (res.error) res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId");
+    for (const c of (res.data ?? []) as unknown as Record<string, unknown>[]) {
+      items.push({ id: c.id as string, tipo: "previa", fecha: c.fecha as string, hora: (c.hora as string) ?? null, lugar: (c.lugar as string) ?? null, clienteNombre: c.nombre as string, motivo: (c.motivo as string) ?? null, estado: (c.estado as string) ?? null, clienteId: (c.clienteId as string) ?? null, duracion: typeof c.duracion === "number" ? c.duracion : null, precio: c.precio != null ? Number(c.precio) : null });
     }
   } catch { /* tabla CitaPrevia no migrada → sin previas */ }
 

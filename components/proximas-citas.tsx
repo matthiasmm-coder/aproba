@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
+import { eur } from "@/lib/facturas";
 import { NuevaCitaModal } from "@/components/nueva-cita-modal";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
 
@@ -13,6 +14,7 @@ export function ProximasCitas({ citas, clientes }: { citas: ItemAgenda[]; client
   const [abierto, setAbierto] = useState(false);
 
   const fechaCorta = (iso: string) => { const [, m, d] = iso.split("-"); return `${d}/${m}`; };
+  const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm}` : ""}` : `${mm} min`; };
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -39,8 +41,10 @@ export function ProximasCitas({ citas, clientes }: { citas: ItemAgenda[]; client
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-800">{c.clienteNombre}</p>
                   <p className="truncate text-xs text-slate-400">
-                    {esAdmin ? `${t("Cita administración")}${c.referencia ? ` · ${c.referencia}` : ""}` : (c.motivo || t("Consulta"))}
-                    {c.lugar ? ` · ${c.lugar}` : ""}
+                    {(esAdmin
+                      ? [`${t("Cita administración")}${c.referencia ? ` · ${c.referencia}` : ""}`]
+                      : [c.motivo || t("Consulta"), c.duracion ? fmtDur(c.duracion) : null, c.precio != null ? eur(c.precio) : null]
+                    ).filter(Boolean).concat(c.lugar ? [c.lugar] : []).join(" · ")}
                   </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${esAdmin ? "bg-indigo-100 text-indigo-700" : "bg-aproba-100 text-aproba-700"}`}>

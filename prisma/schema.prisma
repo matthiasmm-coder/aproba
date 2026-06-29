@@ -305,6 +305,8 @@ model CitaPrevia {
   telefono    String?
   fecha       String // YYYY-MM-DD
   hora        String?
+  duracion    Int? // minutos
+  precio      Decimal? @db.Decimal(10, 2) // € (opcional)
   lugar       String?
   motivo      String?
   notas       String?

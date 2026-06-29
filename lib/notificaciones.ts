@@ -397,14 +397,20 @@ export async function enviarConfirmacionPago(
 // Confirmación de CITA PREVIA (consulta) al cliente: fecha/hora/lugar/motivo. Sin DB,
 // solo envía si hay email y Resend. Devuelve true si se envió.
 export async function enviarConfirmacionCitaPrevia(opts: {
-  nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; lugar?: string | null; motivo?: string | null;
+  nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
 }): Promise<boolean> {
   try {
     if (!opts.email || !resendDisponible()) return false;
     const [a, m, d] = String(opts.fecha).split("-");
-    const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}`;
+    const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm} min` : ""}` : `${mm} min`; };
+    const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}${opts.duracion ? ` (${fmtDur(opts.duracion)})` : ""}`;
     const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b">${k}</td><td style="font-weight:600">${v}</td></tr>`;
-    const detalle = [fila("Fecha", cuando), opts.lugar ? fila("Lugar", opts.lugar) : "", opts.motivo ? fila("Motivo", opts.motivo) : ""].join("");
+    const detalle = [
+      fila("Fecha", cuando),
+      opts.lugar ? fila("Lugar", opts.lugar) : "",
+      opts.motivo ? fila("Motivo", opts.motivo) : "",
+      opts.precio != null ? fila("Precio", fmtEur(opts.precio)) : "",
+    ].join("");
     const cuerpoHtml = `<p style="margin:0 0 12px">Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:</p>
       <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
     const html = emailLayout({

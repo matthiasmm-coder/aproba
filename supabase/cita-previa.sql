@@ -30,3 +30,7 @@ create index if not exists "CitaPrevia_fecha_idx" on "CitaPrevia"("workspaceId",
 alter table "CitaPrevia" enable row level security;
 create policy citaprevia_tenant on "CitaPrevia"
   for all using ("workspaceId" in (select app_workspace_ids()));
+
+-- Duración (minutos) y precio (€) de la cita — añadidos después. Aditivo e idempotente.
+alter table "CitaPrevia" add column if not exists "duracion" integer;
+alter table "CitaPrevia" add column if not exists "precio"   numeric(10,2);
