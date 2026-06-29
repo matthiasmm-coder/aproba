@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AprobaMark } from "./logo";
-import { eur, ivaDe, totalDe, IVA, FACTURA_ESTADO_META, type Factura } from "@/lib/facturas";
+import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null };
@@ -15,6 +15,11 @@ export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
   const meta = FACTURA_ESTADO_META[f.estado];
   const [marcando, setMarcando] = useState(false);
   const contacto = [emisor.nif ? `${t("NIF/CIF")} ${emisor.nif}` : null, emisor.domicilio, emisor.email].filter(Boolean);
+
+  // Líneas: el desglose si existe, si no una sola línea (concepto/base). Suplidos sin IVA.
+  const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
+  const suplidos = f.suplidos ?? [];
+  const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
 
   async function marcarPagada() {
     if (!window.confirm(t("¿Marcar esta factura como pagada? Confirma que has recibido el pago del cliente."))) return;
@@ -85,23 +90,46 @@ export function FacturaView({ f, emisor }: { f: Factura; emisor: Emisor }) {
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-slate-100">
-              <td className="py-3 text-slate-700">{f.concepto}</td>
-              <td className="py-3 text-right text-slate-700">{eur(f.base)}</td>
-              <td className="py-3 text-right text-slate-500">{Math.round(IVA * 100)} %</td>
-              <td className="py-3 text-right font-medium text-slate-800">{eur(f.base)}</td>
-            </tr>
+            {lineas.map((l, i) => (
+              <tr key={`l${i}`} className="border-b border-slate-100">
+                <td className="py-3 text-slate-700">{l.concepto}</td>
+                <td className="py-3 text-right text-slate-700">{eur(l.base)}</td>
+                <td className="py-3 text-right text-slate-500">{Math.round(IVA * 100)} %</td>
+                <td className="py-3 text-right font-medium text-slate-800">{eur(l.base)}</td>
+              </tr>
+            ))}
+            {suplidos.length > 0 && (
+              <>
+                <tr><td colSpan={4} className="pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Suplidos (gastos sin IVA)")}</td></tr>
+                {suplidos.map((s, i) => (
+                  <tr key={`s${i}`} className="border-b border-slate-100">
+                    <td className="py-3 text-slate-700">{s.concepto}</td>
+                    <td className="py-3 text-right text-slate-300">—</td>
+                    <td className="py-3 text-right text-slate-400">{t("Exento")}</td>
+                    <td className="py-3 text-right font-medium text-slate-800">{eur(s.importe)}</td>
+                  </tr>
+                ))}
+              </>
+            )}
           </tbody>
         </table>
 
         {/* Totales */}
         <div className="mt-4 flex justify-end">
-          <div className="w-56 space-y-1.5 text-sm">
-            <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(f.base)}</span></div>
-            <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(ivaDe(f.base))}</span></div>
-            <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total")}</span><span>{eur(totalDe(f.base))}</span></div>
+          <div className="w-60 space-y-1.5 text-sm">
+            <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(base)}</span></div>
+            <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(iva)}</span></div>
+            {suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(suplidosTotal)}</span></div>}
+            <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total")}</span><span>{eur(total)}</span></div>
           </div>
         </div>
+
+        {f.notas && (
+          <div className="mt-6 rounded-lg bg-cream-50 p-4 text-xs leading-relaxed text-slate-600">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Notas")}</p>
+            <p className="whitespace-pre-line">{f.notas}</p>
+          </div>
+        )}
 
         <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-3 text-[10px] text-slate-400">
           <span className="flex items-center gap-1.5"><AprobaMark size={14} /> {t("Generada con Aproba")}</span>

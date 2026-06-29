@@ -81,6 +81,9 @@ export const puedeGestionarEquipo = (rol: string | null | undefined) => rol === 
 export const esChef = puedeGestionarEquipo;
 export const esOwner = (rol: string | null | undefined) => rol === "OWNER";
 
+// Facturación avanzada (líneas, suplidos, nº y notas personalizables): Pro y Business.
+export const facturacionAvanzada = (plan: string | null | undefined) => plan === "PRO" || plan === "BUSINESS";
+
 // Qui peut asignar quel rôle : un chef (OWNER/ADMIN) peut nommer Administrador / Gestor / Asistente.
 export function puedeAsignarRol(miRol: string, rolDestino: string): boolean {
   if (rolDestino === "OWNER") return false; // OWNER = fondateur interne, jamais assignable

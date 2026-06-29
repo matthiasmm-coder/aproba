@@ -1,21 +1,39 @@
 export type FacturaEstado = "BORRADOR" | "EMITIDA" | "PAGADA" | "VENCIDA";
 
+// Línea de honorarios (sujeta a IVA) y suplido (gasto a cuenta del cliente, SIN IVA y
+// fuera de la base imponible — p.ej. la tasa 790). Facturas personalizables (Pro/Business).
+export type LineaFactura = { concepto: string; base: number };
+export type Suplido = { concepto: string; importe: number };
+
 export type Factura = {
   id: string;
   numero: string;
   cliente: string;
   concepto: string;
-  base: number; // base imponible
+  base: number; // base imponible (= suma de las líneas)
   estado: FacturaEstado;
   fecha: string; // dd/mm/aaaa
   vence?: string;
   origen?: "MANUAL" | "AUTOMATICA"; // AUTOMATICA = pago del cliente en plataforma
   momento?: "ANTICIPO" | "FINAL" | null;
+  lineas?: LineaFactura[]; // desglose de honorarios (si vacío → una sola línea: concepto/base)
+  suplidos?: Suplido[]; // gastos sin IVA
+  notas?: string | null;
 };
 
 export const IVA = 0.21;
-export const ivaDe = (b: number) => Math.round(b * IVA * 100) / 100;
-export const totalDe = (b: number) => Math.round(b * (1 + IVA) * 100) / 100;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+export const ivaDe = (b: number) => r2(b * IVA);
+export const totalDe = (b: number) => r2(b * (1 + IVA));
+
+// Totales de una factura con líneas + suplidos. base e iva solo sobre honorarios; los
+// suplidos se suman al total pero NO llevan IVA ni entran en la base imponible.
+export function totalesFactura(lineas: LineaFactura[], suplidos: Suplido[] = []) {
+  const base = r2(lineas.reduce((a, l) => a + (Number(l.base) || 0), 0));
+  const iva = ivaDe(base);
+  const suplidosTotal = r2(suplidos.reduce((a, s) => a + (Number(s.importe) || 0), 0));
+  return { base, iva, suplidosTotal, total: r2(base + iva + suplidosTotal) };
+}
 
 // Format monétaire espagnol : 4356.5 → "4.356,50 €"
 export function eur(n: number): string {

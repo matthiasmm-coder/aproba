@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fmtFechaCorta } from "@/lib/tramites";
-import type { Factura, FacturaEstado } from "@/lib/facturas";
+import type { Factura, FacturaEstado, LineaFactura, Suplido } from "@/lib/facturas";
 
 // Couche d'accès aux facturas (Supabase + RLS).
 
@@ -15,9 +15,15 @@ type Row = {
   momento: string | null;
   fechaEmision: string | null;
   fechaVencimiento: string | null;
+  lineas?: LineaFactura[] | null;
+  suplidos?: Suplido[] | null;
+  notas?: string | null;
 };
 
-const SELECT = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento";
+// lineas/suplidos/notas son columnas nuevas (Pro/Business). Se piden en el SELECT; si la
+// migración aún no se aplicó, se reintenta sin ellas (repli propre).
+const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento";
+const SELECT: string = `${COLS_BASE}, lineas, suplidos, notas`;
 
 function mapRow(f: Row): Factura {
   return {
@@ -31,22 +37,24 @@ function mapRow(f: Row): Factura {
     vence: fmtFechaCorta(f.fechaVencimiento),
     origen: f.origen === "AUTOMATICA" ? "AUTOMATICA" : "MANUAL",
     momento: f.momento === "ANTICIPO" || f.momento === "FINAL" ? f.momento : null,
+    lineas: Array.isArray(f.lineas) ? f.lineas : undefined,
+    suplidos: Array.isArray(f.suplidos) ? f.suplidos : undefined,
+    notas: f.notas ?? null,
   };
 }
 
 export async function fetchFacturas(): Promise<Factura[]> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
-    .from("Factura")
-    .select(SELECT)
-    .order("numero", { ascending: false });
-  if (error) throw new Error(`Facturas: ${error.message}`);
-  return ((data ?? []) as Row[]).map(mapRow);
+  let res = await supabase.from("Factura").select(SELECT).order("numero", { ascending: false });
+  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).order("numero", { ascending: false });
+  if (res.error) throw new Error(`Facturas: ${res.error.message}`);
+  return ((res.data ?? []) as unknown as Row[]).map(mapRow);
 }
 
 export async function fetchFactura(id: string): Promise<Factura | null> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase.from("Factura").select(SELECT).eq("id", id).maybeSingle();
-  if (error) throw new Error(`Factura ${id}: ${error.message}`);
-  return data ? mapRow(data as Row) : null;
+  let res = await supabase.from("Factura").select(SELECT).eq("id", id).maybeSingle();
+  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).eq("id", id).maybeSingle();
+  if (res.error) throw new Error(`Factura ${id}: ${res.error.message}`);
+  return res.data ? mapRow(res.data as unknown as Row) : null;
 }
