@@ -73,7 +73,7 @@ export function DriverBanner({
       secundaria = <button onClick={() => { if (window.confirm(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
       break;
     case "RESUELTO":
-      prim = citaPresencial ? { kind: "cita", label: t("Agendar cita de huellas") } : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
+      prim = citaPresencial ? { kind: "cita", label: t("Agendar cita") } : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
       break;
     case "CITA_HUELLAS": prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") }; break;
     case "FINALIZADO": prim = { kind: "espera", label: t("Expediente finalizado") }; break;

@@ -123,7 +123,7 @@ export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: b
   DOCS_VALIDADOS:  { label: "Generar formularios" },
   FORM_GENERADO:   { label: "Presentar en Mercurio" },
   PRESENTADO:      { label: "Esperando resolución", espera: true },
-  RESUELTO:        { label: "Agendar cita de huellas" },
+  RESUELTO:        { label: "Agendar cita" },
   CITA_HUELLAS:    { label: "Recoger TIE y finalizar" },
   FINALIZADO:      { label: "Expediente cerrado", espera: true },
   RECHAZADO:       { label: "Expediente denegado", espera: true },
