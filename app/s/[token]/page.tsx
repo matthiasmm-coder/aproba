@@ -52,7 +52,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // del trámite una vez generados. La tasa se muestra si el gestor la guardó.
   const formularios = (exp.formulariosGenerados && exp.formulariosGenerados.length)
     ? exp.formulariosGenerados
-    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo) : []);
+    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo, exp.servicioClave) : []);
   const tasaDisponible = Boolean(exp.tasaPath);
 
   return (

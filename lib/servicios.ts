@@ -28,6 +28,12 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
   { id: "arraigo_laboral", label: "Arraigo laboral", desc: "Residencia por arraigo laboral", active: false, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Informe de vida laboral", "Certificado de empadronamiento", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" },
   { id: "larga_duracion", label: "Residencia de larga duración", desc: "Residencia permanente", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" },
   { id: "nie", label: "Asignación de NIE", desc: "Obtener tu número de identidad", active: false, precio: 90, anticipo: 90, resto: 0, docs: ["Pasaporte"], citaPresencial: true, citaQuien: "cliente" },
+  // Trámites con sus modelos EX propios (mapeados en lib/ex-forms.ts por clave). Inactivos
+  // por defecto: el despacho los activa en Ajustes si los ofrece. Conserva estas claves
+  // (residencia_ue / brexit / modificacion) para que el formulario correcto se autocomplete.
+  { id: "residencia_ue", label: "Residencia ciudadano UE", desc: "Tarjeta de residencia de familiar de ciudadano de la UE (RD 240/2007)", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["Pasaporte", "Documento de identidad del ciudadano UE", "Certificado de empadronamiento", "Justificante del vínculo familiar"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "brexit", label: "Tarjeta Acuerdo de Retirada (Brexit)", desc: "Documentación para británicos y sus familiares (art. 18.4)", active: false, precio: 250, anticipo: 120, resto: 130, docs: ["Pasaporte", "Justificante de residencia anterior a 2021", "Certificado de empadronamiento"], citaPresencial: true, citaQuien: "cliente" },
+  { id: "modificacion", label: "Modificación de autorización", desc: "Cambiar el tipo de autorización de residencia/trabajo", active: false, precio: 280, anticipo: 140, resto: 140, docs: ["TIE actual", "Pasaporte", "Justificante del nuevo supuesto"], citaPresencial: true, citaQuien: "cliente" },
 ];
 
 // Garantit que chaque service a anticipo/resto/precio cohérents, même si la config

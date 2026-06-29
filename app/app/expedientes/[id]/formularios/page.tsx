@@ -8,6 +8,6 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   const exp = await fetchExpedienteDetalle(id);
   if (!exp) notFound();
 
-  const oficiales = formulariosDelTramite(exp.tipoEnum);
+  const oficiales = formulariosDelTramite(exp.tipoEnum, exp.servicioClave);
   return <FormulariosView exp={exp} oficiales={oficiales} todos={formulariosDisponibles()} />;
 }

@@ -131,19 +131,32 @@ export const formulariosDisponibles = (): { code: string; label: string }[] =>
 
 // Quels formulaires EX correspondent à chaque tipo de trámite (enum TipoTramite).
 const TRAMITE_FORMS: Record<string, string[]> = {
-  ARRAIGO_SOCIAL: ["EX-10", "EX-31"], ARRAIGO_LABORAL: ["EX-10", "EX-31"], ARRAIGO_FAMILIAR: ["EX-10", "EX-31"],
+  ARRAIGO_SOCIAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_LABORAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_FAMILIAR: ["EX-10", "EX-31", "EX-32"],
   REAGRUPACION: ["EX-02"], RENOVACION: ["EX-17"], TIE: ["EX-17"], NIE: ["EX-15"],
   RESIDENCIA_LARGA: ["EX-11"], NACIONALIDAD: [],
   // OTRO / tipo non mappé → tous les modèles disponibles (le gestor choisit).
 };
-export function formulariosParaTramite(tipoEnum: string): string[] {
+
+// Mapeo por CLAVE de servicio. Los trámites nuevos (UE / Brexit / Modificación) no son
+// TipoTramite del enum: su tipo queda en OTRO, así que sus modelos se resuelven por la
+// clave del servicio. Tiene PRIORIDAD sobre TRAMITE_FORMS. Conservar estas claves.
+const SERVICIO_FORMS: Record<string, string[]> = {
+  residencia_ue: ["EX-18"],
+  brexit: ["EX-23"],
+  modificacion: ["EX-26"],
+  arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
+};
+
+export function formulariosParaTramite(tipoEnum: string, servicioClave?: string | null): string[] {
+  if (servicioClave && SERVICIO_FORMS[servicioClave]) return SERVICIO_FORMS[servicioClave].filter(formularioOficialDisponible);
   return (TRAMITE_FORMS[tipoEnum] ?? Object.keys(FORMS)).filter(formularioOficialDisponible);
 }
 
 // Variante SIN repli sobre "todos los modelos": solo los del trámite (vacío si no hay
 // mapeo). La usa la vista del cliente: NUNCA debe ver todos los modelos, solo los de SU
 // trámite. (El gestor sí usa formulariosParaTramite para poder elegir cualquiera.)
-export function formulariosDelTramite(tipoEnum: string): string[] {
+export function formulariosDelTramite(tipoEnum: string, servicioClave?: string | null): string[] {
+  if (servicioClave && SERVICIO_FORMS[servicioClave]) return SERVICIO_FORMS[servicioClave].filter(formularioOficialDisponible);
   return (TRAMITE_FORMS[tipoEnum] ?? []).filter(formularioOficialDisponible);
 }
 

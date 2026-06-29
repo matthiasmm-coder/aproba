@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { newServicio, type Servicio } from "@/lib/servicios";
+import { newServicio, DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
 import { guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
@@ -51,6 +51,15 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
     setServicios((list) => list.map((s) => (s.id === id ? { ...s, docs: s.docs.filter((_, i) => i !== idx) } : s)));
 
   const activos = servicios.filter((s) => s.active).length;
+
+  // Trámites del catálogo (claves fijas, p.ej. residencia_ue/brexit/modificacion) que aún
+  // no están en la lista. Añadirlos así conserva la clave → el modelo EX correcto se mapea.
+  const enCatalogo = DEFAULT_SERVICIOS.filter((d) => !servicios.some((s) => s.id === d.id));
+  const addDelCatalogo = (id: string) => {
+    const base = DEFAULT_SERVICIOS.find((d) => d.id === id);
+    if (!base || servicios.some((s) => s.id === id)) return;
+    setServicios((list) => [...list, { ...base, docs: [...base.docs], active: true }]);
+  };
 
   return (
     <div>
@@ -201,13 +210,25 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
         ))}
       </div>
 
-      <button
-        onClick={() => setServicios((list) => [...list, newServicio()])}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-aproba-400 hover:text-aproba-700"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-        {t("Nuevo servicio")}
-      </button>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        {enCatalogo.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => { addDelCatalogo(e.target.value); }}
+            className="rounded-xl border border-slate-300 px-3 py-3 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-aproba-400 focus:border-aproba-500 sm:flex-1"
+          >
+            <option value="" disabled>{t("Añadir trámite del catálogo…")}</option>
+            {enCatalogo.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+          </select>
+        )}
+        <button
+          onClick={() => setServicios((list) => [...list, newServicio()])}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-aproba-400 hover:text-aproba-700 sm:flex-1"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+          {t("Nuevo servicio")}
+        </button>
+      </div>
     </div>
   );
 }
