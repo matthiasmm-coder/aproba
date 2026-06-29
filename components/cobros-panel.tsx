@@ -11,12 +11,12 @@ import { useT } from "@/components/lang-provider";
 // et déclenchement du pago final par le gestor (→ /api/pagos → factura auto).
 
 export function CobrosPanel({
-  referencia,
+  expedienteId,
   anticipo,
   resto,
   facturas,
 }: {
-  referencia: string;
+  expedienteId: string;
   anticipo: number;
   resto: number;
   facturas: FacturaPago[];
@@ -38,7 +38,7 @@ export function CobrosPanel({
       const res = await fetch("/api/pagos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ referencia, momento: "FINAL" }),
+        body: JSON.stringify({ expedienteId, momento: "FINAL" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? t("No se pudo solicitar el pago."));

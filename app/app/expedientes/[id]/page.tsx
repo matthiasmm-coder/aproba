@@ -207,7 +207,7 @@ export default async function ExpedienteDetail({
 
         {/* Cobro */}
         <CobrosPanel
-          referencia={e.referencia}
+          expedienteId={e.id}
           anticipo={servicio?.anticipo ?? 0}
           resto={servicio?.resto ?? 0}
           facturas={e.facturasPago}

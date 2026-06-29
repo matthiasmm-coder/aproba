@@ -16,7 +16,6 @@ import {
 
 type DocStatus = "pending" | "analyzing" | "validado" | "alerta";
 
-const REFERENCIA_DEMO = "EXP-2026-0042";
 const LANG_KEY = "aproba.portal.lang";
 
 // Champs obligatoires : tous sauf « piso / puerta ».
@@ -232,10 +231,16 @@ export function ClientPortal({
     setPagando(true);
     setPagoError(null);
     try {
+      if (!token) {
+        // Démo (sans token réel) : on simule la confirmation, sans émettre de facture.
+        setFacturaNumero(null);
+        setStep(PASO_LISTO);
+        return;
+      }
       const res = await fetch("/api/pagos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ referencia: referencia ?? REFERENCIA_DEMO, momento: "ANTICIPO" }),
+        body: JSON.stringify({ token, momento: "ANTICIPO" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? t("s3.errorPago"));

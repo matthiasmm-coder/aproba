@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ivaDe, totalDe } from "@/lib/facturas";
@@ -12,36 +13,47 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // Le montant vient de la config tarifaire du service (anticipo / resto) ;
 // 0 € à un moment donné = pas de paiement demandé à ce moment-là.
 //
-// ⚠️ Démo : l'expediente est identifié par sa referencia. En production, ce
-// endpoint sera appelé depuis le portail authentifié par token (/j/[token])
-// et le paiement sera confirmé par le webhook du PSP (Stripe) avant émission.
+// El expediente se identifica de forma INEQUÍVOCA: por token (portal del cliente)
+// o por id + sesión del gestor (RLS). NUNCA por referencia (que NO es única entre
+// workspaces → cobraría/facturaría desde otro despacho). El cobro real por tarjeta
+// (webhook PSP) queda como evolución; hoy se emite factura para pago por transferencia.
 
 const uuid = () => crypto.randomUUID();
+const SELECT_EXP = "id, workspaceId, tipo, servicioClave, referencia, cliente:Cliente(nombre, apellidos)";
+type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; referencia: string; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
-  let body: { referencia?: string; momento?: string };
+  let body: { token?: string; expedienteId?: string; momento?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  const referencia = body.referencia?.trim();
   const momento = body.momento === "FINAL" ? "FINAL" : body.momento === "ANTICIPO" ? "ANTICIPO" : null;
-  if (!referencia || !momento) {
-    return NextResponse.json({ error: "referencia y momento (ANTICIPO|FINAL) requeridos" }, { status: 400 });
+  if (!momento) {
+    return NextResponse.json({ error: "momento (ANTICIPO|FINAL) requerido" }, { status: 400 });
   }
 
   const admin = createSupabaseAdmin();
 
-  // Expediente + cliente.
-  const { data: exp, error: e1 } = await admin
-    .from("Expediente")
-    .select("id, workspaceId, tipo, servicioClave, referencia, cliente:Cliente(nombre, apellidos)")
-    .eq("referencia", referencia)
-    .limit(1)
-    .maybeSingle();
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
-  if (!exp) return NextResponse.json({ error: `Expediente ${referencia} no encontrado` }, { status: 404 });
+  let exp: ExpRow | null = null;
+  if (body.token?.trim()) {
+    // Portal del cliente: el token es único.
+    const { data, error } = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    exp = data as ExpRow | null;
+  } else if (body.expedienteId?.trim()) {
+    // Gestor: lectura bajo RLS → solo resuelve si el usuario es miembro de su workspace.
+    const supa = await createSupabaseServer();
+    const { data: auth } = await supa.auth.getUser();
+    if (!auth?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    const { data, error } = await supa.from("Expediente").select(SELECT_EXP).eq("id", body.expedienteId.trim()).maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    exp = data as ExpRow | null;
+  } else {
+    return NextResponse.json({ error: "token o expedienteId requerido" }, { status: 400 });
+  }
+  if (!exp) return NextResponse.json({ error: "Expediente no encontrado" }, { status: 404 });
 
   // Tarifa del servicio — config réelle du workspace (table ServicioConfig).
   const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
