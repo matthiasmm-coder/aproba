@@ -31,6 +31,7 @@ type ResumenRow = {
   id: string;
   referencia: string;
   tipo: string;
+  servicioClave: string | null;
   estado: string;
   fechaLimite: string | null;
   cliente: ({ nombre: string; apellidos: string | null; nacionalidad: string | null; email?: string | null; telefono?: string | null } & Record<string, string | null>) | null;
@@ -40,20 +41,29 @@ type ResumenRow = {
 
 export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
-    .from("Expediente")
-    .select(
-      "id, referencia, tipo, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)",
-    )
-    .order("createdAt", { ascending: false });
+  const [{ data, error }, svc] = await Promise.all([
+    supabase
+      .from("Expediente")
+      .select(
+        "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)",
+      )
+      .order("createdAt", { ascending: false }),
+    // Map clave→label des services configurés du workspace (RLS) : permet
+    // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
+    supabase.from("ServicioConfig").select("clave, label"),
+  ]);
   if (error) throw new Error(`Expedientes: ${error.message}`);
+  const labelDeServicio: Record<string, string> = {};
+  for (const s of (svc.data ?? []) as { clave: string; label: string | null }[]) {
+    if (s.label && s.label.trim()) labelDeServicio[s.clave] = s.label;
+  }
 
   return ((data ?? []) as unknown as ResumenRow[]).map((e) => ({
     id: e.id,
     referencia: e.referencia,
     clienteNombre: `${e.cliente?.nombre ?? ""} ${e.cliente?.apellidos ?? ""}`.trim() || "—",
     clienteNacionalidad: e.cliente?.nacionalidad ?? "—",
-    tipoLabel: TIPO_LABEL[e.tipo] ?? e.tipo,
+    tipoLabel: (e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo,
     estado: e.estado as ExpedienteEstado,
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     fechaLimite: fmtFechaCorta(e.fechaLimite),

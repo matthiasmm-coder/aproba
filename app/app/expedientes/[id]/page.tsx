@@ -132,7 +132,7 @@ export default async function ExpedienteDetail({
           <div>
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{e.clienteNombre}</h1>
-            <p className="text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
+            <p className="text-slate-500">{servicio?.label?.trim() || e.tipoLabel} · {e.clienteNacionalidad}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
