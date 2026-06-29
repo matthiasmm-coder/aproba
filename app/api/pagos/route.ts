@@ -68,13 +68,13 @@ export async function POST(req: Request) {
   // Idempotence : un seul paiement par (expediente, momento).
   const { data: previa, error: e2 } = await admin
     .from("Factura")
-    .select("numero, total")
+    .select("id, numero, total")
     .eq("expedienteId", exp.id)
     .eq("momento", momento)
     .maybeSingle();
   if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
   if (previa) {
-    return NextResponse.json({ ok: true, yaExistia: true, numero: previa.numero, total: Number(previa.total) });
+    return NextResponse.json({ ok: true, yaExistia: true, facturaId: previa.id, numero: previa.numero, total: Number(previa.total) });
   }
 
   // Numérotation séquentielle de l'année.
@@ -135,5 +135,5 @@ export async function POST(req: Request) {
     await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl });
   }
 
-  return NextResponse.json({ ok: true, numero, total, estado: "EMITIDA" });
+  return NextResponse.json({ ok: true, facturaId, numero, total, estado: "EMITIDA" });
 }

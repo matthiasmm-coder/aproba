@@ -44,6 +44,7 @@ export function ClientPortal({
   clienteFicha,
   gestoria,
   token,
+  tarjetaActiva,
 }: {
   servicios?: Servicio[];
   referencia?: string; // expediente réel (lien token) — sinon démo
@@ -51,6 +52,7 @@ export function ClientPortal({
   clienteFicha?: ClienteFicha;
   gestoria?: string;
   token?: string;
+  tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
 }) {
   const [step, setStep] = useState(0);
   const [lang, setLang] = useState<Lang>("es");
@@ -249,6 +251,31 @@ export function ClientPortal({
     } catch (err) {
       setPagoError(err instanceof Error ? err.message : t("s3.errorPago"));
     } finally {
+      setPagando(false);
+    }
+  }
+
+  // Pago del anticipo CON TARJETA : crea la factura y redirige a Stripe Checkout
+  // (al volver, /pagar/exito la marca pagada). En demo (sin token) se simula.
+  async function pagarTarjeta() {
+    setPagando(true);
+    setPagoError(null);
+    try {
+      if (!token) {
+        setFacturaNumero(null);
+        setStep(PASO_LISTO);
+        return;
+      }
+      const res = await fetch("/api/pagos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, momento: "ANTICIPO" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.facturaId) throw new Error(data.error ?? t("s3.errorPago"));
+      window.location.href = `/api/pagos/checkout?f=${data.facturaId}`; // redirige (no reactivar pagando)
+    } catch (err) {
+      setPagoError(err instanceof Error ? err.message : t("s3.errorPago"));
       setPagando(false);
     }
   }
@@ -572,21 +599,42 @@ export function ClientPortal({
 
             <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm leading-relaxed text-slate-600">
               <svg className="mt-0.5 h-4 w-4 shrink-0 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span>{t("s3.transferencia")}</span>
+              <span>{tarjetaActiva ? t("s3.metodos") : t("s3.transferencia")}</span>
             </div>
 
             {pagoError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{pagoError}</p>}
 
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setStep(2)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
-              <button
-                onClick={pagar}
-                disabled={pagando}
-                className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
-              >
-                {pagando ? t("s3.procesando") : t("s3.confirmar")}
-              </button>
-            </div>
+            {tarjetaActiva ? (
+              <div className="mt-6 space-y-2.5">
+                <button
+                  onClick={pagarTarjeta}
+                  disabled={pagando}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+                  {pagando ? t("s3.procesando") : t("s3.pagarTarjeta", { monto: eur(totalDe(anticipo)) })}
+                </button>
+                <button
+                  onClick={pagar}
+                  disabled={pagando}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60"
+                >
+                  {t("s3.pagarTransferencia")}
+                </button>
+                <button onClick={() => setStep(2)} disabled={pagando} className="w-full px-4 py-2 text-sm font-medium text-slate-400 transition hover:text-slate-600 disabled:opacity-60">{t("common.atras")}</button>
+              </div>
+            ) : (
+              <div className="mt-6 flex gap-3">
+                <button onClick={() => setStep(2)} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+                <button
+                  onClick={pagar}
+                  disabled={pagando}
+                  className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                >
+                  {pagando ? t("s3.procesando") : t("s3.confirmar")}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

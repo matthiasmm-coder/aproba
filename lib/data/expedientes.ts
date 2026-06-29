@@ -99,7 +99,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   }[];
   formularios: { id: string; tipo: string }[];
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
-  facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null }[];
+  facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
 
 // Facturas liées (pour le panneau Cobros du détail).
@@ -110,6 +110,7 @@ export type FacturaPago = {
   estado: string;
   origen: "MANUAL" | "AUTOMATICA";
   momento: "ANTICIPO" | "FINAL" | null;
+  metodoPago: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" | null;
 };
 
 export type ExpedienteDetalle = ExpedienteUI & {
@@ -144,7 +145,7 @@ const DETALLE_SELECT =
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    formularios:Formulario(id, tipo),
    eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
-   facturas:Factura(id, numero, total, estado, origen, momento)`;
+   facturas:Factura(id, numero, total, estado, origen, momento, metodoPago)`;
 
 function mapearDetalle(data: unknown): ExpedienteDetalle {
   const e = data as unknown as DetalleRow;
@@ -204,6 +205,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
       estado: f.estado,
       origen: (f.origen === "AUTOMATICA" ? "AUTOMATICA" : "MANUAL") as "MANUAL" | "AUTOMATICA",
       momento: f.momento === "ANTICIPO" || f.momento === "FINAL" ? f.momento : null,
+      metodoPago: (["TARJETA", "TRANSFERENCIA", "EFECTIVO"].includes(f.metodoPago ?? "") ? f.metodoPago : null) as FacturaPago["metodoPago"],
     })),
   };
 }

@@ -3,6 +3,7 @@ import { PortalCompletado } from "@/components/portal-completado";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
@@ -36,6 +37,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let completado = false;
   let valido = false;
   let clienteIdioma = "es";
+  let tarjetaActiva = false;
 
   try {
     const admin = createSupabaseAdmin();
@@ -55,6 +57,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       portalToken = token;
       clienteIdioma = exp.cliente?.idioma ?? "es";
       servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id);
+      // Cobro con tarjeta del anticipo: solo si la gestoría tiene su clave Stripe.
+      tarjetaActiva = Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspace.id));
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.
       const { data: fin } = await admin
         .from("ExpedienteEvento")
@@ -97,6 +101,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       clienteFicha={clienteFicha}
       gestoria={gestoria}
       token={portalToken}
+      tarjetaActiva={tarjetaActiva}
     />
   );
 }
