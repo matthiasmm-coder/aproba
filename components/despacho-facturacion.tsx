@@ -77,7 +77,7 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
             <button onClick={() => fileRef.current?.click()} className="text-[11px] font-semibold text-aproba-700 hover:underline">{preview ? t("Cambiar") : t("Subir logo")}</button>
             {preview && <button onClick={quitar} className="text-[11px] text-slate-400 hover:text-red-500">{t("Quitar")}</button>}
           </div>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden" onChange={elegirLogo} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={elegirLogo} />
         </div>
 
         {/* Datos */}

@@ -7,7 +7,7 @@ import { puedeGestionarEquipo } from "@/lib/planes";
 // FormData: nombre, nif, domicilio, emailFacturacion + opcional file (logo). El logo va
 // al bucket público `avatares` (path logo-<ws>.<ext>) y la URL se guarda en Workspace.logoUrl.
 
-const TIPOS: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/svg+xml": "svg" };
+const TIPOS: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_BYTES = 2 * 1024 * 1024;
 
 async function adminWs() {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const file = form.get("logo");
   if (file instanceof File && file.size > 0) {
     const ext = TIPOS[file.type];
-    if (!ext) return NextResponse.json({ error: "Logo no soportado (JPG, PNG, WebP o SVG)." }, { status: 400 });
+    if (!ext) return NextResponse.json({ error: "Logo no soportado (JPG, PNG o WebP)." }, { status: 400 });
     if (file.size > MAX_BYTES) return NextResponse.json({ error: "El logo supera los 2 MB." }, { status: 400 });
     const path = `logo-${r.workspaceId}.${ext}`;
     const { error: eUp } = await r.admin.storage.from("avatares").upload(path, file, { upsert: true, contentType: file.type });
