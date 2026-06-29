@@ -1,14 +1,17 @@
-// Parsing CSV des clients (réutilisé par l'onboarding et /app/clientes/nuevo).
-// Séparateur ; ou , · guillemets · BOM Excel · en-têtes tolérants (es/en/fr).
+// Parsing CSV des clients — FICHE COMPLÈTE, source unique partagée par l'onboarding et
+// /app/clientes/nuevo (mêmes colonnes que le portail « Tus datos », via lib/ficha.ts).
+// Séparateur ; ou , · guillemets · BOM Excel · en-têtes tolérants (es/en/fr). Les colonnes
+// absentes restent vides → null en base (jamais bloquant). Pour ajouter un champ : il suffit
+// d'ajouter son alias d'en-tête dans CABECERAS — la fiche elle-même est lib/ficha.ts.
 
-export type ClienteCsv = {
-  nombre: string; apellidos: string; email: string; telefono: string;
-  nacionalidad: string; numeroDocumento: string; idioma: string;
-};
+import { FICHA_KEYS, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 
-export type FilaCsv = ClienteCsv & { estado: "ok" | "duplicado" | "sin_nombre" };
+export type ClienteCsvCampos = Record<keyof ClienteFicha, string> & { idioma: string };
+export type FilaCsv = ClienteCsvCampos & { estado: "ok" | "duplicado" | "sin_nombre" };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
+export const camposVacios = (): ClienteCsvCampos => ({ ...(fichaVacia() as Record<keyof ClienteFicha, string>), idioma: "es" });
 
 export function parseCSV(text: string): string[][] {
   const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
@@ -17,7 +20,7 @@ export function parseCSV(text: string): string[][] {
   let row: string[] = [];
   let cell = "";
   let inQuotes = false;
-  const src = text.replace(/^﻿/, "");
+  const src = text.replace(/^﻿/, ""); // BOM Excel
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (inQuotes) {
@@ -38,42 +41,77 @@ export function parseCSV(text: string): string[][] {
   return rows;
 }
 
-const CABECERAS: Record<keyof ClienteCsv, string[]> = {
+// En-têtes reconnus (insensible aux accents/majuscules) → fiche complète.
+export const CABECERAS: Partial<Record<keyof ClienteCsvCampos, string[]>> = {
   nombre: ["nombre", "name", "prenom"],
   apellidos: ["apellidos", "apellido", "surname", "nom"],
-  email: ["email", "correo", "email", "mail"],
+  email: ["email", "correo", "mail"],
   telefono: ["telefono", "tel", "movil", "phone", "telephone"],
-  nacionalidad: ["nacionalidad", "pais", "country", "nationalite"],
+  nacionalidad: ["nacionalidad", "nationalite"],
   numeroDocumento: ["documento", "numerodocumento", "ndocumento", "nie", "pasaporte", "dni", "passport"],
+  sexo: ["sexo", "sex", "genero"],
+  fechaNacimiento: ["fechanacimiento", "nacimiento", "fechadenacimiento", "birth", "birthdate"],
+  lugarNacimiento: ["lugarnacimiento", "lugardenacimiento", "ciudadnacimiento"],
+  paisNacimiento: ["paisnacimiento", "paisdenacimiento"],
+  estadoCivil: ["estadocivil", "civil"],
+  via: ["via", "domicilio", "direccion", "calle", "address"],
+  numeroVia: ["numero", "numerovia", "num"],
+  piso: ["piso", "puerta"],
+  codigoPostal: ["codigopostal", "cp", "zip"],
+  municipio: ["municipio", "localidad", "ciudad", "city"],
+  provincia: ["provincia", "province"],
   idioma: ["idioma", "lengua", "language", "langue"],
 };
 
-// Parse un CSV → lignes typées. `existentesLlaves` = clés (email/nombre) déjà en base
-// pour marquer les doublons (vide en onboarding). Lève si pas de colonne "nombre".
+// Étiquette des colonnes reconnues (affichée dans les deux écrans d'import).
+export const COLUMNAS_CSV_LABEL = "nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma";
+
+// Clés de doublon (email / nombre+apellidos) à partir des clients déjà en base.
+export function llavesDeClientes(existentes: { nombre: string | null; apellidos?: string | null; email?: string | null }[]): Set<string> {
+  const s = new Set<string>();
+  for (const c of existentes) {
+    if (c.email) s.add("e:" + norm(c.email));
+    s.add("n:" + norm(`${c.nombre ?? ""} ${c.apellidos ?? ""}`));
+  }
+  return s;
+}
+
+// Parse un CSV → lignes (fiche complète) typées. `existentesLlaves` marque les doublons
+// (vide en onboarding). Lève si pas de colonne "nombre".
 export function parseClientesCsv(text: string, existentesLlaves: Set<string> = new Set()): FilaCsv[] {
   const rows = parseCSV(text);
   if (rows.length < 2) throw new Error("El CSV está vacío (cabeceras + datos).");
   const headers = rows[0].map(norm);
-  const idx: Partial<Record<keyof ClienteCsv, number>> = {};
-  (Object.keys(CABECERAS) as (keyof ClienteCsv)[]).forEach((campo) => {
-    const i = headers.findIndex((h) => CABECERAS[campo].includes(h.replace(/[^a-z]/g, "")));
+  const campos = Object.keys(CABECERAS) as (keyof ClienteCsvCampos)[];
+  const idx: Partial<Record<keyof ClienteCsvCampos, number>> = {};
+  campos.forEach((campo) => {
+    const i = headers.findIndex((h) => CABECERAS[campo]!.includes(h.replace(/[^a-z]/g, "")));
     if (i >= 0) idx[campo] = i;
   });
   if (idx.nombre === undefined) throw new Error('No se encontró la columna "nombre". Descarga la plantilla.');
 
   const llaves = new Set(existentesLlaves);
   return rows.slice(1).map((r) => {
-    const get = (k: keyof ClienteCsv) => (idx[k] !== undefined ? (r[idx[k]!] ?? "").trim() : "");
-    const f: ClienteCsv = {
-      nombre: get("nombre"), apellidos: get("apellidos"), email: get("email"), telefono: get("telefono"),
-      nacionalidad: get("nacionalidad"), numeroDocumento: get("numeroDocumento"), idioma: get("idioma") || "es",
-    };
+    const get = (k: keyof ClienteCsvCampos) => (idx[k] !== undefined ? (r[idx[k]!] ?? "").trim() : "");
+    const f = camposVacios();
+    campos.forEach((k) => { const v = get(k); if (v) f[k] = v; });
+    f.idioma = get("idioma") || "es";
     let estado: FilaCsv["estado"] = "ok";
     if (!f.nombre) estado = "sin_nombre";
     else if ((f.email && llaves.has("e:" + norm(f.email))) || llaves.has("n:" + norm(`${f.nombre} ${f.apellidos}`))) estado = "duplicado";
-    else llaves.add("n:" + norm(`${f.nombre} ${f.apellidos}`));
+    else llaves.add("n:" + norm(`${f.nombre} ${f.apellidos}`)); // dédoublonne aussi à l'intérieur du fichier
     return { ...f, estado };
   });
 }
 
-export const PLANTILLA_CSV = "﻿nombre;apellidos;email;telefono;nacionalidad;documento;idioma\nJulia;Mendoza;julia@email.com;612345678;Colombia;AY0429317;es\n";
+// Ligne Cliente (colonnes plates) depuis la fiche CSV ou le formulaire manuel. nombre
+// obligatoire, reste null si vide. Écrit les MÊMES colonnes que le portail.
+export function filaACliente(f: ClienteCsvCampos, workspaceId: string): Record<string, unknown> {
+  const row: Record<string, unknown> = { id: crypto.randomUUID(), workspaceId, idioma: f.idioma || "es", updatedAt: new Date().toISOString() };
+  for (const k of FICHA_KEYS) { const v = (f[k] ?? "").trim(); row[k] = k === "nombre" ? v : (v || null); }
+  return row;
+}
+
+export const PLANTILLA_CSV =
+  "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma\n"
+  + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es\n";

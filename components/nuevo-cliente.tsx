@@ -5,18 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { useT } from "@/components/lang-provider";
+import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import {
-  FICHA_KEYS, FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia,
-  type ClienteFicha,
-} from "@/lib/ficha";
+  parseClientesCsv, llavesDeClientes, filaACliente, camposVacios,
+  PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type ClienteCsvCampos, type FilaCsv,
+} from "@/lib/csv-clientes";
 
 // Création de clients existants du gestor : saisie manuelle d'une FICHE COMPLÈTE
 // (mêmes champs que le portail « Tus datos » → les formulaires officiels EX/790
 // se remplissent intégralement), ou import CSV en masse (doublons + lignes invalides).
 // Rien à voir avec « Nuevo expediente » : ici on alimente le fichier clients.
 
-type Campos = Record<keyof ClienteFicha, string> & { idioma: string };
-const VACIO: Campos = { ...(fichaVacia() as Record<keyof ClienteFicha, string>), idioma: "es" };
+type Campos = ClienteCsvCampos;
+const VACIO: Campos = camposVacios();
 
 const IDIOMAS = [
   ["es", "Español"],
@@ -37,61 +38,7 @@ const PLACEHOLDER: Partial<Record<keyof ClienteFicha, string>> = {
   municipio: "Madrid", provincia: "Madrid",
 };
 
-const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
-
-// ── Parsing CSV (séparateur ; ou , — guillemets gérés) ──────────────────────
-function parseCSV(text: string): string[][] {
-  const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
-  const sep = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-  const src = text.replace(/^﻿/, ""); // BOM Excel
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i];
-    if (inQuotes) {
-      if (c === '"' && src[i + 1] === '"') { cell += '"'; i++; }
-      else if (c === '"') inQuotes = false;
-      else cell += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === sep) { row.push(cell); cell = ""; }
-    else if (c === "\n" || c === "\r") {
-      if (c === "\r" && src[i + 1] === "\n") i++;
-      row.push(cell); cell = "";
-      if (row.some((v) => v.trim() !== "")) rows.push(row);
-      row = [];
-    } else cell += c;
-  }
-  row.push(cell);
-  if (row.some((v) => v.trim() !== "")) rows.push(row);
-  return rows;
-}
-
-// En-têtes CSV reconnus (insensible aux accents/majuscules). On gère la fiche complète :
-// les colonnes absentes restent vides → null en base (jamais bloquant).
-const CABECERAS: Partial<Record<keyof Campos, string[]>> = {
-  nombre: ["nombre", "name", "prenom"],
-  apellidos: ["apellidos", "apellido", "surname", "nom"],
-  email: ["email", "correo", "mail"],
-  telefono: ["telefono", "tel", "movil", "phone"],
-  nacionalidad: ["nacionalidad", "nationalite"],
-  numeroDocumento: ["documento", "numerodocumento", "ndocumento", "nie", "pasaporte", "dni", "passport"],
-  sexo: ["sexo", "sex", "genero"],
-  fechaNacimiento: ["fechanacimiento", "nacimiento", "fechadenacimiento", "birth", "birthdate"],
-  lugarNacimiento: ["lugarnacimiento", "lugardenacimiento", "ciudadnacimiento"],
-  paisNacimiento: ["paisnacimiento", "paisdenacimiento"],
-  estadoCivil: ["estadocivil", "civil"],
-  via: ["via", "domicilio", "direccion", "calle", "address"],
-  numeroVia: ["numero", "numerovia", "num"],
-  piso: ["piso", "puerta"],
-  codigoPostal: ["codigopostal", "cp", "zip"],
-  municipio: ["municipio", "localidad", "ciudad", "city"],
-  provincia: ["provincia", "province"],
-  idioma: ["idioma", "lengua", "language", "langue"],
-};
-
-type Fila = Campos & { estado: "ok" | "duplicado" | "sin_nombre" };
+type Fila = FilaCsv;
 
 export function NuevoCliente() {
   const t = useT();
@@ -116,21 +63,6 @@ export function NuevoCliente() {
     const { data: mem, error: e } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
     if (e || !mem) throw new Error(e?.message ?? t("No se encontró tu despacho."));
     return { supabase, ws: mem.workspaceId as string };
-  }
-
-  // Construit la ligne Cliente avec TOUTE la fiche (nombre obligatoire, reste null si vide).
-  function filaACliente(f: Campos, ws: string) {
-    const row: Record<string, unknown> = {
-      id: crypto.randomUUID(),
-      workspaceId: ws,
-      idioma: f.idioma || "es",
-      updatedAt: new Date().toISOString(),
-    };
-    for (const k of FICHA_KEYS) {
-      const v = (f[k] ?? "").trim();
-      row[k] = k === "nombre" ? v : (v || null);
-    }
-    return row;
   }
 
   // ── Création manuelle ──
@@ -167,38 +99,10 @@ export function NuevoCliente() {
     setResultado(null);
     setError(null);
     try {
-      const rows = parseCSV(await file.text());
-      if (rows.length < 2) throw new Error(t("El CSV está vacío (se espera una fila de cabeceras + datos)."));
-
-      // mapper les colonnes depuis la ligne d'en-têtes
-      const headers = rows[0].map(norm);
-      const idx: Partial<Record<keyof Campos, number>> = {};
-      (Object.keys(CABECERAS) as (keyof Campos)[]).forEach((campo) => {
-        const i = headers.findIndex((h) => CABECERAS[campo]!.includes(h.replace(/[^a-z]/g, "")));
-        if (i >= 0) idx[campo] = i;
-      });
-      if (idx.nombre === undefined) throw new Error(t('No se encontró la columna "nombre". Descarga la plantilla para ver el formato.'));
-
       // doublons : par rapport aux clients existants (email ou nombre+apellidos)
       const { supabase } = await contexto();
       const { data: existentes } = await supabase.from("Cliente").select("nombre, apellidos, email");
-      const llaves = new Set<string>();
-      (existentes ?? []).forEach((c) => {
-        if (c.email) llaves.add("e:" + norm(c.email));
-        llaves.add("n:" + norm(`${c.nombre} ${c.apellidos ?? ""}`));
-      });
-
-      const parsed: Fila[] = rows.slice(1).map((r) => {
-        const get = (k: keyof Campos) => (idx[k] !== undefined ? (r[idx[k]!] ?? "").trim() : "");
-        const f: Campos = { ...VACIO };
-        (Object.keys(CABECERAS) as (keyof Campos)[]).forEach((k) => { f[k] = get(k) || (VACIO[k] ?? ""); });
-        f.idioma = get("idioma") || "es";
-        let estado: Fila["estado"] = "ok";
-        if (!f.nombre) estado = "sin_nombre";
-        else if ((f.email && llaves.has("e:" + norm(f.email))) || llaves.has("n:" + norm(`${f.nombre} ${f.apellidos}`))) estado = "duplicado";
-        else llaves.add("n:" + norm(`${f.nombre} ${f.apellidos}`)); // dédoublonner aussi à l'intérieur du fichier
-        return { ...f, estado };
-      });
+      const parsed = parseClientesCsv(await file.text(), llavesDeClientes(existentes ?? []));
       setFilas(parsed);
     } catch (err) {
       setFilas(null);
@@ -234,9 +138,7 @@ export function NuevoCliente() {
   }
 
   function descargarPlantilla() {
-    const csv = "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma\n"
-      + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es\n";
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const url = URL.createObjectURL(new Blob([PLANTILLA_CSV], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = "plantilla_clientes.csv";
@@ -345,7 +247,7 @@ export function NuevoCliente() {
             <>
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-500">
-                  {t("Columnas reconocidas")}: <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma</span>. {t("Separador")} <span className="font-mono text-xs">;</span> {t("o")} <span className="font-mono text-xs">,</span>.
+                  {t("Columnas reconocidas")}: <span className="font-mono text-xs">{COLUMNAS_CSV_LABEL}</span>. {t("Separador")} <span className="font-mono text-xs">;</span> {t("o")} <span className="font-mono text-xs">,</span>.
                 </p>
                 <button onClick={descargarPlantilla} className="shrink-0 text-sm font-semibold text-aproba-700 hover:underline">{t("Descargar plantilla")}</button>
               </div>

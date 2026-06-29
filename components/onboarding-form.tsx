@@ -7,7 +7,7 @@ import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyM
 import { DEFAULT_SERVICIOS, newServicio, type Servicio } from "@/lib/servicios";
 import { guardarServicios, guardarAvisos } from "@/lib/config-browser";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
-import { parseClientesCsv, PLANTILLA_CSV, type FilaCsv } from "@/lib/csv-clientes";
+import { parseClientesCsv, filaACliente, PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type FilaCsv } from "@/lib/csv-clientes";
 import { useT } from "@/components/lang-provider";
 import { ibanValido } from "@/lib/iban";
 
@@ -135,7 +135,7 @@ export function OnboardingForm() {
       try {
         const { data: mem } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
         if (mem) {
-          const rows = validas.map((f) => ({ id: crypto.randomUUID(), workspaceId: mem.workspaceId, nombre: f.nombre.trim(), apellidos: f.apellidos.trim() || null, email: f.email.trim() || null, telefono: f.telefono.trim() || null, nacionalidad: f.nacionalidad.trim() || null, numeroDocumento: f.numeroDocumento.trim() || null, idioma: f.idioma || "es", updatedAt: new Date().toISOString() }));
+          const rows = validas.map((f) => filaACliente(f, mem.workspaceId as string));
           for (let i = 0; i < rows.length; i += 100) await supabase.from("Cliente").insert(rows.slice(i, i + 100));
         }
       } catch { /* */ }
@@ -312,7 +312,7 @@ export function OnboardingForm() {
       {paso === "clientes" && (
         <div className="space-y-5">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-slate-500">{t("¿Ya tienes clientes? Impórtalos desde un CSV. Columnas:")} <span className="font-mono text-xs">nombre*, apellidos, email, telefono, nacionalidad, documento, idioma</span>.</p>
+            <p className="text-sm text-slate-500">{t("¿Ya tienes clientes? Impórtalos desde un CSV. Columnas:")} <span className="font-mono text-xs">{COLUMNAS_CSV_LABEL}</span>.</p>
             <button type="button" onClick={descargarPlantilla} className="shrink-0 text-sm font-semibold text-aproba-700 hover:underline">{t("Plantilla")}</button>
           </div>
           <label className="flex w-full cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-7 text-slate-500 transition hover:border-aproba-400 hover:text-aproba-700">
