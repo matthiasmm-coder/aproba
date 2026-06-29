@@ -398,6 +398,7 @@ export async function enviarConfirmacionPago(
 // solo envía si hay email y Resend. Devuelve true si se envió.
 export async function enviarConfirmacionCitaPrevia(opts: {
   nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
+  actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
 }): Promise<boolean> {
   try {
     if (!opts.email || !resendDisponible()) return false;
@@ -409,21 +410,27 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       fila("Fecha", cuando),
       opts.lugar ? fila("Lugar", opts.lugar) : "",
       opts.motivo ? fila("Motivo", opts.motivo) : "",
-      opts.precio != null ? fila("Precio", fmtEur(opts.precio)) : "",
+      opts.precio != null ? fila("Precio", opts.precio === 0 ? "Gratis" : fmtEur(opts.precio)) : "",
     ].join("");
-    const cuerpoHtml = `<p style="margin:0 0 12px">Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:</p>
+    const mod = Boolean(opts.actualizada);
+    const intro = mod
+      ? `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> ha sido modificada. Estos son los nuevos datos:`
+      : `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:`;
+    const cuerpoHtml = `<p style="margin:0 0 12px">${intro}</p>
       <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
     const html = emailLayout({
       gestoria: opts.gestoria,
-      titulo: "Tu cita está confirmada",
+      titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
       footerNota: `Mensaje de ${opts.gestoria}. Por favor, no respondas a este correo.`,
-      preheader: `Cita: ${cuando}`,
+      preheader: mod ? `Cita modificada: ${cuando}` : `Cita: ${cuando}`,
     });
     const from = `"${String(opts.gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-      from, to: opts.email, subject: `Cita confirmada · ${opts.gestoria}`, html,
-      text: `Tu cita con ${opts.gestoria}: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+      from, to: opts.email, subject: mod ? `Cita modificada · ${opts.gestoria}` : `Cita confirmada · ${opts.gestoria}`, html,
+      text: mod
+        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`
+        : `Tu cita con ${opts.gestoria}: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`,
     });
     return !error;
   } catch (e) {

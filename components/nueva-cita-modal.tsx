@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import type { ClienteMin } from "@/lib/data/citas";
 
+const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el selector
+
 // Modal para crear o EDITAR una CITA PREVIA (consulta). El gestor escribe el nombre: si
 // coincide con un cliente existente puede seleccionarlo (rellena email/teléfono y la
 // vincula), o deja un nombre libre (prospecto). Fecha obligatoria; aviso por email opcional.
@@ -24,18 +26,24 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const [lugar, setLugar] = useState("");
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
-  const [notificar, setNotificar] = useState(true);
+  const [notificar, setNotificar] = useState(!citaId); // crear: marcado; editar: opt-in (sin parpadeo)
   const [foco, setFoco] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modo edición: carga la cita y rellena el formulario.
+  // Modo edición: carga la cita y rellena el formulario UNA sola vez (depende solo de
+  // citaId). IMPORTANTE: `t` NO debe estar en las dependencias — useT() devuelve una
+  // función nueva en cada render, así que con `t` aquí el efecto se re-ejecutaría en cada
+  // pulsación, re-haría el GET y machacaría lo que el usuario acaba de escribir. La
+  // bandera `vivo` descarta respuestas obsoletas (cierre/reapertura rápida).
   useEffect(() => {
     if (!citaId) return;
+    let vivo = true;
     (async () => {
       try {
         const r = await fetch(`/api/citas-previas?id=${encodeURIComponent(citaId)}`);
         const c = await r.json().catch(() => ({}));
+        if (!vivo) return;
         if (!r.ok) throw new Error(c.error);
         setNombre(c.nombre ?? ""); setClienteId(c.clienteId ?? null);
         setEmail(c.email ?? ""); setTelefono(c.telefono ?? "");
@@ -43,10 +51,12 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         setDuracion(typeof c.duracion === "number" ? c.duracion : 30);
         setPrecio(c.precio != null ? String(c.precio) : "");
         setLugar(c.lugar ?? ""); setMotivo(c.motivo ?? ""); setNotas(c.notas ?? "");
-        setNotificar(false); // en edición, no re-notificar por defecto
-      } catch { setError(t("No se pudo cargar la cita.")); }
+        setNotificar(false); // en edición, avisar al cliente es opt-in
+      } catch { if (vivo) setError(t("No se pudo cargar la cita.")); }
     })();
-  }, [citaId, t]);
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [citaId]);
 
   const q = nombre.trim().toLowerCase();
   const matches = clienteId || q.length < 2 ? [] : clientes
@@ -64,10 +74,11 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   async function crear() {
     setBusy(true); setError(null);
     try {
+      const notif = notificar && Boolean(email.trim());
       const datos = { clienteId, nombre, email, telefono, fecha, hora, duracion, precio: precio.trim() ? Number(precio) : undefined, lugar, motivo, notas };
       const res = await fetch("/api/citas-previas", {
         method: edicion ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(edicion ? { id: citaId, ...datos } : { ...datos, notificar: notificar && Boolean(email.trim()) }),
+        body: JSON.stringify(edicion ? { id: citaId, ...datos, notificar: notif } : { ...datos, notificar: notif }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar la cita."));
@@ -135,6 +146,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
           <div>
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Duración")}</label>
             <select value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} className={`${fld} bg-white`}>
+              {!PRESETS_DURACION.includes(duracion) && <option value={duracion}>{duracion} min</option>}
               <option value={15}>15 min</option>
               <option value={30}>30 min</option>
               <option value={45}>45 min</option>
@@ -162,12 +174,11 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
           </div>
         </div>
 
-        {!edicion && (
-          <label className={`mt-4 flex items-center gap-2 text-sm ${email.trim() ? "text-slate-600" : "text-slate-300"}`}>
-            <input type="checkbox" checked={notificar && Boolean(email.trim())} disabled={!email.trim()} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
-            {t("Enviar confirmación por email al cliente")}
-          </label>
-        )}
+        <label className={`mt-4 flex items-center gap-2 text-sm ${email.trim() ? "text-slate-600" : "text-slate-300"}`}>
+          <input type="checkbox" checked={notificar && Boolean(email.trim())} disabled={!email.trim()} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+          {edicion ? t("Avisar al cliente del cambio por email") : t("Enviar confirmación por email al cliente")}
+        </label>
+        {edicion && !email.trim() && <p className="mt-1 text-[11px] text-slate-400">{t("Añade un email para poder avisar al cliente.")}</p>}
 
         {error && <p role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 

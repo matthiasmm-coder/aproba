@@ -94,7 +94,7 @@ export async function PUT(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { id?: string; clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string };
+  let body: { id?: string; clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const id = (body.id ?? "").trim();
   const nombre = (body.nombre ?? "").trim();
@@ -118,7 +118,15 @@ export async function PUT(req: Request) {
   };
   const { error } = await supabase.from("CitaPrevia").update(patch).eq("id", id); // RLS
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+
+  // Aviso opt-in al cliente con los DATOS NUEVOS (best-effort; nunca rompe el guardado).
+  let avisado = false;
+  if (body.notificar && patch.email) {
+    const { data: mem } = await supabase.from("Membership").select("Workspace(nombre)").eq("userId", user.id).limit(1).maybeSingle();
+    const gestoria = (Array.isArray(mem?.Workspace) ? mem?.Workspace[0] : mem?.Workspace)?.nombre ?? "Tu gestoría";
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true });
+  }
+  return NextResponse.json({ ok: true, avisado });
 }
 
 // Eliminar una cita.
