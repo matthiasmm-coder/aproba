@@ -146,10 +146,15 @@ export function ClientPortal({
       const xhr = new XMLHttpRequest();
       let creep: ReturnType<typeof setInterval> | null = null;
       const subir = (v: number) => setProg((p) => ({ ...p, [i]: Math.max(p[i] ?? 0, Math.min(100, v)) }));
-      xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) subir(Math.round((ev.loaded / ev.total) * 55)); };
+      xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) subir(Math.round((ev.loaded / ev.total) * 45)); };
       xhr.upload.onload = () => {
-        subir(55);
-        creep = setInterval(() => setProg((p) => { const c = p[i] ?? 55; return c >= 92 ? p : { ...p, [i]: c + 1 }; }), 130);
+        subir(45);
+        // Sin señal real de la IA: avance asintótico hacia 98 % — la barra
+        // siempre se mueve (cada vez más despacio) y nunca se queda clavada.
+        creep = setInterval(() => setProg((p) => {
+          const c = p[i] ?? 45;
+          return c >= 98 ? p : { ...p, [i]: c + (98 - c) * 0.045 };
+        }), 140);
       };
       const stop = () => { if (creep) { clearInterval(creep); creep = null; } };
       xhr.onload = () => {
@@ -456,7 +461,7 @@ export function ClientPortal({
                       {st === "pending" && (
                         <button onClick={() => upload(i)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
                       )}
-                      {st === "analyzing" && <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{prog[i] ?? 0}%</span>}
+                      {st === "analyzing" && <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{Math.round(prog[i] ?? 0)}%</span>}
                       {st === "validado" && <span className="shrink-0 text-xs font-semibold text-aproba-700">{t("s2.validado")}</span>}
                       {(st === "validado" || st === "alerta") && (
                         <button type="button" onClick={() => quitarDoc(i)} aria-label={t("s2.eliminar")} title={t("s2.eliminar")} className="shrink-0 rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600">
