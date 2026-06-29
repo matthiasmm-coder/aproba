@@ -279,8 +279,8 @@ export function OnboardingForm() {
                 </div>
                 {s.active && (
                   <div className="mt-3 flex flex-wrap gap-4">
-                    <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                    <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
                   </div>
                 )}
               </div>

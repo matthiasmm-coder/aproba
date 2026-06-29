@@ -105,7 +105,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("Al firmar")}</span>
                   <div className="relative">
-                    <input type="number" min={0} step={10} value={s.anticipo || ""} placeholder="0"
+                    <input type="number" min={0} step={10} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { anticipo: v, precio: v + s.resto }); }}
                       className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
@@ -115,7 +115,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("Al finalizar")}</span>
                   <div className="relative">
-                    <input type="number" min={0} step={10} value={s.resto || ""} placeholder="0"
+                    <input type="number" min={0} step={10} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { resto: v, precio: s.anticipo + v }); }}
                       className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
