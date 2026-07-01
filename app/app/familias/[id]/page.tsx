@@ -5,6 +5,7 @@ import { parentescoLabel } from "@/lib/familia";
 import { getT } from "@/lib/app-lang";
 import { AnadirMiembro } from "@/components/anadir-miembro";
 import { DocumentosFamilia } from "@/components/documentos-familia";
+import { EnlaceFamilia } from "@/components/enlace-familia";
 
 export const metadata = { title: "Familia" };
 
@@ -59,6 +60,8 @@ export default async function FamiliaDetallePage({ params }: { params: Promise<{
           </div>
         ))}
       </div>
+
+      <EnlaceFamilia familiaId={id} />
 
       <DocumentosFamilia familiaId={id} docs={docs} />
 

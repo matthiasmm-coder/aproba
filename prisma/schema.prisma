@@ -305,6 +305,7 @@ model Familia {
   id          String   @id @default(cuid())
   workspaceId String
   nombre      String
+  portalToken String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
