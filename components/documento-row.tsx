@@ -1,0 +1,95 @@
+"use client";
+
+import { useState } from "react";
+import { DOC_ESTADO_META, type Documento } from "@/lib/types";
+import { useT } from "@/components/lang-provider";
+
+function ConfidenceBar({ value }: { value: number }) {
+  const pct = Math.round(value * 100);
+  const color = value >= 0.85 ? "bg-aproba-500" : value >= 0.7 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-slate-500">{pct}%</span>
+    </div>
+  );
+}
+
+// Tarjeta de un documento del expediente. Los datos extraídos por IA se muestran plegados
+// por defecto (compacidad) y se despliegan al pulsar la cabecera (chevron). El botón
+// «Descargar» va fuera del toggle para que no lo abra/cierre.
+export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: string }) {
+  const t = useT();
+  const meta = DOC_ESTADO_META[d.estado];
+  const tieneDatos = Boolean(d.extraction);
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => tieneDatos && setAbierto((a) => !a)}
+          disabled={!tieneDatos}
+          aria-expanded={tieneDatos ? abierto : undefined}
+          title={tieneDatos ? (abierto ? t("Ocultar datos extraídos") : t("Ver datos extraídos")) : undefined}
+          className="group flex min-w-0 items-center gap-3 text-left disabled:cursor-default"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cream-50 text-slate-400">
+            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+          </span>
+          <span className="truncate font-medium text-slate-900 group-hover:text-aproba-700">{d.tipoLabel}</span>
+          {tieneDatos && (
+            <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:text-aproba-600 ${abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+          )}
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {d.tieneArchivo && (
+            <a
+              href={`/api/expedientes/${expedienteId}/documentos/${d.id}`}
+              download
+              title={d.nombreArchivo ? `${t("Descargar")} ${d.nombreArchivo}` : t("Descargar el documento del cliente")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-aproba-300 hover:bg-aproba-50 hover:text-aproba-700"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+              {t("Descargar")}
+            </a>
+          )}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
+        </div>
+      </div>
+
+      {tieneDatos && abierto && d.extraction && (
+        <div className="mt-4 rounded-lg bg-cream-50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Datos extraídos por IA")}</span>
+            <ConfidenceBar value={d.extraction.confianzaGlobal} />
+          </div>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+            {d.extraction.campos.map((c) => (
+              <div key={c.label} className="min-w-0">
+                <dt className="text-xs text-slate-400">{c.label}</dt>
+                <dd className="truncate font-mono text-sm text-slate-800">{c.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {d.extraction.alertas.length > 0 && (
+            <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" /><path d="M12 9v4M12 17h.01" /></svg>
+              {d.extraction.alertas.join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
+
+      {d.estado === "PROCESANDO" && (
+        <p className="mt-3 text-sm text-amber-600">⏳ {t("Extrayendo datos con IA…")}</p>
+      )}
+      {d.estado === "PENDIENTE" && (
+        <p className="mt-3 text-sm text-slate-400">{t("Esperando que el cliente lo suba.")}</p>
+      )}
+    </div>
+  );
+}
