@@ -51,6 +51,15 @@ export async function fetchFacturas(): Promise<Factura[]> {
   return ((res.data ?? []) as unknown as Row[]).map(mapRow);
 }
 
+// Todas las facturas de un expediente (para el export ZIP). Completas (líneas/suplidos).
+export async function fetchFacturasDeExpediente(expedienteId: string): Promise<Factura[]> {
+  const supabase = await createSupabaseServer();
+  let res = await supabase.from("Factura").select(SELECT).eq("expedienteId", expedienteId).order("numero", { ascending: true });
+  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).eq("expedienteId", expedienteId).order("numero", { ascending: true });
+  if (res.error) throw new Error(`Facturas exp ${expedienteId}: ${res.error.message}`);
+  return ((res.data ?? []) as unknown as Row[]).map(mapRow);
+}
+
 export async function fetchFactura(id: string): Promise<Factura | null> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("Factura").select(SELECT).eq("id", id).maybeSingle();

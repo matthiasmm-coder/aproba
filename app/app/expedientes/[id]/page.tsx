@@ -6,6 +6,7 @@ import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { DOC_ESTADO_META, ESTADO_META, type Documento } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
+import { ExportarZipButton } from "@/components/exportar-zip-button";
 import { CobrosPanel } from "@/components/cobros-panel";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
@@ -141,6 +142,7 @@ export default async function ExpedienteDetail({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
+            <ExportarZipButton expedienteId={e.id} referencia={e.referencia} />
             <ArchivarButton id={e.id} />
           </div>
         </div>
