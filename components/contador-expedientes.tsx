@@ -14,8 +14,8 @@ export function ContadorExpedientes({ usados, plan, enPrueba }: { usados: number
   const extra = Math.max(0, usados - limite);     // ya creados por encima del límite
   const pct = Math.min(100, Math.round((usados / limite) * 100));
 
-  const barra = !enLimite ? "bg-aproba-600" : enPrueba ? "bg-sky-500" : "bg-amber-500";
-  const numero = !enLimite ? "text-slate-900" : enPrueba ? "text-sky-700" : "text-amber-700";
+  const barra = !enLimite ? "bg-aproba-600" : enPrueba ? "bg-aproba-500" : "bg-amber-500";
+  const numero = !enLimite ? "text-slate-900" : enPrueba ? "text-aproba-700" : "text-amber-700";
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -24,9 +24,12 @@ export function ContadorExpedientes({ usados, plan, enPrueba }: { usados: number
         <p className="text-sm text-slate-500">
           <span className={`text-lg font-bold tabular-nums ${numero}`}>{usados}</span>
           <span className="text-slate-400"> / {limite}</span>
-          <span className="ml-1.5 text-xs text-slate-400">· {t("plan")} {planLabel(plan)}</span>
         </p>
       </div>
+      <p className="mt-0.5 text-xs text-slate-400">
+        {t("Plan")} {planLabel(plan)} · {limite} {t("incluidos/mes")} · {t("luego")}{" "}
+        <span className="font-semibold text-slate-600">{PRECIO_EXPEDIENTE_EXTRA} €/{t("expediente")}</span> {t("por encima")}
+      </p>
 
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
         <div className={`h-full rounded-full transition-all duration-500 ${barra}`} style={{ width: `${Math.max(pct, usados > 0 ? 4 : 0)}%` }} />
@@ -39,7 +42,7 @@ export function ContadorExpedientes({ usados, plan, enPrueba }: { usados: number
             : `${t("Te quedan")} ${restantes} ${t("expedientes incluidos este mes.")}`}
         </p>
       ) : enPrueba ? (
-        <div className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
+        <div className="mt-2 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-xs leading-relaxed text-aproba-700">
           <p className="font-semibold">{t("Has alcanzado el límite de tu plan")} ({limite}/{t("mes")}).</p>
           <p className="mt-0.5">
             {t("Durante tu prueba gratuita puedes seguir creando expedientes sin coste.")}{" "}
