@@ -27,7 +27,7 @@ export function ExportarZipButton({ expedienteId, referencia }: { expedienteId: 
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      if (avisos && Number(avisos) > 0) setAviso(t("Algunos elementos no se pudieron incluir. Revisa _export_log.txt dentro del .zip."));
+      if (avisos && Number(avisos) > 0) setAviso(t("Algunos elementos no se pudieron incluir en el export."));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo exportar el expediente."));
     } finally {
