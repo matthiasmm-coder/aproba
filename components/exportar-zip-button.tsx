@@ -48,7 +48,7 @@ export function ExportarZipButton({ expedienteId, referencia }: { expedienteId: 
         ) : (
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
         )}
-        {cargando ? t("Preparando…") : t("Exportar .zip")}
+        {cargando ? t("Preparando…") : t("Exportar")}
       </button>
       {error && <p role="alert" className="absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{error}</p>}
       {aviso && !error && <p className="absolute right-0 top-full z-10 mt-1 max-w-xs rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">{aviso}</p>}
