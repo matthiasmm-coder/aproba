@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { useT } from "@/components/lang-provider";
 
 // Nuevo expediente — RÉEL : choisir un client existant (ou en créer un),
@@ -39,8 +40,13 @@ export function NuevoExpediente() {
   const [nombreCliente, setNombreCliente] = useState("");
   const [copied, setCopied] = useState(false);
   const [gestoriaNombre, setGestoriaNombre] = useState("");
+  // Contador mensual de expedientes (cuota del plan).
+  const [usados, setUsados] = useState<number | null>(null);
+  const [plan, setPlan] = useState("STARTER");
+  const [enPrueba, setEnPrueba] = useState(false);
 
-  // Charger le fichier clients (RLS) + le nom du despacho (pour le message WhatsApp).
+  // Charger le fichier clients (RLS) + le nom du despacho (pour le message WhatsApp) +
+  // la cuota mensuelle (plan, essai, expedientes créés ce mois-ci).
   useEffect(() => {
     (async () => {
       const supabase = createSupabaseBrowser();
@@ -51,6 +57,21 @@ export function NuevoExpediente() {
       setClientes((cli ?? []) as ClienteRow[]);
       const ws = mem ? (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace) : null;
       if (ws?.nombre) setGestoriaNombre(ws.nombre as string);
+
+      // Plan + estado de prueba (modoPrueba puede no existir → repli).
+      try {
+        let subRes = await supabase.from("Subscription").select("plan, estado, modoPrueba").limit(1).maybeSingle();
+        if (subRes.error) subRes = await supabase.from("Subscription").select("plan, estado").limit(1).maybeSingle();
+        const sub = subRes.data as { plan?: string; estado?: string; modoPrueba?: boolean | null } | null;
+        if (sub?.plan) setPlan(sub.plan);
+        setEnPrueba(sub?.estado === "TRIAL" || sub?.modoPrueba === true);
+      } catch { /* STARTER, sin prueba */ }
+
+      // Expedientes creados este mes (RLS → workspace del usuario).
+      const inicioMes = new Date();
+      inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0);
+      const { count } = await supabase.from("Expediente").select("*", { count: "exact", head: true }).gte("createdAt", inicioMes.toISOString());
+      setUsados(count ?? 0);
     })();
   }, []);
 
@@ -121,6 +142,7 @@ export function NuevoExpediente() {
       setToken(portalToken);
       setTelefono(tel);
       setNombreCliente(nombre);
+      setUsados((u) => (u ?? 0) + 1); // el contador sube +1 al crear
       setStep(1);
       router.refresh();
     } catch (err) {
@@ -172,6 +194,12 @@ export function NuevoExpediente() {
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Nuevo expediente")}</h1>
           <p className="mt-1 text-slate-500">{t("Elige el cliente. Le enviarás un enlace y él elegirá su trámite y subirá sus documentos.")}</p>
+
+          {usados !== null && (
+            <div className="mt-5">
+              <ContadorExpedientes usados={usados} plan={plan} enPrueba={enPrueba} />
+            </div>
+          )}
 
           {/* Bascule existant / nouveau */}
           <div className="mt-5 inline-flex gap-1 rounded-lg bg-slate-100 p-1">

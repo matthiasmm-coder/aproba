@@ -7,6 +7,7 @@ export const PLANES: Record<PlanId, {
   label: string;
   precio: number; // €/mois
   maxUsuarios: number; // Infinity = ilimitado
+  maxExpedientes: number; // límite mensual; por encima → PRECIO_EXPEDIENTE_EXTRA €/expediente
   para: string;
   features: string[];
 }> = {
@@ -14,26 +15,37 @@ export const PLANES: Record<PlanId, {
     label: "Starter",
     precio: 49,
     maxUsuarios: 1,
-    para: "Autónomo · hasta 25 expedientes/mes",
+    maxExpedientes: 20,
+    para: "Autónomo · hasta 20 expedientes/mes",
     features: ["1 usuario", "Validación IA de documentos", "Formularios EX + 790-012", "Portal del cliente", "Soporte por email"],
   },
   PRO: {
     label: "Pro",
     precio: 99,
     maxUsuarios: 5,
-    para: "Equipo · 25-100 expedientes/mes",
+    maxExpedientes: 50,
+    para: "Equipo · hasta 50 expedientes/mes",
     features: ["Hasta 5 usuarios", "Todo lo de Starter", "Avisos automáticos al cliente", "Pagos en plataforma", "Soporte prioritario"],
   },
   BUSINESS: {
     label: "Business",
     precio: 199,
     maxUsuarios: Infinity,
-    para: "+100 expedientes/mes o multi-oficina",
+    maxExpedientes: 100,
+    para: "Multi-oficina · hasta 100 expedientes/mes",
     features: ["Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "Multi-oficina", "Onboarding dedicado"],
   },
 };
 
 export const PLAN_IDS: PlanId[] = ["STARTER", "PRO", "BUSINESS"];
+
+// Coste por expediente por encima del límite mensual del plan (no aplica en prueba gratuita).
+export const PRECIO_EXPEDIENTE_EXTRA = 3; // €/expediente
+
+// Límite mensual de expedientes del plan (repli STARTER si el plan es desconocido).
+export function limiteExpedientes(plan: string | null | undefined): number {
+  return PLANES[plan as PlanId]?.maxExpedientes ?? PLANES.STARTER.maxExpedientes;
+}
 
 // Type de despacho (enum WorkspaceTipo) — pour l'onboarding et l'affichage.
 export const TIPOS: { id: string; label: string; desc: string }[] = [
