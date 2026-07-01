@@ -6,6 +6,7 @@ import { ordenParentesco } from "@/lib/familia";
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
 // pas encore (migration supabase/familia.sql non appliquée), on renvoie vide sans casser.
 
+export type DocFamilia = { id: string; tipo: string; nombreArchivo: string | null; createdAt: string };
 export type FamiliaResumen = { id: string; nombre: string; miembros: number };
 export type MiembroExpediente = { id: string; referencia: string; tipoLabel: string; estado: string; estadoLabel: string; portalToken: string | null };
 export type FamiliaMiembro = { id: string; nombre: string; parentesco: string | null; telefono: string | null; expedientes: MiembroExpediente[] };
@@ -22,6 +23,16 @@ export async function fetchFamilias(): Promise<FamiliaResumen[]> {
     if (error) return [];
     return ((data ?? []) as unknown as { id: string; nombre: string; clientes: { id: string }[] | null }[])
       .map((f) => ({ id: f.id, nombre: f.nombre, miembros: (f.clientes ?? []).length }));
+  } catch { return []; }
+}
+
+// Documentos compartidos de una familia. Defensivo: [] si la tabla no existe aún.
+export async function fetchDocumentosFamilia(familiaId: string): Promise<DocFamilia[]> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase.from("DocumentoFamilia").select("id, tipo, nombreArchivo, createdAt").eq("familiaId", familiaId).order("createdAt", { ascending: false });
+    if (error) return [];
+    return (data ?? []) as unknown as DocFamilia[];
   } catch { return []; }
 }
 

@@ -134,6 +134,7 @@ model Workspace {
   memberships  Membership[]
   clientes     Cliente[]
   familias     Familia[]
+  docsFamilia  DocumentoFamilia[]
   expedientes  Expediente[]
   facturas     Factura[]
   features     WorkspaceFeature[]
@@ -307,10 +308,30 @@ model Familia {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  clientes  Cliente[]
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientes   Cliente[]
+  documentos DocumentoFamilia[]
 
   @@index([workspaceId])
+}
+
+// Documento compartido de una familia (libro de familia, vivienda…): subido una vez, vale
+// para todos los miembros. Bucket privado `documentos`, ruta familias/{id}/…
+model DocumentoFamilia {
+  id            String   @id @default(cuid())
+  familiaId     String
+  workspaceId   String
+  tipo          String
+  nombreArchivo String?
+  storagePath   String
+  mimeType      String?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+
+  familia   Familia   @relation(fields: [familiaId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([familiaId])
 }
 
 // Cita previa: consulta/asesoría con un cliente (existente o nombre libre), sin

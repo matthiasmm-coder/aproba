@@ -125,6 +125,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   } catch (e) { console.error("[exportar] facturas", e instanceof Error ? e.message : e); }
 
+  // 5) Documentos COMPARTIDOS de la familia (si el cliente pertenece a una): un doc común
+  // (libro de familia, vivienda…) subido una vez vale para todos los miembros → se incluye
+  // en el export de cada uno. Defensivo: si la tabla no existe aún, se ignora sin romper.
+  try {
+    const { data: expRow } = await admin.from("Expediente").select("cliente:Cliente(familiaId)").eq("id", id).maybeSingle();
+    const cliRaw = (expRow as { cliente?: { familiaId?: string | null } | { familiaId?: string | null }[] | null } | null)?.cliente;
+    const cli = Array.isArray(cliRaw) ? cliRaw[0] : cliRaw;
+    const familiaId = cli?.familiaId ?? null;
+    if (familiaId) {
+      const { data: docsFam } = await admin.from("DocumentoFamilia").select("storagePath, nombreArchivo, tipo").eq("familiaId", familiaId);
+      for (const d of docsFam ?? []) {
+        const sp = d.storagePath as string | null;
+        if (!sp) continue;
+        try {
+          const { data: blob, error } = await admin.storage.from("documentos").download(sp);
+          if (error || !blob) throw new Error(error?.message ?? "archivo no disponible");
+          const ext = sp.split(".").pop() ?? "bin";
+          const nombre = (d.nombreArchivo as string) || `${d.tipo}.${ext}`;
+          add(`documentos_familia/${nombreSeguro(nombre)}`, new Uint8Array(await blob.arrayBuffer()));
+        } catch (e) { console.error("[exportar] docFamilia", sp, e instanceof Error ? e.message : e); }
+      }
+    }
+  } catch (e) { console.error("[exportar] familia", e instanceof Error ? e.message : e); }
+
   const zip = crearZip(entries);
   return new Response(new Uint8Array(zip), {
     headers: {

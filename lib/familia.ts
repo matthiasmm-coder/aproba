@@ -21,3 +21,14 @@ export const ordenParentesco = (p: string | null | undefined) => {
   const i = PARENTESCOS.findIndex(([k]) => k === p);
   return i === -1 ? PARENTESCOS.length : i;
 };
+
+// Documentos COMPARTIDOS típicos de una familia (etiqueta libre; el gestor puede añadir otro).
+export const FAMILIA_DOC_TIPOS = [
+  "Libro de familia",
+  "Certificado de matrimonio",
+  "Certificado de nacimiento",
+  "Justificante de vivienda",
+  "Empadronamiento familiar",
+  "Medios económicos (reagrupante)",
+  "Otro",
+] as const;

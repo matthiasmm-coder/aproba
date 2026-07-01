@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchFamiliaDetalle } from "@/lib/data/familias";
+import { fetchFamiliaDetalle, fetchDocumentosFamilia } from "@/lib/data/familias";
 import { parentescoLabel } from "@/lib/familia";
 import { getT } from "@/lib/app-lang";
 import { AnadirMiembro } from "@/components/anadir-miembro";
+import { DocumentosFamilia } from "@/components/documentos-familia";
 
 export const metadata = { title: "Familia" };
 
@@ -12,6 +13,7 @@ export default async function FamiliaDetallePage({ params }: { params: Promise<{
   const t = await getT();
   const fam = await fetchFamiliaDetalle(id);
   if (!fam) notFound();
+  const docs = await fetchDocumentosFamilia(id);
 
   const totalExp = fam.miembros.reduce((a, m) => a + m.expedientes.length, 0);
 
@@ -57,6 +59,8 @@ export default async function FamiliaDetallePage({ params }: { params: Promise<{
           </div>
         ))}
       </div>
+
+      <DocumentosFamilia familiaId={id} docs={docs} />
 
       <AnadirMiembro familiaId={id} />
     </div>
