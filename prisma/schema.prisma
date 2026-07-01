@@ -312,6 +312,7 @@ model Familia {
   workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   clientes   Cliente[]
   documentos DocumentoFamilia[]
+  facturas   Factura[]
 
   @@index([workspaceId])
 }
@@ -457,6 +458,7 @@ model Factura {
   id              String        @id @default(cuid())
   workspaceId     String
   expedienteId    String? // plusieurs facturas par expediente (anticipo + final)
+  familiaId       String? // factura familiar: cubre a varios miembros de una familia
   numero          String // numérotation séquentielle légale ES
   clienteNombre   String
   concepto        String
@@ -473,7 +475,9 @@ model Factura {
 
   workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   expediente Expediente? @relation(fields: [expedienteId], references: [id])
+  familia    Familia?    @relation(fields: [familiaId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, numero])
   @@index([workspaceId, estado])
+  @@index([familiaId])
 }

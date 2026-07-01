@@ -1,7 +1,8 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { TIPO_LABEL } from "@/lib/tramites";
+import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
 // pas encore (migration supabase/familia.sql non appliquée), on renvoie vide sans casser.
@@ -78,4 +79,53 @@ export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | 
     miembros.sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
     return { id: f.id, nombre: f.nombre, miembros };
   } catch { return null; }
+}
+
+// ── Factura familiar ──
+export type LineaPrefill = { concepto: string; base: number };
+export type FacturaFamiliaPrefill = { familiaId: string; clienteNombre: string; lineas: LineaPrefill[]; servicios: { id: string; label: string }[] };
+export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre: string; total: number; estado: string; fechaEmision: string | null };
+
+// Prefill de la factura familiar: una línea por expediente de cada miembro, base = "resto"
+// del servicio (el usuario eligió facturar solo el resto). Titular = cliente por defecto.
+export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<FacturaFamiliaPrefill | null> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase
+      .from("Familia")
+      .select("id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave))")
+      .eq("id", familiaId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const fam = data as unknown as {
+      id: string; nombre: string; workspaceId: string;
+      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null }[] | null }[] | null;
+    };
+    const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
+    const svById = new Map(servicios.map((s) => [s.id, s]));
+    const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
+    const lineas: LineaPrefill[] = [];
+    for (const m of miembros) {
+      const nombreCorto = (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";
+      for (const e of m.expedientes ?? []) {
+        const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
+        const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
+        lineas.push({ concepto: `${label} · ${nombreCorto}`, base: Number(sv?.resto ?? 0) });
+      }
+    }
+    const titular = miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0];
+    const clienteNombre = titular ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim() || fam.nombre : fam.nombre;
+    return { familiaId: fam.id, clienteNombre, lineas, servicios: servicios.map((s) => ({ id: s.id, label: s.label })) };
+  } catch { return null; }
+}
+
+// Facturas ligadas a la familia (para listarlas en la vista Familia). Defensivo: [] si la
+// columna Factura.familiaId no existe aún (migración factura-familia.sql no aplicada).
+export async function fetchFacturasDeFamilia(familiaId: string): Promise<FacturaFamiliaResumen[]> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase.from("Factura").select("id, numero, clienteNombre, total, estado, fechaEmision").eq("familiaId", familiaId).order("fechaEmision", { ascending: false });
+    if (error) return [];
+    return (data ?? []).map((f) => ({ id: f.id as string, numero: f.numero as string, clienteNombre: f.clienteNombre as string, total: Number(f.total), estado: f.estado as string, fechaEmision: (f.fechaEmision as string) ?? null }));
+  } catch { return []; }
 }

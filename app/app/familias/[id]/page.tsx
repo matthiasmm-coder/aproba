@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchFamiliaDetalle, fetchDocumentosFamilia } from "@/lib/data/familias";
+import { fetchFamiliaDetalle, fetchDocumentosFamilia, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { parentescoLabel } from "@/lib/familia";
 import { getT } from "@/lib/app-lang";
 import { AnadirMiembro } from "@/components/anadir-miembro";
 import { DocumentosFamilia } from "@/components/documentos-familia";
 import { EnlaceFamilia } from "@/components/enlace-familia";
+import { FacturarFamilia } from "@/components/facturar-familia";
 
 export const metadata = { title: "Familia" };
 
@@ -14,7 +15,11 @@ export default async function FamiliaDetallePage({ params }: { params: Promise<{
   const t = await getT();
   const fam = await fetchFamiliaDetalle(id);
   if (!fam) notFound();
-  const docs = await fetchDocumentosFamilia(id);
+  const [docs, facturaPrefill, facturas] = await Promise.all([
+    fetchDocumentosFamilia(id),
+    fetchFacturaFamiliaPrefill(id),
+    fetchFacturasDeFamilia(id),
+  ]);
 
   const totalExp = fam.miembros.reduce((a, m) => a + m.expedientes.length, 0);
 
@@ -60,6 +65,8 @@ export default async function FamiliaDetallePage({ params }: { params: Promise<{
           </div>
         ))}
       </div>
+
+      <FacturarFamilia familiaId={id} prefill={facturaPrefill} facturas={facturas} />
 
       <EnlaceFamilia familiaId={id} />
 
