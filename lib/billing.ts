@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import type { PlanId } from "@/lib/planes";
+import { PRECIO_EXPEDIENTE_EXTRA, type PlanId } from "@/lib/planes";
 
 // Facturation SaaS (abonnement du despacho à Aproba) via Stripe.
 // Tout est conçu en « repli propre » : sans STRIPE_SECRET_KEY, l'app garde le
@@ -80,6 +80,28 @@ export async function precioDePlan(plan: PlanId): Promise<string> {
   const id = precios.get(lk);
   if (!id) throw new Error(`No existe el precio Stripe '${lk}'. Ejecuta: node scripts/stripe-setup.mjs`);
   return id;
+}
+
+// Cobro de un expediente POR ENCIMA del límite mensual del plan: añade una línea de
+// PRECIO_EXPEDIENTE_EXTRA € a la PRÓXIMA factura de la suscripción del despacho (invoice
+// item pendiente → Stripe lo adjunta al cierre del ciclo). Idempotente por expedienteId:
+// un reintento con la misma clave NO duplica el cargo. El llamador ya filtró prueba/plan.
+export async function cobrarExpedienteExtra(opts: {
+  customerId: string;
+  expedienteId: string;
+  referencia: string;
+}): Promise<string> {
+  const it = await getStripe().invoiceItems.create(
+    {
+      customer: opts.customerId,
+      amount: Math.round(PRECIO_EXPEDIENTE_EXTRA * 100), // céntimos
+      currency: "eur",
+      description: `Expediente extra ${opts.referencia} (por encima del límite del plan)`,
+      metadata: { expedienteId: opts.expedienteId },
+    },
+    { idempotencyKey: `ov_${opts.expedienteId}` },
+  );
+  return it.id;
 }
 
 // status Stripe → enum SubscriptionEstado.

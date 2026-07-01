@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
@@ -44,6 +44,8 @@ export function NuevoExpediente() {
   const [usados, setUsados] = useState<number | null>(null);
   const [plan, setPlan] = useState("STARTER");
   const [enPrueba, setEnPrueba] = useState(false);
+  const [extraFacturado, setExtraFacturado] = useState(false); // este expediente superó el límite → +3€
+  const enviando = useRef(false); // guardia síncrona anti doble-submit (más fiable que el estado)
 
   // Charger le fichier clients (RLS) + le nom du despacho (pour le message WhatsApp) +
   // la cuota mensuelle (plan, essai, expedientes créés ce mois-ci).
@@ -67,10 +69,11 @@ export function NuevoExpediente() {
         setEnPrueba(sub?.estado === "TRIAL" || sub?.modoPrueba === true);
       } catch { /* STARTER, sin prueba */ }
 
-      // Expedientes creados este mes (RLS → workspace del usuario).
-      const inicioMes = new Date();
-      inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0);
-      const { count } = await supabase.from("Expediente").select("*", { count: "exact", head: true }).gte("createdAt", inicioMes.toISOString());
+      // Expedientes creados este mes (RLS → workspace del usuario). Ventana en UTC para que
+      // el contador cuadre exactamente con la decisión de cobro del servidor.
+      const ahora = new Date();
+      const inicioMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1)).toISOString();
+      const { count } = await supabase.from("Expediente").select("*", { count: "exact", head: true }).gte("createdAt", inicioMes);
       setUsados(count ?? 0);
     })();
   }, []);
@@ -84,72 +87,39 @@ export function NuevoExpediente() {
   const canCrear = !creando && (modoNuevo ? nuevo.nombre.trim().length > 0 : !!seleccionado);
 
   async function crear() {
+    if (enviando.current) return; // evita doble creación (doble-click / reintento) → doble cobro
+    enviando.current = true;
     setCreando(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowser();
-      const [{ data: mem }, { data: auth }] = await Promise.all([
-        supabase.from("Membership").select("workspaceId").limit(1).maybeSingle(),
-        supabase.auth.getUser(),
-      ]);
-      if (!mem) throw new Error(t("No se encontró tu despacho."));
-      const ws = mem.workspaceId as string;
-      const userId = auth.user?.id ?? null;
+      // La création passe par le SERVEUR (referencia + token + eventos + décision du cobro
+      // de l'excédent). Le client ne décide plus rien de facturable.
+      const nombre = modoNuevo
+        ? `${nuevo.nombre.trim()} ${nuevo.apellidos.trim()}`.trim()
+        : `${seleccionado!.nombre} ${seleccionado!.apellidos ?? ""}`.trim();
+      const tel = modoNuevo ? nuevo.telefono.trim() : (seleccionado!.telefono ?? "");
+      const body = modoNuevo
+        ? { nuevo: { nombre: nuevo.nombre.trim(), apellidos: nuevo.apellidos.trim(), telefono: tel } }
+        : { clienteId: seleccionado!.id };
 
-      // Client : existant ou créé à la volée.
-      let clienteId: string;
-      let nombre: string;
-      let tel: string;
-      if (modoNuevo) {
-        clienteId = crypto.randomUUID();
-        nombre = `${nuevo.nombre.trim()} ${nuevo.apellidos.trim()}`.trim();
-        tel = nuevo.telefono.trim();
-        const { error: e } = await supabase.from("Cliente").insert({
-          id: clienteId, workspaceId: ws, nombre: nuevo.nombre.trim(),
-          apellidos: nuevo.apellidos.trim() || null, telefono: tel || null, updatedAt: new Date().toISOString(),
-        });
-        if (e) throw new Error(e.message);
-      } else {
-        clienteId = seleccionado!.id;
-        nombre = `${seleccionado!.nombre} ${seleccionado!.apellidos ?? ""}`.trim();
-        tel = seleccionado!.telefono ?? "";
-      }
+      const res = await fetch("/api/expedientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el expediente. Vuelve a intentarlo."));
 
-      // Referencia séquentielle de l'année.
-      const year = new Date().getFullYear();
-      const { data: last, error: e2 } = await supabase
-        .from("Expediente").select("referencia").like("referencia", `EXP-${year}-%`)
-        .order("referencia", { ascending: false }).limit(1).maybeSingle();
-      if (e2) throw new Error(e2.message);
-      const n = last ? Number(last.referencia.split("-")[2]) + 1 : 1;
-      const referencia = `EXP-${year}-${String(n).padStart(4, "0")}`;
-
-      // Expediente + token de portail.
-      const expedienteId = crypto.randomUUID();
-      const portalToken = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
-      const { error: e3 } = await supabase.from("Expediente").insert({
-        id: expedienteId, workspaceId: ws, clienteId, referencia, portalToken,
-        tipo: "OTRO", estado: "BORRADOR", asignadoAId: userId, updatedAt: new Date().toISOString(),
-      });
-      if (e3) throw new Error(e3.message);
-
-      await supabase.from("ExpedienteEvento").insert([
-        { id: crypto.randomUUID(), expedienteId, tipo: "CREADO", descripcion: "Expediente creado", userId },
-        { id: crypto.randomUUID(), expedienteId, tipo: "NOTIFICACION_ENVIADA", descripcion: "Enlace del portal generado para el cliente", userId },
-      ]);
-
-      setRef(referencia);
-      setToken(portalToken);
+      setRef(d.referencia);
+      setToken(d.portalToken);
       setTelefono(tel);
       setNombreCliente(nombre);
+      setExtraFacturado(Boolean(d.extra)); // el servidor cobró 3€ por superar el límite
       setUsados((u) => (u ?? 0) + 1); // el contador sube +1 al crear
       setStep(1);
       router.refresh();
     } catch (err) {
       console.error("[nuevo-expediente]", err);
-      setError(t("No se pudo crear el expediente. Vuelve a intentarlo."));
+      setError(err instanceof Error ? err.message : t("No se pudo crear el expediente. Vuelve a intentarlo."));
     } finally {
       setCreando(false);
+      enviando.current = false;
     }
   }
 
@@ -272,6 +242,12 @@ export function NuevoExpediente() {
           <p className="mt-1 text-slate-500">
             <span className="font-mono text-slate-700">{ref}</span> · {nombreCliente}
           </p>
+
+          {extraFacturado && (
+            <div className="mx-auto mt-4 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+              {t("Este expediente supera el límite de tu plan: se añadirán 3 € a tu próxima factura.")}
+            </div>
+          )}
 
           <div className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 text-left">
             <p className="text-sm font-semibold text-slate-800">{t("Enlace para tu cliente")}</p>
