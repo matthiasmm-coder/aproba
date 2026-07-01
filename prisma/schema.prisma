@@ -133,6 +133,7 @@ model Workspace {
 
   memberships  Membership[]
   clientes     Cliente[]
+  familias     Familia[]
   expedientes  Expediente[]
   facturas     Factura[]
   features     WorkspaceFeature[]
@@ -284,12 +285,30 @@ model Cliente {
   municipio       String?
   nombrePadre     String?
   nombreMadre     String?
+  familiaId       String?
+  parentesco      String? // TITULAR|CONYUGE|PAREJA|HIJO|ASCENDIENTE|OTRO
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  familia      Familia?     @relation(fields: [familiaId], references: [id], onDelete: SetNull)
   expedientes  Expediente[]
   citasPrevias CitaPrevia[]
+
+  @@index([workspaceId])
+  @@index([familiaId])
+}
+
+// Dossier familial: agrupa varios Cliente (y sus Expediente) para gestionarlos juntos.
+model Familia {
+  id          String   @id @default(cuid())
+  workspaceId String
+  nombre      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientes  Cliente[]
 
   @@index([workspaceId])
 }

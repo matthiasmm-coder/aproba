@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { clienteId?: string; nuevo?: { nombre?: string; apellidos?: string; telefono?: string } };
+  let body: { clienteId?: string; nuevo?: { nombre?: string; apellidos?: string; telefono?: string }; familiaId?: string; parentesco?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
   // Workspace del usuario (validado bajo su sesión) — nunca se toma del cliente.
@@ -26,6 +26,15 @@ export async function POST(req: Request) {
   const workspaceId = mem.workspaceId as string;
 
   const admin = createSupabaseAdmin();
+
+  // Dossier familial (opcional): vincula el cliente a una familia con su rol/parentesco.
+  // Se valida que la familia sea de ESTE workspace (no aceptar familiaId de otro despacho).
+  let familiaId = body.familiaId?.trim() || null;
+  if (familiaId) {
+    const { data: fam } = await admin.from("Familia").select("id").eq("id", familiaId).eq("workspaceId", workspaceId).maybeSingle();
+    if (!fam) familiaId = null;
+  }
+  const familia = familiaId ? { familiaId, parentesco: body.parentesco?.trim() || null } : {};
 
   // Cliente: existente (verificado en el workspace) o creado al vuelo.
   let clienteId = body.clienteId?.trim() || "";
@@ -38,11 +47,13 @@ export async function POST(req: Request) {
       apellidos: body.nuevo?.apellidos?.trim() || null,
       telefono: body.nuevo?.telefono?.trim() || null,
       updatedAt: new Date().toISOString(),
+      ...familia,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
     const { data: c } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
     if (!c) return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
+    if (familiaId) await admin.from("Cliente").update(familia).eq("id", clienteId).eq("workspaceId", workspaceId);
   }
 
   // Referencia secuencial del año + inserción, con reintento ante colisión (dos creaciones
