@@ -8,16 +8,13 @@ export function ExportarZipButton({ expedienteId, referencia }: { expedienteId: 
   const t = useT();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
 
   async function exportar() {
     setCargando(true);
     setError(null);
-    setAviso(null);
     try {
       const res = await fetch(`/api/expedientes/${expedienteId}/exportar`);
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo exportar el expediente.")); }
-      const avisos = res.headers.get("X-Export-Warnings");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -27,7 +24,6 @@ export function ExportarZipButton({ expedienteId, referencia }: { expedienteId: 
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      if (avisos && Number(avisos) > 0) setAviso(t("Algunos elementos no se pudieron incluir en el export."));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo exportar el expediente."));
     } finally {
@@ -51,7 +47,6 @@ export function ExportarZipButton({ expedienteId, referencia }: { expedienteId: 
         {cargando ? t("Preparando…") : t("Exportar")}
       </button>
       {error && <p role="alert" className="absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{error}</p>}
-      {aviso && !error && <p className="absolute right-0 top-full z-10 mt-1 max-w-xs rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">{aviso}</p>}
     </div>
   );
 }

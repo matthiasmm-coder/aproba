@@ -54,7 +54,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const carpeta = nombreSeguro(exp.referencia);
   const entries: ZipEntry[] = [];
   const usados = new Set<string>();
-  const errores: string[] = [];
   // add con deduplicación de nombres: dos ficheros con el mismo nombre no se pisan en el ZIP.
   const add = (name: string, data: Uint8Array) => {
     let full = `${carpeta}/${name}`;
@@ -76,7 +75,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { data: docs } = await supabase.from("Documento").select("storagePath, nombreArchivo, tipo").eq("expedienteId", id);
     for (const d of docs ?? []) {
       const sp = d.storagePath as string | null;
-      const etiqueta = (d.nombreArchivo as string) || DOC_LABEL[d.tipo as string] || String(d.tipo);
       if (!sp) continue; // documento declarado pero aún sin archivo subido → no es un error
       try {
         const { data: blob, error } = await admin.storage.from("documentos").download(sp);
@@ -84,9 +82,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const ext = sp.split(".").pop() ?? "bin";
         const nombre = (d.nombreArchivo as string) || `${DOC_LABEL[d.tipo as string] ?? d.tipo}.${ext}`;
         add(`documentos/${nombreSeguro(nombre)}`, new Uint8Array(await blob.arrayBuffer()));
-      } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] doc", sp, m); errores.push(`Documento "${etiqueta}": ${m}`); }
+      } catch (e) { console.error("[exportar] doc", sp, e instanceof Error ? e.message : e); }
     }
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] documentos", m); errores.push(`Documentos: ${m}`); }
+  } catch (e) { console.error("[exportar] documentos", e instanceof Error ? e.message : e); }
 
   // 3) Formularios: SOLO los que el gestor GENERÓ y guardó (Expediente.formulariosGenerados,
   // codes EX oficiales) + la tasa 790 oficial (Expediente.tasaPath). Nada de defaults del
@@ -100,8 +98,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         try {
           const b = await rellenarOficial(code, datos, exp.tipoEnum);
           if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
-          else errores.push(`Formulario ${code}: modelo oficial no disponible`);
-        } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] oficial", code, m); errores.push(`Formulario ${code}: ${m}`); }
+        } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
       }
     }
     // Tasa 790 oficial (con código de barras), guardada en storage al generarla.
@@ -111,9 +108,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const { data: blob, error } = await admin.storage.from("documentos").download(tasaPath);
         if (error || !blob) throw new Error(error?.message ?? "archivo no disponible");
         add("formularios/tasa-790-012.pdf", new Uint8Array(await blob.arrayBuffer()));
-      } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] tasa790", m); errores.push(`Tasa 790-012: ${m}`); }
+      } catch (e) { console.error("[exportar] tasa790", e instanceof Error ? e.message : e); }
     }
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] formularios", m); errores.push(`Formularios: ${m}`); }
+  } catch (e) { console.error("[exportar] formularios", e instanceof Error ? e.message : e); }
 
   // 4) Facturas del expediente → PDF
   try {
@@ -123,20 +120,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };
       for (const f of facturas) {
         try { add(`facturas/factura_${nombreSeguro(f.numero)}.pdf`, await facturaToPdf(f, emisor)); }
-        catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] factura", f.numero, m); errores.push(`Factura ${f.numero}: ${m}`); }
+        catch (e) { console.error("[exportar] factura", f.numero, e instanceof Error ? e.message : e); }
       }
     }
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error("[exportar] facturas", m); errores.push(`Facturas: ${m}`); }
+  } catch (e) { console.error("[exportar] facturas", e instanceof Error ? e.message : e); }
 
-  // Nota: si algo no se pudo incluir, se avisa por el header X-Export-Warnings (el botón lo
-  // muestra). No metemos ningún fichero de log en el ZIP.
   const zip = crearZip(entries);
   return new Response(new Uint8Array(zip), {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${carpeta}.zip"`,
       "Cache-Control": "no-store",
-      ...(errores.length ? { "X-Export-Warnings": String(errores.length) } : {}),
     },
   });
 }
