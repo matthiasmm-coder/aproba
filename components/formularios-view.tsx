@@ -11,17 +11,20 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expediente; oficiales?: string[]; todos?: { code: string; label: string }[] }) {
+export function FormulariosView({ exp, oficiales = [], todos = [], applicants = [] }: {
+  exp: Expediente; oficiales?: string[]; todos?: { code: string; label: string }[];
+  applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
+}) {
   const t = useT();
   const router = useRouter();
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
-  // Selección curada por el gestor (lo que el cliente verá). Parte de los modelos del
-  // trámite; el gestor quita los que no apliquen y añade los que falten.
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
 
-  const porAñadir = todos.filter((t) => !seleccion.includes(t.code));
-  const urlOficial = (tipo: string) => `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial`;
+  const esFamilia = applicants.length > 0;
+  const porAñadir = todos.filter((x) => !seleccion.includes(x.code));
+  const urlOficial = (tipo: string, clienteId?: string) =>
+    `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial${clienteId ? `&clienteId=${clienteId}` : ""}`;
   const quitar = (tipo: string) => { setSeleccion((s) => s.filter((x) => x !== tipo)); setMarcado(false); };
   const añadir = (tipo: string) => { setSeleccion((s) => [...new Set([...s, tipo])]); setMarcado(false); };
 
@@ -33,6 +36,12 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
     setMarcando(false);
     if (res.ok) { setMarcado(true); router.refresh(); }
   }
+
+  const descarga = (tipo: string, clienteId?: string, label?: string) => (
+    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+      {IconDescarga}{tipo}{label ? ` ${label}` : ""}
+    </a>
+  );
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -50,48 +59,55 @@ export function FormulariosView({ exp, oficiales = [], todos = [] }: { exp: Expe
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <p className="text-sm font-semibold text-slate-800">{t("Modelos del Ministerio, rellenados con los datos del expediente")}</p>
-        <p className="mt-1 text-xs text-slate-500">{t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {esFamilia
+            ? t("Un juego de formularios por cada solicitante, rellenado con SUS datos. Revisa y firma antes de presentar.")
+            : t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}
+        </p>
 
+        {/* Gestión del conjunto de formularios (chips con quitar) */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {seleccion.map((tipo) => (
-            <span key={tipo} className="inline-flex items-center overflow-hidden rounded-lg bg-aproba-600 text-sm font-semibold text-white">
-              <a href={urlOficial(tipo)} className="inline-flex items-center gap-2 px-3.5 py-2 transition hover:bg-aproba-700">
-                {IconDescarga}{tipo} {t("rellenado")}
-              </a>
-              <button onClick={() => quitar(tipo)} title={t("Quitar")} aria-label={`${t("Quitar")} ${tipo}`} className="self-stretch border-l border-white/25 px-2 transition hover:bg-aproba-700">
+            <span key={tipo} className="inline-flex items-center overflow-hidden rounded-lg bg-slate-100 text-sm font-semibold text-slate-700">
+              <span className="px-3 py-1.5">{tipo}</span>
+              <button onClick={() => quitar(tipo)} title={t("Quitar")} aria-label={`${t("Quitar")} ${tipo}`} className="self-stretch border-l border-slate-200 px-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </span>
           ))}
           {seleccion.length === 0 && <span className="text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector de abajo.")}</span>}
+          {porAñadir.length > 0 && (
+            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 outline-none focus:border-aproba-600">
+              <option value="">{t("+ Añadir formulario…")}</option>
+              {porAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
+            </select>
+          )}
+        </div>
 
-          {/* Tasa oficial (proxy Sede Policía Nacional) */}
+        {/* Descargas rellenadas */}
+        {seleccion.length > 0 && (
+          esFamilia ? (
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              {applicants.map((a) => (
+                <div key={a.id}>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{a.nombre}</p>
+                  <div className="flex flex-wrap gap-2">{seleccion.map((tipo) => descarga(tipo, a.id))}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+              {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
+            </div>
+          )
+        )}
+
+        <div className="mt-4">
           <Tasa790Modal expedienteId={exp.id} />
         </div>
 
-        {/* Añadir un modelo que no está vinculado automáticamente al trámite */}
-        {porAñadir.length > 0 && (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-slate-400">{t("¿Necesitas otro modelo?")}</span>
-            <select
-              value=""
-              onChange={(e) => { if (e.target.value) añadir(e.target.value); }}
-              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 outline-none focus:border-aproba-600"
-            >
-              <option value="">{t("+ Añadir formulario…")}</option>
-              {porAñadir.map((t) => (
-                <option key={t.code} value={t.code}>{t.code} — {t.label}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
         <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
-          <button
-            onClick={marcarGenerados}
-            disabled={marcando || marcado}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60"
-          >
+          <button onClick={marcarGenerados} disabled={marcando || marcado} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">
             {marcado ? (<><svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Marcados como generados")}</>)
               : marcando ? t("Guardando…") : t("Marcar como generados")}
           </button>

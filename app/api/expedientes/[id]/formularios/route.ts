@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
-import { buildFormularios, datosNormalizados } from "@/lib/formularios";
+import { buildFormularios, datosNormalizados, datosDeCliente } from "@/lib/formularios";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { formularioToPdf } from "@/lib/formularios-pdf";
 import { rellenarOficial } from "@/lib/ex-forms";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -31,12 +32,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   // Mode « oficial » : on remplit le vrai PDF officiel (AcroForm) au lieu du brouillon.
   if (new URL(req.url).searchParams.get("modo") === "oficial") {
-    const oficial = await rellenarOficial(tipo, datosNormalizados(exp), exp.tipoEnum);
+    // Expediente familiar: ?clienteId=<miembro> → rellena el formulario con LOS DATOS DE ESE
+    // solicitante (no del titular). Se valida que el miembro es de la familia del expediente.
+    const clienteId = new URL(req.url).searchParams.get("clienteId")?.trim() || "";
+    let datos = datosNormalizados(exp);
+    let sufijo = "";
+    if (clienteId && exp.familiaId) {
+      const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+      if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+      const row = m as unknown as Record<string, string | null>;
+      const ficha: ClienteFicha = {};
+      for (const k of FICHA_KEYS) { const v = row[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
+      const nombreCompleto = `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim();
+      datos = datosDeCliente(ficha, nombreCompleto, row.telefono, row.email);
+      sufijo = nombreCompleto ? `_${nombreArchivo(nombreCompleto)}` : "";
+    }
+    const oficial = await rellenarOficial(tipo, datos, exp.tipoEnum);
     if (!oficial) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
     return new Response(Buffer.from(oficial), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${nombreArchivo(tipo)}_oficial_${nombreArchivo(exp.referencia)}.pdf"`,
+        "Content-Disposition": `attachment; filename="${nombreArchivo(tipo)}_oficial_${nombreArchivo(exp.referencia)}${sufijo}.pdf"`,
         "Cache-Control": "no-store",
       },
     });

@@ -119,6 +119,23 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
   } catch { return null; }
 }
 
+// Solicitantes de la familia (miembros con esSolicitante) para generar un formulario por
+// applicant. Repli: si la columna esSolicitante no existe o nadie está marcado, todos.
+export async function fetchSolicitantesDeFamilia(familiaId: string): Promise<{ id: string; nombre: string }[]> {
+  try {
+    const supabase = await createSupabaseServer();
+    const conSol = await supabase.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante").eq("familiaId", familiaId);
+    const data = conSol.error
+      ? (await supabase.from("Cliente").select("id, nombre, apellidos, parentesco").eq("familiaId", familiaId)).data
+      : conSol.data;
+    const rows = ((data ?? []) as unknown[]) as { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; esSolicitante?: boolean }[];
+    const sol = rows.filter((r) => r.esSolicitante);
+    return (sol.length ? sol : rows)
+      .sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco))
+      .map((r) => ({ id: r.id, nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro" }));
+  } catch { return []; }
+}
+
 // Facturas ligadas a la familia (para listarlas en la vista Familia). Defensivo: [] si la
 // columna Factura.familiaId no existe aún (migración factura-familia.sql no aplicada).
 export async function fetchFacturasDeFamilia(familiaId: string): Promise<FacturaFamiliaResumen[]> {
