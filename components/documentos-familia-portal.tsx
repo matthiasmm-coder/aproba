@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { partirDocsFamilia, parentescoLabel } from "@/lib/familia";
-import { docLabel, type Lang } from "@/lib/portal-i18n";
+import { partirDocsFamilia } from "@/lib/familia";
+import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
 type MiembroDoc = { id: string; nombre: string; apellidos: string | null; parentesco: string | null };
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
@@ -14,6 +14,7 @@ export function DocumentosFamiliaPortal({
 }: {
   token: string; lang: Lang; miembros: MiembroDoc[]; requiredDocs: string[]; onBack: () => void; onContinue: () => void;
 }) {
+  const t = makeT(lang);
   const { comunes, porMiembro } = partirDocsFamilia(requiredDocs);
   const [estados, setEstados] = useState<Record<string, Estado>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -42,10 +43,10 @@ export function DocumentosFamiliaPortal({
       fd.set("file", file);
       const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error ?? "No se pudo subir.");
+      if (!res.ok) throw new Error(d.error ?? t("s2.errorSubir"));
       setEstados((s) => ({ ...s, [k]: { status: d.estado === "VALIDADO" ? "validado" : "alerta", alertas: d.alertas } }));
     } catch (err) {
-      setEstados((s) => ({ ...s, [k]: { status: "alerta", alertas: [err instanceof Error ? err.message : "Error"] } }));
+      setEstados((s) => ({ ...s, [k]: { status: "alerta", alertas: [err instanceof Error ? err.message : t("s2.errorSubir")] } }));
     }
   }
 
@@ -70,9 +71,9 @@ export function DocumentosFamiliaPortal({
           {st === "analyzing" ? (
             <span className="shrink-0 text-xs font-semibold text-aproba-600">…</span>
           ) : st === "validado" ? (
-            <button onClick={() => pick(clienteId, label)} className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-600">Cambiar</button>
+            <button onClick={() => pick(clienteId, label)} className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-600">{t("fam.docs.cambiar")}</button>
           ) : (
-            <button onClick={() => pick(clienteId, label)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">Subir</button>
+            <button onClick={() => pick(clienteId, label)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
           )}
         </div>
         {st === "alerta" && alertas.length > 0 && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{alertas.join(" · ")}</p>}
@@ -83,12 +84,12 @@ export function DocumentosFamiliaPortal({
   return (
     <div>
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onFile} />
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Documentos de la familia</h1>
-      <p className="mt-2 text-slate-600">Los documentos comunes se suben una sola vez. Los personales, uno por cada miembro.</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("fam.docs.titulo")}</h1>
+      <p className="mt-2 text-slate-600">{t("fam.docs.intro")}</p>
 
       {comunes.length > 0 && (
         <div className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Documentos comunes de la familia</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("fam.docs.comunes")}</p>
           <div className="space-y-2">
             {comunes.map((l) => <Slot key={l} clienteId={null} label={l} />)}
           </div>
@@ -98,8 +99,8 @@ export function DocumentosFamiliaPortal({
       {porMiembro.length > 0 && miembros.map((m) => (
         <div key={m.id} className="mt-6">
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{parentescoLabel(m.parentesco) || "Miembro"}</span>
-            {`${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || "Miembro"}
+            <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
+            {`${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || t("fam.miembro")}
           </p>
           <div className="space-y-2">
             {porMiembro.map((l) => <Slot key={`${m.id}:${l}`} clienteId={m.id} label={l} />)}
@@ -108,12 +109,12 @@ export function DocumentosFamiliaPortal({
       ))}
 
       {requiredDocs.length === 0 && (
-        <p className="mt-6 rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm text-slate-600">Este trámite no requiere documentos. Puedes continuar.</p>
+        <p className="mt-6 rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm text-slate-600">{t("fam.docs.sinDocs")}</p>
       )}
 
       <div className="mt-7 flex gap-3">
-        <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
-        <button onClick={onContinue} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">Continuar</button>
+        <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+        <button onClick={onContinue} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("common.continuar")}</button>
       </div>
     </div>
   );

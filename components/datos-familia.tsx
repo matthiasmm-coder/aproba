@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
-import { PARENTESCOS, parentescoLabel } from "@/lib/familia";
-import { fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel, type Lang } from "@/lib/portal-i18n";
+import { PARENTESCOS } from "@/lib/familia";
+import { makeT, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
 export type MiembroInicial = { id: string; nombre: string; apellidos: string | null; parentesco: string | null; ficha: ClienteFicha };
 type Miembro = { id: string; parentesco: string; ficha: ClienteFicha; abierto: boolean };
@@ -18,6 +18,7 @@ export function DatosFamilia({
   token: string; lang: Lang; miembrosIniciales: MiembroInicial[]; solicitanteIdInicial: string;
   onBack: () => void; onContinue: () => void;
 }) {
+  const t = makeT(lang);
   const [miembros, setMiembros] = useState<Miembro[]>(() =>
     (miembrosIniciales.length ? miembrosIniciales : []).map((m, i) => {
       const ficha = fichaVacia();
@@ -43,22 +44,22 @@ export function DatosFamilia({
     try {
       const res = await fetch("/api/portal/familia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, parentesco: "HIJO" }) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error ?? "No se pudo añadir el miembro.");
+      if (!res.ok) throw new Error(d.error ?? t("fam.errAnadir"));
       setMiembros((ms) => ms.map((m) => ({ ...m, abierto: false })).concat({ id: d.id, parentesco: "HIJO", ficha: fichaVacia(), abierto: true }));
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo añadir el miembro."); }
+    } catch (e) { setError(e instanceof Error ? e.message : t("fam.errAnadir")); }
     finally { setAddingMiembro(false); }
   }
 
   async function quitar(id: string) {
-    if (id === solicitanteId) { setError("No puedes quitar al solicitante. Designa a otra persona antes."); return; }
+    if (id === solicitanteId) { setError(t("fam.noQuitarSolicitante")); return; }
     if (miembros.length <= 1) return;
     setError(null);
     const prev = miembros;
     setMiembros((ms) => ms.filter((m) => m.id !== id));
     try {
       const res = await fetch("/api/portal/familia", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, clienteId: id }) });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? "No se pudo quitar."); }
-    } catch (e) { setMiembros(prev); setError(e instanceof Error ? e.message : "No se pudo quitar."); }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? t("fam.errQuitar")); }
+    } catch (e) { setMiembros(prev); setError(e instanceof Error ? e.message : t("fam.errQuitar")); }
   }
 
   async function continuar() {
@@ -70,37 +71,37 @@ export function DatosFamilia({
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, clienteId: m.id, ficha: m.ficha, parentesco: m.parentesco, esSolicitante: m.id === solicitanteId, idioma: lang }),
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? "No se pudieron guardar los datos."); }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? t("fam.errGuardar")); }
       }
       onContinue();
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron guardar los datos."); }
+    } catch (e) { setError(e instanceof Error ? e.message : t("fam.errGuardar")); }
     finally { setGuardando(false); }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Datos de la familia</h1>
-      <p className="mt-2 text-slate-600">Añade a cada miembro y rellena sus datos. Marca para quién es el trámite.</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("fam.datos.titulo")}</h1>
+      <p className="mt-2 text-slate-600">{t("fam.datos.intro")}</p>
 
       <div className="mt-6 space-y-3">
         {miembros.map((m) => {
           const esSolicitante = m.id === solicitanteId;
-          const nombre = nombreMiembro(m) || parentescoLabel(m.parentesco) || "Miembro";
+          const nombre = nombreMiembro(m) || parentescoI18n(m.parentesco, lang) || t("fam.miembro");
           return (
             <div key={m.id} className={`rounded-xl border bg-white p-4 ${esSolicitante ? "border-aproba-300 ring-1 ring-aproba-100" : "border-slate-200"}`}>
               <div className="flex items-center justify-between gap-2">
                 <button onClick={() => toggle(m.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <span className="inline-block rounded-full bg-cream-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{parentescoLabel(m.parentesco) || "Miembro"}</span>
+                  <span className="inline-block rounded-full bg-cream-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
                   <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{nombre}</span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  {esSolicitante && <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">Solicitante</span>}
+                  {esSolicitante && <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">{t("fam.solicitante")}</span>}
                   {miembros.length > 1 && !esSolicitante && (
-                    <button onClick={() => quitar(m.id)} aria-label="Quitar" className="rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
+                    <button onClick={() => quitar(m.id)} aria-label={t("fam.quitar")} className="rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
                     </button>
                   )}
-                  <button onClick={() => toggle(m.id)} aria-label="Abrir" className="rounded-md p-1.5 text-slate-400">
+                  <button onClick={() => toggle(m.id)} aria-label={t("fam.miembro")} className="rounded-md p-1.5 text-slate-400">
                     <svg className={`h-4 w-4 transition ${m.abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                 </div>
@@ -110,14 +111,14 @@ export function DatosFamilia({
                 <div className="mt-4 border-t border-slate-100 pt-4">
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="text-[13px] font-medium text-slate-600">Parentesco</label>
+                      <label className="text-[13px] font-medium text-slate-600">{t("fam.parentesco")}</label>
                       <select value={m.parentesco} onChange={(e) => setParentesco(m.id, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600">
-                        {PARENTESCOS.map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
+                        {PARENTESCOS.map(([v]) => <option key={v} value={v}>{parentescoI18n(v, lang)}</option>)}
                       </select>
                     </div>
                     <label className="flex items-end gap-2 pb-2 text-sm text-slate-600">
                       <input type="radio" name="solicitante" checked={esSolicitante} onChange={() => setSolicitanteId(m.id)} className="h-4 w-4 text-aproba-600 focus:ring-aproba-500" />
-                      El trámite es para esta persona
+                      {t("fam.esSolicitante")}
                     </label>
                   </div>
 
@@ -149,15 +150,15 @@ export function DatosFamilia({
 
       <button onClick={añadirMiembro} disabled={addingMiembro} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-50">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-        {addingMiembro ? "Añadiendo…" : "Añadir miembro"}
+        {addingMiembro ? t("fam.anadiendo") : t("fam.anadir")}
       </button>
 
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mt-5 flex gap-3">
-        <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Atrás</button>
+        <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
         <button onClick={continuar} disabled={guardando} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
-          {guardando ? "Guardando…" : "Continuar"}
+          {guardando ? t("s1.guardando") : t("common.continuar")}
         </button>
       </div>
     </div>

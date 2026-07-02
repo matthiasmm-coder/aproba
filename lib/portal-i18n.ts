@@ -264,6 +264,26 @@ const UI: Record<string, Tr> = {
     it: "Hai completato questo passaggio. Il tuo studio ha i tuoi dati. Dalla pagina di monitoraggio puoi vedere l'avanzamento e caricare i documenti mancanti.",
     de: "Du hast diesen Schritt abgeschlossen. Deine Kanzlei hat deine Daten. Auf der Tracking-Seite siehst du den Fortschritt und kannst fehlende Dokumente hochladen.",
   },
+
+  // ── Expediente familiar (portal /j) ────────────────────────────────────────
+  "fam.datos.titulo": { es: "Datos de la familia", en: "Family details", fr: "Données de la famille", it: "Dati della famiglia", de: "Angaben zur Familie" },
+  "fam.datos.intro": { es: "Añade a cada miembro y rellena sus datos. Marca para quién es el trámite.", en: "Add each member and fill in their details. Mark who the procedure is for.", fr: "Ajoutez chaque membre et remplissez ses données. Indiquez pour qui est la démarche.", it: "Aggiungi ogni membro e compila i suoi dati. Indica per chi è la pratica.", de: "Füge jedes Mitglied hinzu und fülle seine Daten aus. Markiere, für wen das Verfahren ist." },
+  "fam.parentesco": { es: "Parentesco", en: "Relationship", fr: "Lien de parenté", it: "Parentela", de: "Verwandtschaft" },
+  "fam.esSolicitante": { es: "El trámite es para esta persona", en: "The procedure is for this person", fr: "La démarche est pour cette personne", it: "La pratica è per questa persona", de: "Das Verfahren ist für diese Person" },
+  "fam.solicitante": { es: "Solicitante", en: "Applicant", fr: "Demandeur", it: "Richiedente", de: "Antragsteller" },
+  "fam.miembro": { es: "Miembro", en: "Member", fr: "Membre", it: "Membro", de: "Mitglied" },
+  "fam.anadir": { es: "Añadir miembro", en: "Add member", fr: "Ajouter un membre", it: "Aggiungi membro", de: "Mitglied hinzufügen" },
+  "fam.anadiendo": { es: "Añadiendo…", en: "Adding…", fr: "Ajout…", it: "Aggiunta…", de: "Wird hinzugefügt…" },
+  "fam.quitar": { es: "Quitar", en: "Remove", fr: "Retirer", it: "Rimuovi", de: "Entfernen" },
+  "fam.noQuitarSolicitante": { es: "No puedes quitar al solicitante. Designa a otra persona antes.", en: "You can't remove the applicant. Choose another person first.", fr: "Vous ne pouvez pas retirer le demandeur. Désignez d'abord une autre personne.", it: "Non puoi rimuovere il richiedente. Designa prima un'altra persona.", de: "Du kannst den Antragsteller nicht entfernen. Wähle zuerst eine andere Person." },
+  "fam.errAnadir": { es: "No se pudo añadir el miembro.", en: "Couldn't add the member.", fr: "Impossible d'ajouter le membre.", it: "Impossibile aggiungere il membro.", de: "Mitglied konnte nicht hinzugefügt werden." },
+  "fam.errQuitar": { es: "No se pudo quitar.", en: "Couldn't remove.", fr: "Impossible de retirer.", it: "Impossibile rimuovere.", de: "Konnte nicht entfernt werden." },
+  "fam.errGuardar": { es: "No se pudieron guardar los datos.", en: "Couldn't save the details.", fr: "Impossible d'enregistrer les données.", it: "Impossibile salvare i dati.", de: "Daten konnten nicht gespeichert werden." },
+  "fam.docs.titulo": { es: "Documentos de la familia", en: "Family documents", fr: "Documents de la famille", it: "Documenti della famiglia", de: "Dokumente der Familie" },
+  "fam.docs.intro": { es: "Los documentos comunes se suben una sola vez. Los personales, uno por cada miembro.", en: "Common documents are uploaded once. Personal ones, one per member.", fr: "Les documents communs se téléversent une seule fois. Les documents personnels, un par membre.", it: "I documenti comuni si caricano una sola volta. Quelli personali, uno per ogni membro.", de: "Gemeinsame Dokumente werden einmal hochgeladen. Persönliche jeweils pro Mitglied." },
+  "fam.docs.comunes": { es: "Documentos comunes de la familia", en: "Common family documents", fr: "Documents communs de la famille", it: "Documenti comuni della famiglia", de: "Gemeinsame Familiendokumente" },
+  "fam.docs.cambiar": { es: "Cambiar", en: "Change", fr: "Changer", it: "Cambia", de: "Ändern" },
+  "fam.docs.sinDocs": { es: "Este trámite no requiere documentos. Puedes continuar.", en: "This procedure requires no documents. You can continue.", fr: "Cette démarche ne nécessite aucun document. Vous pouvez continuer.", it: "Questa pratica non richiede documenti. Puoi continuare.", de: "Für dieses Verfahren sind keine Dokumente nötig. Du kannst fortfahren." },
 };
 
 // Étiquettes des champs de la ficha (par clé ClienteFicha).
@@ -293,6 +313,15 @@ const GRUPO_LABELS: Record<string, Tr> = {
   Identidad: { es: "Identidad", en: "Identity", fr: "Identité", it: "Identità", de: "Identität" },
   Domicilio: { es: "Domicilio", en: "Address", fr: "Domicile", it: "Domicilio", de: "Wohnsitz" },
   Contacto: { es: "Contacto", en: "Contact", fr: "Contact", it: "Contatto", de: "Kontakt" },
+};
+
+const PARENTESCO_LABELS: Record<string, Tr> = {
+  TITULAR: { es: "Titular", en: "Main applicant", fr: "Titulaire", it: "Titolare", de: "Hauptantragsteller" },
+  CONYUGE: { es: "Cónyuge", en: "Spouse", fr: "Conjoint(e)", it: "Coniuge", de: "Ehepartner/in" },
+  PAREJA: { es: "Pareja", en: "Partner", fr: "Partenaire", it: "Partner", de: "Partner/in" },
+  HIJO: { es: "Hijo/a", en: "Child", fr: "Enfant", it: "Figlio/a", de: "Kind" },
+  ASCENDIENTE: { es: "Ascendiente", en: "Parent / ascendant", fr: "Ascendant", it: "Ascendente", de: "Elternteil" },
+  OTRO: { es: "Otro", en: "Other", fr: "Autre", it: "Altro", de: "Andere" },
 };
 
 const SEXO_LABELS: Record<string, Tr> = {
@@ -409,6 +438,7 @@ export function makeT(lang: Lang) {
 
 export const fieldLabel = (k: string, lang: Lang) => pick(FIELD_LABELS[k], lang, k);
 export const grupoLabel = (g: string, lang: Lang) => pick(GRUPO_LABELS[g], lang, g);
+export const parentescoI18n = (v: string | null | undefined, lang: Lang) => (v ? pick(PARENTESCO_LABELS[v], lang, v) : "");
 export const sexoLabel = (v: string, lang: Lang) => pick(SEXO_LABELS[v], lang, v);
 export const estadoCivilLabel = (v: string, lang: Lang) => pick(ESTADO_CIVIL_LABELS[v], lang, v);
 
