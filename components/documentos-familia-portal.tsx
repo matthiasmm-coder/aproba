@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { partirDocsFamilia } from "@/lib/familia";
 import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
@@ -8,7 +8,8 @@ type MiembroDoc = { id: string; nombre: string; apellidos: string | null; parent
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
 
 // Étape Documentos d'un expediente FAMILIAL : docs COMUNES (une fois, clienteId null) + docs
-// PERSONNELS de chaque membre (clienteId = membre). Réutilise /api/portal/documentos (IA).
+// PERSONNELS de chaque solicitante (clienteId = membre). Upload XHR avec barre de progression
+// (subida réelle → análisis IA) + avertissement si tout n'est pas validé (on peut continuer).
 export function DocumentosFamiliaPortal({
   token, lang, miembros, requiredDocs, onBack, onContinue,
 }: {
@@ -16,43 +17,76 @@ export function DocumentosFamiliaPortal({
 }) {
   const t = makeT(lang);
   const { comunes, porMiembro } = partirDocsFamilia(requiredDocs);
+  const solicitantes = useMemo(() => miembros.filter((m) => m.esSolicitante), [miembros]);
   const [estados, setEstados] = useState<Record<string, Estado>>({});
+  const [prog, setProg] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const pendiente = useRef<{ label: string; clienteId: string | null } | null>(null);
 
   const keyFor = (clienteId: string | null, label: string) => `${clienteId ?? "comun"}::${label}`;
+
+  // Todas las casillas requeridas (comunes + por solicitante) → para el aviso de completitud.
+  const requiredKeys = useMemo(() => {
+    const ks = comunes.map((l) => keyFor(null, l));
+    for (const m of solicitantes) for (const l of porMiembro) ks.push(keyFor(m.id, l));
+    return ks;
+  }, [comunes, porMiembro, solicitantes]);
+  const total = requiredKeys.length;
+  const validados = requiredKeys.filter((k) => estados[k]?.status === "validado").length;
+  const todosOk = total > 0 && validados === total;
 
   function pick(clienteId: string | null, label: string) {
     pendiente.current = { label, clienteId };
     fileRef.current?.click();
   }
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  // Subida con progreso real (XHR): 0-45 % mientras sube el archivo, avance asintótico
+  // 45→98 % durante el análisis IA (sin señal), 100 % al recibir la respuesta.
+  function subir(key: string, clienteId: string | null, label: string, file: File) {
+    setEstados((s) => ({ ...s, [key]: { status: "analyzing" } }));
+    setProg((p) => ({ ...p, [key]: 0 }));
+    const fd = new FormData();
+    fd.set("token", token);
+    fd.set("label", label);
+    if (clienteId) fd.set("clienteId", clienteId);
+    fd.set("file", file);
+    const xhr = new XMLHttpRequest();
+    let creep: ReturnType<typeof setInterval> | null = null;
+    const bump = (v: number) => setProg((p) => ({ ...p, [key]: Math.max(p[key] ?? 0, Math.min(100, v)) }));
+    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) bump(Math.round((ev.loaded / ev.total) * 45)); };
+    xhr.upload.onload = () => {
+      bump(45);
+      creep = setInterval(() => setProg((p) => { const c = p[key] ?? 45; return c >= 98 ? p : { ...p, [key]: c + (98 - c) * 0.045 }; }), 140);
+    };
+    const stop = () => { if (creep) { clearInterval(creep); creep = null; } };
+    xhr.onload = () => {
+      stop();
+      setProg((p) => ({ ...p, [key]: 100 }));
+      let d: { estado?: string; alertas?: string[]; error?: string } | null = null;
+      try { d = JSON.parse(xhr.responseText); } catch { /* respuesta no-JSON */ }
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      if (ok && d?.estado) setEstados((s) => ({ ...s, [key]: { status: d!.estado === "VALIDADO" ? "validado" : "alerta", alertas: d!.alertas } }));
+      else setEstados((s) => ({ ...s, [key]: { status: "alerta", alertas: [d?.error ?? t("s2.noSeLee")] } }));
+    };
+    xhr.onerror = () => { stop(); setEstados((s) => ({ ...s, [key]: { status: "alerta", alertas: [t("s2.errorSubir")] } })); };
+    xhr.open("POST", "/api/portal/documentos");
+    xhr.send(fd);
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     const p = pendiente.current;
     pendiente.current = null;
     if (!file || !p) return;
-    const k = keyFor(p.clienteId, p.label);
-    setEstados((s) => ({ ...s, [k]: { status: "analyzing" } }));
-    try {
-      const fd = new FormData();
-      fd.set("token", token);
-      fd.set("label", p.label);
-      if (p.clienteId) fd.set("clienteId", p.clienteId);
-      fd.set("file", file);
-      const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error ?? t("s2.errorSubir"));
-      setEstados((s) => ({ ...s, [k]: { status: d.estado === "VALIDADO" ? "validado" : "alerta", alertas: d.alertas } }));
-    } catch (err) {
-      setEstados((s) => ({ ...s, [k]: { status: "alerta", alertas: [err instanceof Error ? err.message : t("s2.errorSubir")] } }));
-    }
+    subir(keyFor(p.clienteId, p.label), p.clienteId, p.label, file);
   }
 
   function Slot({ clienteId, label }: { clienteId: string | null; label: string }) {
-    const st = estados[keyFor(clienteId, label)]?.status ?? "pending";
-    const alertas = estados[keyFor(clienteId, label)]?.alertas ?? [];
+    const key = keyFor(clienteId, label);
+    const st = estados[key]?.status ?? "pending";
+    const alertas = estados[key]?.alertas ?? [];
+    const pct = Math.round(prog[key] ?? 0);
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-3.5">
         <div className="flex items-center justify-between gap-3">
@@ -69,13 +103,18 @@ export function DocumentosFamiliaPortal({
             <span className="truncate text-sm font-medium text-slate-800">{docLabel(label, lang)}</span>
           </div>
           {st === "analyzing" ? (
-            <span className="shrink-0 text-xs font-semibold text-aproba-600">…</span>
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{pct}%</span>
           ) : st === "validado" ? (
             <button onClick={() => pick(clienteId, label)} className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-600">{t("fam.docs.cambiar")}</button>
           ) : (
-            <button onClick={() => pick(clienteId, label)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
+            <button onClick={() => pick(clienteId, label)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{st === "alerta" ? t("s2.volverSubir") : t("s2.subir")}</button>
           )}
         </div>
+        {st === "analyzing" && (
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200 ease-out" style={{ width: `${pct}%` }} />
+          </div>
+        )}
         {st === "alerta" && alertas.length > 0 && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{alertas.join(" · ")}</p>}
       </div>
     );
@@ -96,7 +135,7 @@ export function DocumentosFamiliaPortal({
         </div>
       )}
 
-      {porMiembro.length > 0 && miembros.filter((m) => m.esSolicitante).map((m) => (
+      {porMiembro.length > 0 && solicitantes.map((m) => (
         <div key={m.id} className="mt-6">
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
@@ -108,14 +147,35 @@ export function DocumentosFamiliaPortal({
         </div>
       ))}
 
-      {requiredDocs.length === 0 && (
-        <p className="mt-6 rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm text-slate-600">{t("fam.docs.sinDocs")}</p>
+      {/* Avertissement de complétude (on peut toujours continuer) */}
+      {total === 0 ? (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-cream-50 p-3.5">
+          <p className="text-sm leading-relaxed text-slate-600">{t("fam.docs.sinDocs")}</p>
+          <div className="mt-3 flex gap-3">
+            <button onClick={onBack} className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+            <button onClick={onContinue} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("common.continuar")}</button>
+          </div>
+        </div>
+      ) : todosOk ? (
+        <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-3.5">
+          <p className="flex items-start gap-2 text-sm font-medium text-aproba-700">
+            <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            {t("s2.todosOk")}
+          </p>
+          <div className="mt-3 flex gap-3">
+            <button onClick={onBack} className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
+            <button onClick={onContinue} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("common.continuar")}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+          <p className="text-xs leading-relaxed text-amber-700">{t("s2.faltanDocs")}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={onContinue} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.continuarIgual")}</button>
+            <button onClick={onBack} className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400">{t("common.atras")}</button>
+          </div>
+        </div>
       )}
-
-      <div className="mt-7 flex gap-3">
-        <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
-        <button onClick={onContinue} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("common.continuar")}</button>
-      </div>
     </div>
   );
 }
