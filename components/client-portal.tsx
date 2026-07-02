@@ -10,6 +10,7 @@ import {
   servicioLabel, servicioDesc, docLabel, docHelp, type Lang,
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
+import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -473,8 +474,20 @@ export function ClientPortal({
           </div>
         )}
 
-        {/* ── Step 2 · Documentos ── */}
-        {step === 2 && (
+        {/* ── Step 2 · Documentos (familiar → comunes + por miembro) ── */}
+        {step === 2 && familia && token && (
+          <DocumentosFamiliaPortal
+            token={token}
+            lang={lang}
+            miembros={familia.miembros}
+            requiredDocs={requiredDocs}
+            onBack={() => setStep(1)}
+            onContinue={proceder}
+          />
+        )}
+
+        {/* ── Step 2 · Documentos (individual) ── */}
+        {step === 2 && !familia && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
             <p className="mt-2 text-slate-600">{t("s2.intro")}</p>

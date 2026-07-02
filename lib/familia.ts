@@ -32,3 +32,15 @@ export const FAMILIA_DOC_TIPOS = [
   "Medios económicos (reagrupante)",
   "Otro",
 ] as const;
+
+// ¿Un documento requerido es COMÚN a la familia (se sube una vez) o PERSONAL (uno por miembro)?
+// Heurística por palabras clave del dominio (extranjería ES). Común: libro de familia, matrimonio,
+// vivienda, empadronamiento, medios del reagrupante. El resto (pasaporte, antecedentes, TIE,
+// nacimiento de cada hijo…) es personal → se pide a cada miembro.
+const DOCS_COMUNES_KW = ["libro de familia", "matrimonio", "vivienda", "empadronamiento", "reagrupante", "medios economicos", "medios económicos"];
+const normDoc = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+export const esDocComunFamilia = (label: string) => DOCS_COMUNES_KW.some((k) => normDoc(label).includes(k));
+export const partirDocsFamilia = (labels: string[]) => ({
+  comunes: labels.filter(esDocComunFamilia),
+  porMiembro: labels.filter((l) => !esDocComunFamilia(l)),
+});

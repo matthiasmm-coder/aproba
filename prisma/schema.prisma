@@ -294,6 +294,7 @@ model Cliente {
   workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   familia      Familia?     @relation(fields: [familiaId], references: [id], onDelete: SetNull)
   expedientes  Expediente[]
+  documentos   Documento[]
   citasPrevias CitaPrevia[]
 
   @@index([workspaceId])
@@ -399,6 +400,7 @@ model Expediente {
 model Documento {
   id           String          @id @default(cuid())
   expedienteId String
+  clienteId    String? // expediente familiar: miembro dueño del doc (null = común de la familia)
   tipo         DocumentoTipo
   estado       DocumentoEstado @default(PENDIENTE)
   nombreArchivo String?
@@ -409,9 +411,11 @@ model Documento {
   createdAt    DateTime        @default(now())
 
   expediente Expediente  @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  cliente    Cliente?    @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   extraction Extraction?
 
   @@index([expedienteId])
+  @@index([clienteId])
 }
 
 // Sortie du module IA (miroir du schéma du POC poc-vision).

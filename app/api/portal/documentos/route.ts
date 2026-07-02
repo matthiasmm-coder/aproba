@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   const form = await req.formData().catch(() => null);
   const token = String(form?.get("token") ?? "").trim();
   const label = String(form?.get("label") ?? "").trim();
+  const clienteId = String(form?.get("clienteId") ?? "").trim() || null; // expediente familiar: doc de un miembro
   const file = form?.get("file");
   if (!token || !label || !(file instanceof File)) {
     return NextResponse.json({ error: "token, label y file requeridos" }, { status: 400 });
@@ -32,22 +33,27 @@ export async function POST(req: Request) {
   // Expediente authentifié par le token du portail.
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, workspaceId, tipo, estado, referencia")
+    .select("id, workspaceId, tipo, estado, referencia, familiaId")
     .eq("portalToken", token)
     .maybeSingle();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
+  // Documento por MIEMBRO (expediente familiar): el clienteId debe pertenecer a la familia.
+  if (clienteId) {
+    if (!exp.familiaId) return NextResponse.json({ error: "Este expediente no es familiar." }, { status: 400 });
+    const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+  }
+
   const docTipo = labelADocTipo(label);
 
-  // Documento : réutiliser la ligne du même type si elle existe (re-subida), sinon créer.
-  const { data: existente } = await admin
-    .from("Documento")
-    .select("id")
-    .eq("expedienteId", exp.id)
-    .eq("tipo", docTipo)
-    .limit(1)
-    .maybeSingle();
+  // Documento : réutiliser la ligne du même type (par miembro) si elle existe (re-subida), sinon créer.
+  // Individual/común (clienteId null): dedup por (expediente, tipo) — sin referenciar la
+  // columna clienteId, así el flujo individual funciona aunque falte la migración. Por miembro:
+  // se acota además por clienteId (requiere la columna, ya migrada para el flujo familiar).
+  const dq = admin.from("Documento").select("id").eq("expedienteId", exp.id).eq("tipo", docTipo);
+  const { data: existente } = await (clienteId ? dq.eq("clienteId", clienteId) : dq).limit(1).maybeSingle();
   const docId = existente?.id ?? uuid();
 
   // Stockage (bucket privé) — chemin par expediente, horodaté.
@@ -58,6 +64,7 @@ export async function POST(req: Request) {
 
   const base = {
     expedienteId: exp.id,
+    ...(clienteId ? { clienteId } : {}), // omitido si null → default DB (compat sin migración)
     tipo: docTipo,
     nombreArchivo: file.name,
     storagePath,
@@ -130,7 +137,9 @@ export async function POST(req: Request) {
   });
 
   // ── Progression : tous les documents requis validés ? ─────────────────────
-  if (resultado.estado === "VALIDADO" && exp.estado === "DOCS_PENDIENTES") {
+  // (Expediente familiar: se omite — el conteo "todos validados" depende de docs comunes +
+  // docs por miembro × nº de miembros; el gestor lo revisa. El cliente cierra vía /completar.)
+  if (!exp.familiaId && resultado.estado === "VALIDADO" && exp.estado === "DOCS_PENDIENTES") {
     try {
       const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
       const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[exp.tipo]);
@@ -166,21 +175,17 @@ export async function POST(req: Request) {
 // Suppression d'un document soumis par erreur, depuis le portail (token).
 // Retire le fichier du Storage + la ligne Documento (+ son Extraction) + journalise.
 export async function DELETE(req: Request) {
-  const { token, label } = (await req.json().catch(() => ({}))) as { token?: string; label?: string };
+  const { token, label, clienteId } = (await req.json().catch(() => ({}))) as { token?: string; label?: string; clienteId?: string };
   if (!token || !label) return NextResponse.json({ error: "token y label requeridos" }, { status: 400 });
+  const cId = (clienteId ?? "").trim() || null;
 
   const admin = createSupabaseAdmin();
   const { data: exp } = await admin.from("Expediente").select("id, estado").eq("portalToken", token).maybeSingle();
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
   const docTipo = labelADocTipo(label);
-  const { data: doc } = await admin
-    .from("Documento")
-    .select("id, storagePath")
-    .eq("expedienteId", exp.id)
-    .eq("tipo", docTipo)
-    .limit(1)
-    .maybeSingle();
+  const dq = admin.from("Documento").select("id, storagePath").eq("expedienteId", exp.id).eq("tipo", docTipo);
+  const { data: doc } = await (cId ? dq.eq("clienteId", cId) : dq).limit(1).maybeSingle();
   if (!doc) return NextResponse.json({ ok: true }); // rien à supprimer
 
   if (doc.storagePath) await admin.storage.from("documentos").remove([doc.storagePath]);
