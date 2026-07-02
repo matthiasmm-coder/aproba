@@ -9,6 +9,7 @@ import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
   servicioLabel, servicioDesc, docLabel, docHelp, type Lang,
 } from "@/lib/portal-i18n";
+import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -45,6 +46,7 @@ export function ClientPortal({
   gestoria,
   token,
   tarjetaActiva,
+  familia,
 }: {
   servicios?: Servicio[];
   referencia?: string; // expediente réel (lien token) — sinon démo
@@ -53,6 +55,8 @@ export function ClientPortal({
   gestoria?: string;
   token?: string;
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
+  // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
+  familia?: { familiaId: string; solicitanteId: string; miembros: MiembroInicial[] };
 }) {
   const [step, setStep] = useState(0);
   const [lang, setLang] = useState<Lang>("es");
@@ -391,8 +395,20 @@ export function ClientPortal({
           </div>
         )}
 
-        {/* ── Step 1 · Datos ── */}
-        {step === 1 && (
+        {/* ── Step 1 · Datos (familiar → multi-membre) ── */}
+        {step === 1 && familia && token && (
+          <DatosFamilia
+            token={token}
+            lang={lang}
+            miembrosIniciales={familia.miembros}
+            solicitanteIdInicial={familia.solicitanteId}
+            onBack={() => setStep(0)}
+            onContinue={() => setStep(2)}
+          />
+        )}
+
+        {/* ── Step 1 · Datos (individual) ── */}
+        {step === 1 && !familia && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.datos")}</h1>
             <p className="mt-2 text-slate-600">{t("s1.intro")}</p>
