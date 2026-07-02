@@ -3,9 +3,19 @@
 import { useMemo, useRef, useState } from "react";
 import { partirDocsFamilia } from "@/lib/familia";
 import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
+import type { MiembroInicial } from "@/components/datos-familia";
 
-type MiembroDoc = { id: string; nombre: string; apellidos: string | null; parentesco: string | null; esSolicitante: boolean };
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
+
+// ¿El miembro es menor de edad? (según su fecha de nacimiento en la ficha.)
+const esMenor = (m: MiembroInicial) => {
+  const f = m.ficha?.fechaNacimiento;
+  if (!f) return false;
+  const d = new Date(f);
+  if (Number.isNaN(d.getTime())) return false;
+  const edad = (Date.now() - d.getTime()) / (365.25 * 864e5);
+  return edad >= 0 && edad < 18;
+};
 
 // Étape Documentos d'un expediente FAMILIAL : docs COMUNES (une fois, clienteId null) + docs
 // PERSONNELS de chaque solicitante (clienteId = membre). Upload XHR avec barre de progression
@@ -13,7 +23,7 @@ type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas
 export function DocumentosFamiliaPortal({
   token, lang, miembros, requiredDocs, onBack, onContinue,
 }: {
-  token: string; lang: Lang; miembros: MiembroDoc[]; requiredDocs: string[]; onBack: () => void; onContinue: () => void;
+  token: string; lang: Lang; miembros: MiembroInicial[]; requiredDocs: string[]; onBack: () => void; onContinue: () => void;
 }) {
   const t = makeT(lang);
   const { comunes, porMiembro } = partirDocsFamilia(requiredDocs);
@@ -25,12 +35,20 @@ export function DocumentosFamiliaPortal({
 
   const keyFor = (clienteId: string | null, label: string) => `${clienteId ?? "comun"}::${label}`;
 
-  // Todas las casillas requeridas (comunes + por solicitante) → para el aviso de completitud.
+  // Representante legal: si hay un solicitante MENOR, se pide la identidad del titular
+  // (padre/madre). Solo si el titular no es ya solicitante (si no, ya tiene su sección).
+  const titular = useMemo(() => miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0], [miembros]);
+  const hayMenorSolicitante = useMemo(() => solicitantes.some(esMenor), [solicitantes]);
+  const representante = hayMenorSolicitante && titular && !titular.esSolicitante ? titular : null;
+  const DOC_REPRESENTANTE = "Pasaporte";
+
+  // Todas las casillas requeridas (comunes + por solicitante + representante) → aviso de completitud.
   const requiredKeys = useMemo(() => {
     const ks = comunes.map((l) => keyFor(null, l));
     for (const m of solicitantes) for (const l of porMiembro) ks.push(keyFor(m.id, l));
+    if (representante) ks.push(keyFor(representante.id, DOC_REPRESENTANTE));
     return ks;
-  }, [comunes, porMiembro, solicitantes]);
+  }, [comunes, porMiembro, solicitantes, representante]);
   const total = requiredKeys.length;
   const validados = requiredKeys.filter((k) => estados[k]?.status === "validado").length;
   const todosOk = total > 0 && validados === total;
@@ -146,6 +164,17 @@ export function DocumentosFamiliaPortal({
           </div>
         </div>
       ))}
+
+      {representante && (
+        <div className="mt-6">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{t("fam.docs.representante")}</span>
+            {`${representante.nombre ?? ""} ${representante.apellidos ?? ""}`.trim() || t("fam.miembro")}
+          </p>
+          <p className="mb-2 text-[11px] text-slate-400">{t("fam.docs.representanteAyuda")}</p>
+          <Slot clienteId={representante.id} label={DOC_REPRESENTANTE} />
+        </div>
+      )}
 
       {/* Avertissement de complétude (on peut toujours continuer) */}
       {total === 0 ? (
