@@ -270,6 +270,8 @@ const UI: Record<string, Tr> = {
   "fam.datos.intro": { es: "Añade a cada miembro y rellena sus datos. Marca para quién es el trámite.", en: "Add each member and fill in their details. Mark who the procedure is for.", fr: "Ajoutez chaque membre et remplissez ses données. Indiquez pour qui est la démarche.", it: "Aggiungi ogni membro e compila i suoi dati. Indica per chi è la pratica.", de: "Füge jedes Mitglied hinzu und fülle seine Daten aus. Markiere, für wen das Verfahren ist." },
   "fam.parentesco": { es: "Parentesco", en: "Relationship", fr: "Lien de parenté", it: "Parentela", de: "Verwandtschaft" },
   "fam.esSolicitante": { es: "El trámite es para esta persona", en: "The procedure is for this person", fr: "La démarche est pour cette personne", it: "La pratica è per questa persona", de: "Das Verfahren ist für diese Person" },
+  "fam.mismoDomicilio": { es: "Mismo domicilio que {nombre}", en: "Same address as {nombre}", fr: "Même domicile que {nombre}", it: "Stesso domicilio di {nombre}", de: "Gleiche Adresse wie {nombre}" },
+  "fam.minUnSolicitante": { es: "Marca al menos una persona para quien es el trámite.", en: "Mark at least one person the procedure is for.", fr: "Cochez au moins une personne pour qui est la démarche.", it: "Indica almeno una persona per cui è la pratica.", de: "Markiere mindestens eine Person, für die das Verfahren ist." },
   "fam.solicitante": { es: "Solicitante", en: "Applicant", fr: "Demandeur", it: "Richiedente", de: "Antragsteller" },
   "fam.miembro": { es: "Miembro", en: "Member", fr: "Membre", it: "Membro", de: "Mitglied" },
   "fam.anadir": { es: "Añadir miembro", en: "Add member", fr: "Ajouter un membre", it: "Aggiungi membro", de: "Mitglied hinzufügen" },

@@ -57,11 +57,13 @@ export function ClientPortal({
   token?: string;
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
   // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
-  familia?: { familiaId: string; solicitanteId: string; miembros: MiembroInicial[] };
+  familia?: { familiaId: string; miembros: MiembroInicial[] };
 }) {
   const [step, setStep] = useState(0);
   const [lang, setLang] = useState<Lang>("es");
   const [tramiteId, setTramiteId] = useState<string | null>(null);
+  // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
+  const [famMiembros, setFamMiembros] = useState<MiembroInicial[]>(familia?.miembros ?? []);
   const nombreCliente = clienteNombre ?? "Julia";
   const nombreGestoria = gestoria ?? "Gestoría Vallès";
   const inicialesGestoria = nombreGestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
@@ -401,10 +403,9 @@ export function ClientPortal({
           <DatosFamilia
             token={token}
             lang={lang}
-            miembrosIniciales={familia.miembros}
-            solicitanteIdInicial={familia.solicitanteId}
+            miembrosIniciales={famMiembros}
             onBack={() => setStep(0)}
-            onContinue={() => setStep(2)}
+            onContinue={(ms) => { setFamMiembros(ms); setStep(2); }}
           />
         )}
 
@@ -479,7 +480,7 @@ export function ClientPortal({
           <DocumentosFamiliaPortal
             token={token}
             lang={lang}
-            miembros={familia.miembros}
+            miembros={famMiembros}
             requiredDocs={requiredDocs}
             onBack={() => setStep(1)}
             onContinue={proceder}

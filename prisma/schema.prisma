@@ -288,6 +288,7 @@ model Cliente {
   nombreMadre     String?
   familiaId       String?
   parentesco      String? // TITULAR|CONYUGE|PAREJA|HIJO|ASCENDIENTE|OTRO
+  esSolicitante   Boolean  @default(false) // expediente familiar: el trámite es para esta persona
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { partirDocsFamilia } from "@/lib/familia";
 import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
-type MiembroDoc = { id: string; nombre: string; apellidos: string | null; parentesco: string | null };
+type MiembroDoc = { id: string; nombre: string; apellidos: string | null; parentesco: string | null; esSolicitante: boolean };
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
 
 // Étape Documentos d'un expediente FAMILIAL : docs COMUNES (une fois, clienteId null) + docs
@@ -96,7 +96,7 @@ export function DocumentosFamiliaPortal({
         </div>
       )}
 
-      {porMiembro.length > 0 && miembros.map((m) => (
+      {porMiembro.length > 0 && miembros.filter((m) => m.esSolicitante).map((m) => (
         <div key={m.id} className="mt-6">
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>

@@ -38,8 +38,9 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, id });
 }
 
-// PUT → guarda la ficha + parentesco de un miembro. esSolicitante=true → el trámite es para
-// ese miembro (Expediente.clienteId = él).
+// PUT → guarda la ficha + parentesco de un miembro. esSolicitante marca (o no) que el trámite
+// es para esta persona (varios posibles). El titular (Expediente.clienteId) no cambia: es el
+// representante/contacto.
 export async function PUT(req: Request) {
   const body = await req.json().catch(() => ({})) as { token?: string; clienteId?: string; ficha?: ClienteFicha; parentesco?: string; esSolicitante?: boolean; idioma?: string };
   const token = (body.token ?? "").trim();
@@ -61,8 +62,12 @@ export async function PUT(req: Request) {
   const { error } = await admin.from("Cliente").update(patch).eq("id", clienteId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Designación del solicitante: el expediente se ancla a ese miembro.
-  if (body.esSolicitante) await admin.from("Expediente").update({ clienteId }).eq("id", exp.id);
+  // Solicitante (varios posibles). Update aparte para que un fallo de columna (migración no
+  // aplicada) no rompa el guardado de la ficha.
+  if (typeof body.esSolicitante === "boolean") {
+    const { error: eSol } = await admin.from("Cliente").update({ esSolicitante: body.esSolicitante }).eq("id", clienteId);
+    if (eSol && !/esSolicitante|column|schema cache|does not exist/i.test(eSol.message)) return NextResponse.json({ error: eSol.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

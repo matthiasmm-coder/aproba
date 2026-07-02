@@ -42,7 +42,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let valido = false;
   let clienteIdioma = "es";
   let tarjetaActiva = false;
-  let familia: { familiaId: string; solicitanteId: string; miembros: MiembroInicial[] } | undefined;
+  let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
 
   try {
     const admin = createSupabaseAdmin();
@@ -63,14 +63,17 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id);
 
       // Expediente FAMILIAR: carga los miembros (Cliente de la familia) para la etapa Datos.
+      // Repli sin esSolicitante si la migración cliente-solicitante.sql no está aplicada.
       if (exp.familiaId) {
-        const { data: mm } = await admin.from("Cliente").select(`id, parentesco, ${SELECT_CLIENTE}`).eq("familiaId", exp.familiaId);
-        const rows = (mm ?? []) as unknown as (Record<string, string | null> & { id: string; parentesco: string | null })[];
+        const conSol = await admin.from("Cliente").select(`id, parentesco, esSolicitante, ${SELECT_CLIENTE}`).eq("familiaId", exp.familiaId);
+        const mmData = conSol.error
+          ? (await admin.from("Cliente").select(`id, parentesco, ${SELECT_CLIENTE}`).eq("familiaId", exp.familiaId)).data
+          : conSol.data;
+        const rows = ((mmData ?? []) as unknown[]) as (Record<string, string | null> & { id: string; parentesco: string | null; esSolicitante?: boolean })[];
         familia = {
           familiaId: exp.familiaId,
-          solicitanteId: exp.clienteId,
           miembros: rows
-            .map((r) => ({ id: r.id, nombre: (r.nombre as string) ?? "", apellidos: (r.apellidos as string) ?? null, parentesco: r.parentesco ?? null, ficha: fichaDe(r) }))
+            .map((r) => ({ id: r.id, nombre: (r.nombre as string) ?? "", apellidos: (r.apellidos as string) ?? null, parentesco: r.parentesco ?? null, esSolicitante: Boolean(r.esSolicitante), ficha: fichaDe(r) }))
             .sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco)),
         };
       }
