@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
-import { datosNormalizados } from "@/lib/formularios";
+import { datosNormalizados, datosDeCliente } from "@/lib/formularios";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 // Proxy de génération de la tasa 790-012 (Sede de la Policía Nacional).
 // 1) iniciar : on ouvre le formulaire officiel (session + captcha), on renvoie au
@@ -38,11 +39,23 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { expedienteId?: string };
+  let body: { expedienteId?: string; clienteId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const exp = body.expedienteId ? await fetchExpedienteDetalle(body.expedienteId) : null; // RLS
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
-  const d = datosNormalizados(exp);
+
+  // Expediente FAMILIAR: la tasa es NOMINATIVA → prefill con los datos del solicitante
+  // indicado (clienteId), validando que pertenece a la familia del expediente.
+  let d = datosNormalizados(exp);
+  const clienteId = body.clienteId?.trim() || "";
+  if (clienteId && exp.familiaId) {
+    const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    const row = m as unknown as Record<string, string | null>;
+    const ficha: ClienteFicha = {};
+    for (const k of FICHA_KEYS) { const v = row[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
+    d = datosDeCliente(ficha, `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim(), row.telefono, row.email);
+  }
 
   // 1) Ouvre le formulaire officiel → cookies de session + HTML.
   let res: Response;

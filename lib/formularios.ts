@@ -198,6 +198,34 @@ export function datosNormalizados(exp: Expediente): DatosForm {
   };
 }
 
+// ¿La fecha corresponde a un menor de edad? (para los bloques representante/menor.)
+export function esMenorFecha(f?: string | null): boolean {
+  if (!f) return false;
+  const d = new Date(f);
+  if (Number.isNaN(d.getTime())) return false;
+  const edad = (Date.now() - d.getTime()) / (365.25 * 864e5);
+  return edad >= 0 && edad < 18;
+}
+
+// Expediente FAMILIAR: datos + extra para el formulario de UN solicitante concreto.
+//  • EX-02 (reagrupación): bloque principal = titular (reagrupante), bloque reagrupado =
+//    el solicitante, casilla "menor representado" si es menor.
+//  • EX-31/EX-32 con solicitante menor: bloque principal = solicitante, bloque p.2
+//    "EN EL CASO DE MENORES" = titular (padre/madre/tutor).
+//  • Resto: bloque principal = el solicitante.
+export type ExtraFormulario = { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm };
+export function formularioParaMiembro(
+  tipo: string, datosTitular: DatosForm, datosMiembro: DatosForm, fechaNacimientoMiembro?: string | null,
+): { datos: DatosForm; extra?: ExtraFormulario } {
+  if (tipo === "EX-02") {
+    return { datos: datosTitular, extra: { reagrupado: datosMiembro, menorRepresentado: esMenorFecha(fechaNacimientoMiembro) } };
+  }
+  if ((tipo === "EX-31" || tipo === "EX-32") && esMenorFecha(fechaNacimientoMiembro)) {
+    return { datos: datosMiembro, extra: { padreTutor: datosTitular } };
+  }
+  return { datos: datosMiembro };
+}
+
 // Variante CLIENT (sans expediente) : remplit un formulaire officiel depuis la SEULE
 // ficha du cliente — indépendamment d'un service/expediente. Réutilise toute la
 // normalisation via un expediente factice sans documents.

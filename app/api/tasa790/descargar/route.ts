@@ -16,11 +16,12 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  let body: { expedienteId?: string; sid?: string; campos?: Campos };
+  let body: { expedienteId?: string; clienteId?: string; sid?: string; campos?: Campos };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const sid = body.sid ?? "";
   const c = body.campos ?? {};
   const expedienteId = body.expedienteId ?? "";
+  const clienteId = body.clienteId?.trim() || "";
   if (!/JSESSIONID/.test(sid) || !c.codSeguridadForm) {
     return NextResponse.json({ error: "Sesión o código de seguridad ausentes." }, { status: 400 });
   }
@@ -68,15 +69,27 @@ export async function POST(req: Request) {
 
   // Guarda la tasa para que el cliente la descargue desde su seguimiento. Defensivo:
   // verifica que el gestor es dueño del expediente (RLS) y nunca rompe la descarga.
+  // Expediente FAMILIAR (clienteId): la tasa es NOMINATIVA → una por solicitante, en
+  // {expedienteId}/tasa-790-012-{clienteId}.pdf (ruta determinista, sin columna nueva);
+  // tasaPath (única) se reserva al flujo individual.
   if (expedienteId) {
     try {
-      const { data: own } = await supabase.from("Expediente").select("id").eq("id", expedienteId).maybeSingle();
+      const { data: own } = await supabase.from("Expediente").select("id, familiaId").eq("id", expedienteId).maybeSingle();
       if (own) {
         const admin = createSupabaseAdmin();
-        const path = `${expedienteId}/tasa-790-012.pdf`;
-        await admin.storage.from("documentos").upload(path, buf, { contentType: "application/pdf", upsert: true });
-        const { error: errU } = await admin.from("Expediente").update({ tasaPath: path }).eq("id", expedienteId);
-        if (errU) console.warn("[tasa790] no se pudo guardar tasaPath (¿migración pendiente?):", errU.message);
+        if (clienteId && (own as { familiaId?: string | null }).familiaId) {
+          const famId = (own as { familiaId?: string | null }).familiaId as string;
+          const { data: m } = await supabase.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", famId).maybeSingle();
+          if (m) {
+            const path = `${expedienteId}/tasa-790-012-${clienteId}.pdf`;
+            await admin.storage.from("documentos").upload(path, buf, { contentType: "application/pdf", upsert: true });
+          }
+        } else {
+          const path = `${expedienteId}/tasa-790-012.pdf`;
+          await admin.storage.from("documentos").upload(path, buf, { contentType: "application/pdf", upsert: true });
+          const { error: errU } = await admin.from("Expediente").update({ tasaPath: path }).eq("id", expedienteId);
+          if (errU) console.warn("[tasa790] no se pudo guardar tasaPath (¿migración pendiente?):", errU.message);
+        }
       }
     } catch (e) { console.warn("[tasa790] no se pudo guardar la tasa:", e instanceof Error ? e.message : e); }
   }

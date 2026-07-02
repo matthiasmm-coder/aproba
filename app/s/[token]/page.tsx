@@ -16,14 +16,15 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const SELECT = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(id, tipo, estado, storagePath)";
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas.
-  let res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
   const data = res.data;
 
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
-    formulariosGenerados?: string[] | null; tasaPath?: string | null;
+    formulariosGenerados?: string[] | null; tasaPath?: string | null; familiaId?: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     documentos: { id: string; tipo: string; estado: string; storagePath: string | null }[] | null;
@@ -55,6 +56,20 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo, exp.servicioClave) : []);
   const tasaDisponible = Boolean(exp.tasaPath);
 
+  // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
+  // nominativa, presencia detectada en el storage por ruta determinista).
+  let miembros: { id: string; nombre: string; tieneTasa: boolean }[] | undefined;
+  if (exp.familiaId) {
+    let mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante").eq("familiaId", exp.familiaId);
+    if (mm.error) mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco").eq("familiaId", exp.familiaId) as typeof mm;
+    const rows = ((mm.data ?? []) as unknown[]) as { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; esSolicitante?: boolean }[];
+    const sol = rows.filter((r) => r.esSolicitante);
+    const lista = sol.length ? sol : rows;
+    const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
+    const conTasa = new Set((archivos ?? []).map((a) => a.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
+    miembros = lista.map((r) => ({ id: r.id, nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro", tieneTasa: conTasa.has(r.id) }));
+  }
+
   return (
     <Seguimiento
       token={token}
@@ -69,6 +84,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       docs={docs}
       formularios={formularios}
       tasaDisponible={tasaDisponible}
+      miembros={miembros}
     />
   );
 }

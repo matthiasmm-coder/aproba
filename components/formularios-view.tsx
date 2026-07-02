@@ -85,26 +85,31 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
         </div>
 
         {/* Descargas rellenadas */}
-        {seleccion.length > 0 && (
-          esFamilia ? (
-            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-              {applicants.map((a) => (
-                <div key={a.id}>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{a.nombre}</p>
-                  <div className="flex flex-wrap gap-2">{seleccion.map((tipo) => descarga(tipo, a.id))}</div>
+        {esFamilia ? (
+          <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+            {applicants.map((a) => (
+              <div key={a.id}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{a.nombre}</p>
+                <div className="flex flex-wrap gap-2">
+                  {seleccion.map((tipo) => descarga(tipo, a.id))}
+                  {/* La tasa es NOMINATIVA → una por solicitante, con sus datos. */}
+                  <Tasa790Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-012")} · ${a.nombre.split(" ")[0]}`} />
                 </div>
-              ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {seleccion.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
+              </div>
+            )}
+            <div className="mt-4">
+              <Tasa790Modal expedienteId={exp.id} />
             </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-              {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
-            </div>
-          )
+          </>
         )}
-
-        <div className="mt-4">
-          <Tasa790Modal expedienteId={exp.id} />
-        </div>
 
         <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
           <button onClick={marcarGenerados} disabled={marcando || marcado} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">

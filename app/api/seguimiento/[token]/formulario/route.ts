@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchExpedienteDetallePorToken } from "@/lib/data/expedientes";
-import { datosNormalizados } from "@/lib/formularios";
+import { datosNormalizados, datosDeCliente, formularioParaMiembro, type ExtraFormulario } from "@/lib/formularios";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { rellenarOficial, formulariosDelTramite } from "@/lib/ex-forms";
 
 export const runtime = "nodejs";
@@ -39,13 +40,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
   }
 
-  const pdf = await rellenarOficial(tipo, datosNormalizados(exp), exp.tipoEnum);
+  // Expediente FAMILIAR: ?clienteId=<miembro> → formulario relleno con LOS DATOS DE ESE
+  // solicitante (anti-IDOR: el miembro debe pertenecer a la familia del expediente).
+  const clienteId = new URL(req.url).searchParams.get("clienteId")?.trim() || "";
+  let datos = datosNormalizados(exp);
+  let extra: ExtraFormulario | undefined;
+  let sufijo = "";
+  if (clienteId && exp.familiaId) {
+    const admin = createSupabaseAdmin();
+    const { data: m } = await admin.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    const row = m as unknown as Record<string, string | null>;
+    const ficha: ClienteFicha = {};
+    for (const k of FICHA_KEYS) { const v = row[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
+    const nombreCompleto = `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim();
+    const datosMiembro = datosDeCliente(ficha, nombreCompleto, row.telefono, row.email);
+    sufijo = nombreCompleto ? `_${limpiar(nombreCompleto)}` : "";
+    ({ datos, extra } = formularioParaMiembro(tipo, datosNormalizados(exp), datosMiembro, ficha.fechaNacimiento));
+  }
+
+  const pdf = await rellenarOficial(tipo, datos, exp.tipoEnum, extra);
   if (!pdf) return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
 
   return new Response(Buffer.from(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${limpiar(tipo)}_${limpiar(exp.referencia)}.pdf"`,
+      "Content-Disposition": `attachment; filename="${limpiar(tipo)}_${limpiar(exp.referencia)}${sufijo}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

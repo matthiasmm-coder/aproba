@@ -19,10 +19,12 @@ function Download({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false,
+  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, miembros,
 }: {
   token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
+  // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
+  miembros?: { id: string; nombre: string; tieneTasa: boolean }[];
 }) {
   const [lang, setLang] = useState<Lang>((["es", "en", "fr", "it", "de"].includes(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
@@ -202,50 +204,72 @@ export function Seguimiento({
           </div>
         </div>
 
-        {/* Formularios oficiales generados por la gestoría — descargables uno a uno */}
-        {(formularios.length > 0 || tasaDisponible) && (
-          <div className="mt-6">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.formularios")}</h2>
-            <p className="mt-0.5 text-xs text-slate-400">{t("seg.formulariosSub")}</p>
-            <div className="mt-2 space-y-2">
-              {tasaDisponible && (
-                <a
-                  href={`/api/seguimiento/${token}/tasa`}
-                  download
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-400 hover:shadow-sm"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-white">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
-                    </span>
-                    <span className="truncate text-sm font-medium text-slate-800">Tasa 790-012 <span className="text-xs font-normal text-aproba-700">PDF</span></span>
-                  </span>
-                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-aproba-700">
-                    <Download className="h-3.5 w-3.5" />{t("seg.descargar")}
-                  </span>
-                </a>
+        {/* Formularios oficiales generados por la gestoría — descargables uno a uno.
+            Expediente familiar (miembros) : un bloque por solicitante (formularios con SUS
+            datos + su tasa nominativa). */}
+        {(() => {
+          const LinkTasa = ({ clienteId, etiqueta }: { clienteId?: string; etiqueta?: string }) => (
+            <a
+              href={`/api/seguimiento/${token}/tasa${clienteId ? `?clienteId=${clienteId}` : ""}`}
+              download
+              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-400 hover:shadow-sm"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-white">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
+                </span>
+                <span className="truncate text-sm font-medium text-slate-800">{etiqueta ?? "Tasa 790-012"} <span className="text-xs font-normal text-aproba-700">PDF</span></span>
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-aproba-700">
+                <Download className="h-3.5 w-3.5" />{t("seg.descargar")}
+              </span>
+            </a>
+          );
+          const LinkForm = ({ f, clienteId }: { f: string; clienteId?: string }) => (
+            <a
+              href={`/api/seguimiento/${token}/formulario?tipo=${encodeURIComponent(f)}${clienteId ? `&clienteId=${clienteId}` : ""}`}
+              download
+              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-400 hover:shadow-sm"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aproba-100 text-aproba-600">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                </span>
+                <span className="truncate text-sm font-medium text-slate-800">{f} <span className="text-xs font-normal text-aproba-700">PDF</span></span>
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-aproba-700">
+                <Download className="h-3.5 w-3.5" />{t("seg.descargar")}
+              </span>
+            </a>
+          );
+          const esFamilia = Boolean(miembros?.length);
+          const hayContenido = formularios.length > 0 || tasaDisponible || (esFamilia && miembros!.some((m) => m.tieneTasa));
+          if (!hayContenido) return null;
+          return (
+            <div className="mt-6">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.formularios")}</h2>
+              <p className="mt-0.5 text-xs text-slate-400">{t("seg.formulariosSub")}</p>
+              {esFamilia ? (
+                <div className="mt-2 space-y-4">
+                  {miembros!.map((m) => (
+                    <div key={m.id}>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{m.nombre}</p>
+                      <div className="space-y-2">
+                        {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
+                        {formularios.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {tasaDisponible && <LinkTasa />}
+                  {formularios.map((f) => <LinkForm key={f} f={f} />)}
+                </div>
               )}
-              {formularios.map((f) => (
-                <a
-                  key={f}
-                  href={`/api/seguimiento/${token}/formulario?tipo=${encodeURIComponent(f)}`}
-                  download
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-400 hover:shadow-sm"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aproba-100 text-aproba-600">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-                    </span>
-                    <span className="truncate text-sm font-medium text-slate-800">{f} <span className="text-xs font-normal text-aproba-700">PDF</span></span>
-                  </span>
-                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-aproba-700">
-                    <Download className="h-3.5 w-3.5" />{t("seg.descargar")}
-                  </span>
-                </a>
-              ))}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <p className="mt-8 flex items-center justify-center gap-1 text-xs text-slate-400">{t("header.con")} <AprobaMark size={13} /> aproba</p>
       </div>

@@ -4,11 +4,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchFacturasDeExpediente } from "@/lib/data/facturas";
 import { fetchDespacho } from "@/lib/data/config";
-import { datosNormalizados } from "@/lib/formularios";
+import { datosNormalizados, datosDeCliente, formularioParaMiembro } from "@/lib/formularios";
 import { rellenarOficial } from "@/lib/ex-forms";
 import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
-import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
+import { FICHA_CAMPOS, FICHA_KEYS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { DOC_LABEL } from "@/lib/tramites";
 
 export const runtime = "nodejs";
@@ -87,21 +87,51 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   } catch (e) { console.error("[exportar] documentos", e instanceof Error ? e.message : e); }
 
   // 3) Formularios: SOLO los que el gestor GENERÓ y guardó (Expediente.formulariosGenerados,
-  // codes EX oficiales) + la tasa 790 oficial (Expediente.tasaPath). Nada de defaults del
-  // trámite ni borradores → el ZIP contiene exactamente lo de la sección Formularios.
+  // codes EX oficiales) + la(s) tasa(s) 790 oficial(es). Nada de defaults del trámite ni
+  // borradores → el ZIP contiene exactamente lo de la sección Formularios.
+  // Expediente FAMILIAR: un juego de formularios POR SOLICITANTE (con sus datos) + la tasa
+  // nominativa de cada uno (ruta determinista tasa-790-012-{clienteId}.pdf del storage).
   try {
     const { data: extra } = await admin.from("Expediente").select("formulariosGenerados, tasaPath").eq("id", id).maybeSingle();
     const generados: string[] = Array.isArray(extra?.formulariosGenerados) ? (extra!.formulariosGenerados as string[]) : [];
+
+    type MiembroExp = { id: string; nombre: string; datos: ReturnType<typeof datosNormalizados>; fechaNacimiento: string | null };
+    let solicitantes: MiembroExp[] = [];
+    if (exp.familiaId) {
+      let mm = await admin.from("Cliente").select(`id, parentesco, esSolicitante, ${FICHA_KEYS.join(", ")}`).eq("familiaId", exp.familiaId);
+      if (mm.error) mm = await admin.from("Cliente").select(`id, parentesco, ${FICHA_KEYS.join(", ")}`).eq("familiaId", exp.familiaId) as typeof mm;
+      const rows = ((mm.data ?? []) as unknown[]) as (Record<string, string | null> & { id: string; esSolicitante?: boolean })[];
+      const sol = rows.filter((r) => r.esSolicitante);
+      solicitantes = (sol.length ? sol : rows).map((r) => {
+        const ficha: ClienteFicha = {};
+        for (const k of FICHA_KEYS) { const v = r[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
+        const nombre = `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "miembro";
+        return { id: r.id, nombre, datos: datosDeCliente(ficha, nombre, r.telefono, r.email), fechaNacimiento: (r.fechaNacimiento as string) ?? null };
+      });
+    }
+
     if (generados.length) {
-      const datos = datosNormalizados(exp);
-      for (const code of generados) {
-        try {
-          const b = await rellenarOficial(code, datos, exp.tipoEnum);
-          if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
-        } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
+      const datosTitular = datosNormalizados(exp);
+      if (solicitantes.length) {
+        for (const s of solicitantes) {
+          for (const code of generados) {
+            try {
+              const { datos, extra: ex } = formularioParaMiembro(code, datosTitular, s.datos, s.fechaNacimiento);
+              const b = await rellenarOficial(code, datos, exp.tipoEnum, ex);
+              if (b) add(`formularios/${nombreSeguro(code)}_${nombreSeguro(s.nombre)}.pdf`, b);
+            } catch (e) { console.error("[exportar] oficial", code, s.id, e instanceof Error ? e.message : e); }
+          }
+        }
+      } else {
+        for (const code of generados) {
+          try {
+            const b = await rellenarOficial(code, datosTitular, exp.tipoEnum);
+            if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
+          } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
+        }
       }
     }
-    // Tasa 790 oficial (con código de barras), guardada en storage al generarla.
+    // Tasa(s) 790 oficial(es) (con código de barras), guardadas en storage al generarlas.
     const tasaPath = (extra?.tasaPath as string | null) ?? null;
     if (tasaPath) {
       try {
@@ -109,6 +139,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         if (error || !blob) throw new Error(error?.message ?? "archivo no disponible");
         add("formularios/tasa-790-012.pdf", new Uint8Array(await blob.arrayBuffer()));
       } catch (e) { console.error("[exportar] tasa790", e instanceof Error ? e.message : e); }
+    }
+    if (solicitantes.length) {
+      const nombrePor = new Map(solicitantes.map((s) => [s.id, s.nombre]));
+      try {
+        const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
+        for (const a of archivos ?? []) {
+          const m = a.name.match(/^tasa-790-012-(.+)\.pdf$/);
+          if (!m) continue;
+          const { data: blob } = await admin.storage.from("documentos").download(`${exp.id}/${a.name}`);
+          if (blob) add(`formularios/tasa-790-012_${nombreSeguro(nombrePor.get(m[1]) ?? m[1])}.pdf`, new Uint8Array(await blob.arrayBuffer()));
+        }
+      } catch (e) { console.error("[exportar] tasas familia", e instanceof Error ? e.message : e); }
     }
   } catch (e) { console.error("[exportar] formularios", e instanceof Error ? e.message : e); }
 

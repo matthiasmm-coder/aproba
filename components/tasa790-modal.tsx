@@ -33,7 +33,8 @@ const CAMPOS: { k: string; label: string; w: string; req?: boolean }[] = [
 ];
 const W: Record<string, string> = { half: "sm:col-span-3", third: "sm:col-span-2", sixth: "sm:col-span-1" };
 
-export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
+// clienteId (expediente familiar): la tasa se prefill/guarda para ESE solicitante.
+export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expedienteId: string; clienteId?: string; etiqueta?: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -51,7 +52,7 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
   async function iniciar(preservar = false) {
     if (!preservar) { setOpen(true); setDatos(null); }
     setCargando(!preservar); setError(null); setFallback(null); setCaptcha("");
-    const r = await fetch("/api/tasa790/iniciar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId }) });
+    const r = await fetch("/api/tasa790/iniciar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, clienteId }) });
     const j = await r.json().catch(() => ({}));
     setCargando(false);
     if (!r.ok) { setError(j.error ?? t("No se pudo abrir el generador oficial.")); setFallback(j.fallback ?? null); return; }
@@ -65,7 +66,7 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
     if (!datos) return;
     setEnviando(true); setError(null);
     const importe = datos.tramites.find((t) => t.value === tramite)?.importe ?? "";
-    const body = { expedienteId, sid: datos.sid, campos: { ...campos, tramiteSeleccionado: tramite, total: importe, efectivoOAdeudo: "efectivo", codSeguridadForm: captcha } };
+    const body = { expedienteId, clienteId, sid: datos.sid, campos: { ...campos, tramiteSeleccionado: tramite, total: importe, efectivoOAdeudo: "efectivo", codSeguridadForm: captcha } };
     const r = await fetch("/api/tasa790/descargar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (r.headers.get("content-type")?.includes("pdf")) {
       const blob = await r.blob();
@@ -89,7 +90,7 @@ export function Tasa790Modal({ expedienteId }: { expedienteId: string }) {
     <>
       <button onClick={() => iniciar(false)} className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
-        {t("Generar tasa 790-012 oficial")}
+        {etiqueta ?? t("Generar tasa 790-012 oficial")}
       </button>
 
       {open && (
