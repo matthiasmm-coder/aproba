@@ -73,8 +73,8 @@ export default async function ExpedienteDetail({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{e.clienteNombre}</h1>
-            <p className="text-slate-500">{servicio?.label?.trim() || e.tipoLabel} · {e.clienteNacionalidad}</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
+            <p className="text-slate-500">{servicio?.label?.trim() || e.tipoLabel}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
             {familia && (
               <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-aproba-50 px-2.5 py-0.5 text-xs font-semibold text-aproba-700">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>
