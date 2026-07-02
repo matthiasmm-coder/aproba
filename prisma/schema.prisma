@@ -309,10 +309,11 @@ model Familia {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  clientes   Cliente[]
-  documentos DocumentoFamilia[]
-  facturas   Factura[]
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientes    Cliente[]
+  documentos  DocumentoFamilia[]
+  facturas    Factura[]
+  expedientes Expediente[]
 
   @@index([workspaceId])
 }
@@ -368,6 +369,7 @@ model Expediente {
   id                String           @id @default(cuid())
   workspaceId       String
   clienteId         String
+  familiaId         String? // si presente → expediente FAMILIAR (clienteId = titular)
   referencia        String // ex. "EXP-2026-0042"
   portalToken       String? // lien client /j/[token] — index unique partiel (WHERE NOT NULL) en SQL
   tipo              TipoTramite
@@ -381,6 +383,7 @@ model Expediente {
 
   workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  familia     Familia?           @relation(fields: [familiaId], references: [id], onDelete: SetNull)
   asignadoA   User?              @relation("Asignado", fields: [asignadoAId], references: [id])
   documentos  Documento[]
   formularios Formulario[]
@@ -390,6 +393,7 @@ model Expediente {
   @@unique([workspaceId, referencia])
   @@index([workspaceId, estado])
   @@index([clienteId])
+  @@index([familiaId])
 }
 
 model Documento {

@@ -8,7 +8,6 @@ const NAV = [
   { href: "/app", label: "Inicio", icon: "home" },
   { href: "/app/expedientes", label: "Expedientes", icon: "board" },
   { href: "/app/clientes", label: "Clientes", icon: "users" },
-  { href: "/app/familias", label: "Familias", icon: "family" },
   { href: "/app/facturas", label: "Facturas", icon: "invoice" },
   { href: "/app/ajustes", label: "Ajustes", icon: "settings" },
 ];
