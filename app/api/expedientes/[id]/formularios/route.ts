@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
-import { buildFormularios, datosNormalizados, datosDeCliente } from "@/lib/formularios";
+import { buildFormularios, datosNormalizados, datosDeCliente, type DatosForm } from "@/lib/formularios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+
+// ¿La ficha corresponde a un menor de edad? (para EX-02: casilla "menor representado").
+const esMenorFicha = (f?: string) => {
+  if (!f) return false;
+  const d = new Date(f);
+  if (Number.isNaN(d.getTime())) return false;
+  const edad = (Date.now() - d.getTime()) / (365.25 * 864e5);
+  return edad >= 0 && edad < 18;
+};
 import { formularioToPdf } from "@/lib/formularios-pdf";
 import { rellenarOficial } from "@/lib/ex-forms";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -36,6 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // solicitante (no del titular). Se valida que el miembro es de la familia del expediente.
     const clienteId = new URL(req.url).searchParams.get("clienteId")?.trim() || "";
     let datos = datosNormalizados(exp);
+    let extra: { reagrupado?: DatosForm; menorRepresentado?: boolean } | undefined;
     let sufijo = "";
     if (clienteId && exp.familiaId) {
       const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
@@ -44,10 +54,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const ficha: ClienteFicha = {};
       for (const k of FICHA_KEYS) { const v = row[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
       const nombreCompleto = `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim();
-      datos = datosDeCliente(ficha, nombreCompleto, row.telefono, row.email);
+      const datosMiembro = datosDeCliente(ficha, nombreCompleto, row.telefono, row.email);
       sufijo = nombreCompleto ? `_${nombreArchivo(nombreCompleto)}` : "";
+      if (tipo === "EX-02") {
+        // Reagrupación: bloque principal = REAGRUPANTE (titular = datosNormalizados(exp));
+        // bloque reagrupado = el applicant; casilla "menor representado" si es menor.
+        extra = { reagrupado: datosMiembro, menorRepresentado: esMenorFicha(ficha.fechaNacimiento) };
+      } else {
+        // Otros formularios: el bloque principal se rellena con el applicant (phase 4A).
+        datos = datosMiembro;
+      }
     }
-    const oficial = await rellenarOficial(tipo, datos, exp.tipoEnum);
+    const oficial = await rellenarOficial(tipo, datos, exp.tipoEnum, extra);
     if (!oficial) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
     return new Response(Buffer.from(oficial), {
       headers: {

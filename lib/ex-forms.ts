@@ -108,6 +108,17 @@ export const FORMS: Record<string, Mapa> = {
   },
 };
 
+// EX-02 familiar: bloque « DATOS DE LA PERSONA EXTRANJERA REAGRUPADA » (l'applicant), sous
+// le bloc reagrupante. Coordonnées relevées par probe (mêmes x que le reagrupante, y plus bas).
+const EX02_REAGRUPADO = vec(
+  { P: 431, A: 413, N: 394, F: 374, NAC: 357, D: 320, L: 302, T: 284 },
+  [396, 337, 371, 400],
+  [357, 387, 414, 441, 471, 498],
+  [338, 51, 295],
+);
+// Case p.2 « Menor de 18 años representada legalmente por el reagrupante » (probe: y=663 x=238).
+const EX02_MENOR_REPRESENTADO: Pos = { x: 240, y: 662, page: 1 };
+
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
 
@@ -160,7 +171,13 @@ export function formulariosDelTramite(tipoEnum: string, servicioClave?: string |
   return (TRAMITE_FORMS[tipoEnum] ?? []).filter(formularioOficialDisponible);
 }
 
-export async function rellenarOficial(code: string, datos: DatosForm, tramite?: string): Promise<Uint8Array | null> {
+// extra (EX-02 familiar): reagrupado = datos de l'applicant (le bloc principal reçoit le
+// reagrupante = titulaire) ; menorRepresentado = cocher la case « menor representada
+// legalmente por el reagrupante » (p.2).
+export async function rellenarOficial(
+  code: string, datos: DatosForm, tramite?: string,
+  extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean },
+): Promise<Uint8Array | null> {
   const mapa = FORMS[code];
   if (!mapa) return null;
   const bytes = await readFile(path.join(process.cwd(), "forms", "ex", `${code}.pdf`));
@@ -196,5 +213,17 @@ export async function rellenarOficial(code: string, datos: DatosForm, tramite?: 
   }
   if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10);
   if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10);
+
+  // EX-02 familiar : le bloc principal (ci-dessus) a reçu le REAGRUPANTE (titulaire) ; on
+  // remplit ici le bloc REAGRUPADO avec l'applicant + la case « menor representada legalmente ».
+  if (code === "EX-02" && extra?.reagrupado) {
+    const r = extra.reagrupado;
+    for (const [key, pos] of Object.entries(EX02_REAGRUPADO.coords)) {
+      estampar(pos, limpiar((r[key as keyof DatosForm] as string) || ""));
+    }
+    if (r.sexo) estampar(EX02_REAGRUPADO.sexoMarks?.[r.sexo], "X", 10);
+    if (r.estadoCivil) estampar(EX02_REAGRUPADO.estadoCivilMarks?.[r.estadoCivil], "X", 10);
+    if (extra.menorRepresentado) estampar(EX02_MENOR_REPRESENTADO, "X", 10);
+  }
   return pdf.save();
 }
