@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // solicitante (no del titular). Se valida que el miembro es de la familia del expediente.
     const clienteId = new URL(req.url).searchParams.get("clienteId")?.trim() || "";
     let datos = datosNormalizados(exp);
-    let extra: { reagrupado?: DatosForm; menorRepresentado?: boolean } | undefined;
+    let extra: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm } | undefined;
     let sufijo = "";
     if (clienteId && exp.familiaId) {
       const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
@@ -63,6 +63,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       } else {
         // Otros formularios: el bloque principal se rellena con el applicant (phase 4A).
         datos = datosMiembro;
+        // EX-31/EX-32 con solicitante MENOR → bloque p.2 "EN EL CASO DE MENORES" con la
+        // identidad del padre/madre/tutor (el titular). La casilla PARENTESCO la marca el gestor.
+        if ((tipo === "EX-31" || tipo === "EX-32") && esMenorFicha(ficha.fechaNacimiento)) {
+          extra = { padreTutor: datosNormalizados(exp) };
+        }
       }
     }
     const oficial = await rellenarOficial(tipo, datos, exp.tipoEnum, extra);

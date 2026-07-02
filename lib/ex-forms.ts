@@ -110,14 +110,53 @@ export const FORMS: Record<string, Mapa> = {
 
 // EX-02 familiar: bloque « DATOS DE LA PERSONA EXTRANJERA REAGRUPADA » (l'applicant), sous
 // le bloc reagrupante. Coordonnées relevées par probe (mêmes x que le reagrupante, y plus bas).
-const EX02_REAGRUPADO = vec(
-  { P: 431, A: 413, N: 394, F: 374, NAC: 357, D: 320, L: 302, T: 284 },
-  [396, 337, 371, 400],
-  [357, 387, 414, 441, 471, 498],
-  [338, 51, 295],
-);
+// ⚠️ Ce bloc N'A PAS de ligne teléfono/email (la section 2 « representante » commence à y=269)
+// → on retire ces deux coordonnées pour ne pas estampiller dans le vide.
+const EX02_REAGRUPADO = (() => {
+  const m = vec(
+    { P: 431, A: 413, N: 394, F: 374, NAC: 357, D: 320, L: 302, T: 284 },
+    [396, 337, 371, 400],
+    [357, 387, 414, 441, 471, 498],
+    [338, 51, 295],
+  );
+  delete m.coords.telefono;
+  delete m.coords.email;
+  return m;
+})();
 // Case p.2 « Menor de 18 años representada legalmente por el reagrupante » (probe: y=663 x=238).
 const EX02_MENOR_REPRESENTADO: Pos = { x: 240, y: 662, page: 1 };
+
+// EX-31 / EX-32 (arraigo RD 1155/2024), bloc p.2 « EN EL CASO DE MENORES, PADRE/MADRE/TUTOR… » :
+// identité du représentant (le padre/madre/tutor du solicitante mineur). Coordonnées relevées
+// par probe pdfjs ; mêmes conventions d'offset que la section 1 (valeur à droite du libellé,
+// croix à +11/+16/+20 du libellé). Le bloc n'a PAS de lignes domicilio/contact.
+// NB: la rangée PARENTESCO (Hijo/Cónyuge/Ascendiente) a des cases vectorielles non résolubles
+// par probe → on ne la coche pas (le gestor la marque à la revue).
+function menorBloc(y: { P: number; A: number; N: number; SX: number; F: number; LP: number; NAC: number; EC: number; PM: number }): MapaOverlay {
+  const pg = 1; // page 2 (index 0-based)
+  const at = (x: number, yy: number): Pos => ({ x, y: yy, page: pg });
+  return {
+    modo: "overlay",
+    coords: {
+      pasaporte: at(117, y.P), nie1: at(362, y.P), nie2: at(392, y.P), nie3: at(545, y.P),
+      apellido1: at(120, y.A), apellido2: at(468, y.A),
+      nombre: at(97, y.N),
+      fechaD: at(152, y.F), fechaM: at(179, y.F), fechaA: at(205, y.F),
+      lugarNac: at(266, y.LP), paisNac: at(460, y.LP),
+      nacionalidad: at(115, y.NAC),
+      nombrePadre: at(148, y.PM), nombreMadre: at(395, y.PM),
+    },
+    sexoMarks: { X: at(481, y.SX - 1), H: at(512, y.SX - 1), M: at(536, y.SX - 1) },
+    estadoCivilMarks: { S: at(415, y.EC - 1), C: at(444, y.EC - 1), V: at(472, y.EC - 1), D: at(501, y.EC - 1), Sp: at(535, y.EC - 1) },
+  };
+}
+// Rangées relevées: EX-31 p2 (labels y: PASAPORTE 750, Apellidos 732, Nombre 713/Sexo 715,
+// Fecha 693/Lugar-País 695, Nacionalidad-EC 676, padre/madre 658) ; EX-32 p2 (735, 717,
+// 698/700, 678/680, 662, 644).
+const MENOR_BLOC: Record<string, MapaOverlay> = {
+  "EX-31": menorBloc({ P: 750, A: 732, N: 713, SX: 715, F: 693, LP: 695, NAC: 676, EC: 676, PM: 658 }),
+  "EX-32": menorBloc({ P: 735, A: 717, N: 698, SX: 700, F: 678, LP: 680, NAC: 662, EC: 662, PM: 644 }),
+};
 
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
@@ -171,12 +210,14 @@ export function formulariosDelTramite(tipoEnum: string, servicioClave?: string |
   return (TRAMITE_FORMS[tipoEnum] ?? []).filter(formularioOficialDisponible);
 }
 
-// extra (EX-02 familiar): reagrupado = datos de l'applicant (le bloc principal reçoit le
-// reagrupante = titulaire) ; menorRepresentado = cocher la case « menor representada
-// legalmente por el reagrupante » (p.2).
+// extra (expediente familiar):
+//  • EX-02: reagrupado = datos de l'applicant (le bloc principal reçoit le reagrupante =
+//    titulaire) ; menorRepresentado = cocher « menor representada legalmente » (p.2).
+//  • EX-31/EX-32: padreTutor = identité du représentant (titulaire) pour le bloc p.2
+//    « EN EL CASO DE MENORES » quand le solicitante est mineur.
 export async function rellenarOficial(
   code: string, datos: DatosForm, tramite?: string,
-  extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean },
+  extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm },
 ): Promise<Uint8Array | null> {
   const mapa = FORMS[code];
   if (!mapa) return null;
@@ -224,6 +265,17 @@ export async function rellenarOficial(
     if (r.sexo) estampar(EX02_REAGRUPADO.sexoMarks?.[r.sexo], "X", 10);
     if (r.estadoCivil) estampar(EX02_REAGRUPADO.estadoCivilMarks?.[r.estadoCivil], "X", 10);
     if (extra.menorRepresentado) estampar(EX02_MENOR_REPRESENTADO, "X", 10);
+  }
+
+  // EX-31/EX-32 : bloc p.2 « EN EL CASO DE MENORES » = identité du padre/madre/tutor.
+  const menorBlocMapa = extra?.padreTutor ? MENOR_BLOC[code] : undefined;
+  if (menorBlocMapa && extra?.padreTutor) {
+    const pt = extra.padreTutor;
+    for (const [key, pos] of Object.entries(menorBlocMapa.coords)) {
+      estampar(pos, limpiar((pt[key as keyof DatosForm] as string) || ""));
+    }
+    if (pt.sexo) estampar(menorBlocMapa.sexoMarks?.[pt.sexo], "X", 10);
+    if (pt.estadoCivil) estampar(menorBlocMapa.estadoCivilMarks?.[pt.estadoCivil], "X", 10);
   }
   return pdf.save();
 }

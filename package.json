@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ex": "vitest run lib/ex-forms.test.ts"
+    "test:ex": "vitest run lib/ex-forms.test.ts",
+    "audit:forms": "node --loader ./scripts/ts-loader.mjs scripts/audit-ex-forms.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
