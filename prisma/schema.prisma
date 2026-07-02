@@ -296,10 +296,30 @@ model Cliente {
   familia      Familia?     @relation(fields: [familiaId], references: [id], onDelete: SetNull)
   expedientes  Expediente[]
   documentos   Documento[]
+  docsSueltos  DocumentoCliente[]
   citasPrevias CitaPrevia[]
 
   @@index([workspaceId])
   @@index([familiaId])
+}
+
+// Documento SUELTO de un cliente (subido por el gestor desde la ficha del cliente, sin
+// expediente): pasaporte, TIE… El tipo es una etiqueta libre elegida en un desplegable.
+model DocumentoCliente {
+  id            String   @id @default(cuid())
+  clienteId     String
+  workspaceId   String
+  tipo          String
+  nombreArchivo String?
+  storagePath   String
+  mimeType      String?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+
+  cliente   Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
 }
 
 // Dossier familial: agrupa varios Cliente (y sus Expediente) para gestionarlos juntos.

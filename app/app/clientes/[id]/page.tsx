@@ -6,6 +6,7 @@ import { TIPO_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/facturas";
 import { formulariosDisponibles } from "@/lib/ex-forms";
 import { ClienteFormularios } from "@/components/cliente-formularios";
+import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
 import { getT } from "@/lib/app-lang";
 
 // Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
@@ -48,6 +49,13 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
 
   const nacionalidad = cliente.nacionalidad ?? "—";
   const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR").reduce((s, f) => s + totalDe(f.base), 0);
+
+  // Documentos sueltos del cliente (sin expediente). Defensivo: [] si falta la migración.
+  let docsSueltos: DocSuelto[] = [];
+  try {
+    const { data: ds, error: eDs } = await supabase.from("DocumentoCliente").select("id, tipo, nombreArchivo, createdAt").eq("clienteId", id).order("createdAt", { ascending: false });
+    if (!eDs) docsSueltos = (ds ?? []) as unknown as DocSuelto[];
+  } catch { /* tabla aún no migrada */ }
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -100,7 +108,7 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Facturas")} ({facturas.length})</h2>
-            <Link href="/app/facturas/nueva" className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nueva")}</Link>
+            <Link href={`/app/facturas/nueva?cliente=${encodeURIComponent(nombre)}`} className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nueva")}</Link>
           </div>
           <div className="space-y-1">
             {facturas.map((f) => {
@@ -120,6 +128,9 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
+
+      {/* Documentos sueltos du client (passeport, TIE… — sans expediente) */}
+      <DocumentosCliente clienteId={cliente.id} docs={docsSueltos} />
 
       {/* Formularios officiels autorrellenés depuis la ficha du cliente (sans expediente) */}
       <ClienteFormularios clienteId={cliente.id} formularios={formulariosDisponibles()} />

@@ -16,6 +16,8 @@ export default function NuevaFactura() {
   const [servicios, setServicios] = useState<ServicioTarifa[]>([]);
   const [plan, setPlan] = useState<string>("STARTER");
   const [numero, setNumero] = useState("");
+  // Prefill del cliente (?cliente=…) — p. ej. desde el botón "+ Nueva" de la ficha del cliente.
+  const [clientePrefill] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("cliente") ?? "" : ""));
   const [cargando, setCargando] = useState(true);
   const avanzada = facturacionAvanzada(plan);
 
@@ -142,7 +144,7 @@ export default function NuevaFactura() {
           <FacturaEditor
             avanzada={avanzada}
             servicios={servicios}
-            inicial={{ numero }}
+            inicial={{ numero, cliente: clientePrefill }}
             onSubmit={handleSubmit}
             submitLabel={t("Crear factura")}
             busy={creando}
