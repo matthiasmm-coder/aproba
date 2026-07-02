@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
-import { fetchFamiliaDeExpediente } from "@/lib/data/familias";
+import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
+import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
@@ -38,7 +39,11 @@ export default async function ExpedienteDetail({
   const e = await fetchExpedienteDetalle(id);
   if (!e) notFound();
 
-  const familia = await fetchFamiliaDeExpediente(id); // null si el cliente no está en una familia
+  // Expediente FAMILIAR (Expediente.familiaId): miembros + facturación familiar en la ficha.
+  const familia = e.familiaId ? await fetchFamiliaDetalle(e.familiaId) : null;
+  const [famPrefill, famFacturas] = e.familiaId
+    ? await Promise.all([fetchFacturaFamiliaPrefill(e.familiaId), fetchFacturasDeFamilia(e.familiaId)])
+    : [null, []];
 
   // Tarifa del servicio (config du workspace) pour le panneau Cobros.
   const { servicios } = await fetchServiciosConfig();
@@ -71,10 +76,10 @@ export default async function ExpedienteDetail({
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{e.clienteNombre}</h1>
             <p className="text-slate-500">{servicio?.label?.trim() || e.tipoLabel} · {e.clienteNacionalidad}</p>
             {familia && (
-              <Link href={`/app/familias/${familia.id}`} className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-aproba-50 px-2.5 py-0.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-100">
+              <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-aproba-50 px-2.5 py-0.5 text-xs font-semibold text-aproba-700">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>
-                {familia.nombre}
-              </Link>
+                {t("Expediente familiar")}
+              </span>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -120,6 +125,11 @@ export default async function ExpedienteDetail({
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
+        {/* Familia (expediente familiar): miembros + facturación familiar */}
+        {familia && (
+          <FamiliaExpedienteSection familia={familia} solicitanteNombre={e.clienteNombre} prefill={famPrefill} facturas={famFacturas} />
+        )}
+
         {/* Documentos */}
         <section>
           <SeccionHeader>{t("Documentos")} ({e.documentos.length})</SeccionHeader>

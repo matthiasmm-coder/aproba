@@ -118,6 +118,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   facturasPago: FacturaPago[];
   servicioClave: string | null;
   portalToken: string | null;
+  familiaId: string | null; // si presente → expediente familiar
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
 };
 
@@ -139,7 +140,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -198,6 +199,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
     portalToken: e.portalToken ?? null,
+    familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
       id: f.id,
