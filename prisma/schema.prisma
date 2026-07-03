@@ -146,6 +146,7 @@ model Workspace {
   citasPrevias CitaPrevia[]
   vencimientos Vencimiento[]
   docsSueltos  DocumentoCliente[]
+  revisiones   CentinelaRevision[]
 }
 
 // Comptes bancaires du despacho (réception des paiements clients).
@@ -443,6 +444,7 @@ model Expediente {
   facturas    Factura[]
   vencimientosSembrados  Vencimiento[] @relation("VencimientoOrigen")
   vencimientosRenovacion Vencimiento[] @relation("VencimientoRenovacion")
+  revisiones  CentinelaRevision[]
 
   @@unique([workspaceId, referencia])
   @@index([workspaceId, estado])
@@ -472,6 +474,31 @@ model Documento {
 }
 
 // Sortie du module IA (miroir du schéma du POC poc-vision).
+// EL FUNCIONARIO FANTASMA — revisión pre-presentación «como Extranjería» (ver
+// supabase/centinela.sql). El histórico revisión→desenlace es el corpus del futuro
+// Radar por oficina.
+model CentinelaRevision {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  expedienteId  String
+  verdicto      String // ROJO | AMBAR | VERDE
+  hallazgos     Json     @default("[]")
+  comprobado    Json     @default("[]")
+  noComprobable Json     @default("[]")
+  provincia     String?
+  tipoTramite   String
+  modelo        String
+  inputTokens   Int?
+  outputTokens  Int?
+  createdAt     DateTime @default(now())
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expediente Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+
+  @@index([expedienteId])
+  @@index([workspaceId, provincia, tipoTramite])
+}
+
 model Extraction {
   id              String   @id @default(cuid())
   documentoId     String   @unique

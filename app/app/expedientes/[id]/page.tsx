@@ -15,6 +15,9 @@ import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
 import { DriverBanner } from "@/components/driver-banner";
 import { camposMercurioFlat } from "@/lib/mercurio";
+import { CentinelaPanel } from "@/components/centinela-panel";
+import { fetchUltimaRevision } from "@/lib/centinela";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
@@ -60,6 +63,9 @@ export default async function ExpedienteDetail({
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
+
+  // Última revisión «como Extranjería» persistida (RLS; null sin migración).
+  const revision = await fetchUltimaRevision(await createSupabaseServer(), e.id);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -143,6 +149,9 @@ export default async function ExpedienteDetail({
             )}
           </div>
         </section>
+
+        {/* El Funcionario Fantasma: revisión pre-presentación «como Extranjería» */}
+        <CentinelaPanel expedienteId={e.id} inicial={revision} />
 
         {/* Formularios */}
         <section>
