@@ -17,12 +17,11 @@ const DEST = process.env.VEILLE_ALERT_EMAIL || "matthias.merlemounier@gmail.com"
 
 // Vercel Cron añade `Authorization: Bearer <CRON_SECRET>` cuando CRON_SECRET está
 // configurada. Si no lo está, el endpoint queda accesible (configúrala en Vercel para
-// protegerlo). Acepta también `?key=` para una prueba manual cómoda.
+// protegerlo). SOLO header: nada de `?key=` (una clave en la URL acaba en logs/historial).
 function autorizado(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true;
-  if (req.headers.get("authorization") === `Bearer ${secret}`) return true;
-  return new URL(req.url).searchParams.get("key") === secret;
+  return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 async function avisar(subject: string, cuerpo: string): Promise<string> {
