@@ -517,3 +517,73 @@ export async function enviarRecordatorioDocs(
     return { enviado: false, faltan: 0, motivo: "error" };
   }
 }
+
+// ── VIGÍA: la gestoría inicia una renovación → aviso al cliente EN SU IDIOMA ──
+// Enlace al portal /j del expediente de renovación recién creado (el cliente revisa
+// sus datos y sube los documentos). Mejor esfuerzo: nunca lanza.
+export async function enviarAvisoRenovacion(
+  admin: SupabaseClient,
+  opts: { expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl?: string },
+): Promise<{ enviado: boolean; motivo?: "sin_email" | "simulado" | "error" }> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("portalToken, Cliente(nombre, email, idioma), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as {
+      portalToken: string | null;
+      Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null;
+      Workspace: { nombre: string } | { nombre: string }[] | null;
+    } | null;
+    if (!exp) return { enviado: false, motivo: "error" };
+    const cliente = uno(exp.Cliente);
+    const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
+    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const t = makeT(lang);
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+    const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
+    const destino = cliente?.email ?? "";
+    if (!destino) return { enviado: false, motivo: "sin_email" };
+
+    const tipo = opts.tipoVencimiento ?? "TIE";
+    // dd/mm/aaaa en la lengua del cliente (fecha ISO → local es suficiente aquí).
+    const fecha = opts.fechaCaducidad ? new Date(opts.fechaCaducidad).toLocaleDateString(lang === "en" ? "en-GB" : lang) : null;
+    const body = fecha
+      ? t("notif.renov.body", { nombre, tipo, fecha, gestoria })
+      : t("notif.renov.bodySinFecha", { nombre, tipo, gestoria });
+
+    const html = emailLayout({
+      gestoria,
+      titulo: t("notif.renov.titulo"),
+      cuerpoHtml: `<p style="margin:0">${body}</p>`,
+      cta: link ? { url: link, label: t("notif.renov.boton") } : null,
+      footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: t("notif.renov.titulo"),
+    });
+
+    let estado: Estado = "SIMULADO";
+    if (resendDisponible()) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: t("notif.renov.subject", { gestoria }), html,
+        text: `${body} ${link ?? ""}`,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[avisoRenovacion email]", error.message ?? error);
+    }
+
+    const sufijo = estado === "ENVIADO" ? "" : estado === "ERROR" ? " — error" : " (simulado)";
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `📧 Aviso de renovación enviado al cliente${sufijo}`,
+    });
+    if (estado === "ERROR") return { enviado: false, motivo: "error" };
+    return { enviado: estado === "ENVIADO", motivo: estado === "SIMULADO" ? "simulado" : undefined };
+  } catch (e) {
+    console.error("[enviarAvisoRenovacion]", e instanceof Error ? e.message : e);
+    return { enviado: false, motivo: "error" };
+  }
+}

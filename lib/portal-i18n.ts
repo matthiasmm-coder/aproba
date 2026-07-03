@@ -255,6 +255,25 @@ const UI: Record<string, Tr> = {
   "notif.recDocs.intro": { es: "Hola {nombre}, te recordamos que para continuar con tu trámite todavía faltan estos documentos:", en: "Hi {nombre}, a reminder that to continue with your procedure these documents are still missing:", fr: "Bonjour {nombre}, pour rappel, pour continuer ta démarche il manque encore ces documents :", it: "Ciao {nombre}, ti ricordiamo che per continuare la pratica mancano ancora questi documenti:", de: "Hallo {nombre}, zur Erinnerung: Für deinen Antrag fehlen noch diese Dokumente:" },
   "notif.recDocs.outro": { es: "Pulsa el botón y súbelos en tu expediente. Es necesario para poder avanzar.", en: "Tap the button and upload them in your file. It's needed to move forward.", fr: "Clique sur le bouton et dépose-les dans ton dossier. C'est nécessaire pour avancer.", it: "Premi il pulsante e caricali nella tua pratica. È necessario per andare avanti.", de: "Tippe auf die Schaltfläche und lade sie in deinem Antrag hoch. Das ist nötig, um fortzufahren." },
 
+  // ── Vigía: renovación iniciada por la gestoría ──────────────────────────────
+  "notif.renov.subject": { es: "Tu renovación está en marcha · {gestoria}", en: "Your renewal is underway · {gestoria}", fr: "Ton renouvellement est lancé · {gestoria}", it: "Il tuo rinnovo è in corso · {gestoria}", de: "Deine Verlängerung ist unterwegs · {gestoria}" },
+  "notif.renov.titulo": { es: "Es hora de renovar tu tarjeta", en: "It's time to renew your card", fr: "C'est le moment de renouveler ta carte", it: "È ora di rinnovare la tua carta", de: "Zeit, deine Karte zu verlängern" },
+  "notif.renov.body": {
+    es: "Hola {nombre}, tu {tipo} caduca el {fecha}. {gestoria} ya ha iniciado tu renovación: pulsa el botón, revisa tus datos y sube los documentos que se te pidan.",
+    en: "Hi {nombre}, your {tipo} expires on {fecha}. {gestoria} has already started your renewal: tap the button, review your details and upload the requested documents.",
+    fr: "Bonjour {nombre}, ta {tipo} expire le {fecha}. {gestoria} a déjà lancé ton renouvellement : clique sur le bouton, vérifie tes informations et dépose les documents demandés.",
+    it: "Ciao {nombre}, la tua {tipo} scade il {fecha}. {gestoria} ha già avviato il tuo rinnovo: premi il pulsante, controlla i tuoi dati e carica i documenti richiesti.",
+    de: "Hallo {nombre}, deine {tipo} läuft am {fecha} ab. {gestoria} hat deine Verlängerung bereits gestartet: Tippe auf die Schaltfläche, prüfe deine Daten und lade die angeforderten Dokumente hoch.",
+  },
+  "notif.renov.bodySinFecha": {
+    es: "Hola {nombre}, tu {tipo} caduca pronto. {gestoria} ya ha iniciado tu renovación: pulsa el botón, revisa tus datos y sube los documentos que se te pidan.",
+    en: "Hi {nombre}, your {tipo} expires soon. {gestoria} has already started your renewal: tap the button, review your details and upload the requested documents.",
+    fr: "Bonjour {nombre}, ta {tipo} expire bientôt. {gestoria} a déjà lancé ton renouvellement : clique sur le bouton, vérifie tes informations et dépose les documents demandés.",
+    it: "Ciao {nombre}, la tua {tipo} scade presto. {gestoria} ha già avviato il tuo rinnovo: premi il pulsante, controlla i tuoi dati e carica i documenti richiesti.",
+    de: "Hallo {nombre}, deine {tipo} läuft bald ab. {gestoria} hat deine Verlängerung bereits gestartet: Tippe auf die Schaltfläche, prüfe deine Daten und lade die angeforderten Dokumente hoch.",
+  },
+  "notif.renov.boton": { es: "Empezar mi renovación", en: "Start my renewal", fr: "Commencer mon renouvellement", it: "Inizia il mio rinnovo", de: "Verlängerung starten" },
+
   // ── Vue « ya completado » (lien initial /j après l'onboarding) ─────────────
   "done.titulo": { es: "Ya has enviado tu solicitud", en: "Your request is already sent", fr: "Votre demande a déjà été envoyée", it: "La tua richiesta è già stata inviata", de: "Dein Antrag wurde bereits gesendet" },
   "done.intro": {

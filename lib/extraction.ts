@@ -112,6 +112,9 @@ export type ResultadoExtraccion = {
   confianzaGlobal: number;
   legibilidad: "legible" | "parcial" | "ilegible";
   campos: { label: string; value: string }[];
+  // Vigía: caducidad del documento (AAAA-MM-DD) expuesta directamente — antes solo
+  // vivía dentro de `campos` (label "Caducidad") y se tiraba tras mostrarla.
+  fechaCaducidad: string | null;
   alertas: string[];
   modelo: string;
   inputTokens: number;
@@ -173,6 +176,7 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
     confianzaGlobal: cruda.confianza_global ?? 0,
     legibilidad: cruda.legibilidad ?? "ilegible",
     campos,
+    fechaCaducidad: typeof cruda.fecha_caducidad === "string" && cruda.fecha_caducidad ? cruda.fecha_caducidad : null,
     alertas: cruda.alertas ?? [],
     modelo: MODELO_EXTRACTION,
     inputTokens: res.usage.input_tokens,

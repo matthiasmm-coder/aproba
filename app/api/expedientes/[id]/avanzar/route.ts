@@ -6,6 +6,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
+import { sembrarVencimiento, cerrarCicloRenovacion, MESES_VALIDEZ } from "@/lib/vencimientos";
 import type { ExpedienteEstado } from "@/lib/types";
 
 // État-machine du cycle de vie post-documents.
@@ -44,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const admin = createSupabaseAdmin();
-  const { data: w } = await admin.from("Expediente").select("workspaceId").eq("id", id).maybeSingle();
+  const { data: w } = await admin.from("Expediente").select("workspaceId, clienteId, tipo, familiaId").eq("id", id).maybeSingle();
   const ws = w?.workspaceId as string | undefined;
   const baseUrl = baseUrlFromRequest(req);
 
@@ -97,6 +98,51 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     if (ws) await dispararAviso(admin, { workspaceId: ws, expedienteId: id, clave: tr.aviso, baseUrl });
   } catch { /* ignore */ }
+
+  // ── VIGÍA: renovación DENEGADA → el vencimiento vinculado vuelve a PENDIENTE ──
+  // (si no, quedaría TRAMITANDO para siempre y el radar se apagaría — la tarjeta
+  //  caduca igualmente y el gestor debe poder reintentar).
+  if (tr.hacia === "RECHAZADO" && w && String(w.tipo) === "RENOVACION") {
+    try {
+      await admin
+        .from("Vencimiento")
+        .update({ estado: "PENDIENTE", expedienteRenovacionId: null, updatedAt: new Date().toISOString() })
+        .eq("expedienteRenovacionId", id)
+        .eq("estado", "TRAMITANDO");
+    } catch (e) {
+      console.error("[vigia rechazo]", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // ── VIGÍA: trámite FINALIZADO → sembrar el vencimiento de la tarjeta nueva ──
+  // (fecha estimada = hoy + validez legal del trámite). Si era una RENOVACIÓN iniciada
+  // desde Vigía, su vencimiento pasa antes a HECHO — así el ciclo se encadena solo.
+  // Familiar: una tarjeta por solicitante → un vencimiento por solicitante.
+  if (tr.hacia === "FINALIZADO" && ws && w) {
+    try {
+      const tipoTramite = String(w.tipo ?? "OTRO");
+      if (tipoTramite === "RENOVACION") {
+        await cerrarCicloRenovacion(admin, { expedienteRenovacionId: id, workspaceId: ws, clienteId: String(w.clienteId), tipoTramite });
+      }
+      const meses = MESES_VALIDEZ[tipoTramite] ?? null;
+      if (meses) {
+        const fecha = new Date();
+        fecha.setUTCMonth(fecha.getUTCMonth() + meses);
+        let titulares: string[] = [String(w.clienteId)];
+        if (w.familiaId) {
+          // workspaceId además del familiaId: defensa en profundidad multi-tenant.
+          const { data: sols } = await admin.from("Cliente").select("id").eq("familiaId", w.familiaId).eq("workspaceId", ws).eq("esSolicitante", true);
+          if (sols?.length) titulares = sols.map((s) => String(s.id));
+        }
+        for (const clienteId of titulares) {
+          // ESTIMADA: nunca pisa una fecha real ya extraída de un TIE.
+          await sembrarVencimiento(admin, { workspaceId: ws, clienteId, fecha: fecha.toISOString(), tipo: "TIE", expedienteId: id, fuente: "ESTIMADA" });
+        }
+      }
+    } catch (e) {
+      console.error("[vigia finalizar]", e instanceof Error ? e.message : e); // jamás rompe la transición
+    }
+  }
 
   return NextResponse.json({ ok: true, estado: tr.hacia });
 }

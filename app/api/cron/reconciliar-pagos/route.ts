@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchStripeKeyDeWorkspace, stripeConClave, marcarFacturaPagada } from "@/lib/cobros-tarjeta";
 import { enviarConfirmacionPago } from "@/lib/notificaciones";
+import { escanearVencimientos } from "@/lib/vencimientos";
 
 // Cron de Vercel (ver vercel.json): reconcilia los pagos con TARJETA que el redirect a
 // /pagar/exito no llegó a confirmar (cliente cerró la pestaña, perdió la red…). Sin esto,
@@ -68,7 +69,7 @@ export async function GET(req: Request) {
 
   const admin = createSupabaseAdmin();
   // Respuesta MINIMALISTA (contadores): nada de ids de workspace/factura en el JSON.
-  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0 };
+  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0, vigia: { avisados: 0, workspaces: 0 } };
 
   // Workspaces con cobro con tarjeta activado. Si la tabla no está migrada → nada que hacer.
   let cuentas: { workspaceId: string }[] = [];
@@ -173,6 +174,15 @@ export async function GET(req: Request) {
       console.error(`[reconciliar-pagos] workspace ${workspaceId}:`, msg);
       resumen.errores += 1;
     }
+  }
+
+  // ── VIGÍA: mismo tick diario → avisar al gestor de los vencimientos próximos ──
+  // (Vercel Hobby limita el nº de crons: compartimos la invocación. La lógica vive en
+  //  lib/vencimientos.ts y también se puede lanzar a mano vía /api/cron/vencimientos.)
+  try {
+    resumen.vigia = await escanearVencimientos(admin);
+  } catch (e) {
+    console.error("[cron vigia]", e instanceof Error ? e.message : e);
   }
 
   return NextResponse.json(resumen);

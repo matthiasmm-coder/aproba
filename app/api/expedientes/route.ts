@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { limiteExpedientes } from "@/lib/planes";
-import { stripeDisponible, cobrarExpedienteExtra } from "@/lib/billing";
+import { cobrarOverageSiProcede } from "@/lib/overage";
 
 // Creación de un expediente DESDE EL SERVIDOR (antes era client-side). Se hace aquí para
 // poder decidir, de forma autoritativa y no falsificable, el cobro del excedente: si el
@@ -131,29 +130,8 @@ export async function POST(req: Request) {
   ]);
 
   // ── Cobro del excedente (best-effort; jamás rompe la creación) ──
-  let extra = false;
-  try {
-    const { data: sub } = await admin
-      .from("Subscription")
-      .select("plan, estado, modoPrueba, stripeCustomerId")
-      .eq("workspaceId", workspaceId)
-      .maybeSingle();
-    const enPrueba = sub?.estado === "TRIAL" || sub?.modoPrueba === true;
-    // Solo se cobra a un despacho con suscripción ACTIVA de pago (no prueba) y Stripe listo.
-    if (sub && !enPrueba && sub.estado === "ACTIVA" && sub.stripeCustomerId && stripeDisponible()) {
-      // Ventana en UTC (determinista, igual en cliente y servidor sea cual sea la TZ).
-      const ahora = new Date();
-      const inicioMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1)).toISOString();
-      const { count } = await admin.from("Expediente").select("*", { count: "exact", head: true }).eq("workspaceId", workspaceId).gte("createdAt", inicioMes);
-      if ((count ?? 0) > limiteExpedientes(sub.plan)) {
-        await cobrarExpedienteExtra({ customerId: sub.stripeCustomerId, expedienteId, referencia });
-        extra = true;
-      }
-    }
-  } catch (e) {
-    // best-effort: nunca rompe la creación. Log estructurado para reconciliar cobros perdidos.
-    console.error(`[expediente-overage] cobro extra falló ws=${workspaceId} exp=${expedienteId} ref=${referencia}:`, e instanceof Error ? e.message : e);
-  }
+  // Lógica compartida con «Iniciar renovación» (Vigía) — ver lib/overage.ts.
+  const extra = await cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia });
 
   return NextResponse.json({ ok: true, expedienteId, referencia, portalToken, extra, familiar: Boolean(expedienteFamiliaId) });
 }

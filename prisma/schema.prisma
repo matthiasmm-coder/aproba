@@ -144,6 +144,8 @@ model Workspace {
   cuentas      CuentaBancaria[]
   stripeCuenta StripeCuenta?
   citasPrevias CitaPrevia[]
+  vencimientos Vencimiento[]
+  docsSueltos  DocumentoCliente[]
 }
 
 // Comptes bancaires du despacho (réception des paiements clients).
@@ -289,6 +291,9 @@ model Cliente {
   familiaId       String?
   parentesco      String? // TITULAR|CONYUGE|PAREJA|HIJO|ASCENDIENTE|OTRO
   esSolicitante   Boolean  @default(false) // expediente familiar: el trámite es para esta persona
+  // Vigía: caducidad extraída por la IA del último TIE validado (AAAA-MM-DD, machine-written).
+  fechaCaducidad  String?
+  tipoVencimiento String? // qué caduca (TIE, …)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -298,9 +303,34 @@ model Cliente {
   documentos   Documento[]
   docsSueltos  DocumentoCliente[]
   citasPrevias CitaPrevia[]
+  vencimientos Vencimiento[]
 
   @@index([workspaceId])
   @@index([familiaId])
+}
+
+// VIGÍA — un vencimiento = "a este cliente le caduca X el día D". Sembrado al validar
+// un TIE (fecha extraída por la IA) o al FINALIZAR un expediente (fecha estimada por
+// tipo de trámite). Estados: PENDIENTE → AVISADO → TRAMITANDO → HECHO (texto, sin enum).
+model Vencimiento {
+  id                     String   @id @default(cuid())
+  workspaceId            String
+  clienteId              String
+  expedienteId           String? // expediente que lo sembró (FINALIZADO)
+  expedienteRenovacionId String? // expediente de renovación creado desde Vigía
+  fecha                  DateTime
+  tipo                   String   @default("TIE")
+  estado                 String   @default("PENDIENTE")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  workspace            Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cliente              Cliente     @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  expediente           Expediente? @relation("VencimientoOrigen", fields: [expedienteId], references: [id], onDelete: SetNull)
+  expedienteRenovacion Expediente? @relation("VencimientoRenovacion", fields: [expedienteRenovacionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, fecha])
+  @@index([clienteId])
 }
 
 // Documento SUELTO de un cliente (subido por el gestor desde la ficha del cliente, sin
@@ -411,6 +441,8 @@ model Expediente {
   formularios Formulario[]
   eventos     ExpedienteEvento[]
   facturas    Factura[]
+  vencimientosSembrados  Vencimiento[] @relation("VencimientoOrigen")
+  vencimientosRenovacion Vencimiento[] @relation("VencimientoRenovacion")
 
   @@unique([workspaceId, referencia])
   @@index([workspaceId, estado])

@@ -5,6 +5,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { labelADocTipo, DOC_A_TIPO_IA, DOC_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
+import { sembrarVencimiento, fechaCaducidadISO } from "@/lib/vencimientos";
 
 // Upload d'un document depuis le portail client (/j/[token]) :
 // fichier → Supabase Storage (bucket privé `documentos`) → Documento (PROCESANDO)
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   // Expediente authentifié par le token du portail.
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, workspaceId, tipo, estado, referencia, familiaId")
+    .select("id, workspaceId, clienteId, tipo, estado, referencia, familiaId")
     .eq("portalToken", token)
     .maybeSingle();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
@@ -133,6 +134,22 @@ export async function POST(req: Request) {
       ? `IA validó: ${docLabel} (${pct} %)`
       : `IA rechazó: ${docLabel} — ${alertas[0] ?? "ilegible"}`,
   });
+
+  // ── VIGÍA: TIE validado → persistir su caducidad en el Cliente + sembrar el vencimiento.
+  // (Hoy esa fecha se extraía y se tiraba.) Dueño del doc: el miembro (familiar) o el titular.
+  if (resultado.estado === "VALIDADO" && resultado.tipoDetectado === "tarjeta_residencia_tie") {
+    const fechaISO = fechaCaducidadISO(resultado.fechaCaducidad);
+    const duenoId = clienteId || (exp.clienteId as string | null);
+    if (fechaISO && duenoId) {
+      // Se persiste la fecha VALIDADA (AAAA-MM-DD del parse), nunca el texto bruto de la IA.
+      const { error: eCad } = await admin
+        .from("Cliente")
+        .update({ fechaCaducidad: fechaISO.slice(0, 10), tipoVencimiento: "TIE" })
+        .eq("id", duenoId);
+      if (eCad && !/column|does not exist|schema cache/i.test(eCad.message)) console.error("[vigia caducidad]", eCad.message);
+      await sembrarVencimiento(admin, { workspaceId: exp.workspaceId, clienteId: duenoId, fecha: fechaISO, tipo: "TIE", expedienteId: exp.id });
+    }
+  }
 
   await dispararAviso(admin, {
     workspaceId: exp.workspaceId, expedienteId: exp.id,
