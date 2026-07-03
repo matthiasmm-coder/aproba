@@ -58,23 +58,36 @@ export async function ensureCustomer(datos: {
 }
 
 // lookup_key Stripe ↔ plan Aproba (montants gérés côté Stripe par le setup script).
+// Anual = 10 × mensual (« 2 meses gratis », comme la landing).
+export type Intervalo = "mensual" | "anual";
 export const PLAN_LOOKUP: Record<PlanId, string> = {
   STARTER: "aproba_starter_mensual",
   PRO: "aproba_pro_mensual",
   BUSINESS: "aproba_business_mensual",
 };
+export const PLAN_LOOKUP_ANUAL: Record<PlanId, string> = {
+  STARTER: "aproba_starter_anual",
+  PRO: "aproba_pro_anual",
+  BUSINESS: "aproba_business_anual",
+};
 export const LOOKUP_PLAN: Record<string, PlanId> = {
   aproba_starter_mensual: "STARTER",
   aproba_pro_mensual: "PRO",
   aproba_business_mensual: "BUSINESS",
+  aproba_starter_anual: "STARTER",
+  aproba_pro_anual: "PRO",
+  aproba_business_anual: "BUSINESS",
 };
 
 // Cache module : lookup_key → price id (une seule liste par process).
 const precios = new Map<string, string>();
-export async function precioDePlan(plan: PlanId): Promise<string> {
-  const lk = PLAN_LOOKUP[plan];
+export async function precioDePlan(plan: PlanId, intervalo: Intervalo = "mensual"): Promise<string> {
+  const lk = intervalo === "anual" ? PLAN_LOOKUP_ANUAL[plan] : PLAN_LOOKUP[plan];
   if (!precios.has(lk)) {
-    const res = await getStripe().prices.list({ lookup_keys: Object.values(PLAN_LOOKUP), limit: 10 });
+    const res = await getStripe().prices.list({
+      lookup_keys: [...Object.values(PLAN_LOOKUP), ...Object.values(PLAN_LOOKUP_ANUAL)],
+      limit: 20,
+    });
     for (const p of res.data) if (p.lookup_key) precios.set(p.lookup_key, p.id);
   }
   const id = precios.get(lk);

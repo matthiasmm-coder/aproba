@@ -101,7 +101,9 @@ export async function POST(req: Request) {
   // simultáneas calculan el mismo nº → violación de unicidad → recomputa en vez de 500 crudo).
   const year = new Date().getFullYear();
   const expedienteId = uuid();
-  const portalToken = uuid().replace(/-/g, "").slice(0, 10);
+  // 32 hex = 128 bits: el token del portal es la ÚNICA credencial de /j y /s (protege
+  // pasaporte/NIE). Los tokens antiguos de 10 chars siguen funcionando (columna TEXT).
+  const portalToken = uuid().replace(/-/g, "");
   let referencia = "";
   for (let intento = 0; ; intento++) {
     const { data: last } = await admin.from("Expediente").select("referencia").eq("workspaceId", workspaceId).like("referencia", `EXP-${year}-%`).order("referencia", { ascending: false }).limit(1).maybeSingle();

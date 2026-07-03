@@ -152,8 +152,11 @@ export async function POST(req: Request) {
       try {
         const stripe = getStripe();
         const s = await stripe.subscriptions.retrieve(stripeSubId);
+        // Conserva el ciclo actual: un abonado ANUAL que cambia de plan sigue en anual
+        // (sin esto pasaría silenciosamente a mensual).
+        const ciclo = s.items.data[0]?.price?.recurring?.interval === "year" ? "anual" as const : "mensual" as const;
         await stripe.subscriptions.update(stripeSubId, {
-          items: [{ id: s.items.data[0].id, price: await precioDePlan(nuevo as PlanId) }],
+          items: [{ id: s.items.data[0].id, price: await precioDePlan(nuevo as PlanId, ciclo) }],
           proration_behavior: "create_prorations",
         });
       } catch (e) {

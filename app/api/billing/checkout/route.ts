@@ -14,8 +14,10 @@ export async function POST(req: Request) {
   if (!stripeDisponible()) return fail("La facturación todavía no está configurada en este entorno.", 503);
 
   // Destination de retour (par défaut Ajustes ; l'onboarding passe "/app").
-  const body = (await req.json().catch(() => ({}))) as { volverA?: string };
+  const body = (await req.json().catch(() => ({}))) as { volverA?: string; intervalo?: string };
   const volverA = typeof body.volverA === "string" && body.volverA.startsWith("/") ? body.volverA : "/app/ajustes";
+  // Ciclo de facturación elegido por el usuario (anual = «2 meses gratis» de la landing).
+  const intervalo = body.intervalo === "anual" ? "anual" : "mensual";
 
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
       await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
     }
 
-    const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER");
+    const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER", intervalo);
 
     // Conserver les jours d'essai restants (carte non débitée avant la fin de l'essai).
     // Stripe rejette un trial_end à moins de ~48 h dans le futur → on défend.
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
       cancel_url: `${origin}${volverA}?billing=cancelado`,
     }, {
       // Évite deux sessions sur un double-clic dans la même minute.
-      idempotencyKey: `co_${ws}_${sub.plan}_${Math.floor(Date.now() / 60000)}`,
+      idempotencyKey: `co_${ws}_${sub.plan}_${intervalo}_${Math.floor(Date.now() / 60000)}`,
     });
 
     return NextResponse.json({ url: session.url });

@@ -34,7 +34,11 @@ export default async function PagoExito({ searchParams }: { searchParams: Promis
         if (key) {
           try {
             const sess = await stripeConClave(key).checkout.sessions.retrieve(s);
-            if (sess.payment_status === "paid") {
+            // La sesión debe (1) estar pagada, (2) ser DE ESTA factura (no otra sesión del
+            // mismo Stripe pegada en la URL), (3) coincidir con el total ACTUAL — una sesión
+            // vieja puede llevar un importe anterior a una corrección de la factura.
+            const importeOk = sess.amount_total === Math.round(Number(fac.total) * 100) && sess.currency === "eur";
+            if (sess.payment_status === "paid" && sess.metadata?.facturaId === String(fac.id) && importeOk) {
               const r = await marcarFacturaPagada(admin, String(fac.id), "TARJETA");
               pagada = true;
               // Confirmación al cliente (sin IBAN) solo en la transición real a pagada.

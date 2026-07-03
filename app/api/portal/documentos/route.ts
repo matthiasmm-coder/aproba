@@ -11,6 +11,10 @@ import { labelADocTipo, DOC_A_TIPO_IA, DOC_LABEL, TIPO_A_SERVICIO } from "@/lib/
 // → Claude Vision (extraction + qualité) → VALIDADO/RECHAZADO + Extraction
 // → événements dans l'historial → progression de l'expediente si tout est validé.
 
+// Upload + Vision peut dépasser le timeout Vercel par défaut (10 s) → le client
+// verrait « Algo ha fallado » alors que l'extraction tournait encore.
+export const maxDuration = 60;
+
 const MAX_BYTES = 8 * 1024 * 1024;
 const TIPOS_OK: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" };
 const uuid = () => crypto.randomUUID();

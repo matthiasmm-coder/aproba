@@ -30,6 +30,23 @@ export async function POST(req: Request) {
     const ws = sub.metadata?.workspaceId;
     const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
 
+    // Suscripción ANUAL: sin esto, los invoice items del overage (3 €/expediente) se
+    // quedarían pendientes hasta el RENOVAMIENTO (+12 meses) — o se perderían si la
+    // gestoría cancela antes. Con pending_invoice_item_interval mensual, Stripe los
+    // factura cada mes. Idempotente: solo se pone si falta (el update re-dispara este
+    // webhook una vez, y entonces ya no entra).
+    if (event.type !== "customer.subscription.deleted") {
+      const esAnual = sub.items?.data?.[0]?.price?.recurring?.interval === "year";
+      const yaConfigurado = Boolean((sub as unknown as { pending_invoice_item_interval?: unknown }).pending_invoice_item_interval);
+      if (esAnual && !yaConfigurado) {
+        try {
+          await getStripe().subscriptions.update(sub.id, { pending_invoice_item_interval: { interval: "month" } });
+        } catch (e) {
+          console.error("[stripe webhook] pending_invoice_item_interval:", e instanceof Error ? e.message : e);
+        }
+      }
+    }
+
     const query = admin.from("Subscription").update(patch);
     const { error } = ws
       ? await query.eq("workspaceId", ws)

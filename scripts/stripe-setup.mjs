@@ -27,34 +27,58 @@ const stripe = new Stripe(SECRET);
 const modo = SECRET.startsWith("sk_test") ? "TEST" : "LIVE";
 console.log(`Stripe en mode ${modo}\n`);
 
+// Mensual + anual (2 meses gratis: anual = 10 × mensual, como en la landing).
+// Ambos precios cuelgan del MISMO producto por plan.
 const PLANES = [
-  { lookup: "aproba_starter_mensual", nombre: "Aproba Starter", importe: 4900 },
-  { lookup: "aproba_pro_mensual", nombre: "Aproba Pro", importe: 9900 },
-  { lookup: "aproba_business_mensual", nombre: "Aproba Business", importe: 19900 },
+  { lookup: "aproba_starter_mensual", anualLookup: "aproba_starter_anual", nombre: "Aproba Starter", importe: 4900, importeAnual: 49000 },
+  { lookup: "aproba_pro_mensual", anualLookup: "aproba_pro_anual", nombre: "Aproba Pro", importe: 9900, importeAnual: 99000 },
+  { lookup: "aproba_business_mensual", anualLookup: "aproba_business_anual", nombre: "Aproba Business", importe: 19900, importeAnual: 199000 },
 ];
 
-const existentes = await stripe.prices.list({ lookup_keys: PLANES.map((p) => p.lookup), limit: 10 });
+const todosLookups = PLANES.flatMap((p) => [p.lookup, p.anualLookup]);
+const existentes = await stripe.prices.list({ lookup_keys: todosLookups, limit: 20 });
 const porLookup = new Map(existentes.data.map((p) => [p.lookup_key, p]));
 
 for (const plan of PLANES) {
   const actual = porLookup.get(plan.lookup);
+  let productoId;
   if (actual) {
-    console.log(`✓ ${plan.nombre} — precio ya existe (${actual.id}, ${actual.unit_amount / 100}€/mes)`);
+    productoId = typeof actual.product === "string" ? actual.product : actual.product.id;
+    console.log(`✓ ${plan.nombre} — precio mensual ya existe (${actual.id}, ${actual.unit_amount / 100}€/mes)`);
     if (actual.unit_amount !== plan.importe) {
       console.log(`  ⚠ importe en Stripe ${actual.unit_amount / 100}€ ≠ landing ${plan.importe / 100}€ — revisar a mano`);
     }
-    continue;
+  } else {
+    const producto = await stripe.products.create({ name: plan.nombre, metadata: { app: "aproba" } });
+    productoId = producto.id;
+    const precio = await stripe.prices.create({
+      product: productoId,
+      unit_amount: plan.importe,
+      currency: "eur",
+      recurring: { interval: "month" },
+      lookup_key: plan.lookup,
+      transfer_lookup_key: true,
+    });
+    console.log(`+ ${plan.nombre} creado — ${precio.id} (${plan.importe / 100}€/mes, lookup ${plan.lookup})`);
   }
-  const producto = await stripe.products.create({ name: plan.nombre, metadata: { app: "aproba" } });
-  const precio = await stripe.prices.create({
-    product: producto.id,
-    unit_amount: plan.importe,
-    currency: "eur",
-    recurring: { interval: "month" },
-    lookup_key: plan.lookup,
-    transfer_lookup_key: true,
-  });
-  console.log(`+ ${plan.nombre} creado — ${precio.id} (${plan.importe / 100}€/mes, lookup ${plan.lookup})`);
+
+  const anual = porLookup.get(plan.anualLookup);
+  if (anual) {
+    console.log(`✓ ${plan.nombre} — precio anual ya existe (${anual.id}, ${anual.unit_amount / 100}€/año)`);
+    if (anual.unit_amount !== plan.importeAnual) {
+      console.log(`  ⚠ importe anual en Stripe ${anual.unit_amount / 100}€ ≠ landing ${plan.importeAnual / 100}€ — revisar a mano`);
+    }
+  } else {
+    const precioAnual = await stripe.prices.create({
+      product: productoId,
+      unit_amount: plan.importeAnual,
+      currency: "eur",
+      recurring: { interval: "year" },
+      lookup_key: plan.anualLookup,
+      transfer_lookup_key: true,
+    });
+    console.log(`+ ${plan.nombre} anual creado — ${precioAnual.id} (${plan.importeAnual / 100}€/año, lookup ${plan.anualLookup})`);
+  }
 }
 
 // Customer Portal : configuration par défaut si le compte n'en a pas encore.

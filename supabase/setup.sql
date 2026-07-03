@@ -524,7 +524,7 @@ ALTER TABLE "Expediente" ADD COLUMN "portalToken" TEXT;
 CREATE UNIQUE INDEX "Expediente_portalToken_key" ON "Expediente"("portalToken") WHERE "portalToken" IS NOT NULL;
 
 -- ───────────────────────── MIGRATION 2026-06-12 : facturation Stripe ─────────────────────────
--- L'essai gratuit a désormais une vraie échéance : create_workspace pose trialEndsAt = J+14.
+-- L'essai gratuit a désormais une vraie échéance : create_workspace pose trialEndsAt = J+30.
 -- (Les colonnes stripeCustomerId / stripeSubscriptionId / trialEndsAt / currentPeriodEnd
 --  existaient déjà dans le schéma initial — seul ce remplacement de fonction est nécessaire.)
 create or replace function public.create_workspace(p_nombre text, p_tipo text default 'GESTORIA')
@@ -547,7 +547,7 @@ begin
   values (gen_random_uuid()::text, v_uid, v_ws, 'OWNER', now());
 
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
-  values (gen_random_uuid()::text, v_ws, 'STARTER', 'TRIAL', now() + interval '15 days', now());
+  values (gen_random_uuid()::text, v_ws, 'STARTER', 'TRIAL', now() + interval '30 days', now());
 
   return v_ws;
 end;
@@ -596,7 +596,7 @@ begin
   insert into public."Membership" (id, "userId", "workspaceId", role, "createdAt")
     values (gen_random_uuid()::text, v_uid, v_ws, 'OWNER', now());
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
-    values (gen_random_uuid()::text, v_ws, coalesce(nullif(p_plan,''),'STARTER')::"Plan", 'TRIAL', now() + interval '15 days', now());
+    values (gen_random_uuid()::text, v_ws, coalesce(nullif(p_plan,''),'STARTER')::"Plan", 'TRIAL', now() + interval '30 days', now());
   return v_ws;
 end; $$;
 grant execute on function public.create_workspace(text, text, text) to authenticated;

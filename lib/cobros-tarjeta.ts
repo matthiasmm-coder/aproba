@@ -91,8 +91,17 @@ export async function marcarFacturaPagada(
   const { data: f } = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
   if (!f) return null;
   if (f.estado === "PAGADA") return "ya";
-  const { error } = await admin.from("Factura").update({ estado: "PAGADA", metodoPago: metodo }).eq("id", facturaId);
+  // Update CONDICIONAL (.neq estado PAGADA) + .select(): si dos llamadores concurren
+  // (redirect de Stripe + clic manual del gestor, o el cron), solo UNO ve la transición
+  // → solo uno envía la confirmación al cliente.
+  const { data: upd, error } = await admin
+    .from("Factura")
+    .update({ estado: "PAGADA", metodoPago: metodo })
+    .eq("id", facturaId)
+    .neq("estado", "PAGADA")
+    .select("id");
   if (error) return null;
+  if (!upd?.length) return "ya"; // otro llamador la marcó entre el select y el update
   if (f.expedienteId) {
     const via = metodo === "TARJETA" ? "con tarjeta" : metodo === "EFECTIVO" ? "en efectivo" : "por transferencia";
     const emoji = metodo === "TARJETA" ? "💳" : "🏦";

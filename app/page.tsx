@@ -59,8 +59,8 @@ const CON = [
 ];
 
 const PLANES = [
-  { nombre: "Starter", precio: "49", anual: "490", incluidos: "25", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
-  { nombre: "Pro", precio: "99", anual: "990", incluidos: "60", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Generación automática de facturas", "Portal del cliente con tu marca", "Facturación integrada", "Hasta 5 usuarios"], destacado: true },
+  { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
+  { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Generación automática de facturas", "Portal del cliente con tu marca", "Facturación integrada", "Hasta 5 usuarios"], destacado: true },
   { nombre: "Business", precio: "199", anual: "1.990", incluidos: "100", para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Multi-oficina", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
 ];
 
@@ -183,7 +183,7 @@ export default function Landing() {
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
               <Link href="/signup" className="w-full rounded-lg bg-aproba-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:w-auto">
-                Empieza gratis 15 días
+                Prueba 1 mes gratis
               </Link>
               <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
                 Ver cómo funciona
@@ -316,7 +316,7 @@ export default function Landing() {
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Precios por volumen, no por profesión</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Empieza gratis 15 días, sin permanencia. Precios sin IVA.</p>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Empieza con 1 mes gratis, sin permanencia. Precios sin IVA.</p>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {PLANES.map((p) => (
               <div key={p.nombre} className={`relative flex h-full flex-col rounded-2xl border p-7 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
@@ -362,7 +362,7 @@ export default function Landing() {
           <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
           <p className="mx-auto mt-3 max-w-lg text-aproba-100">Únete a las gestorías que ya validan documentos en segundos, no en horas.</p>
           <Link href="/signup" className="mt-8 inline-block rounded-lg bg-white px-6 py-3 text-sm font-semibold text-aproba-700 shadow-sm transition hover:bg-aproba-50">
-            Empieza gratis 15 días
+            Prueba 1 mes gratis
           </Link>
         </div>
       </section>
