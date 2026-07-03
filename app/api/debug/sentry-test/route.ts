@@ -2,18 +2,19 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
 // ⚠️ RUTA DE PRUEBA TEMPORAL — verificar que Sentry recibe eventos en prod.
-// Protegida por CRON_SECRET (?key=) para que nadie la dispare al azar.
-// Lanza un error controlado, lo captura explícitamente y hace flush antes de responder
-// (en serverless el proceso puede terminar antes de que Sentry envíe el evento).
-// BORRAR tras confirmar que aparece en Sentry.
+// Protegida por un NONCE de usar y tirar (no es ningún secreto real: solo abre esta
+// ruta desechable, así nunca ponemos una credencial de verdad en una URL). Lanza un
+// error controlado, lo captura y hace flush antes de responder (en serverless el
+// proceso puede terminar antes de que Sentry envíe el evento).
+// BORRAR esta ruta tras confirmar que el evento aparece en Sentry.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NONCE = "37ddabaa78db2341"; // desechable; se va con la ruta
+
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const key = new URL(req.url).searchParams.get("key");
-  if (!secret || key !== secret) {
+  if (new URL(req.url).searchParams.get("t") !== NONCE) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
