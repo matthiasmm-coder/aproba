@@ -20,7 +20,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   const [q, setQ] = useState("");
   const [lanzando, setLanzando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [creado, setCreado] = useState<{ vencId: string; expedienteId: string; referencia: string } | null>(null);
+  const [creado, setCreado] = useState<{ vencId: string; expedienteId: string; referencia: string; factura: "enviada" | "sin_tarifa" | "fallo" } | null>(null);
 
   const grupos = useMemo<Grupo[]>(() => {
     const filtro = q.trim().toLowerCase();
@@ -37,21 +37,34 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   }, [vencimientos, q, t]);
 
   async function iniciar(v: VencimientoRow) {
+    // El clic dispara 3 efectos reales (expediente + aviso al cliente + anticipo):
+    // se anuncian ANTES — un mis-tap en el móvil no debe notificar a un cliente.
+    if (!window.confirm(
+      t("Se creará el expediente de renovación, se avisará a {nombre} en su idioma y, si el servicio tiene tarifa, se emitirá la factura de anticipo. ¿Continuar?").replace("{nombre}", v.clienteNombre),
+    )) return;
     setLanzando(v.id);
     setError(null);
     try {
       const res = await fetch(`/api/vencimientos/${v.id}/renovar`, { method: "POST" });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo iniciar la renovación."));
-      // Anticipo (mejor esfuerzo): si el servicio tiene tarifa, emite la factura + email IBAN.
+      // Anticipo: si el servicio tiene tarifa, emite la factura + email IBAN. El resultado
+      // se muestra de verdad (antes se silenciaba: el gestor no sabía si se cobró o no).
+      let factura: "enviada" | "sin_tarifa" | "fallo" = "sin_tarifa";
       if (d.expedienteId && !d.yaExistia) {
-        await fetch("/api/pagos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expedienteId: d.expedienteId, momento: "ANTICIPO" }),
-        }).catch(() => {});
+        try {
+          const rp = await fetch("/api/pagos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ expedienteId: d.expedienteId, momento: "ANTICIPO" }),
+          });
+          const dp = await rp.json().catch(() => ({}));
+          factura = rp.ok ? "enviada" : /no tiene pago configurado/i.test(String(dp.error ?? "")) ? "sin_tarifa" : "fallo";
+        } catch {
+          factura = "fallo";
+        }
       }
-      setCreado({ vencId: v.id, expedienteId: d.expedienteId, referencia: d.referencia ?? "" });
+      setCreado({ vencId: v.id, expedienteId: d.expedienteId, referencia: d.referencia ?? "", factura });
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo iniciar la renovación."));
@@ -83,7 +96,9 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {creado && (
         <p className="mt-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-700">
-          ✓ {t("Renovación iniciada")} — <Link href={`/app/expedientes/${creado.expedienteId}`} className="font-semibold underline">{creado.referencia || t("ver expediente")}</Link>. {t("El cliente ha recibido el enlace para revisar sus datos.")}
+          ✓ {t("Renovación iniciada")} — <Link href={`/app/expedientes/${creado.expedienteId}`} className="font-semibold underline">{creado.referencia || t("ver expediente")}</Link>. {t("El cliente ha recibido el enlace para revisar sus datos.")}{" "}
+          {creado.factura === "enviada" && t("Factura de anticipo emitida y enviada.")}
+          {creado.factura === "fallo" && <span className="font-semibold text-amber-700">{t("⚠ No se pudo emitir el anticipo — hazlo desde la ficha del expediente.")}</span>}
         </p>
       )}
 
@@ -112,7 +127,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
                       <button
                         onClick={() => iniciar(v)}
                         disabled={lanzando === v.id}
-                        className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                        className="min-h-[40px] shrink-0 rounded-lg bg-aproba-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
                       >
                         {lanzando === v.id ? t("Iniciando…") : t("Iniciar renovación")}
                       </button>

@@ -1,4 +1,5 @@
 import { fetchExpedientesResumen } from "@/lib/data/expedientes";
+import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
@@ -32,12 +33,13 @@ async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabase
 export default async function Dashboard() {
   const t = await getT();
   const supabase = await createSupabaseServer();
-  const [{ data: { user } }, expedientes, checklist, citas, clientes] = await Promise.all([
+  const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos] = await Promise.all([
     supabase.auth.getUser(),
     fetchExpedientesResumen(),
     fetchChecklist(supabase, t),
     fetchProximasCitas(),
     fetchClientesMin(),
+    fetchVencimientos(), // KPI «Caducan pronto» (Vigía visible desde Inicio)
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
   const items: DashItem[] = expedientes.map((e) => ({
@@ -47,11 +49,15 @@ export default async function Dashboard() {
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
+    fechaLimiteISO: e.fechaLimiteISO,
   }));
+  const proximos = vencimientos.filter((v) => v.estado !== "TRAMITANDO");
+  const caducanPronto = proximos.filter((v) => v.dias <= 60).length;
+  const caducadas = proximos.filter((v) => v.dias < 0).length;
   return (
     <>
       <OnboardingChecklist items={checklist} />
-      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} />
+      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} caducanPronto={caducanPronto} caducadas={caducadas} />
     </>
   );
 }

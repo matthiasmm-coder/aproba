@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, type Lang } from "@/lib/portal-i18n";
 
-export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string };
+export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean };
 
 const LANG_KEY = "aproba.portal.lang";
 const ORDEN: Record<string, number> = { BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3, PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4 };
@@ -41,6 +41,7 @@ export function Seguimiento({
 
   function elegirLang(l: Lang) {
     setLang(l);
+    document.documentElement.lang = l;
     try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
   }
 
@@ -74,9 +75,14 @@ export function Seguimiento({
       const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
       const data = await res.json();
       const ok = res.ok && data.estado === "VALIDADO";
-      setDocs((d) => d.map((x, j) => (j === i ? { ...x, status: ok ? "ok" : "rechazado" } : x)));
+      // El MOTIVO del rechazo (alertas de la IA) se muestra, como ya hace /j — «vuelve a
+      // subirlo» sin explicar por qué condena al migrante a repetir el mismo error.
+      const motivo = !ok ? String(data.alertas?.[0] ?? data.error ?? "") || undefined : undefined;
+      setDocs((d) => d.map((x, j) => (j === i ? { ...x, status: ok ? "ok" : "rechazado", motivo, errorRed: false } : x)));
     } catch {
-      setDocs((d) => d.map((x, j) => (j === i ? { ...x, status: "rechazado" } : x)));
+      // Fallo de RED ≠ documento rechazado: se conserva el estado y se pide reintentar
+      // (antes un timeout 4G se mostraba como «rechazado» → re-subidas en bucle).
+      setDocs((d) => d.map((x, j) => (j === i ? { ...x, errorRed: true } : x)));
     } finally {
       setSubiendo(null);
       pendienteRef.current = null;
@@ -84,7 +90,7 @@ export function Seguimiento({
   }
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="portal-mobile min-h-screen bg-cream-50">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
           <div className="flex items-center gap-2">
@@ -107,6 +113,15 @@ export function Seguimiento({
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{t("seg.titulo")}</h1>
         <p className="mt-2 text-slate-600">{t("seg.intro")}</p>
 
+        {/* Resolución desfavorable: la verdad, sobria y humana — nunca un timeline que
+            sugiere «Resolución favorable» inminente sobre un expediente denegado. */}
+        {estado === "RECHAZADO" && (
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5" role="alert">
+            <p className="text-sm font-bold text-red-800">{t("seg.rechazado.titulo")}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-red-700">{t("seg.rechazado.body", { gestoria })}</p>
+          </div>
+        )}
+
         {/* Milestones */}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.progreso")}</p>
@@ -114,16 +129,20 @@ export function Seguimiento({
             {MILESTONES.map((m, i) => {
               const done = idx >= m.at;
               const current = !done && (i === 0 || idx >= MILESTONES[i - 1].at);
+              // Expediente denegado: el jalón de resolución se muestra en rojo con la
+              // verdad («desfavorable»), y los siguientes desaparecen del camino.
+              const denegadoAqui = estado === "RECHAZADO" && m.key === "mil.resuelto";
+              if (estado === "RECHAZADO" && m.at > 5) return null;
               return (
                 <li key={m.key} className="flex gap-3">
                   <div className="flex flex-col items-center">
-                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-white transition-colors ${done ? "bg-aproba-600" : current ? "bg-amber-400" : "bg-slate-200"}`}>
-                      {done ? <Check className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-white transition-colors ${denegadoAqui ? "bg-red-500" : done ? "bg-aproba-600" : current ? "bg-amber-400" : "bg-slate-200"}`}>
+                      {denegadoAqui ? <span className="text-[10px] font-bold">✕</span> : done ? <Check className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
-                    {i < MILESTONES.length - 1 && <span className={`my-0.5 w-px flex-1 ${idx > m.at ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
+                    {i < MILESTONES.length - 1 && !(estado === "RECHAZADO" && m.at >= 5) && <span className={`my-0.5 w-px flex-1 ${idx > m.at ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
                   </div>
                   <div className="pb-4">
-                    <p className={`text-sm ${done ? "font-medium text-slate-800" : current ? "font-medium text-amber-700" : "text-slate-400"}`}>{t(m.key)}</p>
+                    <p className={`text-sm ${denegadoAqui ? "font-medium text-red-700" : done ? "font-medium text-slate-800" : current ? "font-medium text-amber-700" : "text-slate-400"}`}>{t(denegadoAqui ? "mil.desfavorable" : m.key)}</p>
                   </div>
                 </li>
               );
@@ -177,9 +196,13 @@ export function Seguimiento({
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-800">{docLabel(d.label, lang)}</p>
-                        <p className={`text-xs ${d.status === "ok" ? "text-aproba-700" : d.status === "rechazado" ? "text-red-600" : d.status === "procesando" ? "text-amber-600" : "text-slate-400"}`}>
-                          {d.status === "ok" ? t("seg.docOk") : d.status === "procesando" ? t("s2.analizando") : d.status === "rechazado" ? t("seg.docRechazado") : t("seg.docPendiente")}
+                        <p className={`text-xs ${d.errorRed ? "text-amber-700" : d.status === "ok" ? "text-aproba-700" : d.status === "rechazado" ? "text-red-600" : d.status === "procesando" ? "text-amber-600" : "text-slate-400"}`}>
+                          {d.errorRed ? t("seg.docReintenta") : d.status === "ok" ? t("seg.docOk") : d.status === "procesando" ? t("s2.analizando") : d.status === "rechazado" ? t("seg.docRechazado") : t("seg.docPendiente")}
                         </p>
+                        {/* Motivo del rechazo (alerta de la IA) — mismo trato que /j. */}
+                        {d.status === "rechazado" && d.motivo && !d.errorRed && (
+                          <p className="mt-0.5 text-xs leading-snug text-red-500">{d.motivo}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">

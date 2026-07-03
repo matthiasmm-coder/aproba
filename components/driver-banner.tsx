@@ -10,7 +10,7 @@ import type { ExpedienteEstado } from "@/lib/types";
 // avanza la máquina de estados (/api/expedientes/[id]/avanzar), navega a la herramienta
 // o copia el enlace del cliente. En los estados de espera, queda en gris (no accionable).
 export function DriverBanner({
-  id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, formulariosHref,
+  id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, formulariosHref, revision,
 }: {
   id: string;
   estado: ExpedienteEstado;
@@ -18,6 +18,9 @@ export function DriverBanner({
   citaQuien?: "cliente" | "gestor";
   portalToken?: string | null;
   formulariosHref: string;
+  // Última revisión «como Extranjería» (Centinela) — el driver la integra en el flujo:
+  // sin revisión → sugerir revisarla antes de presentar; ROJO → confirm reforzado.
+  revision?: { verdicto: "ROJO" | "AMBAR" | "VERDE"; rojos: number } | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -55,7 +58,8 @@ export function DriverBanner({
     | { kind: "nav"; label: string; href: string }
     | { kind: "avanzar"; label: string; accion: string; confirm?: string; navAfter?: string }
     | { kind: "cita"; label: string }
-    | { kind: "copiar"; label: string };
+    | { kind: "copiar"; label: string }
+    | { kind: "ancla"; label: string; target: string };
 
   let prim: Prim;
   let secundaria: React.ReactNode = null;
@@ -67,7 +71,26 @@ export function DriverBanner({
       break;
     case "DOCS_PENDIENTES": prim = { kind: "avanzar", label: t("Generar formularios"), accion: "forzar_validados", confirm: t("Aún faltan documentos del cliente. ¿Quieres pasar al siguiente paso igualmente? Podrás generar los formularios ahora, y el cliente seguirá pudiendo enviar los que falten desde su enlace."), navAfter: formulariosHref }; break;
     case "DOCS_VALIDADOS": prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref }; break;
-    case "FORM_GENERADO": prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") }; break;
+    case "FORM_GENERADO":
+      // El flujo pasa POR la revisión «como Extranjería»: sin revisión, el siguiente
+      // paso es revisarla (no presentar a ciegas); con ROJO, confirm reforzado.
+      if (!revision) {
+        prim = { kind: "ancla", label: t("Revisar como Extranjería"), target: "centinela" };
+        secundaria = <button onClick={() => { if (window.confirm(t("¿Marcar como presentado sin revisar? Se avisará al cliente."))) avanzar("presentar"); }} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white disabled:opacity-60">{t("Presentar sin revisar")}</button>;
+      } else {
+        prim = {
+          kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
+          confirm: revision.verdicto === "ROJO"
+            ? t("La revisión «como Extranjería» ha detectado {n} riesgo(s) ALTO(s) de requerimiento. ¿Presentar igualmente?").replace("{n}", String(revision.rojos))
+            : t("¿Marcar como presentado? Se avisará al cliente."),
+        };
+        secundaria = (
+          <button onClick={() => document.getElementById("centinela")?.scrollIntoView({ behavior: "smooth", block: "start" })} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:opacity-60 ${revision.verdicto === "ROJO" ? "border-red-300 text-red-700 hover:bg-red-50" : revision.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
+            {revision.verdicto === "ROJO" ? `🔴 ${t("Ver los hallazgos")}` : revision.verdicto === "AMBAR" ? `🟡 ${t("Ver los hallazgos")}` : `✓ ${t("Revisión sin hallazgos")}`}
+          </button>
+        );
+      }
+      break;
     case "PRESENTADO":
       prim = { kind: "avanzar", label: t("Resolución favorable"), accion: "resolver_favorable" };
       secundaria = <button onClick={() => { if (window.confirm(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
@@ -88,6 +111,7 @@ export function DriverBanner({
     else if (prim.kind === "avanzar") { if (!prim.confirm || window.confirm(prim.confirm)) avanzar(prim.accion, undefined, prim.navAfter); }
     else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
+    else if (prim.kind === "ancla") document.getElementById(prim.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-aproba-600";

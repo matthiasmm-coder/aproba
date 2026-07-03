@@ -19,6 +19,7 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
   const router = useRouter();
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
+  const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
 
   const esFamilia = applicants.length > 0;
@@ -30,15 +31,25 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
 
   async function marcarGenerados() {
     setMarcando(true);
-    const res = await fetch(`/api/expedientes/${exp.id}/formularios`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: seleccion }),
-    });
-    setMarcando(false);
-    if (res.ok) { setMarcado(true); router.refresh(); }
+    setErrorMarcar(false);
+    try {
+      const res = await fetch(`/api/expedientes/${exp.id}/formularios`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: seleccion }),
+      });
+      if (res.ok) { setMarcado(true); router.refresh(); } else { setErrorMarcar(true); }
+    } catch {
+      setErrorMarcar(true);
+    } finally {
+      setMarcando(false);
+    }
   }
 
+  // Descargar un formulario YA ES generarlo: el estado avanza solo (fire-and-forget),
+  // sin obligar al gestor a un segundo clic ritual «Marcar como generados».
+  const alDescargar = () => { if (!marcado && !marcando) void marcarGenerados(); };
+
   const descarga = (tipo: string, clienteId?: string, label?: string) => (
-    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} onClick={alDescargar} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
       {IconDescarga}{tipo}{label ? ` ${label}` : ""}
     </a>
   );
@@ -111,11 +122,27 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
           </>
         )}
 
-        <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
-          <button onClick={marcarGenerados} disabled={marcando || marcado} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">
-            {marcado ? (<><svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Marcados como generados")}</>)
-              : marcando ? t("Guardando…") : t("Marcar como generados")}
-          </button>
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          {marcado ? (
+            // Salida hacia la SIGUIENTE etapa del flujo (revisión → Mercurio), no un
+            // callejón sin salida: el gestor sabe siempre qué toca después.
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-aproba-50 px-3.5 py-2.5">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-aproba-700">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                {t("Formularios generados")}
+              </span>
+              <Link href={`/app/expedientes/${exp.id}#centinela`} className="text-sm font-semibold text-aproba-700 hover:underline">
+                {t("Siguiente: revisar como Extranjería y presentar")} →
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-3">
+              {errorMarcar && <p role="alert" className="text-xs text-red-600">{t("No se pudo guardar. Reintenta con el botón.")}</p>}
+              <button onClick={marcarGenerados} disabled={marcando} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">
+                {marcando ? t("Guardando…") : t("Marcar como generados")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

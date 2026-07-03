@@ -23,6 +23,7 @@ export type ExpedienteResumen = {
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string;
+  fechaLimiteISO?: string; // brut, para calcular días restantes REALES (no el label dd/mm)
   validados: number;
   total: number;
 };
@@ -72,6 +73,7 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
     estado: e.estado as ExpedienteEstado,
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
+    fechaLimiteISO: e.fechaLimite ?? undefined,
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,
   }));

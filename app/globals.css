@@ -92,3 +92,13 @@ body {
   border-radius: 0.25rem;
   font-weight: 500;
 }
+
+/* Portal del migrante: en móvil, inputs a 16px — por debajo, iOS hace zoom
+   automático al enfocar y el usuario acaba perdido en mitad del formulario. */
+@media (max-width: 640px) {
+  .portal-mobile input,
+  .portal-mobile select,
+  .portal-mobile textarea {
+    font-size: 16px;
+  }
+}

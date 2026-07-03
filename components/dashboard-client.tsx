@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_PHASES, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
+import { NextAction } from "@/components/next-action";
 import { ProximasCitas } from "@/components/proximas-citas";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
 
@@ -14,33 +15,34 @@ export type DashItem = {
   tipoLabel: string;
   estado: ExpedienteEstado;
   asignadoA: string;
-  fechaLimite?: string;
+  fechaLimite?: string; // label dd/mm/aaaa
+  fechaLimiteISO?: string; // para calcular días restantes REALES
 };
 
-const TODAY = 11; // "hoy" de référence : 11/06
-const dayVal = (f?: string) => {
-  if (!f) return Infinity;
-  const [d, m] = f.split("/").map(Number);
-  return ((m ?? 6) - 6) * 30 + (d ?? 0);
+// Días hasta la fecha límite, con la fecha REAL de hoy (antes: TODAY=11 mockeado —
+// los badges «Vencido» y el orden eran falsos todos los días salvo el 11/06).
+const diasHasta = (iso?: string) => {
+  if (!iso) return Infinity;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? Infinity : Math.ceil((t - Date.now()) / 864e5);
 };
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
 function AccionRow({ e }: { e: DashItem }) {
   const t = useT();
-  const dv = dayVal(e.fechaLimite);
-  const vencido = dv < TODAY;
-  const pronto = dv >= TODAY && dv <= TODAY + 7;
-  const accion = e.estado === "FORM_GENERADO"
-    ? { label: t("Presentar en sede"), cls: "bg-blue-100 text-blue-700" }
-    : { label: t("Generar formularios"), cls: "bg-aproba-100 text-aproba-700" };
+  const dias = diasHasta(e.fechaLimiteISO);
+  const vencido = dias < 0;
+  const pronto = dias >= 0 && dias <= 7;
   return (
     <Link href={`/app/expedientes/${e.id}`} className="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5 transition last:border-0 hover:bg-cream-50">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{initials(e.clienteNombre)}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-slate-800">{e.clienteNombre}</p>
         <p className="truncate text-xs text-slate-400">{e.tipoLabel}</p>
+        {/* La acción canónica (misma fuente que tablero y ficha). En móvil, 2ª línea. */}
+        <NextAction estado={e.estado} className="sm:hidden" />
       </div>
-      <span className={`hidden shrink-0 rounded-md px-2 py-1 text-xs font-semibold sm:inline ${accion.cls}`}>{accion.label}</span>
+      <NextAction estado={e.estado} className="hidden shrink-0 sm:inline-flex" />
       {e.fechaLimite && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${vencido ? "bg-red-100 text-red-700" : pronto ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{vencido ? t("Vencido") : e.fechaLimite}</span>}
       <span className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-semibold text-aproba-700 md:flex">{initials(e.asignadoA)}</span>
     </Link>
@@ -52,22 +54,25 @@ function Icon({ name }: { name: string }) {
   if (name === "bell") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
   if (name === "clock") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
   if (name === "folder") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>;
+  if (name === "calendar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>;
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[] }) {
+export function DashboardClient({ items, usuario, citas, clientes, caducanPronto = 0, caducadas = 0 }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; caducanPronto?: number; caducadas?: number }) {
   const t = useT();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   useEffect(() => { setArchivados(loadArchivados()); }, []);
 
   const live = useMemo(() => items.filter((e) => !archivados.has(e.id)), [items, archivados]);
 
-  const activos = live.filter((e) => e.estado !== "RESUELTO" && e.estado !== "RECHAZADO");
-  const accion = live.filter((e) => e.estado === "DOCS_VALIDADOS" || e.estado === "FORM_GENERADO")
-    .sort((a, b) => dayVal(a.fechaLimite) - dayVal(b.fechaLimite) || (a.estado === "FORM_GENERADO" ? -1 : 1));
-  const vencenSemana = live.filter((e) => { const d = dayVal(e.fechaLimite); return d !== Infinity && d <= TODAY + 7; });
-  const vencidos = live.filter((e) => dayVal(e.fechaLimite) < TODAY).length;
-  const resueltos = live.filter((e) => e.estado === "RESUELTO").length;
+  const activos = live.filter((e) => e.estado !== "FINALIZADO" && e.estado !== "RECHAZADO");
+  // «Requieren tu acción» = TODOS los estados donde le toca al gestor (fuente única
+  // ACCION_ESTADO). Antes solo 2 estados: un RESUELTO (cliente esperando su cita de
+  // huellas) desaparecía del radar.
+  const accion = live.filter((e) => ACCION_ESTADO[e.estado] && !ACCION_ESTADO[e.estado].espera)
+    .sort((a, b) => diasHasta(a.fechaLimiteISO) - diasHasta(b.fechaLimiteISO));
+  const vencenSemana = live.filter((e) => { const d = diasHasta(e.fechaLimiteISO); return d !== Infinity && d <= 7; });
+  const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
   const esperandoCliente = live.filter((e) => e.estado === "DOCS_PENDIENTES").length;
 
   const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => ph.estados.includes(e.estado)).length }));
@@ -76,11 +81,14 @@ export function DashboardClient({ items, usuario, citas, clientes }: { items: Da
   const carga = Object.entries(activos.reduce<Record<string, number>>((acc, e) => { acc[e.asignadoA] = (acc[e.asignadoA] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
   const maxCarga = Math.max(1, ...carga.map(([, n]) => n));
 
+  // 4 KPI, todos CLICABLES (antes ninguno lo era). «Caducan pronto» expone Vigía desde
+  // Inicio (sustituye al retrospectivo «Resueltos»). «Plazos esta semana» = fechas límite
+  // de expedientes (≠ caducidades de tarjetas).
   const KPIS = [
-    { n: accion.length, label: t("Requieren tu acción"), tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
-    { n: vencenSemana.length, label: t("Vencen esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
-    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")}`, tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
-    { n: resueltos, label: t("Resueltos"), tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "check", emph: false },
+    { n: accion.length, label: t("Requieren tu acción"), href: "/app/expedientes", tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
+    { n: vencenSemana.length, label: t("Plazos esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
+    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")}`, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
+    { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar", emph: false },
   ];
 
   return (
@@ -95,12 +103,12 @@ export function DashboardClient({ items, usuario, citas, clientes }: { items: Da
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (
-          <div key={k.label} className={`rounded-2xl border p-5 ${k.tone}`}>
+          <Link key={k.label} href={k.href} className={`rounded-2xl border p-5 transition hover:shadow-sm ${k.tone}`}>
             <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${k.emph ? "bg-aproba-600 text-white" : "bg-slate-100 text-slate-500"}`}><Icon name={k.icon} /></span>
             <p className={`mt-4 text-3xl font-bold tracking-tightest ${k.num}`}>{k.n}</p>
             <p className="text-sm font-medium text-slate-600">{k.label}</p>
-            {k.sub && <p className="mt-0.5 text-xs text-slate-400">{k.sub}</p>}
-          </div>
+            {k.sub && <p className="mt-0.5 text-xs text-slate-500">{k.sub}</p>}
+          </Link>
         ))}
       </div>
 

@@ -114,6 +114,7 @@ export default async function ExpedienteDetail({
         citaQuien={servicio?.citaQuien ?? "cliente"}
         portalToken={e.portalToken}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
+        revision={revision ? { verdicto: revision.verdicto, rojos: revision.hallazgos.filter((h) => h.severidad === "ROJO").length } : null}
       />
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
@@ -150,9 +151,6 @@ export default async function ExpedienteDetail({
           </div>
         </section>
 
-        {/* El Funcionario Fantasma: revisión pre-presentación «como Extranjería» */}
-        <CentinelaPanel expedienteId={e.id} inicial={revision} />
-
         {/* Formularios */}
         <section>
           <SeccionHeader right={
@@ -177,6 +175,10 @@ export default async function ExpedienteDetail({
             </Link>
           )}
         </section>
+
+        {/* El Funcionario Fantasma: revisión «como Extranjería» — SU sitio es justo antes
+            de presentar (dossier completo → revisar → Mercurio). El driver ancla aquí. */}
+        <CentinelaPanel expedienteId={e.id} inicial={revision} />
 
         {/* Presentar en Mercurio */}
         <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} />

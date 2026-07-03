@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, saveArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
@@ -28,17 +28,17 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
-  const router = useRouter();
   const t = useT();
   const meta = ESTADO_META[e.estado];
   const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
   return (
-    <div onClick={() => router.push(`/app/expedientes/${e.id}`)} className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
+    // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
+    <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
       <button
-        onClick={(ev) => { ev.stopPropagation(); onArchive(e.id); }}
+        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onArchive(e.id); }}
         aria-label={t("Archivar")}
         title={t("Archivar")}
-        className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 opacity-0 shadow-sm transition hover:border-aproba-500 hover:text-aproba-600 group-hover:opacity-100"
+        className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition before:absolute before:-inset-2 before:content-[''] hover:border-aproba-500 hover:text-aproba-600 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <ArchiveIcon className="h-3.5 w-3.5" />
       </button>
@@ -65,7 +65,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       <div className="mt-2 border-t border-slate-100 pt-2">
         <NextAction estado={e.estado} />
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -130,8 +130,22 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
         </div>
       </div>
 
+      {/* Día 1: tablero vacío → contar el flujo y llevar al primer expediente, no 4 columnas de «—». */}
+      {view === "activos" && visibles.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <p className="text-3xl">🗂️</p>
+          <p className="mt-3 font-semibold text-slate-700">{t("Tu primer expediente en 3 pasos")}</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+            {t("Creas el expediente y envías el enlace → tu cliente rellena sus datos y sube los documentos → la IA los valida y tú generas los formularios oficiales.")}
+          </p>
+          <Link href="/app/expedientes/nuevo" className="mt-5 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
+            {t("Crear mi primer expediente")}
+          </Link>
+        </div>
+      )}
+
       {/* Vue active : pipeline en 4 fases (cabe en pantalla, lectura izq→der como un flujo) */}
-      {view === "activos" ? (
+      {view === "activos" && visibles.length > 0 ? (
         <div className="no-scrollbar flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 sm:snap-none sm:gap-2 sm:overflow-visible">
           {BOARD_PHASES.map((ph, i) => {
             const cards = visibles
@@ -158,7 +172,7 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
             );
           })}
         </div>
-      ) : (
+      ) : view === "activos" ? null : (
         /* Vue archivés : liste */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {visibles.map((e) => {

@@ -95,10 +95,13 @@ export function ClientPortal({
   // Langue : préférence sauvegardée, sinon celle du navigateur.
   useEffect(() => {
     const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;
-    setLang(saved && LANGS.some((l) => l.code === saved) ? saved : detectarLang());
+    const l = saved && LANGS.some((x) => x.code === saved) ? saved : detectarLang();
+    setLang(l);
+    document.documentElement.lang = l; // lectores de pantalla + autotraducción del navegador
   }, []);
   function elegirLang(l: Lang) {
     setLang(l);
+    document.documentElement.lang = l;
     try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
   }
 
@@ -187,6 +190,12 @@ export function ClientPortal({
     e.target.value = "";
     const i = docPendienteRef.current;
     if (!file || i === null || !token) return;
+    // Pre-check del tamaño ANTES de gastar datos móviles subiendo 20 MB para un rechazo.
+    if (file.size > 8 * 1024 * 1024) {
+      setAlertasReales((m) => ({ ...m, [i]: [t("s2.demasiadoGrande")] }));
+      setDocs((d) => ({ ...d, [i]: { status: "alerta", attempts: d[i]?.attempts ?? 0 } }));
+      return;
+    }
     const label = requiredDocs[i];
     setDocs((d) => ({ ...d, [i]: { status: "analyzing", attempts: (d[i]?.attempts ?? 0) + 1 } }));
     setProg((p) => ({ ...p, [i]: 0 }));
@@ -304,7 +313,7 @@ export function ClientPortal({
   }
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="portal-mobile min-h-screen bg-cream-50">
       {/* Barre supérieure (marque de la gestoría) */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
@@ -424,12 +433,13 @@ export function ClientPortal({
                       const vacio = !((ficha[f.k] ?? "").trim());
                       return (
                         <div key={f.k} className={f.w === "full" ? "sm:col-span-2" : ""}>
-                          <label className="text-[13px] font-medium text-slate-600">
+                          <label htmlFor={`ficha-${f.k}`} className="text-[13px] font-medium text-slate-600">
                             {fieldLabel(f.k, lang)}
                             {req ? <span className="text-red-500"> *</span> : <span className="text-slate-400"> ({t("s1.opcional")})</span>}
                           </label>
                           {f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
                             <select
+                              id={`ficha-${f.k}`}
                               value={ficha[f.k] ?? ""}
                               onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
                               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
@@ -440,7 +450,10 @@ export function ClientPortal({
                             </select>
                           ) : (
                             <input
-                              type={f.tipo === "date" ? "date" : "text"}
+                              id={`ficha-${f.k}`}
+                              type={f.tipo === "date" ? "date" : f.type ?? "text"}
+                              inputMode={f.inputMode}
+                              autoComplete={f.ac}
                               value={ficha[f.k] ?? ""}
                               onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
                               className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 ${

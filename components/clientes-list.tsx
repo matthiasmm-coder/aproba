@@ -107,7 +107,17 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
           );
         })}
         {filtrados.length === 0 && (
-          <p className="px-5 py-10 text-center text-sm text-slate-400">{t("Sin resultados para")} «{q}».</p>
+          q.trim() ? (
+            <p className="px-5 py-10 text-center text-sm text-slate-400">{t("Sin resultados para")} «{q}».</p>
+          ) : (
+            // Día 1: sin clientes ≠ búsqueda sin resultados — aquí toca invitar, no un «para ""».
+            <div className="px-5 py-12 text-center">
+              <p className="text-3xl">👋</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">{t("Añade tu primer cliente")}</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cada cliente guarda su ficha, sus documentos y sus expedientes. También puedes importarlos desde un CSV.")}</p>
+              <Link href="/app/clientes/nuevo" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nuevo cliente")}</Link>
+            </div>
+          )
         )}
       </div>
     </div>

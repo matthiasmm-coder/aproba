@@ -77,7 +77,7 @@ export function CentinelaPanel({ expedienteId, inicial }: { expedienteId: string
   const ambares = revision?.hallazgos.filter((h) => h.severidad === "AMBAR") ?? [];
 
   return (
-    <section>
+    <section id="centinela" className="scroll-mt-20">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-700">{t("Revisión «como Extranjería»")}</span>
         <button
