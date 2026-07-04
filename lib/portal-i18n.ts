@@ -111,6 +111,20 @@ const UI: Record<string, Tr> = {
     it: "Errore nel caricamento. Riprova.",
     de: "Fehler beim Hochladen. Bitte erneut versuchen.",
   },
+  "common.errorGuardar": {
+    es: "No se pudo guardar. Comprueba tu conexión e inténtalo de nuevo.",
+    en: "Couldn't save. Check your connection and try again.",
+    fr: "Impossible d'enregistrer. Vérifiez votre connexion et réessayez.",
+    it: "Impossibile salvare. Controlla la connessione e riprova.",
+    de: "Speichern fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
+  },
+  "common.reanudado": {
+    es: "Continúas donde lo dejaste. Lo ya enviado está guardado.",
+    en: "You're continuing where you left off. What you already sent is saved.",
+    fr: "Vous reprenez là où vous vous étiez arrêté. Ce qui est déjà envoyé est enregistré.",
+    it: "Riprendi da dove avevi lasciato. Quello che hai già inviato è salvato.",
+    de: "Du machst dort weiter, wo du aufgehört hast. Bereits Gesendetes ist gespeichert.",
+  },
   "s2.demasiadoGrande": {
     es: "El archivo pesa más de 8 MB. Haz una foto con menos resolución o comprímelo e inténtalo de nuevo.",
     en: "The file is over 8 MB. Take a lower-resolution photo or compress it and try again.",

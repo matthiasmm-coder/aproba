@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
-import { loadArchivados, saveArchivados } from "@/lib/archivo";
+import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
@@ -17,6 +17,7 @@ export type BoardItem = {
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string;
+  archivado?: boolean; // servidor — compartido por todo el equipo
   validados: number;
   total: number;
 };
@@ -74,17 +75,23 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
   const [q, setQ] = useState("");
   const [asignado, setAsignado] = useState("");
   const [view, setView] = useState<"activos" | "archivados">("activos");
+  // Archivado = SERVIDOR (items[].archivado, igual para los 3 usuarios) ∪ localStorage
+  // (gestos de esta pestaña + legado pre-migración).
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
 
-  useEffect(() => { setArchivados(loadArchivados()); }, []);
+  useEffect(() => {
+    const s = loadArchivados();
+    for (const e of items) if (e.archivado) s.add(e.id);
+    setArchivados(s);
+  }, [items]);
 
   const setArchivado = (id: string, val: boolean) => {
     setArchivados((prev) => {
       const next = new Set(prev);
       if (val) next.add(id); else next.delete(id);
-      saveArchivados(next);
       return next;
     });
+    void setArchivadoServidor(id, val); // persiste (servidor + caché local)
   };
 
   const matchSearch = (e: BoardItem) => {

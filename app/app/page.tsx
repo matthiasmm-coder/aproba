@@ -50,6 +50,7 @@ export default async function Dashboard() {
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
     fechaLimiteISO: e.fechaLimiteISO,
+    archivado: e.archivado,
   }));
   const proximos = vencimientos.filter((v) => v.estado !== "TRAMITANDO");
   const caducanPronto = proximos.filter((v) => v.dias <= 60).length;

@@ -431,6 +431,7 @@ model Expediente {
   notas             String?
   fechaPresentacion DateTime?
   fechaLimite       DateTime? // plazo (utile aussi pour le module legal V2)
+  archivadoAt       DateTime? // archivado en servidor (compartido por el equipo)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 

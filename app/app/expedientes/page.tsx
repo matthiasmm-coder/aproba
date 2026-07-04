@@ -16,6 +16,7 @@ export default async function Board() {
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
+    archivado: e.archivado,
     validados: e.validados,
     total: e.total,
   }));

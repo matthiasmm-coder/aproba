@@ -99,8 +99,21 @@ export function DriverBanner({
       prim = citaPresencial ? { kind: "cita", label: t("Agendar cita") } : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
       break;
     case "CITA_HUELLAS": prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") }; break;
-    case "FINALIZADO": prim = { kind: "espera", label: t("Expediente finalizado") }; break;
-    case "RECHAZADO": prim = { kind: "espera", label: t("Expediente denegado") }; break;
+    case "FINALIZADO":
+      // El ciclo NO termina aquí: la tarjeta caduca y Vigía ya está vigilando.
+      prim = { kind: "espera", label: t("Finalizado — seguimiento de renovación activado") };
+      secundaria = <a href="/app/vencimientos" className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">{t("Ver vencimientos")} →</a>;
+      break;
+    case "RECHAZADO":
+      // Denegado ≠ callejón sin salida: el Funcionario Fantasma redacta el recurso o la
+      // contestación al requerimiento (el panel tiene el campo para pegarlo).
+      prim = { kind: "espera", label: t("Expediente denegado") };
+      secundaria = (
+        <button onClick={() => document.getElementById("centinela")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
+          {t("Redactar recurso / contestación")} →
+        </button>
+      );
+      break;
     default: prim = { kind: "espera", label: t("Sin acciones pendientes") };
   }
 

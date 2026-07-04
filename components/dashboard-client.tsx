@@ -17,6 +17,7 @@ export type DashItem = {
   asignadoA: string;
   fechaLimite?: string; // label dd/mm/aaaa
   fechaLimiteISO?: string; // para calcular días restantes REALES
+  archivado?: boolean; // servidor — compartido por el equipo
 };
 
 // Días hasta la fecha límite, con la fecha REAL de hoy (antes: TODAY=11 mockeado —
@@ -63,7 +64,7 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   useEffect(() => { setArchivados(loadArchivados()); }, []);
 
-  const live = useMemo(() => items.filter((e) => !archivados.has(e.id)), [items, archivados]);
+  const live = useMemo(() => items.filter((e) => !e.archivado && !archivados.has(e.id)), [items, archivados]);
 
   const activos = live.filter((e) => e.estado !== "FINALIZADO" && e.estado !== "RECHAZADO");
   // «Requieren tu acción» = TODOS los estados donde le toca al gestor (fuente única

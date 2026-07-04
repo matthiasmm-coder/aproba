@@ -24,6 +24,7 @@ export type ExpedienteResumen = {
   asignadoA: string;
   fechaLimite?: string;
   fechaLimiteISO?: string; // brut, para calcular días restantes REALES (no el label dd/mm)
+  archivado: boolean; // servidor (archivadoAt) — igual para todo el equipo
   validados: number;
   total: number;
 };
@@ -46,15 +47,26 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
   const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)";
-  const [conFam, svc] = await Promise.all([
-    supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`).order("createdAt", { ascending: false }),
+  // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
+  const [conTodo, svc] = await Promise.all([
+    supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false }),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label"),
   ]);
-  const { data, error } = conFam.error
-    ? await supabase.from("Expediente").select(SEL_BASE).order("createdAt", { ascending: false })
-    : conFam;
+  // Replis en cadena SIN reasignar la respuesta tipada (los selects difieren en columnas).
+  let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
+  let error = conTodo.error;
+  if (error) {
+    const r2 = await supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`).order("createdAt", { ascending: false });
+    data = (r2.data ?? null) as unknown[] | null;
+    error = r2.error;
+  }
+  if (error) {
+    const r3 = await supabase.from("Expediente").select(SEL_BASE).order("createdAt", { ascending: false });
+    data = (r3.data ?? null) as unknown[] | null;
+    error = r3.error;
+  }
   if (error) throw new Error(`Expedientes: ${error.message}`);
   const labelDeServicio: Record<string, string> = {};
   for (const s of (svc.data ?? []) as { clave: string; label: string | null }[]) {
@@ -74,6 +86,7 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
     fechaLimiteISO: e.fechaLimite ?? undefined,
+    archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,
   }));

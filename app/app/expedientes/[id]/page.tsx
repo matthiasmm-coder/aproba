@@ -16,6 +16,7 @@ import { PhaseStepper } from "@/components/phase-stepper";
 import { DriverBanner } from "@/components/driver-banner";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { CentinelaPanel } from "@/components/centinela-panel";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { fetchUltimaRevision } from "@/lib/centinela";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
@@ -38,18 +39,19 @@ export default async function ExpedienteDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const t = await getT();
-  const e = await fetchExpedienteDetalle(id);
+  // Las 4 fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
+  const [t, e, { servicios }, revision] = await Promise.all([
+    getT(),
+    fetchExpedienteDetalle(id),
+    fetchServiciosConfig(),
+    createSupabaseServer().then((sb) => fetchUltimaRevision(sb, id)),
+  ]);
   if (!e) notFound();
 
   // Expediente FAMILIAR (Expediente.familiaId): miembros + facturación familiar en la ficha.
-  const familia = e.familiaId ? await fetchFamiliaDetalle(e.familiaId) : null;
-  const [famPrefill, famFacturas] = e.familiaId
-    ? await Promise.all([fetchFacturaFamiliaPrefill(e.familiaId), fetchFacturasDeFamilia(e.familiaId)])
-    : [null, []];
-
-  // Tarifa del servicio (config du workspace) pour le panneau Cobros.
-  const { servicios } = await fetchServiciosConfig();
+  const [familia, famPrefill, famFacturas] = e.familiaId
+    ? await Promise.all([fetchFamiliaDetalle(e.familiaId), fetchFacturaFamiliaPrefill(e.familiaId), fetchFacturasDeFamilia(e.familiaId)])
+    : [null, null, []];
   // On retrouve le service par sa clave mémorisée (gère les services custom), avec repli
   // sur le mapping par type pour les anciens expedientes sans servicioClave.
   const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
@@ -64,11 +66,10 @@ export default async function ExpedienteDetail({
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
 
-  // Última revisión «como Extranjería» persistida (RLS; null sin migración).
-  const revision = await fetchUltimaRevision(await createSupabaseServer(), e.id);
-
   return (
     <div className="mx-auto max-w-4xl">
+      {/* Doc(s) PROCESANDO → la ficha se refresca sola cada 5 s (tope 2 min). */}
+      <AutoRefresh activo={e.documentos.some((d) => d.estado === "PROCESANDO")} />
       <Link href="/app/expedientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         {t("Expedientes")}

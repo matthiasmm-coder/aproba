@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadArchivados, saveArchivados } from "@/lib/archivo";
+import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 
 export function ArchivarButton({ id }: { id: string }) {
@@ -11,10 +11,9 @@ export function ArchivarButton({ id }: { id: string }) {
   useEffect(() => { setArchived(loadArchivados().has(id)); }, [id]);
 
   function toggle() {
-    const s = loadArchivados();
-    if (s.has(id)) s.delete(id); else s.add(id);
-    saveArchivados(s);
-    setArchived(s.has(id));
+    const next = !archived;
+    setArchived(next);
+    void setArchivadoServidor(id, next); // servidor + caché local (compartido por el equipo)
   }
 
   if (archived) {

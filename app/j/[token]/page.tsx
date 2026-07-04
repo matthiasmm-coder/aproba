@@ -6,6 +6,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import type { MiembroInicial } from "@/components/datos-familia";
 
@@ -19,6 +20,8 @@ type ExpedienteToken = {
   referencia: string;
   familiaId: string | null;
   clienteId: string;
+  tipo?: string | null;
+  servicioClave?: string | null;
   cliente: (Record<string, string | null> & { nombre: string; idioma?: string | null }) | null;
   workspace: { id: string; nombre: string } | null;
 };
@@ -43,13 +46,16 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let clienteIdioma = "es";
   let tarjetaActiva = false;
   let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
+  // Reprise de session: servicio ya elegido + documentos ya subidos.
+  let servicioInicial: string | null = null;
+  let docsSubidos: { tipo: string; estado: string }[] = [];
 
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(`id, referencia, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
     if (exp?.workspace) {
@@ -77,6 +83,18 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
             .sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco)),
         };
       }
+      // REPRISE: servicio ya elegido (clave guardada, o derivado del tipo — p. ej. una
+      // renovación creada desde Vigía llega con el trámite ya fijado) + docs ya subidos
+      // (individuales; los de la familia van por su propio componente).
+      servicioInicial = exp.servicioClave ?? (exp.tipo && exp.tipo !== "OTRO" ? TIPO_A_SERVICIO[exp.tipo] ?? null : null);
+      if (servicioInicial && !servicios.some((s) => s.id === servicioInicial && s.active)) servicioInicial = null;
+      try {
+        const { data: docRows } = await admin.from("Documento").select("tipo, estado, clienteId").eq("expedienteId", exp.id);
+        docsSubidos = ((docRows ?? []) as { tipo: string; estado: string; clienteId: string | null }[])
+          .filter((d) => !d.clienteId)
+          .map((d) => ({ tipo: d.tipo, estado: d.estado }));
+      } catch { /* sin docs */ }
+
       // Cobro con tarjeta del anticipo: solo si la gestoría tiene su clave Stripe.
       tarjetaActiva = Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspace.id));
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.
@@ -123,6 +141,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       token={portalToken}
       tarjetaActiva={tarjetaActiva}
       familia={familia}
+      servicioInicial={servicioInicial}
+      docsSubidos={docsSubidos}
     />
   );
 }

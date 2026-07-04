@@ -5,6 +5,7 @@ import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios";
 import { eur, totalDe } from "@/lib/facturas";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
+import { labelADocTipo } from "@/lib/tramites";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
   servicioLabel, servicioDesc, docLabel, docHelp, type Lang,
@@ -48,6 +49,8 @@ export function ClientPortal({
   token,
   tarjetaActiva,
   familia,
+  servicioInicial,
+  docsSubidos,
 }: {
   servicios?: Servicio[];
   referencia?: string; // expediente réel (lien token) — sinon démo
@@ -58,10 +61,21 @@ export function ClientPortal({
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
   // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
   familia?: { familiaId: string; miembros: MiembroInicial[] };
+  // REPRISE DE SESSION: servicio ya elegido + documentos ya subidos (el migrante que
+  // vuelve al enlace NO empieza de cero — retoma en el primer paso incompleto).
+  servicioInicial?: string | null;
+  docsSubidos?: { tipo: string; estado: string }[];
 }) {
-  const [step, setStep] = useState(0);
+  // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
+  const [step, setStep] = useState(() => {
+    if (!token || !servicioInicial) return 0;
+    const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
+    const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
+    return fichaCompleta ? 2 : 1;
+  });
+  const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial));
   const [lang, setLang] = useState<Lang>("es");
-  const [tramiteId, setTramiteId] = useState<string | null>(null);
+  const [tramiteId, setTramiteId] = useState<string | null>(servicioInicial ?? null);
   // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
   const [famMiembros, setFamMiembros] = useState<MiembroInicial[]>(familia?.miembros ?? []);
   const nombreCliente = clienteNombre ?? "Julia";
@@ -77,8 +91,32 @@ export function ClientPortal({
     return base;
   });
   const [guardandoDatos, setGuardandoDatos] = useState(false);
+  const [errorPaso, setErrorPaso] = useState<string | null>(null);
+
+  // POST con verificación + 1 reintento. ANTES: fire-and-forget → si el guardado
+  // fallaba (red móvil), el wizard avanzaba igual y la ficha llegaba VACÍA al gestor.
+  async function postSeguro(url: string, body: unknown): Promise<boolean> {
+    for (let intento = 0; intento < 2; intento++) {
+      try {
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (res.ok) return true;
+      } catch { /* reintento */ }
+    }
+    return false;
+  }
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
-  const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>({});
+  // Reprise: los documentos YA subidos aparecen con su estado real (validado/analizando/
+  // alerta) en vez de «pendiente» — el migrante no vuelve a subir lo que ya envió.
+  const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>(() => {
+    if (!servicioInicial || !docsSubidos?.length) return {};
+    const svc = (serviciosProp ?? DEFAULT_SERVICIOS).find((s) => s.id === servicioInicial);
+    const m: Record<number, { status: DocStatus; attempts: number }> = {};
+    (svc?.docs ?? []).forEach((label, i) => {
+      const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
+      if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
+    });
+    return m;
+  });
   const [prog, setProg] = useState<Record<number, number>>({}); // % de progreso por documento (subida + análisis)
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active && s.label.trim()));
   const [pagando, setPagando] = useState(false);
@@ -238,13 +276,13 @@ export function ClientPortal({
     }
   }
 
-  function confirmarTramite() {
+  async function confirmarTramite() {
+    setErrorPaso(null);
     if (token && tramiteId) {
-      void fetch("/api/portal/iniciar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, clave: tramiteId }),
-      }).catch(() => {});
+      setGuardandoDatos(true);
+      const ok = await postSeguro("/api/portal/iniciar", { token, clave: tramiteId });
+      setGuardandoDatos(false);
+      if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
     }
     setStep(1);
   }
@@ -302,12 +340,12 @@ export function ClientPortal({
 
   // Avance depuis l'étape documents (vers pago ou listo) — autorisé même si tous
   // les documents ne sont pas encore validés (le client les complétera plus tard).
-  function proceder() {
+  async function proceder() {
+    setErrorPaso(null);
     // Parcours sans paiement : fin du parcours → lien de suivi (email + WhatsApp).
     if (!conPago && token) {
-      void fetch("/api/portal/completar", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
-      }).catch(() => {});
+      const ok = await postSeguro("/api/portal/completar", { token });
+      if (!ok) { setErrorPaso(t("common.errorGuardar")); return; } // sin esto, el seguimiento nunca se enviaría
     }
     setStep(conPago ? PASO_PAGO : PASO_LISTO);
   }
@@ -340,6 +378,19 @@ export function ClientPortal({
               </div>
             ))}
           </div>
+        )}
+
+        {/* Reprise de session: el migrante retoma donde lo dejó (se cierra solo al avanzar). */}
+        {reanudado && step < PASO_LISTO && (
+          <div className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-aproba-200 bg-aproba-50 px-3.5 py-2.5">
+            <p className="text-sm text-aproba-700">👋 {t("common.reanudado")}</p>
+            <button onClick={() => setReanudado(false)} aria-label="OK" className="shrink-0 rounded-md px-1.5 text-aproba-400 hover:text-aproba-700">✕</button>
+          </div>
+        )}
+
+        {/* Error de guardado: visible, traducido, y el wizard NO avanza hasta resolverlo. */}
+        {errorPaso && (
+          <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{errorPaso}</p>
         )}
 
         {/* ── Step 0 · Trámite ── */}
@@ -477,7 +528,13 @@ export function ClientPortal({
               <button
                 disabled={guardandoDatos || !datosOk}
                 onClick={async () => {
-                  if (token) { setGuardandoDatos(true); await fetch("/api/portal/datos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ficha, idioma: lang }) }).catch(() => {}); setGuardandoDatos(false); }
+                  setErrorPaso(null);
+                  if (token) {
+                    setGuardandoDatos(true);
+                    const ok = await postSeguro("/api/portal/datos", { token, ficha, idioma: lang });
+                    setGuardandoDatos(false);
+                    if (!ok) { setErrorPaso(t("common.errorGuardar")); return; } // la ficha NO se pierde en silencio
+                  }
                   setStep(2);
                 }}
                 className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
