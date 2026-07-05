@@ -8,7 +8,7 @@ import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteF
 import { labelADocTipo } from "@/lib/tramites";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
-  servicioLabel, servicioDesc, docLabel, docHelp, type Lang,
+  servicioLabel, servicioDesc, docLabel, docHelp, type Lang, esRTL,
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
@@ -136,10 +136,12 @@ export function ClientPortal({
     const l = saved && LANGS.some((x) => x.code === saved) ? saved : detectarLang();
     setLang(l);
     document.documentElement.lang = l; // lectores de pantalla + autotraducción del navegador
+    document.documentElement.dir = esRTL(l) ? "rtl" : "ltr"; // árabe
   }, []);
   function elegirLang(l: Lang) {
     setLang(l);
     document.documentElement.lang = l;
+    document.documentElement.dir = esRTL(l) ? "rtl" : "ltr"; // árabe: derecha → izquierda
     try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
   }
 
@@ -359,9 +361,23 @@ export function ClientPortal({
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>
             <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>
           </div>
-          <span className="flex items-center gap-1 text-[10px] text-slate-400">
-            {t("header.con")} <AprobaMark size={13} />
-          </span>
+          <div className="flex items-center gap-2.5">
+            {/* Idioma SIEMPRE accesible (antes solo vivía en el paso 0: un migrante que
+                reanudaba su sesión en el paso 2 ya no podía cambiar de idioma). */}
+            {step > 0 && step < PASO_LISTO && (
+              <select
+                value={lang}
+                onChange={(e) => elegirLang(e.target.value as Lang)}
+                aria-label={t("lang.selectLabel")}
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 outline-none focus:border-aproba-600"
+              >
+                {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
+              </select>
+            )}
+            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+              {t("header.con")} <AprobaMark size={13} />
+            </span>
+          </div>
         </div>
       </header>
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { esLangSoportada } from "@/lib/portal-i18n";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
@@ -57,7 +58,7 @@ export async function PUT(req: Request) {
   const patch: Record<string, string> = {};
   for (const k of FICHA_KEYS) { const v = (ficha as Record<string, unknown>)[k]; if (typeof v === "string") patch[k] = v.trim(); }
   if (typeof body.parentesco === "string" && body.parentesco.trim()) patch.parentesco = body.parentesco.trim();
-  if (typeof body.idioma === "string" && ["es", "en", "fr", "it", "de"].includes(body.idioma)) patch.idioma = body.idioma;
+  if (typeof body.idioma === "string" && esLangSoportada(body.idioma)) patch.idioma = body.idioma;
   patch.updatedAt = new Date().toISOString();
   const { error } = await admin.from("Cliente").update(patch).eq("id", clienteId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

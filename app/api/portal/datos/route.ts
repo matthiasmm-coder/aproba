@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { esLangSoportada } from "@/lib/portal-i18n";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     if (typeof v === "string") patch[k] = v.trim();
   }
   // Langue choisie par le client (pour les notifications + la page de suivi).
-  if (typeof body.idioma === "string" && ["es", "en", "fr", "it", "de"].includes(body.idioma)) patch.idioma = body.idioma;
+  if (typeof body.idioma === "string" && esLangSoportada(body.idioma)) patch.idioma = body.idioma;
   // nombre/apellidos alimentent aussi les colonnes principales du Cliente.
   patch.updatedAt = new Date().toISOString();
 

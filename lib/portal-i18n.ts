@@ -1,8 +1,9 @@
 // i18n du portail client (/j/[token]) — 5 langues, sans dépendance externe.
 // Le client choisit sa langue à la 1re étape. Le reste de l'app (gestor) reste en ES.
 import { labelADocTipo } from "@/lib/tramites";
+import { EXTRA } from "@/lib/portal-i18n-extra";
 
-export type Lang = "es" | "en" | "fr" | "it" | "de";
+export type Lang = "es" | "en" | "fr" | "it" | "de" | "ar" | "ro" | "zh";
 
 export const LANGS: { code: Lang; label: string; flag: string }[] = [
   { code: "es", label: "Español", flag: "🇪🇸" },
@@ -10,12 +11,24 @@ export const LANGS: { code: Lang; label: string; flag: string }[] = [
   { code: "fr", label: "Français", flag: "🇫🇷" },
   { code: "it", label: "Italiano", flag: "🇮🇹" },
   { code: "de", label: "Deutsch", flag: "🇩🇪" },
+  // Lenguas de las comunidades migrantes reales en España (árabe = 1ª por volumen).
+  { code: "ar", label: "العربية", flag: "🇲🇦" },
+  { code: "ro", label: "Română", flag: "🇷🇴" },
+  { code: "zh", label: "中文", flag: "🇨🇳" },
 ];
 
-type Tr = Record<Lang, string>;
+// El árabe se lee de derecha a izquierda: los portales ponen dir=rtl en <html>.
+export const esRTL = (lang: Lang) => lang === "ar";
+
+// ¿Es un código de idioma soportado por el portal? (fuente única — nada de listas
+// ["es","en",…] repetidas por el código, que se quedaban cortas al añadir idiomas.)
+export const esLangSoportada = (v: string | null | undefined): v is Lang =>
+  Boolean(v && LANGS.some((l) => l.code === v));
+
+type Tr = { es: string } & Partial<Record<Lang, string>>;
 
 // Chaînes d'interface. {var} → interpolé par t().
-const UI: Record<string, Tr> = {
+export const UI: Record<string, Tr> = {
   "header.con": { es: "con", en: "with", fr: "avec", it: "con", de: "mit" },
   "lang.elige": { es: "Idioma", en: "Language", fr: "Langue", it: "Lingua", de: "Sprache" },
   "lang.selectLabel": { es: "Elige tu idioma", en: "Choose your language", fr: "Choisissez votre langue", it: "Scegli la tua lingua", de: "Wähle deine Sprache" },
@@ -341,7 +354,7 @@ const UI: Record<string, Tr> = {
 };
 
 // Étiquettes des champs de la ficha (par clé ClienteFicha).
-const FIELD_LABELS: Record<string, Tr> = {
+export const FIELD_LABELS: Record<string, Tr> = {
   nombre: { es: "Nombre", en: "First name", fr: "Prénom", it: "Nome", de: "Vorname" },
   apellidos: { es: "Apellidos", en: "Surname(s)", fr: "Nom(s) de famille", it: "Cognome/i", de: "Nachname(n)" },
   sexo: { es: "Sexo", en: "Sex", fr: "Sexe", it: "Sesso", de: "Geschlecht" },
@@ -363,13 +376,13 @@ const FIELD_LABELS: Record<string, Tr> = {
   email: { es: "Email", en: "Email", fr: "E-mail", it: "Email", de: "E-Mail" },
 };
 
-const GRUPO_LABELS: Record<string, Tr> = {
+export const GRUPO_LABELS: Record<string, Tr> = {
   Identidad: { es: "Identidad", en: "Identity", fr: "Identité", it: "Identità", de: "Identität" },
   Domicilio: { es: "Domicilio", en: "Address", fr: "Domicile", it: "Domicilio", de: "Wohnsitz" },
   Contacto: { es: "Contacto", en: "Contact", fr: "Contact", it: "Contatto", de: "Kontakt" },
 };
 
-const PARENTESCO_LABELS: Record<string, Tr> = {
+export const PARENTESCO_LABELS: Record<string, Tr> = {
   TITULAR: { es: "Titular", en: "Main applicant", fr: "Titulaire", it: "Titolare", de: "Hauptantragsteller" },
   CONYUGE: { es: "Cónyuge", en: "Spouse", fr: "Conjoint(e)", it: "Coniuge", de: "Ehepartner/in" },
   PAREJA: { es: "Pareja", en: "Partner", fr: "Partenaire", it: "Partner", de: "Partner/in" },
@@ -378,14 +391,14 @@ const PARENTESCO_LABELS: Record<string, Tr> = {
   OTRO: { es: "Otro", en: "Other", fr: "Autre", it: "Altro", de: "Andere" },
 };
 
-const SEXO_LABELS: Record<string, Tr> = {
+export const SEXO_LABELS: Record<string, Tr> = {
   "": { es: "—", en: "—", fr: "—", it: "—", de: "—" },
   M: { es: "Mujer", en: "Female", fr: "Femme", it: "Donna", de: "Weiblich" },
   H: { es: "Hombre", en: "Male", fr: "Homme", it: "Uomo", de: "Männlich" },
   X: { es: "Indefinido", en: "Unspecified", fr: "Indéfini", it: "Indefinito", de: "Unbestimmt" },
 };
 
-const ESTADO_CIVIL_LABELS: Record<string, Tr> = {
+export const ESTADO_CIVIL_LABELS: Record<string, Tr> = {
   "": { es: "—", en: "—", fr: "—", it: "—", de: "—" },
   S: { es: "Soltero/a", en: "Single", fr: "Célibataire", it: "Celibe/Nubile", de: "Ledig" },
   C: { es: "Casado/a", en: "Married", fr: "Marié·e", it: "Coniugato/a", de: "Verheiratet" },
@@ -396,7 +409,7 @@ const ESTADO_CIVIL_LABELS: Record<string, Tr> = {
 
 // Services par défaut (label + desc) — traduits par id. Les services personnalisés
 // du gestor gardent leur libellé d'origine (fallback).
-const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
+export const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
   arraigo_social: {
     label: { es: "Arraigo social", en: "Social roots (arraigo)", fr: "Arraigo social", it: "Arraigo social", de: "Arraigo social" },
     desc: { es: "Residencia por arraigo", en: "Residence by social roots", fr: "Titre de séjour pour ancrage social", it: "Permesso per radicamento sociale", de: "Aufenthalt durch soziale Verwurzelung" },
@@ -428,7 +441,7 @@ const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
 };
 
 // Documents (par enum DocumentoTipo) : label affiché + infobulle « ce qui est attendu » (#5).
-const DOC_I18N: Record<string, { label: Tr; help: Tr }> = {
+export const DOC_I18N: Record<string, { label: Tr; help: Tr }> = {
   PASAPORTE: {
     label: { es: "Pasaporte", en: "Passport", fr: "Passeport", it: "Passaporto", de: "Reisepass" },
     help: { es: "Página con tu foto y tus datos. Debe estar vigente y leerse con claridad.", en: "The page with your photo and details. Must be valid and clearly legible.", fr: "La page avec votre photo et vos informations. Doit être en cours de validité et bien lisible.", it: "La pagina con la tua foto e i tuoi dati. Deve essere valido e ben leggibile.", de: "Die Seite mit Foto und Daten. Muss gültig und gut lesbar sein." },
@@ -475,14 +488,16 @@ const DOC_I18N: Record<string, { label: Tr; help: Tr }> = {
   },
 };
 
-function pick(tr: Tr | undefined, lang: Lang, fallback: string): string {
-  return tr?.[lang] ?? tr?.es ?? fallback;
+// Las traducciones ar/ro/zh viven en portal-i18n-extra (ficheros generados por clave
+// namespaceada). Orden: idioma pedido → extra → español → fallback.
+function pick(tr: Tr | undefined, lang: Lang, fallback: string, extraKey?: string): string {
+  return tr?.[lang] ?? (extraKey ? EXTRA[lang]?.[extraKey] : undefined) ?? tr?.es ?? fallback;
 }
 
 // Fabrique la fonction de traduction pour une langue.
 export function makeT(lang: Lang) {
   return (key: string, vars?: Record<string, string | number>): string => {
-    let s = pick(UI[key], lang, key);
+    let s = pick(UI[key], lang, key, `ui:${key}`);
     if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
     // pluriel naïf pour {n, plural} (juste retirer la syntaxe restante)
     s = s.replace(/\{n, plural\}/g, "");
@@ -490,21 +505,21 @@ export function makeT(lang: Lang) {
   };
 }
 
-export const fieldLabel = (k: string, lang: Lang) => pick(FIELD_LABELS[k], lang, k);
-export const grupoLabel = (g: string, lang: Lang) => pick(GRUPO_LABELS[g], lang, g);
-export const parentescoI18n = (v: string | null | undefined, lang: Lang) => (v ? pick(PARENTESCO_LABELS[v], lang, v) : "");
-export const sexoLabel = (v: string, lang: Lang) => pick(SEXO_LABELS[v], lang, v);
-export const estadoCivilLabel = (v: string, lang: Lang) => pick(ESTADO_CIVIL_LABELS[v], lang, v);
+export const fieldLabel = (k: string, lang: Lang) => pick(FIELD_LABELS[k], lang, k, `field:${k}`);
+export const grupoLabel = (g: string, lang: Lang) => pick(GRUPO_LABELS[g], lang, g, `grupo:${g}`);
+export const parentescoI18n = (v: string | null | undefined, lang: Lang) => (v ? pick(PARENTESCO_LABELS[v], lang, v, `parentesco:${v}`) : "");
+export const sexoLabel = (v: string, lang: Lang) => pick(SEXO_LABELS[v], lang, v, `sexo:${v}`);
+export const estadoCivilLabel = (v: string, lang: Lang) => pick(ESTADO_CIVIL_LABELS[v], lang, v, `estadoCivil:${v}`);
 
 // Service : traduit le label/desc des services par défaut, sinon garde l'original du gestor.
 export const servicioLabel = (id: string, original: string, lang: Lang) =>
-  SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].label, lang, original) : original;
+  SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].label, lang, original, `servicio:${id}.label`) : original;
 export const servicioDesc = (id: string, original: string, lang: Lang) =>
-  SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].desc, lang, original) : original;
+  SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].desc, lang, original, `servicio:${id}.desc`) : original;
 
 // Document : normalise le libellé (es) → enum → label/help traduits.
-export const docLabel = (label: string, lang: Lang) => pick(DOC_I18N[labelADocTipo(label)]?.label, lang, label);
-export const docHelp = (label: string, lang: Lang) => pick(DOC_I18N[labelADocTipo(label)]?.help, lang, "");
+export const docLabel = (label: string, lang: Lang) => { const t = labelADocTipo(label); return pick(DOC_I18N[t]?.label, lang, label, `doc:${t}.label`); };
+export const docHelp = (label: string, lang: Lang) => { const t = labelADocTipo(label); return pick(DOC_I18N[t]?.help, lang, "", `doc:${t}.help`); };
 
 // Langue initiale : préférence du navigateur si elle fait partie des 5, sinon ES.
 export function detectarLang(): Lang {

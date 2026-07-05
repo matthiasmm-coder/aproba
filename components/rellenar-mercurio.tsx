@@ -56,6 +56,13 @@ export function RellenarMercurio({ campos, referencia, rellenos, total }: { camp
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3">
           <p className="text-sm font-medium text-amber-800">{t("Instala la extensión «Aproba para Mercurio»")}</p>
           <p className="mt-0.5 text-xs text-amber-700">{t("Es necesaria para rellenar Mercurio automáticamente. Una vez instalada, recarga esta página.")}</p>
+          {/* URL del listing del Chrome Web Store — se cablea vía env en cuanto Google
+              apruebe la extensión (ya sometida). Sin env: aviso sin enlace, como antes. */}
+          {process.env.NEXT_PUBLIC_MERCURIO_EXT_URL && (
+            <a href={process.env.NEXT_PUBLIC_MERCURIO_EXT_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700">
+              {t("Instalar desde Chrome Web Store")} ↗
+            </a>
+          )}
         </div>
       ) : (
         <div className="mt-4 flex items-center gap-3">

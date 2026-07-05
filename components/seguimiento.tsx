@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
-import { LANGS, makeT, detectarLang, docLabel, docHelp, type Lang } from "@/lib/portal-i18n";
+import { LANGS, makeT, detectarLang, docLabel, docHelp, type Lang, esLangSoportada, esRTL } from "@/lib/portal-i18n";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean };
 
@@ -26,7 +26,7 @@ export function Seguimiento({
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
   miembros?: { id: string; nombre: string; tieneTasa: boolean }[];
 }) {
-  const [lang, setLang] = useState<Lang>((["es", "en", "fr", "it", "de"].includes(idioma) ? idioma : "es") as Lang);
+  const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
   const [subiendo, setSubiendo] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,13 +35,16 @@ export function Seguimiento({
 
   useEffect(() => {
     const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;
-    if (saved && LANGS.some((l) => l.code === saved)) setLang(saved);
-    else if (!["es", "en", "fr", "it", "de"].includes(idioma)) setLang(detectarLang());
+    const efectivo = saved && LANGS.some((l) => l.code === saved) ? saved : esLangSoportada(idioma) ? (idioma as Lang) : detectarLang();
+    setLang(efectivo);
+    document.documentElement.lang = efectivo;
+    document.documentElement.dir = esRTL(efectivo) ? "rtl" : "ltr";
   }, [idioma]);
 
   function elegirLang(l: Lang) {
     setLang(l);
     document.documentElement.lang = l;
+    document.documentElement.dir = esRTL(l) ? "rtl" : "ltr";
     try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
   }
 

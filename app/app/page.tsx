@@ -12,15 +12,21 @@ export const metadata = { title: "Inicio" };
 async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<ChecklistItem[]> {
   try {
     const cnt = (tabla: string) => supabase.from(tabla).select("id", { count: "exact", head: true });
-    const [svc, cta, cli, mem, sub] = await Promise.all([
+    const [svc, cta, cli, mem, sub, exp, expEnviado] = await Promise.all([
       cnt("ServicioConfig"), cnt("CuentaBancaria"), cnt("Cliente"), cnt("Membership"),
       supabase.from("Subscription").select("plan").limit(1).maybeSingle(),
+      cnt("Expediente"),
+      // «enlace enviado» ≈ un expediente que ya salió de BORRADOR (el cliente entró al portal)
+      supabase.from("Expediente").select("id", { count: "exact", head: true }).neq("estado", "BORRADOR"),
     ]);
     const plan = (sub.data as { plan?: string } | null)?.plan ?? "STARTER";
     const items: ChecklistItem[] = [
       { key: "servicios", label: t("Configura tus servicios"), href: "/app/ajustes", done: (svc.count ?? 0) > 0 },
       { key: "banco", label: t("Añade tu cuenta bancaria"), href: "/app/ajustes", done: (cta.count ?? 0) > 0 },
       { key: "clientes", label: t("Importa tus clientes"), href: "/app/clientes/nuevo", done: (cli.count ?? 0) > 0 },
+      // El camino crítico hasta el primer valor real: expediente creado + cliente dentro.
+      { key: "expediente", label: t("Crea tu primer expediente"), href: "/app/expedientes/nuevo", done: (exp.count ?? 0) > 0 },
+      { key: "enlace", label: t("Envía el enlace a tu cliente"), href: "/app/expedientes", done: (expEnviado.count ?? 0) > 0 },
     ];
     if (plan !== "STARTER") items.push({ key: "equipo", label: t("Invita a tu equipo"), href: "/app/ajustes", done: (mem.count ?? 0) > 1 });
     return items;

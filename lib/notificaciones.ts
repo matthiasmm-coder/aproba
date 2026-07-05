@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { makeT, type Lang } from "@/lib/portal-i18n";
+import { makeT, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
@@ -186,7 +186,7 @@ export async function enviarSeguimiento(
     const cliente = uno(exp.Cliente ?? null) as { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null;
     const ws = uno(exp.Workspace ?? null);
     const gestoria = ws?.nombre ?? "Tu gestoría";
-    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
@@ -464,7 +464,7 @@ export async function enviarRecordatorioDocs(
     const cliente = uno(exp.Cliente);
     const ws = uno(exp.Workspace);
     const gestoria = ws?.nombre ?? "Tu gestoría";
-    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
@@ -539,7 +539,7 @@ export async function enviarAvisoRenovacion(
     if (!exp) return { enviado: false, motivo: "error" };
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
-    const lang = (["es", "en", "fr", "it", "de"].includes(cliente?.idioma ?? "") ? cliente!.idioma : "es") as Lang;
+    const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;

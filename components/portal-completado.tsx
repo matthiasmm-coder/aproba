@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
-import { LANGS, makeT, detectarLang, type Lang } from "@/lib/portal-i18n";
+import { LANGS, makeT, detectarLang, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 
 // Affiché sur le lien initial /j/[token] APRÈS que le client a terminé son parcours.
 // Le lien d'onboarding ne se rejoue plus ; on renvoie vers le suivi /s/[token].
 export function PortalCompletado({ token, gestoria, idioma }: { token: string; gestoria: string; idioma: string }) {
-  const [lang, setLang] = useState<Lang>((["es", "en", "fr", "it", "de"].includes(idioma) ? idioma : "es") as Lang);
+  const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   useEffect(() => {
     const saved = (typeof window !== "undefined" && window.localStorage.getItem("aproba.portal.lang")) as Lang | null;
     if (saved && LANGS.some((l) => l.code === saved)) setLang(saved);
-    else if (!["es", "en", "fr", "it", "de"].includes(idioma)) setLang(detectarLang());
+    else if (!esLangSoportada(idioma)) setLang(detectarLang());
   }, [idioma]);
   const t = makeT(lang);
   const inicial = gestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
