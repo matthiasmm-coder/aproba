@@ -21,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "22 de junio de 2026";
+export const ULTIMA_ACTUALIZACION = "5 de julio de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {
