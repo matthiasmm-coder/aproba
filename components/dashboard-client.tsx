@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BOARD_PHASES, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
@@ -61,6 +62,7 @@ function Icon({ name }: { name: string }) {
 
 export function DashboardClient({ items, usuario, citas, clientes, caducanPronto = 0, caducadas = 0 }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; caducanPronto?: number; caducadas?: number }) {
   const t = useT();
+  const router = useRouter();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   useEffect(() => { setArchivados(loadArchivados()); }, []);
 
@@ -88,7 +90,7 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
   const KPIS = [
     { n: accion.length, label: t("Requieren tu acción"), href: "/app/expedientes", tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
     { n: vencenSemana.length, label: t("Plazos esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
-    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")}`, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
+    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")} →`, subHref: "/app/expedientes?filtro=esperando", href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
     { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar", emph: false },
   ];
 
@@ -108,7 +110,14 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
             <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${k.emph ? "bg-aproba-600 text-white" : "bg-slate-100 text-slate-500"}`}><Icon name={k.icon} /></span>
             <p className={`mt-4 text-3xl font-bold tracking-tightest ${k.num}`}>{k.n}</p>
             <p className="text-sm font-medium text-slate-600">{k.label}</p>
-            {k.sub && <p className="mt-0.5 text-xs text-slate-500">{k.sub}</p>}
+            {k.sub && ((k as { subHref?: string }).subHref ? (
+              <button
+                onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); router.push((k as { subHref?: string }).subHref!); }}
+                className="mt-0.5 text-xs font-medium text-amber-700 underline-offset-2 hover:underline"
+              >{k.sub}</button>
+            ) : (
+              <p className="mt-0.5 text-xs text-slate-500">{k.sub}</p>
+            ))}
           </Link>
         ))}
       </div>

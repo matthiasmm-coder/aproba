@@ -63,16 +63,45 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
 
-      <div className="mt-2 border-t border-slate-100 pt-2">
+      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
         <NextAction estado={e.estado} />
+        {/* El gesto diario nº1: recordar los documentos al cliente sin abrir la ficha. */}
+        {e.estado === "DOCS_PENDIENTES" && <RecordarMini id={e.id} />}
       </div>
     </Link>
   );
 }
 
-export function BoardClient({ items, asignados }: { items: BoardItem[]; asignados: string[] }) {
+// Botón «Recordar» compacto para la tarjeta (reusa la API de recordatorio de la ficha).
+function RecordarMini({ id }: { id: string }) {
+  const t = useT();
+  const [estado, setEstado] = useState<"idle" | "enviando" | "ok" | "error">("idle");
+  async function enviar(ev: React.MouseEvent) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (estado === "enviando" || estado === "ok") return;
+    setEstado("enviando");
+    try {
+      const res = await fetch(`/api/expedientes/${id}/recordar-docs`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      setEstado(res.ok && d.enviado !== false ? "ok" : "error");
+    } catch {
+      setEstado("error");
+    }
+  }
+  return (
+    <button onClick={enviar} disabled={estado === "enviando" || estado === "ok"} className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${estado === "ok" ? "bg-aproba-50 text-aproba-700" : estado === "error" ? "bg-red-50 text-red-600" : "border border-amber-300 text-amber-700 hover:bg-amber-50"}`}>
+      {estado === "ok" ? t("Recordado ✓") : estado === "error" ? t("No enviado") : estado === "enviando" ? "…" : t("Recordar")}
+    </button>
+  );
+}
+
+export function BoardClient({ items, asignados, filtroInicial = null }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null }) {
   const t = useT();
   const [q, setQ] = useState("");
+  // Filtro «esperando cliente» (desde el KPI del dashboard): un clic → la lista de
+  // expedientes DOCS_PENDIENTES con el botón Recordar en cada tarjeta.
+  const [soloEsperando, setSoloEsperando] = useState(filtroInicial === "esperando");
   const [asignado, setAsignado] = useState("");
   const [view, setView] = useState<"activos" | "archivados">("activos");
   // Archivado = SERVIDOR (items[].archivado, igual para los 3 usuarios) ∪ localStorage
@@ -96,6 +125,7 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
 
   const matchSearch = (e: BoardItem) => {
     const nq = norm(q.trim());
+    if (soloEsperando && e.estado !== "DOCS_PENDIENTES") return false;
     if (asignado && e.asignadoA !== asignado) return false;
     if (!nq) return true;
     return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(e.tipoLabel).includes(nq) || norm(e.referencia).includes(nq);
@@ -121,6 +151,11 @@ export function BoardClient({ items, asignados }: { items: BoardItem[]; asignado
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente, trámite, referencia…")} className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-9 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
           {q && <button onClick={() => setQ("")} aria-label={t("Borrar")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button>}
         </div>
+        {soloEsperando && (
+          <button onClick={() => setSoloEsperando(false)} className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100">
+            {t("Esperando cliente")} <span aria-hidden>✕</span>
+          </button>
+        )}
         {view === "activos" && (
           <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
             <button onClick={() => setAsignado("")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${asignado === "" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Todos")}</button>

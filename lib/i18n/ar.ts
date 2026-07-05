@@ -213,4 +213,8 @@ export const AR: Record<string, string> = {
   "doc:TITULO_ESTUDIOS.help": "شهادة أو دبلوم دراسي، معادَل رسمياً إذا لزم الأمر.",
   "doc:OTRO.label": "وثيقة",
   "doc:OTRO.help": "ارفع الوثيقة تماماً كما طلبها منك مكتبك.",
+  "ui:seg.next.titulo": "خطوتك التالية",
+  "ui:seg.next.docs": "ارفع الوثائق الناقصة ({n})",
+  "ui:seg.next.subir": "ارفع الآن",
+  "ui:seg.next.ok": "لا شيء متبقٍ من جهتك: مكتبك يتولى الأمر. سنخبرك عند كل تقدم.",
 };

@@ -4,7 +4,8 @@ import { BoardClient, type BoardItem } from "@/components/board-client";
 export const metadata = { title: "Expedientes" };
 
 // Board branché sur Supabase (RLS) : chaque gestor ne voit que son workspace.
-export default async function Board() {
+export default async function Board({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
+  const { filtro } = await searchParams;
   const expedientes = await fetchExpedientesResumen();
 
   const items: BoardItem[] = expedientes.map((e) => ({
@@ -25,7 +26,7 @@ export default async function Board() {
 
   return (
     <div>
-      <BoardClient items={items} asignados={asignados} />
+      <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} />
     </div>
   );
 }

@@ -125,6 +125,23 @@ export function Seguimiento({
           </div>
         )}
 
+        {/* La PRÓXIMA ACCIÓN del migrante, arriba del todo: o le toca subir algo (ámbar,
+            con botón), o puede estar tranquilo (verde). La cita ya tiene su tarjeta. */}
+        {estado !== "RECHAZADO" && (faltan > 0 ? (
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">{t("seg.next.titulo")}</p>
+            <p className="mt-1 text-sm font-semibold text-amber-800">{t("seg.next.docs", { n: faltan })}</p>
+            <button
+              onClick={() => document.getElementById("seg-docs")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="mt-3 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+            >{t("seg.next.subir")} ↓</button>
+          </div>
+        ) : estado !== "CITA_HUELLAS" && estado !== "FINALIZADO" ? (
+          <div className="mt-6 rounded-2xl border border-aproba-200 bg-aproba-50 p-4">
+            <p className="text-sm text-aproba-700">✓ {t("seg.next.ok")}</p>
+          </div>
+        ) : null)}
+
         {/* Milestones */}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.progreso")}</p>
@@ -178,7 +195,7 @@ export function Seguimiento({
         )}
 
         {/* Documents */}
-        <div className="mt-6">
+        <div className="mt-6 scroll-mt-16" id="seg-docs">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.docsTitulo")}</h2>
             <span className={`text-xs font-medium ${faltan ? "text-amber-600" : "text-aproba-700"}`}>{faltan ? t("seg.faltan") : t("seg.todoAlDia")}</span>
@@ -214,7 +231,7 @@ export function Seguimiento({
                           <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t("seg.descargar")}</span>
                         </a>
                       )}
-                      {(d.status === "pendiente" || d.status === "rechazado") && (
+                      {(d.status === "pendiente" || d.status === "rechazado" || d.status === "procesando") && (
                         <button onClick={() => pedirArchivo(i)} disabled={subiendoEste} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
                           {subiendoEste ? t("s2.analizando") : t("s2.subir")}
                         </button>

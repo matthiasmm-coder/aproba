@@ -213,4 +213,8 @@ export const RO: Record<string, string> = {
   "doc:TITULO_ESTUDIOS.help": "Diplomă sau certificat de studii, omologat dacă este cazul.",
   "doc:OTRO.label": "Document",
   "doc:OTRO.help": "Încarcă documentul exact așa cum ți l-a cerut gestoría ta.",
+  "ui:seg.next.titulo": "Următorul tău pas",
+  "ui:seg.next.docs": "Încarcă documentele lipsă ({n})",
+  "ui:seg.next.subir": "Încarcă acum",
+  "ui:seg.next.ok": "Nimic în așteptare din partea ta: biroul tău se ocupă. Te anunțăm la fiecare pas.",
 };

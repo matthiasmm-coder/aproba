@@ -213,4 +213,8 @@ export const ZH: Record<string, string> = {
   "doc:TITULO_ESTUDIOS.help": "学历证书或学业证明，如有需要须经官方认证（homologación）。",
   "doc:OTRO.label": "文件",
   "doc:OTRO.help": "请按你的事务所的要求原样上传该文件。",
+  "ui:seg.next.titulo": "你的下一步",
+  "ui:seg.next.docs": "上传缺少的证件（{n}）",
+  "ui:seg.next.subir": "立即上传",
+  "ui:seg.next.ok": "你这边没有待办事项：你的事务所正在处理。每有进展我们都会通知你。",
 };
