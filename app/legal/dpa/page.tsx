@@ -20,7 +20,9 @@ export default function DPA() {
         cuenta del despacho, gestoría o profesional que usa la plataforma («el Cliente»,{" "}
         <strong>responsable del tratamiento</strong>), conforme al artículo 28 del RGPD. Forma parte
         inseparable de los <Link href="/legal/terminos">Términos y condiciones</Link> y se entiende aceptado
-        al contratar el servicio.
+        al contratar el servicio <strong>o al comenzar a usar la plataforma, incluido el periodo de prueba
+        gratuito</strong>: sus garantías se aplican íntegramente desde el primer dato tratado, exista o no
+        suscripción de pago.
       </p>
 
       <h2 id="objeto">1. Objeto y roles</h2>

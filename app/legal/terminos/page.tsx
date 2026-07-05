@@ -46,6 +46,14 @@ export default function Terminos() {
           una suscripción de pago, el acceso puede quedar limitado.
         </li>
         <li>
+          <strong>Durante el periodo de prueba gratuito se aplican íntegramente</strong> estos Términos, la{" "}
+          <Link href="/legal/privacidad">Política de privacidad</Link> y el{" "}
+          <Link href="/legal/dpa">Contrato de encargado del tratamiento (DPA)</Link>, con las mismas garantías
+          técnicas y organizativas que en una suscripción de pago, aunque no exista todavía contratación ni
+          factura emitida. El uso de la plataforma durante la prueba implica la aceptación de dichas
+          condiciones.
+        </li>
+        <li>
           El número de usuarios y los límites dependen del plan (por ejemplo, Starter, Pro y Business).
         </li>
       </ul>
