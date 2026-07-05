@@ -71,3 +71,43 @@ describe("parseClientesCsv — ficha completa", () => {
     }
   });
 });
+
+// ── Vigía: columna caducidadTIE → siembra el radar de vencimientos al importar ──
+import { normalizarFechaCsv } from "@/lib/csv-clientes";
+
+describe("caducidadTIE (Vigía)", () => {
+  it("normalizarFechaCsv acepta dd/mm/aaaa, dd-mm-aaaa e ISO; rechaza lo demás", () => {
+    expect(normalizarFechaCsv("15/07/2027")).toBe("2027-07-15");
+    expect(normalizarFechaCsv("1/3/2027")).toBe("2027-03-01");
+    expect(normalizarFechaCsv("15-07-2027")).toBe("2027-07-15");
+    expect(normalizarFechaCsv("2027-07-15")).toBe("2027-07-15");
+    expect(normalizarFechaCsv("")).toBe("");
+    expect(normalizarFechaCsv("pronto")).toBe("");
+    expect(normalizarFechaCsv("31/02/2027")).toBe(""); // fecha imposible
+  });
+
+  it("captura la columna con sus alias y la normaliza a ISO", () => {
+    const csv =
+      "nombre;caducidad TIE\n" +
+      "Karim;15/07/2027\n" +
+      "Fatou;2026-12-01\n" +
+      "Ana;\n";
+    const filas = parseClientesCsv(csv);
+    expect(filas[0].fechaCaducidad).toBe("2027-07-15");
+    expect(filas[1].fechaCaducidad).toBe("2026-12-01");
+    expect(filas[2].fechaCaducidad).toBe("");
+  });
+
+  it("filaACliente escribe fechaCaducidad + tipoVencimiento solo si hay fecha", () => {
+    const filas = parseClientesCsv("nombre;caducidadtie\nKarim;15/07/2027\nAna;\n");
+    const con = filaACliente(filas[0], "ws1");
+    const sin = filaACliente(filas[1], "ws1");
+    expect(con.fechaCaducidad).toBe("2027-07-15");
+    expect(con.tipoVencimiento).toBe("TIE");
+    expect("fechaCaducidad" in sin).toBe(false);
+  });
+
+  it("la plantilla incluye la columna caducidadTIE", () => {
+    expect(PLANTILLA_CSV).toContain("caducidadTIE");
+  });
+});

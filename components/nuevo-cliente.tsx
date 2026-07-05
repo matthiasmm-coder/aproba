@@ -56,7 +56,7 @@ export function NuevoCliente() {
   const [filas, setFilas] = useState<Fila[] | null>(null);
   const [nombreFichero, setNombreFichero] = useState("");
   const [importando, setImportando] = useState(false);
-  const [resultado, setResultado] = useState<{ importados: number; duplicados: number; invalidos: number } | null>(null);
+  const [resultado, setResultado] = useState<{ importados: number; duplicados: number; invalidos: number; vigilados?: number } | null>(null);
 
   async function contexto() {
     const supabase = createSupabaseBrowser();
@@ -118,15 +118,28 @@ export function NuevoCliente() {
     setError(null);
     try {
       const { supabase, ws } = await contexto();
+      // Vigía: filas con caducidadTIE → sembrar sus vencimientos tras el insert.
+      const conCaducidad: { clienteId: string; fecha: string }[] = [];
       for (let i = 0; i < validas.length; i += 100) {
-        const lote = validas.slice(i, i + 100).map((f) => filaACliente(f, ws));
+        const parte = validas.slice(i, i + 100);
+        const lote = parte.map((f) => filaACliente(f, ws));
         const { error: e } = await supabase.from("Cliente").insert(lote);
         if (e) throw new Error(e.message);
+        parte.forEach((f, j) => { if (f.fechaCaducidad) conCaducidad.push({ clienteId: String(lote[j].id), fecha: f.fechaCaducidad }); });
+      }
+      // Mejor esfuerzo (el import ya está hecho): el radar de Vencimientos se llena solo.
+      for (let i = 0; i < conCaducidad.length; i += 400) {
+        await fetch("/api/clientes/caducidad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: conCaducidad.slice(i, i + 400) }),
+        }).catch(() => {});
       }
       setResultado({
         importados: validas.length,
         duplicados: filas.filter((f) => f.estado === "duplicado").length,
         invalidos: filas.filter((f) => f.estado === "sin_nombre").length,
+        vigilados: conCaducidad.length,
       });
       setFilas(null);
       router.refresh();
@@ -237,6 +250,7 @@ export function NuevoCliente() {
                 {resultado.duplicados > 0 && resultado.invalidos > 0 && " · "}
                 {resultado.invalidos > 0 && `${resultado.invalidos} ${t("filas sin nombre")}`}
                 {resultado.duplicados === 0 && resultado.invalidos === 0 && t("Sin incidencias.")}
+                {(resultado.vigilados ?? 0) > 0 && <> · <span className="font-semibold text-aproba-700">{resultado.vigilados} {t("caducidades vigiladas en Vencimientos")}</span></>}
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <Link href="/app/clientes" className="rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Ver clientes →")}</Link>

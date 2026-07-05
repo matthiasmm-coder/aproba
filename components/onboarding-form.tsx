@@ -137,6 +137,17 @@ export function OnboardingForm() {
         if (mem) {
           const rows = validas.map((f) => filaACliente(f, mem.workspaceId as string));
           for (let i = 0; i < rows.length; i += 100) await supabase.from("Cliente").insert(rows.slice(i, i + 100));
+          // Vigía: filas con caducidadTIE → sembrar sus vencimientos (mejor esfuerzo).
+          const conCaducidad = validas
+            .map((f, j) => ({ clienteId: String(rows[j].id), fecha: f.fechaCaducidad }))
+            .filter((x) => x.fecha);
+          for (let i = 0; i < conCaducidad.length; i += 400) {
+            await fetch("/api/clientes/caducidad", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: conCaducidad.slice(i, i + 400) }),
+            }).catch(() => {});
+          }
         }
       } catch { /* */ }
     }

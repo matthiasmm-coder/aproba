@@ -6,12 +6,33 @@
 
 import { FICHA_KEYS, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 
-export type ClienteCsvCampos = Record<keyof ClienteFicha, string> & { idioma: string };
+export type ClienteCsvCampos = Record<keyof ClienteFicha, string> & { idioma: string; fechaCaducidad: string };
 export type FilaCsv = ClienteCsvCampos & { estado: "ok" | "duplicado" | "sin_nombre" };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
-export const camposVacios = (): ClienteCsvCampos => ({ ...(fichaVacia() as Record<keyof ClienteFicha, string>), idioma: "es" });
+export const camposVacios = (): ClienteCsvCampos => ({ ...(fichaVacia() as Record<keyof ClienteFicha, string>), idioma: "es", fechaCaducidad: "" });
+
+// Fecha de caducidad del CSV → ISO AAAA-MM-DD. Acepta dd/mm/aaaa (formato español,
+// también con - o .) y AAAA-MM-DD. Inválida/ausente → "" (nunca bloquea la fila).
+// Validación ESTRICTA por ida-y-vuelta: Date.parse «rueda» el 31/02 al 3 de marzo.
+const fechaReal = (y: number, mo: number, d: number): boolean => {
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+};
+export function normalizarFechaCsv(v: string): string {
+  const s = v.trim();
+  if (!s) return "";
+  let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) return fechaReal(+m[1], +m[2], +m[3]) ? s : "";
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s);
+  if (m) {
+    const [, d, mo, y] = m;
+    if (!fechaReal(+y, +mo, +d)) return "";
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return "";
+}
 
 export function parseCSV(text: string): string[][] {
   const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
@@ -61,10 +82,12 @@ export const CABECERAS: Partial<Record<keyof ClienteCsvCampos, string[]>> = {
   municipio: ["municipio", "localidad", "ciudad", "city"],
   provincia: ["provincia", "province"],
   idioma: ["idioma", "lengua", "language", "langue"],
+  // Vigía: la caducidad de la TIE actual → siembra el radar de vencimientos al importar.
+  fechaCaducidad: ["caducidad", "fechacaducidad", "caducidadtie", "fechacaducidadtie", "vencimiento", "vencimientotie", "expiry", "expiration", "expira"],
 };
 
 // Étiquette des colonnes reconnues (affichée dans les deux écrans d'import).
-export const COLUMNAS_CSV_LABEL = "nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma";
+export const COLUMNAS_CSV_LABEL = "nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma, caducidadTIE";
 
 // Clés de doublon (email / nombre+apellidos) à partir des clients déjà en base.
 export function llavesDeClientes(existentes: { nombre: string | null; apellidos?: string | null; email?: string | null }[]): Set<string> {
@@ -96,6 +119,7 @@ export function parseClientesCsv(text: string, existentesLlaves: Set<string> = n
     const f = camposVacios();
     campos.forEach((k) => { const v = get(k); if (v) f[k] = v; });
     f.idioma = get("idioma") || "es";
+    f.fechaCaducidad = normalizarFechaCsv(f.fechaCaducidad); // dd/mm/aaaa → ISO; inválida → ""
     let estado: FilaCsv["estado"] = "ok";
     if (!f.nombre) estado = "sin_nombre";
     else if ((f.email && llaves.has("e:" + norm(f.email))) || llaves.has("n:" + norm(`${f.nombre} ${f.apellidos}`))) estado = "duplicado";
@@ -109,9 +133,11 @@ export function parseClientesCsv(text: string, existentesLlaves: Set<string> = n
 export function filaACliente(f: ClienteCsvCampos, workspaceId: string): Record<string, unknown> {
   const row: Record<string, unknown> = { id: crypto.randomUUID(), workspaceId, idioma: f.idioma || "es", updatedAt: new Date().toISOString() };
   for (const k of FICHA_KEYS) { const v = (f[k] ?? "").trim(); row[k] = k === "nombre" ? v : (v || null); }
+  // Vigía: caducidad de la TIE (ya normalizada a ISO por parseClientesCsv).
+  if (f.fechaCaducidad) { row.fechaCaducidad = f.fechaCaducidad; row.tipoVencimiento = "TIE"; }
   return row;
 }
 
 export const PLANTILLA_CSV =
-  "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma\n"
-  + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es\n";
+  "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma;caducidadTIE\n"
+  + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es;15/07/2027\n";

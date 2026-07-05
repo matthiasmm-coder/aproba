@@ -7,6 +7,7 @@ import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/fac
 import { formulariosDisponibles } from "@/lib/ex-forms";
 import { ClienteFormularios } from "@/components/cliente-formularios";
 import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
+import { CaducidadTie } from "@/components/caducidad-tie";
 import { getT } from "@/lib/app-lang";
 
 // Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
@@ -22,11 +23,10 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
-  const { data: cliente } = await supabase
-    .from("Cliente")
-    .select("id, nombre, apellidos, nacionalidad")
-    .eq("id", id)
-    .maybeSingle();
+  // fechaCaducidad (Vigía): select defensivo — repli sin la columna si falta la migración.
+  let resCliente = await supabase.from("Cliente").select("id, nombre, apellidos, nacionalidad, fechaCaducidad").eq("id", id).maybeSingle();
+  if (resCliente.error) resCliente = await supabase.from("Cliente").select("id, nombre, apellidos, nacionalidad").eq("id", id).maybeSingle();
+  const cliente = resCliente.data as { id: string; nombre: string; apellidos: string | null; nacionalidad: string | null; fechaCaducidad?: string | null } | null;
   if (!cliente) notFound();
 
   const nombre = `${cliente.nombre} ${cliente.apellidos ?? ""}`.trim();
@@ -128,6 +128,9 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
+
+      {/* Vigía: caducidad de la TIE — amorça el radar sobre la cartera existente */}
+      <CaducidadTie clienteId={cliente.id} fechaActual={cliente.fechaCaducidad ?? null} />
 
       {/* Documentos sueltos du client (passeport, TIE… — sans expediente) */}
       <DocumentosCliente clienteId={cliente.id} docs={docsSueltos} />
