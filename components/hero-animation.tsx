@@ -262,9 +262,9 @@ export function HeroAnimation() {
 
       {/* iPad */}
       <div className="relative w-full max-w-[470px] animate-floaty">
-        <div className="relative rounded-[1.7rem] border border-slate-700/40 bg-slate-900 p-3 shadow-float">
+        <div className="relative rounded-[1.4rem] border border-slate-700/40 bg-slate-900 p-2 shadow-float">
           {/* caméra */}
-          <div className="absolute left-1/2 top-1.5 h-1 w-1 -translate-x-1/2 rounded-full bg-slate-600" />
+          <div className="absolute left-1/2 top-[3px] h-0.5 w-0.5 -translate-x-1/2 rounded-full bg-slate-600" />
 
           {/* écran */}
           <div className="overflow-hidden rounded-xl bg-cream-50">

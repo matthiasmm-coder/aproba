@@ -34,13 +34,14 @@ function StatIcon({ name }: { name: string }) {
   }
 }
 
+// El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación.
 const MODULOS = [
-  { titulo: "Validación de documentos con IA", desc: "Tus clientes suben fotos desde el móvil, en su idioma. Aproba detecta el tipo, extrae los datos y avisa si algo está borroso, caducado o incompleto.", icon: "scan" },
-  { titulo: "Formularios oficiales automáticos", desc: "Con los documentos validados, Aproba rellena el formulario oficial —12 modelos EX— y la tasa 790-012. Sin copiar datos a mano, sin errores de transcripción.", icon: "doc" },
-  { titulo: "Revisión final «como Extranjería»", desc: "Antes de presentar, la IA repasa el expediente igual que lo haría el funcionario y te marca lo que provocaría un requerimiento. Y si llega uno, te redacta el escrito de subsanación.", icon: "eye" },
-  { titulo: "Seguimiento de expedientes", desc: "Un tablero claro: qué falta, qué está validado, qué se ha presentado. Tu equipo y tú, siempre al día.", icon: "board" },
-  { titulo: "Avisos automáticos al cliente", desc: "El cliente recibe un mensaje en cada paso: documento aceptado, cita fijada, expediente presentado. Menos llamadas, más tiempo.", icon: "bell" },
-  { titulo: "Radar de renovaciones", desc: "Aproba vigila la caducidad de cada TIE y te avisa con meses de antelación. Un clic y la renovación está en marcha: ese cliente vuelve a ti, no a otro despacho.", icon: "radar" },
+  { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
+  { titulo: "Formularios en un clic", desc: "12 modelos EX y la tasa 790-012, rellenados solos. Sin teclear, sin erratas.", icon: "doc" },
+  { titulo: "Revisión «como Extranjería»", desc: "La IA repasa el expediente igual que el funcionario, antes de presentarlo.", icon: "eye" },
+  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
+  { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },
+  { titulo: "Radar de renovaciones", desc: "Cada TIE vigilada. Un clic y la renovación en marcha: ese cliente vuelve a ti.", icon: "radar" },
 ];
 
 const SIN = [
@@ -271,10 +272,13 @@ export default function Landing() {
         <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
             <Reveal key={m.titulo} delay={(i % 3) * 90}>
-              <div className="group h-full rounded-2xl border border-slate-200 bg-white p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-aproba-300 hover:shadow-float">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-transform duration-300 group-hover:scale-110"><Icon name={m.icon} /></div>
-                <h3 className="mt-5 text-lg font-semibold text-slate-900">{m.titulo}</h3>
-                <p className="mt-2 leading-relaxed text-slate-600">{m.desc}</p>
+              <div className="group relative h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
+                {/* nº de paso: refuerza que el orden es el flujo del expediente */}
+                <span className="absolute right-5 top-5 font-mono text-xs font-semibold tabular-nums text-slate-300 transition-colors duration-300 group-hover:text-aproba-600">0{i + 1}</span>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-aproba-100"><Icon name={m.icon} /></div>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">{m.titulo}</h3>
+                <span className="mt-1.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" aria-hidden="true" />
+                <p className="mt-2.5 text-[15px] leading-relaxed text-slate-600">{m.desc}</p>
               </div>
             </Reveal>
           ))}
