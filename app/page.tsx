@@ -132,7 +132,11 @@ export default function Landing() {
             <Link href="/login" className="rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 sm:px-3">
               Entrar
             </Link>
-            <DemoButton className="px-3 py-2 sm:px-4" />
+            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
+              <span className="sm:hidden">Prueba gratis</span>
+              <span className="hidden sm:inline">Prueba 1 mes gratis</span>
+            </Link>
+            <DemoButton className="hidden px-3 py-2 sm:px-4 md:inline-block" />
           </div>
         </div>
       </header>
@@ -178,11 +182,8 @@ export default function Landing() {
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
               <DemoButton className="w-full px-6 py-3 sm:w-auto" />
-              <a href="#como-funciona" className="group w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
-                <span className="mr-1.5 inline-flex h-4 w-4 translate-y-[3px] items-center justify-center rounded-full bg-aproba-100 text-aproba-700 transition group-hover:bg-aproba-200">
-                  <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                </span>
-                Ver el vídeo (90 s)
+              <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
+                Descubrir en 90s
               </a>
             </div>
             <p className="mt-4 text-xs text-slate-500">Demo online de 20 min · después, 1 mes de prueba gratis sin tarjeta</p>
