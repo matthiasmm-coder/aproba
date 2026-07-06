@@ -348,12 +348,12 @@ export default function Landing() {
             {PLANES.map((p, i) => (
               <Reveal key={p.nombre} delay={i * 90}>
               <div className={`relative flex h-full flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card hover:shadow-float" : "border-slate-200 bg-white hover:border-aproba-300 hover:shadow-card"}`}>
-                {p.destacado && <span className="absolute -top-3 left-7 rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
-                <h3 className="text-lg font-semibold text-slate-900">{p.nombre}</h3>
-                <p className="mt-1 text-sm text-slate-500">{p.para}</p>
-                <p className="mt-5"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
-                <p className="mt-1 text-xs text-slate-500">o {p.anual}&nbsp;€/año · 2 meses gratis</p>
-                <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-xs font-medium text-aproba-700">{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></p>
+                {p.destacado && <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
+                <h3 className="text-center text-lg font-semibold text-slate-900">{p.nombre}</h3>
+                <p className="mt-1 text-center text-sm text-slate-500">{p.para}</p>
+                <p className="mt-5 text-center"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
+                <p className="mt-1 text-center text-xs text-slate-500">o {p.anual}&nbsp;€/año · 2 meses gratis</p>
+                <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-center text-xs font-medium text-aproba-700">{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>

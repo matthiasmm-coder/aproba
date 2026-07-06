@@ -23,10 +23,10 @@ export function ServiciosImplantacion() {
       <div className="mx-auto mt-8 grid max-w-4xl gap-6 md:grid-cols-2">
         {SERVICIOS.map((s) => (
           <div key={s.nombre} className={`relative flex h-full flex-col rounded-2xl border p-7 ${s.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
-            {s.destacado && <span className="absolute -top-3 left-7 rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Recomendado</span>}
-            <h4 className="text-lg font-semibold text-slate-900">{s.nombre}</h4>
-            <p className="mt-1 text-sm text-slate-500">{s.para}</p>
-            <p className="mt-5"><span className="text-sm text-slate-500">desde </span><span className="text-3xl font-bold tracking-tightest text-slate-900">{s.desde}€</span></p>
+            {s.destacado && <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Recomendado</span>}
+            <h4 className="text-center text-lg font-semibold text-slate-900">{s.nombre}</h4>
+            <p className="mt-1 text-center text-sm text-slate-500">{s.para}</p>
+            <p className="mt-5 text-center"><span className="text-sm text-slate-500">desde </span><span className="text-3xl font-bold tracking-tightest text-slate-900">{s.desde}&nbsp;€</span><span className="text-slate-500"> + IVA</span></p>
             <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
               {s.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick />{f}</li>))}
             </ul>
@@ -98,10 +98,10 @@ function PresupuestoModal({ servicio, onClose }: { servicio: Svc; onClose: () =>
             <div className="rounded-lg border border-aproba-100 bg-aproba-50 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm font-semibold text-slate-900">{servicio.nombre}</p>
-                <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{servicio.desde} €</span></p>
+                <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{servicio.desde}&nbsp;€</span> + IVA</p>
               </div>
               <p className="mt-1 text-xs italic leading-relaxed text-slate-600">Incluye: {servicio.features.join(" · ")}.</p>
-              <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · precio sin IVA.</p>
+              <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · IVA no incluido.</p>
             </div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Nombre y apellidos *</label><input value={form.nombre} onChange={set("nombre")} className={inp} placeholder="Tu nombre" /></div>
