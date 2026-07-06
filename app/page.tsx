@@ -165,8 +165,10 @@ export default function Landing() {
               Automatiza tus expedientes de{" "}
               <span className="relative inline-block whitespace-nowrap">
                 extranjería.
-                <svg className="underline-draw absolute -bottom-2 left-0 w-full" viewBox="0 0 300 14" fill="none" aria-hidden="true" preserveAspectRatio="none">
-                  <path d="M4 9c50-6 148-7 292-3" stroke="#10B083" strokeWidth="6" strokeLinecap="round" />
+                {/* Altura explícita y TODO el trazo por debajo de la caja de línea:
+                    si el SVG sube hacia el texto, tacha el descendente de la «j». */}
+                <svg className="underline-draw absolute left-0 top-full mt-0.5 h-2.5 w-full" viewBox="0 0 300 12" fill="none" aria-hidden="true" preserveAspectRatio="none">
+                  <path d="M4 7c50-5 148-6 292-3" stroke="#10B083" strokeWidth="5" strokeLinecap="round" />
                 </svg>
               </span>
             </h1>

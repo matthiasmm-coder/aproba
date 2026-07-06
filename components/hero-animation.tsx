@@ -270,7 +270,9 @@ export function HeroAnimation() {
           <div className="overflow-hidden rounded-xl bg-cream-50">
             <div className="flex h-[306px]">
               {/* sidebar */}
-              <aside className="w-[122px] shrink-0 border-r border-slate-200 bg-white p-2.5">
+              {/* En móvil no cabe la sidebar (dejaría ~164px al contenido): el
+                  mockup pasa a «modo compacto» y cada pantalla ya lleva su título. */}
+              <aside className="hidden w-[122px] shrink-0 border-r border-slate-200 bg-white p-2.5 sm:block">
                 <div className="mb-3 flex items-center gap-1.5 px-1">
                   <AprobaMark size={16} />
                   <span className="text-[12px] font-bold tracking-tightest text-slate-900">aproba</span>
