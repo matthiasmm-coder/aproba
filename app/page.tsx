@@ -275,10 +275,10 @@ export default function Landing() {
               <div className="group relative h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
                 {/* nº de paso: refuerza que el orden es el flujo del expediente */}
                 <span className="absolute right-5 top-5 font-mono text-xs font-semibold tabular-nums text-slate-300 transition-colors duration-300 group-hover:text-aproba-600">0{i + 1}</span>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-aproba-100"><Icon name={m.icon} /></div>
-                <h3 className="mt-4 text-lg font-semibold text-slate-900">{m.titulo}</h3>
-                <span className="mt-1.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" aria-hidden="true" />
-                <p className="mt-2.5 text-[15px] leading-relaxed text-slate-600">{m.desc}</p>
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-aproba-100"><Icon name={m.icon} /></div>
+                <h3 className="mt-4 text-center text-lg font-semibold text-slate-900">{m.titulo}</h3>
+                <span className="mx-auto mt-1.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" aria-hidden="true" />
+                <p className="mt-2.5 text-center text-[15px] leading-relaxed text-slate-600">{m.desc}</p>
               </div>
             </Reveal>
           ))}
@@ -323,8 +323,8 @@ export default function Landing() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {GARANTIAS.map((g, i) => (
               <Reveal key={g.titulo} delay={i * 90}>
-                <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
+                <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card">
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
                   <h3 className="mt-4 font-semibold text-slate-900">{g.titulo}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{g.desc}</p>
                 </div>

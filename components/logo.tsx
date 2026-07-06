@@ -4,14 +4,15 @@ export function AprobaMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 120 120" aria-label="Aproba" role="img">
       <rect width="120" height="120" rx="28" fill="#0E8C5F" />
-      {/* y=60 + central = glyphe centré verticalement dans le carré (mesuré
-          via getBBox : centre à 60,60). L'ancien y=45 le remontait de 15px. */}
+      {/* Centrage sur l'ENCRE du glyphe (mesurée au canvas), pas sur la boîte
+          typographique : le α n'a pas d'ascendante, une em-box centrée le fait
+          paraître bas. Pas de dominant-baseline (rendu variable) : baseline
+          explicite. Police = la vraie Geist du site (var --font-geist-sans). */}
       <text
-        x="61"
-        y="60"
+        x="60"
+        y="86.6"
         textAnchor="middle"
-        dominantBaseline="central"
-        fontFamily="Geist, Inter, -apple-system, system-ui, sans-serif"
+        style={{ fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
         fontSize="100"
         fontWeight="800"
         fill="#FFFFFF"
