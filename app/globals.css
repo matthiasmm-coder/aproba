@@ -93,6 +93,54 @@ body {
   font-weight: 500;
 }
 
+/* ── Landing ──────────────────────────────────────────────── */
+
+/* Subrayado «a mano» del hero: el trazo se dibuja al cargar */
+.underline-draw path {
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: drawline 0.9s ease-out 0.7s forwards;
+}
+@keyframes drawline {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Entrada en cascada del hero (server component: sin JS, solo CSS) */
+.hero-stagger > * {
+  opacity: 0;
+  animation: fadein 0.6s ease-out forwards;
+}
+.hero-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.hero-stagger > *:nth-child(2) { animation-delay: 0.15s; }
+.hero-stagger > *:nth-child(3) { animation-delay: 0.28s; }
+.hero-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.hero-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+
+/* FAQ: el contenido aparece con un fundido al abrir el <details> */
+details[open] > .faq-body {
+  animation: fadein 0.35s ease-out;
+}
+
+/* Accesibilidad: sin animaciones para quien las desactiva en su sistema */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  .hero-stagger > * {
+    opacity: 1;
+  }
+  .underline-draw path {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Portal del migrante: en móvil, inputs a 16px — por debajo, iOS hace zoom
    automático al enfocar y el usuario acaba perdido en mitad del formulario. */
 @media (max-width: 640px) {

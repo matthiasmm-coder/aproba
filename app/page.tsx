@@ -4,6 +4,7 @@ import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
+import { DemoButton, DemoModalHost } from "@/components/solicitar-demo";
 
 const PAINS = [
   "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",
@@ -15,8 +16,8 @@ const PAINS = [
 const STATS = [
   { n: "4 h → 30 min", l: "por expediente", icon: "time" },
   { n: "−70 %", l: "errores administrativos", icon: "shield" },
-  { n: "4 formularios", l: "generados en un clic", icon: "file" },
-  { n: "0 apps", l: "que instalar tu cliente", icon: "phone" },
+  { n: "12", l: "formularios oficiales en un clic", icon: "file" },
+  { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe" },
 ];
 
 function StatIcon({ name }: { name: string }) {
@@ -29,15 +30,17 @@ function StatIcon({ name }: { name: string }) {
     case "file":
       return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 15h6M9 11h3" /></svg>);
     default:
-      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" /></svg>);
+      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>);
   }
 }
 
 const MODULOS = [
-  { titulo: "Validación de documentos con IA", desc: "Tus clientes suben fotos desde el móvil. Aproba detecta el tipo, extrae los datos y avisa si algo está borroso, caducado o incompleto.", icon: "scan" },
-  { titulo: "Formularios EX y 790-012 automáticos", desc: "A partir de los documentos validados, Aproba rellena los EX-15, EX-17, EX-18, EX-19 y la tasa 790-012. Sin copiar datos a mano.", icon: "doc" },
+  { titulo: "Validación de documentos con IA", desc: "Tus clientes suben fotos desde el móvil, en su idioma. Aproba detecta el tipo, extrae los datos y avisa si algo está borroso, caducado o incompleto.", icon: "scan" },
+  { titulo: "Formularios oficiales automáticos", desc: "Con los documentos validados, Aproba rellena el formulario oficial —12 modelos EX— y la tasa 790-012. Sin copiar datos a mano, sin errores de transcripción.", icon: "doc" },
+  { titulo: "Revisión final «como Extranjería»", desc: "Antes de presentar, la IA repasa el expediente igual que lo haría el funcionario y te marca lo que provocaría un requerimiento. Y si llega uno, te redacta el escrito de subsanación.", icon: "eye" },
   { titulo: "Seguimiento de expedientes", desc: "Un tablero claro: qué falta, qué está validado, qué se ha presentado. Tu equipo y tú, siempre al día.", icon: "board" },
   { titulo: "Avisos automáticos al cliente", desc: "El cliente recibe un mensaje en cada paso: documento aceptado, cita fijada, expediente presentado. Menos llamadas, más tiempo.", icon: "bell" },
+  { titulo: "Radar de renovaciones", desc: "Aproba vigila la caducidad de cada TIE y te avisa con meses de antelación. Un clic y la renovación está en marcha: ese cliente vuelve a ti, no a otro despacho.", icon: "radar" },
 ];
 
 const SIN = [
@@ -54,17 +57,18 @@ const CON = [
   "EX y 790-012 generados automáticamente",
   "Tablero con el estado de cada expediente",
   "Avisos automáticos en cada paso",
-  "El cliente lo completa en su idioma (5 idiomas)",
+  "El cliente lo completa en su idioma (8 idiomas, árabe incluido)",
   "La IA detecta caducados o ilegibles antes de presentar",
 ];
 
 const PLANES = [
   { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
-  { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Generación automática de facturas", "Portal del cliente con tu marca", "Facturación integrada", "Hasta 5 usuarios"], destacado: true },
+  { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
   { nombre: "Business", precio: "199", anual: "1.990", incluidos: "100", para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Multi-oficina", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
 ];
 
 const FAQ = [
+  { q: "¿Cómo es la demo?", a: "Una videollamada de 20–30 minutos en la que recorremos Aproba con tus casos reales: subes un documento, ves cómo se validan los datos y cómo se genera el formulario oficial. Después tienes 1 mes de prueba gratis, sin tarjeta y sin permanencia." },
   { q: "¿Es seguro? ¿Qué pasa con los datos de mis clientes?", a: "Sí. Los datos viajan cifrados, se alojan en servidores de la UE y nunca se usan para entrenar modelos de IA. Aproba cumple el RGPD y firmamos el contrato de encargado de tratamiento (DPA)." },
   { q: "¿Tengo que cambiar mi forma de trabajar?", a: "No. Aproba se ocupa de la parte pesada —recoger documentos y rellenar formularios—. Tú sigues presentando en la sede electrónica como siempre, pero con todo listo y validado." },
   { q: "¿Reemplaza a mi equipo?", a: "Al contrario. Les quita el trabajo repetitivo (pedir documentos, teclear los EX) para que dediquen su tiempo a lo que aporta valor: el cliente y la estrategia del caso." },
@@ -72,46 +76,30 @@ const FAQ = [
   { q: "¿Cuánto tardo en configurarlo?", a: "Diez minutos. Sin instalaciones ni informático. Creas tu cuenta, invitas a tu equipo y empiezas a enviar enlaces hoy mismo." },
 ];
 
-// Avis placeholder — à remplacer par de vrais témoignages dès les premiers clients.
-const REVIEWS = [
-  { quote: "Antes tardaba una tarde entera en montar un arraigo. Ahora el cliente sube todo desde el móvil y yo solo reviso y presento.", name: "Marta Ribas", role: "Gestoría Vallès", city: "Barcelona", initials: "MR" },
-  { quote: "Las fotos borrosas eran mi pesadilla. Aproba las detecta al instante y pide al cliente que las repita. Se acabaron los rechazos.", name: "Diego Fuentes", role: "Asesoría Fuentes", city: "Madrid", initials: "DF" },
-  { quote: "Generar los EX y la 790-012 en un clic me ahorra horas cada semana, y sin errores de transcripción.", name: "Nuria Camps", role: "Gestió Camps", city: "Girona", initials: "NC" },
-  { quote: "Mis clientes reciben un aviso en cada paso y han dejado de llamar cada dos días. El despacho está mucho más tranquilo.", name: "Óscar Pérez", role: "Despacho Pérez & Asoc.", city: "Valencia", initials: "OP" },
-  { quote: "Llevo tres oficinas y por fin veo todos los expedientes en un mismo tablero. La diferencia es brutal.", name: "Lucía Romero", role: "Grupo Romero Gestión", city: "Sevilla", initials: "LR" },
-  { quote: "Como abogada de extranjería, el cumplimiento del RGPD era innegociable. Aproba lo cumple y me firma el DPA sin problema.", name: "Iria Castro", role: "Castro Abogados", city: "A Coruña", initials: "IC" },
+// Garantías FACTUALES (alineadas con /legal y la FAQ) — nada de testimonios
+// inventados: reseñas ficticias = publicidad engañosa (RDL 24/2021) y un riesgo
+// de credibilidad ante cualquier cliente que las googlee.
+const GARANTIAS = [
+  { titulo: "RGPD y DPA firmado", desc: "Cumplimos el RGPD y firmamos contigo el contrato de encargado de tratamiento, como con cualquier proveedor serio.", icon: "shield" },
+  { titulo: "Datos alojados en la UE", desc: "Los expedientes de tus clientes viajan cifrados y se alojan en servidores de la Unión Europea.", icon: "eu" },
+  { titulo: "Tus datos no entrenan IA", desc: "Los documentos de tus clientes nunca se usan para entrenar modelos de inteligencia artificial.", icon: "lock" },
+  { titulo: "Sin permanencia", desc: "Mes a mes, exportas todo a Excel cuando quieras. Si Aproba no te ahorra tiempo, te vas sin ataduras.", icon: "door" },
 ];
 
-function Stars() {
-  return (
-    <div className="flex gap-0.5 text-amber-400">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <svg key={i} className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.2 6.8.6-5.1 4.5 1.5 6.7L12 17.8 5.9 20.5l1.5-6.7-5.1-4.5 6.8-.6z" /></svg>
-      ))}
-    </div>
-  );
-}
-
-function ReviewCard({ r }: { r: (typeof REVIEWS)[number] }) {
-  return (
-    <figure className="flex w-[340px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-      <Stars />
-      <blockquote className="mt-4 flex-1 leading-relaxed text-slate-700">“{r.quote}”</blockquote>
-      <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-sm font-semibold text-aproba-700">{r.initials}</span>
-        <div>
-          <p className="text-sm font-semibold text-slate-800">{r.name}</p>
-          <p className="text-xs text-slate-500">{r.role} · {r.city}</p>
-        </div>
-      </figcaption>
-    </figure>
-  );
+function GarantiaIcon({ name }: { name: string }) {
+  const c = "h-6 w-6 text-aproba-600";
+  if (name === "shield") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m8.5 12 2.5 2.5L15.5 10" /></svg>;
+  if (name === "eu") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="12" rx="9" ry="9" /><path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9s-1.4 6.4-3.9 9c-2.5-2.6-3.9-5.7-3.9-9s1.4-6.4 3.9-9Z" /></svg>;
+  if (name === "lock") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
+  return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8M16 17l5-5-5-5M21 12H9" /></svg>;
 }
 
 function Icon({ name }: { name: string }) {
   const c = "w-6 h-6 text-aproba-600";
   if (name === "scan") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>;
   if (name === "doc") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>;
+  if (name === "eye") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>;
+  if (name === "radar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>;
   if (name === "board") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="6" height="18" rx="1"/><rect x="10" y="3" width="6" height="11" rx="1"/><rect x="17" y="3" width="4" height="7" rx="1"/></svg>;
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
 }
@@ -127,6 +115,10 @@ function Tick({ ok }: { ok: boolean }) {
 export default function Landing() {
   return (
     <div className="min-h-screen overflow-x-clip bg-cream-50">
+      {/* Sin JS, los <Reveal> quedarían en opacity-0: forzamos visible */}
+      <noscript>
+        <style>{`.opacity-0{opacity:1!important}.translate-y-4{transform:none!important}`}</style>
+      </noscript>
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-cream-50/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -140,12 +132,7 @@ export default function Landing() {
             <Link href="/login" className="rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 sm:px-3">
               Entrar
             </Link>
-            <Link href="/signup?modo=prueba" className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
-              Prueba 1 mes gratis
-            </Link>
-            <Link href="/signup" className="hidden rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:inline-block">
-              Empieza gratis
-            </Link>
+            <DemoButton className="px-3 py-2 sm:px-4" />
           </div>
         </div>
       </header>
@@ -170,26 +157,33 @@ export default function Landing() {
 
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pb-14 pt-16 lg:grid-cols-2 lg:gap-8">
           {/* Texte */}
-          <div className="min-w-0 text-center lg:text-left">
+          <div className="hero-stagger min-w-0 text-center lg:text-left">
             <span className="inline-flex items-center gap-2 rounded-full bg-aproba-100 px-3 py-1 text-xs font-semibold text-aproba-700">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-aproba-600" /> Para gestorías y abogados de extranjería
             </span>
             <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tightest text-slate-900 md:text-6xl">
-              Automatiza tus expedientes de extranjería.
+              Automatiza tus expedientes de{" "}
+              <span className="relative inline-block whitespace-nowrap">
+                extranjería.
+                <svg className="underline-draw absolute -bottom-2 left-0 w-full" viewBox="0 0 300 14" fill="none" aria-hidden="true" preserveAspectRatio="none">
+                  <path d="M4 9c50-6 148-7 292-3" stroke="#10B083" strokeWidth="6" strokeLinecap="round" />
+                </svg>
+              </span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-600 lg:mx-0">
-              La IA valida los documentos, genera los formularios oficiales y sigue cada expediente.
-              Lo que te llevaba 4 horas, en 30 minutos.
+              La IA valida los documentos, genera los formularios oficiales, revisa el expediente
+              antes de presentarlo y vigila cada renovación. Lo que te llevaba 4 horas, en 30 minutos.
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-              <Link href="/signup" className="w-full rounded-lg bg-aproba-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:w-auto">
-                Prueba 1 mes gratis
-              </Link>
-              <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
-                Ver cómo funciona
+              <DemoButton className="w-full px-6 py-3 sm:w-auto" />
+              <a href="#como-funciona" className="group w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
+                <span className="mr-1.5 inline-flex h-4 w-4 translate-y-[3px] items-center justify-center rounded-full bg-aproba-100 text-aproba-700 transition group-hover:bg-aproba-200">
+                  <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                </span>
+                Ver el vídeo (90 s)
               </a>
             </div>
-            <p className="mt-4 text-xs text-slate-500">Sin tarjeta · Configúralo en 10 minutos</p>
+            <p className="mt-4 text-xs text-slate-500">Demo online de 20 min · después, 1 mes de prueba gratis sin tarjeta</p>
           </div>
 
           {/* Animation */}
@@ -227,7 +221,7 @@ export default function Landing() {
                   <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20">
                     <StatIcon name={s.icon} />
                   </span>
-                  <p className="whitespace-nowrap text-3xl font-bold tracking-tightest">{s.n}</p>
+                  <p className="text-2xl font-bold tracking-tightest md:text-3xl">{s.n}</p>
                   <p className="mt-1.5 text-sm font-medium text-aproba-100">{s.l}</p>
                 </div>
               </Reveal>
@@ -242,12 +236,25 @@ export default function Landing() {
           <span className="text-sm font-semibold text-aproba-700">En acción</span>
           <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 90 segundos</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento del cliente a la presentación del expediente, sin teclear un solo formulario.</p>
-          <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-float">
-            <video controls preload="metadata" playsInline poster="/demo-poster.jpg" className="h-auto w-full">
-              <source src="/demo.mp4" type="video/mp4" />
-              Tu navegador no admite la reproducción de vídeo.
-            </video>
-          </div>
+          <Reveal className="mt-10">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-float">
+              <div className="flex items-center gap-2 border-b border-slate-100 bg-cream-50 px-4 py-2.5">
+                <span className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-300" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-aproba-300" />
+                </span>
+                <span className="mx-auto flex items-center gap-1.5 rounded-md bg-white px-3 py-1 text-[11px] font-medium text-slate-400 ring-1 ring-slate-200">
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                  app.aproba-software.com
+                </span>
+              </div>
+              <video controls preload="metadata" playsInline poster="/demo-poster.jpg" className="h-auto w-full bg-black">
+                <source src="/demo.mp4" type="video/mp4" />
+                Tu navegador no admite la reproducción de vídeo.
+              </video>
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -258,9 +265,9 @@ export default function Landing() {
       <section id="funciones" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
         <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Todo el expediente, en un sitio</h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Desde que el cliente sube el primer documento hasta la presentación en sede electrónica.</p>
-        <div className="mt-14 grid gap-6 md:grid-cols-2">
+        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
-            <Reveal key={m.titulo} delay={i * 90}>
+            <Reveal key={m.titulo} delay={(i % 3) * 90}>
               <div className="group h-full rounded-2xl border border-slate-200 bg-white p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-aproba-300 hover:shadow-float">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-transform duration-300 group-hover:scale-110"><Icon name={m.icon} /></div>
                 <h3 className="mt-5 text-lg font-semibold text-slate-900">{m.titulo}</h3>
@@ -276,7 +283,8 @@ export default function Landing() {
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">El día y la noche</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-cream-50 p-7">
+            <Reveal>
+            <div className="h-full rounded-2xl border border-slate-200 bg-cream-50 p-7">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Sin Aproba</h3>
               <ul className="mt-5 space-y-3 text-slate-600">
                 {SIN.map((s) => (
@@ -284,7 +292,9 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border-2 border-aproba-600 bg-white p-7 shadow-card">
+            </Reveal>
+            <Reveal delay={150}>
+            <div className="h-full rounded-2xl border-2 border-aproba-600 bg-white p-7 shadow-card">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-aproba-700">Con Aproba</h3>
               <ul className="mt-5 space-y-3 text-slate-700">
                 {CON.map((s) => (
@@ -292,23 +302,33 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* Avis clients — défilement (marquee) */}
-      <section className="overflow-hidden py-24">
+      {/* Confianza — garantías verificables, el argumento que de verdad pesa
+          para un despacho que maneja pasaportes y datos sensibles */}
+      <section className="py-24">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Gestorías que ya no vuelven atrás</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Lo que dicen quienes ya gestionan sus expedientes con Aproba.</p>
-        </div>
-        <div className="group relative mt-12 flex overflow-hidden">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-cream-50 to-transparent sm:w-24" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-cream-50 to-transparent sm:w-24" />
-          <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
-            <div className="flex shrink-0 gap-5 px-2.5">{REVIEWS.map((r, i) => <ReviewCard key={`a${i}`} r={r} />)}</div>
-            <div className="flex shrink-0 gap-5 px-2.5" aria-hidden="true">{REVIEWS.map((r, i) => <ReviewCard key={`b${i}`} r={r} />)}</div>
+          <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Para despachos que se toman los datos en serio</h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Tus expedientes contienen pasaportes, nóminas y datos sensibles. Los tratamos como se debe.</p>
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {GARANTIAS.map((g, i) => (
+              <Reveal key={g.titulo} delay={i * 90}>
+                <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
+                  <h3 className="mt-4 font-semibold text-slate-900">{g.titulo}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{g.desc}</p>
+                </div>
+              </Reveal>
+            ))}
           </div>
+          <p className="mt-10 text-center text-sm text-slate-500">
+            Todo por escrito: <Link href="/legal/terminos" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">Términos</Link>,{" "}
+            <Link href="/legal/privacidad" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">Privacidad</Link> y{" "}
+            <Link href="/legal/dpa" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">DPA</Link>.
+          </p>
         </div>
       </section>
 
@@ -316,21 +336,23 @@ export default function Landing() {
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Precios por volumen, no por profesión</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Empieza con 1 mes gratis, sin permanencia. Precios sin IVA.</p>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Todos los planes empiezan con 1 mes de prueba gratis, sin permanencia. Precios sin IVA.</p>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {PLANES.map((p) => (
-              <div key={p.nombre} className={`relative flex h-full flex-col rounded-2xl border p-7 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card" : "border-slate-200 bg-white"}`}>
+            {PLANES.map((p, i) => (
+              <Reveal key={p.nombre} delay={i * 90}>
+              <div className={`relative flex h-full flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card hover:shadow-float" : "border-slate-200 bg-white hover:border-aproba-300 hover:shadow-card"}`}>
                 {p.destacado && <span className="absolute -top-3 left-7 rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
                 <h3 className="text-lg font-semibold text-slate-900">{p.nombre}</h3>
                 <p className="mt-1 text-sm text-slate-500">{p.para}</p>
-                <p className="mt-5"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}€</span><span className="text-slate-500">/mes + IVA</span></p>
-                <p className="mt-1 text-xs text-slate-500">o {p.anual}€/año · 2 meses gratis</p>
+                <p className="mt-5"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
+                <p className="mt-1 text-xs text-slate-500">o {p.anual}&nbsp;€/año · 2 meses gratis</p>
                 <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-xs font-medium text-aproba-700">{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>
-                <Link href="/signup" className={`mt-7 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${p.destacado ? "bg-aproba-600 text-white hover:bg-aproba-700" : "border border-slate-300 text-slate-700 hover:border-slate-400"}`}>Empezar</Link>
+                <DemoButton variant={p.destacado ? "primary" : "outline"} className="mt-7 w-full px-4 py-2.5" />
               </div>
+              </Reveal>
             ))}
           </div>
 
@@ -349,7 +371,7 @@ export default function Landing() {
                   {f.q}
                   <svg className="h-5 w-5 shrink-0 text-slate-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
-                <p className="mt-3 leading-relaxed text-slate-600">{f.a}</p>
+                <p className="faq-body mt-3 leading-relaxed text-slate-600">{f.a}</p>
               </details>
             </Reveal>
           ))}
@@ -360,10 +382,9 @@ export default function Landing() {
       <section className="border-t border-slate-200 bg-aproba-600">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
-          <p className="mx-auto mt-3 max-w-lg text-aproba-100">Únete a las gestorías que ya validan documentos en segundos, no en horas.</p>
-          <Link href="/signup" className="mt-8 inline-block rounded-lg bg-white px-6 py-3 text-sm font-semibold text-aproba-700 shadow-sm transition hover:bg-aproba-50">
-            Prueba 1 mes gratis
-          </Link>
+          <p className="mx-auto mt-3 max-w-lg text-aproba-100">Ve Aproba con tus propios casos, en 20 minutos y sin compromiso.</p>
+          <DemoButton variant="invert" className="mt-8 px-6 py-3" />
+          <p className="mt-4 text-xs text-aproba-200">Te respondemos en menos de 24 h laborables</p>
         </div>
       </section>
 
@@ -380,6 +401,8 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      <DemoModalHost />
     </div>
   );
 }
