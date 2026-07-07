@@ -49,6 +49,9 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
   let docsSubidos: { tipo: string; estado: string }[] = [];
+  // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
+  // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
+  let pagoPendiente: { numero: string; total: number; checkoutUrl: string | null; cuenta: { titular: string; iban: string; banco: string | null } | null } | null = null;
 
   try {
     const admin = createSupabaseAdmin();
@@ -107,6 +110,32 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
         .limit(1)
         .maybeSingle();
       completado = Boolean(fin);
+
+      if (completado) {
+        // La factura más reciente aún sin pagar de este expediente (si la hay).
+        const { data: facs } = await admin
+          .from("Factura")
+          .select("id, numero, total, estado")
+          .eq("expedienteId", exp.id)
+          .eq("estado", "EMITIDA")
+          .order("fechaEmision", { ascending: false })
+          .limit(1);
+        const fac = facs?.[0] as { id: string; numero: string; total: number } | undefined;
+        if (fac) {
+          const { data: cuentas } = await admin
+            .from("CuentaBancaria")
+            .select("titular, iban, banco")
+            .eq("workspaceId", exp.workspace.id)
+            .eq("activa", true)
+            .limit(1);
+          pagoPendiente = {
+            numero: String(fac.numero),
+            total: Number(fac.total),
+            checkoutUrl: tarjetaActiva ? `/api/pagos/checkout?f=${fac.id}` : null,
+            cuenta: (cuentas?.[0] as { titular: string; iban: string; banco: string | null } | undefined) ?? null,
+          };
+        }
+      }
     }
   } catch {
     /* token illisible → traité comme lien invalide ci-dessous */
@@ -128,7 +157,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
   // Lien initial déjà utilisé jusqu'au bout → on ne rejoue pas l'onboarding.
   if (completado && portalToken) {
-    return <PortalCompletado token={portalToken} gestoria={gestoria ?? "Tu gestoría"} idioma={clienteIdioma} />;
+    return <PortalCompletado token={portalToken} gestoria={gestoria ?? "Tu gestoría"} idioma={clienteIdioma} pago={pagoPendiente} />;
   }
 
   return (

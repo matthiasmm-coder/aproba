@@ -122,6 +122,10 @@ export function ClientPortal({
   const [pagando, setPagando] = useState(false);
   const [pagoError, setPagoError] = useState<string | null>(null);
   const [facturaNumero, setFacturaNumero] = useState<string | null>(null);
+  // Total/estado REALES de la factura emitida (respuesta del servidor): tras un
+  // cambio de miembros o un pago ya hecho, el cálculo local puede quedarse viejo.
+  const [facturaTotal, setFacturaTotal] = useState<number | null>(null);
+  const [facturaPagada, setFacturaPagada] = useState(false);
   const [camposReales, setCamposReales] = useState<Record<number, [string, string][]>>({});
   const [alertasReales, setAlertasReales] = useState<Record<number, string[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,6 +154,15 @@ export function ClientPortal({
     if (!serviciosProp) setServicios(loadServicios().filter((s) => s.active));
   }, [serviciosProp]);
 
+  // Volver atrás desde Stripe Checkout restaura la página del bfcache TAL CUAL
+  // (pagando=true → los tres botones congelados en «Procesando…»). Al restaurar,
+  // reactivamos: elegir transferencia entonces reutiliza la factura ya emitida.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => { if (e.persisted) setPagando(false); };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
+
   const tramite = servicios.find((tr) => tr.id === tramiteId);
   const requiredDocs = tramite?.docs ?? [];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
@@ -157,8 +170,12 @@ export function ClientPortal({
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
   // la pantalla final no debe afirmar que todo está enviado (faltan documentos).
   const docsCompletos = requiredDocs.length === 0 || allValidated;
-  const anticipo = tramite?.anticipo ?? 0;
-  const resto = tramite?.resto ?? 0;
+  // Expediente FAMILIAR: el servicio se tarifica POR MIEMBRO → el pago total
+  // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
+  // añadidos en el paso Datos), no la prop SSR que llegó congelada del servidor.
+  const nMiembros = Math.max(1, familia ? famMiembros.length : 1);
+  const anticipo = (tramite?.anticipo ?? 0) * nMiembros;
+  const resto = (tramite?.resto ?? 0) * nMiembros;
   const conPago = anticipo > 0;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
@@ -307,6 +324,8 @@ export function ClientPortal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? t("s3.errorPago"));
       setFacturaNumero(data.numero);
+      if (typeof data.total === "number") setFacturaTotal(data.total);
+      setFacturaPagada(data.estado === "PAGADA");
       setStep(PASO_LISTO);
     } catch (err) {
       setPagoError(err instanceof Error ? err.message : t("s3.errorPago"));
@@ -446,16 +465,17 @@ export function ClientPortal({
                   <div className="min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
-                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe(tr.anticipo + tr.resto))}</p>
+                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe((tr.anticipo + tr.resto) * nMiembros))}</p>
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     <p className="mt-1 text-xs text-slate-400">
                       {tr.anticipo > 0 && tr.resto > 0
-                        ? t("pago.split", { a: eur(totalDe(tr.anticipo)), b: eur(totalDe(tr.resto)) })
+                        ? t("pago.split", { a: eur(totalDe(tr.anticipo * nMiembros)), b: eur(totalDe(tr.resto * nMiembros)) })
                         : tr.anticipo > 0
                           ? t("pago.unico")
                           : t("pago.final")}
                       {" · "}{t("pago.ivaIncluido")}
+                      {nMiembros > 1 && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
                     </p>
                   </div>
                   <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
@@ -480,6 +500,7 @@ export function ClientPortal({
             token={token}
             lang={lang}
             miembrosIniciales={famMiembros}
+            onMiembrosChange={setFamMiembros}
             onBack={() => setStep(0)}
             onContinue={(ms) => { setFamMiembros(ms); setStep(2); }}
           />
@@ -702,6 +723,9 @@ export function ClientPortal({
                 <span className="text-slate-500">{t("s3.anticipo", { label: servicioLabel(tramite.id, tramite.label, lang) })}</span>
                 <span className="font-medium text-slate-800">{eur(anticipo)}</span>
               </div>
+              {nMiembros > 1 && (
+                <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(anticipo / nMiembros), n: nMiembros })}</p>
+              )}
               <div className="mt-1.5 flex items-center justify-between text-sm">
                 <span className="text-slate-500">{t("s3.iva")}</span>
                 <span className="font-medium text-slate-800">{eur(totalDe(anticipo) - anticipo)}</span>
@@ -782,7 +806,11 @@ export function ClientPortal({
                   </div>
                 )}
                 {facturaNumero && (
-                  <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("s3.titulo")}</span><span className="text-right font-medium text-amber-600">{eur(totalDe(anticipo))} · {t("s4.pendiente")} · {facturaNumero}</span></div>
+                  <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("s3.titulo")}</span>
+                    {facturaPagada
+                      ? <span className="text-right font-medium text-aproba-700">{eur(facturaTotal ?? totalDe(anticipo))} · {t("s4.pagada")} · {facturaNumero}</span>
+                      : <span className="text-right font-medium text-amber-600">{eur(facturaTotal ?? totalDe(anticipo))} · {t("s4.pendiente")} · {facturaNumero}</span>}
+                  </div>
                 )}
                 <div className="flex justify-between"><span className="text-slate-500">{t("s4.gestoria")}</span><span className="font-medium text-slate-800">{nombreGestoria}</span></div>
               </div>

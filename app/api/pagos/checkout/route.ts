@@ -11,7 +11,9 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 export async function GET(req: Request) {
   const origin = baseUrlFromRequest(req);
   const facturaId = new URL(req.url).searchParams.get("f")?.trim() ?? "";
-  const aviso = (m: string) => NextResponse.redirect(`${origin}/pagar/cancelado?m=${m}`, 303);
+  // Conserva ?f=: la página de cancelación solo puede ofrecer el plan B (virement,
+  // reintento) si sabe QUÉ factura es — justo cuando la tarjeta falla hace más falta.
+  const aviso = (m: string) => NextResponse.redirect(`${origin}/pagar/cancelado?m=${m}${facturaId ? `&f=${facturaId}` : ""}`, 303);
   if (!facturaId) return aviso("falta");
 
   const admin = createSupabaseAdmin();

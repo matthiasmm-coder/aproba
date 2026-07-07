@@ -20,10 +20,18 @@ const copiaDomicilio = (dst: ClienteFicha, src: ClienteFicha): ClienteFicha => {
 // Étape « Datos » d'un expediente FAMILIAL : le titulaire (représentant) remplit la ficha de
 // chaque membre, choisit le parenté, et coche « el trámite es para esta persona » pour un ou
 // plusieurs applicants. Case « même domicilio » à partir du 2e membre. Add/remove membres.
+// Formato compartido con el padre (client-portal): el precio del paso Pago y los
+// documentos por miembro dependen de esta lista.
+const aIniciales = (ms: Miembro[]): MiembroInicial[] =>
+  ms.map((m) => ({ id: m.id, nombre: (m.ficha.nombre ?? "").trim(), apellidos: (m.ficha.apellidos ?? "").trim() || null, parentesco: m.parentesco, esSolicitante: m.esSolicitante, ficha: m.ficha }));
+
 export function DatosFamilia({
-  token, lang, miembrosIniciales, onBack, onContinue,
+  token, lang, miembrosIniciales, onBack, onContinue, onMiembrosChange,
 }: {
   token: string; lang: Lang; miembrosIniciales: MiembroInicial[]; onBack: () => void; onContinue: (miembros: MiembroInicial[]) => void;
+  // Notifica CADA alta/baja confirmada por el servidor: sin esto, «Añadir miembro»
+  // + «Atrás» dejaba un miembro fantasma — facturado por el servidor, invisible en la UI.
+  onMiembrosChange?: (miembros: MiembroInicial[]) => void;
 }) {
   const t = makeT(lang);
   const [miembros, setMiembros] = useState<Miembro[]>(() => {
@@ -64,7 +72,9 @@ export function DatosFamilia({
       const res = await fetch("/api/portal/familia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, parentesco: "HIJO" }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("fam.errAnadir"));
-      setMiembros((ms) => ms.map((m) => ({ ...m, abierto: false })).concat({ id: d.id, parentesco: "HIJO", ficha: fichaVacia(), esSolicitante: false, mismoDomicilio: false, abierto: true }));
+      const next = miembros.map((m) => ({ ...m, abierto: false })).concat({ id: d.id, parentesco: "HIJO", ficha: fichaVacia(), esSolicitante: false, mismoDomicilio: false, abierto: true });
+      setMiembros(next);
+      onMiembrosChange?.(aIniciales(next));
     } catch (e) { setError(e instanceof Error ? e.message : t("fam.errAnadir")); }
     finally { setAddingMiembro(false); }
   }
@@ -73,11 +83,13 @@ export function DatosFamilia({
     if (miembros.length <= 1) return;
     setError(null);
     const prev = miembros;
-    setMiembros((ms) => ms.filter((m) => m.id !== id));
+    const next = miembros.filter((m) => m.id !== id);
+    setMiembros(next);
+    onMiembrosChange?.(aIniciales(next));
     try {
       const res = await fetch("/api/portal/familia", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, clienteId: id }) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? t("fam.errQuitar")); }
-    } catch (e) { setMiembros(prev); setError(e instanceof Error ? e.message : t("fam.errQuitar")); }
+    } catch (e) { setMiembros(prev); onMiembrosChange?.(aIniciales(prev)); setError(e instanceof Error ? e.message : t("fam.errQuitar")); }
   }
 
   async function continuar() {

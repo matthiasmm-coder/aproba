@@ -217,4 +217,9 @@ export const ZH: Record<string, string> = {
   "ui:seg.next.docs": "上传缺少的证件（{n}）",
   "ui:seg.next.subir": "立即上传",
   "ui:seg.next.ok": "你这边没有待办事项：你的事务所正在处理。每有进展我们都会通知你。",
+  "ui:s3.xMiembros": "{precio} × {n} 位家庭成员",
+  "ui:s3.nMiembros": "{n} 位家庭成员",
+  "ui:s4.pagada": "已支付",
+  "ui:done.pagoPendiente": "待付款",
+  "ui:done.oTransferencia": "或通过银行转账支付到此账户（备注：{numero}）：",
 };

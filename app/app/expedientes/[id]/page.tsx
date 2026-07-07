@@ -190,8 +190,10 @@ export default async function ExpedienteDetail({
         {/* Cobro */}
         <CobrosPanel
           expedienteId={e.id}
-          anticipo={servicio?.anticipo ?? 0}
-          resto={servicio?.resto ?? 0}
+          // Expediente familiar: el servicio es POR MIEMBRO — mismo multiplicador que
+          // el portal y la factura automática; si no, el gestor sub-factura el pago final.
+          anticipo={(servicio?.anticipo ?? 0) * Math.max(1, familia?.miembros.length ?? 1)}
+          resto={(servicio?.resto ?? 0) * Math.max(1, familia?.miembros.length ?? 1)}
           facturas={e.facturasPago}
           clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
           conceptoFinal={`Liquidación final — ${servicio?.label?.trim() || e.tipoLabel} (${e.referencia})`}

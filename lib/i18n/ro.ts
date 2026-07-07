@@ -217,4 +217,9 @@ export const RO: Record<string, string> = {
   "ui:seg.next.docs": "Încarcă documentele lipsă ({n})",
   "ui:seg.next.subir": "Încarcă acum",
   "ui:seg.next.ok": "Nimic în așteptare din partea ta: biroul tău se ocupă. Te anunțăm la fiecare pas.",
+  "ui:s3.xMiembros": "{precio} × {n} membri ai familiei",
+  "ui:s3.nMiembros": "{n} membri ai familiei",
+  "ui:s4.pagada": "Plătită",
+  "ui:done.pagoPendiente": "Plată în așteptare",
+  "ui:done.oTransferencia": "Sau plătește prin transfer bancar în acest cont (referință: {numero}):",
 };

@@ -217,4 +217,9 @@ export const AR: Record<string, string> = {
   "ui:seg.next.docs": "ارفع الوثائق الناقصة ({n})",
   "ui:seg.next.subir": "ارفع الآن",
   "ui:seg.next.ok": "لا شيء متبقٍ من جهتك: مكتبك يتولى الأمر. سنخبرك عند كل تقدم.",
+  "ui:s3.xMiembros": "{precio} × {n} أفراد العائلة",
+  "ui:s3.nMiembros": "{n} أفراد العائلة",
+  "ui:s4.pagada": "مدفوعة",
+  "ui:done.pagoPendiente": "دفعة معلّقة",
+  "ui:done.oTransferencia": "أو ادفع بتحويل بنكي إلى هذا الحساب (المرجع: {numero}):",
 };
