@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Equipo, Miembro } from "@/lib/data/equipo";
 import {
   PLAN_IDS, PLANES, ROLES, ROLES_ASIGNABLES, planLabel, plyMax, seatsLabel,
@@ -41,6 +42,7 @@ const fmtFecha = (iso: string) => {
 
 export function EquipoManager({ inicial }: { inicial: Equipo }) {
   const t = useT();
+  const router = useRouter();
   const [miembros, setMiembros] = useState<Miembro[]>(inicial.miembros);
   const [plan, setPlan] = useState<string>(inicial.plan);
   const { miRol, estado, trialEndsAt, currentPeriodEnd, suscripcionStripe, billingDisponible, tarjeta } = inicial;
@@ -124,6 +126,24 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
     if (data.tempPassword) setCredenciales({ email: (data.miembro as Miembro).email, password: String(data.tempPassword) });
     setInvEmail("");
     setInvNombre("");
+  }
+
+  // Renombrado inline: cada uno puede cambiar SU nombre; los admins, el de los demás
+  // (la jerarquía exacta la impone el servidor). Enter guarda, Escape cancela.
+  const [renombrando, setRenombrando] = useState<string | null>(null);
+  const [nombreDraft, setNombreDraft] = useState("");
+
+  async function renombrar(m: Miembro) {
+    const limpio = nombreDraft.trim().replace(/\s+/g, " ");
+    if (limpio === m.nombre || limpio.length < 2) { setRenombrando(null); return; }
+    setFilaError(null);
+    setFilaBusy(m.membershipId);
+    const { ok, data } = await callEquipo({ action: "renombrar", membershipId: m.membershipId, nombre: limpio });
+    setFilaBusy(null);
+    if (!ok) { setFilaError(String(data.error ?? t("No se pudo cambiar el nombre."))); return; }
+    setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, nombre: String(data.nombre) } : x)));
+    setRenombrando(null);
+    if (m.esYo) router.refresh(); // el «Hola, X» del dashboard y la tarjeta Cuenta
   }
 
   async function cambiarRol(m: Miembro, role: string) {
@@ -314,10 +334,40 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
               <li key={m.membershipId} className="flex flex-col gap-2 bg-white px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar m={m} />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">
-                      {m.nombre}{m.esYo && <span className="ml-1.5 text-xs font-normal text-slate-400">{t("(tú)")}</span>}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    {renombrando === m.membershipId ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          value={nombreDraft}
+                          onChange={(e) => setNombreDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") renombrar(m); if (e.key === "Escape") setRenombrando(null); }}
+                          maxLength={80}
+                          autoFocus
+                          disabled={filaBusy === m.membershipId}
+                          className="w-full min-w-0 max-w-[240px] rounded-lg border border-slate-300 px-2 py-1 text-sm font-medium text-slate-800 outline-none focus:border-aproba-600"
+                        />
+                        <button type="button" onClick={() => renombrar(m)} disabled={filaBusy === m.membershipId} className="shrink-0 rounded-lg bg-aproba-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
+                          {filaBusy === m.membershipId ? "…" : t("Guardar")}
+                        </button>
+                        <button type="button" onClick={() => setRenombrando(null)} className="shrink-0 rounded-lg px-1 py-1 text-xs text-slate-400 transition hover:text-slate-600">✕</button>
+                      </div>
+                    ) : (
+                      <p className="group/nombre flex items-center gap-1 truncate text-sm font-medium text-slate-800">
+                        <span className="truncate">{m.nombre}</span>
+                        {m.esYo && <span className="shrink-0 text-xs font-normal text-slate-400">{t("(tú)")}</span>}
+                        {(m.esYo || (puedeGestionar && (m.role !== "OWNER" || miRol === "OWNER"))) && (
+                          <button
+                            type="button"
+                            onClick={() => { setNombreDraft(m.nombre); setRenombrando(m.membershipId); setFilaError(null); }}
+                            title={t("Cambiar el nombre")}
+                            aria-label={t("Cambiar el nombre")}
+                            className="shrink-0 rounded-md p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-aproba-700"
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                          </button>
+                        )}
+                      </p>
+                    )}
                     <p className="truncate text-xs text-slate-400">{m.email}</p>
                   </div>
                 </div>

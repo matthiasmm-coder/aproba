@@ -9,6 +9,7 @@ import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
+import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
 
@@ -113,7 +114,7 @@ export default async function Ajustes() {
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Despacho")}</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{despachoNombre}</span></div>
+                <RenombrarDespacho nombre={despachoNombre} puedeEditar={puedeEditar} />
                 <div className="flex justify-between"><span className="text-slate-500">{t("Tipo")}</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Plan")}</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
               </div>

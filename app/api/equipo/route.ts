@@ -169,5 +169,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, plan: nuevo });
   }
 
+  // ── Renombrar el despacho ──────────────────────────────────────────────────
+  // El nombre del Workspace se propaga a TODO: portal del cliente, emails, facturas.
+  if (action === "renombrarDespacho") {
+    if (!puedeGestionarEquipo(miRol)) return fail("Solo un administrador puede renombrar el despacho.", 403);
+    const nombre = String(body.nombre ?? "").trim().replace(/\s+/g, " ");
+    if (nombre.length < 2 || nombre.length > 80) return fail("El nombre debe tener entre 2 y 80 caracteres.");
+    const { error } = await admin.from("Workspace").update({ nombre, updatedAt: new Date().toISOString() }).eq("id", ws);
+    if (error) return fail(error.message);
+    return NextResponse.json({ ok: true, nombre });
+  }
+
+  // ── Renombrar a un miembro ─────────────────────────────────────────────────
+  // Cada uno puede cambiar SU nombre; para renombrar a otro hace falta ser admin
+  // (y un ADMIN no puede renombrar al OWNER). OJO: User.nombre es la cuenta global
+  // de esa persona — el cambio le sigue si algún día pertenece a otro despacho.
+  if (action === "renombrar") {
+    const membershipId = String(body.membershipId ?? "");
+    const nombre = String(body.nombre ?? "").trim().replace(/\s+/g, " ");
+    if (nombre.length < 2 || nombre.length > 80) return fail("El nombre debe tener entre 2 y 80 caracteres.");
+    const { data: target } = await admin.from("Membership").select("id, role, userId, workspaceId").eq("id", membershipId).maybeSingle();
+    if (!target || target.workspaceId !== ws) return fail("Miembro no encontrado.", 404);
+    const esMiPropio = target.userId === user.id;
+    if (!esMiPropio) {
+      if (!puedeGestionarEquipo(miRol)) return fail("No tienes permiso para renombrar a otros miembros.", 403);
+      if (target.role === "OWNER" && miRol !== "OWNER") return fail("No se puede renombrar al administrador que creó el despacho.", 403);
+    }
+    const { error } = await admin.from("User").update({ nombre }).eq("id", target.userId);
+    if (error) return fail(error.message);
+    // El saludo del dashboard lee user_metadata.nombre → mantener sincronizado (best-effort).
+    try { await admin.auth.admin.updateUserById(target.userId as string, { user_metadata: { nombre } }); } catch { /* la tabla User ya manda */ }
+    return NextResponse.json({ ok: true, membershipId, nombre });
+  }
+
   return fail("Acción desconocida.");
 }
