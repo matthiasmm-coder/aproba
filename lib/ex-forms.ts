@@ -76,6 +76,8 @@ export const FORMS: Record<string, Mapa> = {
   "EX-15": vec({ P: 669, A: 651, N: 633, F: 612, NAC: 597, D: 561, L: 543, T: 525 }, [633, 468, 502, 526], [597, 406, 434, 463, 492, 521], [579, 51, 307], { pisoX: 553 }),
   "EX-17": vec({ P: 642, A: 624, N: 606, F: 585, NAC: 570, D: 531, L: 513, T: 495 }, [606, 459, 495, 519], [570, 399, 427, 456, 485, 514], [549, 51, 300]),
   "EX-01": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
+  // Autorización de regreso — pedido por el 1er cliente real (Juan, 2026-07). Layout estándar.
+  "EX-13": vec({ P: 628, A: 610, N: 592, F: 572, NAC: 555, D: 518, L: 500, T: 482 }, [592, 457, 495, 519], [555, 399, 427, 456, 485, 514], [537, 51, 300]),
   "EX-11": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
   // Layout EX-01 estándar (etiquetas x=51), solo cambian las filas Y (probe pdfjs).
   "EX-18": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 568, D: 532, L: 514, T: 496 }, [604, 458, 495, 519], [568, 399, 427, 456, 485, 514], [550, 51, 300]),
@@ -168,6 +170,7 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-03": "Residencia y trabajo (cuenta ajena)",
   "EX-10": "Arraigo (clásico)",
   "EX-11": "Larga duración",
+  "EX-13": "Autorización de regreso",
   "EX-15": "NIE y certificados",
   "EX-17": "TIE",
   "EX-31": "Arraigo (RD 1155/2024)",
@@ -182,7 +185,7 @@ export const formulariosDisponibles = (): { code: string; label: string }[] =>
 // Quels formulaires EX correspondent à chaque tipo de trámite (enum TipoTramite).
 const TRAMITE_FORMS: Record<string, string[]> = {
   ARRAIGO_SOCIAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_LABORAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_FAMILIAR: ["EX-10", "EX-31", "EX-32"],
-  REAGRUPACION: ["EX-02"], RENOVACION: ["EX-17"], TIE: ["EX-17"], NIE: ["EX-15"],
+  REAGRUPACION: ["EX-02"], RENOVACION: ["EX-17", "EX-13"], TIE: ["EX-17"], NIE: ["EX-15"],
   RESIDENCIA_LARGA: ["EX-11"], NACIONALIDAD: [],
   // OTRO / tipo non mappé → tous les modèles disponibles (le gestor choisit).
 };
@@ -192,6 +195,7 @@ const TRAMITE_FORMS: Record<string, string[]> = {
 // clave del servicio. Tiene PRIORIDAD sobre TRAMITE_FORMS. Conservar estas claves.
 const SERVICIO_FORMS: Record<string, string[]> = {
   residencia_ue: ["EX-18"],
+  autorizacion_regreso: ["EX-13"], regreso: ["EX-13"],
   brexit: ["EX-23"],
   modificacion: ["EX-26"],
   arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
