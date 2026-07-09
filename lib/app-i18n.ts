@@ -630,6 +630,9 @@ export const CA: Record<string, string> = {
   "Recomendado: una clave RESTRINGIDA de Stripe. Se guarda cifrada y nunca se muestra. También puedes hacerlo más tarde en Ajustes.": "Recomanat: una clau RESTRINGIDA de Stripe. Es desa xifrada i no es mostra mai. També ho pots fer més tard a Configuració.",
   "Revisa la clave de Stripe o déjala vacía.": "Revisa la clau de Stripe o deixa-la buida.",
   "Cobro con tarjeta activado": "Cobrament amb targeta activat",
+  "Facturación y métodos de pago": "Facturació i mètodes de pagament",
+  "Datos de facturación, cuentas bancarias y cobro con tarjeta": "Dades de facturació, comptes bancaris i cobrament amb targeta",
+  "La facturación y los cobros solo son accesibles para los administradores.": "La facturació i els cobraments només són accessibles per als administradors.",
 };
 
 export function translate(lang: Lang, es: string): string {

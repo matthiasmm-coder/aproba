@@ -45,6 +45,13 @@ const IconEquipo = (
   </svg>
 );
 
+const IconFacturacion = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M2 10h20" />
+  </svg>
+);
+
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
   const [{ servicios }, { avisos }, cuentas, equipo, despacho] = await Promise.all([
@@ -96,6 +103,27 @@ export default async function Ajustes() {
           </fieldset>
         </AjustesSection>
 
+        <AjustesSection
+          title={t("Facturación y métodos de pago")}
+          subtitle={t("Datos de facturación, cuentas bancarias y cobro con tarjeta")}
+          icon={IconFacturacion}
+        >
+          {/* Todo lo relacionado con cobrar: cabecera de facturas + cuentas + tarjeta.
+              Datos sensibles → solo administradores (la RLS lo impone en base). */}
+          <div className="[&>*:first-child]:mt-0">
+            {puedeEditar && <DespachoFacturacion inicial={despacho} />}
+            {puedeEditar ? (
+              <CuentasBancarias inicial={cuentas} />
+            ) : (
+              <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3 text-sm text-slate-500">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                <span>{t("La facturación y los cobros solo son accesibles para los administradores.")}</span>
+              </div>
+            )}
+            {puedeEditar && <CobroTarjetaConfig />}
+          </div>
+        </AjustesSection>
+
         {equipo && (
           <AjustesSection
             title={t("Plan y equipo")}
@@ -139,17 +167,6 @@ export default async function Ajustes() {
             <InstallPWA />
           </div>
 
-          {/* Cuentas bancarias (réception des paiements) — solo administradores:
-              datos sensibles, ni siquiera visibles en modo solo lectura. */}
-          {puedeEditar ? (
-            <CuentasBancarias inicial={cuentas} />
-          ) : (
-            <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3 text-sm text-slate-500">
-              <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span>{t("Las cuentas bancarias solo son accesibles para los administradores.")}</span>
-            </div>
-          )}
-          {puedeEditar && <DespachoFacturacion inicial={despacho} />}
           {puedeEditar && (
             <EncargoConfig
               inicial={{
@@ -161,7 +178,6 @@ export default async function Ajustes() {
               }}
             />
           )}
-          {puedeEditar && <CobroTarjetaConfig />}
         </AjustesSection>
       </div>
     </div>
