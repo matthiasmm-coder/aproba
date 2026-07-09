@@ -28,13 +28,15 @@ export type DatosEncargo = {
 };
 
 const s = (v: unknown) => String(v ?? "").trim();
-// Hueco a completar a mano cuando el dato no está configurado (como en el papel).
-const o = (v: unknown, ancho = 24) => (s(v) ? s(v) : "_".repeat(ancho));
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} EUR`;
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const fechaLarga = (d: Date) => `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 // Helvetica (WinAnsi): sustituir los caracteres fuera de rango.
 const limpiar = (t: string) => t.replace(/[«»]/g, '"').replace(/[—–]/g, "-").replace(/’/g, "'").replace(/[^\x00-\xFF]/g, "");
+// Hueco a rellenar a mano cuando el dato falta O cuando tras limpiar queda vacío
+// (p. ej. un nombre en árabe/chino que Helvetica no puede pintar): en un documento
+// legal el nombre NUNCA debe desaparecer en silencio — se deja subrayado.
+const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 
 // ── Recogida de datos ────────────────────────────────────────────────────────
 
@@ -205,7 +207,7 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.fila("Contacto", o(d.despacho.email, 30));
 
   m.seccion("2. EL CLIENTE");
-  m.fila("Nombre completo", `${d.cliente.nombre} ${d.cliente.apellidos}`.trim() || o(""));
+  m.fila("Nombre completo", o(`${d.cliente.nombre} ${d.cliente.apellidos}`.trim(), 30));
   m.fila("NIE / Pasaporte", o(d.cliente.documento));
   m.fila("Nacionalidad", o(d.cliente.nacionalidad));
   m.fila("Domicilio", [d.cliente.domicilio, d.cliente.cp, d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ") || o("", 40));
