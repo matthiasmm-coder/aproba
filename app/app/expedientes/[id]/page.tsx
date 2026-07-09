@@ -15,6 +15,7 @@ import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
 import { DriverBanner } from "@/components/driver-banner";
 import { CambiarServicio } from "@/components/cambiar-servicio";
+import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { CentinelaPanel } from "@/components/centinela-panel";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -126,6 +127,7 @@ export default async function ExpedienteDetail({
         citaPresencial={Boolean(servicio?.citaPresencial)}
         citaQuien={servicio?.citaQuien ?? "cliente"}
         portalToken={e.portalToken}
+        permiteSubidaInterna={!familia}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
         revision={revision ? { verdicto: revision.verdicto, rojos: revision.hallazgos.filter((h) => h.severidad === "ROJO").length } : null}
       />
@@ -170,6 +172,11 @@ export default async function ExpedienteDetail({
               </div>
             )}
           </div>
+          {/* MODO INTERNO: el gestor sube docs él mismo (cliente con docu ya en mano), sin enlace.
+              Solo mientras se recogen documentos y en expedientes individuales (familia = por miembro). */}
+          {!familia && ["BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS"].includes(e.estado) && (
+            <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={servicio?.docs ?? []} />
+          )}
         </section>
 
         {/* Formularios */}

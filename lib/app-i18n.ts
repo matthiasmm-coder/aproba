@@ -660,6 +660,23 @@ export const CA: Record<string, string> = {
   "Separado/a": "Separat/da",
   "¿Descartar los cambios sin guardar?": "Descartar els canvis sense desar?",
   "Servicio del expediente": "Servei de l'expedient",
+  "Trabajar internamente": "Treballar internament",
+  "Tipo de documento": "Tipus de document",
+  "¿Ya tienes la documentación? Súbela tú mismo, sin enviar el enlace al cliente.": "Ja tens la documentació? Puja-la tu mateix, sense enviar l'enllaç al client.",
+  "Subiendo y validando con IA…": "Pujant i validant amb IA…",
+  "Subir documento": "Pujar document",
+  "No se pudo subir el documento.": "No s'ha pogut pujar el document.",
+  "TIE actual": "TIE actual",
+  "Certificado de nacimiento": "Certificat de naixement",
+  "Documento de identidad del ciudadano UE": "Document d'identitat del ciutadà UE",
+  "Informe de vida laboral": "Informe de vida laboral",
+  "Justificante de medios económicos": "Justificant de mitjans econòmics",
+  "Justificante de residencia anterior a 2021": "Justificant de residència anterior a 2021",
+  "Justificante de vivienda": "Justificant d'habitatge",
+  "Justificante del nuevo supuesto": "Justificant del nou supòsit",
+  "Justificante del vínculo familiar": "Justificant del vincle familiar",
+  "Hoja de encargo firmada": "Full d'encàrrec signat",
+  "Mandato de representación firmado": "Mandat de representació signat",
 };
 
 export function translate(lang: Lang, es: string): string {

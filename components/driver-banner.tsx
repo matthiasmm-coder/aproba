@@ -10,13 +10,15 @@ import type { ExpedienteEstado } from "@/lib/types";
 // avanza la máquina de estados (/api/expedientes/[id]/avanzar), navega a la herramienta
 // o copia el enlace del cliente. En los estados de espera, queda en gris (no accionable).
 export function DriverBanner({
-  id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, formulariosHref, revision,
+  id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref, revision,
 }: {
   id: string;
   estado: ExpedienteEstado;
   citaPresencial?: boolean;
   citaQuien?: "cliente" | "gestor";
   portalToken?: string | null;
+  // Expediente individual → el gestor puede trabajarlo internamente (subir docs él mismo).
+  permiteSubidaInterna?: boolean;
   formulariosHref: string;
   // Última revisión «como Extranjería» (Centinela) — el driver la integra en el flujo:
   // sin revisión → sugerir revisarla antes de presentar; ROJO → confirm reforzado.
@@ -68,6 +70,14 @@ export function DriverBanner({
   switch (estado) {
     case "BORRADOR":
       prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
+      // Alternativa al enlace: trabajar el expediente internamente (el gestor sube los docs).
+      if (permiteSubidaInterna) {
+        secundaria = (
+          <button onClick={() => document.getElementById("subir-interno")?.scrollIntoView({ behavior: "smooth", block: "center" })} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
+            {t("Trabajar internamente")}
+          </button>
+        );
+      }
       break;
     case "DOCS_PENDIENTES": prim = { kind: "avanzar", label: t("Generar formularios"), accion: "forzar_validados", confirm: t("Aún faltan documentos del cliente. ¿Quieres pasar al siguiente paso igualmente? Podrás generar los formularios ahora, y el cliente seguirá pudiendo enviar los que falten desde su enlace."), navAfter: formulariosHref }; break;
     case "DOCS_VALIDADOS": prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref }; break;
