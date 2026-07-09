@@ -8,6 +8,8 @@ import { formulariosDisponibles } from "@/lib/ex-forms";
 import { ClienteFormularios } from "@/components/cliente-formularios";
 import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
 import { CaducidadTie } from "@/components/caducidad-tie";
+import { EditarCliente } from "@/components/editar-cliente";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { getT } from "@/lib/app-lang";
 
 // Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
@@ -23,13 +25,18 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
-  // fechaCaducidad (Vigía): select defensivo — repli sin la columna si falta la migración.
-  let resCliente = await supabase.from("Cliente").select("id, nombre, apellidos, nacionalidad, fechaCaducidad").eq("id", id).maybeSingle();
-  if (resCliente.error) resCliente = await supabase.from("Cliente").select("id, nombre, apellidos, nacionalidad").eq("id", id).maybeSingle();
-  const cliente = resCliente.data as { id: string; nombre: string; apellidos: string | null; nacionalidad: string | null; fechaCaducidad?: string | null } | null;
+  // Ficha completa (para el editor) — todos los campos personales. fechaCaducidad (Vigía):
+  // select defensivo, repli sin la columna si falta la migración.
+  const FICHA_SELECT = ["id", ...FICHA_KEYS].join(", ");
+  let resCliente = await supabase.from("Cliente").select(`${FICHA_SELECT}, fechaCaducidad`).eq("id", id).maybeSingle();
+  if (resCliente.error) resCliente = await supabase.from("Cliente").select(FICHA_SELECT).eq("id", id).maybeSingle();
+  const cliente = resCliente.data as (ClienteFicha & { id: string; fechaCaducidad?: string | null }) | null;
   if (!cliente) notFound();
 
-  const nombre = `${cliente.nombre} ${cliente.apellidos ?? ""}`.trim();
+  // Objeto ficha (solo las claves conocidas) para el editor.
+  const ficha = Object.fromEntries(FICHA_KEYS.map((k) => [k, (cliente as Record<string, unknown>)[k] ?? ""])) as ClienteFicha;
+
+  const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim();
 
   const [{ data: expRows }, { data: facRows }] = await Promise.all([
     supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false }),
@@ -73,9 +80,12 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
             <p className="text-slate-500">{nacionalidad}</p>
           </div>
         </div>
-        <div className="hidden gap-6 text-center sm:flex">
-          <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{expedientes.length}</p><p className="text-xs text-slate-400">{t("expedientes")}</p></div>
-          <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
+        <div className="flex flex-col items-end gap-3">
+          <EditarCliente clienteId={cliente.id} ficha={ficha} />
+          <div className="hidden gap-6 text-center sm:flex">
+            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{expedientes.length}</p><p className="text-xs text-slate-400">{t("expedientes")}</p></div>
+            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
+          </div>
         </div>
       </div>
 
