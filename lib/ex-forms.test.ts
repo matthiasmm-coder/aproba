@@ -75,6 +75,22 @@ describe("EX · el relleno no rompe y produce un PDF válido", () => {
   });
 });
 
+describe("EX · página 2: casilla de tipo de trámite (TRAMITE_P2)", () => {
+  // La posición exacta la audita scripts/audit-ex-forms.mjs (pdfjs); aquí se blinda el
+  // gating: con trámite mapeado se estampa una X (más bytes), sin él el PDF no cambia.
+  it.each([["EX-17", "TIE"], ["EX-17", "RENOVACION"], ["EX-15", "NIE"]])(
+    "%s × %s estampa la casilla de la p.2", async (code, tramite) => {
+      const con = await rellenarOficial(code, SAMPLE, tramite);
+      const sin = await rellenarOficial(code, SAMPLE);
+      expect(con!.byteLength, `${code} × ${tramite}: la casilla no se estampó`).toBeGreaterThan(sin!.byteLength);
+    });
+  it("un trámite sin casilla mapeada no altera el PDF (EX-17 × NACIONALIDAD)", async () => {
+    const con = await rellenarOficial("EX-17", SAMPLE, "NACIONALIDAD");
+    const sin = await rellenarOficial("EX-17", SAMPLE);
+    expect(con!.byteLength).toBe(sin!.byteLength);
+  });
+});
+
 describe("EX-10 (AcroForm) · los datos se escriben en sus casillas", () => {
   it("nombre, apellido y documento quedan en sus campos", async () => {
     const mapa = FORMS["EX-10"];

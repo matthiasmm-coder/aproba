@@ -160,6 +160,23 @@ const MENOR_BLOC: Record<string, MapaOverlay> = {
   "EX-32": menorBloc({ P: 735, A: 717, N: 698, SX: 700, F: 678, LP: 680, NAC: 662, EC: 662, PM: 644 }),
 };
 
+// ── Page 2 «DATOS RELATIVOS A LA SOLICITUD»: casillas derivables del trámite ────────────
+// Mismo concepto que los tramiteChecks del EX-10 (acroform), en overlay y keyado por
+// TipoTramite. Solo se marca lo DERIVABLE sin adivinar: EX-17 4.1 (tarjeta inicial si el
+// trámite es TIE, renovación si es RENOVACION) y EX-15 4.1 (NIE si el trámite es NIE).
+// El resto de la p.2 (motivos, lugar, supuestos del EX-18…) lo decide el gestor a mano.
+// Posiciones relevadas por probe pdfjs sobre el glifo □ (X estampada encima, y-1 como
+// las demás marcas).
+const TRAMITE_P2: Record<string, Record<string, Pos>> = {
+  "EX-17": {
+    TIE: { x: 77.5, y: 668, page: 1 },        // 4.1 □ TARJETA INICIAL (probe: 77,669)
+    RENOVACION: { x: 77.5, y: 649, page: 1 }, // 4.1 □ RENOVACIÓN DE TARJETA (probe: 77,650)
+  },
+  "EX-15": {
+    NIE: { x: 69.5, y: 674, page: 1 },        // 4.1 □ NÚMERO DE IDENTIDAD DE EXTRANJERO (probe: 69,675)
+  },
+};
+
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
 
@@ -258,6 +275,10 @@ export async function rellenarOficial(
   }
   if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10);
   if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10);
+
+  // Page 2: casilla de tipo de trámite derivable del expediente (EX-17 inicial/renovación,
+  // EX-15 NIE). Sin trámite conocido (p. ej. formulario desde la ficha del cliente) no se marca.
+  if (tramite) estampar(TRAMITE_P2[code]?.[tramite], "X", 10);
 
   // EX-02 familiar : le bloc principal (ci-dessus) a reçu le REAGRUPANTE (titulaire) ; on
   // remplit ici le bloc REAGRUPADO avec l'applicant + la case « menor representada legalmente ».

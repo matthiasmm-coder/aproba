@@ -130,4 +130,35 @@ for (const code of formulariosOficiales()) {
   fails.forEach((f) => console.log(`   ${f}`));
   totalFails += fails.length;
 }
+// ── Page 2 «DATOS RELATIVOS A LA SOLICITUD»: casillas de trámite (TRAMITE_P2) ──
+// Géométrie inversée vs page 1: le glifo □ PRÉCÈDE le libellé → la X doit être
+// 4..14pt à GAUCHE du libellé, sur sa ligne (|dy| <= 6).
+{
+  const CASOS = [
+    ["EX-17", "TIE", "TARJETA INICIAL"],
+    ["EX-17", "RENOVACION", "RENOVACIÓN DE TARJETA"],
+    ["EX-15", "NIE", "NÚMERO DE IDENTIDAD DE EXTRANJERO (NIE)"],
+  ];
+  for (const [code, tramite, label] of CASOS) {
+    const fails = [];
+    const blankBytes = new Uint8Array(await readFile(`forms/ex/${code}.pdf`));
+    const p2blank = await textItems(blankBytes, 2);
+    const out = await rellenarOficial(code, S, tramite);
+    const p2 = await textItems(new Uint8Array(out), 2);
+    const marks = p2.filter((i) => i.s === "X" && !p2blank.some((b) => b.s === "X" && Math.abs(b.x - i.x) <= 2 && Math.abs(b.y - i.y) <= 2));
+    const lab = p2blank.find((b) => b.s === label);
+    if (!lab) fails.push(`${code}[p2 ${tramite}]: libellé "${label}" introuvable dans le vierge`);
+    else if (!marks.some((m) => Math.abs(m.y - lab.y) <= 6 && lab.x - m.x >= 4 && lab.x - m.x <= 14)) {
+      fails.push(`${code}[p2 ${tramite}]: X absente/décalée (attendue ~${lab.x - 9},${lab.y}; vues: ${marks.map((m) => `${m.x},${m.y}`).join(" · ") || "aucune"})`);
+    }
+    // Sans trámite: aucune X nouvelle en page 2.
+    const sin = await rellenarOficial(code, S);
+    const p2sin = await textItems(new Uint8Array(sin), 2);
+    const sobran = p2sin.filter((i) => i.s === "X" && !p2blank.some((b) => b.s === "X" && Math.abs(b.x - i.x) <= 2 && Math.abs(b.y - i.y) <= 2));
+    if (sobran.length) fails.push(`${code}[p2 sin trámite]: ${sobran.length} X inattendue(s)`);
+    console.log(fails.length ? `❌ ${code}[p2 ${tramite}]: ${fails.length} problème(s)` : `✅ ${code}[p2 ${tramite}]: OK`);
+    fails.forEach((f) => console.log(`   ${f}`));
+    totalFails += fails.length;
+  }
+}
 console.log(`\nTOTAL: ${totalFails} problème(s)`);
