@@ -91,6 +91,20 @@ export async function POST(req: Request) {
   const docLabel = DOC_LABEL[docTipo] ?? label;
   await dispararAviso(admin, { workspaceId: exp.workspaceId, expedienteId: exp.id, clave: "doc_recibido", vars: { documento: docLabel }, baseUrl });
 
+  // ── Documentos FIRMADOS (hoja de encargo / mandato): SIN validación IA ─────
+  // No hay datos que extraer: el gestor comprueba la firma visualmente en la
+  // ficha (y puede eliminar el documento si no vale). Validado directo.
+  if (docTipo === "HOJA_ENCARGO" || docTipo === "MANDATO") {
+    const { error: eFirma } = await admin.from("Documento").update({ estado: "VALIDADO" }).eq("id", docId);
+    if (eFirma) return NextResponse.json({ error: eFirma.message }, { status: 500 });
+    await admin.from("ExpedienteEvento").insert({
+      id: uuid(), expedienteId: exp.id, tipo: "DOC_VALIDADO",
+      descripcion: `Documento firmado recibido: ${docLabel}`,
+    });
+    await dispararAviso(admin, { workspaceId: exp.workspaceId, expedienteId: exp.id, clave: "doc_validado", vars: { documento: docLabel }, baseUrl });
+    return NextResponse.json({ ok: true, estado: "VALIDADO", campos: {}, alertas: [] });
+  }
+
   // ── Validation IA (Claude Vision) ──────────────────────────────────────────
   let resultado;
   try {
@@ -165,9 +179,12 @@ export async function POST(req: Request) {
       const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
       const servicio = servicios.find((s) => s.id === TIPO_A_SERVICIO[exp.tipo]);
       const requeridos = servicio?.docs.length ?? 0;
-      const { data: todos } = await admin.from("Documento").select("estado").eq("expedienteId", exp.id);
-      const total = todos?.length ?? 0;
-      const validados = (todos ?? []).filter((d) => d.estado === "VALIDADO").length;
+      const { data: todosRaw } = await admin.from("Documento").select("estado, tipo").eq("expedienteId", exp.id);
+      // Los documentos FIRMADOS (hoja de encargo / mandato) no cuentan para la
+      // promoción: los requeridos del servicio son documentos DEL TRÁMITE.
+      const todos = (todosRaw ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
+      const total = todos.length;
+      const validados = todos.filter((d) => d.estado === "VALIDADO").length;
       // Service identifié (tipo standard) → tous les documents requis validés.
       // Service inconnu (tipo OTRO / service custom sans équivalent dans l'enum) → on se
       // base sur les documents RÉELLEMENT soumis : promotion quand tous sont validés.

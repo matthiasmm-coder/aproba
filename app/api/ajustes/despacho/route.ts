@@ -29,6 +29,25 @@ export async function POST(req: Request) {
   if (!form) return NextResponse.json({ error: "Petición inválida." }, { status: 400 });
 
   const str = (k: string) => { const v = form.get(k); return typeof v === "string" ? v.trim() : ""; };
+
+  // Modo «solo encargo»: el bloque Hoja de encargo/mandato guarda ÚNICAMENTE sus
+  // campos (si no, machacaría nombre/NIF con vacíos). Requiere supabase/hoja-encargo.sql.
+  if (str("soloEncargo") === "1") {
+    const patchEncargo: Record<string, string | boolean | null> = {
+      hojaEncargoActiva: str("hojaEncargoActiva") === "1",
+      mandatarioNombre: str("mandatarioNombre") || null,
+      mandatarioDni: str("mandatarioDni") || null,
+      mandatarioColegiado: str("mandatarioColegiado") || null,
+      mandatarioColegio: str("mandatarioColegio") || null,
+    };
+    const { error: eEnc } = await r.admin.from("Workspace").update(patchEncargo).eq("id", r.workspaceId);
+    if (eEnc) {
+      const falta = /hojaEncargoActiva|mandatario|schema cache|column/i.test(eEnc.message);
+      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/hoja-encargo.sql en Supabase." : eEnc.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   const patch: Record<string, string | null> = {
     nombre: str("nombre") || "Mi despacho",
     nif: str("nif") || null,

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
+import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 
@@ -37,7 +37,16 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const cliente = uno(exp.cliente ?? null);
   const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
   const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-  const requeridos: string[] = servicio?.docs ?? [];
+  // Hoja de encargo + mandato firmados: huecos adicionales si la gestoría lo activó.
+  let encargoActivo = false;
+  try {
+    const { data: wsc } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", ws.id).maybeSingle();
+    encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva);
+  } catch { /* pre-migración */ }
+  const requeridos: string[] = [
+    ...(servicio?.docs ?? []),
+    ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
+  ];
 
   // Statut de chaque document requis (par type normalisé) + id pour le téléchargement.
   const subido = new Map((exp.documentos ?? []).map((d) => [d.tipo, d]));

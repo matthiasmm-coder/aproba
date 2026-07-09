@@ -15,6 +15,7 @@ export type Servicio = {
   resto: number; // € sin IVA, pagadero al finalizar el trámite
   citaPresencial?: boolean; // ce trámite implique-t-il un rendez-vous physique ?
   citaQuien?: CitaQuien; // si oui : qui s'y rend (le client, ou le gestor pour lui)
+  noIncluye?: string; // «servicios no incluidos» de la hoja de encargo (varía por trámite)
 };
 
 export const STORAGE_KEY = "aproba.servicios.v1";

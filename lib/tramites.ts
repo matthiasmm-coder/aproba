@@ -25,12 +25,16 @@ export const DOC_LABEL: Record<string, string> = {
   CERTIFICADO_BANCARIO: "Certificado bancario",
   LIBRO_FAMILIA: "Libro de familia",
   TITULO_ESTUDIOS: "Título de estudios",
+  HOJA_ENCARGO: "Hoja de encargo firmada",
+  MANDATO: "Mandato de representación firmado",
   OTRO: "Otro documento",
 };
 
 // Libellé libre d'un document requis (config Ajustes) → enum DocumentoTipo.
 export function labelADocTipo(label: string): string {
   const n = label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (n.includes("hoja de encargo") || n.includes("encargo")) return "HOJA_ENCARGO";
+  if (n.includes("mandato")) return "MANDATO";
   if (n.includes("pasaporte")) return "PASAPORTE";
   if (n.includes("tie")) return "TARJETA_RESIDENCIA_TIE";
   if (n.includes("nie")) return "CERTIFICADO_NIE";

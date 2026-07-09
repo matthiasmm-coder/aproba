@@ -222,4 +222,8 @@ export const ZH: Record<string, string> = {
   "ui:s4.pagada": "已支付",
   "ui:done.pagoPendiente": "待付款",
   "ui:done.oTransferencia": "或通过银行转账支付到此账户（备注：{numero}）：",
+  "ui:firma.titulo": "需要签署的文件",
+  "ui:firma.intro": "下载这两份文件，签名后与其他证件一起在下方上传。",
+  "ui:firma.hoja": "委托服务单（PDF）",
+  "ui:firma.mandato": "授权委托书（PDF）",
 };

@@ -48,6 +48,7 @@ export function ClientPortal({
   gestoria,
   token,
   tarjetaActiva,
+  encargoActivo,
   familia,
   servicioInicial,
   docsSubidos,
@@ -59,6 +60,7 @@ export function ClientPortal({
   gestoria?: string;
   token?: string;
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
+  encargoActivo?: boolean; // hoja de encargo + mandato: descarga y firma en el portal
   // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
   familia?: { familiaId: string; miembros: MiembroInicial[] };
   // REPRISE DE SESSION: servicio ya elegido + documentos ya subidos (el migrante que
@@ -164,7 +166,10 @@ export function ClientPortal({
   }, []);
 
   const tramite = servicios.find((tr) => tr.id === tramiteId);
-  const requiredDocs = tramite?.docs ?? [];
+  // Hoja de encargo + mandato firmados: dos huecos adicionales al final (si la
+  // gestoría lo activó). Labels fijos ES — labelADocTipo los mapea en el servidor.
+  const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
+  const requiredDocs = [...(tramite?.docs ?? []), ...(encargoActivo && token ? DOCS_FIRMA : [])];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
@@ -600,6 +605,24 @@ export function ClientPortal({
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
             <p className="mt-2 text-slate-600">{t("s2.intro")}</p>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
+
+            {/* Documentos para FIRMAR: descarga → firma → subida en los huecos de abajo */}
+            {encargoActivo && token && (
+              <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
+                <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
+                <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                    {t("firma.hoja")}
+                  </a>
+                  <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                    {t("firma.mandato")}
+                  </a>
+                </div>
+              </div>
+            )}
 
             <div ref={docsRef} className="mt-6 space-y-3">
               {requiredDocs.map((label, i) => {

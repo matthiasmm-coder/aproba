@@ -222,4 +222,8 @@ export const RO: Record<string, string> = {
   "ui:s4.pagada": "Plătită",
   "ui:done.pagoPendiente": "Plată în așteptare",
   "ui:done.oTransferencia": "Sau plătește prin transfer bancar în acest cont (referință: {numero}):",
+  "ui:firma.titulo": "Documente de semnat",
+  "ui:firma.intro": "Descarcă aceste două documente, semnează-le și încarcă-le mai jos împreună cu restul documentelor tale.",
+  "ui:firma.hoja": "Foaia de angajament (PDF)",
+  "ui:firma.mandato": "Mandatul de reprezentare (PDF)",
 };

@@ -84,6 +84,8 @@ enum DocumentoTipo {
   CERTIFICADO_BANCARIO
   LIBRO_FAMILIA
   TITULO_ESTUDIOS
+  HOJA_ENCARGO // hoja de encargo FIRMADA subida por el cliente
+  MANDATO // mandato de representación FIRMADO
   OTRO
 }
 
@@ -128,6 +130,12 @@ model Workspace {
   id        String        @id @default(cuid())
   nombre    String
   tipo      WorkspaceTipo @default(GESTORIA)
+  // Hoja de encargo + mandato (supabase/hoja-encargo.sql)
+  hojaEncargoActiva   Boolean @default(false)
+  mandatarioNombre    String?
+  mandatarioDni       String?
+  mandatarioColegiado String?
+  mandatarioColegio   String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -189,6 +197,7 @@ model ServicioConfig {
   active      Boolean  @default(true)
   anticipo    Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al firmar
   resto       Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al finalizar
+  noIncluye   String? // «servicios no incluidos» de la hoja de encargo (por servicio)
   orden       Int      @default(0)
   updatedAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

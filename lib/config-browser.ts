@@ -33,10 +33,17 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     resto: s.resto,
     citaPresencial: s.citaPresencial ?? false,
     citaQuien: s.citaPresencial ? (s.citaQuien ?? "cliente") : null,
+    noIncluye: s.noIncluye?.trim() || null,
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
-  const { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
+  let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
+  // Repli pre-migración (supabase/hoja-encargo.sql): reintentar sin noIncluye para
+  // que el resto de la config del servicio nunca se pierda por una columna nueva.
+  if (error && /noIncluye|schema cache|column/i.test(error.message)) {
+    const sinNoIncluye = rows.map(({ noIncluye: _ni, ...r }) => r);
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+  }
   if (error) throw new Error(error.message);
 }
 

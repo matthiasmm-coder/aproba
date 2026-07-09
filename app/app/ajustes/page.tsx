@@ -10,6 +10,7 @@ import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
+import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
 
@@ -51,7 +52,7 @@ export default async function Ajustes() {
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null })),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -149,6 +150,17 @@ export default async function Ajustes() {
             </div>
           )}
           {puedeEditar && <DespachoFacturacion inicial={despacho} />}
+          {puedeEditar && (
+            <EncargoConfig
+              inicial={{
+                hojaEncargoActiva: despacho.hojaEncargoActiva,
+                mandatarioNombre: despacho.mandatarioNombre ?? "",
+                mandatarioDni: despacho.mandatarioDni ?? "",
+                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
+                mandatarioColegio: despacho.mandatarioColegio ?? "",
+              }}
+            />
+          )}
           {puedeEditar && <CobroTarjetaConfig />}
         </AjustesSection>
       </div>

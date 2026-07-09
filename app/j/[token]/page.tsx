@@ -45,6 +45,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let valido = false;
   let clienteIdioma = "es";
   let tarjetaActiva = false;
+  let encargoActivo = false;
   let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
@@ -56,7 +57,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
@@ -100,6 +101,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
       // Cobro con tarjeta del anticipo: solo si la gestoría tiene su clave Stripe.
       tarjetaActiva = Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspace.id));
+      encargoActivo = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva);
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.
       const { data: fin } = await admin
         .from("ExpedienteEvento")
@@ -169,6 +171,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       gestoria={gestoria}
       token={portalToken}
       tarjetaActiva={tarjetaActiva}
+      encargoActivo={encargoActivo}
       familia={familia}
       servicioInicial={servicioInicial}
       docsSubidos={docsSubidos}

@@ -33,6 +33,14 @@ function SeccionHeader({ children, right }: { children: React.ReactNode; right?:
   );
 }
 
+// hoja de encargo/mandato: enlaces de descarga del gestor si la función está activada
+async function encargoActivado(): Promise<boolean> {
+  try {
+    const { fetchDespacho } = await import("@/lib/data/config");
+    return (await fetchDespacho()).hojaEncargoActiva;
+  } catch { return false; }
+}
+
 export default async function ExpedienteDetail({
   params,
 }: {
@@ -47,6 +55,8 @@ export default async function ExpedienteDetail({
     createSupabaseServer().then((sb) => fetchUltimaRevision(sb, id)),
   ]);
   if (!e) notFound();
+
+  const despachoEncargo = await encargoActivado();
 
   // Expediente FAMILIAR (Expediente.familiaId): miembros + facturación familiar en la ficha.
   const [familia, famPrefill, famFacturas] = e.familiaId
@@ -141,6 +151,14 @@ export default async function ExpedienteDetail({
         {/* Documentos */}
         <section>
           <SeccionHeader>{t("Documentos")} ({e.documentos.length})</SeccionHeader>
+          {despachoEncargo && (
+            <p className="mb-3 -mt-1 text-xs text-slate-500">
+              {t("Para firmar:")}{" "}
+              <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">{t("hoja de encargo (PDF)")}</a>
+              {" · "}
+              <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">{t("mandato (PDF)")}</a>
+            </p>
+          )}
           <div className="space-y-3">
             {e.documentos.length > 0 ? (
               e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)

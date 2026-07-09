@@ -173,6 +173,20 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
               </div>
             </div>
 
+            {/* «Servicios no incluidos» de la hoja de encargo — varía por trámite */}
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Servicios no incluidos (hoja de encargo)")}</p>
+              <textarea
+                value={s.noIncluye ?? ""}
+                onChange={(e) => update(s.id, { noIncluye: e.target.value })}
+                rows={2}
+                maxLength={1500}
+                placeholder={t("P. ej.: recursos administrativos o judiciales, trámites de otros organismos, desplazamientos…")}
+                className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-xs leading-relaxed outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en el apartado «Servicios no incluidos» de la hoja de encargo de este servicio.")}</p>
+            </div>
+
             {/* Cita presencial : ce trámite implique-t-il un RDV physique, et qui s'y rend ? */}
             <div className="mt-3 border-t border-slate-100 pt-3">
               <div className="flex items-center justify-between gap-3">

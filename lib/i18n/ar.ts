@@ -222,4 +222,8 @@ export const AR: Record<string, string> = {
   "ui:s4.pagada": "مدفوعة",
   "ui:done.pagoPendiente": "دفعة معلّقة",
   "ui:done.oTransferencia": "أو ادفع بتحويل بنكي إلى هذا الحساب (المرجع: {numero}):",
+  "ui:firma.titulo": "وثائق للتوقيع",
+  "ui:firma.intro": "حمّل هاتين الوثيقتين ووقّعهما ثم ارفعهما أدناه مع بقية وثائقك.",
+  "ui:firma.hoja": "ورقة التكليف (PDF)",
+  "ui:firma.mandato": "توكيل التمثيل (PDF)",
 };
