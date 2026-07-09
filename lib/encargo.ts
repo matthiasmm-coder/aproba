@@ -31,8 +31,19 @@ const s = (v: unknown) => String(v ?? "").trim();
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} EUR`;
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const fechaLarga = (d: Date) => `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
-// Helvetica (WinAnsi): sustituir los caracteres fuera de rango.
-const limpiar = (t: string) => t.replace(/[«»]/g, '"').replace(/[—–]/g, "-").replace(/’/g, "'").replace(/[^\x00-\xFF]/g, "");
+// Helvetica (WinAnsi): normaliza tipografía y ELIMINA controles (que si no
+// harían que pdf-lib lanzara «WinAnsi cannot encode» y rompiera todo el PDF con
+// un 500 persistente — vector: cualquier campo pegado desde Word/PDF). Conserva
+// \n para los saltos de párrafo. Los reemplazos van ANTES del strip final.
+const limpiar = (t: string) => t
+  .replace(/\u20AC/g, "EUR")                 // €
+  .replace(/[\u00AB\u00BB\u201C\u201D]/g, '"') // « » " "
+  .replace(/[\u2018\u2019]/g, "'")           // ' '
+  .replace(/[\u2013\u2014]/g, "-")           // – —
+  .replace(/\u2026/g, "...")                  // …
+  .replace(/[\u00A0\t\r]/g, " ")            // nbsp, tab, CR → espacio (conserva \n)
+  .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "") // controles
+  .replace(/[^\x00-\xFF]/g, "");            // resto no-WinAnsi (árabe/chino…)
 // Hueco a rellenar a mano cuando el dato falta O cuando tras limpiar queda vacío
 // (p. ej. un nombre en árabe/chino que Helvetica no puede pintar): en un documento
 // legal el nombre NUNCA debe desaparecer en silencio — se deja subrayado.
@@ -116,11 +127,20 @@ class Maqueta {
     m.nuevaPagina();
     return m;
   }
+  hdr?: { despacho: string; ref: string };
   nuevaPagina() {
     this.page = this.doc.addPage(A4);
     // Fondo blanco explícito (sin él, la página es transparente en conversiones).
     this.page.drawRectangle({ x: 0, y: 0, width: A4[0], height: A4[1], color: rgb(1, 1, 1) });
     this.y = A4[1] - MARGEN;
+    // Páginas 2+: cabecera de continuación (la 1ª la pinta cabecera() aparte).
+    if (this.hdr) {
+      this.page.drawRectangle({ x: 0, y: A4[1] - 4, width: A4[0], height: 4, color: VERDE });
+      this.page.drawText(limpiar(this.hdr.despacho), { x: MARGEN, y: A4[1] - 30, size: 9, font: this.bold, color: GRIS });
+      const ref = limpiar(`Expediente ${this.hdr.ref}`);
+      this.page.drawText(ref, { x: A4[0] - MARGEN - this.font.widthOfTextAtSize(ref, 8), y: A4[1] - 30, size: 8, font: this.font, color: GRIS });
+      this.y = A4[1] - 48;
+    }
   }
   necesita(alto: number) { if (this.y - alto < MARGEN) this.nuevaPagina(); }
   espacio(n: number) { this.y -= n; }
@@ -129,9 +149,18 @@ class Maqueta {
     for (const brut of limpiar(texto).split("\n")) {
       let linea = "";
       for (const palabra of brut.split(/\s+/).filter(Boolean)) {
-        const test = linea ? `${linea} ${palabra}` : palabra;
+        // Trocear por caracteres una «palabra» más ancha que el ancho (evita desborde).
+        let p = palabra;
+        while (p.length > 1 && font.widthOfTextAtSize(p, size) > ancho) {
+          let cut = p.length;
+          while (cut > 1 && font.widthOfTextAtSize(p.slice(0, cut), size) > ancho) cut--;
+          if (linea) { out.push(linea); linea = ""; }
+          out.push(p.slice(0, cut));
+          p = p.slice(cut);
+        }
+        const test = linea ? `${linea} ${p}` : p;
         if (font.widthOfTextAtSize(test, size) <= ancho) linea = test;
-        else { if (linea) out.push(linea); linea = palabra; }
+        else { if (linea) out.push(linea); linea = p; }
       }
       out.push(linea);
     }
@@ -155,17 +184,20 @@ class Maqueta {
   }
   seccion(texto: string) {
     this.espacio(6);
-    this.necesita(22);
+    this.necesita(38); // barra (22) + al menos una línea de contenido → no huérfana
     this.page.drawRectangle({ x: MARGEN, y: this.y - 15.5, width: ANCHO, height: 15.5, color: rgb(0.955, 0.96, 0.945) });
     this.page.drawText(limpiar(texto), { x: MARGEN + 6, y: this.y - 11.5, size: 8.5, font: this.bold, color: TINTA });
     this.y -= 22;
   }
   fila(label: string, valor: string) {
     const size = 9.5;
-    this.necesita(15);
+    const lh = 13;
+    const lns = this.lineas(valor, size, this.bold, ANCHO - 150); // lineas() ya limpia
+    const alto = Math.max(15.5, lns.length * lh);
+    this.necesita(alto);
     this.page.drawText(limpiar(label), { x: MARGEN, y: this.y - size, size: 8, font: this.font, color: GRIS });
-    this.page.drawText(limpiar(valor), { x: MARGEN + 150, y: this.y - size, size, font: this.bold, color: TINTA });
-    this.y -= 15.5;
+    lns.forEach((ln, i) => this.page.drawText(ln, { x: MARGEN + 150, y: this.y - size - i * lh, size, font: this.bold, color: TINTA }));
+    this.y -= alto;
   }
   firmas(izq: string, der: string) {
     this.necesita(86);
@@ -181,6 +213,7 @@ class Maqueta {
     this.y = yLinea - 26;
   }
   cabecera(despacho: string, referencia: string) {
+    this.hdr = { despacho, ref: referencia }; // reutilizado en nuevaPagina() (págs. 2+)
     this.page.drawRectangle({ x: 0, y: A4[1] - 4, width: A4[0], height: 4, color: VERDE });
     this.page.drawText(limpiar(despacho), { x: MARGEN, y: A4[1] - 34, size: 11, font: this.bold, color: TINTA });
     const ref = limpiar(`Expediente ${referencia}`);
@@ -222,9 +255,13 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.parrafo(d.servicio.noIncluye || "Cualquier actuación no descrita en el apartado anterior. En particular, recursos administrativos o judiciales, trámites distintos del indicado y desplazamientos, que en su caso serán objeto de encargo y presupuesto aparte.");
 
   m.seccion("5. HONORARIOS");
-  if (d.servicio.anticipo > 0) m.fila("Al inicio (a la firma)", `${eur(d.servicio.anticipo)} + IVA`);
-  if (d.servicio.resto > 0) m.fila("Al finalizar el trámite", `${eur(d.servicio.resto)} + IVA`);
-  m.fila("Total honorarios", `${eur(d.servicio.anticipo + d.servicio.resto)} + IVA`);
+  if (d.servicio.anticipo > 0 || d.servicio.resto > 0) {
+    if (d.servicio.anticipo > 0) m.fila("Al inicio (a la firma)", `${eur(d.servicio.anticipo)} + IVA (21%)`);
+    if (d.servicio.resto > 0) m.fila("Al finalizar el trámite", `${eur(d.servicio.resto)} + IVA (21%)`);
+    m.fila("Total honorarios", `${eur(d.servicio.anticipo + d.servicio.resto)} + IVA (21%)`);
+  } else {
+    m.fila("Honorarios", "Según presupuesto");
+  }
   m.parrafo("Los honorarios no incluyen las tasas oficiales ni otros suplidos, que se repercutirán al cliente por su importe exacto en la factura correspondiente.", { size: 8.5, color: GRIS });
 
   m.seccion("6. FORMA Y MEDIOS DE PAGO");
@@ -233,7 +270,9 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
       ? "El pago se realiza en dos plazos: el anticipo al inicio del encargo y el resto a la finalización del trámite, previa emisión de la factura correspondiente."
       : d.servicio.anticipo > 0
         ? "El pago se realiza en un único plazo al inicio del encargo, previa emisión de la factura correspondiente."
-        : "El pago se realiza a la finalización del trámite, previa emisión de la factura correspondiente.",
+        : d.servicio.resto > 0
+          ? "El pago se realiza a la finalización del trámite, previa emisión de la factura correspondiente."
+          : "El pago se acuerda según el presupuesto aceptado, previa emisión de la factura correspondiente.",
   );
   for (const medio of d.medios) m.parrafo(`- ${medio}`, { sangria: 8 });
 
@@ -241,7 +280,7 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.parrafo(`Los datos personales del cliente serán tratados por ${d.despacho.nombre} como responsable del tratamiento, con la única finalidad de prestar los servicios objeto de este encargo y cumplir las obligaciones legales derivadas. El cliente puede ejercer sus derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad dirigiéndose al despacho en los datos de contacto indicados. Conforme al RGPD (UE) 2016/679 y la LO 3/2018.`, { size: 8.5, color: GRIS });
 
   m.espacio(10);
-  m.parrafo(`En ________________________________, a ${fechaLarga(d.fecha)}`, { size: 9.5 });
+  m.parrafo("En ____________________________, a ______ de ______________________ de 20____", { size: 9.5 });
   m.espacio(8);
   m.firmas("EL PROFESIONAL", "EL CLIENTE");
   return m.bytes();
@@ -256,11 +295,15 @@ export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
   m.espacio(2);
 
   const mandante = `${d.cliente.nombre} ${d.cliente.apellidos}`.trim();
-  const domCliente = [d.cliente.domicilio, `CP ${o(d.cliente.cp, 8)}`, d.cliente.municipio].filter(Boolean).join(", ");
+  const notif = [d.cliente.domicilio, d.cliente.cp ? `CP ${d.cliente.cp}` : "", d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ");
 
-  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE ${o(d.cliente.documento, 14)}, y domicilio a efectos de notificaciones en ${o(d.cliente.municipio, 20)}, ${o(domCliente, 40)}, en concepto de MANDANTE, dice y otorga:`);
+  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE ${o(d.cliente.documento, 14)}, y domicilio a efectos de notificaciones en ${o(notif, 50)}, en concepto de MANDANTE, dice y otorga:`);
   m.espacio(4);
-  m.parrafo(`Que por el presente documento confiere, con carácter general, MANDATO CON REPRESENTACIÓN a favor de D./Dna. ${o(d.mandatario.nombre, 36)}, con DNI ${o(d.mandatario.dni, 12)}${d.mandatario.colegiado ? `, número de colegiado ${d.mandatario.colegiado}` : ", número de colegiado ____________"}, perteneciente al ${d.mandatario.colegio || "Colegio Oficial de Gestores Administrativos de ________________________"}, y al despacho profesional ${d.despacho.nombre}, con domicilio en ${o(d.despacho.domicilio, 40)}, en concepto de MANDATARIO, para que promueva, solicite y realice todos los trámites necesarios para su actuación ante todos los órganos y entidades de la Administración del Estado, Autonómica, Provincial y Local que resulten competentes, y específicamente ante las Oficinas de Extranjería y demás órganos competentes en materia de extranjería e inmigración.`);
+  // Cláusula de colegiación SOLO si el gestor la configuró: un abogado no colegiado
+  // como GA no debe quedar afiliado falsamente a un Colegio de Gestores.
+  const colegiadoTxt = d.mandatario.colegiado ? `, número de colegiado ${d.mandatario.colegiado}` : "";
+  const colegioTxt = d.mandatario.colegio ? `, perteneciente al ${d.mandatario.colegio}` : "";
+  m.parrafo(`Que por el presente documento confiere, con carácter general, MANDATO CON REPRESENTACIÓN a favor de D./Dna. ${o(d.mandatario.nombre, 36)}, con DNI ${o(d.mandatario.dni, 12)}${colegiadoTxt}${colegioTxt}, y al despacho profesional ${d.despacho.nombre}, con domicilio en ${o(d.despacho.domicilio, 40)}, en concepto de MANDATARIO, para que promueva, solicite y realice todos los trámites necesarios para su actuación ante todos los órganos y entidades de la Administración del Estado, Autonómica, Provincial y Local que resulten competentes, y específicamente ante las Oficinas de Extranjería y demás órganos competentes en materia de extranjería e inmigración.`);
   m.espacio(4);
   m.parrafo("El presente mandato, que se regirá por los artículos 1709 a 1739 del Código Civil, se confiere al amparo del artículo 5 de la Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas, y del artículo 1 del Estatuto Orgánico de la Profesión de Gestor Administrativo, aprobado por Decreto 424/1963.");
   m.espacio(4);
@@ -271,7 +314,7 @@ export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
   m.parrafo(`El mandante declara que conoce y consiente que los datos que suministra pueden incorporarse a ficheros de los que será responsable el mandatario y, en su caso, el Colegio Oficial de Gestores Administrativos correspondiente, con el único objeto de posibilitar la prestación de los servicios profesionales objeto del presente mandato y el cumplimiento de las obligaciones derivadas del trámite encomendado. El mandante tiene derecho de acceso, rectificación, supresión, limitación, oposición y portabilidad de sus datos, dirigiéndose al mandatario en su domicilio profesional, así como a interponer reclamación ante la Agencia Española de Protección de Datos, en los términos de la LO 3/2018 y el Reglamento (UE) 2016/679.`, { size: 8.5, color: GRIS });
 
   m.espacio(10);
-  m.parrafo(`En ________________________________, a ${fechaLarga(d.fecha)}`);
+  m.parrafo("En ____________________________, a ______ de ______________________ de 20____");
   m.espacio(6);
   m.parrafo("El mandatario acepta el mandato conferido y se obliga a cumplirlo de conformidad con las instrucciones del mandante, y declara bajo su responsabilidad que los documentos recibidos del mandante han sido verificados en cuanto a la corrección formal de los datos contenidos en los mismos.", { size: 8.5, color: GRIS });
   m.espacio(10);

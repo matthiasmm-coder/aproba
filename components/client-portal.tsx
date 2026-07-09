@@ -20,6 +20,10 @@ import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal"
 type DocStatus = "pending" | "analyzing" | "validado" | "alerta";
 
 const LANG_KEY = "aproba.portal.lang";
+// Hoja de encargo + mandato firmados: labels ES fijos (labelADocTipo los mapea a
+// HOJA_ENCARGO/MANDATO en el servidor). Nivel módulo → reutilizado por el
+// inicializador de reprise Y el render.
+const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 // Champs obligatoires : tous sauf « piso / puerta ».
 const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso").map((f) => f.k);
@@ -113,7 +117,10 @@ export function ClientPortal({
     if (!servicioInicial || !docsSubidos?.length) return {};
     const svc = (serviciosProp ?? DEFAULT_SERVICIOS).find((s) => s.id === servicioInicial);
     const m: Record<number, { status: DocStatus; attempts: number }> = {};
-    (svc?.docs ?? []).forEach((label, i) => {
+    // Iterar sobre la MISMA lista que el render (docs del servicio + firma) para que
+    // los slots de hoja/mandato ya subidos también aparezcan validados al reanudar.
+    const labels = [...(svc?.docs ?? []), ...(encargoActivo && token ? DOCS_FIRMA : [])];
+    labels.forEach((label, i) => {
       const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
       if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
     });
@@ -166,9 +173,6 @@ export function ClientPortal({
   }, []);
 
   const tramite = servicios.find((tr) => tr.id === tramiteId);
-  // Hoja de encargo + mandato firmados: dos huecos adicionales al final (si la
-  // gestoría lo activó). Labels fijos ES — labelADocTipo los mapea en el servidor.
-  const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
   const requiredDocs = [...(tramite?.docs ?? []), ...(encargoActivo && token ? DOCS_FIRMA : [])];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
@@ -594,6 +598,7 @@ export function ClientPortal({
             lang={lang}
             miembros={famMiembros}
             requiredDocs={requiredDocs}
+            encargoActivo={encargoActivo && Boolean(token)}
             onBack={() => setStep(1)}
             onContinue={proceder}
           />

@@ -226,4 +226,8 @@ export const ZH: Record<string, string> = {
   "ui:firma.intro": "下载这两份文件，签名后与其他证件一起在下方上传。",
   "ui:firma.hoja": "委托服务单（PDF）",
   "ui:firma.mandato": "授权委托书（PDF）",
+  "doc:HOJA_ENCARGO.label": "已签署的委托服务单",
+  "doc:HOJA_ENCARGO.help": "你在上方下载的 PDF，签名后上传。可上传照片或文件。",
+  "doc:MANDATO.label": "已签署的授权委托书",
+  "doc:MANDATO.help": "你在上方下载的 PDF，签名后上传。可上传照片或文件。",
 };

@@ -41,7 +41,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   let encargoActivo = false;
   try {
     const { data: wsc } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", ws.id).maybeSingle();
-    encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva);
+    // Solo si el servicio resuelve (mismo criterio que datosEncargo) → sin dead link.
+    encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva) && Boolean(servicio);
   } catch { /* pre-migración */ }
   const requeridos: string[] = [
     ...(servicio?.docs ?? []),

@@ -30,7 +30,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const datos = await datosEncargo(admin, exp);
   if (!datos) return NextResponse.json({ error: "Configura primero el servicio del expediente." }, { status: 409 });
 
-  const bytes = doc === "mandato" ? await generarMandato(datos) : await generarHojaEncargo(datos);
+  let bytes: Uint8Array;
+  try {
+    bytes = doc === "mandato" ? await generarMandato(datos) : await generarHojaEncargo(datos);
+  } catch (e) {
+    // Un dato con carácter no imprimible no debe romper la descarga con un 500 opaco.
+    console.error("[encargo] generación PDF", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "No se pudo generar el documento. Revisa que los datos no contengan caracteres extraños." }, { status: 500 });
+  }
   const nombre = doc === "mandato" ? `mandato-${exp.referencia}.pdf` : `hoja-de-encargo-${exp.referencia}.pdf`;
   return new Response(Buffer.from(bytes), {
     headers: {

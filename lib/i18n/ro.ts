@@ -226,4 +226,8 @@ export const RO: Record<string, string> = {
   "ui:firma.intro": "Descarcă aceste două documente, semnează-le și încarcă-le mai jos împreună cu restul documentelor tale.",
   "ui:firma.hoja": "Foaia de angajament (PDF)",
   "ui:firma.mandato": "Mandatul de reprezentare (PDF)",
+  "doc:HOJA_ENCARGO.label": "Foaia de angajament semnată",
+  "doc:HOJA_ENCARGO.help": "PDF-ul descărcat mai sus, semnat. Poți încărca o fotografie sau fișierul.",
+  "doc:MANDATO.label": "Mandatul de reprezentare semnat",
+  "doc:MANDATO.help": "PDF-ul descărcat mai sus, semnat. Poți încărca o fotografie sau fișierul.",
 };

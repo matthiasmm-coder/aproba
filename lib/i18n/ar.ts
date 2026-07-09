@@ -226,4 +226,8 @@ export const AR: Record<string, string> = {
   "ui:firma.intro": "حمّل هاتين الوثيقتين ووقّعهما ثم ارفعهما أدناه مع بقية وثائقك.",
   "ui:firma.hoja": "ورقة التكليف (PDF)",
   "ui:firma.mandato": "توكيل التمثيل (PDF)",
+  "doc:HOJA_ENCARGO.label": "ورقة التكليف موقّعة",
+  "doc:HOJA_ENCARGO.help": "ملف PDF الذي حمّلته أعلاه، موقّعًا. يمكنك رفع صورة أو الملف.",
+  "doc:MANDATO.label": "توكيل التمثيل موقّعًا",
+  "doc:MANDATO.help": "ملف PDF الذي حمّلته أعلاه، موقّعًا. يمكنك رفع صورة أو الملف.",
 };

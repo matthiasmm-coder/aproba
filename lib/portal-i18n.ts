@@ -455,6 +455,14 @@ export const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
 
 // Documents (par enum DocumentoTipo) : label affiché + infobulle « ce qui est attendu » (#5).
 export const DOC_I18N: Record<string, { label: Tr; help: Tr }> = {
+  HOJA_ENCARGO: {
+    label: { es: "Hoja de encargo firmada", en: "Signed engagement letter", fr: "Lettre de mission signée", it: "Lettera d'incarico firmata", de: "Unterschriebenes Auftragsblatt" },
+    help: { es: "El PDF que descargaste arriba, firmado. Puedes subir una foto o el archivo.", en: "The PDF you downloaded above, signed. Upload a photo or the file.", fr: "Le PDF téléchargé ci-dessus, signé. Envoyez une photo ou le fichier.", it: "Il PDF scaricato sopra, firmato. Carica una foto o il file.", de: "Das oben heruntergeladene PDF, unterschrieben. Lade ein Foto oder die Datei hoch." },
+  },
+  MANDATO: {
+    label: { es: "Mandato de representación firmado", en: "Signed power of representation", fr: "Mandat de représentation signé", it: "Mandato di rappresentanza firmato", de: "Unterschriebene Vertretungsvollmacht" },
+    help: { es: "El PDF que descargaste arriba, firmado. Puedes subir una foto o el archivo.", en: "The PDF you downloaded above, signed. Upload a photo or the file.", fr: "Le PDF téléchargé ci-dessus, signé. Envoyez une photo ou le fichier.", it: "Il PDF scaricato sopra, firmato. Carica una foto o il file.", de: "Das oben heruntergeladene PDF, unterschrieben. Lade ein Foto oder die Datei hoch." },
+  },
   PASAPORTE: {
     label: { es: "Pasaporte", en: "Passport", fr: "Passeport", it: "Passaporto", de: "Reisepass" },
     help: { es: "Página con tu foto y tus datos. Debe estar vigente y leerse con claridad.", en: "The page with your photo and details. Must be valid and clearly legible.", fr: "La page avec votre photo et vos informations. Doit être en cours de validité et bien lisible.", it: "La pagina con la tua foto e i tuoi dati. Deve essere valido e ben leggibile.", de: "Die Seite mit Foto und Daten. Muss gültig und gut lesbar sein." },

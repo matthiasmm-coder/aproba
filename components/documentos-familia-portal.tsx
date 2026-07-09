@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { partirDocsFamilia } from "@/lib/familia";
+import { labelADocTipo } from "@/lib/tramites";
 import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 import type { MiembroInicial } from "@/components/datos-familia";
 
@@ -21,12 +22,17 @@ const esMenor = (m: MiembroInicial) => {
 // PERSONNELS de chaque solicitante (clienteId = membre). Upload XHR avec barre de progression
 // (subida réelle → análisis IA) + avertissement si tout n'est pas validé (on peut continuer).
 export function DocumentosFamiliaPortal({
-  token, lang, miembros, requiredDocs, onBack, onContinue,
+  token, lang, miembros, requiredDocs, encargoActivo, onBack, onContinue,
 }: {
-  token: string; lang: Lang; miembros: MiembroInicial[]; requiredDocs: string[]; onBack: () => void; onContinue: () => void;
+  token: string; lang: Lang; miembros: MiembroInicial[]; requiredDocs: string[]; encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
   const t = makeT(lang);
-  const { comunes, porMiembro } = partirDocsFamilia(requiredDocs);
+  // Hoja de encargo / mandato firmados: UN solo par para toda la familia (común,
+  // clienteId null), con botón de descarga — nunca por miembro (partirDocsFamilia
+  // los clasificaría como personales y sin enlace = callejón sin salida).
+  const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
+  const firmaLabels = encargoActivo ? requiredDocs.filter(esFirma) : [];
+  const { comunes, porMiembro } = partirDocsFamilia(requiredDocs.filter((l) => !esFirma(l)));
   const solicitantes = useMemo(() => miembros.filter((m) => m.esSolicitante), [miembros]);
   const [estados, setEstados] = useState<Record<string, Estado>>({});
   const [prog, setProg] = useState<Record<string, number>>({});
@@ -44,11 +50,11 @@ export function DocumentosFamiliaPortal({
 
   // Todas las casillas requeridas (comunes + por solicitante + representante) → aviso de completitud.
   const requiredKeys = useMemo(() => {
-    const ks = comunes.map((l) => keyFor(null, l));
+    const ks = [...firmaLabels.map((l) => keyFor(null, l)), ...comunes.map((l) => keyFor(null, l))];
     for (const m of solicitantes) for (const l of porMiembro) ks.push(keyFor(m.id, l));
     if (representante) ks.push(keyFor(representante.id, DOC_REPRESENTANTE));
     return ks;
-  }, [comunes, porMiembro, solicitantes, representante]);
+  }, [firmaLabels, comunes, porMiembro, solicitantes, representante]);
   const total = requiredKeys.length;
   const validados = requiredKeys.filter((k) => estados[k]?.status === "validado").length;
   const todosOk = total > 0 && validados === total;
@@ -143,6 +149,28 @@ export function DocumentosFamiliaPortal({
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onFile} />
       <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("fam.docs.titulo")}</h1>
       <p className="mt-2 text-slate-600">{t("fam.docs.intro")}</p>
+
+      {firmaLabels.length > 0 && (
+        <div className="mt-6">
+          <div className="rounded-xl border border-aproba-200 bg-aproba-50 p-4">
+            <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
+            <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                {t("firma.hoja")}
+              </a>
+              <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                {t("firma.mandato")}
+              </a>
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            {firmaLabels.map((l) => <Slot key={l} clienteId={null} label={l} />)}
+          </div>
+        </div>
+      )}
 
       {comunes.length > 0 && (
         <div className="mt-6">

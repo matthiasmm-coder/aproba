@@ -101,7 +101,11 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
       // Cobro con tarjeta del anticipo: solo si la gestoría tiene su clave Stripe.
       tarjetaActiva = Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspace.id));
-      encargoActivo = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva);
+      // Solo si el servicio RESUELVE (mismo criterio que datosEncargo): si no, los
+      // botones de descarga darían 409 al cliente (dead link).
+      const claveServicio = exp.servicioClave ?? (exp.tipo ? TIPO_A_SERVICIO[exp.tipo] : undefined);
+      const servicioResuelve = Boolean(claveServicio) && servicios.some((sv) => sv.id === claveServicio);
+      encargoActivo = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva) && servicioResuelve;
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.
       const { data: fin } = await admin
         .from("ExpedienteEvento")
