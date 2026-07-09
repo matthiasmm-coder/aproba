@@ -623,6 +623,13 @@ export const CA: Record<string, string> = {
   "¿Prefieres que tus clientes paguen con tarjeta? Podrás activar el cobro con tarjeta en Ajustes cuando quieras.": "Prefereixes que els teus clients paguin amb targeta? Podràs activar el cobrament amb targeta a Configuració quan vulguis.",
   "Si incluyes la fecha de caducidad del TIE, Vigía te avisará de cada renovación automáticamente.": "Si inclous la data de caducitat del TIE, Vigía t'avisarà de cada renovació automàticament.",
   "Hoja de encargo y mandato activados": "Full d'encàrrec i mandat activats",
+  "Cobrar con tarjeta": "Cobrar amb targeta",
+  "Añade un botón «Pagar con tarjeta» en los emails de factura. Los cobros van a tu cuenta Stripe.": "Afegeix un botó «Pagar amb targeta» als correus de factura. Els cobraments van al teu compte Stripe.",
+  "Clave secreta de Stripe": "Clau secreta de Stripe",
+  "La clave debe empezar por sk_live_, rk_live_, sk_test_ o rk_test_.": "La clau ha de començar per sk_live_, rk_live_, sk_test_ o rk_test_.",
+  "Recomendado: una clave RESTRINGIDA de Stripe. Se guarda cifrada y nunca se muestra. También puedes hacerlo más tarde en Ajustes.": "Recomanat: una clau RESTRINGIDA de Stripe. Es desa xifrada i no es mostra mai. També ho pots fer més tard a Configuració.",
+  "Revisa la clave de Stripe o déjala vacía.": "Revisa la clau de Stripe o deixa-la buida.",
+  "Cobro con tarjeta activado": "Cobrament amb targeta activat",
 };
 
 export function translate(lang: Lang, es: string): string {

@@ -33,6 +33,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   // propres tarifs (évite la confusion avec des montants par défaut qui ne sont pas les siens).
   const [servicios, setServicios] = useState<Servicio[]>(() => DEFAULT_SERVICIOS.map((s) => ({ ...s, anticipo: 0, resto: 0, precio: 0 })));
   const [banco, setBanco] = useState<Banco>({ titular: "", iban: "", banco: "" });
+  // Cobro con tarjeta (opcional): clave secreta Stripe, se guarda cifrada en finalizar().
+  const [stripeKey, setStripeKey] = useState("");
+  const [stripeAbierto, setStripeAbierto] = useState(false);
   const [clientes, setClientes] = useState<FilaCsv[] | null>(null);
   const [csvNombre, setCsvNombre] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   useEffect(() => { setEsPrueba(typeof document !== "undefined" && document.cookie.includes("aproba.modo=prueba")); }, []);
 
   const conEquipo = plan !== "STARTER";
+  const stripeKeyValida = /^(sk|rk)_(live|test)_[A-Za-z0-9]+$/.test(stripeKey.trim());
   const maxInvitados = plyMax(plan) - 1; // hors propriétaire
   const rolesAsignables = ROLES_ASIGNABLES.filter((r) => puedeAsignarRol("OWNER", r));
 
@@ -147,6 +151,11 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
         const { data: mem } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
         if (mem) await supabase.from("CuentaBancaria").insert({ id: crypto.randomUUID(), workspaceId: mem.workspaceId, titular: banco.titular.trim(), iban: banco.iban.replace(/\s+/g, "").toUpperCase(), banco: banco.banco.trim() || null, activa: true });
       } catch { /* */ }
+    }
+    // Cobro con tarjeta (opcional): clave Stripe → se cifra en servidor. Fail-soft si
+    // falta la migración StripeCuenta o el cifrado no está configurado en el entorno.
+    if (stripeKeyValida) {
+      try { await fetch("/api/ajustes/stripe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretKey: stripeKey.trim() }) }); } catch { /* */ }
     }
     // Clientes (CSV).
     const validas = (clientes ?? []).filter((f) => f.estado === "ok");
@@ -410,12 +419,32 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           </div>
           <input value={banco.iban} onChange={(e) => setBanco((b) => ({ ...b, iban: e.target.value }))} placeholder={t("IBAN — ES76 2100 0418 4502 0005 1332")} className={`${inputCls} font-mono`} />
           {banco.iban && !ibanValido(banco.iban) && <p className="text-xs text-amber-600">{t("El IBAN no parece válido.")}</p>}
-          <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2.5 text-xs text-slate-500">
-            <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
-            <span>{t("¿Prefieres que tus clientes paguen con tarjeta? Podrás activar el cobro con tarjeta en Ajustes cuando quieras.")}</span>
+
+          {/* Cobro con tarjeta (opcional): plegable. La clave Stripe se guarda cifrada en finalizar(). */}
+          <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-4">
+            <button type="button" aria-expanded={stripeAbierto} aria-controls="onb-stripe-panel" onClick={() => setStripeAbierto((v) => !v)} className="flex w-full items-center justify-between gap-3 text-left">
+              <div className="flex items-start gap-2.5">
+                <svg className="mt-0.5 h-5 w-5 shrink-0 text-aproba-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{t("Cobrar con tarjeta")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></p>
+                  <p className="mt-0.5 text-xs text-slate-500">{t("Añade un botón «Pagar con tarjeta» en los emails de factura. Los cobros van a tu cuenta Stripe.")}</p>
+                </div>
+              </div>
+              <span className={`shrink-0 text-slate-400 transition-transform ${stripeAbierto ? "rotate-180" : ""}`}>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+              </span>
+            </button>
+            {stripeAbierto && (
+              <div id="onb-stripe-panel" className="mt-4">
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Clave secreta de Stripe")}</label>
+                <input type="password" autoComplete="off" value={stripeKey} onChange={(e) => setStripeKey(e.target.value)} placeholder="sk_live_… o rk_live_…" className={`${inputCls} font-mono`} />
+                {stripeKey.trim() && !stripeKeyValida && <p className="mt-1 text-xs text-amber-600">{t("La clave debe empezar por sk_live_, rk_live_, sk_test_ o rk_test_.")}</p>}
+                <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">{t("Recomendado: una clave RESTRINGIDA de Stripe. Se guarda cifrada y nunca se muestra. También puedes hacerlo más tarde en Ajustes.")}</p>
+              </div>
+            )}
           </div>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Nav onBack={anterior} onNext={() => { if (banco.titular.trim() && !ibanValido(banco.iban)) { setError(t("Revisa el IBAN o salta este paso.")); return; } siguiente(); }} onSkip={() => { setBanco({ titular: "", iban: "", banco: "" }); siguiente(); }} />
+          <Nav onBack={anterior} onNext={() => { if (banco.titular.trim() && !ibanValido(banco.iban)) { setError(t("Revisa el IBAN o salta este paso.")); return; } if (stripeKey.trim() && !stripeKeyValida) { setError(t("Revisa la clave de Stripe o déjala vacía.")); return; } siguiente(); }} onSkip={() => { setBanco({ titular: "", iban: "", banco: "" }); setStripeKey(""); setStripeAbierto(false); siguiente(); }} />
         </div>
       )}
 
@@ -477,6 +506,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
               <li>✓ {servicios.filter((s) => s.active).length} {t("servicios configurados")}</li>
               {mandatario.activa && <li>✓ {t("Hoja de encargo y mandato activados")}</li>}
               {banco.titular.trim() && ibanValido(banco.iban) && <li>✓ {t("Cuenta bancaria añadida")}</li>}
+              {stripeKeyValida && <li>✓ {t("Cobro con tarjeta activado")}</li>}
               {clientes && clientes.filter((f) => f.estado === "ok").length > 0 && <li>✓ {clientes.filter((f) => f.estado === "ok").length} {t("clientes a importar")}</li>}
               {avatarUrl && <li>✓ {t("Foto de perfil")}</li>}
               {invitados.filter((v) => v.email.trim()).length > 0 && <li>✓ {invitados.filter((v) => v.email.trim()).length} {t("invitaciones de equipo")}</li>}
