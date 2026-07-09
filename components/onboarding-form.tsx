@@ -13,8 +13,9 @@ import { ibanValido } from "@/lib/iban";
 
 type Banco = { titular: string; iban: string; banco: string };
 type Invitado = { email: string; nombre: string; role: RolId };
+type Mandatario = { activa: boolean; nombre: string; dni: string; colegiado: string; colegio: string };
 
-export function OnboardingForm() {
+export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string }) {
   const t = useT();
   const router = useRouter();
 
@@ -25,6 +26,9 @@ export function OnboardingForm() {
   const [emailFact, setEmailFact] = useState("");
   const [tipo, setTipo] = useState("GESTORIA");
   const [plan, setPlan] = useState<PlanId>("PRO");
+  // Hoja de encargo + mandato de representación (feature clave para abogados/gestores).
+  // Se pre-rellena el nombre del profesional con el del titular de la cuenta.
+  const [mandatario, setMandatario] = useState<Mandatario>({ activa: false, nombre: defaultNombre, dni: "", colegiado: "", colegio: "" });
   // Au démarrage de la config, les prix sont à 0 € : le gestor pose consciemment ses
   // propres tarifs (évite la confusion avec des montants par défaut qui ne sont pas les siens).
   const [servicios, setServicios] = useState<Servicio[]>(() => DEFAULT_SERVICIOS.map((s) => ({ ...s, anticipo: 0, resto: 0, precio: 0 })));
@@ -46,8 +50,9 @@ export function OnboardingForm() {
   const maxInvitados = plyMax(plan) - 1; // hors propriétaire
   const rolesAsignables = ROLES_ASIGNABLES.filter((r) => puedeAsignarRol("OWNER", r));
 
-  // Étapes du wizard (l'équipe seulement pour Pro/Business).
-  const PASOS = ["despacho", "servicios", "banco", "clientes", "foto", ...(conEquipo ? ["equipo"] : []), "pago"] as const;
+  // Étapes du wizard (l'équipe seulement pour Pro/Business). La foto est repliée dans
+  // «Tu despacho» ; «Hoja de encargo y mandato» est une étape à part (feature abogados/gestores).
+  const PASOS = ["despacho", "servicios", "encargo", "cobros", "clientes", ...(conEquipo ? ["equipo"] : []), "pago"] as const;
   type Paso = (typeof PASOS)[number];
   const [paso, setPaso] = useState<Paso>("despacho");
   const idx = PASOS.indexOf(paso);
@@ -56,8 +61,8 @@ export function OnboardingForm() {
   const anterior = () => ir(PASOS[Math.max(idx - 1, 0)]);
 
   const TITULOS: Record<Paso, string> = {
-    despacho: t("Tu despacho"), servicios: t("Tus servicios"), banco: t("Cuenta bancaria"),
-    clientes: t("Importa tus clientes"), foto: t("Foto de perfil"), equipo: t("Invita a tu equipo"), pago: t("Empieza tu prueba"),
+    despacho: t("Tu despacho"), servicios: t("Tus servicios"), encargo: t("Hoja de encargo y mandato"),
+    cobros: t("Cómo cobras a tus clientes"), clientes: t("Importa tus clientes"), equipo: t("Invita a tu equipo"), pago: t("Empieza tu prueba"),
   };
 
   function patchSrv(id: string, p: Partial<Servicio>) {
@@ -117,11 +122,25 @@ export function OnboardingForm() {
 
     // NIF (route admin — table Workspace verrouillée côté client).
     if (nif.trim() || domicilio.trim() || emailFact.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim(), domicilio: domicilio.trim(), emailFacturacion: emailFact.trim() }) }); } catch { /* */ } }
-    // Servicios.
+    // Servicios (incluye «no incluye» por servicio, capturado en el paso Encargo).
     try { await guardarServicios(servicios, []); } catch { /* */ }
     // Avisos automáticos : seed des défauts pour que le nouveau despacho ait des
     // notifications fonctionnelles dès le départ (modifiables ensuite dans Ajustes).
     try { await guardarAvisos(DEFAULT_AVISOS); } catch { /* */ }
+    // Hoja de encargo + mandato (si activado). soloEncargo=1 solo toca sus campos.
+    // Fail-soft: si falta la migración hoja-encargo.sql, no rompe el onboarding.
+    if (mandatario.activa) {
+      try {
+        const fd = new FormData();
+        fd.set("soloEncargo", "1");
+        fd.set("hojaEncargoActiva", "1");
+        fd.set("mandatarioNombre", mandatario.nombre.trim());
+        fd.set("mandatarioDni", mandatario.dni.trim());
+        fd.set("mandatarioColegiado", mandatario.colegiado.trim());
+        fd.set("mandatarioColegio", mandatario.colegio.trim());
+        await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+      } catch { /* */ }
+    }
     // Compte bancaire.
     if (banco.titular.trim() && ibanValido(banco.iban)) {
       try {
@@ -224,6 +243,19 @@ export function OnboardingForm() {
       {/* ── Despacho ── */}
       {paso === "despacho" && (
         <div className="space-y-6">
+          {/* Foto / avatar (repliée ici depuis l'ancienne étape « foto ») */}
+          <div className="flex items-center gap-4">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-aproba-100 text-xl font-bold text-aproba-700">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : (nombre.slice(0, 2).toUpperCase() || "AB")}
+            </span>
+            <div>
+              <label className="cursor-pointer text-sm font-semibold text-aproba-700 hover:underline">
+                {fotoSubiendo ? t("Subiendo…") : avatarUrl ? t("Cambiar foto") : t("Añadir foto (opcional)")}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={subirFoto} />
+              </label>
+              <p className="text-xs text-slate-400">{t("Aparecerá en tu cuenta.")}</p>
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="text-sm font-semibold text-slate-800">{t("Nombre de tu despacho")}</label>
@@ -234,13 +266,14 @@ export function OnboardingForm() {
               <input value={nif} onChange={(e) => setNif(e.target.value)} placeholder="B12345678" className={`mt-2 ${inputCls}`} />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-sm font-semibold text-slate-800">{t("Domicilio (para tus facturas)")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
+              <label className="text-sm font-semibold text-slate-800">{t("Domicilio")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
               <input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} placeholder={t("C/ Mayor 1, 28013 Madrid")} className={`mt-2 ${inputCls}`} />
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-semibold text-slate-800">{t("Email de facturación")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></label>
               <input type="email" value={emailFact} onChange={(e) => setEmailFact(e.target.value)} placeholder="facturacion@tudespacho.es" className={`mt-2 ${inputCls}`} />
             </div>
+            <p className="sm:col-span-2 text-xs text-slate-400">{t("Estos datos encabezan tus facturas y la hoja de encargo. Puedes completarlos ahora o más tarde en Ajustes.")}</p>
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-800">{t("Tipo de despacho")}</p>
@@ -304,8 +337,71 @@ export function OnboardingForm() {
         </div>
       )}
 
-      {/* ── Banco ── */}
-      {paso === "banco" && (
+      {/* ── Hoja de encargo y mandato ── */}
+      {paso === "encargo" && (
+        <div className="space-y-5">
+          <p className="text-sm text-slate-500">{t("Aproba puede generar automáticamente la hoja de encargo y el mandato de representación con los datos que ya tienes. Tu cliente los descarga, firma y sube desde su portal.")}</p>
+
+          {/* Interruptor activar */}
+          <button type="button" role="switch" aria-checked={mandatario.activa} onClick={() => setMandatario((m) => ({ ...m, activa: !m.activa }))} className={`flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition ${mandatario.activa ? "border-aproba-600 bg-aproba-50/60 ring-1 ring-aproba-600" : "border-slate-200 hover:border-slate-300"}`}>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{t("Generar hoja de encargo y mandato")}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{t("Recomendado para despachos jurídicos y representación ante la Administración.")}</p>
+            </div>
+            <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${mandatario.activa ? "bg-aproba-600" : "bg-slate-300"}`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${mandatario.activa ? "left-[22px]" : "left-0.5"}`} />
+            </span>
+          </button>
+
+          {mandatario.activa && (
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">{t("Datos del profesional que firma el mandato")}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{t("Es quien representa al cliente ante la Administración.")}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-slate-500">{t("Nombre y apellidos")}</label>
+                  <input value={mandatario.nombre} onChange={(e) => setMandatario((m) => ({ ...m, nombre: e.target.value }))} placeholder={t("Nombre y apellidos")} className={`mt-1 ${inputCls}`} />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">DNI</label>
+                  <input value={mandatario.dni} onChange={(e) => setMandatario((m) => ({ ...m, dni: e.target.value }))} placeholder="00000000A" className={`mt-1 ${inputCls}`} />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">{t("Nº de colegiado (opcional)")}</label>
+                  <input value={mandatario.colegiado} onChange={(e) => setMandatario((m) => ({ ...m, colegiado: e.target.value }))} className={`mt-1 ${inputCls}`} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-slate-500">{t("Colegio profesional (opcional)")}</label>
+                  <input value={mandatario.colegio} onChange={(e) => setMandatario((m) => ({ ...m, colegio: e.target.value }))} placeholder={t("Colegio Oficial de Gestores Administrativos de…")} className={`mt-1 ${inputCls}`} />
+                </div>
+              </div>
+
+              {/* Qué NO incluye cada servicio (aparece en la hoja de encargo) */}
+              {servicios.some((s) => s.active) && (
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="text-sm font-semibold text-slate-800">{t("¿Qué NO incluye cada servicio?")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></p>
+                  <p className="mt-0.5 text-xs text-slate-400">{t("Aclara los límites del encargo (ej. tasas, recursos, traducciones).")}</p>
+                  <div className="mt-3 space-y-2">
+                    {servicios.filter((s) => s.active).map((s) => (
+                      <div key={s.id}>
+                        <label className="text-xs font-medium text-slate-600">{s.label}</label>
+                        <input value={s.noIncluye ?? ""} onChange={(e) => patchSrv(s.id, { noIncluye: e.target.value })} placeholder={t("No incluye tasas ni recursos…")} className={`mt-1 ${inputCls}`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <Nav onBack={anterior} onNext={() => { if (mandatario.activa && mandatario.nombre.trim().length < 2) { setError(t("Indica el nombre del profesional que firma, o desactiva la opción.")); return; } siguiente(); }} onSkip={() => { setMandatario((m) => ({ ...m, activa: false })); siguiente(); }} />
+        </div>
+      )}
+
+      {/* ── Cómo cobras (cuenta bancaria + tarjeta) ── */}
+      {paso === "cobros" && (
         <div className="space-y-5">
           <p className="text-sm text-slate-500">{t("La cuenta donde recibirás los pagos de tus clientes. Puedes añadirla ahora o más tarde en Ajustes.")}</p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -314,7 +410,11 @@ export function OnboardingForm() {
           </div>
           <input value={banco.iban} onChange={(e) => setBanco((b) => ({ ...b, iban: e.target.value }))} placeholder={t("IBAN — ES76 2100 0418 4502 0005 1332")} className={`${inputCls} font-mono`} />
           {banco.iban && !ibanValido(banco.iban) && <p className="text-xs text-amber-600">{t("El IBAN no parece válido.")}</p>}
-          {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2.5 text-xs text-slate-500">
+            <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+            <span>{t("¿Prefieres que tus clientes paguen con tarjeta? Podrás activar el cobro con tarjeta en Ajustes cuando quieras.")}</span>
+          </div>
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <Nav onBack={anterior} onNext={() => { if (banco.titular.trim() && !ibanValido(banco.iban)) { setError(t("Revisa el IBAN o salta este paso.")); return; } siguiente(); }} onSkip={() => { setBanco({ titular: "", iban: "", banco: "" }); siguiente(); }} />
         </div>
       )}
@@ -337,25 +437,12 @@ export function OnboardingForm() {
               {clientes.filter((f) => f.estado !== "ok").length > 0 && ` · ${clientes.filter((f) => f.estado !== "ok").length} ${t("omitidos (duplicados o sin nombre)")}`}
             </p>
           )}
-          {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setClientes(null); setCsvNombre(""); siguiente(); }} />
-        </div>
-      )}
-
-      {/* ── Foto ── */}
-      {paso === "foto" && (
-        <div className="space-y-5">
-          <p className="text-sm text-slate-500">{t("Una foto de perfil para tu cuenta (opcional).")}</p>
-          <div className="flex items-center gap-4">
-            <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-aproba-100 text-2xl font-bold text-aproba-700">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : (nombre.slice(0, 2).toUpperCase() || "AB")}
-            </span>
-            <label className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700">
-              {fotoSubiendo ? t("Subiendo…") : avatarUrl ? t("Cambiar foto") : t("Subir una foto")}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={subirFoto} />
-            </label>
+          <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2.5 text-xs text-slate-500">
+            <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+            <span>{t("Si incluyes la fecha de caducidad del TIE, Vigía te avisará de cada renovación automáticamente.")}</span>
           </div>
-          <Nav onBack={anterior} onNext={siguiente} onSkip={siguiente} />
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setClientes(null); setCsvNombre(""); siguiente(); }} />
         </div>
       )}
 
@@ -388,6 +475,7 @@ export function OnboardingForm() {
             <p className="font-semibold text-slate-800">{nombre || t("Tu despacho")} · {t(PLANES[plan].label)}</p>
             <ul className="mt-2 space-y-1 text-slate-500">
               <li>✓ {servicios.filter((s) => s.active).length} {t("servicios configurados")}</li>
+              {mandatario.activa && <li>✓ {t("Hoja de encargo y mandato activados")}</li>}
               {banco.titular.trim() && ibanValido(banco.iban) && <li>✓ {t("Cuenta bancaria añadida")}</li>}
               {clientes && clientes.filter((f) => f.estado === "ok").length > 0 && <li>✓ {clientes.filter((f) => f.estado === "ok").length} {t("clientes a importar")}</li>}
               {avatarUrl && <li>✓ {t("Foto de perfil")}</li>}

@@ -606,6 +606,23 @@ export const CA: Record<string, string> = {
   "Estás al día. No hay cobros pendientes.": "Estàs al dia. No hi ha cobraments pendents.",
   "No se pudo enviar el recordatorio.": "No s'ha pogut enviar el recordatori.",
   "Factura sin expediente: recuérdaselo tú al cliente.": "Factura sense expedient: recorda-l'hi tu al client.",
+  "Cómo cobras a tus clientes": "Com cobres els teus clients",
+  "Añadir foto (opcional)": "Afegir foto (opcional)",
+  "Aparecerá en tu cuenta.": "Apareixerà al teu compte.",
+  "Domicilio": "Domicili",
+  "Estos datos encabezan tus facturas y la hoja de encargo. Puedes completarlos ahora o más tarde en Ajustes.": "Aquestes dades encapçalen les teves factures i el full d'encàrrec. Els pots completar ara o més tard a Configuració.",
+  "Aproba puede generar automáticamente la hoja de encargo y el mandato de representación con los datos que ya tienes. Tu cliente los descarga, firma y sube desde su portal.": "Aproba pot generar automàticament el full d'encàrrec i el mandat de representació amb les dades que ja tens. El teu client els descarrega, signa i puja des del seu portal.",
+  "Generar hoja de encargo y mandato": "Generar full d'encàrrec i mandat",
+  "Recomendado para despachos jurídicos y representación ante la Administración.": "Recomanat per a despatxos jurídics i representació davant l'Administració.",
+  "Datos del profesional que firma el mandato": "Dades del professional que signa el mandat",
+  "Es quien representa al cliente ante la Administración.": "És qui representa el client davant l'Administració.",
+  "¿Qué NO incluye cada servicio?": "Què NO inclou cada servei?",
+  "Aclara los límites del encargo (ej. tasas, recursos, traducciones).": "Aclareix els límits de l'encàrrec (ex. taxes, recursos, traduccions).",
+  "No incluye tasas ni recursos…": "No inclou taxes ni recursos…",
+  "Indica el nombre del profesional que firma, o desactiva la opción.": "Indica el nom del professional que signa, o desactiva l'opció.",
+  "¿Prefieres que tus clientes paguen con tarjeta? Podrás activar el cobro con tarjeta en Ajustes cuando quieras.": "Prefereixes que els teus clients paguin amb targeta? Podràs activar el cobrament amb targeta a Configuració quan vulguis.",
+  "Si incluyes la fecha de caducidad del TIE, Vigía te avisará de cada renovación automáticamente.": "Si inclous la data de caducitat del TIE, Vigía t'avisarà de cada renovació automàticament.",
+  "Hoja de encargo y mandato activados": "Full d'encàrrec i mandat activats",
 };
 
 export function translate(lang: Lang, es: string): string {
