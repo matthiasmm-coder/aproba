@@ -32,6 +32,10 @@ const fichaDe = (c: Record<string, string | null> | null): ClienteFicha => {
   return f as ClienteFicha;
 };
 
+// Portal del cliente: SIEMPRE datos frescos. Sin esto, Next.js/Vercel cachea la
+// respuesta (incl. hojaEncargoActiva, estados de documentos) y sirve versiones viejas.
+export const dynamic = "force-dynamic";
+
 export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 

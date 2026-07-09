@@ -10,6 +10,10 @@ const FORM_LISTOS = new Set(["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HU
 
 // Lien de SUIVI (distinct du lien d'onboarding /j) : page d'avancement par
 // milestone + documents soumis / à soumettre. Réutilise le même token sécurisé.
+// Portal del cliente: SIEMPRE datos frescos. Sin esto, Next.js/Vercel cachea la
+// respuesta (incl. hojaEncargoActiva, estados de documentos) y sirve versiones viejas.
+export const dynamic = "force-dynamic";
+
 export default async function SeguimientoPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const admin = createSupabaseAdmin();
