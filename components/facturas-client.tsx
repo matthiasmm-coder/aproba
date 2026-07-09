@@ -6,12 +6,14 @@ import { FACTURA_ESTADO_META, eur, ivaDe, totalDe, parseFecha, fmtFecha, MESES, 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { DatosFacturacion } from "@/components/datos-facturacion";
 import type { Despacho } from "@/lib/data/config";
+import type { CobroPendiente } from "@/lib/data/facturas";
+import { CobrosPendientes } from "@/components/cobros-pendientes";
 import { useT } from "@/components/lang-provider";
 
 type Mode = "mtd" | "ytd" | "custom";
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-export function FacturasClient({ facturas, despacho }: { facturas: Factura[]; despacho: Despacho }) {
+export function FacturasClient({ facturas, cobros, despacho }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho }) {
   const t = useT();
   const HOY = startOfDay(new Date()); // aujourd'hui (date réelle)
   const [mode, setMode] = useState<Mode>("mtd");
@@ -101,6 +103,9 @@ export function FacturasClient({ facturas, despacho }: { facturas: Factura[]; de
       </div>
 
       <DatosFacturacion despacho={despacho} />
+
+      {/* Cobros pendientes (morosos) — NO filtrado por periodo: una deuda es una deuda */}
+      <CobrosPendientes cobros={cobros} />
 
       {/* Sélecteur de période */}
       <div className="mb-4 flex flex-wrap items-center gap-3">

@@ -595,6 +595,17 @@ export const CA: Record<string, string> = {
   "Preparando tu espacio…": "Preparant el teu espai…",
   "Empezar prueba de 14 días": "Començar prova de 14 dies",
   "Saltar por ahora": "Saltar per ara",
+  "Cobros pendientes": "Cobraments pendents",
+  "Recordar": "Recordar",
+  "Recordado": "Recordat",
+  "Factura manual": "Factura manual",
+  "factura": "factura",
+  "Vence hoy": "Venç avui",
+  "Vencida hace {n} d.": "Vençuda fa {n} d.",
+  "Vence en {n} d.": "Venç en {n} d.",
+  "Estás al día. No hay cobros pendientes.": "Estàs al dia. No hi ha cobraments pendents.",
+  "No se pudo enviar el recordatorio.": "No s'ha pogut enviar el recordatori.",
+  "Factura sin expediente: recuérdaselo tú al cliente.": "Factura sense expedient: recorda-l'hi tu al client.",
 };
 
 export function translate(lang: Lang, es: string): string {

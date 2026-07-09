@@ -67,3 +67,46 @@ export async function fetchFactura(id: string): Promise<Factura | null> {
   if (res.error) throw new Error(`Factura ${id}: ${res.error.message}`);
   return res.data ? mapRow(res.data as unknown as Row) : null;
 }
+
+// ── Cobros pendientes (morosos) ──────────────────────────────────────────────
+// Facturas EMITIDA/VENCIDA (ni borrador, ni pagada, ni anulada). Incluye
+// expedienteId (para el recordatorio) y la fecha de vencimiento cruda (para
+// calcular los días de retraso en el cliente). No se filtra por periodo: una
+// deuda de hace meses sigue pendiente.
+export type CobroPendiente = {
+  id: string;
+  numero: string;
+  cliente: string;
+  concepto: string;
+  total: number;
+  estado: "EMITIDA" | "VENCIDA";
+  fecha: string | null; // emisión (corta)
+  vence: string | null; // vencimiento (corta)
+  venceISO: string | null; // para calcular días de retraso
+  expedienteId: string | null; // para el recordatorio (null → factura manual sin expediente)
+};
+
+export async function fetchCobrosPendientes(): Promise<CobroPendiente[]> {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("Factura")
+    .select("id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId")
+    .in("estado", ["EMITIDA", "VENCIDA"])
+    .order("fechaVencimiento", { ascending: true, nullsFirst: false });
+  if (error) throw new Error(`Cobros pendientes: ${error.message}`);
+  return ((data ?? []) as unknown as {
+    id: string; numero: string; clienteNombre: string; concepto: string; total: number | string;
+    estado: string; fechaEmision: string | null; fechaVencimiento: string | null; expedienteId: string | null;
+  }[]).map((f) => ({
+    id: f.id,
+    numero: f.numero,
+    cliente: f.clienteNombre,
+    concepto: f.concepto,
+    total: Number(f.total),
+    estado: f.estado === "VENCIDA" ? "VENCIDA" : "EMITIDA",
+    fecha: fmtFechaCorta(f.fechaEmision) ?? null,
+    vence: fmtFechaCorta(f.fechaVencimiento) ?? null,
+    venceISO: f.fechaVencimiento,
+    expedienteId: f.expedienteId,
+  }));
+}
