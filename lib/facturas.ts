@@ -22,7 +22,7 @@ export type Factura = {
 };
 
 export const IVA = 0.21;
-const r2 = (n: number) => Math.round(n * 100) / 100;
+export const r2 = (n: number) => Math.round(n * 100) / 100;
 export const ivaDe = (b: number) => r2(b * IVA);
 export const totalDe = (b: number) => r2(b * (1 + IVA));
 

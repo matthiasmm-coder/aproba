@@ -153,7 +153,7 @@ export default async function ExpedienteDetail({
       <div className="mt-6 space-y-6">
         {/* Familia (expediente familiar): miembros + facturación familiar */}
         {familia && (
-          <FamiliaExpedienteSection familia={familia} solicitanteNombre={e.clienteNombre} prefill={famPrefill} facturas={famFacturas} />
+          <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />
         )}
 
         {/* Documentos */}

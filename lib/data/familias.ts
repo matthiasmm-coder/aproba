@@ -3,6 +3,7 @@ import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
 // pas encore (migration supabase/familia.sql non appliquée), on renvoie vide sans casser.
@@ -10,11 +11,17 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 export type DocFamilia = { id: string; tipo: string; nombreArchivo: string | null; createdAt: string };
 export type FamiliaResumen = { id: string; nombre: string; miembros: number };
 export type MiembroExpediente = { id: string; referencia: string; tipoLabel: string; estado: string; estadoLabel: string; portalToken: string | null };
-export type FamiliaMiembro = { id: string; nombre: string; parentesco: string | null; telefono: string | null; expedientes: MiembroExpediente[] };
+export type FamiliaMiembro = {
+  id: string; nombre: string; parentesco: string | null; telefono: string | null;
+  // Gestión de miembros desde el panel del gestor: quién solicita (formularios ×solicitante)
+  // y su ficha completa (para el modal «Editar» reutilizado de la ficha del cliente).
+  esSolicitante: boolean; ficha: ClienteFicha;
+  expedientes: MiembroExpediente[];
+};
 export type FamiliaDetalle = { id: string; nombre: string; miembros: FamiliaMiembro[] };
 
 type ExpRow = { id: string; referencia: string; tipo: string; estado: string; portalToken: string | null };
-type CliRow = { id: string; nombre: string; apellidos: string | null; parentesco: string | null; telefono: string | null; expedientes: ExpRow[] | null };
+type CliRow = { id: string; nombre: string; apellidos: string | null; parentesco: string | null; telefono: string | null; esSolicitante?: boolean; expedientes: ExpRow[] | null } & Record<string, unknown>;
 type FamRow = { id: string; nombre: string; clientes: CliRow[] | null };
 
 export async function fetchFamilias(): Promise<FamiliaResumen[]> {
@@ -55,18 +62,26 @@ export async function fetchFamiliaDeExpediente(expedienteId: string): Promise<{ 
 export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | null> {
   try {
     const supabase = await createSupabaseServer();
-    const { data, error } = await supabase
-      .from("Familia")
-      .select("id, nombre, clientes:Cliente(id, nombre, apellidos, parentesco, telefono, expedientes:Expediente(id, referencia, tipo, estado, portalToken))")
-      .eq("id", id)
-      .maybeSingle();
+    // Ficha completa de cada miembro (modal Editar) + esSolicitante. Repli defensivo sin
+    // esSolicitante si la migración cliente-solicitante.sql no está aplicada.
+    const EXP_SEL = "expedientes:Expediente(id, referencia, tipo, estado, portalToken)";
+    const sel = (conSol: boolean) =>
+      `id, nombre, clientes:Cliente(id, ${FICHA_KEYS.join(", ")}, telefono${conSol ? ", esSolicitante" : ""}, parentesco, ${EXP_SEL})`;
+    let res = await supabase.from("Familia").select(sel(true)).eq("id", id).maybeSingle();
+    if (res.error) res = await supabase.from("Familia").select(sel(false)).eq("id", id).maybeSingle() as typeof res;
+    const { data, error } = res;
     if (error || !data) return null;
     const f = data as unknown as FamRow;
-    const miembros: FamiliaMiembro[] = (f.clientes ?? []).map((c) => ({
+    const miembros: FamiliaMiembro[] = (f.clientes ?? []).map((c) => {
+      const ficha: ClienteFicha = {};
+      for (const k of FICHA_KEYS) { const v = c[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
+      return {
       id: c.id,
       nombre: `${c.nombre} ${c.apellidos ?? ""}`.trim(),
       parentesco: c.parentesco ?? null,
       telefono: c.telefono ?? null,
+      esSolicitante: Boolean(c.esSolicitante),
+      ficha,
       expedientes: (c.expedientes ?? []).map((e) => ({
         id: e.id,
         referencia: e.referencia,
@@ -75,7 +90,8 @@ export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | 
         estadoLabel: (ESTADO_META as Record<string, { label: string }>)[e.estado]?.label ?? e.estado,
         portalToken: e.portalToken ?? null,
       })),
-    }));
+      };
+    });
     miembros.sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
     return { id: f.id, nombre: f.nombre, miembros };
   } catch { return null; }

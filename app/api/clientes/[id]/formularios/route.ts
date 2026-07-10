@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   for (const k of FICHA_KEYS) { const v = c[k]; if (typeof v === "string" && v) ficha[k] = v; }
   const nombreCompleto = `${c.nombre ?? ""} ${c.apellidos ?? ""}`.trim();
 
-  const pdf = await rellenarOficial(tipo, datosDeCliente(ficha as ClienteFicha, nombreCompleto, c.telefono, c.email));
+  const pdf = await rellenarOficial(tipo, datosDeCliente(ficha as ClienteFicha, nombreCompleto, c.telefono, c.email), undefined, undefined, { editable: true });
   if (!pdf) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
 
   return new Response(Buffer.from(pdf), {

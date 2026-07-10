@@ -33,10 +33,34 @@ export function CobrosPanel({
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fraccionar en cuotas (pedido por Juan): N facturas mensuales en lugar del pago final.
+  const [fracOpen, setFracOpen] = useState(false);
+  const [nCuotas, setNCuotas] = useState(3);
+  const [fracBase, setFracBase] = useState(resto);
+  const [fraccionando, setFraccionando] = useState(false);
 
   const pagoAnticipo = facturas.find((f) => f.momento === "ANTICIPO");
   const pagoFinal = facturas.find((f) => f.momento === "FINAL");
+  const cuotas = facturas
+    .filter((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA")
+    .sort((a, b) => Number(String(a.momento).split("_")[1]) - Number(String(b.momento).split("_")[1]));
   if (anticipo <= 0 && resto <= 0 && facturas.length === 0) return null;
+
+  async function fraccionar() {
+    setFraccionando(true); setError(null);
+    try {
+      const res = await fetch("/api/pagos/fraccionar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expedienteId, base: fracBase, nCuotas }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo fraccionar."));
+      setFracOpen(false);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo fraccionar."));
+    } finally { setFraccionando(false); }
+  }
 
   // Le gestor confirme avoir reçu le virement → la facture passe à PAGADA.
   async function marcarPagada(id: string) {
@@ -108,10 +132,12 @@ export function CobrosPanel({
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="divide-y divide-slate-100">
           {anticipo > 0 && <Fila label={t("Pago inicial (al firmar)")} monto={anticipo} pago={pagoAnticipo} />}
-          {resto > 0 && <Fila label={t("Pago final (al terminar)")} monto={resto} pago={pagoFinal} />}
+          {cuotas.length > 0
+            ? cuotas.map((c, i) => <Fila key={c.id} label={`${t("Cuota")} ${i + 1} ${t("de")} ${cuotas.length}`} monto={Number(c.total)} pago={c} />)
+            : resto > 0 && <Fila label={t("Pago final (al terminar)")} monto={resto} pago={pagoFinal} />}
         </div>
 
-        {resto > 0 && !pagoFinal && (
+        {resto > 0 && !pagoFinal && cuotas.length === 0 && (
           <>
             <button
               onClick={() => setCrearOpen(true)}
@@ -122,6 +148,37 @@ export function CobrosPanel({
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
               {t("Se abre la factura para que la revises y ajustes (tasas, líneas, importe…). Al validar, se envía automáticamente al cliente con los datos de pago.")}
             </p>
+
+            {/* Alternativa: fraccionar el pago final en N cuotas mensuales. */}
+            {!fracOpen ? (
+              <button onClick={() => { setFracBase(resto); setError(null); setFracOpen(true); }} className="mt-2 text-xs font-semibold text-aproba-700 hover:underline">
+                {t("O fraccionar en cuotas…")}
+              </button>
+            ) : (
+              <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-cream-50/40 p-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-xs text-slate-500">
+                    {t("Cuotas")}
+                    <select value={nCuotas} onChange={(e) => setNCuotas(Number(e.target.value))} className="ml-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600">
+                      {[2, 3, 4, 5, 6].map((k) => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-500">
+                    {t("Importe (sin IVA)")}
+                    <input type="number" min={1} value={fracBase || ""} onFocus={(e) => e.target.select()} onChange={(e) => setFracBase(Math.max(0, Number(e.target.value)))} className="ml-1.5 w-24 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-aproba-600" />
+                  </label>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  {nCuotas} {t("facturas de")} ~{eur(totalDe(fracBase / nCuotas))} {t("IVA inc., con vencimiento mensual. La primera se envía al cliente ahora; las demás se reclaman desde Cobros pendientes.")}
+                </p>
+                <div className="mt-2 flex justify-end gap-2">
+                  <button onClick={() => setFracOpen(false)} disabled={fraccionando} className="text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
+                  <button onClick={fraccionar} disabled={fraccionando || fracBase <= 0} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+                    {fraccionando ? t("Emitiendo…") : t("Emitir cuotas")}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 

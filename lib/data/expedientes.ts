@@ -129,7 +129,7 @@ export type FacturaPago = {
   total: number;
   estado: string;
   origen: "MANUAL" | "AUTOMATICA";
-  momento: "ANTICIPO" | "FINAL" | null;
+  momento: string | null; // ANTICIPO | FINAL | CUOTA_i (plan de cuotas) | null
   metodoPago: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" | null;
 };
 
@@ -227,7 +227,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
       total: Number(f.total),
       estado: f.estado,
       origen: (f.origen === "AUTOMATICA" ? "AUTOMATICA" : "MANUAL") as "MANUAL" | "AUTOMATICA",
-      momento: f.momento === "ANTICIPO" || f.momento === "FINAL" ? f.momento : null,
+      momento: f.momento ?? null, // se conserva tal cual (CUOTA_i identifica las cuotas)
       metodoPago: (["TARJETA", "TRANSFERENCIA", "EFECTIVO"].includes(f.metodoPago ?? "") ? f.metodoPago : null) as FacturaPago["metodoPago"],
     })),
   };

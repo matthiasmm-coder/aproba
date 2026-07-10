@@ -16,7 +16,7 @@ const TINTA = rgb(0.06, 0.09, 0.28); // bleu encre, distinct du formulaire
 const limpiar = (s: string) =>
   String(s ?? "").replace(/€/g, " EUR").replace(/[—–]/g, "-").replace(/[’‘]/g, "'").replace(/[^\x00-\xFF]/g, "");
 
-type Pos = { x: number; y: number; page?: number; size?: number };
+type Pos = { x: number; y: number; page?: number; size?: number; w?: number };
 type MapaAcro = {
   modo: "acroform";
   texto: Partial<Record<keyof DatosForm, string>>;
@@ -190,6 +190,33 @@ export const P2_OPCIONES: Record<string, { value: string; label: string }[]> = {
   "EX-15": [{ value: "NIE", label: "NIE" }],
 };
 
+// ── Modo editable: campos VACÍOS de la p.2 (lo que el gestor rellena a mano) ───────────
+// Posiciones relevadas por probe pdfjs (glifo □ / líneas de puntos). Solo se emiten en
+// modo editable; el PDF plano queda byte-idéntico al de siempre.
+type Blank = { name: string; x: number; y: number; w: number; h?: number; size?: number; page?: number };
+// Casilla: campo 13×13 sobre el glifo □ (misma transformación que las marcas X: x-0.5/y-4).
+const caja = (name: string, gx: number, gy: number): Blank => ({ name, x: gx - 0.5, y: gy - 4, w: 13, h: 13, size: 10, page: 1 });
+const P2_BLANKS: Record<string, Blank[]> = {
+  "EX-17": [caja("inicial", 77, 669), caja("renovacion", 77, 650), caja("duplicado", 77, 630)],
+  "EX-15": [
+    caja("nie", 69, 675), caja("certificado", 405, 675), caja("cert_residente", 417, 662), caja("cert_noresidente", 417, 648),
+    caja("mot_economicos", 69, 593), caja("mot_profesionales", 263, 593), caja("mot_sociales", 441, 593), caja("mot_otros", 69, 568),
+    { name: "especificar", x: 130, y: 543, w: 395, h: 13, size: 9, page: 1 },
+    caja("lugar_oficina", 69, 479), caja("lugar_comisaria", 263, 479), caja("lugar_consular", 476, 479),
+    caja("sit_estancia", 69, 418), caja("sit_residencia", 228, 418),
+  ],
+  "EX-18": [
+    { name: "fecha_inicio", x: 507, y: 704, w: 72, h: 13, size: 9, page: 1 },
+    caja("res_temporal", 54, 671), caja("t_cuenta_ajena", 69, 657), caja("t_cuenta_propia", 69, 642), caja("t_no_activo", 69, 628), caja("t_estudiante", 69, 614), caja("t_nacional_ue", 69, 599),
+    caja("res_permanente", 54, 555), caja("p_5anos", 66, 542), caja("p_jub_3anos", 66, 527), caja("p_jub_conyuge", 66, 513), caja("p_jub_nac", 66, 498),
+    caja("p_jubant_3anos", 66, 474), caja("p_jubant_conyuge", 66, 460), caja("p_jubant_nac", 66, 445),
+    caja("p_incap_2anos", 66, 431), caja("p_incap_accidente", 66, 416), caja("p_incap_conyuge", 66, 402), caja("p_incap_nac", 66, 387), caja("p_3anos_em", 66, 373), caja("p_otros", 66, 358),
+    caja("modificacion", 54, 338), caja("m_datos", 69, 321), caja("m_domicilio", 69, 307), caja("m_documento", 69, 294), caja("m_otros", 69, 280),
+    caja("baja", 54, 260), caja("baja_causa", 69, 243),
+    caja("veracidad", 41, 215),
+  ],
+};
+
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
 
@@ -249,9 +276,15 @@ export function formulariosDelTramite(tipoEnum: string, servicioClave?: string |
 //    titulaire) ; menorRepresentado = cocher « menor representada legalmente » (p.2).
 //  • EX-31/EX-32: padreTutor = identité du représentant (titulaire) pour le bloc p.2
 //    « EN EL CASO DE MENORES » quand le solicitante est mineur.
+// opts.editable (pedido por Juan): en lugar de texto plano, cada valor es un campo
+// AcroForm sin borde/fondo → corregible en cualquier visor de PDF (adiós iLovePDF),
+// y la p.2 de EX-15/17/18 recibe campos VACÍOS para escribir (casillas, especificar…).
+// La descarga del CLIENTE y el ZIP siguen planos (sin opts) — un PDF manipulable no
+// debe salir del despacho hacia el cliente.
 export async function rellenarOficial(
   code: string, datos: DatosForm, tramite?: string,
   extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm },
+  opts?: { editable?: boolean },
 ): Promise<Uint8Array | null> {
   const mapa = FORMS[code];
   if (!mapa) return null;
@@ -264,7 +297,9 @@ export async function rellenarOficial(
     for (const [key, fieldName] of Object.entries(mapa.texto)) {
       const value = (datos[key as keyof DatosForm] as string) || "";
       if (!value || !fieldName) continue;
-      try { const f = form.getTextField(fieldName); f.setText(value); f.setFontSize(9); } catch { /* champ absent */ }
+      // limpiar: un nombre en cirílico/árabe/chino (lo habitual en extranjería) fuera de
+      // WinAnsi haría lanzar a pdf-lib al regenerar apariencias y mataría TODO el PDF.
+      try { const f = form.getTextField(fieldName); f.setText(limpiar(value)); f.setFontSize(9); } catch { /* champ absent */ }
     }
     if (datos.sexo === "X") marcar(mapa.checks?.sexoX);
     if (datos.sexo === "H") marcar(mapa.checks?.sexoH);
@@ -278,31 +313,73 @@ export async function rellenarOficial(
   // overlay
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const pages = pdf.getPages();
-  const estampar = (pos: Pos | undefined, txt: string, size = 9) => {
+  const editable = Boolean(opts?.editable);
+  const form = editable ? pdf.getForm() : null;
+  // createTextField LANZA con nombres duplicados (los bloques EX-02 reagrupado y
+  // EX-31/32 menor reutilizan las mismas claves) → sufijo correlativo.
+  const usados = new Map<string, number>();
+  const uniq = (base: string) => {
+    const b = base.replace(/[^A-Za-z0-9_]/g, "");
+    const n = (usados.get(b) ?? 0) + 1; usados.set(b, n);
+    return n === 1 ? b : `${b}_${n}`;
+  };
+  // Posiciones donde ya se estampó una marca X (para no superponer un campo vacío encima).
+  const marcasPuestas = new Set<string>();
+  // Campo AcroForm SIN borde ni fondo: las claves deben estar PRESENTES (aunque sea
+  // undefined) — si faltan, pdf-lib pone fondo blanco y borde negro (PDFTextField.addToPage).
+  const crearCampo = (pg: (typeof pages)[number], name: string, o: { x: number; y: number; w: number; h: number; size: number; valor?: string }) => {
+    const f = form!.createTextField(uniq(name));
+    if (o.valor) f.setText(o.valor);
+    // addToPage ANTES de setFontSize: la entrada /DA del campo solo existe tras crear el
+    // widget (si no, pdf-lib lanza MissingDAEntryError).
+    f.addToPage(pg, {
+      x: o.x, y: o.y, width: o.w, height: o.h,
+      font, textColor: TINTA,
+      borderWidth: 0, backgroundColor: undefined, borderColor: undefined,
+    });
+    f.setFontSize(o.size);
+  };
+  // Anchos de campo por clave de la ficha (solo modo editable).
+  const ANCHO: Record<string, number> = {
+    apellido1: 150, apellido2: 150, nombre: 130, domicilio: 160, localidad: 120,
+    nacionalidad: 130, lugarNac: 120, paisNac: 110, nombrePadre: 130, nombreMadre: 130,
+    email: 160, provincia: 110, pasaporte: 100, telefono: 85, cp: 55,
+    numero: 34, piso: 40, nie1: 24, nie2: 100, nie3: 24, fechaD: 24, fechaM: 24, fechaA: 38,
+  };
+  const estampar = (pos: Pos | undefined, txt: string, size = 9, key = "campo") => {
     if (!pos) return;
     const pg = pages[pos.page ?? 0];
-    if (pg && txt) pg.drawText(txt, { x: pos.x, y: pos.y, size: pos.size ?? size, font, color: TINTA });
+    if (!pg || !txt) return;
+    const sz = pos.size ?? size;
+    if (!editable || !form) { pg.drawText(txt, { x: pos.x, y: pos.y, size: sz, font, color: TINTA }); return; }
+    const esMarca = txt === "X" && !(key in ANCHO);
+    if (esMarca) marcasPuestas.add(`${pos.page ?? 0}:${Math.round(pos.x)},${Math.round(pos.y)}`);
+    // y-3 / alto sz+5: realinea la caja del campo con la línea base del drawText plano.
+    crearCampo(pg, `f_${key}`, {
+      x: pos.x - 1, y: pos.y - 3,
+      w: pos.w ?? ANCHO[key] ?? (esMarca ? 13 : 120), h: sz + 5, size: sz, valor: txt,
+    });
   };
   for (const [key, pos] of Object.entries(mapa.coords)) {
-    estampar(pos, limpiar((datos[key as keyof DatosForm] as string) || ""));
+    estampar(pos, limpiar((datos[key as keyof DatosForm] as string) || ""), 9, key);
   }
-  if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10);
-  if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10);
+  if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10, "sexo");
+  if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10, "ec");
 
   // Page 2: casilla de tipo de trámite derivable del expediente (EX-17 inicial/renovación,
   // EX-15 NIE). Sin trámite conocido (p. ej. formulario desde la ficha del cliente) no se marca.
-  if (tramite) estampar(TRAMITE_P2[code]?.[tramite], "X", 10);
+  if (tramite) estampar(TRAMITE_P2[code]?.[tramite], "X", 10, "p2");
 
   // EX-02 familiar : le bloc principal (ci-dessus) a reçu le REAGRUPANTE (titulaire) ; on
   // remplit ici le bloc REAGRUPADO avec l'applicant + la case « menor representada legalmente ».
   if (code === "EX-02" && extra?.reagrupado) {
     const r = extra.reagrupado;
     for (const [key, pos] of Object.entries(EX02_REAGRUPADO.coords)) {
-      estampar(pos, limpiar((r[key as keyof DatosForm] as string) || ""));
+      estampar(pos, limpiar((r[key as keyof DatosForm] as string) || ""), 9, key);
     }
-    if (r.sexo) estampar(EX02_REAGRUPADO.sexoMarks?.[r.sexo], "X", 10);
-    if (r.estadoCivil) estampar(EX02_REAGRUPADO.estadoCivilMarks?.[r.estadoCivil], "X", 10);
-    if (extra.menorRepresentado) estampar(EX02_MENOR_REPRESENTADO, "X", 10);
+    if (r.sexo) estampar(EX02_REAGRUPADO.sexoMarks?.[r.sexo], "X", 10, "sexo");
+    if (r.estadoCivil) estampar(EX02_REAGRUPADO.estadoCivilMarks?.[r.estadoCivil], "X", 10, "ec");
+    if (extra.menorRepresentado) estampar(EX02_MENOR_REPRESENTADO, "X", 10, "menor");
   }
 
   // EX-31/EX-32 : bloc p.2 « EN EL CASO DE MENORES » = identité du padre/madre/tutor.
@@ -310,10 +387,24 @@ export async function rellenarOficial(
   if (menorBlocMapa && extra?.padreTutor) {
     const pt = extra.padreTutor;
     for (const [key, pos] of Object.entries(menorBlocMapa.coords)) {
-      estampar(pos, limpiar((pt[key as keyof DatosForm] as string) || ""));
+      estampar(pos, limpiar((pt[key as keyof DatosForm] as string) || ""), 9, key);
     }
-    if (pt.sexo) estampar(menorBlocMapa.sexoMarks?.[pt.sexo], "X", 10);
-    if (pt.estadoCivil) estampar(menorBlocMapa.estadoCivilMarks?.[pt.estadoCivil], "X", 10);
+    if (pt.sexo) estampar(menorBlocMapa.sexoMarks?.[pt.sexo], "X", 10, "sexo");
+    if (pt.estadoCivil) estampar(menorBlocMapa.estadoCivilMarks?.[pt.estadoCivil], "X", 10, "ec");
+  }
+
+  // ── Modo editable: campos VACÍOS de la p.2 (EX-15/17/18) para escribir a mano lo no
+  // deducible — casillas de motivos/lugar/situación/supuestos, «especificar», fecha de
+  // inicio… (posiciones relevadas por probe pdfjs). Se omite cualquier casilla donde ya
+  // se estampó una X (la del trámite) para no superponer dos campos.
+  if (editable && form) {
+    for (const b of P2_BLANKS[code] ?? []) {
+      const pg = pages[b.page ?? 1];
+      if (!pg) continue;
+      if (marcasPuestas.has(`${b.page ?? 1}:${Math.round(b.x + 1)},${Math.round(b.y + 3)}`)) continue;
+      crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h: b.h ?? 14, size: b.size ?? 9 });
+    }
+    try { form.updateFieldAppearances(font); } catch { /* ignore */ }
   }
   return pdf.save();
 }

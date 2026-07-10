@@ -162,4 +162,36 @@ for (const code of formulariosOficiales()) {
     totalFails += fails.length;
   }
 }
+// ── Mode ÉDITABLE: les valeurs sont des champs AcroForm (annotations, pas du texte) ──
+// On lit page.getAnnotations() et on vérifie que chaque valeur est un champ posé au même
+// endroit que le texte plat (|dx| <= 3, |dy| <= 6 par rapport aux coordonnées du drawText).
+{
+  const fails = [];
+  const out = await rellenarOficial("EX-17", S, "RENOVACION", undefined, { editable: true });
+  const doc = await getDocument({ data: new Uint8Array(out).slice(), useSystemFonts: true }).promise;
+  const p1 = await (await doc.getPage(1)).getAnnotations();
+  const campos = p1.filter((a) => a.subtype === "Widget");
+  if (campos.length < 15) fails.push(`EX-17[editable]: solo ${campos.length} campos en p.1`);
+  const valores = new Map(campos.map((a) => [String(a.fieldValue ?? ""), a.rect]));
+  for (const v of ["VNOMB", "VAPE1", "VPASS", "VDOMIC", "VEMAIL"]) {
+    if (!valores.has(v)) fails.push(`EX-17[editable]: valor "${v}" sin campo`);
+  }
+  // La casilla del trámite (p.2) también es un campo con "X".
+  const p2 = await (await doc.getPage(2)).getAnnotations();
+  const xP2 = p2.filter((a) => a.subtype === "Widget" && String(a.fieldValue ?? "") === "X");
+  if (!xP2.some((a) => Math.abs(a.rect[0] - 76.5) <= 3 && Math.abs(a.rect[1] - 646) <= 6)) {
+    fails.push(`EX-17[editable]: la X de RENOVACIÓN no es un campo en su sitio (vistos: ${xP2.map((a) => `${Math.round(a.rect[0])},${Math.round(a.rect[1])}`).join(" · ") || "ninguno"})`);
+  }
+  // Campos VACÍOS de la p.2 (casillas no marcadas + fecha/especificar).
+  const vacios = p2.filter((a) => a.subtype === "Widget" && !a.fieldValue);
+  if (vacios.length < 2) fails.push(`EX-17[editable]: faltan campos vacíos en p.2 (${vacios.length})`);
+  // El PLANO no debe llevar ningún campo (byte-idéntico al comportamiento histórico).
+  const plano = await rellenarOficial("EX-17", S, "RENOVACION");
+  const docPl = await getDocument({ data: new Uint8Array(plano).slice(), useSystemFonts: true }).promise;
+  const plAnn = (await (await docPl.getPage(1)).getAnnotations()).filter((a) => a.subtype === "Widget");
+  if (plAnn.length) fails.push(`EX-17[plano]: ${plAnn.length} campos inesperados`);
+  console.log(fails.length ? `❌ EX-17[editable]: ${fails.length} problème(s)` : `✅ EX-17[editable]: OK`);
+  fails.forEach((f) => console.log(`   ${f}`));
+  totalFails += fails.length;
+}
 console.log(`\nTOTAL: ${totalFails} problème(s)`);

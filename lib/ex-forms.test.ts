@@ -91,6 +91,26 @@ describe("EX · página 2: casilla de tipo de trámite (TRAMITE_P2)", () => {
   });
 });
 
+describe("EX · modo editable (campos AcroForm en lugar de texto plano)", () => {
+  it("editable: EX-17 lleva campos de formulario con los valores; plano: ninguno", async () => {
+    const editable = await rellenarOficial("EX-17", SAMPLE, "RENOVACION", undefined, { editable: true });
+    const plano = await rellenarOficial("EX-17", SAMPLE, "RENOVACION");
+    const formEd = (await PDFDocument.load(editable!, { ignoreEncryption: true })).getForm();
+    const fields = formEd.getFields();
+    expect(fields.length, "editable sin campos").toBeGreaterThan(15);
+    const nombre = fields.find((f) => { try { return (formEd.getTextField(f.getName()).getText() ?? "") === "JULIA"; } catch { return false; } });
+    expect(nombre, "el valor JULIA no está en ningún campo").toBeDefined();
+    const formPl = (await PDFDocument.load(plano!, { ignoreEncryption: true })).getForm();
+    expect(formPl.getFields().length, "el plano no debe llevar campos").toBe(0);
+  });
+  it("editable: la p.2 de EX-15 lleva campos vacíos para escribir (casillas/especificar)", async () => {
+    const editable = await rellenarOficial("EX-15", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(editable!, { ignoreEncryption: true })).getForm();
+    const blanks = form.getFields().filter((f) => f.getName().startsWith("b_"));
+    expect(blanks.length, "faltan campos vacíos de la p.2").toBeGreaterThanOrEqual(10);
+  });
+});
+
 describe("EX-10 (AcroForm) · los datos se escriben en sus casillas", () => {
   it("nombre, apellido y documento quedan en sus campos", async () => {
     const mapa = FORMS["EX-10"];

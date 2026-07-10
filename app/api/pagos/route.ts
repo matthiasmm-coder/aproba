@@ -112,6 +112,14 @@ export async function POST(req: Request) {
   const familiaSufijo = exp.familiaId && nMiembros > 1 && !fac ? ` · familia, ${nMiembros} miembros` : "";
   const concepto = fac?.concepto?.trim() || `${etiqueta} — ${TIPO_LABEL[exp.tipo] ?? exp.tipo} (${exp.referencia})${familiaSufijo}`;
 
+  // Guarda simétrica al fraccionado: con un plan de cuotas activo, el pago FINAL sería un
+  // doble cobro del mismo resto (fraccionar ya bloquea en sentido inverso).
+  if (momento === "FINAL") {
+    const { data: cuota } = await admin.from("Factura").select("id, estado").eq("expedienteId", exp.id)
+      .like("momento", "CUOTA_%").neq("estado", "ANULADA").limit(1).maybeSingle();
+    if (cuota) return NextResponse.json({ error: "Este expediente tiene un plan de cuotas activo; el pago final duplicaría el cobro." }, { status: 409 });
+  }
+
   // Idempotence : un seul paiement par (expediente, momento). Para reeditar una factura ya
   // emitida, el gestor usa el endpoint de edición (PUT /api/facturas/[id]), no éste.
   const { data: previa, error: e2 } = await admin.from("Factura").select("id, numero, total, estado, origen").eq("expedienteId", exp.id).eq("momento", momento).maybeSingle();

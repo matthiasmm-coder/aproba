@@ -57,7 +57,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const valido = (v?: string) => Boolean(v && P2_OPCIONES[tipo]?.some((o) => o.value === v));
     const persistido = (await fetchP2Overrides(supabase, id))[tipo];
     const tramite = valido(p2) ? p2 : valido(persistido) ? persistido : exp.tipoEnum;
-    const oficial = await rellenarOficial(tipo, datos, tramite, extra);
+    // editable: el gestor puede corregir/añadir datos en cualquier visor (pedido por Juan).
+    const oficial = await rellenarOficial(tipo, datos, tramite, extra, { editable: true });
     if (!oficial) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
     return new Response(Buffer.from(oficial), {
       headers: {

@@ -92,6 +92,22 @@ export async function DELETE(req: Request) {
   const { data: anchor } = await admin.from("Expediente").select("id").eq("clienteId", clienteId).limit(1).maybeSingle();
   if (anchor) return NextResponse.json({ error: "Ese miembro es el solicitante de un expediente. Designa a otro antes de quitarlo." }, { status: 400 });
 
+  // Vigía: borrar el Cliente arrastraría sus Vencimientos (FK ON DELETE CASCADE) — con un
+  // vencimiento activo, el radar de su tarjeta se apagaría en silencio. No se quita.
+  try {
+    const { data: venc } = await admin.from("Vencimiento").select("id").eq("clienteId", clienteId)
+      .in("estado", ["PENDIENTE", "AVISADO", "TRAMITANDO"]).limit(1).maybeSingle();
+    if (venc) return NextResponse.json({ error: "Ese miembro tiene un vencimiento activo. Pide a tu gestoría que lo revise antes de quitarlo." }, { status: 400 });
+  } catch { /* tabla Vigía ausente → sin guarda */ }
+
+  // Storage: purga fail-soft de sus documentos sueltos (la base los borra en cascada, los
+  // archivos quedarían huérfanos en el bucket).
+  try {
+    const { data: docs } = await admin.from("DocumentoCliente").select("storagePath").eq("clienteId", clienteId);
+    const paths = (docs ?? []).map((d) => d.storagePath as string).filter(Boolean);
+    if (paths.length) await admin.storage.from("documentos").remove(paths);
+  } catch { /* sin documentos o tabla ausente: no bloquea */ }
+
   const { error } = await admin.from("Cliente").delete().eq("id", clienteId).eq("familiaId", exp.familiaId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -1,15 +1,17 @@
-import { parentescoLabel } from "@/lib/familia";
 import { FacturarFamilia } from "@/components/facturar-familia";
+import { MiembrosFamiliaGestor } from "@/components/miembros-familia-gestor";
 import type { FamiliaDetalle } from "@/lib/data/familias";
 import type { FacturaFamiliaPrefill, FacturaFamiliaResumen } from "@/lib/data/familias";
 
-// Vista gestor de la FAMILIA de un expediente familiar: miembros (con parentesco) +
-// facturación familiar. Se muestra en la ficha del expediente (Expediente.familiaId).
+// Vista gestor de la FAMILIA de un expediente familiar: gestión de miembros (añadir,
+// parentesco, solicitantes, editar ficha) + facturación familiar. En la ficha del
+// expediente (Expediente.familiaId). El titular = el miembro ancla de ESTE expediente.
 export function FamiliaExpedienteSection({
-  familia, solicitanteNombre, prefill, facturas,
+  familia, expedienteId, prefill, facturas,
 }: {
-  familia: FamiliaDetalle; solicitanteNombre: string; prefill: FacturaFamiliaPrefill | null; facturas: FacturaFamiliaResumen[];
+  familia: FamiliaDetalle; expedienteId: string; prefill: FacturaFamiliaPrefill | null; facturas: FacturaFamiliaResumen[];
 }) {
+  const titularId = familia.miembros.find((m) => m.expedientes.some((e) => e.id === expedienteId))?.id ?? null;
   return (
     <section>
       <div className="mb-2 flex items-center gap-2">
@@ -17,23 +19,7 @@ export function FamiliaExpedienteSection({
         <h2 className="text-sm font-semibold text-slate-700">{familia.nombre} · {familia.miembros.length} {familia.miembros.length === 1 ? "miembro" : "miembros"}</h2>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <ul className="divide-y divide-slate-100">
-          {familia.miembros.map((m) => {
-            const esSolicitante = m.nombre === solicitanteNombre;
-            return (
-              <li key={m.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="inline-block rounded-full bg-cream-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{parentescoLabel(m.parentesco) || "Miembro"}</span>
-                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">{m.nombre}</span>
-                  {m.telefono && <span className="hidden truncate text-xs text-slate-400 sm:inline">{m.telefono}</span>}
-                </div>
-                {esSolicitante && <span className="shrink-0 rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">Solicitante</span>}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <MiembrosFamiliaGestor familiaId={familia.id} titularId={titularId} miembros={familia.miembros} />
 
       <FacturarFamilia familiaId={familia.id} prefill={prefill} facturas={facturas} />
     </section>
