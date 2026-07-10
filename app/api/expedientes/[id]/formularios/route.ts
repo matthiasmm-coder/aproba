@@ -4,7 +4,8 @@ import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { buildFormularios, datosNormalizados, datosDeCliente, formularioParaMiembro, type ExtraFormulario } from "@/lib/formularios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { formularioToPdf } from "@/lib/formularios-pdf";
-import { rellenarOficial } from "@/lib/ex-forms";
+import { rellenarOficial, P2_OPCIONES } from "@/lib/ex-forms";
+import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { dispararAviso } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -50,7 +51,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       // Lógica compartida (EX-02 reagrupante/reagrupado, EX-31/32 menor, resto = applicant).
       ({ datos, extra } = formularioParaMiembro(tipo, datosNormalizados(exp), datosMiembro, ficha.fechaNacimiento));
     }
-    const oficial = await rellenarOficial(tipo, datos, exp.tipoEnum, extra);
+    // Casilla p.2: query param (selector en vivo) → override persistido → automático
+    // (tipo del expediente). Solo valores conocidos del modelo.
+    const p2 = new URL(req.url).searchParams.get("p2")?.trim() ?? "";
+    const valido = (v?: string) => Boolean(v && P2_OPCIONES[tipo]?.some((o) => o.value === v));
+    const persistido = (await fetchP2Overrides(supabase, id))[tipo];
+    const tramite = valido(p2) ? p2 : valido(persistido) ? persistido : exp.tipoEnum;
+    const oficial = await rellenarOficial(tipo, datos, tramite, extra);
     if (!oficial) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
     return new Response(Buffer.from(oficial), {
       headers: {

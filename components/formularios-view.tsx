@@ -11,9 +11,11 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], todos = [], applicants = [] }: {
+export function FormulariosView({ exp, oficiales = [], todos = [], applicants = [], p2Opciones = {}, p2Inicial = {} }: {
   exp: Expediente; oficiales?: string[]; todos?: { code: string; label: string }[];
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
+  p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
+  p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
 }) {
   const t = useT();
   const router = useRouter();
@@ -21,12 +23,28 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
   const [marcado, setMarcado] = useState(false);
   const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
+  // Casilla de trámite de la p.2 elegida por modelo ("" = automático, según el trámite).
+  // Se PERSISTE en el expediente para que el export ZIP y el portal del cliente rellenen
+  // la misma casilla (fire-and-forget; sin migración degrada a solo-esta-descarga).
+  const [p2Sel, setP2Sel] = useState<Record<string, string>>(p2Inicial);
+  const elegirP2 = (tipo: string, valor: string) => {
+    setP2Sel((s) => ({ ...s, [tipo]: valor }));
+    setMarcado(false);
+    void fetch(`/api/expedientes/${exp.id}/p2`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: tipo, valor }),
+    }).catch(() => {});
+  };
 
   const esFamilia = applicants.length > 0;
   const porAñadir = todos.filter((x) => !seleccion.includes(x.code));
   const urlOficial = (tipo: string, clienteId?: string) =>
-    `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial${clienteId ? `&clienteId=${clienteId}` : ""}`;
-  const quitar = (tipo: string) => { setSeleccion((s) => s.filter((x) => x !== tipo)); setMarcado(false); };
+    `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial${clienteId ? `&clienteId=${clienteId}` : ""}${p2Sel[tipo] ? `&p2=${encodeURIComponent(p2Sel[tipo])}` : ""}`;
+  const quitar = (tipo: string) => {
+    setSeleccion((s) => s.filter((x) => x !== tipo));
+    // Quitar el modelo también olvida su casilla p.2 (si no, reaparecería al re-añadirlo).
+    if (p2Sel[tipo]) elegirP2(tipo, "");
+    setMarcado(false);
+  };
   const añadir = (tipo: string) => { setSeleccion((s) => [...new Set([...s, tipo])]); setMarcado(false); };
 
   async function marcarGenerados() {
@@ -94,6 +112,26 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
             </select>
           )}
         </div>
+
+        {/* Casilla de trámite de la p.2 (EX-17: inicial/renovación/duplicado; EX-15: NIE).
+            «Automático» la deduce del trámite del expediente; el gestor puede forzarla. */}
+        {seleccion.some((tipo) => p2Opciones[tipo]?.length) && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {seleccion.filter((tipo) => p2Opciones[tipo]?.length).map((tipo) => (
+              <label key={tipo} className="inline-flex items-center gap-2 text-xs text-slate-500">
+                <span className="font-semibold text-slate-600">{tipo}</span> {t("· casilla de la pág. 2:")}
+                <select
+                  value={p2Sel[tipo] ?? ""}
+                  onChange={(e) => elegirP2(tipo, e.target.value)}
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-aproba-600"
+                >
+                  <option value="">{t("Automático (según el trámite)")}</option>
+                  {p2Opciones[tipo].map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+        )}
 
         {/* Descargas rellenadas */}
         {esFamilia ? (

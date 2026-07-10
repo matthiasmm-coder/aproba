@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchSolicitantesDeFamilia } from "@/lib/data/familias";
-import { formulariosDelTramite, formulariosDisponibles } from "@/lib/ex-forms";
+import { formulariosDelTramite, formulariosDisponibles, P2_OPCIONES } from "@/lib/ex-forms";
+import { fetchP2Overrides } from "@/lib/p2-overrides";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import { FormulariosView } from "@/components/formularios-view";
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
@@ -11,6 +13,10 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
 
   const oficiales = formulariosDelTramite(exp.tipoEnum, exp.servicioClave);
   // Expediente familiar: un juego de formularios por solicitante (rellenado con sus datos).
-  const applicants = exp.familiaId ? await fetchSolicitantesDeFamilia(exp.familiaId) : [];
-  return <FormulariosView exp={exp} oficiales={oficiales} todos={formulariosDisponibles()} applicants={applicants} />;
+  // p2Inicial: casilla p.2 forzada previamente (persistida) para inicializar el selector.
+  const [applicants, p2Inicial] = await Promise.all([
+    exp.familiaId ? fetchSolicitantesDeFamilia(exp.familiaId) : Promise.resolve([]),
+    createSupabaseServer().then((sb) => fetchP2Overrides(sb, id)),
+  ]);
+  return <FormulariosView exp={exp} oficiales={oficiales} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

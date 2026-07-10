@@ -137,6 +137,7 @@ for (const code of formulariosOficiales()) {
   const CASOS = [
     ["EX-17", "TIE", "TARJETA INICIAL"],
     ["EX-17", "RENOVACION", "RENOVACIÓN DE TARJETA"],
+    ["EX-17", "DUPLICADO", "DUPLICADO POR PÉRDIDA, SUSTRACCIÓN, DETERIORO O CAMBIO DE DATOS"],
     ["EX-15", "NIE", "NÚMERO DE IDENTIDAD DE EXTRANJERO (NIE)"],
   ];
   for (const [code, tramite, label] of CASOS) {

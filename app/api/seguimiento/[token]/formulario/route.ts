@@ -59,7 +59,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     ({ datos, extra } = formularioParaMiembro(tipo, datosNormalizados(exp), datosMiembro, ficha.fechaNacimiento));
   }
 
-  const pdf = await rellenarOficial(tipo, datos, exp.tipoEnum, extra);
+  // Casilla p.2 forzada por el gestor → el cliente descarga el MISMO formulario.
+  const { fetchP2Overrides } = await import("@/lib/p2-overrides");
+  const p2o = await fetchP2Overrides(createSupabaseAdmin(), exp.id);
+  const pdf = await rellenarOficial(tipo, datos, p2o[tipo] ?? exp.tipoEnum, extra);
   if (!pdf) return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
 
   return new Response(Buffer.from(pdf), {

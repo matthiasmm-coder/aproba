@@ -78,7 +78,7 @@ describe("EX · el relleno no rompe y produce un PDF válido", () => {
 describe("EX · página 2: casilla de tipo de trámite (TRAMITE_P2)", () => {
   // La posición exacta la audita scripts/audit-ex-forms.mjs (pdfjs); aquí se blinda el
   // gating: con trámite mapeado se estampa una X (más bytes), sin él el PDF no cambia.
-  it.each([["EX-17", "TIE"], ["EX-17", "RENOVACION"], ["EX-15", "NIE"]])(
+  it.each([["EX-17", "TIE"], ["EX-17", "RENOVACION"], ["EX-17", "DUPLICADO"], ["EX-15", "NIE"]])(
     "%s × %s estampa la casilla de la p.2", async (code, tramite) => {
       const con = await rellenarOficial(code, SAMPLE, tramite);
       const sin = await rellenarOficial(code, SAMPLE);

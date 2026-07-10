@@ -6,6 +6,7 @@ import { fetchFacturasDeExpediente } from "@/lib/data/facturas";
 import { fetchDespacho } from "@/lib/data/config";
 import { datosNormalizados, datosDeCliente, formularioParaMiembro } from "@/lib/formularios";
 import { rellenarOficial } from "@/lib/ex-forms";
+import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
 import { FICHA_CAMPOS, FICHA_KEYS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
@@ -112,12 +113,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     if (generados.length) {
       const datosTitular = datosNormalizados(exp);
+      // Casilla p.2 forzada por el gestor → mismo relleno que la página Formularios.
+      const p2o = await fetchP2Overrides(admin, id);
+      const tramiteDe = (code: string) => p2o[code] ?? exp.tipoEnum;
       if (solicitantes.length) {
         for (const s of solicitantes) {
           for (const code of generados) {
             try {
               const { datos, extra: ex } = formularioParaMiembro(code, datosTitular, s.datos, s.fechaNacimiento);
-              const b = await rellenarOficial(code, datos, exp.tipoEnum, ex);
+              const b = await rellenarOficial(code, datos, tramiteDe(code), ex);
               if (b) add(`formularios/${nombreSeguro(code)}_${nombreSeguro(s.nombre)}.pdf`, b);
             } catch (e) { console.error("[exportar] oficial", code, s.id, e instanceof Error ? e.message : e); }
           }
@@ -125,7 +129,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       } else {
         for (const code of generados) {
           try {
-            const b = await rellenarOficial(code, datosTitular, exp.tipoEnum);
+            const b = await rellenarOficial(code, datosTitular, tramiteDe(code));
             if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
           } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
         }

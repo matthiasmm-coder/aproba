@@ -86,8 +86,11 @@ export type LineaPrefill = { concepto: string; base: number };
 export type FacturaFamiliaPrefill = { familiaId: string; clienteNombre: string; lineas: LineaPrefill[]; servicios: { id: string; label: string }[] };
 export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre: string; total: number; estado: string; fechaEmision: string | null };
 
-// Prefill de la factura familiar: una línea por expediente de cada miembro, base = "resto"
-// del servicio (el usuario eligió facturar solo el resto). Titular = cliente por defecto.
+// Prefill de la factura familiar: «una línea por miembro» (lo que promete el modal),
+// base = "resto" del servicio. Modelo actual: UN expediente familiar anclado en el titular
+// cubre a toda la familia → se emite una línea POR MIEMBRO con el servicio de ese
+// expediente. Modelo legado (un expediente por miembro): una línea por expediente.
+// Titular = cliente por defecto.
 export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<FacturaFamiliaPrefill | null> {
   try {
     const supabase = await createSupabaseServer();
@@ -104,13 +107,26 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
     const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
     const svById = new Map(servicios.map((s) => [s.id, s]));
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
+    const nombreCortoDe = (m: { nombre: string | null; apellidos: string | null }) =>
+      (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";
     const lineas: LineaPrefill[] = [];
-    for (const m of miembros) {
-      const nombreCorto = (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";
-      for (const e of m.expedientes ?? []) {
-        const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
-        const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
-        lineas.push({ concepto: `${label} · ${nombreCorto}`, base: Number(sv?.resto ?? 0) });
+    const expedientesTotales = miembros.flatMap((m) => m.expedientes ?? []);
+    if (expedientesTotales.length === 1) {
+      // Un solo expediente familiar (modelo actual) → una línea por miembro, ×N.
+      const e = expedientesTotales[0];
+      const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
+      const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
+      for (const m of miembros) {
+        lineas.push({ concepto: `${label} · ${nombreCortoDe(m)}`, base: Number(sv?.resto ?? 0) });
+      }
+    } else {
+      for (const m of miembros) {
+        const nombreCorto = nombreCortoDe(m);
+        for (const e of m.expedientes ?? []) {
+          const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
+          const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
+          lineas.push({ concepto: `${label} · ${nombreCorto}`, base: Number(sv?.resto ?? 0) });
+        }
       }
     }
     const titular = miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0];

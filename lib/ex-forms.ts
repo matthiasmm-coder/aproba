@@ -171,10 +171,23 @@ const TRAMITE_P2: Record<string, Record<string, Pos>> = {
   "EX-17": {
     TIE: { x: 77.5, y: 668, page: 1 },        // 4.1 □ TARJETA INICIAL (probe: 77,669)
     RENOVACION: { x: 77.5, y: 649, page: 1 }, // 4.1 □ RENOVACIÓN DE TARJETA (probe: 77,650)
+    DUPLICADO: { x: 77.5, y: 629, page: 1 },  // 4.1 □ DUPLICADO POR PÉRDIDA… (probe: 77,630)
   },
   "EX-15": {
     NIE: { x: 69.5, y: 674, page: 1 },        // 4.1 □ NÚMERO DE IDENTIDAD DE EXTRANJERO (probe: 69,675)
   },
+};
+
+// Opciones de la casilla p.2 por modelo, para el selector manual de la página Formularios
+// (el gestor puede forzar la casilla cuando el trámite del expediente no la determina —
+// p. ej. un duplicado por pérdida, o un expediente de tipo genérico OTRO).
+export const P2_OPCIONES: Record<string, { value: string; label: string }[]> = {
+  "EX-17": [
+    { value: "TIE", label: "Tarjeta inicial" },
+    { value: "RENOVACION", label: "Renovación de tarjeta" },
+    { value: "DUPLICADO", label: "Duplicado (pérdida, robo…)" },
+  ],
+  "EX-15": [{ value: "NIE", label: "NIE" }],
 };
 
 export const formularioOficialDisponible = (code: string) => code in FORMS;

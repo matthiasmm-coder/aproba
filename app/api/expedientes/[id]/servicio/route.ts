@@ -20,9 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { data: exp } = await supa.from("Expediente").select("id, familiaId, servicioClave").eq("id", id).maybeSingle();
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
-  // Los expedientes familiares tienen precio ×N y lógica propia: su servicio se gestiona
-  // desde la sección de familia, no aquí.
-  if (exp.familiaId) return NextResponse.json({ error: "Cambia el servicio desde la sección de familia." }, { status: 409 });
+  // También en expedientes FAMILIARES (pedido por Juan): la facturación familiar recalcula
+  // el precio base ×N a partir del servicio vigente, así que el cambio es coherente.
   // No-op: sin cambio real, no se escribe ni se registra evento.
   if (exp.servicioClave === clave) return NextResponse.json({ ok: true });
 
