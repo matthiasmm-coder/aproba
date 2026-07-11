@@ -19,6 +19,7 @@ export function CobrosPanel({
   facturas,
   clienteNombre,
   conceptoFinal,
+  conceptoAnticipo,
 }: {
   expedienteId: string;
   anticipo: number;
@@ -26,10 +27,11 @@ export function CobrosPanel({
   facturas: FacturaPago[];
   clienteNombre?: string;
   conceptoFinal?: string;
+  conceptoAnticipo?: string;
 }) {
   const t = useT();
   const router = useRouter();
-  const [crearOpen, setCrearOpen] = useState(false);
+  const [crear, setCrear] = useState<"ANTICIPO" | "FINAL" | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function CobrosPanel({
     }
   }
 
-  const Fila = ({ label, monto, pago }: { label: string; monto: number; pago?: FacturaPago }) => (
+  const Fila = ({ label, monto, pago, accionPendiente }: { label: string; monto: number; pago?: FacturaPago; accionPendiente?: React.ReactNode }) => (
     <div className="py-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -103,6 +105,8 @@ export function CobrosPanel({
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
             {t("Enviada · pendiente")} · {pago.numero}
           </span>
+        ) : accionPendiente ? (
+          <span className="shrink-0">{accionPendiente}</span>
         ) : (
           <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">{t("Pendiente")}</span>
         )}
@@ -131,7 +135,20 @@ export function CobrosPanel({
       <h2 className="mb-3 text-sm font-semibold text-slate-700">{t("Cobro del expediente")}</h2>
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="divide-y divide-slate-100">
-          {anticipo > 0 && <Fila label={t("Pago inicial (al firmar)")} monto={anticipo} pago={pagoAnticipo} />}
+          {anticipo > 0 && (
+            <Fila
+              label={t("Pago inicial (al firmar)")}
+              monto={anticipo}
+              pago={pagoAnticipo}
+              // Sin factura de anticipo: el gestor puede emitirla desde aquí (modo interno —
+              // en el flujo con portal la emite el cliente al confirmar el trámite).
+              accionPendiente={
+                <button onClick={() => setCrear("ANTICIPO")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50">
+                  {t("Solicitar anticipo")}
+                </button>
+              }
+            />
+          )}
           {cuotas.length > 0
             ? cuotas.map((c, i) => <Fila key={c.id} label={`${t("Cuota")} ${i + 1} ${t("de")} ${cuotas.length}`} monto={Number(c.total)} pago={c} />)
             : resto > 0 && <Fila label={t("Pago final (al terminar)")} monto={resto} pago={pagoFinal} />}
@@ -140,7 +157,7 @@ export function CobrosPanel({
         {resto > 0 && !pagoFinal && cuotas.length === 0 && (
           <>
             <button
-              onClick={() => setCrearOpen(true)}
+              onClick={() => setCrear("FINAL")}
               className="mt-3 w-full rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700"
             >
               {`${t("Solicitar pago final ·")} ${eur(totalDe(resto))}`}
@@ -189,8 +206,16 @@ export function CobrosPanel({
         </p>
       </div>
 
-      {crearOpen && (
-        <CobroFacturaModal modo="crear" expedienteId={expedienteId} clienteNombre={clienteNombre} conceptoFinal={conceptoFinal} baseFinal={resto} onClose={() => setCrearOpen(false)} />
+      {crear && (
+        <CobroFacturaModal
+          modo="crear"
+          momento={crear}
+          expedienteId={expedienteId}
+          clienteNombre={clienteNombre}
+          conceptoFinal={crear === "ANTICIPO" ? conceptoAnticipo : conceptoFinal}
+          baseFinal={crear === "ANTICIPO" ? anticipo : resto}
+          onClose={() => setCrear(null)}
+        />
       )}
       {editId && (
         <CobroFacturaModal modo="editar" expedienteId={expedienteId} facturaId={editId} onClose={() => setEditId(null)} />

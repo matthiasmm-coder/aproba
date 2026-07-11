@@ -16,7 +16,7 @@ import { useT } from "@/components/lang-provider";
 // Carga plan + servicios (y nº de serie / la factura a editar) y monta el editor ya listo.
 
 export function CobroFacturaModal({
-  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose,
+  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL",
 }: {
   modo: "crear" | "editar";
   expedienteId?: string; // requerido para crear; en editar el servidor lo resuelve de la factura
@@ -25,6 +25,8 @@ export function CobroFacturaModal({
   baseFinal?: number;
   facturaId?: string;
   onClose: () => void;
+  // ANTICIPO: el gestor emite el pago inicial desde la ficha (modo interno, sin portal).
+  momento?: "ANTICIPO" | "FINAL";
 }) {
   const t = useT();
   const router = useRouter();
@@ -78,11 +80,16 @@ export function CobroFacturaModal({
       const factura = { numero: p.numero, clienteNombre: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas };
       const res = modo === "editar" && facturaId
         ? await fetch(`/api/facturas/${facturaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...factura, notificar }) })
-        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento: "FINAL", factura }) });
+        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar la factura."));
       // Carrera: ya existía una factura final → no se aplicaron los cambios editados.
-      if (modo !== "editar" && d.yaExistia) { setError(t("Ya existe una factura de pago final para este expediente. Ciérrala y usa «Editar factura».")); return; }
+      if (modo !== "editar" && d.yaExistia) {
+        setError(momento === "ANTICIPO"
+          ? t("Ya existe una factura de anticipo para este expediente. Ciérrala y usa «Editar factura».")
+          : t("Ya existe una factura de pago final para este expediente. Ciérrala y usa «Editar factura»."));
+        return;
+      }
       router.refresh();
       onClose();
     } catch (e) {
@@ -90,7 +97,7 @@ export function CobroFacturaModal({
     } finally { setBusy(false); }
   }
 
-  const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}` : t("Solicitar pago final");
+  const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}` : momento === "ANTICIPO" ? t("Solicitar anticipo") : t("Solicitar pago final");
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !busy && onClose()}>

@@ -702,6 +702,8 @@ export const CA: Record<string, string> = {
   "Emitiendo…": "Emetent…",
   "No se pudo fraccionar.": "No s'ha pogut fraccionar.",
   "Del trámite": "Del tràmit",
+  "Solicitar anticipo": "Sol·licitar bestreta",
+  "Ya existe una factura de anticipo para este expediente. Ciérrala y usa «Editar factura».": "Ja existeix una factura de bestreta per a aquest expedient. Tanca-la i fes servir «Editar factura».",
   "TIE actual": "TIE actual",
   "Certificado de nacimiento": "Certificat de naixement",
   "Documento de identidad del ciudadano UE": "Document d'identitat del ciutadà UE",
