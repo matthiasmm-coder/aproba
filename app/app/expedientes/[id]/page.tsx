@@ -192,15 +192,31 @@ export default async function ExpedienteDetail({
             </Link>
           }>{t("Formularios")}</SeccionHeader>
           {e.formularios.length > 0 ? (
-            <Link href={`/app/expedientes/${e.id}/formularios`} className="flex flex-wrap gap-3">
-              {e.formularios.map((f) => (
-                <span key={f.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 transition hover:border-aproba-300 hover:shadow-sm">
-                  <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                  <span className="text-sm font-medium text-slate-700">{f.tipo}</span>
-                  <span className="text-xs text-aproba-700">PDF</span>
-                </span>
-              ))}
-            </Link>
+            // Descarga DIRECTA del PDF oficial relleno (editable en cualquier visor) — el
+            // gestor no tiene que volver a la página Formularios para cada corrección.
+            // Familiar: un juego POR SOLICITANTE → los chips llevan a la página (elige el miembro).
+            <div className="flex flex-wrap gap-3">
+              {e.formularios.map((f) =>
+                familia ? (
+                  <Link key={f.code} href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 transition hover:border-aproba-300 hover:shadow-sm">
+                    <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                    <span className="text-sm font-medium text-slate-700">{f.code}</span>
+                    <span className="text-xs text-aproba-700">{t("por solicitante →")}</span>
+                  </Link>
+                ) : (
+                  <a
+                    key={f.code}
+                    href={`/api/expedientes/${e.id}/formularios?tipo=${encodeURIComponent(f.code)}&modo=oficial`}
+                    title={t("Descargar el PDF relleno (editable en tu lector de PDF)")}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 transition hover:border-aproba-300 hover:shadow-sm"
+                  >
+                    <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+                    <span className="text-sm font-medium text-slate-700">{f.code}</span>
+                    <span className="text-xs text-aproba-700">{t("PDF editable")}</span>
+                  </a>
+                )
+              )}
+            </div>
           ) : (
             <Link href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
               <svg className="h-5 w-5 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>

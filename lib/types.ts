@@ -38,8 +38,8 @@ export interface Documento {
 }
 
 export interface Formulario {
-  id: string;
-  tipo: string; // EX-15, EX-17, 790-012…
+  code: string; // EX-15, EX-17… (código de descarga del PDF oficial)
+  tipo: string; // etiqueta humana (FORM_LABEL)
 }
 
 export interface Evento {

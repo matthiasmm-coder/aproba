@@ -117,7 +117,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
     // PostgREST renvoie un tableau (il ne détecte pas le one-to-one via index unique).
     extraction: ExtractionRow | ExtractionRow[] | null;
   }[];
-  formularios: { id: string; tipo: string }[];
+  formularios: { code: string; tipo: string }[]; // code EX (descarga) + etiqueta humana
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
@@ -160,11 +160,10 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, formulariosGenerados, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
-   formularios:Formulario(id, tipo),
    eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
    facturas:Factura(id, numero, total, estado, origen, momento, metodoPago)`;
 
@@ -214,7 +213,9 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     creado: fmtFechaCorta(e.createdAt) ?? "",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
     documentos,
-    formularios: (e.formularios ?? []).map((f) => ({ id: f.id, tipo: FORM_LABEL[f.tipo] ?? f.tipo })),
+    // Los formularios GENERADOS viven en Expediente.formulariosGenerados (la tabla
+    // Formulario nunca se escribe): un chip de descarga del PDF editable por código.
+    formularios: (((e as { formulariosGenerados?: string[] | null }).formulariosGenerados) ?? []).map((code) => ({ code, tipo: FORM_LABEL[code] ?? code })),
     eventos,
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
@@ -235,7 +236,12 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
 
 export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDetalle | null> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
+  // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
+  let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
+  if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, ", "")).eq("id", id).maybeSingle() as typeof res;
+  }
+  const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
   return data ? mapearDetalle(data) : null;
 }
@@ -245,7 +251,11 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
 export async function fetchExpedienteDetallePorToken(token: string): Promise<ExpedienteDetalle | null> {
   if (!token) return null;
   const admin = createSupabaseAdmin();
-  const { data, error } = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  }
+  const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);
   return data ? mapearDetalle(data) : null;
 }

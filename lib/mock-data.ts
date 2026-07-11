@@ -18,7 +18,7 @@ const DETALLADOS: Expediente[] = [
       { id: "d3", tipoLabel: "Contrato de trabajo", estado: "VALIDADO", extraction: { tipoDetectado: "contrato_trabajo", confianzaGlobal: 0.89, legibilidad: "legible", alertas: [], campos: [{ label: "Empleador", value: "Restauración Bonavista SL" }, { label: "Puesto", value: "Ayudante de cocina" }, { label: "Tipo contrato", value: "Indefinido · jornada completa" }, { label: "Salario bruto/año", value: "18 000 €" }, { label: "F. inicio", value: "2026-07-01" }] } },
       { id: "d4", tipoLabel: "Antecedentes penales", estado: "VALIDADO", extraction: { tipoDetectado: "antecedentes_penales", confianzaGlobal: 0.91, legibilidad: "legible", alertas: [], campos: [{ label: "Nombre completo", value: "Julia Mendoza Restrepo" }, { label: "País", value: "Colombia" }, { label: "Resultado", value: "Sin antecedentes" }, { label: "F. emisión", value: "2026-04-30" }] } },
     ],
-    formularios: [{ id: "f1", tipo: "EX-10" }, { id: "f2", tipo: "790-012" }],
+    formularios: [{ code: "EX-10", tipo: "EX-10" }, { code: "790-012", tipo: "790-012" }],
     eventos: [
       { fecha: "02/06", titulo: "Expediente creado", autor: "Marta R." },
       { fecha: "04/06", titulo: "Pasaporte subido y validado por IA" },
@@ -59,7 +59,7 @@ const DETALLADOS: Expediente[] = [
     creado: "28/05/2026",
     fechaLimite: "13/06/2026",
     documentos: [],
-    formularios: [{ id: "f3", tipo: "EX-02" }, { id: "f4", tipo: "790-012" }],
+    formularios: [{ code: "EX-02", tipo: "EX-02" }, { code: "790-012", tipo: "790-012" }],
     eventos: [
       { fecha: "28/05", titulo: "Expediente creado", autor: "Diego F." },
       { fecha: "05/06", titulo: "Documentos validados (5/5)" },
@@ -76,7 +76,7 @@ const DETALLADOS: Expediente[] = [
     asignadoA: "Diego F.",
     creado: "20/05/2026",
     documentos: [],
-    formularios: [{ id: "f5", tipo: "EX-10" }],
+    formularios: [{ code: "EX-10", tipo: "EX-10" }],
     eventos: [
       { fecha: "20/05", titulo: "Expediente creado" },
       { fecha: "03/06", titulo: "Presentado en sede electrónica" },
@@ -148,7 +148,7 @@ const GENERADOS: Expediente[] = PERSONAS.map((p, i) => {
     creado: `${String((i % 27) + 1).padStart(2, "0")}/06/2026`,
     fechaLimite: conLimite ? FECHAS[i % FECHAS.length] : undefined,
     documentos: [],
-    formularios: estado === "FORM_GENERADO" ? [{ id: `gf${i}`, tipo: "EX-10" }] : [],
+    formularios: estado === "FORM_GENERADO" ? [{ code: "EX-10", tipo: "EX-10" }] : [],
     eventos: [{ fecha: `${String((i % 9) + 2).padStart(2, "0")}/06`, titulo: "Expediente creado", autor: GESTORES[i % GESTORES.length] }],
   };
 });
