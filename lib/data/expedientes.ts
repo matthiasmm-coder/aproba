@@ -117,7 +117,8 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
     // PostgREST renvoie un tableau (il ne détecte pas le one-to-one via index unique).
     extraction: ExtractionRow | ExtractionRow[] | null;
   }[];
-  formularios: { code: string; tipo: string }[]; // code EX (descarga) + etiqueta humana
+  formulariosGenerados?: string[] | null; // colonne (source réelle des formulaires générés)
+  tasaPath?: string | null;
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
@@ -135,6 +136,8 @@ export type FacturaPago = {
 
 export type ExpedienteDetalle = ExpedienteUI & {
   tipoEnum: string;
+  tieneTasa: boolean; // tasa 790-012 oficial guardada (tasaPath — flujo individual)
+  formulariosCurados: boolean; // la lista fue persistida (aunque vacía) → ES la verdad, no re-unir defaults
   facturasPago: FacturaPago[];
   servicioClave: string | null;
   portalToken: string | null;
@@ -160,7 +163,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, formulariosGenerados, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -216,6 +219,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     // Los formularios GENERADOS viven en Expediente.formulariosGenerados (la tabla
     // Formulario nunca se escribe): un chip de descarga del PDF editable por código.
     formularios: (((e as { formulariosGenerados?: string[] | null }).formulariosGenerados) ?? []).map((code) => ({ code, tipo: FORM_LABEL[code] ?? code })),
+    tieneTasa: Boolean((e as { tasaPath?: string | null }).tasaPath),
+    formulariosCurados: Array.isArray((e as { formulariosGenerados?: string[] | null }).formulariosGenerados),
     eventos,
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
@@ -239,7 +244,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -253,7 +258,7 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   const admin = createSupabaseAdmin();
   let res = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);

@@ -18,5 +18,10 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     exp.familiaId ? fetchSolicitantesDeFamilia(exp.familiaId) : Promise.resolve([]),
     createSupabaseServer().then((sb) => fetchP2Overrides(sb, id)),
   ]);
-  return <FormulariosView exp={exp} oficiales={oficiales} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Selección inicial: si la lista ya fue CURADA (persistida, aunque esté vacía), ELLA es
+  // la verdad — re-unir los defaults del trámite resucitaría un modelo quitado con la ×
+  // de la ficha al primer clic de descarga (el POST guarda la selección completa).
+  // Sin curar todavía → defaults del trámite.
+  const iniciales = exp.formulariosCurados ? exp.formularios.map((f) => f.code) : oficiales;
+  return <FormulariosView exp={exp} oficiales={iniciales} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

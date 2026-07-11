@@ -4,7 +4,7 @@ import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { buildFormularios, datosNormalizados, datosDeCliente, formularioParaMiembro, type ExtraFormulario } from "@/lib/formularios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { formularioToPdf } from "@/lib/formularios-pdf";
-import { rellenarOficial, P2_OPCIONES } from "@/lib/ex-forms";
+import { rellenarOficial, P2_OPCIONES, formulariosDisponibles } from "@/lib/ex-forms";
 import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { dispararAviso } from "@/lib/notificaciones";
@@ -86,6 +86,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
 }
 
+// DELETE → quita UN formulario de los generados (chip × en la ficha). No toca el estado
+// del expediente ni dispara avisos: es una corrección de la lista, no una regresión.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  let body: { code?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
+  const code = (body.code ?? "").trim();
+  if (!code) return NextResponse.json({ error: "Falta el formulario." }, { status: 400 });
+
+  const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+
+  // Bajo RLS (anti-IDOR) + lectura defensiva de la columna.
+  const { data: exp, error: eSel } = await supabase.from("Expediente").select("id, formulariosGenerados").eq("id", id).maybeSingle();
+  if (eSel) return NextResponse.json({ error: "Falta la migración de formulariosGenerados." }, { status: 409 });
+  if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
+
+  const actuales = (exp.formulariosGenerados as string[] | null) ?? [];
+  if (!actuales.includes(code)) return NextResponse.json({ ok: true }); // ya no está
+  // .select("id") → un update a 0 filas (expediente borrado entre medias, RLS futura) se
+  // trata como fallo en lugar de responder ok + evento mentiroso.
+  const { data: upd, error } = await supabase.from("Expediente")
+    .update({ formulariosGenerados: actuales.filter((c) => c !== code) })
+    .eq("id", id).select("id");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!upd?.length) return NextResponse.json({ error: "No se pudo quitar." }, { status: 409 });
+
+  await supabase.from("ExpedienteEvento").insert({
+    id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
+    descripcion: `Formulario ${code} quitado de los generados`, userId: user.id,
+  });
+  return NextResponse.json({ ok: true });
+}
+
 // POST → marque les formulaires comme generados (avance l'expediente + evento).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -96,11 +131,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const exp = await fetchExpedienteDetalle(id);
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
-  // Modelos que el gestor declara como generados (curados en la UI). Repli sur le set
-  // auto si le corps est vide (compat ascendante).
-  let seleccion: string[] = [];
-  try { const b = await req.json(); if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string"); } catch { /* sans corps */ }
-  if (seleccion.length === 0) seleccion = buildFormularios(exp).map((f) => f.tipo);
+  // Modelos que el gestor declara como generados (curados en la UI), validados contra el
+  // catálogo (una cadena arbitraria en tipos contaminaría la ficha y el portal). Repli
+  // sur le set auto UNIQUEMENT si le corps est absent (compat) — un [] explicite est une
+  // curation légitime («ningún modelo aplica») et doit être persisté tel quel.
+  const catalogo = new Set(formulariosDisponibles().map((f) => f.code));
+  let seleccion: string[] | null = null;
+  try { const b = await req.json(); if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string" && catalogo.has(x)); } catch { /* sans corps */ }
+  if (seleccion === null) seleccion = buildFormularios(exp).map((f) => f.tipo);
 
   // Persiste la selección EXACTA → el cliente verá solo esos (defensivo: la columna
   // puede no existir antes de la migración; en ese caso se ignora sin romper nada).
