@@ -701,6 +701,7 @@ export const CA: Record<string, string> = {
   "Emitir cuotas": "Emetre quotes",
   "Emitiendo…": "Emetent…",
   "No se pudo fraccionar.": "No s'ha pogut fraccionar.",
+  "Del trámite": "Del tràmit",
   "TIE actual": "TIE actual",
   "Certificado de nacimiento": "Certificat de naixement",
   "Documento de identidad del ciudadano UE": "Document d'identitat del ciutadà UE",

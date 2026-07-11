@@ -177,10 +177,11 @@ export default async function ExpedienteDetail({
             )}
           </div>
           {/* MODO INTERNO: el gestor sube docs él mismo (cliente con docu ya en mano), sin enlace.
-              Solo mientras se recogen documentos y en expedientes individuales (familia = por miembro). */}
-          {!familia && ["BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS"].includes(e.estado) && (
-            <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={servicio?.docs ?? []} />
-          )}
+              Disponible en CUALQUIER etapa (una resolución llega en PRESENTADO, un TIE nuevo en
+              FINALIZADO…): el pipeline solo promociona/regresa el estado en las etapas de
+              recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
+              (vía portal); aquí solo expedientes individuales. */}
+          {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={servicio?.docs ?? []} />}
         </section>
 
         {/* Formularios */}

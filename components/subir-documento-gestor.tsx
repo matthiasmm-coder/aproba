@@ -12,7 +12,10 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
   const t = useT();
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const opciones = docsRequeridos.length ? docsRequeridos : Object.values(DOC_LABEL);
+  // Los docs del servicio primero; después el resto del catálogo (en etapas tardías se
+  // suben cosas fuera de la checklist: una resolución, un doc suelto…).
+  const otros = Object.values(DOC_LABEL).filter((l) => !docsRequeridos.includes(l));
+  const opciones = [...docsRequeridos, ...otros];
   const [tipo, setTipo] = useState<string>(opciones[0] ?? "");
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,16 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
       <p className="text-xs font-medium text-slate-600">{t("¿Ya tienes la documentación? Súbela tú mismo, sin enviar el enlace al cliente.")}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t("Tipo de documento")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
-          {opciones.map((op) => <option key={op} value={op}>{t(op)}</option>)}
+          {docsRequeridos.length > 0 ? (
+            <>
+              <optgroup label={t("Del trámite")}>
+                {docsRequeridos.map((op) => <option key={op} value={op}>{t(op)}</option>)}
+              </optgroup>
+              <optgroup label={t("Otros")}>
+                {otros.map((op) => <option key={op} value={op}>{t(op)}</option>)}
+              </optgroup>
+            </>
+          ) : opciones.map((op) => <option key={op} value={op}>{t(op)}</option>)}
         </select>
         <button onClick={() => fileRef.current?.click()} disabled={subiendo || !tipo} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
           {subiendo ? (
