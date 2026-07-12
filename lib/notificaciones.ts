@@ -4,18 +4,65 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
+import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, type CanalAvisos } from "@/lib/whatsapp";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
 
-// Avisos automáticos au client (email réel via Resend, WhatsApp simulé pour l'instant).
-// Conçu en « repli propre » : sans RESEND_API_KEY, l'email est rendu et JOURNALISÉ
-// (estado SIMULADO) au lieu d'être envoyé — l'app fonctionne identiquement.
-// Chaque aviso laisse une trace dans le historial de l'expediente (NOTIFICACION_ENVIADA),
-// et rien ici ne doit jamais faire échouer le flux appelant (upload, paiement…).
+// Avisos automáticos au client — email (Resend) et/ou WhatsApp (Twilio) selon le canal
+// choisi par le workspace (Ajustes → Notificaciones al cliente : EMAIL | WHATSAPP | AMBOS).
+// Conçu en « repli propre » : sans RESEND_API_KEY / credentials Twilio, le message est
+// rendu et JOURNALISÉ (estado SIMULADO) au lieu d'être envoyé — l'app fonctionne
+// identiquement. Chaque aviso laisse une trace dans le historial de l'expediente
+// (NOTIFICACION_ENVIADA), et rien ici ne doit jamais faire échouer le flux appelant.
 
 export const resendDisponible = () => Boolean(process.env.RESEND_API_KEY);
 
 type Estado = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";
+
+// ── Canal del workspace: qué canales intentar y cómo journaliser el resultado ──
+const quiereCanales = (canal: CanalAvisos) => ({ email: canal !== "WHATSAPP", whatsapp: canal !== "EMAIL" });
+
+// Estado global de un envío multi-canal (para los retornos {enviado, motivo} al gestor):
+// basta con que UN canal haya salido para considerarlo enviado. ERROR pesa más que
+// SIMULADO: si ningún canal entregó de verdad y uno falló, el gestor debe verlo.
+function estadoGlobal(estados: (Estado | null)[]): Estado {
+  const es = estados.filter((e): e is Estado => e !== null);
+  if (es.includes("ENVIADO")) return "ENVIADO";
+  if (es.includes("ERROR")) return "ERROR";
+  if (es.includes("SIMULADO")) return "SIMULADO";
+  return "SIN_CONTACTO";
+}
+
+// Motivo preciso cuando NINGÚN canal tenía contacto utilizable: el mensaje al gestor
+// debe apuntar al campo correcto según el canal elegido (email, móvil o ambos).
+const motivoSinContacto = (estadoEmail: Estado | null, estadoWa: Estado | null) =>
+  estadoWa === null ? ("sin_email" as const) : estadoEmail === null ? ("sin_telefono" as const) : ("sin_contacto" as const);
+
+const etiquetaEstado = (e: Estado) =>
+  e === "ENVIADO" ? "enviado" : e === "SIMULADO" ? "simulado" : e === "SIN_CONTACTO" ? "sin contacto" : "error";
+
+// Icono + sufijo del evento del historial según los canales intentados. En email-only
+// el formato coincide con el histórico de dispararAviso (las demás funciones tenían
+// variantes «— sin contacto»/«— error», unificadas aquí; nada matchea esos sufijos —
+// la única búsqueda por descripción es ilike '%seguimiento%' y su base no cambia).
+function iconoYSufijo(email: Estado | null, wa: Estado | null): { icono: string; sufijo: string } {
+  if (email !== null && wa === null) {
+    const sufijo = email === "ENVIADO" ? "" : email === "SIMULADO" ? " (simulado)" : email === "SIN_CONTACTO" ? " — sin email del cliente" : " — error de envío";
+    return { icono: "📧", sufijo };
+  }
+  if (email === null && wa !== null) {
+    const sufijo = wa === "ENVIADO" ? "" : wa === "SIMULADO" ? " (simulado)" : wa === "SIN_CONTACTO" ? " — sin teléfono del cliente" : " — error de envío";
+    return { icono: "📱", sufijo };
+  }
+  const ambosOk = email === "ENVIADO" && wa === "ENVIADO";
+  return { icono: "📧📱", sufijo: ambosOk ? "" : ` (email ${etiquetaEstado(email ?? "ERROR")} · WhatsApp ${etiquetaEstado(wa ?? "ERROR")})` };
+}
+
+// Cuerpo WhatsApp estándar: la gestoría en negrita (el número remitente es el central
+// de Aproba, el cliente debe saber quién le escribe) + texto + enlace si lo hay.
+// El nombre se sanea (asteriscos/saltos romperían la negrita), como el from del email.
+const textoWhatsApp = (gestoria: string, cuerpo: string, link?: string | null) =>
+  `*${gestoria.replace(/[*\r\n]/g, " ").trim()}*\n${cuerpo}${link ? `\n\n${link}` : ""}`;
 
 const primerNombre = (n: string) => (n || "").trim().split(/\s+/)[0] || (n || "cliente");
 const render = (tpl: string, vars: Record<string, string>) =>
@@ -108,40 +155,45 @@ export async function dispararAviso(
     const cuerpo = render(aviso.template, { nombre: primerNombre(nombre), ...(opts.vars ?? {}) });
     const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
-    // Email uniquement : l'envoi WhatsApp automatique n'existe pas (canal retiré d'Ajustes).
-    let estado: Estado = "SIMULADO";
-    const destino = cliente?.email ?? "";
-    if (!destino) {
-      estado = "SIN_CONTACTO";
-    } else if (resendDisponible()) {
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: aviso.evento,
-        html: emailLayout({
-          gestoria, titulo: aviso.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
-          cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
-          footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
-          preheader: cuerpo,
-        }),
-        text: cuerpo,
-      });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[aviso email]", error.message ?? error);
-    } else {
-      estado = "SIMULADO";
+    // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
+    const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
+
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible()) {
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from, to: destino, subject: aviso.evento,
+          html: emailLayout({
+            gestoria, titulo: aviso.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
+            cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
+            footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+            preheader: cuerpo,
+          }),
+          text: cuerpo,
+        });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[aviso email]", error.message ?? error);
+      }
+      console.log(`[aviso ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | ${aviso.evento} | ${cuerpo}`);
     }
 
-    console.log(`[aviso ${estado}] email → ${destino || "(sin email)"} | ${aviso.evento} | ${cuerpo}`);
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, portalUrl) });
+      console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${aviso.evento}`);
+    }
 
-    const sufijo =
-      estado === "ENVIADO" ? "" :
-      estado === "SIMULADO" ? " (simulado)" :
-      estado === "SIN_CONTACTO" ? " — sin email del cliente" : " — error de envío";
+    const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `📧 Aviso al cliente${sufijo}: ${aviso.evento}`,
+      descripcion: `${icono} Aviso al cliente${sufijo}: ${aviso.evento}`,
     });
   } catch (e) {
     // Un aviso ne doit JAMAIS casser le flux appelant.
@@ -207,30 +259,38 @@ export async function enviarSeguimiento(
     const cuerpo = faltanDocs ? t("notif.seg.bodyFaltan", { nombre }) : t("notif.seg.body", { nombre });
     const boton = faltanDocs ? t("notif.seg.botonSubir") : t("notif.seg.boton");
 
-    let estado: Estado = "SIMULADO";
-    let destino = cliente?.email ?? "";
-    if (!destino) {
-      estado = "SIN_CONTACTO";
-    } else if (resendDisponible() && link) {
-      const html = emailLayout({
-        gestoria,
-        titulo,
-        cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
-        cta: { url: link, label: boton },
-        preheader: cuerpo,
-      });
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject, html, text: `${cuerpo} ${link}` });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[seguimiento email]", error.message ?? error);
+    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
+
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible() && link) {
+        const html = emailLayout({
+          gestoria,
+          titulo,
+          cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
+          cta: { url: link, label: boton },
+          preheader: cuerpo,
+        });
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject, html, text: `${cuerpo} ${link}` });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[seguimiento email]", error.message ?? error);
+      }
+      console.log(`[seguimiento ${estadoEmail}] email → ${cliente?.email || "(sin contacto)"} | ${link ?? ""}`);
     }
 
-    console.log(`[seguimiento ${estado}] email → ${destino || "(sin contacto)"} | ${link ?? ""}`);
-    // WhatsApp (simulé) — l'auto réelle = WhatsApp Business API (chantier).
-    const tel = cliente?.telefono ?? "";
-    console.log(`[seguimiento whatsapp ${tel ? "SIMULADO" : "SIN_CONTACTO"}] → ${tel || "(sin teléfono)"} | ${link ?? ""}`);
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, link) }) : "SIMULADO";
+      console.log(`[seguimiento ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${link ?? ""}`);
+    }
 
-    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin contacto" : estado === "ERROR" ? " — error" : " (simulado)";
+    const { sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
@@ -254,10 +314,10 @@ export async function enviarSolicitudPago(
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("workspaceId, portalToken, Cliente(nombre, email), Workspace(nombre)")
+      .select("workspaceId, portalToken, Cliente(nombre, email, telefono), Workspace(nombre)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
-    const exp = expRaw as { workspaceId: string; portalToken: string | null; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    const exp = expRaw as { workspaceId: string; portalToken: string | null; Cliente: { nombre: string | null; email: string | null; telefono: string | null } | { nombre: string | null; email: string | null; telefono: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
     if (!exp) return;
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
@@ -310,21 +370,39 @@ export async function enviarSolicitudPago(
       preheader: `Factura ${opts.numero} · ${fmtEur(opts.total)}`,
     });
 
-    let estado: Estado = "SIMULADO";
-    const destino = cliente?.email ?? "";
-    if (!destino) {
-      estado = "SIN_CONTACTO";
-    } else if (resendDisponible()) {
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: `Factura ${opts.numero} · ${fmtEur(opts.total)}`, html, text: `Factura ${opts.numero}: ${fmtEur(opts.total)}. ${cuenta?.iban ? `IBAN: ${cuenta.iban}` : ""}`,
-      });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[solicitudPago email]", error.message ?? error);
+    const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
+
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible()) {
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from, to: destino, subject: `Factura ${opts.numero} · ${fmtEur(opts.total)}`, html, text: `Factura ${opts.numero}: ${fmtEur(opts.total)}. ${cuenta?.iban ? `IBAN: ${cuenta.iban}` : ""}`,
+        });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[solicitudPago email]", error.message ?? error);
+      }
+      console.log(`[solicitudPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
     }
 
-    console.log(`[solicitudPago ${estado}] email → ${destino || "(sin email)"} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
-    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin email del cliente" : estado === "ERROR" ? " — error" : " (simulado)";
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      const lineas = [
+        `Hola ${nombre}, tu factura ${opts.numero} está lista: ${fmtEur(opts.total)} (${opts.concepto}).`,
+        cuenta?.iban
+          ? `Transferencia: ${cuenta.iban}${cuenta.banco ? ` (${cuenta.banco})` : ""} — indica ${opts.numero} en el concepto.`
+          : "Tu gestoría te facilitará los datos para realizar el pago.",
+        ...(tarjetaOn ? [`Pagar con tarjeta: ${opts.baseUrl}/api/pagos/checkout?f=${opts.facturaId}`] : []),
+      ].join("\n");
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, lineas) });
+      console.log(`[solicitudPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
+    }
+
+    const { sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
@@ -346,10 +424,10 @@ export async function enviarConfirmacionPago(
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("portalToken, Cliente(nombre, email), Workspace(nombre)")
+      .select("workspaceId, portalToken, Cliente(nombre, email, telefono), Workspace(nombre)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
-    const exp = expRaw as { portalToken: string | null; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    const exp = expRaw as { workspaceId: string; portalToken: string | null; Cliente: { nombre: string | null; email: string | null; telefono: string | null } | { nombre: string | null; email: string | null; telefono: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
     if (!exp) return;
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
@@ -368,26 +446,38 @@ export async function enviarConfirmacionPago(
       preheader: `Pago recibido · factura ${opts.numero} · ${fmtEur(opts.total)}`,
     });
 
-    let estado: Estado = "SIMULADO";
-    const destino = cliente?.email ?? "";
-    if (!destino) {
-      estado = "SIN_CONTACTO";
-    } else if (resendDisponible()) {
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: `Pago recibido · factura ${opts.numero}`, html, text: `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias!`,
-      });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[confirmacionPago email]", error.message ?? error);
+    const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
+
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible()) {
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from, to: destino, subject: `Pago recibido · factura ${opts.numero}`, html, text: `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias!`,
+        });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[confirmacionPago email]", error.message ?? error);
+      }
+      console.log(`[confirmacionPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${via}`);
     }
 
-    console.log(`[confirmacionPago ${estado}] email → ${destino || "(sin email)"} | factura ${opts.numero} | ${via}`);
-    const sufijo = estado === "ENVIADO" ? "" : estado === "SIN_CONTACTO" ? " — sin email del cliente" : estado === "ERROR" ? " — error" : " (simulado)";
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      const texto = `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.`;
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) });
+      console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
+    }
+
+    const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `📧 Confirmación de pago enviada al cliente (factura ${opts.numero})${sufijo}`,
+      descripcion: `${icono} Confirmación de pago enviada al cliente (factura ${opts.numero})${sufijo}`,
     });
   } catch (e) {
     console.error("[enviarConfirmacionPago]", e instanceof Error ? e.message : e);
@@ -445,18 +535,18 @@ export async function enviarConfirmacionCitaPrevia(opts: {
 export async function enviarRecordatorioDocs(
   admin: SupabaseClient,
   opts: { expedienteId: string; baseUrl?: string },
-): Promise<{ enviado: boolean; faltan: number; motivo?: "sin_faltan" | "sin_email" | "simulado" | "error" }> {
+): Promise<{ enviado: boolean; faltan: number; motivo?: "sin_faltan" | "sin_email" | "sin_telefono" | "sin_contacto" | "simulado" | "error" }> {
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("portalToken, tipo, servicioClave, Cliente(nombre, email, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .select("portalToken, tipo, servicioClave, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
     const exp = expRaw as {
       portalToken: string | null;
       tipo: string;
       servicioClave: string | null;
-      Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null;
+      Cliente: { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null }[] | null;
       Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
       documentos: { tipo: string; estado: string }[] | null;
     } | null;
@@ -476,42 +566,57 @@ export async function enviarRecordatorioDocs(
       faltantes = docsFaltantes(servicio?.docs ?? [], exp.documentos ?? []);
     }
     if (!faltantes.length) return { enviado: false, faltan: 0, motivo: "sin_faltan" };
-    const destino = cliente?.email ?? "";
-    if (!destino) return { enviado: false, faltan: faltantes.length, motivo: "sin_email" };
+    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
 
-    const lista = faltantes.map((d) => `<li style="margin:3px 0">${d}</li>`).join("");
-    const cuerpoHtml = `<p style="margin:0 0 10px">${t("notif.recDocs.intro", { nombre })}</p>
-      <ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul>
-      <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
-    const html = emailLayout({
-      gestoria,
-      titulo: t("notif.recDocs.titulo"),
-      cuerpoHtml,
-      cta: link ? { url: link, label: t("notif.seg.botonSubir") } : null,
-      footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
-      preheader: t("notif.recDocs.titulo"),
-    });
-
-    let estado: Estado = "SIMULADO";
-    if (resendDisponible() && link) {
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: t("notif.recDocs.subject", { gestoria }), html,
-        text: `${t("notif.recDocs.intro", { nombre })} ${faltantes.join(", ")}. ${link ?? ""}`,
-      });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[recordatorioDocs email]", error.message ?? error);
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible() && link) {
+        const lista = faltantes.map((d) => `<li style="margin:3px 0">${d}</li>`).join("");
+        const cuerpoHtml = `<p style="margin:0 0 10px">${t("notif.recDocs.intro", { nombre })}</p>
+          <ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul>
+          <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
+        const html = emailLayout({
+          gestoria,
+          titulo: t("notif.recDocs.titulo"),
+          cuerpoHtml,
+          cta: link ? { url: link, label: t("notif.seg.botonSubir") } : null,
+          footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+          preheader: t("notif.recDocs.titulo"),
+        });
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from, to: destino, subject: t("notif.recDocs.subject", { gestoria }), html,
+          text: `${t("notif.recDocs.intro", { nombre })} ${faltantes.join(", ")}. ${link ?? ""}`,
+        });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[recordatorioDocs email]", error.message ?? error);
+      }
     }
 
-    const sufijo = estado === "ENVIADO" ? "" : estado === "ERROR" ? " — error" : " (simulado)";
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      const texto = `${t("notif.recDocs.intro", { nombre })}\n• ${faltantes.join("\n• ")}\n${t("notif.recDocs.outro")}`;
+      estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) }) : "SIMULADO";
+    }
+
+    // Sin NINGÚN contacto utilizable → mismo aviso al gestor que antes (sin evento).
+    const global = estadoGlobal([estadoEmail, estadoWa]);
+    if (global === "SIN_CONTACTO") return { enviado: false, faltan: faltantes.length, motivo: motivoSinContacto(estadoEmail, estadoWa) };
+
+    const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `📧 Recordatorio de documentos enviado al cliente (${faltantes.length})${sufijo}`,
+      descripcion: `${icono} Recordatorio de documentos enviado al cliente (${faltantes.length})${sufijo}`,
     });
-    if (estado === "ERROR") return { enviado: false, faltan: faltantes.length, motivo: "error" };
-    return { enviado: estado === "ENVIADO", faltan: faltantes.length, motivo: estado === "SIMULADO" ? "simulado" : undefined };
+    if (global === "ERROR") return { enviado: false, faltan: faltantes.length, motivo: "error" };
+    return { enviado: global === "ENVIADO", faltan: faltantes.length, motivo: global === "SIMULADO" ? "simulado" : undefined };
   } catch (e) {
     console.error("[enviarRecordatorioDocs]", e instanceof Error ? e.message : e);
     return { enviado: false, faltan: 0, motivo: "error" };
@@ -524,17 +629,17 @@ export async function enviarRecordatorioDocs(
 export async function enviarAvisoRenovacion(
   admin: SupabaseClient,
   opts: { expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl?: string },
-): Promise<{ enviado: boolean; motivo?: "sin_email" | "simulado" | "error" }> {
+): Promise<{ enviado: boolean; motivo?: "sin_email" | "sin_telefono" | "sin_contacto" | "simulado" | "error" }> {
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("portalToken, Cliente(nombre, email, idioma), Workspace(nombre)")
+      .select("portalToken, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
     const exp = expRaw as {
       portalToken: string | null;
-      Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null;
-      Workspace: { nombre: string } | { nombre: string }[] | null;
+      Cliente: { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null }[] | null;
+      Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     } | null;
     if (!exp) return { enviado: false, motivo: "error" };
     const cliente = uno(exp.Cliente);
@@ -543,8 +648,6 @@ export async function enviarAvisoRenovacion(
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
-    const destino = cliente?.email ?? "";
-    if (!destino) return { enviado: false, motivo: "sin_email" };
 
     const tipo = opts.tipoVencimiento ?? "TIE";
     // dd/mm/aaaa en la lengua del cliente (fecha ISO → local es suficiente aquí).
@@ -562,26 +665,44 @@ export async function enviarAvisoRenovacion(
       preheader: t("notif.renov.titulo"),
     });
 
-    let estado: Estado = "SIMULADO";
-    if (resendDisponible()) {
-      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-        from, to: destino, subject: t("notif.renov.subject", { gestoria }), html,
-        text: `${body} ${link ?? ""}`,
-      });
-      estado = error ? "ERROR" : "ENVIADO";
-      if (error) console.error("[avisoRenovacion email]", error.message ?? error);
+    const ws = uno(exp.Workspace);
+    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
+
+    let estadoEmail: Estado | null = null;
+    if (canal.email) {
+      estadoEmail = "SIMULADO";
+      const destino = cliente?.email ?? "";
+      if (!destino) {
+        estadoEmail = "SIN_CONTACTO";
+      } else if (resendDisponible()) {
+        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+          from, to: destino, subject: t("notif.renov.subject", { gestoria }), html,
+          text: `${body} ${link ?? ""}`,
+        });
+        estadoEmail = error ? "ERROR" : "ENVIADO";
+        if (error) console.error("[avisoRenovacion email]", error.message ?? error);
+      }
     }
 
-    const sufijo = estado === "ENVIADO" ? "" : estado === "ERROR" ? " — error" : " (simulado)";
+    let estadoWa: Estado | null = null;
+    if (canal.whatsapp) {
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, body, link) });
+    }
+
+    // Sin ningún contacto utilizable → mismo retorno que antes (sin evento).
+    const global = estadoGlobal([estadoEmail, estadoWa]);
+    if (global === "SIN_CONTACTO") return { enviado: false, motivo: motivoSinContacto(estadoEmail, estadoWa) };
+
+    const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `📧 Aviso de renovación enviado al cliente${sufijo}`,
+      descripcion: `${icono} Aviso de renovación enviado al cliente${sufijo}`,
     });
-    if (estado === "ERROR") return { enviado: false, motivo: "error" };
-    return { enviado: estado === "ENVIADO", motivo: estado === "SIMULADO" ? "simulado" : undefined };
+    if (global === "ERROR") return { enviado: false, motivo: "error" };
+    return { enviado: global === "ENVIADO", motivo: global === "SIMULADO" ? "simulado" : undefined };
   } catch (e) {
     console.error("[enviarAvisoRenovacion]", e instanceof Error ? e.message : e);
     return { enviado: false, motivo: "error" };

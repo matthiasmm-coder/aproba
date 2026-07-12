@@ -4,6 +4,15 @@
 
 export type Canal = "whatsapp" | "email";
 
+// Canal GLOBAL de los avisos al cliente, por workspace (Workspace.canalAvisos —
+// migración supabase/whatsapp-canal.sql). Lo honran todas las notificaciones al
+// cliente (lib/notificaciones.ts); se elige en Ajustes → Notificaciones al cliente.
+// (Distinto del campo legacy per-aviso `canal` de AvisoConfig, que ya no se usa.)
+export type CanalAvisos = "EMAIL" | "WHATSAPP" | "AMBOS";
+
+export const esCanalAvisos = (v: unknown): v is CanalAvisos =>
+  v === "EMAIL" || v === "WHATSAPP" || v === "AMBOS";
+
 export type Aviso = {
   id: string; // = clave en base ; doit correspondre à la clave dispatchée par le code
   evento: string; // libellé de l'événement déclencheur
@@ -14,9 +23,9 @@ export type Aviso = {
 
 // Avisos par défaut : proposés dans Ajustes ET utilisés en REPLI par le backend si le
 // workspace n'a encore rien personnalisé (→ les avisos marchent out-of-the-box).
-// Canal = email : c'est le seul qui part vraiment aujourd'hui (l'envoi WhatsApp
-// automatique reste un chantier — WhatsApp Business API). Chaque clave ci-dessous est
-// réellement déclenchée par le code (sinon ce serait un toggle mort).
+// Le champ `canal` per-aviso est LEGACY (ignoré à l'envoi) : le canal réel est global
+// au workspace (CanalAvisos ci-dessus). Chaque clave ci-dessous est réellement
+// déclenchée par le code (sinon ce serait un toggle mort).
 export const DEFAULT_AVISOS: Aviso[] = [
   { id: "doc_recibido", evento: "Documento recibido", template: "Hola {nombre}, hemos recibido tu {documento}. Lo revisamos enseguida.", canal: "email", activo: true },
   { id: "doc_validado", evento: "Documento validado", template: "Tu {documento} es correcto y ha quedado validado. ✓", canal: "email", activo: true },

@@ -20,7 +20,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const r = await enviarRecordatorioDocs(admin, { expedienteId: id, baseUrl: baseUrlFromRequest(req) });
 
   if (r.motivo === "sin_faltan") return NextResponse.json({ error: "Ya no faltan documentos." }, { status: 409 });
+  // El mensaje apunta al campo correcto según el canal de avisos del workspace.
   if (r.motivo === "sin_email") return NextResponse.json({ error: "El cliente no tiene email registrado." }, { status: 400 });
+  if (r.motivo === "sin_telefono") return NextResponse.json({ error: "El cliente no tiene un móvil utilizable para WhatsApp." }, { status: 400 });
+  if (r.motivo === "sin_contacto") return NextResponse.json({ error: "El cliente no tiene email ni móvil registrados." }, { status: 400 });
   if (r.motivo === "error") return NextResponse.json({ error: "No se pudo enviar el recordatorio." }, { status: 500 });
   // enviado o simulado (sin RESEND) → ok para el gestor
   return NextResponse.json({ ok: true, enviado: r.enviado, faltan: r.faltan });

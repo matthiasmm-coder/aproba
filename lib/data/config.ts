@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
-import { DEFAULT_AVISOS, type Aviso } from "@/lib/avisos";
+import { DEFAULT_AVISOS, esCanalAvisos, type Aviso, type CanalAvisos } from "@/lib/avisos";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Config du workspace (servicios + avisos) — Supabase, sous RLS.
@@ -79,13 +79,18 @@ export type Despacho = {
   hojaEncargoActiva: boolean;
   mandatarioNombre: string | null; mandatarioDni: string | null;
   mandatarioColegiado: string | null; mandatarioColegio: string | null;
+  // Canal de los avisos al cliente (supabase/whatsapp-canal.sql) — EMAIL pre-migración.
+  canalAvisos: CanalAvisos;
 };
 
 export async function fetchDespacho(): Promise<Despacho> {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
-  // logoUrl es columna nueva (feature 4b): si la migración no se aplicó aún, repli.
-  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
+  // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
+  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
+  if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
+  // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
+  if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion");
   if (res.error) res = await q("nombre, nif");
@@ -102,6 +107,7 @@ export async function fetchDespacho(): Promise<Despacho> {
     mandatarioDni: (ws.mandatarioDni as string | null) ?? null,
     mandatarioColegiado: (ws.mandatarioColegiado as string | null) ?? null,
     mandatarioColegio: (ws.mandatarioColegio as string | null) ?? null,
+    canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
   };
 }
 

@@ -59,7 +59,7 @@ export default async function Ajustes() {
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const })),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -95,11 +95,16 @@ export default async function Ajustes() {
 
         <AjustesSection
           title={t("Notificaciones al cliente")}
-          subtitle={t("Avisos automáticos por email en cada paso")}
+          subtitle={t("Avisos automáticos por email o WhatsApp en cada paso")}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
-            <AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} />
+            <AvisosManager
+              inicial={avisos}
+              envioEmailActivo={Boolean(process.env.RESEND_API_KEY)}
+              envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)}
+              canalInicial={despacho.canalAvisos}
+            />
           </fieldset>
         </AjustesSection>
 

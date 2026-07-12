@@ -1,21 +1,52 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { rellenar, type Aviso } from "@/lib/avisos";
+import { rellenar, type Aviso, type CanalAvisos } from "@/lib/avisos";
 import { guardarAvisos } from "@/lib/config-browser";
 import { useT } from "@/components/lang-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-// Avisos automáticos au client — EMAIL uniquement (l'envoi WhatsApp automatique
-// n'existe pas, on ne propose donc pas de canal). Le gestor active/désactive chaque
-// aviso et édite son texte ; la livraison se fait par email (Resend).
-export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: Aviso[]; envioEmailActivo?: boolean }) {
+// Opciones del canal global (label = clave i18n, salvo la marca WhatsApp).
+const CANALES: [CanalAvisos, string][] = [["EMAIL", "Email"], ["WHATSAPP", "WhatsApp"], ["AMBOS", "Ambos"]];
+
+// Avisos automáticos au client — le gestor choisit le CANAL de livraison du workspace
+// (Email / WhatsApp / Ambos → Workspace.canalAvisos, honoré par lib/notificaciones.ts),
+// active/désactive chaque aviso et édite son texte.
+export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsAppActivo = false, canalInicial = "EMAIL" }: {
+  inicial: Aviso[]; envioEmailActivo?: boolean; envioWhatsAppActivo?: boolean; canalInicial?: CanalAvisos;
+}) {
   const t = useT();
-  // On force le canal email (au cas où d'anciennes configs seraient en whatsapp).
+  // On force le canal (legacy per-aviso) email — le canal réel est global au workspace.
   const [avisos, setAvisos] = useState<Aviso[]>(inicial.map((a) => ({ ...a, canal: "email" })));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const mounted = useRef(false);
+
+  // Canal global du workspace — sauvegarde immédiate (pas de debounce : un clic = un choix).
+  const [canal, setCanal] = useState<CanalAvisos>(canalInicial);
+  const [canalState, setCanalState] = useState<SaveState>("idle");
+  const [canalError, setCanalError] = useState<string | null>(null);
+  async function elegirCanal(c: CanalAvisos) {
+    if (c === canal || canalState === "saving") return;
+    const prev = canal;
+    setCanal(c); setCanalState("saving"); setCanalError(null);
+    try {
+      const fd = new FormData();
+      fd.set("soloCanal", "1");
+      fd.set("canalAvisos", c);
+      const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar el canal."));
+      setCanalState("saved");
+      window.setTimeout(() => setCanalState((s) => (s === "saved" ? "idle" : s)), 1500);
+    } catch (e) {
+      setCanal(prev);
+      setCanalState("error");
+      setCanalError(e instanceof Error ? e.message : t("No se pudo guardar el canal."));
+    }
+  }
+  const conEmail = canal !== "WHATSAPP";
+  const conWhatsApp = canal !== "EMAIL";
 
   // Persister en base (Supabase, RLS) — debounce 600 ms.
   useEffect(() => {
@@ -39,18 +70,70 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: { inicial: 
   const update = (id: string, patch: Partial<Aviso>) => setAvisos((l) => l.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const activos = avisos.filter((a) => a.activo);
 
+  const IconOk = <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" />;
+  const IconWarn = <><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></>;
+  const bandera = (activo: boolean, fuerte: string, resto: string) => (
+    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${activo ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+      <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {activo ? IconOk : IconWarn}
+      </svg>
+      <span><span className="font-semibold">{fuerte}</span> {resto}</span>
+    </div>
+  );
+
   return (
     <div>
-      {/* Estado de envío email : real (Resend) vs simulación */}
-      <div className={`mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${envioEmailActivo ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-        <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {envioEmailActivo ? <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" /> : <><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></>}
-        </svg>
-        <span>
-          {envioEmailActivo
-            ? <><span className="font-semibold">{t("Envíos por email activos.")}</span> {t("Tus clientes reciben estos avisos por correo automáticamente.")}</>
-            : <><span className="font-semibold">{t("Modo simulación.")}</span> {t("Los avisos se registran en el historial del expediente pero todavía no se envían (falta configurar el envío por email).")}</>}
-        </span>
+      {/* Canal de entrega — Email / WhatsApp / Ambos (Workspace.canalAvisos) */}
+      <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{t("Canal de los avisos")}</p>
+            <p className="text-xs text-slate-500">{t("Cómo recibe el cliente estos mensajes.")}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-medium transition-opacity duration-300 ${canalState === "idle" ? "opacity-0" : "opacity-100"} ${canalState === "error" ? "text-red-600" : "text-aproba-700"}`}>
+              {canalState === "saving" ? t("Guardando…") : canalState === "saved" ? t("Guardado") : canalState === "error" ? t("Error al guardar — reintenta") : ""}
+            </span>
+            <div
+              className="flex divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300"
+              role="radiogroup"
+              aria-label={t("Canal de los avisos")}
+              onKeyDown={(e) => {
+                // Patrón radio WAI-ARIA: las flechas mueven selección + foco (roving tabindex).
+                const delta = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+                if (!delta || canalState === "saving") return;
+                e.preventDefault();
+                const idx = CANALES.findIndex(([c]) => c === canal);
+                const next = (idx + delta + CANALES.length) % CANALES.length;
+                void elegirCanal(CANALES[next][0]);
+                e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+              }}
+            >
+              {CANALES.map(([c, labelKey]) => (
+                <button key={c} role="radio" aria-checked={canal === c} tabIndex={canal === c ? 0 : -1}
+                  onClick={() => elegirCanal(c)} aria-disabled={canalState === "saving"}
+                  className={`px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900 ${canal === c ? "bg-aproba-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                  {labelKey === "WhatsApp" ? labelKey : t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {canalError && <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{canalError}</p>}
+      </div>
+
+      {/* Estado de envío por canal : real vs simulación */}
+      <div className="mb-4 space-y-2">
+        {conEmail && bandera(
+          envioEmailActivo,
+          envioEmailActivo ? t("Envíos por email activos.") : t("Modo simulación."),
+          envioEmailActivo ? t("Tus clientes reciben estos avisos por correo automáticamente.") : t("Los avisos se registran en el historial del expediente pero todavía no se envían (falta configurar el envío por email)."),
+        )}
+        {conWhatsApp && bandera(
+          envioWhatsAppActivo,
+          envioWhatsAppActivo ? t("Envíos por WhatsApp activos.") : t("WhatsApp en modo simulación."),
+          envioWhatsAppActivo ? t("Tus clientes reciben estos avisos por WhatsApp automáticamente.") : t("Los mensajes se registran en el historial del expediente pero todavía no se envían (falta configurar el número de WhatsApp)."),
+        )}
       </div>
 
       <div className="mb-4 flex items-center justify-between">

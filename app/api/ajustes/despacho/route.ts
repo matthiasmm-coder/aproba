@@ -30,6 +30,21 @@ export async function POST(req: Request) {
 
   const str = (k: string) => { const v = form.get(k); return typeof v === "string" ? v.trim() : ""; };
 
+  // Modo «solo canal»: el selector Email/WhatsApp/Ambos de Notificaciones al cliente
+  // guarda ÚNICAMENTE Workspace.canalAvisos. Requiere supabase/whatsapp-canal.sql.
+  if (str("soloCanal") === "1") {
+    const canal = str("canalAvisos");
+    if (!["EMAIL", "WHATSAPP", "AMBOS"].includes(canal)) {
+      return NextResponse.json({ error: "Canal inválido." }, { status: 400 });
+    }
+    const { error: eCanal } = await r.admin.from("Workspace").update({ canalAvisos: canal }).eq("id", r.workspaceId);
+    if (eCanal) {
+      const falta = /canalAvisos|schema cache|column/i.test(eCanal.message);
+      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/whatsapp-canal.sql en Supabase." : eCanal.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // Modo «solo encargo»: el bloque Hoja de encargo/mandato guarda ÚNICAMENTE sus
   // campos (si no, machacaría nombre/NIF con vacíos). Requiere supabase/hoja-encargo.sql.
   if (str("soloEncargo") === "1") {
