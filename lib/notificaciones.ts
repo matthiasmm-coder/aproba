@@ -6,7 +6,8 @@ import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, type CanalAvisos } from "@/lib/whatsapp";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
+import { docsFaltantes } from "@/lib/tramites";
+import { serviciosDeExpediente, docsDeServicios } from "@/lib/multi-servicio";
 
 // Avisos automáticos au client — email (Resend) et/ou WhatsApp (Twilio) selon le canal
 // choisi par le workspace (Ajustes → Notificaciones al cliente : EMAIL | WHATSAPP | AMBOS).
@@ -209,15 +210,22 @@ export async function enviarSeguimiento(
   opts: { expedienteId: string; baseUrl?: string },
 ): Promise<void> {
   try {
-    const { data: expRaw } = await admin
+    let resExp = await admin
+      .from("Expediente")
+      .select("portalToken, tipo, servicioClave, serviciosExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    if (resExp.error) resExp = await admin
       .from("Expediente")
       .select("portalToken, tipo, servicioClave, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
-      .maybeSingle();
+      .maybeSingle() as typeof resExp;
+    const expRaw = resExp.data;
     const exp = expRaw as {
       portalToken: string | null;
       tipo: string;
       servicioClave: string | null;
+      serviciosExtra?: string[] | null;
       Cliente: { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null }[] | null;
       Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
       documentos: { tipo: string; estado: string }[] | null;
@@ -249,8 +257,8 @@ export async function enviarSeguimiento(
     try {
       if (ws?.id) {
         const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
-        const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-        faltanDocs = docsFaltantes(servicio?.docs ?? [], exp.documentos ?? []).length > 0;
+        const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
+        faltanDocs = docsFaltantes(requeridos, exp.documentos ?? []).length > 0;
       }
     } catch { /* repli propre : sin info de docs, email de seguimiento normal */ }
 
@@ -537,15 +545,22 @@ export async function enviarRecordatorioDocs(
   opts: { expedienteId: string; baseUrl?: string },
 ): Promise<{ enviado: boolean; faltan: number; motivo?: "sin_faltan" | "sin_email" | "sin_telefono" | "sin_contacto" | "simulado" | "error" }> {
   try {
-    const { data: expRaw } = await admin
+    let resExp = await admin
+      .from("Expediente")
+      .select("portalToken, tipo, servicioClave, serviciosExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    if (resExp.error) resExp = await admin
       .from("Expediente")
       .select("portalToken, tipo, servicioClave, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
-      .maybeSingle();
+      .maybeSingle() as typeof resExp;
+    const expRaw = resExp.data;
     const exp = expRaw as {
       portalToken: string | null;
       tipo: string;
       servicioClave: string | null;
+      serviciosExtra?: string[] | null;
       Cliente: { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null }[] | null;
       Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
       documentos: { tipo: string; estado: string }[] | null;
@@ -562,8 +577,8 @@ export async function enviarRecordatorioDocs(
     let faltantes: string[] = [];
     if (ws?.id) {
       const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
-      const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-      faltantes = docsFaltantes(servicio?.docs ?? [], exp.documentos ?? []);
+      const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
+      faltantes = docsFaltantes(requeridos, exp.documentos ?? []);
     }
     if (!faltantes.length) return { enviado: false, faltan: 0, motivo: "sin_faltan" };
     const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");

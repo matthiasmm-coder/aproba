@@ -11,7 +11,8 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   const exp = await fetchExpedienteDetalle(id);
   if (!exp) notFound();
 
-  const oficiales = formulariosDelTramite(exp.tipoEnum, exp.servicioClave);
+  // Multi-servicio: unión de los modelos del principal + extras.
+  const oficiales = formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
   // Expediente familiar: un juego de formularios por solicitante (rellenado con sus datos).
   // p2Inicial: casilla p.2 forzada previamente (persistida) para inicializar el selector.
   const [applicants, p2Inicial] = await Promise.all([

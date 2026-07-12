@@ -2,7 +2,8 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FICHA_KEYS } from "@/lib/ficha";
-import { TIPO_LABEL, TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
+import { TIPO_LABEL, docsFaltantes } from "@/lib/tramites";
+import { serviciosDeExpediente, docsDeServicios, labelServicios } from "@/lib/multi-servicio";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 
 // EL FUNCIONARIO FANTASMA (Centinela) — revisa el expediente COMPLETO como lo haría
@@ -91,11 +92,16 @@ const PLANTILLA = `{
 
 // ── Recolección del contexto del expediente ──────────────────────────────────
 async function contextoExpediente(admin: SupabaseClient, expedienteId: string) {
-  const { data: exp } = await admin
+  // serviciosExtra puede no existir aún (migración pendiente) → repli sin la columna.
+  let resExp = await admin
     .from("Expediente")
-    .select("id, workspaceId, clienteId, familiaId, referencia, tipo, servicioClave, estado")
+    .select("id, workspaceId, clienteId, familiaId, referencia, tipo, servicioClave, serviciosExtra, estado")
     .eq("id", expedienteId)
     .maybeSingle();
+  if (resExp.error) {
+    resExp = await admin.from("Expediente").select("id, workspaceId, clienteId, familiaId, referencia, tipo, servicioClave, estado").eq("id", expedienteId).maybeSingle() as typeof resExp;
+  }
+  const exp = resExp.data;
   if (!exp) return null;
 
   // Ficha del solicitante (columnas planas) + provincia para el corpus.
@@ -104,14 +110,15 @@ async function contextoExpediente(admin: SupabaseClient, expedienteId: string) {
   const { data: clienteRaw } = await admin.from("Cliente").select(fichaCols).eq("id", exp.clienteId).eq("workspaceId", exp.workspaceId).maybeSingle();
   const cliente = (clienteRaw ?? {}) as unknown as Record<string, string | null>;
 
-  // Servicio → documentos requeridos.
+  // Servicios (principal + extras) → unión de documentos requeridos + label compuesto:
+  // el funcionario fantasma debe revisar el perímetro COMPLETO del encargo.
   let requeridos: string[] = [];
   let servicioLabel = TIPO_LABEL[exp.tipo as string] ?? String(exp.tipo);
   try {
     const servicios = await fetchServiciosDeWorkspace(admin, String(exp.workspaceId));
-    const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo as string]));
-    requeridos = servicio?.docs ?? [];
-    if (servicio?.label?.trim()) servicioLabel = servicio.label;
+    const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: (exp as { serviciosExtra?: string[] | null }).serviciosExtra, tipo: String(exp.tipo) }, servicios);
+    requeridos = docsDeServicios(serviciosExp);
+    servicioLabel = labelServicios(serviciosExp, servicioLabel);
   } catch { /* repli */ }
 
   // Documentos + extracción IA de cada uno.

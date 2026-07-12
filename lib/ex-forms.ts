@@ -1,4 +1,5 @@
 import "server-only";
+import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -266,9 +267,26 @@ export function formulariosParaTramite(tipoEnum: string, servicioClave?: string 
 // Variante SIN repli sobre "todos los modelos": solo los del trámite (vacío si no hay
 // mapeo). La usa la vista del cliente: NUNCA debe ver todos los modelos, solo los de SU
 // trámite. (El gestor sí usa formulariosParaTramite para poder elegir cualquiera.)
-export function formulariosDelTramite(tipoEnum: string, servicioClave?: string | null): string[] {
-  if (servicioClave && SERVICIO_FORMS[servicioClave]) return SERVICIO_FORMS[servicioClave].filter(formularioOficialDisponible);
-  return (TRAMITE_FORMS[tipoEnum] ?? []).filter(formularioOficialDisponible);
+//
+// Multi-servicio: acepta la(s) clave(s) del expediente — string (compat) o array
+// [principal, ...extras]. Unión deduplicada, principal primero. El repli TRAMITE_FORMS
+// por tipoEnum solo aplica al PRINCIPAL (los extras no tienen tipo propio; una clave
+// extra sin mapeo no aporta modelos, como hoy).
+export function formulariosDelTramite(tipoEnum: string, claves?: string | (string | null)[] | null): string[] {
+  // El slot 0 es SIEMPRE el principal (puede ser null → repli por tipoEnum); el resto, extras.
+  const lista = Array.isArray(claves) ? claves : [claves ?? null];
+  const [principal, ...extrasRaw] = lista.length ? lista : [null];
+  const extras = extrasRaw.filter((c): c is string => Boolean(c));
+  const out: string[] = [];
+  const base = principal && SERVICIO_FORMS[principal] ? SERVICIO_FORMS[principal] : (TRAMITE_FORMS[tipoEnum] ?? []);
+  for (const code of base) if (!out.includes(code)) out.push(code);
+  // Extras: SERVICIO_FORMS primero; las claves estándar (nie, renovacion_tie…) no están
+  // ahí → repli por su tipo (SERVICIO_A_TIPO), como haría el mismo servicio de principal.
+  for (const clave of extras) {
+    const codes = SERVICIO_FORMS[clave] ?? TRAMITE_FORMS[SERVICIO_A_TIPO[clave] ?? ""] ?? [];
+    for (const code of codes) if (!out.includes(code)) out.push(code);
+  }
+  return out.filter(formularioOficialDisponible);
 }
 
 // extra (expediente familiar):

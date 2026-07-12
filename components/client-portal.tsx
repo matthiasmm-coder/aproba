@@ -55,6 +55,7 @@ export function ClientPortal({
   encargoActivo,
   familia,
   servicioInicial,
+  serviciosExtraClaves,
   docsSubidos,
 }: {
   servicios?: Servicio[];
@@ -70,6 +71,7 @@ export function ClientPortal({
   // REPRISE DE SESSION: servicio ya elegido + documentos ya subidos (el migrante que
   // vuelve al enlace NO empieza de cero — retoma en el primer paso incompleto).
   servicioInicial?: string | null;
+  serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
   docsSubidos?: { tipo: string; estado: string }[];
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
@@ -115,11 +117,19 @@ export function ClientPortal({
   // alerta) en vez de «pendiente» — el migrante no vuelve a subir lo que ya envió.
   const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>(() => {
     if (!servicioInicial || !docsSubidos?.length) return {};
-    const svc = (serviciosProp ?? DEFAULT_SERVICIOS).find((s) => s.id === servicioInicial);
+    const catalogo = serviciosProp ?? DEFAULT_SERVICIOS;
+    const svc = catalogo.find((s) => s.id === servicioInicial);
     const m: Record<number, { status: DocStatus; attempts: number }> = {};
-    // Iterar sobre la MISMA lista que el render (docs del servicio + firma) para que
-    // los slots de hoja/mandato ya subidos también aparezcan validados al reanudar.
-    const labels = [...(svc?.docs ?? []), ...(encargoActivo && token ? DOCS_FIRMA : [])];
+    // Iterar sobre la MISMA lista que el render (unión de docs del principal + extras
+    // + firma) para que los índices coincidan — si no, al reanudar con extras los
+    // estados se pintarían en los slots equivocados.
+    const base = [...(svc?.docs ?? [])];
+    for (const c of serviciosExtraClaves ?? []) {
+      if (c === servicioInicial) continue;
+      const sv = catalogo.find((x) => x.id === c);
+      for (const d of sv?.docs ?? []) if (!base.includes(d)) base.push(d);
+    }
+    const labels = [...base, ...(encargoActivo && token ? DOCS_FIRMA : [])];
     labels.forEach((label, i) => {
       const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
       if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
@@ -173,7 +183,17 @@ export function ClientPortal({
   }, []);
 
   const tramite = servicios.find((tr) => tr.id === tramiteId);
-  const requiredDocs = [...(tramite?.docs ?? []), ...(encargoActivo && token ? DOCS_FIRMA : [])];
+  // Multi-servicio: los extras del gestor suman documentos (unión, orden principal→extras,
+  // estable — los slots se indexan por posición) y tarifa. Mismas reglas que el servidor.
+  // Catálogo SIN filtrar por active: un extra desactivado después de asignarse sigue
+  // sumando en /api/pagos — el portal debe enseñar el mismo precio y los mismos docs.
+  const extrasServicios = (serviciosExtraClaves ?? [])
+    .filter((c) => c !== tramiteId)
+    .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
+    .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv));
+  const docsBase = [...(tramite?.docs ?? [])];
+  for (const sv of extrasServicios) for (const d of sv.docs ?? []) if (!docsBase.includes(d)) docsBase.push(d);
+  const requiredDocs = [...docsBase, ...(encargoActivo && token ? DOCS_FIRMA : [])];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
@@ -183,8 +203,8 @@ export function ClientPortal({
   // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
   // añadidos en el paso Datos), no la prop SSR que llegó congelada del servidor.
   const nMiembros = Math.max(1, familia ? famMiembros.length : 1);
-  const anticipo = (tramite?.anticipo ?? 0) * nMiembros;
-  const resto = (tramite?.resto ?? 0) * nMiembros;
+  const anticipo = ((tramite?.anticipo ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0)) * nMiembros;
+  const resto = ((tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0)) * nMiembros;
   const conPago = anticipo > 0;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
@@ -748,7 +768,7 @@ export function ClientPortal({
 
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">{t("s3.anticipo", { label: servicioLabel(tramite.id, tramite.label, lang) })}</span>
+                <span className="text-slate-500">{t("s3.anticipo", { label: [servicioLabel(tramite.id, tramite.label, lang), ...extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang))].join(" + ") })}</span>
                 <span className="font-medium text-slate-800">{eur(anticipo)}</span>
               </div>
               {nMiembros > 1 && (

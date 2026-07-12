@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 
 // Le client (portail /j/[token]) confirme son trámite :
 // → tipo réel + estado DOCS_PENDIENTES + événement dans l'historial du gestor.
@@ -20,11 +21,21 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdmin();
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, estado")
+    .select("id, estado, workspaceId")
     .eq("portalToken", token)
     .maybeSingle();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
+
+  // La clave debe ser un servicio del despacho: una clave arbitraria dejaría el
+  // principal «huérfano» y la factura automática cobraría solo los extras (multi-
+  // servicio suma tarifas de los servicios RESUELTOS). Mismo criterio que el gestor.
+  try {
+    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string);
+    if (catalogo.length && !catalogo.some((s) => s.id === clave)) {
+      return NextResponse.json({ error: "Servicio no válido" }, { status: 400 });
+    }
+  } catch { /* sin catálogo legible → comportamiento anterior */ }
 
   const tipo = SERVICIO_A_TIPO[clave] ?? "OTRO";
   const { error: e2 } = await admin

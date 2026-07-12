@@ -23,7 +23,8 @@ export type DatosEncargo = {
     domicilio: string; municipio: string; cp: string; provincia: string;
     telefono: string; email: string;
   };
-  servicio: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string };
+  // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
+  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string }[];
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
 };
 
@@ -52,7 +53,7 @@ const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 // ── Recogida de datos ────────────────────────────────────────────────────────
 
 type ExpRow = {
-  id: string; referencia: string; tipo: string; servicioClave: string | null; workspaceId: string;
+  id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; workspaceId: string;
   cliente: Record<string, string | null> | null;
 };
 
@@ -66,9 +67,16 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   const ws = (wsRes.data ?? {}) as Record<string, unknown>;
   if (!ws.nombre) return null;
 
-  const servicios = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
-  const servicio = servicios.find((x) => x.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
-  if (!servicio) return null;
+  const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
+  // El PRINCIPAL debe resolver (si no → null → 409, como siempre); los extras que no
+  // resuelvan (servicio borrado/desactivado) se omiten sin bloquear el contrato.
+  const principal = catalogo.find((x) => x.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
+  if (!principal) return null;
+  const extras = (Array.isArray(exp.serviciosExtra) ? exp.serviciosExtra : [])
+    .filter((clave) => clave && clave !== principal.id)
+    .map((clave) => catalogo.find((x) => x.id === clave))
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const listaServicios = [principal, ...extras];
 
   // Medios de pago reales del despacho: IBAN activo + tarjeta si está configurada.
   const medios: string[] = [];
@@ -98,11 +106,11 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
       telefono: s(c.telefono), email: s(c.email),
     },
-    servicio: {
-      label: servicio.label, desc: servicio.desc,
-      anticipo: servicio.anticipo, resto: servicio.resto,
-      noIncluye: s((servicio as { noIncluye?: string }).noIncluye),
-    },
+    servicios: listaServicios.map((sv) => ({
+      label: sv.label, desc: sv.desc,
+      anticipo: sv.anticipo, resto: sv.resto,
+      noIncluye: s((sv as { noIncluye?: string }).noIncluye),
+    })),
     medios,
   };
 }
@@ -247,18 +255,42 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.fila("Contacto", [d.cliente.telefono, d.cliente.email].filter(Boolean).join(" / ") || o("", 30));
 
   m.seccion("3. OBJETO DEL ENCARGO — SERVICIOS INCLUIDOS");
-  m.parrafo(`El cliente encarga al profesional la tramitación de: ${d.servicio.label}.`, { bold: true });
-  if (d.servicio.desc) m.parrafo(d.servicio.desc);
-  m.parrafo("El encargo incluye la preparación y revisión de la documentación, la cumplimentación de los formularios oficiales del trámite, su presentación ante el órgano competente y el seguimiento del expediente hasta su resolución.");
+  m.parrafo(`El cliente encarga al profesional la tramitación de: ${d.servicios.map((sv) => sv.label).join(" + ")}.`, { bold: true });
+  for (const sv of d.servicios) {
+    if (sv.desc) m.parrafo(d.servicios.length > 1 ? `${sv.label}: ${sv.desc}` : sv.desc);
+  }
+  m.parrafo(`El encargo incluye la preparación y revisión de la documentación, la cumplimentación de los formularios oficiales ${d.servicios.length > 1 ? "de los trámites indicados" : "del trámite"}, su presentación ante el órgano competente y el seguimiento del expediente hasta su resolución.`);
 
   m.seccion("4. SERVICIOS NO INCLUIDOS");
-  m.parrafo(d.servicio.noIncluye || "Cualquier actuación no descrita en el apartado anterior. En particular, recursos administrativos o judiciales, trámites distintos del indicado y desplazamientos, que en su caso serán objeto de encargo y presupuesto aparte.");
+  // Exclusiones ATRIBUIDAS a su servicio cuando hay varios: un «no incluye X» del
+  // principal podría contradecir un extra X incluido en §3 — la atribución acota cada
+  // exclusión a su trámite y evita un contrato autocontradictorio.
+  const conExclusion = d.servicios.filter((sv) => sv.noIncluye);
+  if (conExclusion.length) {
+    const vistas = new Set<string>();
+    for (const sv of conExclusion) {
+      const texto = d.servicios.length > 1 ? `${sv.label}: ${sv.noIncluye}` : sv.noIncluye;
+      if (vistas.has(texto)) continue;
+      vistas.add(texto);
+      m.parrafo(texto);
+    }
+  } else {
+    m.parrafo(`Cualquier actuación no descrita en el apartado anterior. En particular, recursos administrativos o judiciales, trámites distintos ${d.servicios.length > 1 ? "de los indicados" : "del indicado"} y desplazamientos, que en su caso serán objeto de encargo y presupuesto aparte.`);
+  }
 
   m.seccion("5. HONORARIOS");
-  if (d.servicio.anticipo > 0 || d.servicio.resto > 0) {
-    if (d.servicio.anticipo > 0) m.fila("Al inicio (a la firma)", `${eur(d.servicio.anticipo)} + IVA (21%)`);
-    if (d.servicio.resto > 0) m.fila("Al finalizar el trámite", `${eur(d.servicio.resto)} + IVA (21%)`);
-    m.fila("Total honorarios", `${eur(d.servicio.anticipo + d.servicio.resto)} + IVA (21%)`);
+  const anticipoTotal = d.servicios.reduce((a, sv) => a + sv.anticipo, 0);
+  const restoTotal = d.servicios.reduce((a, sv) => a + sv.resto, 0);
+  if (anticipoTotal > 0 || restoTotal > 0) {
+    // Desglose por servicio cuando hay más de uno (el contrato debe cuadrar con la factura).
+    if (d.servicios.length > 1) {
+      for (const sv of d.servicios) {
+        if (sv.anticipo > 0 || sv.resto > 0) m.fila(sv.label, `${eur(sv.anticipo + sv.resto)} + IVA (21%)`);
+      }
+    }
+    if (anticipoTotal > 0) m.fila("Al inicio (a la firma)", `${eur(anticipoTotal)} + IVA (21%)`);
+    if (restoTotal > 0) m.fila("Al finalizar el trámite", `${eur(restoTotal)} + IVA (21%)`);
+    m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
   } else {
     m.fila("Honorarios", "Según presupuesto");
   }
@@ -266,11 +298,11 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
 
   m.seccion("6. FORMA Y MEDIOS DE PAGO");
   m.parrafo(
-    d.servicio.anticipo > 0 && d.servicio.resto > 0
+    anticipoTotal > 0 && restoTotal > 0
       ? "El pago se realiza en dos plazos: el anticipo al inicio del encargo y el resto a la finalización del trámite, previa emisión de la factura correspondiente."
-      : d.servicio.anticipo > 0
+      : anticipoTotal > 0
         ? "El pago se realiza en un único plazo al inicio del encargo, previa emisión de la factura correspondiente."
-        : d.servicio.resto > 0
+        : restoTotal > 0
           ? "El pago se realiza a la finalización del trámite, previa emisión de la factura correspondiente."
           : "El pago se acuerda según el presupuesto aceptado, previa emisión de la factura correspondiente.",
   );

@@ -7,7 +7,8 @@ import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo"
 // Autorización: el portalToken (mismo nivel de acceso que /j). Solo si la
 // gestoría tiene la función activada en Ajustes.
 
-const SELECT = "id, referencia, tipo, servicioClave, workspaceId, cliente:Cliente(*)";
+const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, workspaceId, cliente:Cliente(*)";
+const SELECT_SIN_EXTRAS = SELECT.replace(", serviciosExtra", "");
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -16,9 +17,10 @@ export async function GET(req: Request) {
   if (!token) return NextResponse.json({ error: "token requerido" }, { status: 400 });
 
   const admin = createSupabaseAdmin();
-  const { data } = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
-  const exp = data as unknown as {
-    id: string; referencia: string; tipo: string; servicioClave: string | null; workspaceId: string;
+  let res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(SELECT_SIN_EXTRAS).eq("portalToken", token).maybeSingle() as typeof res;
+  const exp = res.data as unknown as {
+    id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; workspaceId: string;
     cliente: Record<string, string | null> | null;
   } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado" }, { status: 404 });

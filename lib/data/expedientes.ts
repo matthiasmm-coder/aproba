@@ -49,7 +49,7 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
   const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false }),
+    supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false }),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label"),
@@ -57,6 +57,11 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
   // Replis en cadena SIN reasignar la respuesta tipada (los selects difieren en columnas).
   let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
   let error = conTodo.error;
+  if (error) {
+    const r1b = await supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false });
+    data = (r1b.data ?? null) as unknown[] | null;
+    error = r1b.error;
+  }
   if (error) {
     const r2 = await supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`).order("createdAt", { ascending: false });
     data = (r2.data ?? null) as unknown[] | null;
@@ -81,7 +86,12 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
     // como familia); individual → nombre del cliente.
     clienteNombre: unoFam(e.familia)?.nombre || `${e.cliente?.nombre ?? ""} ${e.cliente?.apellidos ?? ""}`.trim() || "—",
     clienteNacionalidad: e.cliente?.nacionalidad ?? "—",
-    tipoLabel: (e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo,
+    // Multi-servicio: la tarjeta muestra el principal + «+N» si hay extras.
+    tipoLabel: ((e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo) + (() => {
+      const extras = (e as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
+      const n = Array.isArray(extras) ? [...new Set(extras.filter((c) => c && c !== e.servicioClave))].length : 0;
+      return n > 0 ? ` +${n}` : "";
+    })(),
     estado: e.estado as ExpedienteEstado,
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
@@ -119,6 +129,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   }[];
   formulariosGenerados?: string[] | null; // colonne (source réelle des formulaires générés)
   tasaPath?: string | null;
+  serviciosExtra?: string[] | null; // multi-servicio (claves adicionales)
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
@@ -140,6 +151,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   formulariosCurados: boolean; // la lista fue persistida (aunque vacía) → ES la verdad, no re-unir defaults
   facturasPago: FacturaPago[];
   servicioClave: string | null;
+  serviciosExtra: string[]; // multi-servicio: claves ADICIONALES (principal = servicioClave)
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
@@ -163,7 +175,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -224,6 +236,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     eventos,
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
+    serviciosExtra: Array.isArray((e as { serviciosExtra?: string[] | null }).serviciosExtra) ? ((e as { serviciosExtra?: string[] | null }).serviciosExtra as string[]).filter(Boolean) : [],
     portalToken: e.portalToken ?? null,
     familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
@@ -243,8 +256,12 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   const supabase = await createSupabaseServer();
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
+  // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
+  if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+  }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -257,8 +274,11 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (!token) return null;
   const admin = createSupabaseAdmin();
   let res = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);

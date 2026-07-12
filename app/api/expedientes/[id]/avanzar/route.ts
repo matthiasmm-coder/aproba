@@ -5,7 +5,7 @@ import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
-import { TIPO_A_SERVICIO } from "@/lib/tramites";
+import { serviciosDeExpediente, citaDeServicios } from "@/lib/multi-servicio";
 import { sembrarVencimiento, cerrarCicloRenovacion, MESES_VALIDEZ } from "@/lib/vencimientos";
 import type { ExpedienteEstado } from "@/lib/types";
 
@@ -55,12 +55,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (exp.estado !== "RESUELTO") return NextResponse.json({ error: `Esta acción no es posible desde el estado actual (${exp.estado}).` }, { status: 409 });
     if (!body.fecha) return NextResponse.json({ error: "Falta la fecha de la cita." }, { status: 400 });
 
-    // Qui se rend à la cita ? (config du service de l'expediente)
+    // Qui se rend à la cita ? Multi-servicio: fusión OR (si UN servicio con cita la
+    // asume el gestor, acude el gestor) — misma regla que la ficha, /s y la agenda.
     let quien: "cliente" | "gestor" = "cliente";
     if (ws) {
       const servicios = await fetchServiciosDeWorkspace(admin, ws);
-      const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipoEnum]));
-      quien = servicio?.citaQuien === "gestor" ? "gestor" : "cliente";
+      quien = citaDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipoEnum }, servicios)).citaQuien;
     }
 
     const patch = { estado: "CITA_HUELLAS", fechaCita: body.fecha, citaHora: body.hora ?? null, citaLugar: body.lugar ?? null, citaNotas: body.notas ?? null, updatedAt: new Date().toISOString() };

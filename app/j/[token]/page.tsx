@@ -53,6 +53,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
+  let serviciosExtraClaves: string[] = [];
   let docsSubidos: { tipo: string; estado: string }[] = [];
   // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
   // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
@@ -61,8 +62,9 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
@@ -96,6 +98,10 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       // (individuales; los de la familia van por su propio componente).
       servicioInicial = exp.servicioClave ?? (exp.tipo && exp.tipo !== "OTRO" ? TIPO_A_SERVICIO[exp.tipo] ?? null : null);
       if (servicioInicial && !servicios.some((s) => s.id === servicioInicial && s.active)) servicioInicial = null;
+      // Multi-servicio: extras puestos por el gestor — el cliente NO los elige en el
+      // wizard, pero suman documentos requeridos y tarifa (deben cuadrar con /api/pagos).
+      const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
+      serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
       try {
         const { data: docRows } = await admin.from("Documento").select("tipo, estado, clienteId").eq("expedienteId", exp.id);
         docsSubidos = ((docRows ?? []) as { tipo: string; estado: string; clienteId: string | null }[])
@@ -182,6 +188,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       encargoActivo={encargoActivo}
       familia={familia}
       servicioInicial={servicioInicial}
+      serviciosExtraClaves={serviciosExtraClaves}
       docsSubidos={docsSubidos}
     />
   );

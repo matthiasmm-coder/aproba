@@ -4,7 +4,8 @@ import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { TIPO_A_SERVICIO, docsFaltantes } from "@/lib/tramites";
+import { docsFaltantes } from "@/lib/tramites";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios } from "@/lib/multi-servicio";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
@@ -66,13 +67,17 @@ export default async function ExpedienteDetail({
   const [familia, famPrefill, famFacturas] = e.familiaId
     ? await Promise.all([fetchFamiliaDetalle(e.familiaId), fetchFacturaFamiliaPrefill(e.familiaId), fetchFacturasDeFamilia(e.familiaId)])
     : [null, null, []];
-  // On retrouve le service par sa clave mémorisée (gère les services custom), avec repli
-  // sur le mapping par type pour les anciens expedientes sans servicioClave.
-  const servicio = servicios.find((s) => s.id === (e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum]));
+  // Multi-servicio: principal (servicioClave, repli por tipo) + extras. Docs = unión,
+  // tarifa = suma, cita = OR (gestor gana) — mismas reglas que la API y el portal.
+  const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, servicios);
+  const docsRequeridos = docsDeServicios(serviciosExp);
+  const tarifa = tarifaDeServicios(serviciosExp);
+  const cita = citaDeServicios(serviciosExp);
+  const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
 
   // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
-  const docsPendientes = docsFaltantes(servicio?.docs ?? [], e.documentos);
+  const docsPendientes = docsFaltantes(docsRequeridos, e.documentos);
 
   const meta = ESTADO_META[e.estado];
 
@@ -95,10 +100,10 @@ export default async function ExpedienteDetail({
           <div>
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
-            <p className="text-slate-500">{servicio?.label?.trim() || e.tipoLabel}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
+            <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
             {/* También en familia (pedido por Juan): el cambio ajusta el precio base ×N como
                 cualquier recálculo de la facturación familiar. */}
-            <CambiarServicio expedienteId={e.id} servicios={servicios} actualClave={e.servicioClave ?? null} />
+            <CambiarServicio expedienteId={e.id} servicios={servicios} actualClave={e.servicioClave ?? null} extrasActuales={e.serviciosExtra} />
             {familia && (
               <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-aproba-50 px-2.5 py-0.5 text-xs font-semibold text-aproba-700">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>
@@ -129,8 +134,8 @@ export default async function ExpedienteDetail({
       <DriverBanner
         id={e.id}
         estado={e.estado}
-        citaPresencial={Boolean(servicio?.citaPresencial)}
-        citaQuien={servicio?.citaQuien ?? "cliente"}
+        citaPresencial={cita.citaPresencial}
+        citaQuien={cita.citaQuien}
         portalToken={e.portalToken}
         permiteSubidaInterna={!familia}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
@@ -182,7 +187,7 @@ export default async function ExpedienteDetail({
               FINALIZADO…): el pipeline solo promociona/regresa el estado en las etapas de
               recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
               (vía portal); aquí solo expedientes individuales. */}
-          {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={servicio?.docs ?? []} />}
+          {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={docsRequeridos} />}
         </section>
 
         {/* Formularios */}
@@ -219,12 +224,12 @@ export default async function ExpedienteDetail({
           expedienteId={e.id}
           // Expediente familiar: el servicio es POR MIEMBRO — mismo multiplicador que
           // el portal y la factura automática; si no, el gestor sub-factura el pago final.
-          anticipo={(servicio?.anticipo ?? 0) * Math.max(1, familia?.miembros.length ?? 1)}
-          resto={(servicio?.resto ?? 0) * Math.max(1, familia?.miembros.length ?? 1)}
+          anticipo={tarifa.anticipo * Math.max(1, familia?.miembros.length ?? 1)}
+          resto={tarifa.resto * Math.max(1, familia?.miembros.length ?? 1)}
           facturas={e.facturasPago}
           clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
-          conceptoFinal={`Liquidación final — ${servicio?.label?.trim() || e.tipoLabel} (${e.referencia})`}
-          conceptoAnticipo={`Anticipo — ${servicio?.label?.trim() || e.tipoLabel} (${e.referencia})`}
+          conceptoFinal={`Liquidación final — ${etiquetaServicios} (${e.referencia})`}
+          conceptoAnticipo={`Anticipo — ${etiquetaServicios} (${e.referencia})`}
         />
 
         {/* Historial */}

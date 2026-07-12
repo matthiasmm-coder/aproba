@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
+import { serviciosDeExpediente, docsDeServicios, citaDeServicios } from "@/lib/multi-servicio";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 
@@ -20,7 +21,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const SELECT = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(id, tipo, estado, storagePath)";
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas.
-  let res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
   const data = res.data;
@@ -28,6 +30,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
+    serviciosExtra?: string[] | null;
     formulariosGenerados?: string[] | null; tasaPath?: string | null; familiaId?: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
@@ -40,7 +43,11 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const cliente = uno(exp.cliente ?? null);
   const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+  // Multi-servicio: principal + extras → unión de docs, cita fusionada (mismas reglas
+  // que la ficha del gestor y la API — la timeline no debe prometer otra cosa).
+  const serviciosExp = serviciosDeExpediente(exp, servicios);
   const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
+  const cita = citaDeServicios(serviciosExp);
   // Hoja de encargo + mandato firmados: huecos adicionales si la gestoría lo activó.
   let encargoActivo = false;
   try {
@@ -49,7 +56,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva) && Boolean(servicio);
   } catch { /* pre-migración */ }
   const requeridos: string[] = [
-    ...(servicio?.docs ?? []),
+    ...docsDeServicios(serviciosExp),
     ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
   ];
 
@@ -67,7 +74,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // del trámite una vez generados. La tasa se muestra si el gestor la guardó.
   const formularios = (exp.formulariosGenerados && exp.formulariosGenerados.length)
     ? exp.formulariosGenerados
-    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo, exp.servicioClave) : []);
+    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo, [exp.servicioClave, ...(exp.serviciosExtra ?? [])]) : []);
   const tasaDisponible = Boolean(exp.tasaPath);
 
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
@@ -92,8 +99,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       idioma={cliente?.idioma ?? "es"}
       referencia={exp.referencia}
       estado={exp.estado}
-      citaPresencial={Boolean(servicio?.citaPresencial)}
-      citaQuien={servicio?.citaQuien ?? "cliente"}
+      citaPresencial={cita.citaPresencial}
+      citaQuien={cita.citaQuien}
       cita={{ fecha: exp.fechaCita, hora: exp.citaHora, lugar: exp.citaLugar, notas: exp.citaNotas }}
       docs={docs}
       formularios={formularios}

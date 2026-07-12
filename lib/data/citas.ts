@@ -50,16 +50,24 @@ export async function fetchProximasCitas(): Promise<ItemAgenda[]> {
     const { servicios } = await fetchServiciosConfig();
     const quienPorClave: Record<string, string> = {};
     for (const s of servicios) quienPorClave[s.id] = s.citaQuien ?? "cliente";
-    const { data } = await supabase
+    const selCitas = (cols: string) => supabase
       .from("Expediente")
-      .select("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)")
+      .select(cols)
       .eq("estado", "CITA_HUELLAS")
       .gte("fechaCita", today)
       .order("fechaCita", { ascending: true })
       .limit(30);
+    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)");
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)") as typeof resC;
+    const data = resC.data as unknown as Record<string, unknown>[] | null;
     for (const e of data ?? []) {
-      const clave = (e.servicioClave as string) ?? TIPO_A_SERVICIO[e.tipo as string];
-      if ((quienPorClave[clave] ?? "cliente") !== "gestor") continue;
+      // Multi-servicio: la cita entra en la agenda si ALGÚN servicio del expediente
+      // la asume el gestor (misma fusión que avanzar/ficha//s).
+      const claves = [
+        (e.servicioClave as string) ?? TIPO_A_SERVICIO[e.tipo as string],
+        ...(Array.isArray(e.serviciosExtra) ? (e.serviciosExtra as string[]) : []),
+      ].filter(Boolean);
+      if (!claves.some((clave) => (quienPorClave[clave] ?? "cliente") === "gestor")) continue;
       const cli = uno(e.cliente as { nombre: string | null; apellidos: string | null }[] | null);
       items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string });
     }

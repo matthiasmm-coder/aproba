@@ -35,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     const fg = (data as { formulariosGenerados?: string[] | null } | null)?.formulariosGenerados;
     if (!error && Array.isArray(fg)) permitidos = fg;
   } catch { /* repli */ }
-  const lista = permitidos && permitidos.length ? permitidos : formulariosDelTramite(exp.tipoEnum, exp.servicioClave);
+  const lista = permitidos && permitidos.length ? permitidos : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
   if (!lista.includes(tipo)) {
     return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
   }

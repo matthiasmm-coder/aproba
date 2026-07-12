@@ -3,6 +3,7 @@ import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios } from "@/lib/multi-servicio";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
@@ -110,38 +111,39 @@ export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre:
 export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<FacturaFamiliaPrefill | null> {
   try {
     const supabase = await createSupabaseServer();
-    const { data, error } = await supabase
-      .from("Familia")
-      .select("id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave))")
-      .eq("id", familiaId)
-      .maybeSingle();
+    const SEL = (extras: boolean) =>
+      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}))`;
+    let res = await supabase.from("Familia").select(SEL(true)).eq("id", familiaId).maybeSingle();
+    if (res.error) res = await supabase.from("Familia").select(SEL(false)).eq("id", familiaId).maybeSingle() as typeof res;
+    const { data, error } = res;
     if (error || !data) return null;
     const fam = data as unknown as {
       id: string; nombre: string; workspaceId: string;
-      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null }[] | null }[] | null;
+      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null }[] | null }[] | null;
     };
     const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
-    const svById = new Map(servicios.map((s) => [s.id, s]));
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
     const nombreCortoDe = (m: { nombre: string | null; apellidos: string | null }) =>
       (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";
     const lineas: LineaPrefill[] = [];
     const expedientesTotales = miembros.flatMap((m) => m.expedientes ?? []);
+    // Multi-servicio: base = SUMA de los restos (principal + extras), label compuesto.
+    const lineaDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null }) => {
+      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
+      return { label: labelServicios(svs, TIPO_LABEL[e.tipo] ?? e.tipo), base: tarifaDeServicios(svs).resto };
+    };
     if (expedientesTotales.length === 1) {
       // Un solo expediente familiar (modelo actual) → una línea por miembro, ×N.
-      const e = expedientesTotales[0];
-      const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
-      const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
+      const { label, base } = lineaDe(expedientesTotales[0]);
       for (const m of miembros) {
-        lineas.push({ concepto: `${label} · ${nombreCortoDe(m)}`, base: Number(sv?.resto ?? 0) });
+        lineas.push({ concepto: `${label} · ${nombreCortoDe(m)}`, base });
       }
     } else {
       for (const m of miembros) {
         const nombreCorto = nombreCortoDe(m);
         for (const e of m.expedientes ?? []) {
-          const sv = svById.get(e.servicioClave ?? TIPO_A_SERVICIO[e.tipo]);
-          const label = sv?.label ?? (TIPO_LABEL[e.tipo] ?? e.tipo);
-          lineas.push({ concepto: `${label} · ${nombreCorto}`, base: Number(sv?.resto ?? 0) });
+          const { label, base } = lineaDe(e);
+          lineas.push({ concepto: `${label} · ${nombreCorto}`, base });
         }
       }
     }
