@@ -3,8 +3,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios } from "@/lib/multi-servicio";
-import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeServicios } from "@/lib/multi-servicio";
+import { ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -111,7 +111,20 @@ export async function POST(req: Request) {
     const tarifa = tarifaDeServicios(serviciosExp);
     const b = (momento === "ANTICIPO" ? tarifa.anticipo : tarifa.resto) * nMiembros;
     if (b <= 0) return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
-    baseImponible = b; iva = ivaDe(b); total = totalDe(b);
+    // Tasas y suplidos del servicio (SIN IVA, art. 78.Tres.3º LIVA): van en la PRIMERA
+    // factura del expediente — el anticipo si lo hay (provisión de fondos), si no el
+    // pago final. ×N miembros en familia (cada solicitante paga su tasa).
+    const esPrimera = momento === "ANTICIPO" || tarifa.anticipo <= 0;
+    if (esPrimera) {
+      const sup = suplidosDeServicios(serviciosExp).map((x) => ({
+        concepto: nMiembros > 1 ? `${x.concepto} (×${nMiembros})` : x.concepto,
+        importe: r2(x.importe * nMiembros),
+      }));
+      if (sup.length) suplidos = sup;
+    }
+    baseImponible = b; iva = ivaDe(b);
+    const suplidosTotal = (suplidos ?? []).reduce((a, x) => a + x.importe, 0);
+    total = r2(totalDe(b) + suplidosTotal);
     etiquetaServicios = labelServicios(serviciosExp, TIPO_LABEL[exp.tipo] ?? exp.tipo);
   }
 
@@ -138,7 +151,7 @@ export async function POST(req: Request) {
     // devolverla — si no, Stripe cobraría un importe distinto del que el portal muestra.
     const editadaPorGestor = previa.origen !== "AUTOMATICA";
     if (!fac && !editadaPorGestor && previa.estado === "EMITIDA" && Number(previa.total) !== total) {
-      const { error: eUp } = await admin.from("Factura").update({ baseImponible, iva, total, concepto }).eq("id", previa.id).eq("estado", "EMITIDA");
+      const { error: eUp } = await admin.from("Factura").update({ baseImponible, iva, total, concepto, suplidos: suplidos ?? null }).eq("id", previa.id).eq("estado", "EMITIDA");
       if (!eUp) {
         await admin.from("ExpedienteEvento").insert({
           id: uuid(),
@@ -185,7 +198,7 @@ export async function POST(req: Request) {
     metodoPago: "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(),
     fechaVencimiento: vencimiento.toISOString(),
-    ...(lineas ? { lineas, suplidos, notas } : {}),
+    ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
     ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
   });
   // Repli: si la migración factura-familia.sql no está ejecutada (columna
@@ -196,7 +209,7 @@ export async function POST(req: Request) {
       clienteNombre, concepto, baseImponible, iva, total,
       estado: "EMITIDA", origen: "AUTOMATICA", momento, metodoPago: "TRANSFERENCIA",
       fechaEmision: ahora.toISOString(), fechaVencimiento: vencimiento.toISOString(),
-      ...(lineas ? { lineas, suplidos, notas } : {}),
+      ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
     });
     e4 = retry.error;
   }

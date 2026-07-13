@@ -34,15 +34,21 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     citaPresencial: s.citaPresencial ?? false,
     citaQuien: s.citaPresencial ? (s.citaQuien ?? "cliente") : null,
     noIncluye: s.noIncluye?.trim() || null,
+    suplidos: (s.suplidos ?? []).filter((x) => x.concepto.trim() && Number(x.importe) > 0)
+      .map((x) => ({ concepto: x.concepto.trim(), importe: Number(x.importe) })),
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
   let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
-  // Repli pre-migración (supabase/hoja-encargo.sql): reintentar sin noIncluye para
-  // que el resto de la config del servicio nunca se pierda por una columna nueva.
-  if (error && /noIncluye|schema cache|column/i.test(error.message)) {
-    const sinNoIncluye = rows.map(({ noIncluye: _ni, ...r }) => r);
-    ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+  // Replis pre-migración: quitar SOLO el tramo más reciente cada vez, para que el resto
+  // de la config del servicio nunca se pierda por una columna nueva.
+  if (error && /suplidos|schema cache|column/i.test(error.message)) {
+    const sinSuplidos = rows.map(({ suplidos: _s, ...r }) => r);
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinSuplidos, { onConflict: "workspaceId,clave" }));
+    if (error && /noIncluye|schema cache|column/i.test(error.message)) {
+      const sinNoIncluye = sinSuplidos.map(({ noIncluye: _ni, ...r }) => r);
+      ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+    }
   }
   if (error) throw new Error(error.message);
 }

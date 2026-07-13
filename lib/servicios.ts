@@ -16,6 +16,10 @@ export type Servicio = {
   citaPresencial?: boolean; // ce trámite implique-t-il un rendez-vous physique ?
   citaQuien?: CitaQuien; // si oui : qui s'y rend (le client, ou le gestor pour lui)
   noIncluye?: string; // «servicios no incluidos» de la hoja de encargo (varía por trámite)
+  // Tasas oficiales y otros suplidos del trámite (SIN IVA, fuera de los honorarios —
+  // art. 78.Tres.3º LIVA). Van al presupuesto (portal + hoja de encargo) y a la PRIMERA
+  // factura automática del expediente (anticipo si lo hay; si no, el pago final).
+  suplidos?: { concepto: string; importe: number }[];
 };
 
 export const STORAGE_KEY = "aproba.servicios.v1";

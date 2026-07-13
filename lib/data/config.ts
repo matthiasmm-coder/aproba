@@ -34,17 +34,28 @@ export function mapServicioRow(r: ServicioRow): Servicio {
     citaPresencial: Boolean(r.citaPresencial),
     citaQuien: r.citaQuien === "gestor" ? "gestor" : "cliente",
     noIncluye: (r as { noIncluye?: string | null }).noIncluye ?? undefined,
+    suplidos: (() => {
+      const raw = (r as { suplidos?: unknown }).suplidos;
+      if (!Array.isArray(raw)) return undefined;
+      const list = raw
+        .filter((x): x is { concepto?: unknown; importe?: unknown } => Boolean(x) && typeof x === "object")
+        .map((x) => ({ concepto: String(x.concepto ?? "").trim(), importe: Number(x.importe) || 0 }))
+        .filter((x) => x.concepto && x.importe > 0);
+      return list.length ? list : undefined;
+    })(),
   };
 }
 
-const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
-// Repli si la columna noIncluye no está migrada aún (supabase/hoja-encargo.sql).
+const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
+// Replis por tramo de migración (suplidos → noIncluye → base).
+const SELECT_SERVICIOS_SIN_SUPLIDOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
 const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
 
 // Servicios du workspace de l'utilisateur connecté. Fallback : defaults (workspace pas encore configuré).
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("ServicioConfig").select(SELECT_SERVICIOS).order("orden");
+  if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).order("orden")) as unknown as typeof res;
   const { data, error } = res;
   if (error) throw new Error(`ServicioConfig: ${error.message}`);
@@ -56,6 +67,7 @@ export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; d
 // pour le portail client (lien token) et l'API de pagos.
 export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspaceId: string): Promise<Servicio[]> {
   let res = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
+  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   const { data, error } = res;
   if (error) throw new Error(`ServicioConfig(ws): ${error.message}`);

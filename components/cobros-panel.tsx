@@ -20,6 +20,7 @@ export function CobrosPanel({
   clienteNombre,
   conceptoFinal,
   conceptoAnticipo,
+  suplidos = [],
 }: {
   expedienteId: string;
   anticipo: number;
@@ -28,6 +29,9 @@ export function CobrosPanel({
   clienteNombre?: string;
   conceptoFinal?: string;
   conceptoAnticipo?: string;
+  // Tasas y suplidos del servicio (ya ×N miembros, SIN IVA): van en la PRIMERA factura
+  // del expediente — el anticipo si lo hay, si no el pago final.
+  suplidos?: { concepto: string; importe: number }[];
 }) {
   const t = useT();
   const router = useRouter();
@@ -43,6 +47,8 @@ export function CobrosPanel({
 
   const pagoAnticipo = facturas.find((f) => f.momento === "ANTICIPO");
   const pagoFinal = facturas.find((f) => f.momento === "FINAL");
+  const suplidosTotal = suplidos.reduce((a, x) => a + x.importe, 0);
+  const suplidosEn = suplidosTotal > 0 ? (anticipo > 0 ? "ANTICIPO" : "FINAL") : null;
   const cuotas = facturas
     .filter((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA")
     .sort((a, b) => Number(String(a.momento).split("_")[1]) - Number(String(b.momento).split("_")[1]));
@@ -80,12 +86,16 @@ export function CobrosPanel({
     }
   }
 
-  const Fila = ({ label, monto, pago, accionPendiente }: { label: string; monto: number; pago?: FacturaPago; accionPendiente?: React.ReactNode }) => (
+  const Fila = ({ label, monto, pago, accionPendiente, conSuplidos }: { label: string; monto: number; pago?: FacturaPago; accionPendiente?: React.ReactNode; conSuplidos?: boolean }) => (
     <div className="py-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm text-slate-700">{label}</p>
-          <p className="text-xs text-slate-400">{eur(pago ? Number(pago.total) : totalDe(monto))} {t("IVA inc.")}</p>
+          <p className="text-xs text-slate-400">
+            {eur(pago ? Number(pago.total) : totalDe(monto) + (conSuplidos ? suplidosTotal : 0))} {t("IVA inc.")}
+            {!pago && conSuplidos ? <span className="text-slate-300"> · </span> : null}
+            {!pago && conSuplidos ? <span>{eur(suplidosTotal)} {t("en tasas y suplidos")}</span> : null}
+          </p>
           {pago?.estado === "PAGADA" && pago.metodoPago && (
             <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
               {pago.metodoPago === "TARJETA" ? (
@@ -140,6 +150,7 @@ export function CobrosPanel({
               label={t("Pago inicial (al firmar)")}
               monto={anticipo}
               pago={pagoAnticipo}
+              conSuplidos={suplidosEn === "ANTICIPO"}
               // Sin factura de anticipo: el gestor puede emitirla desde aquí (modo interno —
               // en el flujo con portal la emite el cliente al confirmar el trámite).
               accionPendiente={
@@ -151,7 +162,7 @@ export function CobrosPanel({
           )}
           {cuotas.length > 0
             ? cuotas.map((c, i) => <Fila key={c.id} label={`${t("Cuota")} ${i + 1} ${t("de")} ${cuotas.length}`} monto={Number(c.total)} pago={c} />)
-            : resto > 0 && <Fila label={t("Pago final (al terminar)")} monto={resto} pago={pagoFinal} />}
+            : resto > 0 && <Fila label={t("Pago final (al terminar)")} monto={resto} pago={pagoFinal} conSuplidos={suplidosEn === "FINAL"} />}
         </div>
 
         {resto > 0 && !pagoFinal && cuotas.length === 0 && (
@@ -160,7 +171,7 @@ export function CobrosPanel({
               onClick={() => setCrear("FINAL")}
               className="mt-3 w-full rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700"
             >
-              {`${t("Solicitar pago final ·")} ${eur(totalDe(resto))}`}
+              {`${t("Solicitar pago final ·")} ${eur(totalDe(resto) + (suplidosEn === "FINAL" ? suplidosTotal : 0))}`}
             </button>
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
               {t("Se abre la factura para que la revises y ajustes (tasas, líneas, importe…). Al validar, se envía automáticamente al cliente con los datos de pago.")}
@@ -214,6 +225,7 @@ export function CobrosPanel({
           clienteNombre={clienteNombre}
           conceptoFinal={crear === "ANTICIPO" ? conceptoAnticipo : conceptoFinal}
           baseFinal={crear === "ANTICIPO" ? anticipo : resto}
+          suplidosPrefill={suplidosEn === crear ? suplidos : []}
           onClose={() => setCrear(null)}
         />
       )}

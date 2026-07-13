@@ -16,7 +16,7 @@ import { useT } from "@/components/lang-provider";
 // Carga plan + servicios (y nº de serie / la factura a editar) y monta el editor ya listo.
 
 export function CobroFacturaModal({
-  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL",
+  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL", suplidosPrefill = [],
 }: {
   modo: "crear" | "editar";
   expedienteId?: string; // requerido para crear; en editar el servidor lo resuelve de la factura
@@ -27,6 +27,8 @@ export function CobroFacturaModal({
   onClose: () => void;
   // ANTICIPO: el gestor emite el pago inicial desde la ficha (modo interno, sin portal).
   momento?: "ANTICIPO" | "FINAL";
+  // Tasas y suplidos del servicio (ya ×N): prefill al crear la factura del momento que los lleva.
+  suplidosPrefill?: { concepto: string; importe: number }[];
 }) {
   const t = useT();
   const router = useRouter();
@@ -68,7 +70,10 @@ export function CobroFacturaModal({
         try { const year = new Date().getFullYear(); const { data: last } = await sb.from("Factura").select("numero").like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle(); numero = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`; } catch { /* el server numera */ }
         setNumeroFactura(numero);
         const base = baseFinal ?? 0;
-        setInicial({ cliente: clienteNombre ?? "", numero, lineas: [{ concepto: conceptoFinal || "", base }], concepto: conceptoFinal || "", base });
+        // Suplidos del servicio: entran en el prefill y fuerzan el editor rico aunque el
+        // plan sea Starter — el editor simple los perdería en silencio.
+        if (suplidosPrefill.length) setForceAvanzada(true);
+        setInicial({ cliente: clienteNombre ?? "", numero, lineas: [{ concepto: conceptoFinal || "", base }], suplidos: suplidosPrefill, concepto: conceptoFinal || "", base });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -24,7 +24,7 @@ export type DatosEncargo = {
     telefono: string; email: string;
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
-  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string }[];
+  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; suplidos: { concepto: string; importe: number }[] }[];
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
 };
 
@@ -110,6 +110,7 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       label: sv.label, desc: sv.desc,
       anticipo: sv.anticipo, resto: sv.resto,
       noIncluye: s((sv as { noIncluye?: string }).noIncluye),
+      suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0),
     })),
     medios,
   };
@@ -294,7 +295,20 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   } else {
     m.fila("Honorarios", "Según presupuesto");
   }
-  m.parrafo("Los honorarios no incluyen las tasas oficiales ni otros suplidos, que se repercutirán al cliente por su importe exacto en la factura correspondiente.", { size: 8.5, color: GRIS });
+  // Tasas y suplidos previstos por servicio (SIN IVA): presupuesto ajustado — el contrato
+  // enseña lo que la primera factura repercutirá. Atribuidos a su servicio si hay varios.
+  const suplidosContrato = d.servicios.flatMap((sv) =>
+    sv.suplidos.map((x) => ({ concepto: d.servicios.length > 1 ? `${sv.label}: ${x.concepto}` : x.concepto, importe: x.importe })),
+  );
+  if (suplidosContrato.length) {
+    const totalSuplidos = suplidosContrato.reduce((a, x) => a + x.importe, 0);
+    m.parrafo("Tasas y suplidos previstos (sin IVA, se repercuten por su importe exacto):", { size: 9 });
+    for (const x of suplidosContrato) m.fila(x.concepto, eur(x.importe));
+    m.fila("Total tasas y suplidos", eur(totalSuplidos));
+  }
+  m.parrafo(suplidosContrato.length
+    ? "Las tasas y suplidos indicados son una previsión: se repercutirán al cliente por su importe exacto en la factura correspondiente, sin IVA y separados de los honorarios."
+    : "Los honorarios no incluyen las tasas oficiales ni otros suplidos, que se repercutirán al cliente por su importe exacto en la factura correspondiente.", { size: 8.5, color: GRIS });
 
   m.seccion("6. FORMA Y MEDIOS DE PAGO");
   m.parrafo(

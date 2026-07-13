@@ -60,6 +60,12 @@ export function citaDeServicios(servicios: Servicio[]): { citaPresencial: boolea
   };
 }
 
+// Tasas y suplidos de todos los servicios (principal + extras), en orden. SIN IVA —
+// van al presupuesto y a la PRIMERA factura automática del expediente (×N en familia).
+export function suplidosDeServicios(servicios: Servicio[]): { concepto: string; importe: number }[] {
+  return servicios.flatMap((s) => (s.suplidos ?? []).filter((x) => x.concepto && x.importe > 0));
+}
+
 // Label compuesto para conceptos de factura y cabeceras («Arraigo social + Canje»).
 export function labelServicios(servicios: Servicio[], fallback = ""): string {
   return servicios.map((s) => s.label?.trim()).filter(Boolean).join(" + ") || fallback;

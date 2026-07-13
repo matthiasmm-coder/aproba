@@ -5,7 +5,8 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeServicios } from "@/lib/multi-servicio";
+import { r2 } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
@@ -74,6 +75,13 @@ export default async function ExpedienteDetail({
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
+  // Tasas y suplidos del servicio, ×N miembros — MISMO formato que /api/pagos (el popup
+  // de cobro debe emitir exactamente lo que emitiría el portal).
+  const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
+  const suplidosExp = suplidosDeServicios(serviciosExp).map((x) => ({
+    concepto: nMiembrosExp > 1 ? `${x.concepto} (×${nMiembrosExp})` : x.concepto,
+    importe: r2(x.importe * nMiembrosExp),
+  }));
 
   // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
@@ -230,6 +238,7 @@ export default async function ExpedienteDetail({
           clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
           conceptoFinal={`Liquidación final — ${etiquetaServicios} (${e.referencia})`}
           conceptoAnticipo={`Anticipo — ${etiquetaServicios} (${e.referencia})`}
+          suplidos={suplidosExp}
         />
 
         {/* Historial */}

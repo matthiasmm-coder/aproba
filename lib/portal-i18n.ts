@@ -185,6 +185,7 @@ export const UI: Record<string, Tr> = {
   },
   "s3.anticipo": { es: "{label} — anticipo", en: "{label} — upfront", fr: "{label} — acompte", it: "{label} — acconto", de: "{label} — Anzahlung" },
   "s3.iva": { es: "IVA (21 %)", en: "VAT (21%)", fr: "TVA (21 %)", it: "IVA (21%)", de: "MwSt. (21 %)" },
+  "s3.sinIva": { es: "tasa/suplido, sin IVA", en: "official fee, no VAT", fr: "taxe officielle, sans TVA", it: "tassa ufficiale, senza IVA", de: "Amtsgebühr, ohne MwSt." },
   "s3.totalHoy": { es: "Total a pagar hoy", en: "Total due today", fr: "Total à payer aujourd'hui", it: "Totale da pagare oggi", de: "Heute fällig" },
   "s3.queda": {
     es: "Quedará un pago de {monto} al finalizar el trámite. Te avisaremos.",

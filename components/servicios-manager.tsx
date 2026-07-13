@@ -146,6 +146,41 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
               </p>
             </div>
 
+            {/* Tasas y suplidos del trámite (SIN IVA, fuera de los honorarios) */}
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Tasas y suplidos")}</p>
+              <div className="space-y-1.5">
+                {(s.suplidos ?? []).map((sup, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      value={sup.concepto}
+                      placeholder={t("Concepto (p. ej. Tasa 790-012)")}
+                      onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, concepto: e.target.value } : x) })}
+                      className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+                    />
+                    <div className="relative">
+                      <input type="number" min={0} step={0.01} value={sup.importe || ""} placeholder="0" onFocus={(e) => e.target.select()}
+                        onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, importe: Math.max(0, Number(e.target.value) || 0) } : x) })}
+                        className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">€</span>
+                    </div>
+                    <button onClick={() => update(s.id, { suplidos: (s.suplidos ?? []).filter((_, j) => j !== i) })} aria-label={`${t("Quitar")} ${sup.concepto || t("suplido")}`} className="rounded p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500">
+                      <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => update(s.id, { suplidos: [...(s.suplidos ?? []), { concepto: "", importe: 0 }] })}
+                className="mt-1.5 text-xs font-medium text-aproba-700 hover:underline"
+              >
+                {t("+ Añadir tasa o suplido")}
+              </button>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {t("Sin IVA y aparte de los honorarios. Salen en el presupuesto del cliente, en la hoja de encargo y en la primera factura del expediente (se repercuten por su importe exacto).")}
+              </p>
+            </div>
+
             {/* Documentos requeridos */}
             <div className="mt-3 border-t border-slate-100 pt-3">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Documentos requeridos")}</p>

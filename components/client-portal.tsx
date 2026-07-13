@@ -205,6 +205,15 @@ export function ClientPortal({
   const nMiembros = Math.max(1, familia ? famMiembros.length : 1);
   const anticipo = ((tramite?.anticipo ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0)) * nMiembros;
   const resto = ((tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0)) * nMiembros;
+  // Tasas y suplidos (SIN IVA): mismos que el servidor pondrá en la PRIMERA factura
+  // (el anticipo si lo hay). ×N miembros — el total mostrado DEBE cuadrar con Stripe.
+  const suplidosUnit = (sv?: { suplidos?: { concepto: string; importe: number }[] } | null) =>
+    (sv?.suplidos ?? []).reduce((a, x) => a + (Number(x.importe) || 0), 0);
+  const suplidosExp = [tramite, ...extrasServicios]
+    .flatMap((sv) => sv?.suplidos ?? [])
+    .filter((x) => x.concepto && Number(x.importe) > 0)
+    .map((x) => ({ concepto: x.concepto, importe: Math.round(Number(x.importe) * nMiembros * 100) / 100 }));
+  const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
   const conPago = anticipo > 0;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
@@ -494,7 +503,7 @@ export function ClientPortal({
                   <div className="min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
-                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe((tr.anticipo + tr.resto) * nMiembros))}</p>
+                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe((tr.anticipo + tr.resto) * nMiembros) + suplidosUnit(tr) * nMiembros)}</p>
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     <p className="mt-1 text-xs text-slate-400">
@@ -778,9 +787,15 @@ export function ClientPortal({
                 <span className="text-slate-500">{t("s3.iva")}</span>
                 <span className="font-medium text-slate-800">{eur(totalDe(anticipo) - anticipo)}</span>
               </div>
+              {suplidosExp.map((sup, i) => (
+                <div key={i} className="mt-1.5 flex items-center justify-between text-sm">
+                  <span className="text-slate-500">{sup.concepto} <span className="text-xs text-slate-400">({t("s3.sinIva")})</span></span>
+                  <span className="font-medium text-slate-800">{eur(sup.importe)}</span>
+                </div>
+              ))}
               <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
                 <span className="font-semibold text-slate-900">{t("s3.totalHoy")}</span>
-                <span className="text-lg font-bold text-slate-900">{eur(totalDe(anticipo))}</span>
+                <span className="text-lg font-bold text-slate-900">{eur(totalDe(anticipo) + suplidosTotal)}</span>
               </div>
               {resto > 0 && (
                 <p className="mt-3 rounded-lg bg-cream-50 px-3 py-2 text-xs text-slate-500">
