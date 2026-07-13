@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DOC_ESTADO_META, type Documento } from "@/lib/types";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -33,7 +34,7 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
   // El gestor descarta el documento (archivo equivocado, o validado por la IA pero
   // no aceptable para el despacho): el hueco vuelve a «pendiente» para el cliente.
   async function eliminar() {
-    if (!window.confirm(t("¿Eliminar este documento? El cliente podrá volver a subirlo desde su enlace."))) return;
+    if (!(await confirmar({ mensaje: t("¿Eliminar este documento? El cliente podrá volver a subirlo desde su enlace."), peligro: true, confirmarLabel: t("Eliminar") }))) return;
     setEliminando(true);
     setErrorEliminar(null);
     try {

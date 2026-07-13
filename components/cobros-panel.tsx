@@ -7,6 +7,7 @@ import { eur, totalDe } from "@/lib/facturas";
 import type { FacturaPago } from "@/lib/data/expedientes";
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // Panneau Cobros du détail d'expediente : état de l'anticipo et du pago final.
 // • "Solicitar pago final" ouvre un popup de facture éditable (→ /api/pagos → émise + envoyée).
@@ -72,7 +73,7 @@ export function CobrosPanel({
 
   // Le gestor confirme avoir reçu le virement → la facture passe à PAGADA.
   async function marcarPagada(id: string) {
-    if (!window.confirm(t("¿Confirmas que has recibido el pago de esta factura?"))) return;
+    if (!(await confirmar(t("¿Confirmas que has recibido el pago de esta factura?")))) return;
     setConfirmando(true);
     setError(null);
     try {

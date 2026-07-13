@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 import { ArrowIcon } from "@/components/icons";
 import type { ExpedienteEstado } from "@/lib/types";
 
@@ -86,7 +87,7 @@ export function DriverBanner({
       // paso es revisarla (no presentar a ciegas); con ROJO, confirm reforzado.
       if (!revision) {
         prim = { kind: "ancla", label: t("Revisar como Extranjería"), target: "centinela" };
-        secundaria = <button onClick={() => { if (window.confirm(t("¿Marcar como presentado sin revisar? Se avisará al cliente."))) avanzar("presentar"); }} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white disabled:opacity-60">{t("Presentar sin revisar")}</button>;
+        secundaria = <button onClick={async () => { if (await confirmar(t("¿Marcar como presentado sin revisar? Se avisará al cliente."))) avanzar("presentar"); }} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white disabled:opacity-60">{t("Presentar sin revisar")}</button>;
       } else {
         prim = {
           kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
@@ -103,7 +104,7 @@ export function DriverBanner({
       break;
     case "PRESENTADO":
       prim = { kind: "avanzar", label: t("Resolución favorable"), accion: "resolver_favorable" };
-      secundaria = <button onClick={() => { if (window.confirm(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
+      secundaria = <button onClick={async () => { if (await confirmar(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
       break;
     case "RESUELTO":
       prim = citaPresencial ? { kind: "cita", label: t("Agendar cita") } : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
@@ -128,10 +129,10 @@ export function DriverBanner({
   }
 
   const actionable = prim.kind !== "espera";
-  function onPrimary() {
+  async function onPrimary() {
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
-    else if (prim.kind === "avanzar") { if (!prim.confirm || window.confirm(prim.confirm)) avanzar(prim.accion, undefined, prim.navAfter); }
+    else if (prim.kind === "avanzar") { if (!prim.confirm || (await confirmar(prim.confirm))) avanzar(prim.accion, undefined, prim.navAfter); }
     else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
     else if (prim.kind === "ancla") document.getElementById(prim.target)?.scrollIntoView({ behavior: "smooth", block: "start" });

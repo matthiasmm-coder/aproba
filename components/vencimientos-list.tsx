@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { VencimientoRow } from "@/lib/data/vencimientos";
 import { fmtFechaCorta } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // VIGÍA — lista agrupada de vencimientos + acción «Iniciar renovación».
 // Al iniciar: (1) POST /api/vencimientos/[id]/renovar → expediente nuevo + aviso al
@@ -39,9 +40,9 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   async function iniciar(v: VencimientoRow) {
     // El clic dispara 3 efectos reales (expediente + aviso al cliente + anticipo):
     // se anuncian ANTES — un mis-tap en el móvil no debe notificar a un cliente.
-    if (!window.confirm(
+    if (!(await confirmar(
       t("Se creará el expediente de renovación, se avisará a {nombre} en su idioma y, si el servicio tiene tarifa, se emitirá la factura de anticipo. ¿Continuar?").replace("{nombre}", v.clienteNombre),
-    )) return;
+    ))) return;
     setLanzando(v.id);
     setError(null);
     try {

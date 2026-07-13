@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // Ajustes › Cobro con tarjeta. El despacho pega su clave secreta Stripe (idealmente
 // RESTRINGIDA). Se guarda cifrada vía /api/ajustes/stripe; aquí solo se ve el estado
@@ -35,7 +36,7 @@ export function CobroTarjetaConfig() {
   }
 
   async function desactivar() {
-    if (!window.confirm(t("¿Desactivar el cobro con tarjeta? El email volverá a ofrecer solo transferencia."))) return;
+    if (!(await confirmar(t("¿Desactivar el cobro con tarjeta? El email volverá a ofrecer solo transferencia.")))) return;
     setBusy(true); setError(null);
     try {
       const r = await fetch("/api/ajustes/stripe", { method: "DELETE" });

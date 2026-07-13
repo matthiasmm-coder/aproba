@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // El gestor edita los datos personales del cliente desde su ficha. Reutiliza el modelo
 // declarativo de campos (lib/ficha.ts) — los mismos que rellena el cliente en el portal —
@@ -22,9 +23,9 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
   const sucio = () => JSON.stringify(datos) !== JSON.stringify(ficha);
 
   // Cierra sin guardar; si hay cambios, confirma (evita perder 17 campos por un clic fuera).
-  function intentarCerrar() {
+  async function intentarCerrar() {
     if (guardando) return; // nunca cerrar a mitad de guardado
-    if (sucio() && !window.confirm(t("¿Descartar los cambios sin guardar?"))) return;
+    if (sucio() && !(await confirmar({ mensaje: t("¿Descartar los cambios sin guardar?"), peligro: true, confirmarLabel: t("Descartar") }))) return;
     setAbierto(false);
   }
   // Cierre explícito (X / Cancelar): intención clara, pero bloqueado mientras se guarda.

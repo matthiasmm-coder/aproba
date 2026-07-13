@@ -6,6 +6,7 @@ import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios
 import { eur, totalDe } from "@/lib/facturas";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { labelADocTipo } from "@/lib/tramites";
+import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
   servicioLabel, servicioDesc, docLabel, docHelp, type Lang, esRTL,
@@ -244,42 +245,6 @@ export function ClientPortal({
     }, 1400);
   }
 
-  // Subida con progreso real (XHR): 0-55 % mientras sube el archivo, luego un
-  // avance animado 55→92 % mientras la IA analiza (sin señal de progreso), y
-  // 100 % al recibir la respuesta. El servidor recibe el mismo multipart.
-  function subirConProgreso(i: number, file: File, label: string): Promise<{ ok: boolean; data: { estado?: string; campos?: { label: string; value: string }[]; alertas?: string[]; error?: string } | null }> {
-    return new Promise((resolve, reject) => {
-      const fd = new FormData();
-      fd.append("token", token ?? "");
-      fd.append("label", label);
-      fd.append("file", file);
-      const xhr = new XMLHttpRequest();
-      let creep: ReturnType<typeof setInterval> | null = null;
-      const subir = (v: number) => setProg((p) => ({ ...p, [i]: Math.max(p[i] ?? 0, Math.min(100, v)) }));
-      xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) subir(Math.round((ev.loaded / ev.total) * 45)); };
-      xhr.upload.onload = () => {
-        subir(45);
-        // Sin señal real de la IA: avance asintótico hacia 98 % — la barra
-        // siempre se mueve (cada vez más despacio) y nunca se queda clavada.
-        creep = setInterval(() => setProg((p) => {
-          const c = p[i] ?? 45;
-          return c >= 98 ? p : { ...p, [i]: c + (98 - c) * 0.045 };
-        }), 140);
-      };
-      const stop = () => { if (creep) { clearInterval(creep); creep = null; } };
-      xhr.onload = () => {
-        stop();
-        setProg((p) => ({ ...p, [i]: 100 }));
-        let data = null;
-        try { data = JSON.parse(xhr.responseText); } catch { /* respuesta no-JSON */ }
-        resolve({ ok: xhr.status >= 200 && xhr.status < 300, data });
-      };
-      xhr.onerror = () => { stop(); reject(new Error(t("s2.errorSubir"))); };
-      xhr.open("POST", "/api/portal/documentos");
-      xhr.send(fd);
-    });
-  }
-
   async function onArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -295,7 +260,12 @@ export function ClientPortal({
     setDocs((d) => ({ ...d, [i]: { status: "analyzing", attempts: (d[i]?.attempts ?? 0) + 1 } }));
     setProg((p) => ({ ...p, [i]: 0 }));
     try {
-      const { ok, data } = await subirConProgreso(i, file, label);
+      const { ok, data } = await subirConProgreso({
+        form: { token: token ?? "", label },
+        file,
+        onProgreso: (v) => setProg((p) => ({ ...p, [i]: v })),
+        errorRed: t("s2.errorSubir"),
+      });
       if (!ok || !data) throw new Error(data?.error ?? t("s2.noSeLee"));
       const alertas: string[] = data.alertas ?? [];
       if (data.estado === "VALIDADO") {
@@ -510,7 +480,12 @@ export function ClientPortal({
                   <div className="min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
-                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(totalDe((tr.anticipo + tr.resto) * nMiembros) + suplidosUnit(tr) * nMiembros)}</p>
+                      {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
+                          + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
+                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(
+                        totalDe((tr.anticipo + tr.resto + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0) + (sv.resto ?? 0), 0)) * nMiembros)
+                        + (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0)) * nMiembros
+                      )}</p>
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     <p className="mt-1 text-xs text-slate-400">

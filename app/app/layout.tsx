@@ -5,6 +5,7 @@ import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { FeedbackWidget } from "@/components/feedback-widget";
+import { ConfirmHost } from "@/components/confirm-dialog";
 import { LangProvider } from "@/components/lang-provider";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
@@ -113,6 +114,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       {/* Bouton de feedback flottant (beta) */}
       <FeedbackWidget />
+      <ConfirmHost />
 
       {/* Nav mobile (bas) */}
       <MobileNav />

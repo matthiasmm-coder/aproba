@@ -7,6 +7,7 @@ import { AprobaMark } from "./logo";
 import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
@@ -26,7 +27,7 @@ export function FacturaView({ f, emisor, editable = false }: { f: Factura; emiso
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
 
   async function marcarPagada() {
-    if (!window.confirm(t("¿Marcar esta factura como pagada? Confirma que has recibido el pago del cliente."))) return;
+    if (!(await confirmar(t("¿Marcar esta factura como pagada? Confirma que has recibido el pago del cliente.")))) return;
     setMarcando(true);
     try {
       const res = await fetch(`/api/facturas/${f.id}/pagada`, { method: "POST" });

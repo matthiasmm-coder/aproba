@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DOC_LABEL } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 export type DocSuelto = { id: string; tipo: string; nombreArchivo: string | null; createdAt: string };
 
@@ -41,7 +42,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
   }
 
   async function borrar(docId: string) {
-    if (!window.confirm(t("¿Eliminar este documento?"))) return;
+    if (!(await confirmar({ mensaje: t("¿Eliminar este documento?"), peligro: true, confirmarLabel: t("Eliminar") }))) return;
     setBorrando(docId);
     setError(null);
     try {

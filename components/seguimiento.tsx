@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, type Lang, esLangSoportada, esRTL } from "@/lib/portal-i18n";
+import { subirConProgreso } from "@/lib/subir-con-progreso";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean };
 
@@ -29,6 +30,7 @@ export function Seguimiento({
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
   const [subiendo, setSubiendo] = useState<number | null>(null);
+  const [progreso, setProgreso] = useState<number | null>(null); // % subida en curso (misma barra que /j)
   const fileRef = useRef<HTMLInputElement>(null);
   const pendienteRef = useRef<number | null>(null);
   const t = makeT(lang);
@@ -70,17 +72,18 @@ export function Seguimiento({
     const i = pendienteRef.current;
     if (!file || i === null) return;
     setSubiendo(i);
+    setProgreso(0);
     try {
-      const fd = new FormData();
-      fd.append("token", token);
-      fd.append("label", docs[i].label);
-      fd.append("file", file);
-      const res = await fetch("/api/portal/documentos", { method: "POST", body: fd });
-      const data = await res.json();
-      const ok = res.ok && data.estado === "VALIDADO";
+      const { ok: okRed, data } = await subirConProgreso({
+        form: { token, label: docs[i].label },
+        file,
+        onProgreso: setProgreso,
+        errorRed: t("s2.errorSubir"),
+      });
+      const ok = okRed && data?.estado === "VALIDADO";
       // El MOTIVO del rechazo (alertas de la IA) se muestra, como ya hace /j — «vuelve a
       // subirlo» sin explicar por qué condena al migrante a repetir el mismo error.
-      const motivo = !ok ? String(data.alertas?.[0] ?? data.error ?? "") || undefined : undefined;
+      const motivo = !ok ? String(data?.alertas?.[0] ?? data?.error ?? "") || undefined : undefined;
       setDocs((d) => d.map((x, j) => (j === i ? { ...x, status: ok ? "ok" : "rechazado", motivo, errorRed: false } : x)));
     } catch {
       // Fallo de RED ≠ documento rechazado: se conserva el estado y se pide reintentar
@@ -88,6 +91,7 @@ export function Seguimiento({
       setDocs((d) => d.map((x, j) => (j === i ? { ...x, errorRed: true } : x)));
     } finally {
       setSubiendo(null);
+      setProgreso(null);
       pendienteRef.current = null;
     }
   }
@@ -238,6 +242,11 @@ export function Seguimiento({
                       )}
                     </div>
                   </div>
+                  {subiendoEste && progreso !== null && (
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={Math.round(progreso)} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-full rounded-full bg-aproba-600 transition-all duration-200" style={{ width: `${progreso}%` }} />
+                    </div>
+                  )}
                   {ayuda && (d.status === "pendiente" || d.status === "rechazado") && (
                     <p className="mt-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-500">{ayuda}</p>
                   )}

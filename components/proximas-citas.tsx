@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 import { eur } from "@/lib/facturas";
 import { NuevaCitaModal } from "@/components/nueva-cita-modal";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
@@ -38,7 +39,7 @@ export function ProximasCitas({ citas, clientes }: { citas: ItemAgenda[]; client
   const vigentes = citas.filter(vigente);
 
   async function borrar(id: string) {
-    if (!window.confirm(t("¿Eliminar esta cita?"))) return;
+    if (!(await confirmar({ mensaje: t("¿Eliminar esta cita?"), peligro: true, confirmarLabel: t("Eliminar") }))) return;
     setBorrando(id);
     try {
       const r = await fetch("/api/citas-previas", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });

@@ -8,6 +8,7 @@ import {
   puedeGestionarEquipo, puedeAsignarRol, type RolId,
 } from "@/lib/planes";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 function Avatar({ m }: { m: Miembro }) {
   const ini = m.nombre.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
@@ -156,7 +157,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   }
 
   async function quitar(m: Miembro) {
-    if (!confirm(`${t("¿Quitar a")} ${m.nombre} ${t("del equipo? Perderá el acceso a este despacho.")}`)) return;
+    if (!(await confirmar({ mensaje: `${t("¿Quitar a")} ${m.nombre} ${t("del equipo? Perderá el acceso a este despacho.")}`, peligro: true, confirmarLabel: t("Quitar") }))) return;
     setFilaError(null);
     setFilaBusy(m.membershipId);
     const { ok, data } = await callEquipo({ action: "eliminar", membershipId: m.membershipId });

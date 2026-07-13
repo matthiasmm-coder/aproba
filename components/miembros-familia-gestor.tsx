@@ -6,6 +6,7 @@ import { PARENTESCOS, parentescoLabel } from "@/lib/familia";
 import { EditarCliente } from "@/components/editar-cliente";
 import type { FamiliaMiembro } from "@/lib/data/familias";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // MODO INTERNO familia: el gestor gestiona los miembros desde la ficha del expediente —
 // añadir (cónyuge, hijos…), parentesco, marcar SOLICITANTES (un juego de formularios por
@@ -71,7 +72,7 @@ export function MiembrosFamiliaGestor({ familiaId, titularId, miembros }: {
               <EditarCliente clienteId={m.id} ficha={m.ficha} />
               {!esTitular && (
                 <button
-                  onClick={() => { if (window.confirm(t("¿Quitar a este miembro de la familia?"))) void llamar("DELETE", { clienteId: m.id }, m.id); }}
+                  onClick={async () => { if (await confirmar({ mensaje: t("¿Quitar a este miembro de la familia?"), peligro: true, confirmarLabel: t("Quitar") })) void llamar("DELETE", { clienteId: m.id }, m.id); }}
                   disabled={busy === m.id}
                   aria-label={t("Quitar miembro")}
                   title={t("Quitar miembro")}

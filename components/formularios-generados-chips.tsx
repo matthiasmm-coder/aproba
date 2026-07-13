@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 
 // Chips de los formularios GENERADOS en la ficha del expediente: descarga directa del
 // PDF oficial relleno (editable) + × para quitarlo de la lista. Incluye la tasa 790-012
@@ -35,15 +36,15 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
     } finally { setBorrando(null); }
   }
 
-  function quitarFormulario(code: string) {
-    if (!window.confirm(t("¿Quitar {code} de los formularios generados?").replace("{code}", code))) return;
+  async function quitarFormulario(code: string) {
+    if (!(await confirmar({ mensaje: t("¿Quitar {code} de los formularios generados?").replace("{code}", code), peligro: true, confirmarLabel: t("Quitar") }))) return;
     void ejecutar(code, () => fetch(`/api/expedientes/${expedienteId}/formularios`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }));
   }
 
   // Ruta propia (no comparte el espacio de nombres de los códigos EX): borra el PDF del
   // bucket y limpia tasaPath.
-  function quitarTasa() {
-    if (!window.confirm(t("¿Quitar {code} de los formularios generados?").replace("{code}", t("la tasa 790-012")))) return;
+  async function quitarTasa() {
+    if (!(await confirmar({ mensaje: t("¿Quitar {code} de los formularios generados?").replace("{code}", t("la tasa 790-012")), peligro: true, confirmarLabel: t("Quitar") }))) return;
     void ejecutar("tasa", () => fetch(`/api/expedientes/${expedienteId}/tasa`, { method: "DELETE" }));
   }
 

@@ -54,9 +54,10 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   const maxInvitados = plyMax(plan) - 1; // hors propriétaire
   const rolesAsignables = ROLES_ASIGNABLES.filter((r) => puedeAsignarRol("OWNER", r));
 
-  // Étapes du wizard (l'équipe seulement pour Pro/Business). La foto est repliée dans
-  // «Tu despacho» ; «Hoja de encargo y mandato» est une étape à part (feature abogados/gestores).
-  const PASOS = ["despacho", "servicios", "encargo", "cobros", "clientes", ...(conEquipo ? ["equipo"] : []), "pago"] as const;
+  // Wizard condensado en 5 pasos (antes 7): la hoja de encargo vive DENTRO de
+  // «Tus servicios» (misma materia: qué ofreces y sus límites) y el equipo dentro de
+  // «Clientes y equipo». Mismos campos y misma persistencia — solo menos pantallas.
+  const PASOS = ["despacho", "servicios", "cobros", "clientes", "pago"] as const;
   type Paso = (typeof PASOS)[number];
   const [paso, setPaso] = useState<Paso>("despacho");
   const idx = PASOS.indexOf(paso);
@@ -65,8 +66,8 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   const anterior = () => ir(PASOS[Math.max(idx - 1, 0)]);
 
   const TITULOS: Record<Paso, string> = {
-    despacho: t("Tu despacho"), servicios: t("Tus servicios"), encargo: t("Hoja de encargo y mandato"),
-    cobros: t("Cómo cobras a tus clientes"), clientes: t("Importa tus clientes"), equipo: t("Invita a tu equipo"), pago: t("Empieza tu prueba"),
+    despacho: t("Tu despacho"), servicios: t("Tus servicios"),
+    cobros: t("Cómo cobras a tus clientes"), clientes: conEquipo ? t("Clientes y equipo") : t("Importa tus clientes"), pago: t("Empieza tu prueba"),
   };
 
   function patchSrv(id: string, p: Partial<Servicio>) {
@@ -342,13 +343,10 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           <button type="button" onClick={() => setServicios((l) => [...l, { ...newServicio(), label: t("Nuevo servicio") }])} className="text-sm font-semibold text-aproba-700 hover:underline">
             {t("+ Añadir un servicio")}
           </button>
-          <Nav onBack={anterior} onNext={siguiente} onSkip={siguiente} skipLabel={t("Usar estos por defecto")} />
-        </div>
-      )}
 
-      {/* ── Hoja de encargo y mandato ── */}
-      {paso === "encargo" && (
-        <div className="space-y-5">
+          {/* Hoja de encargo y mandato — misma materia que los servicios (límites del encargo) */}
+          <div className="border-t border-slate-100 pt-5">
+            <p className="mb-3 text-sm font-semibold text-slate-800">{t("Hoja de encargo y mandato")}</p>
           <p className="text-sm text-slate-500">{t("Aproba puede generar automáticamente la hoja de encargo y el mandato de representación con los datos que ya tienes. Tu cliente los descarga, firma y sube desde su portal.")}</p>
 
           {/* Interruptor activar */}
@@ -404,8 +402,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
               )}
             </div>
           )}
+          </div>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Nav onBack={anterior} onNext={() => { if (mandatario.activa && mandatario.nombre.trim().length < 2) { setError(t("Indica el nombre del profesional que firma, o desactiva la opción.")); return; } siguiente(); }} onSkip={() => { setMandatario((m) => ({ ...m, activa: false })); siguiente(); }} />
+          <Nav onBack={anterior} onNext={() => { if (mandatario.activa && mandatario.nombre.trim().length < 2) { setError(t("Indica el nombre del profesional que firma, o desactiva la opción.")); return; } siguiente(); }} onSkip={() => { setMandatario((m) => ({ ...m, activa: false })); siguiente(); }} skipLabel={t("Usar estos por defecto")} />
         </div>
       )}
 
@@ -470,14 +469,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
             <svg className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
             <span>{t("Si incluyes la fecha de caducidad del TIE, Vigía te avisará de cada renovación automáticamente.")}</span>
           </div>
-          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setClientes(null); setCsvNombre(""); siguiente(); }} />
-        </div>
-      )}
-
-      {/* ── Equipo (Pro/Business) ── */}
-      {paso === "equipo" && (
-        <div className="space-y-5">
+          {conEquipo && (
+            <div className="border-t border-slate-100 pt-5">
+              <p className="mb-3 text-sm font-semibold text-slate-800">{t("Invita a tu equipo")}</p>
           <p className="text-sm text-slate-500">{t("Invita a tu equipo. Recibirán acceso a este despacho. Tu plan permite hasta")} {maxInvitados + 1} {t("usuarios.")}</p>
           <div className="space-y-2">
             {invitados.map((v, i) => (
@@ -493,7 +487,10 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           {invitados.length < maxInvitados && (
             <button type="button" onClick={addInvitado} className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Añadir invitación")}</button>
           )}
-          <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setInvitados([]); siguiente(); }} />
+            </div>
+          )}
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <Nav onBack={anterior} onNext={siguiente} onSkip={() => { setClientes(null); setCsvNombre(""); setInvitados([]); siguiente(); }} />
         </div>
       )}
 
