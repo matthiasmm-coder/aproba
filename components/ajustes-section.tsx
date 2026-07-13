@@ -1,27 +1,44 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Section pliable pour la page Ajustes. Le contenu reste monté (les managers
 // conservent leur état et leur persistance) ; on l'ouvre/ferme avec une
 // animation de hauteur via l'astuce CSS grid-rows 0fr ↔ 1fr.
+// Deep-link : /app/ajustes?abrir=<id> ouvre la section et scrolle dessus —
+// permet de pointer un réglage précis depuis n'importe où (emails, fichas, docs).
 export function AjustesSection({
+  id,
   title,
   subtitle,
   icon,
   defaultOpen = false,
   children,
 }: {
+  id?: string;
   title: string;
   subtitle?: string;
   icon?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const params = useSearchParams();
+  const pedida = Boolean(id && params.get("abrir") === id);
+  const [open, setOpen] = useState(defaultOpen || pedida);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pedida) {
+      setOpen(true);
+      // après le layout : la section au-dessus du viewport une fois dépliée
+      window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedida]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div ref={ref} className="scroll-mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

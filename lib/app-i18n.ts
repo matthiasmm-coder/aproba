@@ -706,6 +706,7 @@ export const CA: Record<string, string> = {
   "PDF editable": "PDF editable",
   "¿Quitar {code} de los formularios generados?": "Treure {code} dels formularis generats?",
   "la tasa 790-012": "la taxa 790-012",
+  "Las tasas y suplidos ({monto}) no entran en las cuotas — factúralos aparte.": "Les taxes i suplits ({monto}) no entren en les quotes — factura'ls a banda.",
   "Tasas y suplidos": "Taxes i suplits",
   "Concepto (p. ej. Tasa 790-012)": "Concepte (p. ex. Taxa 790-012)",
   "+ Añadir tasa o suplido": "+ Afegir taxa o suplit",

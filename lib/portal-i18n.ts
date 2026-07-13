@@ -186,6 +186,9 @@ export const UI: Record<string, Tr> = {
   "s3.anticipo": { es: "{label} — anticipo", en: "{label} — upfront", fr: "{label} — acompte", it: "{label} — acconto", de: "{label} — Anzahlung" },
   "s3.iva": { es: "IVA (21 %)", en: "VAT (21%)", fr: "TVA (21 %)", it: "IVA (21%)", de: "MwSt. (21 %)" },
   "s3.sinIva": { es: "tasa/suplido, sin IVA", en: "official fee, no VAT", fr: "taxe officielle, sans TVA", it: "tassa ufficiale, senza IVA", de: "Amtsgebühr, ohne MwSt." },
+  "fam.faltan": { es: "{nombre}: {n} campos por rellenar", en: "{nombre}: {n} fields left to fill", fr: "{nombre} : {n} champs à remplir", it: "{nombre}: {n} campi da compilare", de: "{nombre}: {n} Felder auszufüllen" },
+  "s1.faltanCorto": { es: "{n} por rellenar", en: "{n} to fill", fr: "{n} à remplir", it: "{n} da compilare", de: "{n} offen" },
+  "s0.extras": { es: "Tu gestoría ha añadido a tu expediente: {lista}. Se suma al trámite que elijas (documentos y precio).", en: "Your advisor added to your case: {lista}. It is added to the procedure you choose (documents and price).", fr: "Votre conseiller a ajouté à votre dossier : {lista}. Cela s'ajoute à la démarche choisie (documents et prix).", it: "Il tuo consulente ha aggiunto alla tua pratica: {lista}. Si somma alla procedura scelta (documenti e prezzo).", de: "Ihre Kanzlei hat Ihrem Vorgang hinzugefügt: {lista}. Es kommt zum gewählten Verfahren hinzu (Dokumente und Preis)." },
   "s3.totalHoy": { es: "Total a pagar hoy", en: "Total due today", fr: "Total à payer aujourd'hui", it: "Totale da pagare oggi", de: "Heute fällig" },
   "s3.queda": {
     es: "Quedará un pago de {monto} al finalizar el trámite. Te avisaremos.",

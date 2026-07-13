@@ -14,6 +14,7 @@ export type BoardItem = {
   clienteNombre: string;
   clienteNacionalidad: string;
   tipoLabel: string;
+  extrasLabels?: string[];
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string;
@@ -48,7 +49,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <p className="font-semibold leading-tight text-slate-900">{e.clienteNombre}</p>
         {e.fechaLimite && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
       </div>
-      <p className="mt-0.5 text-[13px] text-slate-500">{e.tipoLabel} · {e.clienteNacionalidad}</p>
+      <p className="mt-0.5 text-[13px] text-slate-500" title={e.extrasLabels?.length ? `+ ${e.extrasLabels.join(" + ")}` : undefined}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
       <div className="mt-2.5 flex items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
@@ -128,7 +129,8 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
     if (soloEsperando && e.estado !== "DOCS_PENDIENTES") return false;
     if (asignado && e.asignadoA !== asignado) return false;
     if (!nq) return true;
-    return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(e.tipoLabel).includes(nq) || norm(e.referencia).includes(nq);
+    return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(e.tipoLabel).includes(nq) || norm(e.referencia).includes(nq)
+      || (e.extrasLabels ?? []).some((l) => norm(l).includes(nq));
   };
 
   const activos = useMemo(() => items.filter((e) => !archivados.has(e.id)), [items, archivados]);

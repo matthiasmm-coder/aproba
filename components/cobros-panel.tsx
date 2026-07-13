@@ -199,6 +199,11 @@ export function CobrosPanel({
                 <p className="mt-2 text-[11px] text-slate-500">
                   {nCuotas} {t("facturas de")} ~{eur(totalDe(fracBase / nCuotas))} {t("IVA inc., con vencimiento mensual. La primera se envía al cliente ahora; las demás se reclaman desde Cobros pendientes.")}
                 </p>
+                {suplidosEn === "FINAL" && (
+                  <p className="mt-1.5 text-[11px] font-medium text-amber-600">
+                    ⚠️ {t("Las tasas y suplidos ({monto}) no entran en las cuotas — factúralos aparte.").replace("{monto}", eur(suplidosTotal))}
+                  </p>
+                )}
                 <div className="mt-2 flex justify-end gap-2">
                   <button onClick={() => setFracOpen(false)} disabled={fraccionando} className="text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
                   <button onClick={fraccionar} disabled={fraccionando || fracBase <= 0} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">

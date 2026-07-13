@@ -111,7 +111,7 @@ export default async function ExpedienteDetail({
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
             {/* También en familia (pedido por Juan): el cambio ajusta el precio base ×N como
                 cualquier recálculo de la facturación familiar. */}
-            <CambiarServicio expedienteId={e.id} servicios={servicios} actualClave={e.servicioClave ?? null} extrasActuales={e.serviciosExtra} />
+            <CambiarServicio expedienteId={e.id} servicios={servicios} actualClave={e.servicioClave ?? serviciosExp[0]?.id ?? null} extrasActuales={e.serviciosExtra} />
             {familia && (
               <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-aproba-50 px-2.5 py-0.5 text-xs font-semibold text-aproba-700">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>

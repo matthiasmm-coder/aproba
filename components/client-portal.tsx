@@ -486,6 +486,13 @@ export function ClientPortal({
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s0.hola", { nombre: nombreCliente })}</h1>
             <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
+            {/* Servicios adicionales puestos por la gestoría: el precio de las tarjetas
+                subiría «sin explicación» en el pago — se anuncian ANTES de elegir. */}
+            {extrasServicios.length > 0 && (
+              <div className="mt-4 rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3 text-sm text-aproba-800">
+                {t("s0.extras", { lista: extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang)).join(" + ") })}
+              </div>
+            )}
             <div className="mt-6 space-y-3">
               {servicios.length === 0 && (
                 <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
@@ -860,7 +867,7 @@ export function ClientPortal({
             <div className="mt-8 w-full rounded-xl border border-slate-200 bg-white p-4 text-left">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("s4.resumen")}</p>
               <div className="mt-2 space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">{t("step.tramite")}</span><span className="font-medium text-slate-800">{tramite ? servicioLabel(tramite.id, tramite.label, lang) : ""}</span></div>
+                <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("step.tramite")}</span><span className="text-right font-medium text-slate-800">{[...(tramite ? [servicioLabel(tramite.id, tramite.label, lang)] : []), ...extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang))].join(" + ")}</span></div>
                 {requiredDocs.length > 0 && (
                   <div className="flex justify-between"><span className="text-slate-500">{t("s4.documentos")}</span>
                     {allValidated

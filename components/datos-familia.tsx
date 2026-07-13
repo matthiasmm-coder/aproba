@@ -10,6 +10,8 @@ type Miembro = { id: string; parentesco: string; ficha: ClienteFicha; esSolicita
 
 // Campos de domicilio (para la casilla "mismo domicilio que el titular").
 const DOMICILIO_KEYS = FICHA_CAMPOS.filter((f) => f.grupo === "Domicilio").map((f) => f.k);
+// Misma regla de completitud que el flujo individual (todo salvo «piso»).
+const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso").map((f) => f.k);
 const nombreMiembro = (m: Miembro) => `${(m.ficha.nombre ?? "").trim()} ${(m.ficha.apellidos ?? "").trim()}`.trim();
 const copiaDomicilio = (dst: ClienteFicha, src: ClienteFicha): ClienteFicha => {
   const out = { ...dst };
@@ -116,6 +118,15 @@ export function DatosFamilia({
 
   const titularNombre = nombreMiembro(miembros[0]) || parentescoI18n(miembros[0]?.parentesco, lang) || t("fam.miembro");
 
+  // Campos por rellenar POR MIEMBRO (el domicilio copiado del titular cuenta como lleno).
+  // Solo los SOLICITANTES bloquean Continuar: sus datos alimentan los formularios EX;
+  // un acompañante incompleto solo muestra el badge.
+  const faltanDe = (m: Miembro) => {
+    const ficha = m.mismoDomicilio && miembros[0] ? copiaDomicilio(m.ficha, miembros[0].ficha) : m.ficha;
+    return REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length;
+  };
+  const solicitantesIncompletos = miembros.filter((m) => m.esSolicitante && faltanDe(m) > 0);
+
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("fam.datos.titulo")}</h1>
@@ -132,6 +143,11 @@ export function DatosFamilia({
                   <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{nombre}</span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {faltanDe(m) > 0 && (
+                    <span title={t("fam.faltan", { nombre, n: faltanDe(m) })} className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                      {t("s1.faltanCorto", { n: faltanDe(m) })}
+                    </span>
+                  )}
                   {m.esSolicitante && <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">{t("fam.solicitante")}</span>}
                   {miembros.length > 1 && (
                     <button onClick={() => quitar(m.id)} aria-label={t("fam.quitar")} className="rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
@@ -201,11 +217,19 @@ export function DatosFamilia({
         {addingMiembro ? t("fam.anadiendo") : t("fam.anadir")}
       </button>
 
+      {solicitantesIncompletos.length > 0 && (
+        <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
+          {solicitantesIncompletos.map((m) => (
+            <p key={m.id}>{t("fam.faltan", { nombre: nombreMiembro(m) || parentescoI18n(m.parentesco, lang) || t("fam.miembro"), n: faltanDe(m) })}</p>
+          ))}
+        </div>
+      )}
+
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mt-5 flex gap-3">
         <button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("common.atras")}</button>
-        <button onClick={continuar} disabled={guardando} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
+        <button onClick={continuar} disabled={guardando || solicitantesIncompletos.length > 0} className="flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
           {guardando ? t("s1.guardando") : t("common.continuar")}
         </button>
       </div>

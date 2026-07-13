@@ -84,6 +84,7 @@ export default async function Ajustes() {
 
       <div className="mt-6 space-y-3">
         <AjustesSection
+          id="servicios"
           title={t("Servicios")}
           subtitle={t("Trámites, pagos y documentos que pide cada uno")}
           icon={IconServicios}
@@ -94,6 +95,7 @@ export default async function Ajustes() {
         </AjustesSection>
 
         <AjustesSection
+          id="notificaciones"
           title={t("Notificaciones al cliente")}
           subtitle={t("Avisos automáticos por email o WhatsApp en cada paso")}
           icon={IconAvisos}
@@ -109,6 +111,7 @@ export default async function Ajustes() {
         </AjustesSection>
 
         <AjustesSection
+          id="facturacion"
           title={t("Facturación y métodos de pago")}
           subtitle={t("Datos de facturación, cuentas bancarias y cobro con tarjeta")}
           icon={IconFacturacion}
@@ -131,6 +134,7 @@ export default async function Ajustes() {
 
         {equipo && (
           <AjustesSection
+            id="plan"
             title={t("Plan y equipo")}
             subtitle={`${despachoPlan} · ${equipo.miembros.length} ${equipo.miembros.length === 1 ? t("usuario") : t("usuarios")}`}
             icon={IconEquipo}
@@ -140,6 +144,7 @@ export default async function Ajustes() {
         )}
 
         <AjustesSection
+          id="despacho"
           title={t("Despacho y cuenta")}
           subtitle={t("Datos de tu gestoría y de tu usuario")}
           icon={IconCuenta}

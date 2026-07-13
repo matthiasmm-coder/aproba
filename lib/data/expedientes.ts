@@ -1,5 +1,7 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { clavesDeExpediente } from "@/lib/multi-servicio";
+import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
@@ -20,6 +22,7 @@ export type ExpedienteResumen = {
   clienteNombre: string;
   clienteNacionalidad: string;
   tipoLabel: string;
+  extrasLabels?: string[]; // multi-servicio: labels de los adicionales (tooltip + búsqueda)
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string;
@@ -86,11 +89,17 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
     // como familia); individual → nombre del cliente.
     clienteNombre: unoFam(e.familia)?.nombre || `${e.cliente?.nombre ?? ""} ${e.cliente?.apellidos ?? ""}`.trim() || "—",
     clienteNacionalidad: e.cliente?.nacionalidad ?? "—",
-    // Multi-servicio: la tarjeta muestra el principal + «+N» si hay extras.
-    tipoLabel: ((e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo) + (() => {
-      const extras = (e as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
-      const n = Array.isArray(extras) ? [...new Set(extras.filter((c) => c && c !== e.servicioClave))].length : 0;
-      return n > 0 ? ` +${n}` : "";
+    // Multi-servicio: la tarjeta muestra el principal + «+N» si hay extras. El conteo
+    // usa los labels RESUELTOS (mismo resolutor que la ficha: claves huérfanas fuera,
+    // dedup contra el principal aunque venga derivado del tipo) — y esos labels
+    // alimentan el tooltip y la búsqueda del tablero.
+    ...(() => {
+      const claves = clavesDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: (e as unknown as { serviciosExtra?: string[] | null }).serviciosExtra, tipo: e.tipo });
+      const extrasLabels = claves.slice(1)
+        .map((c) => labelDeServicio[c] ?? DEFAULT_SERVICIOS.find((d) => d.id === c)?.label)
+        .filter((l): l is string => Boolean(l));
+      const base = (e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo;
+      return { tipoLabel: base + (extrasLabels.length ? ` +${extrasLabels.length}` : ""), extrasLabels };
     })(),
     estado: e.estado as ExpedienteEstado,
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
