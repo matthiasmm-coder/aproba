@@ -9,6 +9,7 @@ import { ClienteFormularios } from "@/components/cliente-formularios";
 import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
 import { CaducidadTie } from "@/components/caducidad-tie";
 import { EditarCliente } from "@/components/editar-cliente";
+import { EliminarClienteButton } from "@/components/eliminar-cliente-button";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { getT } from "@/lib/app-lang";
 
@@ -81,7 +82,10 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <EditarCliente clienteId={cliente.id} ficha={ficha} />
+          <div className="flex items-center gap-3">
+            <EliminarClienteButton clienteId={cliente.id} nombre={nombre} />
+            <EditarCliente clienteId={cliente.id} ficha={ficha} />
+          </div>
           <div className="hidden gap-6 text-center sm:flex">
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{expedientes.length}</p><p className="text-xs text-slate-400">{t("expedientes")}</p></div>
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
