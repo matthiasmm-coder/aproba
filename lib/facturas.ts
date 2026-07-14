@@ -19,6 +19,7 @@ export type Factura = {
   lineas?: LineaFactura[]; // desglose de honorarios (si vacío → una sola línea: concepto/base)
   suplidos?: Suplido[]; // gastos sin IVA
   notas?: string | null;
+  archivado?: boolean; // fuera de la lista de trabajo y de los cobros pendientes (sin borrar)
 };
 
 export const IVA = 0.21;

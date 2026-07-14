@@ -18,12 +18,33 @@ type Row = {
   lineas?: LineaFactura[] | null;
   suplidos?: Suplido[] | null;
   notas?: string | null;
+  archivadoAt?: string | null;
 };
 
-// lineas/suplidos/notas son columnas nuevas (Pro/Business). Se piden en el SELECT; si la
-// migración aún no se aplicó, se reintenta sin ellas (repli propre).
+// lineas/suplidos/notas (Pro/Business) y archivadoAt son columnas nuevas. Se piden en el
+// SELECT; si la migración aún no se aplicó, se reintenta sin ellas, en cascada (repli propre):
+// completo → sin archivadoAt → base. Cada grupo de columnas tiene su propia migración.
 const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento";
-const SELECT: string = `${COLS_BASE}, lineas, suplidos, notas`;
+const SELECT_LIN: string = `${COLS_BASE}, lineas, suplidos, notas`;
+const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
+
+// Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
+// caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
+// activas). Mismo criterio gateado que el resto del repo.
+const FALTA_COLUMNA = /column|schema cache|does not exist/i;
+
+// Tres niveles de repli: completo → sin archivadoAt (falta factura-archivado.sql) → base
+// (falta también factura-lineas.sql).
+async function selectFacturas<T>(
+  run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
+  contexto = "Facturas",
+): Promise<T> {
+  let res = await run(SELECT_FULL);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_LIN);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(COLS_BASE);
+  if (res.error) throw new Error(`${contexto}: ${res.error.message}`);
+  return res.data;
+}
 
 function mapRow(f: Row): Factura {
   return {
@@ -40,32 +61,27 @@ function mapRow(f: Row): Factura {
     lineas: Array.isArray(f.lineas) ? f.lineas : undefined,
     suplidos: Array.isArray(f.suplidos) ? f.suplidos : undefined,
     notas: f.notas ?? null,
+    archivado: Boolean(f.archivadoAt),
   };
 }
 
 export async function fetchFacturas(): Promise<Factura[]> {
   const supabase = await createSupabaseServer();
-  let res = await supabase.from("Factura").select(SELECT).order("numero", { ascending: false });
-  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).order("numero", { ascending: false });
-  if (res.error) throw new Error(`Facturas: ${res.error.message}`);
-  return ((res.data ?? []) as unknown as Row[]).map(mapRow);
+  const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }));
+  return ((data ?? []) as unknown as Row[]).map(mapRow);
 }
 
 // Todas las facturas de un expediente (para el export ZIP). Completas (líneas/suplidos).
 export async function fetchFacturasDeExpediente(expedienteId: string): Promise<Factura[]> {
   const supabase = await createSupabaseServer();
-  let res = await supabase.from("Factura").select(SELECT).eq("expedienteId", expedienteId).order("numero", { ascending: true });
-  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).eq("expedienteId", expedienteId).order("numero", { ascending: true });
-  if (res.error) throw new Error(`Facturas exp ${expedienteId}: ${res.error.message}`);
-  return ((res.data ?? []) as unknown as Row[]).map(mapRow);
+  const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).eq("expedienteId", expedienteId).order("numero", { ascending: true }), `Facturas exp ${expedienteId}`);
+  return ((data ?? []) as unknown as Row[]).map(mapRow);
 }
 
 export async function fetchFactura(id: string): Promise<Factura | null> {
   const supabase = await createSupabaseServer();
-  let res = await supabase.from("Factura").select(SELECT).eq("id", id).maybeSingle();
-  if (res.error) res = await supabase.from("Factura").select(COLS_BASE).eq("id", id).maybeSingle();
-  if (res.error) throw new Error(`Factura ${id}: ${res.error.message}`);
-  return res.data ? mapRow(res.data as unknown as Row) : null;
+  const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle(), `Factura ${id}`);
+  return data ? mapRow(data as unknown as Row) : null;
 }
 
 // ── Cobros pendientes (morosos) ──────────────────────────────────────────────
@@ -88,11 +104,14 @@ export type CobroPendiente = {
 
 export async function fetchCobrosPendientes(): Promise<CobroPendiente[]> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
-    .from("Factura")
-    .select("id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId")
-    .in("estado", ["EMITIDA", "VENCIDA"])
-    .order("fechaVencimiento", { ascending: true, nullsFirst: false });
+  const cols = "id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId";
+  const base = () => supabase.from("Factura").select(cols).in("estado", ["EMITIDA", "VENCIDA"]);
+  // Una factura archivada ya no se persigue: se excluye de los cobros. Repli SOLO si falta la
+  // columna archivadoAt (factura-archivado.sql sin aplicar); un error transitorio se re-lanza
+  // en vez de reaparecer las archivadas (que dispararían recordatorios no deseados).
+  let res = await base().is("archivadoAt", null).order("fechaVencimiento", { ascending: true, nullsFirst: false });
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await base().order("fechaVencimiento", { ascending: true, nullsFirst: false });
+  const { data, error } = res;
   if (error) throw new Error(`Cobros pendientes: ${error.message}`);
   return ((data ?? []) as unknown as {
     id: string; numero: string; clienteNombre: string; concepto: string; total: number | string;

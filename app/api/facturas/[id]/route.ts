@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { puedeGestionarEquipo } from "@/lib/planes";
 
 // Edición de una factura YA emitida (retocar el pago final o el anticipo desde el popup
 // del expediente). RLS: la lectura bajo sesión valida que la factura es del workspace del
@@ -81,4 +82,31 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     avisado = true;
   }
   return NextResponse.json({ ok: true, total, numero, avisado });
+}
+
+// Eliminación DEFINITIVA de una factura (borrador erróneo, duplicado, prueba). Solo
+// administrador (OWNER/ADMIN), como el borrado de clientes. Resolución BAJO RLS antes de
+// tocar nada (anti-IDOR). La FK Expediente.expedienteId es ON DELETE SET NULL, así que
+// borrar una factura NO arrastra el expediente; simplemente desaparece de la lista.
+// OJO CONTABLE (lo avisa el diálogo del cliente): borrar una factura ya emitida rompe la
+// numeración correlativa exigida por la normativa española; lo habitual es emitir una
+// rectificativa. Se permite porque el gestor lo pidió, pero es su decisión informada.
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+
+  const { data: f } = await supabase.from("Factura").select("id, numero, estado, workspaceId").eq("id", id).maybeSingle();
+  if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
+
+  const { data: mem } = await supabase.from("Membership").select("role").eq("workspaceId", (f as { workspaceId: string }).workspaceId).eq("userId", user.id).maybeSingle();
+  if (!puedeGestionarEquipo((mem as { role?: string } | null)?.role)) {
+    return NextResponse.json({ error: "Solo un administrador puede eliminar facturas." }, { status: 403 });
+  }
+
+  const admin = createSupabaseAdmin();
+  const { error } = await admin.from("Factura").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, numero: String((f as { numero: string }).numero) });
 }

@@ -80,26 +80,38 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
   }, [cobros]);
 
   const totalPendiente = cobros.reduce((s, c) => s + c.total, 0);
+  const [abierto, setAbierto] = useState(true);
+  const plegable = cobros.length > 0;
 
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-800">{t("Cobros pendientes")}</h2>
-          {cobros.length > 0 && (
-            <p className="mt-0.5 text-xs text-slate-400">
-              {grupos.length} {grupos.length === 1 ? t("cliente") : t("clientes")} · {cobros.length} {cobros.length === 1 ? t("factura") : t("facturas")}
-            </p>
+      <button
+        type="button"
+        onClick={() => plegable && setAbierto((o) => !o)}
+        aria-expanded={plegable ? abierto : undefined}
+        className={`flex w-full items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 text-left ${plegable ? "cursor-pointer hover:bg-cream-50/60" : "cursor-default"}`}
+      >
+        <div className="flex items-center gap-2">
+          {plegable && (
+            <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
           )}
+          <div>
+            <span className="text-sm font-semibold text-slate-800">{t("Cobros pendientes")}</span>
+            {cobros.length > 0 && (
+              <p className="mt-0.5 text-xs text-slate-400">
+                {grupos.length} {grupos.length === 1 ? t("cliente") : t("clientes")} · {cobros.length} {cobros.length === 1 ? t("factura") : t("facturas")}
+              </p>
+            )}
+          </div>
         </div>
         {cobros.length > 0 && (
           <p className="shrink-0 text-lg font-bold tracking-tightest text-amber-600">{eur(totalPendiente)}</p>
         )}
-      </div>
+      </button>
 
       {cobros.length === 0 ? (
         <p className="px-5 py-6 text-center text-sm text-slate-400">✓ {t("Estás al día. No hay cobros pendientes.")}</p>
-      ) : (
+      ) : abierto && (
         <div className="divide-y divide-slate-100">
           {grupos.map((g) => (
             <div key={g.cliente} className="px-5 py-3.5">

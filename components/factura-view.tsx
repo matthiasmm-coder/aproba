@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import { AprobaMark } from "./logo";
 import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
+import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
 // `editable`: muestra el botón "Editar" (abre el popup de edición). Solo en la ficha de la
-// factura; en la vista previa de "Nueva factura" se deja en false.
-export function FacturaView({ f, emisor, editable = false }: { f: Factura; emisor: Emisor; editable?: boolean }) {
+// factura; en la vista previa de "Nueva factura" se deja en false. `esAdmin`: habilita el
+// borrado (archivar/eliminar); solo aplica en la ficha real.
+export function FacturaView({ f, emisor, editable = false, esAdmin = false }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean }) {
   const t = useT();
   const router = useRouter();
   const meta = FACTURA_ESTADO_META[f.estado];
@@ -63,6 +65,9 @@ export function FacturaView({ f, emisor, editable = false }: { f: Factura; emiso
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" /></svg>
             {t("Imprimir / PDF")}
           </button>
+          {editable && (
+            <FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} onDone={() => { router.push("/app/facturas"); router.refresh(); }} />
+          )}
         </div>
       </div>
 
