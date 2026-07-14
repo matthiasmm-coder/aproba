@@ -181,7 +181,7 @@ export default function Landing() {
               La IA valida los documentos, genera los formularios oficiales, revisa el expediente
               antes de presentarlo y vigila cada renovación. Lo que te llevaba 4 horas, en 30 minutos.
             </p>
-            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <DemoButton className="w-full px-6 py-3 sm:w-auto" />
               <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
                 Descubrir en 90s
