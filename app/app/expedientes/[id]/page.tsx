@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
+import { fetchExpedienteDetalle, fetchNotasExpediente } from "@/lib/data/expedientes";
+import { NotasExpediente } from "@/components/notas-expediente";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
@@ -55,11 +56,12 @@ export default async function ExpedienteDetail({
 }) {
   const { id } = await params;
   // Las 4 fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
-  const [t, e, { servicios }, revision] = await Promise.all([
+  const [t, e, { servicios }, revision, notas] = await Promise.all([
     getT(),
     fetchExpedienteDetalle(id),
     fetchServiciosConfig(),
     createSupabaseServer().then((sb) => fetchUltimaRevision(sb, id)),
+    fetchNotasExpediente(id),
   ]);
   if (!e) notFound();
 
@@ -168,6 +170,12 @@ export default async function ExpedienteDetail({
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
+        {/* Notas de trabajo del gestor («cita solicitada», «a la espera de apostillas»…) */}
+        <section>
+          <SeccionHeader>{t("Notas")}</SeccionHeader>
+          <NotasExpediente expedienteId={e.id} inicial={notas} />
+        </section>
+
         {/* Familia (expediente familiar): miembros + facturación familiar */}
         {familia && (
           <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />

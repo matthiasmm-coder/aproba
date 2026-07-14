@@ -309,3 +309,40 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (error) throw new Error(`Expediente token: ${error.message}`);
   return data ? mapearDetalle(data) : null;
 }
+
+// ── Notas de trabajo del expediente (pedido de Juan) ─────────────────────────
+// Bloc de anotaciones libres («cita solicitada», «a la espera de apostillas»),
+// mutables, aparte del Historial de auditoría. Lectura bajo sesión (RLS). Si la
+// tabla aún no existe (migración expediente-notas.sql sin aplicar) → lista vacía.
+export type NotaExpediente = { id: string; texto: string; autor: string | null; fecha: string; editada: boolean };
+
+function fmtFechaHora(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export async function fetchNotasExpediente(expedienteId: string): Promise<NotaExpediente[]> {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("ExpedienteNota")
+    .select("id, texto, autorNombre, createdAt, updatedAt")
+    .eq("expedienteId", expedienteId)
+    .order("createdAt", { ascending: false });
+  if (error) {
+    // Tabla ausente (pre-migración) u otro fallo → sin notas, la ficha no se rompe. Se
+    // registra para que un fallo real (RLS mal configurada, red) sea visible en producción.
+    console.error("[fetchNotasExpediente]", expedienteId, error.message);
+    return [];
+  }
+  return ((data ?? []) as { id: string; texto: string; autorNombre: string | null; createdAt: string; updatedAt: string | null }[])
+    .map((n) => ({
+      id: n.id,
+      texto: n.texto,
+      autor: n.autorNombre,
+      fecha: fmtFechaHora(n.createdAt),
+      editada: Boolean(n.updatedAt && n.createdAt && new Date(n.updatedAt).getTime() - new Date(n.createdAt).getTime() > 1000),
+    }));
+}

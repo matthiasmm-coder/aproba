@@ -552,6 +552,22 @@ model ExpedienteEvento {
   @@index([expedienteId])
 }
 
+// Notas de trabajo del gestor (mutables), separadas del Historial de auditoría.
+// Las FK (workspaceId/expedienteId/autorId) viven en supabase/expediente-notas.sql;
+// aquí se documentan como escalares para no exigir back-relations en los otros modelos.
+model ExpedienteNota {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  expedienteId String
+  autorId      String?
+  autorNombre  String? // snapshot del nombre del autor
+  texto        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expedienteId])
+}
+
 model Factura {
   id              String        @id @default(cuid())
   workspaceId     String
