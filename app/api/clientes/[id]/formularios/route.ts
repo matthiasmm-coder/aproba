@@ -6,7 +6,7 @@ import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 const nombreArchivo = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, "_");
 // Toutes les colonnes « ficha » du cliente (mêmes champs que le portail « Tus datos »).
-const SELECT = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre";
+const SELECT = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre";
 
 // GET ?tipo=EX-10 → PDF officiel AUTORRELLENÉ depuis la fiche du client, sans
 // expediente ni service (RLS : seul un membre du workspace du client y accède).

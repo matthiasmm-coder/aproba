@@ -161,7 +161,7 @@ async function main() {
   // Ficha complète de Julia (capturée dans le portail) → formulaires EX/790 pleins en démo.
   const FICHA_JULIA = {
     apellidos: "Mendoza Restrepo", email: "julia.mendoza@email.com", telefono: "600112233",
-    numeroDocumento: "AY0429317", sexo: "M", fechaNacimiento: "1992-03-14",
+    numeroDocumento: "Y0429317K", pasaporte: "AY0429317", sexo: "M", fechaNacimiento: "1992-03-14",
     lugarNacimiento: "Bogotá", paisNacimiento: "Colombia", estadoCivil: "S",
     via: "Calle Mallorca", numeroVia: "245", piso: "3º 2ª", codigoPostal: "08036",
     municipio: "Barcelona", provincia: "Barcelona", nombrePadre: "Carlos Mendoza", nombreMadre: "Ana Restrepo",

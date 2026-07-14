@@ -13,7 +13,7 @@ import type { MiembroInicial } from "@/components/datos-familia";
 // Lien WhatsApp du client : /j/{token} → résout l'expediente réel (cliente,
 // gestoría, services + tarifas du workspace). Token inconnu → portail de démo.
 
-const SELECT_CLIENTE = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre, idioma";
+const SELECT_CLIENTE = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre, idioma";
 
 type ExpedienteToken = {
   id: string;

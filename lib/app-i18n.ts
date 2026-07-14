@@ -184,6 +184,7 @@ export const CA: Record<string, string> = {
   "Otro trámite": "Altre tràmit",
   // DOC_LABEL
   "Pasaporte": "Passaport",
+  "NIE / Pasaporte": "NIE / Passaport",
   "Certificado NIE": "Certificat NIE",
   "Certificado de empadronamiento": "Certificat d'empadronament",
   "Contrato de trabajo": "Contracte de treball",
@@ -361,7 +362,6 @@ export const CA: Record<string, string> = {
   "Generamos el impreso barcodé en la Sede de la Policía Nacional. Completa los campos obligatorios (en ámbar) y escribe el código de seguridad.": "Generem l'imprès amb codi de barres a la Seu de la Policia Nacional. Completa els camps obligatoris (en ambre) i escriu el codi de seguretat.",
   "Abriendo el generador oficial…": "Obrint el generador oficial…",
   "Abrir el generador oficial en una pestaña →": "Obrir el generador oficial en una pestanya →",
-  "NIE / Pasaporte": "NIE / Passaport",
   "Apellidos y nombre": "Cognoms i nom",
   "Tipo de vía": "Tipus de via",
   "Nombre de la vía": "Nom de la via",

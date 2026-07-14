@@ -19,7 +19,7 @@ export type DatosEncargo = {
   despacho: { nombre: string; nif: string; domicilio: string; email: string };
   mandatario: { nombre: string; dni: string; colegiado: string; colegio: string };
   cliente: {
-    nombre: string; apellidos: string; documento: string; nacionalidad: string;
+    nombre: string; apellidos: string; nie: string; pasaporte: string; nacionalidad: string;
     domicilio: string; municipio: string; cp: string; provincia: string;
     telefono: string; email: string;
   };
@@ -105,7 +105,7 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       colegiado: s(ws.mandatarioColegiado), colegio: s(ws.mandatarioColegio),
     },
     cliente: {
-      nombre: s(c.nombre), apellidos: s(c.apellidos), documento: s(c.numeroDocumento), nacionalidad: s(c.nacionalidad),
+      nombre: s(c.nombre), apellidos: s(c.apellidos), nie: s(c.numeroDocumento), pasaporte: s(c.pasaporte), nacionalidad: s(c.nacionalidad),
       domicilio: [s(c.via), s(c.numeroVia), s(c.piso)].filter(Boolean).join(", "),
       municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
       telefono: s(c.telefono), email: s(c.email),
@@ -257,7 +257,14 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
 
   m.seccion("2. EL CLIENTE");
   m.fila("Nombre completo", o(`${d.cliente.nombre} ${d.cliente.apellidos}`.trim(), 30));
-  m.fila("NIE / Pasaporte", o(d.cliente.documento));
+  if (d.cliente.nie && d.cliente.pasaporte) {
+    m.fila("NIE", d.cliente.nie);
+    m.fila("Pasaporte", d.cliente.pasaporte);
+  } else {
+    // Un solo documento → su etiqueta; ninguno → línea en blanco que acoge ambos.
+    const docLabel = d.cliente.pasaporte ? "Pasaporte" : d.cliente.nie ? "NIE" : "NIE / Pasaporte";
+    m.fila(docLabel, o(d.cliente.nie || d.cliente.pasaporte));
+  }
   m.fila("Nacionalidad", o(d.cliente.nacionalidad));
   m.fila("Domicilio", [d.cliente.domicilio, d.cliente.cp, d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ") || o("", 40));
   m.fila("Contacto", [d.cliente.telefono, d.cliente.email].filter(Boolean).join(" / ") || o("", 30));
@@ -353,7 +360,7 @@ export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
   const mandante = `${d.cliente.nombre} ${d.cliente.apellidos}`.trim();
   const notif = [d.cliente.domicilio, d.cliente.cp ? `CP ${d.cliente.cp}` : "", d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ");
 
-  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE ${o(d.cliente.documento, 14)}, y domicilio a efectos de notificaciones en ${o(notif, 50)}, en concepto de MANDANTE, dice y otorga:`);
+  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE/Pasaporte ${o(d.cliente.nie || d.cliente.pasaporte, 14)}, y domicilio a efectos de notificaciones en ${o(notif, 50)}, en concepto de MANDANTE, dice y otorga:`);
   m.espacio(4);
   // Cláusula de colegiación SOLO si el gestor la configuró: un abogado no colegiado
   // como GA no debe quedar afiliado falsamente a un Colegio de Gestores.

@@ -26,8 +26,11 @@ const LANG_KEY = "aproba.portal.lang";
 // inicializador de reprise Y el render.
 const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
-// Champs obligatoires : tous sauf « piso / puerta ».
-const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso").map((f) => f.k);
+// Champs obligatoires : tous sauf « piso / puerta » et les deux documents — pour
+// NIE/pasaporte la règle est « AU MOINS UN des deux » (primera solicitud = souvent
+// passeport seul ; nacionalizado = NIE seul). Exiger les deux bloquerait Continuar.
+const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso" && f.k !== "numeroDocumento" && f.k !== "pasaporte").map((f) => f.k);
+const docIdentidadOk = (f: Record<string, string | undefined>) => Boolean((f.numeroDocumento ?? "").trim() || (f.pasaporte ?? "").trim());
 
 const EXTRACTED: Record<string, [string, string][]> = {
   Pasaporte: [["Nombre", "Julia Mendoza"], ["Nº", "AV284917"], ["Caducidad", "22/08/2029"]],
@@ -81,7 +84,7 @@ export function ClientPortal({
   const [step, setStep] = useState(() => {
     if (!token || !servicioInicial) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
-    const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
+    const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim()) && docIdentidadOk(base);
     return fichaCompleta ? 2 : 1;
   });
   const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial));
@@ -228,7 +231,7 @@ export function ClientPortal({
   const PASO_LISTO = 4;
 
   // Validation des données (active en mode réel) : compte les champs requis vides.
-  const faltan = REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length;
+  const faltan = REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length + (docIdentidadOk(ficha) ? 0 : 1);
   const validacionActiva = Boolean(token);
   const datosOk = !validacionActiva || faltan === 0;
 

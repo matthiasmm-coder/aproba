@@ -154,13 +154,15 @@ export function datosNormalizados(exp: Expediente): DatosForm {
   const apellido1 = apellidos.split(/\s+/)[0] ?? "";
   const apellido2 = apellidos.split(/\s+/).slice(1).join(" ");
 
-  // Documento : NIE (X/Y/Z + dígitos) vs pasaporte selon le format.
-  const docFicha = limpio(fi.numeroDocumento ?? "").toUpperCase().replace(/[\s-]/g, "");
+  // Documento : NIE et pasaporte séparés dans la ficha ; l'inférence par format
+  // reste en repli pour les données saisies avant le split.
+  const docFicha = limpio(fi.numeroDocumento ?? "").toUpperCase().replace(/[\s.\-]/g, "");
+  const pasFicha = limpio(fi.pasaporte ?? "").toUpperCase().replace(/[\s.\-]/g, "");
   const esNie = (s: string) => /^[XYZ]\d/.test(s);
   const nieRaw = (esNie(docFicha) ? docFicha : "") || limpio(G(m, "NIE")).toUpperCase().replace(/[\s-]/g, "");
   const nm = nieRaw.match(/^([XYZ])(\d{1,8})([A-Z])?$/);
   const [nie1, nie2, nie3] = nm ? [nm[1], nm[2], nm[3] ?? ""] : ["", "", ""];
-  const pasaporte = (docFicha && !esNie(docFicha) ? docFicha : "") || limpio(G(m, "Nº pasaporte"));
+  const pasaporte = pasFicha || (docFicha && !esNie(docFicha) ? docFicha : "") || limpio(G(m, "Nº pasaporte"));
 
   // Fecha de nacimiento → d / m / a (ficha ISO ou extraction).
   const fSrc = limpio(fi.fechaNacimiento ?? "") || limpio(G(m, "Fecha de nacimiento"));

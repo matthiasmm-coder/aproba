@@ -69,7 +69,8 @@ export const CABECERAS: Partial<Record<keyof ClienteCsvCampos, string[]>> = {
   email: ["email", "correo", "mail"],
   telefono: ["telefono", "tel", "movil", "phone", "telephone"],
   nacionalidad: ["nacionalidad", "nationalite"],
-  numeroDocumento: ["documento", "numerodocumento", "ndocumento", "nie", "pasaporte", "dni", "passport"],
+  numeroDocumento: ["nie", "documento", "numerodocumento", "ndocumento", "dni"],
+  pasaporte: ["pasaporte", "passport", "npasaporte", "numeropasaporte"],
   sexo: ["sexo", "sex", "genero"],
   fechaNacimiento: ["fechanacimiento", "nacimiento", "fechadenacimiento", "birth", "birthdate"],
   lugarNacimiento: ["lugarnacimiento", "lugardenacimiento", "ciudadnacimiento"],
@@ -87,7 +88,7 @@ export const CABECERAS: Partial<Record<keyof ClienteCsvCampos, string[]>> = {
 };
 
 // Étiquette des colonnes reconnues (affichée dans les deux écrans d'import).
-export const COLUMNAS_CSV_LABEL = "nombre*, apellidos, email, telefono, nacionalidad, documento, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma, caducidadTIE";
+export const COLUMNAS_CSV_LABEL = "nombre*, apellidos, email, telefono, nacionalidad, nie, pasaporte, sexo, fechaNacimiento, estadoCivil, via, numero, codigoPostal, municipio, provincia, idioma, caducidadTIE";
 
 // Clés de doublon (email / nombre+apellidos) à partir des clients déjà en base.
 export function llavesDeClientes(existentes: { nombre: string | null; apellidos?: string | null; email?: string | null }[]): Set<string> {
@@ -120,6 +121,13 @@ export function parseClientesCsv(text: string, existentesLlaves: Set<string> = n
     campos.forEach((k) => { const v = get(k); if (v) f[k] = v; });
     f.idioma = get("idioma") || "es";
     f.fechaCaducidad = normalizarFechaCsv(f.fechaCaducidad); // dd/mm/aaaa → ISO; inválida → ""
+    // Cabecera legacy «documento»/«dni»: si el valor no tiene formato de NIE (X/Y/Z +
+    // dígitos) es un pasaporte → misma regla que la migración cliente-pasaporte.sql.
+    // Un DNI español (8 dígitos + letra) se queda en numeroDocumento.
+    if (f.numeroDocumento && !f.pasaporte) {
+      const d = f.numeroDocumento.trim();
+      if (!/^[XYZ][-. ]?[0-9]/i.test(d) && !/^[0-9]{8}[A-Za-z]$/.test(d)) { f.pasaporte = d; f.numeroDocumento = ""; }
+    }
     let estado: FilaCsv["estado"] = "ok";
     if (!f.nombre) estado = "sin_nombre";
     else if ((f.email && llaves.has("e:" + norm(f.email))) || llaves.has("n:" + norm(`${f.nombre} ${f.apellidos}`))) estado = "duplicado";
@@ -139,5 +147,5 @@ export function filaACliente(f: ClienteCsvCampos, workspaceId: string): Record<s
 }
 
 export const PLANTILLA_CSV =
-  "﻿nombre;apellidos;email;telefono;nacionalidad;documento;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma;caducidadTIE\n"
-  + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;AY0429317;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es;15/07/2027\n";
+  "﻿nombre;apellidos;email;telefono;nacionalidad;nie;pasaporte;sexo;fechaNacimiento;estadoCivil;via;numero;codigoPostal;municipio;provincia;idioma;caducidadTIE\n"
+  + "Julia;Mendoza Restrepo;julia@email.com;612345678;Colombia;Y0429317K;AY042931;M;1990-05-12;C;Calle Mayor;23;28013;Madrid;Madrid;es;15/07/2027\n";

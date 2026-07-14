@@ -32,7 +32,7 @@ const IDIOMAS = [
 // Placeholders d'aide pour quelques champs texte.
 const PLACEHOLDER: Partial<Record<keyof ClienteFicha, string>> = {
   nombre: "María Camila", apellidos: "García López", email: "maria@email.com",
-  telefono: "612 345 678", nacionalidad: "Colombia", numeroDocumento: "Y1234567Z",
+  telefono: "612 345 678", nacionalidad: "Colombia", numeroDocumento: "Y1234567Z", pasaporte: "AB123456",
   lugarNacimiento: "Bogotá", paisNacimiento: "Colombia",
   via: "Calle Mayor", numeroVia: "23", piso: "4ºB", codigoPostal: "28013",
   municipio: "Madrid", provincia: "Madrid",

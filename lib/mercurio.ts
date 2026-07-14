@@ -33,7 +33,7 @@ export function camposMercurio(f: ClienteFicha): MercurioGrupo[] {
     {
       titulo: "Datos del extranjero",
       campos: [
-        { label: "Nº de documento (NIE / Pasaporte)", value: v(f.numeroDocumento) },
+        { label: "Nº de documento (NIE / Pasaporte)", value: v(f.numeroDocumento || f.pasaporte) },
         { label: "Primer apellido", value: primerApellido },
         { label: "Segundo apellido", value: segundoApellido },
         { label: "Nombre", value: v(f.nombre) },

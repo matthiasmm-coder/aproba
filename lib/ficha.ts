@@ -10,7 +10,8 @@ export type ClienteFicha = {
   lugarNacimiento?: string;
   paisNacimiento?: string;
   nacionalidad?: string;
-  numeroDocumento?: string; // NIE ou pasaporte
+  numeroDocumento?: string; // NIE (X/Y/Z + dígitos)
+  pasaporte?: string;
   estadoCivil?: string; // S | C | V | D | Sp
   nombrePadre?: string;
   nombreMadre?: string;
@@ -26,7 +27,7 @@ export type ClienteFicha = {
 
 export const FICHA_KEYS: (keyof ClienteFicha)[] = [
   "nombre", "apellidos", "sexo", "fechaNacimiento", "lugarNacimiento", "paisNacimiento",
-  "nacionalidad", "numeroDocumento", "estadoCivil", "nombrePadre", "nombreMadre",
+  "nacionalidad", "numeroDocumento", "pasaporte", "estadoCivil", "nombrePadre", "nombreMadre",
   "via", "numeroVia", "piso", "codigoPostal", "municipio", "provincia", "telefono", "email",
 ];
 
@@ -45,7 +46,8 @@ export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Ident
   { k: "nacionalidad", label: "Nacionalidad", grupo: "Identidad", w: "half" },
   { k: "lugarNacimiento", label: "Lugar de nacimiento (ciudad)", grupo: "Identidad", w: "half" },
   { k: "paisNacimiento", label: "País de nacimiento", grupo: "Identidad", w: "half" },
-  { k: "numeroDocumento", label: "NIE / Pasaporte", grupo: "Identidad", w: "half" },
+  { k: "numeroDocumento", label: "NIE", grupo: "Identidad", w: "half" },
+  { k: "pasaporte", label: "Pasaporte", grupo: "Identidad", w: "half" },
   { k: "via", label: "Domicilio (calle, plaza…)", grupo: "Domicilio", w: "full", ac: "street-address" },
   { k: "numeroVia", label: "Número", grupo: "Domicilio", w: "half", inputMode: "numeric" },
   { k: "piso", label: "Piso / puerta", grupo: "Domicilio", w: "half" },

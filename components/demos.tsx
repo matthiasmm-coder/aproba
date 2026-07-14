@@ -48,7 +48,8 @@ const DATOS = [
   { label: "Nombre", value: "Julia" },
   { label: "Apellidos", value: "Mendoza Restrepo" },
   { label: "Nacionalidad", value: "Colombia" },
-  { label: "NIE / Pasaporte", value: "AV284917" },
+  { label: "NIE", value: "Y0284917K" },
+  { label: "Pasaporte", value: "AV284917" },
 ];
 
 const HISTORIAL = [
@@ -262,7 +263,7 @@ function DatosForm({ active }: { active: boolean }) {
           const done = i < prog.field;
           const typing = i === prog.field;
           const shown = done ? f.value : typing ? f.value.slice(0, prog.chars) : "";
-          const ancho = f.label === "Apellidos" || f.label === "NIE / Pasaporte" ? "col-span-2" : "";
+          const ancho = f.label === "Apellidos" ? "col-span-2" : "";
           return (
             <div key={f.label} className={ancho}>
               <p className="mb-0.5 text-[8px] font-medium text-slate-600">{f.label}<span className="text-red-500"> *</span></p>
