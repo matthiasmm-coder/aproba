@@ -66,6 +66,17 @@ export function suplidosDeServicios(servicios: Servicio[]): { concepto: string; 
   return servicios.flatMap((s) => (s.suplidos ?? []).filter((x) => x.concepto && x.importe > 0));
 }
 
+// Suplidos EFECTIVOS de un expediente: si tiene override manual (Expediente.suplidosOverride)
+// se usa TAL CUAL (el gestor lo ajustó para este caso); si no, los del servicio. Un array
+// vacío explícito significa «sin tasas» (distinto de null = usar los del servicio).
+export function suplidosDeExpediente(
+  override: { concepto: string; importe: number }[] | null | undefined,
+  servicios: Servicio[],
+): { concepto: string; importe: number }[] {
+  if (Array.isArray(override)) return override.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }));
+  return suplidosDeServicios(servicios);
+}
+
 // Label compuesto para conceptos de factura y cabeceras («Arraigo social + Canje»).
 export function labelServicios(servicios: Servicio[], fallback = ""): string {
   return servicios.map((s) => s.label?.trim()).filter(Boolean).join(" + ") || fallback;

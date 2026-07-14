@@ -5,7 +5,7 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente } from "@/lib/multi-servicio";
 import { r2 } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
@@ -14,6 +14,7 @@ import { EliminarExpedienteButton } from "@/components/eliminar-expediente-butto
 import { ExportarZipButton } from "@/components/exportar-zip-button";
 import { DocumentoRow } from "@/components/documento-row";
 import { CobrosPanel } from "@/components/cobros-panel";
+import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
 import { DriverBanner } from "@/components/driver-banner";
@@ -78,7 +79,9 @@ export default async function ExpedienteDetail({
   // Tasas y suplidos del servicio, ×N miembros — MISMO formato que /api/pagos (el popup
   // de cobro debe emitir exactamente lo que emitiría el portal).
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
-  const suplidosExp = suplidosDeServicios(serviciosExp).map((x) => ({
+  // Override manual del expediente (si el gestor ajustó las tasas) o los del servicio.
+  const suplidosBase = suplidosDeExpediente(e.suplidosOverride, serviciosExp);
+  const suplidosExp = suplidosBase.map((x) => ({
     concepto: nMiembrosExp > 1 ? `${x.concepto} (×${nMiembrosExp})` : x.concepto,
     importe: r2(x.importe * nMiembrosExp),
   }));
@@ -240,6 +243,13 @@ export default async function ExpedienteDetail({
           conceptoAnticipo={`Anticipo — ${etiquetaServicios} (${e.referencia})`}
           suplidos={suplidosExp}
         />
+        {/* Tasas y suplidos ajustables por expediente (pedido por Juan): alimentan hoja de
+            encargo, primera factura y presupuesto. Solo cuando hay cobro o tasas que ajustar. */}
+        {(tarifa.anticipo > 0 || tarifa.resto > 0 || suplidosBase.length > 0 || e.suplidosOverride !== null) && (
+          <div className="-mt-3 flex justify-end">
+            <SuplidosExpediente expedienteId={e.id} inicial={suplidosBase} esOverride={e.suplidosOverride !== null} />
+          </div>
+        )}
 
         {/* Historial */}
         <section>

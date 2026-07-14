@@ -57,6 +57,7 @@ export function ClientPortal({
   familia,
   servicioInicial,
   serviciosExtraClaves,
+  suplidosOverride,
   docsSubidos,
 }: {
   servicios?: Servicio[];
@@ -73,6 +74,7 @@ export function ClientPortal({
   // vuelve al enlace NO empieza de cero — retoma en el primer paso incompleto).
   servicioInicial?: string | null;
   serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
+  suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   docsSubidos?: { tipo: string; estado: string }[];
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
@@ -208,10 +210,16 @@ export function ClientPortal({
   const resto = ((tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0)) * nMiembros;
   // Tasas y suplidos (SIN IVA): mismos que el servidor pondrá en la PRIMERA factura
   // (el anticipo si lo hay). ×N miembros — el total mostrado DEBE cuadrar con Stripe.
+  // Si el gestor ajustó las tasas para este expediente (override), sustituyen a las del
+  // servicio en todo el presupuesto — el mismo importe que emitirá /api/pagos.
+  const ovUnit = Array.isArray(suplidosOverride) ? suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0) : null;
   const suplidosUnit = (sv?: { suplidos?: { concepto: string; importe: number }[] } | null) =>
     (sv?.suplidos ?? []).reduce((a, x) => a + (Number(x.importe) || 0), 0);
-  const suplidosExp = [tramite, ...extrasServicios]
-    .flatMap((sv) => sv?.suplidos ?? [])
+  // Total de tasas por UNIDAD (antes de ×N) — override si existe, si no servicio+extras.
+  const suplidosUnitTotal = ovUnit
+    ? ovUnit.reduce((a, x) => a + Number(x.importe), 0)
+    : null; // null → cada tarjeta calcula el suyo con suplidosUnit
+  const suplidosExp = (ovUnit ?? [tramite, ...extrasServicios].flatMap((sv) => sv?.suplidos ?? []))
     .filter((x) => x.concepto && Number(x.importe) > 0)
     .map((x) => ({ concepto: x.concepto, importe: Math.round(Number(x.importe) * nMiembros * 100) / 100 }));
   const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
@@ -484,7 +492,7 @@ export function ClientPortal({
                           + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
                       <p className="shrink-0 text-sm font-bold text-slate-700">{eur(
                         totalDe((tr.anticipo + tr.resto + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0) + (sv.resto ?? 0), 0)) * nMiembros)
-                        + (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0)) * nMiembros
+                        + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros
                       )}</p>
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>

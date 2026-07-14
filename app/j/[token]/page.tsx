@@ -54,6 +54,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
   let serviciosExtraClaves: string[] = [];
+  let suplidosOverride: { concepto: string; importe: number }[] | null = null;
   let docsSubidos: { tipo: string; estado: string }[] = [];
   // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
   // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
@@ -62,9 +63,10 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", suplidosOverride", "").replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
@@ -102,6 +104,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       // wizard, pero suman documentos requeridos y tarifa (deben cuadrar con /api/pagos).
       const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
       serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
+      const supOv = (exp as unknown as { suplidosOverride?: { concepto: string; importe: number }[] | null }).suplidosOverride;
+      suplidosOverride = Array.isArray(supOv) ? supOv.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) })) : null;
       try {
         const { data: docRows } = await admin.from("Documento").select("tipo, estado, clienteId").eq("expedienteId", exp.id);
         docsSubidos = ((docRows ?? []) as { tipo: string; estado: string; clienteId: string | null }[])
@@ -189,6 +193,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       familia={familia}
       servicioInicial={servicioInicial}
       serviciosExtraClaves={serviciosExtraClaves}
+      suplidosOverride={suplidosOverride}
       docsSubidos={docsSubidos}
     />
   );

@@ -25,6 +25,9 @@ export type DatosEncargo = {
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
   servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; suplidos: { concepto: string; importe: number }[] }[];
+  // Override manual de tasas/suplidos del expediente (si el gestor los ajustó): lista PLANA
+  // que sustituye a los suplidos por servicio en §5. null = usar los de cada servicio.
+  suplidosOverride: { concepto: string; importe: number }[] | null;
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
 };
 
@@ -53,7 +56,8 @@ const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 // ── Recogida de datos ────────────────────────────────────────────────────────
 
 type ExpRow = {
-  id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; workspaceId: string;
+  id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
+  suplidosOverride?: { concepto: string; importe: number }[] | null; workspaceId: string;
   cliente: Record<string, string | null> | null;
 };
 
@@ -112,6 +116,9 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       noIncluye: s((sv as { noIncluye?: string }).noIncluye),
       suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0),
     })),
+    suplidosOverride: Array.isArray(exp.suplidosOverride)
+      ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
+      : null,
     medios,
   };
 }
@@ -295,11 +302,14 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   } else {
     m.fila("Honorarios", "Según presupuesto");
   }
-  // Tasas y suplidos previstos por servicio (SIN IVA): presupuesto ajustado — el contrato
-  // enseña lo que la primera factura repercutirá. Atribuidos a su servicio si hay varios.
-  const suplidosContrato = d.servicios.flatMap((sv) =>
-    sv.suplidos.map((x) => ({ concepto: d.servicios.length > 1 ? `${sv.label}: ${x.concepto}` : x.concepto, importe: x.importe })),
-  );
+  // Tasas y suplidos previstos (SIN IVA): presupuesto ajustado — el contrato enseña lo que
+  // la primera factura repercutirá. Si el gestor los ajustó para este expediente (override),
+  // se usa esa lista PLANA; si no, los de cada servicio (atribuidos si hay varios).
+  const suplidosContrato = d.suplidosOverride
+    ? d.suplidosOverride
+    : d.servicios.flatMap((sv) =>
+        sv.suplidos.map((x) => ({ concepto: d.servicios.length > 1 ? `${sv.label}: ${x.concepto}` : x.concepto, importe: x.importe })),
+      );
   if (suplidosContrato.length) {
     const totalSuplidos = suplidosContrato.reduce((a, x) => a + x.importe, 0);
     m.parrafo("Tasas y suplidos previstos (sin IVA, se repercuten por su importe exacto):", { size: 9 });

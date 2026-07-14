@@ -139,6 +139,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   formulariosGenerados?: string[] | null; // colonne (source réelle des formulaires générés)
   tasaPath?: string | null;
   serviciosExtra?: string[] | null; // multi-servicio (claves adicionales)
+  suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por expediente
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
@@ -161,6 +162,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   facturasPago: FacturaPago[];
   servicioClave: string | null;
   serviciosExtra: string[]; // multi-servicio: claves ADICIONALES (principal = servicioClave)
+  suplidosOverride: { concepto: string; importe: number }[] | null; // null = usar los del servicio
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
@@ -184,7 +186,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -246,6 +248,14 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     tipoEnum: e.tipo,
     servicioClave: e.servicioClave ?? null,
     serviciosExtra: Array.isArray((e as { serviciosExtra?: string[] | null }).serviciosExtra) ? ((e as { serviciosExtra?: string[] | null }).serviciosExtra as string[]).filter(Boolean) : [],
+    suplidosOverride: (() => {
+      const raw = (e as { suplidosOverride?: unknown }).suplidosOverride;
+      if (!Array.isArray(raw)) return null; // null = sin override → suplidos del servicio
+      return raw
+        .filter((x): x is { concepto?: unknown; importe?: unknown } => Boolean(x) && typeof x === "object")
+        .map((x) => ({ concepto: String(x.concepto ?? "").trim(), importe: Number(x.importe) || 0 }))
+        .filter((x) => x.concepto && x.importe > 0);
+    })(),
     portalToken: e.portalToken ?? null,
     familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
@@ -266,11 +276,14 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
   // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
+  if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
+  }
   if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -283,11 +296,14 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (!token) return null;
   const admin = createSupabaseAdmin();
   let res = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  }
   if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);

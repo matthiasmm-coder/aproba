@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente } from "@/lib/multi-servicio";
 import { ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -20,8 +20,8 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // (webhook PSP) queda como evolución; hoy se emite factura para pago por transferencia.
 
 const uuid = () => crypto.randomUUID();
-const SELECT_EXP = "id, workspaceId, tipo, servicioClave, serviciosExtra, referencia, familiaId, cliente:Cliente(nombre, apellidos)";
-type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
+const SELECT_EXP = "id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, referencia, familiaId, cliente:Cliente(nombre, apellidos)";
+type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
   let body: {
@@ -45,11 +45,13 @@ export async function POST(req: Request) {
   let viaGestor = false; // solo el gestor autenticado puede editar la factura
   // Repli sin familiaId si la migración expediente-familia.sql no está aplicada:
   // la emisión de facturas NUNCA debe romperse por una columna opcional.
-  const SELECT_EXP_SIN_EXTRAS = SELECT_EXP.replace(", serviciosExtra", "");
+  const SELECT_EXP_SIN_SUP = SELECT_EXP.replace(", suplidosOverride", "");
+  const SELECT_EXP_SIN_EXTRAS = SELECT_EXP_SIN_SUP.replace(", serviciosExtra", "");
   const SELECT_EXP_SIN_FAMILIA = SELECT_EXP_SIN_EXTRAS.replace(", familiaId", "");
   if (body.token?.trim()) {
     // Portal del cliente: el token es único.
     let res = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
@@ -60,6 +62,7 @@ export async function POST(req: Request) {
     const { data: auth } = await supa.auth.getUser();
     if (!auth?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     let res = await supa.from("Expediente").select(SELECT_EXP).eq("id", body.expedienteId.trim()).maybeSingle();
+    if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
@@ -116,7 +119,7 @@ export async function POST(req: Request) {
     // pago final. ×N miembros en familia (cada solicitante paga su tasa).
     const esPrimera = momento === "ANTICIPO" || tarifa.anticipo <= 0;
     if (esPrimera) {
-      const sup = suplidosDeServicios(serviciosExp).map((x) => ({
+      const sup = suplidosDeExpediente(exp.suplidosOverride, serviciosExp).map((x) => ({
         concepto: nMiembros > 1 ? `${x.concepto} (×${nMiembros})` : x.concepto,
         importe: r2(x.importe * nMiembros),
       }));
