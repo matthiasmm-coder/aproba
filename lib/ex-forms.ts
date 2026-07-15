@@ -218,6 +218,23 @@ const P2_BLANKS: Record<string, Blank[]> = {
   ],
 };
 
+// ── Página 2: línea «………, a … de … de …» (lugar y fecha de la firma) ────────────
+// Pedido por Juan: hacerla EDITABLE. La línea es idéntica en todos los modelos (mismos
+// offsets relativos, medidos por probe pdfjs); solo cambian el x de inicio y la y. Se emiten
+// 4 campos vacíos (lugar / día / mes / año) sobre los tramos punteados, SOLO en modo editable.
+const LUGAR_FECHA: Record<string, { x0: number; y: number }> = {
+  "EX-02": { x0: 260, y: 209 }, "EX-10": { x0: 282, y: 87 }, "EX-15": { x0: 256, y: 334 },
+  "EX-17": { x0: 256, y: 491 }, "EX-18": { x0: 256, y: 197 }, "EX-19": { x0: 256, y: 305 },
+  "EX-31": { x0: 282, y: 539 }, "EX-32": { x0: 282, y: 446 },
+};
+function camposLugarFecha(code: string): Blank[] {
+  const lf = LUGAR_FECHA[code];
+  if (!lf) return [];
+  const { x0, y } = lf;
+  const b = (name: string, dx: number, w: number): Blank => ({ name, x: x0 + dx, y: y - 3, w, h: 14, size: 9, page: 1 });
+  return [b("lf_lugar", 0, 81), b("lf_dia", 100, 28), b("lf_mes", 147, 72), b("lf_ano", 238, 32)];
+}
+
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
 
@@ -324,6 +341,21 @@ export async function rellenarOficial(
     if (datos.sexo === "M") marcar(mapa.checks?.sexoM);
     if (datos.estadoCivil) marcar(mapa.estadoCivil?.[datos.estadoCivil]);
     if (tramite && mapa.tramiteChecks?.[tramite]) for (const n of mapa.tramiteChecks[tramite]) marcar(n);
+    // p.2 «Nombre y apellidos del titular» (se repite): campo AcroForm existente, sin rellenar.
+    // Pedido por Juan — se rellena con el nombre del interesado (queda editable, como todo acroform).
+    const nombreTitular = [datos.nombre, datos.apellido1, datos.apellido2].map((v) => (v ?? "").trim()).filter(Boolean).join(" ");
+    if (nombreTitular) try { const f = form.getTextField("Nombre y apellidos del titular"); f.setText(limpiar(nombreTitular)); f.setFontSize(9); } catch { /* campo ausente en otros acroform */ }
+    // p.2 línea «lugar y fecha»: en modo editable, campos vacíos sobre los tramos punteados.
+    if (opts?.editable) {
+      const font = await pdf.embedFont(StandardFonts.Helvetica);
+      const pg2 = pdf.getPages()[1];
+      for (const b of camposLugarFecha(code)) {
+        if (!pg2) break;
+        const f = form.createTextField(`f_${b.name}`);
+        f.addToPage(pg2, { x: b.x, y: b.y, width: b.w, height: b.h ?? 14, font, textColor: TINTA, borderWidth: 0, backgroundColor: undefined, borderColor: undefined });
+        f.setFontSize(b.size ?? 9);
+      }
+    }
     try { form.updateFieldAppearances(); } catch { /* ignore */ }
     return pdf.save();
   }
@@ -416,7 +448,8 @@ export async function rellenarOficial(
   // inicio… (posiciones relevadas por probe pdfjs). Se omite cualquier casilla donde ya
   // se estampó una X (la del trámite) para no superponer dos campos.
   if (editable && form) {
-    for (const b of P2_BLANKS[code] ?? []) {
+    // Línea «lugar y fecha» (pedido por Juan) + casillas/campos vacíos específicos del modelo.
+    for (const b of [...camposLugarFecha(code), ...(P2_BLANKS[code] ?? [])]) {
       const pg = pages[b.page ?? 1];
       if (!pg) continue;
       if (marcasPuestas.has(`${b.page ?? 1}:${Math.round(b.x + 1)},${Math.round(b.y + 3)}`)) continue;
