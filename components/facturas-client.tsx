@@ -222,11 +222,6 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
       </div>
       {errPdf && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{errPdf}</p>}
 
-      <DatosFacturacion despacho={despacho} />
-
-      {/* Cobros pendientes (morosos) — NO filtrado por periodo: una deuda es una deuda */}
-      <CobrosPendientes cobros={cobros} />
-
       {/* Sélecteur de période */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -266,8 +261,13 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
         ))}
       </div>
 
+      {/* Cobros pendientes (morosos) — NO filtrado por periodo: una deuda es una deuda */}
+      <div className="mt-6">
+        <CobrosPendientes cobros={cobros} />
+      </div>
+
       {/* Grupos plegables por estado */}
-      <div className="mt-6 space-y-4">
+      <div className="space-y-4">
         {grupos.map((g) => (
           <GrupoFacturas
             key={g.key} id={g.key} titulo={g.titulo} items={g.items}
@@ -296,6 +296,11 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
             )}
           </div>
         )}
+      </div>
+
+      {/* Datos de facturación — configuración puntual, al final de la página */}
+      <div className="mt-6">
+        <DatosFacturacion despacho={despacho} />
       </div>
     </div>
   );
