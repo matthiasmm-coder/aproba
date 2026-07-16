@@ -117,6 +117,25 @@ export default async function Ajustes() {
           </fieldset>
         </AjustesSection>
 
+        {puedeEditar && (
+          <AjustesSection
+            id="encargo"
+            title={t("Hoja de encargo y mandato")}
+            subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
+            icon={IconEncargo}
+          >
+            <EncargoConfig
+              inicial={{
+                hojaEncargoActiva: despacho.hojaEncargoActiva,
+                mandatarioNombre: despacho.mandatarioNombre ?? "",
+                mandatarioDni: despacho.mandatarioDni ?? "",
+                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
+                mandatarioColegio: despacho.mandatarioColegio ?? "",
+              }}
+            />
+          </AjustesSection>
+        )}
+
         <AjustesSection
           id="facturacion"
           title={t("Facturación y métodos de pago")}
@@ -138,25 +157,6 @@ export default async function Ajustes() {
             {puedeEditar && <CobroTarjetaConfig />}
           </div>
         </AjustesSection>
-
-        {puedeEditar && (
-          <AjustesSection
-            id="encargo"
-            title={t("Hoja de encargo y mandato")}
-            subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
-            icon={IconEncargo}
-          >
-            <EncargoConfig
-              inicial={{
-                hojaEncargoActiva: despacho.hojaEncargoActiva,
-                mandatarioNombre: despacho.mandatarioNombre ?? "",
-                mandatarioDni: despacho.mandatarioDni ?? "",
-                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
-                mandatarioColegio: despacho.mandatarioColegio ?? "",
-              }}
-            />
-          </AjustesSection>
-        )}
 
         {equipo && (
           <AjustesSection

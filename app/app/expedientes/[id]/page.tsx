@@ -242,7 +242,9 @@ export default async function ExpedienteDetail({
         {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
         {["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO"].includes(e.estado) && (
-          <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} />
+          <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
+            <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
+          </SeccionPlegable>
         )}
 
         {/* Cobro */}

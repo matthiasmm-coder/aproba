@@ -24,21 +24,21 @@ export function SeccionPlegable({ id, titulo, resumen, right, children }: {
   }, [id]);
 
   return (
-    <section>
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setAbierto((o) => !o)}
           aria-expanded={abierto}
-          className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2.5 px-5 py-3.5 text-left transition hover:bg-cream-50/60"
         >
           <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-          <span className="text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">{titulo}</span>
+          <span className="text-sm font-semibold text-slate-800">{titulo}</span>
           {!abierto && resumen && <span className="min-w-0 truncate text-xs text-slate-400">{resumen}</span>}
         </button>
-        {right}
+        {right && <div className="shrink-0 pr-5">{right}</div>}
       </div>
-      <div hidden={!abierto}>{children}</div>
+      <div hidden={!abierto} className="border-t border-slate-100 p-4 sm:p-5">{children}</div>
     </section>
   );
 }

@@ -272,7 +272,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
           <GrupoFacturas
             key={g.key} id={g.key} titulo={g.titulo} items={g.items}
             subtotal={g.key === "borradores" ? undefined : g.items.reduce((s, f) => s + totalDe(f.base), 0)}
-            cerrado={plegado[g.key] ?? false} onToggle={() => setPlegado((p) => ({ ...p, [g.key]: !(p[g.key] ?? false) }))}
+            cerrado={plegado[g.key] ?? true} onToggle={() => setPlegado((p) => ({ ...p, [g.key]: !(p[g.key] ?? true) }))}
             esAdmin={esAdmin} t={t}
           />
         ))}
@@ -290,7 +290,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
             {verArchivadas && (
               <GrupoFacturas
                 id="archivadas" titulo="Archivadas" items={archivadas}
-                cerrado={plegado.archivadas ?? false} onToggle={() => setPlegado((p) => ({ ...p, archivadas: !(p.archivadas ?? false) }))}
+                cerrado={plegado.archivadas ?? true} onToggle={() => setPlegado((p) => ({ ...p, archivadas: !(p.archivadas ?? true) }))}
                 esAdmin={esAdmin} t={t}
               />
             )}

@@ -9,7 +9,7 @@ import type { MercurioCampo } from "@/lib/mercurio";
 // una página informativa.
 const MERCURIO_URL = "https://mercurio.delegaciondelgobierno.gob.es/mercurio/";
 
-export function RellenarMercurio({ campos, referencia, rellenos, total }: { campos: MercurioCampo[]; referencia: string; rellenos: number; total: number }) {
+export function RellenarMercurio({ campos, referencia, rellenos, total, ocultarTitulo = false }: { campos: MercurioCampo[]; referencia: string; rellenos: number; total: number; ocultarTitulo?: boolean }) {
   const t = useT();
   // null = comprobando, true/false = extensión detectada o no.
   const [ext, setExt] = useState<boolean | null>(null);
@@ -35,7 +35,8 @@ export function RellenarMercurio({ campos, referencia, rellenos, total }: { camp
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className={ocultarTitulo ? "" : "rounded-xl border border-slate-200 bg-white p-5"}>
+      {!ocultarTitulo && (
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-aproba-50 text-aproba-600">
@@ -47,8 +48,9 @@ export function RellenarMercurio({ campos, referencia, rellenos, total }: { camp
           </div>
         </div>
       </div>
+      )}
 
-      <p className="mt-4 text-sm leading-relaxed text-slate-600">
+      <p className={`${ocultarTitulo ? "" : "mt-4 "}text-sm leading-relaxed text-slate-600`}>
         {t("Abre Mercurio y rellena automáticamente los datos del solicitante. Revisa, adjunta los documentos y firma tú con tu certificado: Aproba no firma ni presenta por ti.")}
       </p>
 

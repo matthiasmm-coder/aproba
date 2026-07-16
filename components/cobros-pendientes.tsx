@@ -80,7 +80,7 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
   }, [cobros]);
 
   const totalPendiente = cobros.reduce((s, c) => s + c.total, 0);
-  const [abierto, setAbierto] = useState(true);
+  const [abierto, setAbierto] = useState(false); // plegado por defecto (pedido de Matthias)
   const plegable = cobros.length > 0;
 
   return (
