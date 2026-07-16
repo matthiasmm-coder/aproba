@@ -26,7 +26,7 @@ function imprimirEscrito(texto: string) {
   w.print();
 }
 
-export function CentinelaPanel({ expedienteId, inicial }: { expedienteId: string; inicial: Revision | null }) {
+export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }: { expedienteId: string; inicial: Revision | null; ocultarTitulo?: boolean }) {
   const t = useT();
   const [revision, setRevision] = useState<Revision | null>(inicial);
   const [revisando, setRevisando] = useState(false);
@@ -78,8 +78,8 @@ export function CentinelaPanel({ expedienteId, inicial }: { expedienteId: string
 
   return (
     <section id="centinela" className="scroll-mt-20">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-700">{t("Revisión «como Extranjería»")}</span>
+      <div className={`mb-3 flex items-center ${ocultarTitulo ? "justify-end" : "justify-between"}`}>
+        {!ocultarTitulo && <span className="text-sm font-semibold text-slate-700">{t("Revisión «como Extranjería»")}</span>}
         <button
           onClick={revisar}
           disabled={revisando}

@@ -13,7 +13,7 @@ import { confirmar } from "@/components/confirm-dialog";
 // • "Solicitar pago final" ouvre un popup de facture éditable (→ /api/pagos → émise + envoyée).
 // • Chaque facture déjà générée (anticipo / final) se peut retoucher (→ /api/facturas/[id]).
 
-export function CobrosPanel({
+export function CobrosPanel({ ocultarTitulo = false,
   expedienteId,
   anticipo,
   resto,
@@ -23,6 +23,7 @@ export function CobrosPanel({
   conceptoAnticipo,
   suplidos = [],
 }: {
+  ocultarTitulo?: boolean;
   expedienteId: string;
   anticipo: number;
   resto: number;
@@ -143,7 +144,7 @@ export function CobrosPanel({
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">{t("Cobro del expediente")}</h2>
+      {!ocultarTitulo && <h2 className="mb-3 text-sm font-semibold text-slate-700">{t("Cobro del expediente")}</h2>}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="divide-y divide-slate-100">
           {anticipo > 0 && (

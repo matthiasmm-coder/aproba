@@ -45,6 +45,13 @@ const IconEquipo = (
   </svg>
 );
 
+const IconEncargo = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 2v6h6M10.5 12.5l3 3L20 9" />
+  </svg>
+);
+
 const IconFacturacion = (
   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -86,7 +93,7 @@ export default async function Ajustes() {
         <AjustesSection
           id="servicios"
           title={t("Servicios")}
-          subtitle={t("Trámites, pagos y documentos que pide cada uno")}
+          subtitle={`${servicios.filter((sv) => sv.active).length} ${t("activos")} · ${t("trámites, pagos y documentos")}`}
           icon={IconServicios}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
@@ -97,7 +104,7 @@ export default async function Ajustes() {
         <AjustesSection
           id="notificaciones"
           title={t("Notificaciones al cliente")}
-          subtitle={t("Avisos automáticos por email o WhatsApp en cada paso")}
+          subtitle={`${despacho.canalAvisos === "WHATSAPP" ? "WhatsApp" : despacho.canalAvisos === "AMBOS" ? "Email + WhatsApp" : "Email"} · ${t("avisos automáticos en cada paso")}`}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
@@ -113,7 +120,7 @@ export default async function Ajustes() {
         <AjustesSection
           id="facturacion"
           title={t("Facturación y métodos de pago")}
-          subtitle={t("Datos de facturación, cuentas bancarias y cobro con tarjeta")}
+          subtitle={`${cuentas.length > 0 ? `${cuentas.length} ${cuentas.length === 1 ? t("cuenta bancaria") : t("cuentas bancarias")}` : t("Sin cuenta bancaria")} · ${t("datos de facturación y tarjeta")}`}
           icon={IconFacturacion}
         >
           {/* Todo lo relacionado con cobrar: cabecera de facturas + cuentas + tarjeta.
@@ -131,6 +138,25 @@ export default async function Ajustes() {
             {puedeEditar && <CobroTarjetaConfig />}
           </div>
         </AjustesSection>
+
+        {puedeEditar && (
+          <AjustesSection
+            id="encargo"
+            title={t("Hoja de encargo y mandato")}
+            subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
+            icon={IconEncargo}
+          >
+            <EncargoConfig
+              inicial={{
+                hojaEncargoActiva: despacho.hojaEncargoActiva,
+                mandatarioNombre: despacho.mandatarioNombre ?? "",
+                mandatarioDni: despacho.mandatarioDni ?? "",
+                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
+                mandatarioColegio: despacho.mandatarioColegio ?? "",
+              }}
+            />
+          </AjustesSection>
+        )}
 
         {equipo && (
           <AjustesSection
@@ -177,17 +203,6 @@ export default async function Ajustes() {
             <InstallPWA />
           </div>
 
-          {puedeEditar && (
-            <EncargoConfig
-              inicial={{
-                hojaEncargoActiva: despacho.hojaEncargoActiva,
-                mandatarioNombre: despacho.mandatarioNombre ?? "",
-                mandatarioDni: despacho.mandatarioDni ?? "",
-                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
-                mandatarioColegio: despacho.mandatarioColegio ?? "",
-              }}
-            />
-          )}
         </AjustesSection>
       </div>
     </div>

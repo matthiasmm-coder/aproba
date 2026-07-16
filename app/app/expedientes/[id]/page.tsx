@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente } from "@/lib/data/expedientes";
 import { NotasExpediente } from "@/components/notas-expediente";
+import { SeccionPlegable } from "@/components/seccion-plegable";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente } from "@/lib/multi-servicio";
-import { r2 } from "@/lib/facturas";
+import { r2, eur } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
@@ -30,16 +31,6 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Expediente" };
-
-// Encabezado de sección (neutro — el verde se reserva al stepper y al driver).
-function SeccionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
-  return (
-    <div className="mb-3 flex items-center justify-between">
-      <span className="text-sm font-semibold text-slate-700">{children}</span>
-      {right}
-    </div>
-  );
-}
 
 // hoja de encargo/mandato: enlaces de descarga del gestor si la función está activada
 async function encargoActivado(): Promise<boolean> {
@@ -171,19 +162,23 @@ export default async function ExpedienteDetail({
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
         {/* Notas de trabajo del gestor («cita solicitada», «a la espera de apostillas»…) */}
-        <section>
-          <SeccionHeader>{t("Notas")}</SeccionHeader>
+        <SeccionPlegable id="notas" titulo={t("Notas")} resumen={notas.length > 0 ? `${notas.length}` : t("Sin notas")}>
           <NotasExpediente expedienteId={e.id} inicial={notas} />
-        </section>
+        </SeccionPlegable>
 
         {/* Familia (expediente familiar): miembros + facturación familiar */}
         {familia && (
-          <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />
+          <SeccionPlegable id="familia" titulo={t("Familia")} resumen={`${familia.miembros.length} ${t("miembros")}`}>
+            <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />
+          </SeccionPlegable>
         )}
 
         {/* Documentos */}
-        <section>
-          <SeccionHeader>{t("Documentos")} ({e.documentos.length})</SeccionHeader>
+        <SeccionPlegable
+          id="documentos"
+          titulo={`${t("Documentos")} (${e.documentos.length})`}
+          resumen={e.documentos.length > 0 ? `${e.documentos.filter((d) => d.estado === "VALIDADO").length}/${e.documentos.length} ${t("validados")}` : undefined}
+        >
           {despachoEncargo && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">
               {t("Para firmar:")}{" "}
@@ -207,15 +202,19 @@ export default async function ExpedienteDetail({
               recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
               (vía portal); aquí solo expedientes individuales. */}
           {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={docsRequeridos} />}
-        </section>
+        </SeccionPlegable>
 
         {/* Formularios */}
-        <section>
-          <SeccionHeader right={
+        <SeccionPlegable
+          id="formularios"
+          titulo={t("Formularios")}
+          resumen={e.formularios.length > 0 || e.tieneTasa ? `${e.formularios.length + (e.tieneTasa ? 1 : 0)} PDF` : t("Sin generar")}
+          right={
             <Link href={`/app/expedientes/${e.id}/formularios`} className="text-xs font-semibold text-aproba-700 hover:underline">
               {e.formularios.length > 0 || e.tieneTasa ? t("Ver / imprimir →") : t("Generar →")}
             </Link>
-          }>{t("Formularios")}</SeccionHeader>
+          }
+        >
           {e.formularios.length > 0 || e.tieneTasa ? (
             // Descarga DIRECTA del PDF oficial relleno (editable) + × para quitar cada uno.
             // Incluye la tasa 790-012 guardada. Familiar: chips → página (por solicitante).
@@ -226,11 +225,19 @@ export default async function ExpedienteDetail({
               {t("Generar EX + 790-012 desde los datos validados")}
             </Link>
           )}
-        </section>
+        </SeccionPlegable>
 
         {/* El Funcionario Fantasma: revisión «como Extranjería» — SU sitio es justo antes
-            de presentar (dossier completo → revisar → Mercurio). El driver ancla aquí. */}
-        <CentinelaPanel expedienteId={e.id} inicial={revision} />
+            de presentar (dossier completo → revisar → Mercurio). El driver abre y ancla aquí. */}
+        <SeccionPlegable
+          id="centinela"
+          titulo={t("Revisión «como Extranjería»")}
+          resumen={revision ? (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${revision.verdicto === "ROJO" ? "bg-red-100 text-red-700" : revision.verdicto === "AMBAR" ? "bg-amber-100 text-amber-700" : "bg-aproba-100 text-aproba-700"}`}>{revision.verdicto}</span>
+          ) : t("Sin revisar")}
+        >
+          <CentinelaPanel expedienteId={e.id} inicial={revision} ocultarTitulo />
+        </SeccionPlegable>
 
         {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
@@ -239,7 +246,20 @@ export default async function ExpedienteDetail({
         )}
 
         {/* Cobro */}
+        <SeccionPlegable
+          id="cobro"
+          titulo={t("Cobro del expediente")}
+          resumen={(() => {
+            const pendiente = e.facturasPago.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((a, f) => a + f.total, 0);
+            const pagado = e.facturasPago.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + f.total, 0);
+            if (pendiente > 0) return `${eur(r2(pendiente))} ${t("pendiente")}`;
+            if (pagado > 0) return t("Al día");
+            const prevista = (tarifa.anticipo + tarifa.resto) * nMiembrosExp;
+            return prevista > 0 ? eur(r2(prevista)) : undefined;
+          })()}
+        >
         <CobrosPanel
+          ocultarTitulo
           expedienteId={e.id}
           // Expediente familiar: el servicio es POR MIEMBRO — mismo multiplicador que
           // el portal y la factura automática; si no, el gestor sub-factura el pago final.
@@ -254,14 +274,14 @@ export default async function ExpedienteDetail({
         {/* Tasas y suplidos ajustables por expediente (pedido por Juan): alimentan hoja de
             encargo, primera factura y presupuesto. Solo cuando hay cobro o tasas que ajustar. */}
         {(tarifa.anticipo > 0 || tarifa.resto > 0 || suplidosBase.length > 0 || e.suplidosOverride !== null) && (
-          <div className="-mt-3 flex justify-end">
+          <div className="mt-3 flex justify-end">
             <SuplidosExpediente expedienteId={e.id} inicial={suplidosBase} esOverride={e.suplidosOverride !== null} />
           </div>
         )}
+        </SeccionPlegable>
 
         {/* Historial */}
-        <section>
-          <SeccionHeader>{t("Historial")}</SeccionHeader>
+        <SeccionPlegable id="historial" titulo={t("Historial")} resumen={`${e.eventos.length}`}>
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <ol className="space-y-4">
               {e.eventos.map((ev, i) => (
@@ -278,7 +298,7 @@ export default async function ExpedienteDetail({
               ))}
             </ol>
           </div>
-        </section>
+        </SeccionPlegable>
       </div>
     </div>
   );

@@ -10,6 +10,13 @@ import type { ExpedienteEstado } from "@/lib/types";
 // El "siguiente paso" como acción de un clic: la flecha ES el botón. Según el estado,
 // avanza la máquina de estados (/api/expedientes/[id]/avanzar), navega a la herramienta
 // o copia el enlace del cliente. En los estados de espera, queda en gris (no accionable).
+// Abre la sección plegable (evento capturado por SeccionPlegable) y luego hace scroll
+// al ancla interna — sin esto, el scroll apuntaría a un contenido oculto.
+function abrirYScroll(seccion: string, target: string, block: ScrollLogicalPosition = "start") {
+  window.dispatchEvent(new CustomEvent("abrir-seccion", { detail: seccion }));
+  setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block }), 80);
+}
+
 export function DriverBanner({
   id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref, revision,
 }: {
@@ -74,7 +81,7 @@ export function DriverBanner({
       // Alternativa al enlace: trabajar el expediente internamente (el gestor sube los docs).
       if (permiteSubidaInterna) {
         secundaria = (
-          <button onClick={() => document.getElementById("subir-interno")?.scrollIntoView({ behavior: "smooth", block: "center" })} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
+          <button onClick={() => abrirYScroll("documentos", "subir-interno", "center")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
             {t("Trabajar internamente")}
           </button>
         );
@@ -96,7 +103,7 @@ export function DriverBanner({
             : t("¿Marcar como presentado? Se avisará al cliente."),
         };
         secundaria = (
-          <button onClick={() => document.getElementById("centinela")?.scrollIntoView({ behavior: "smooth", block: "start" })} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:opacity-60 ${revision.verdicto === "ROJO" ? "border-red-300 text-red-700 hover:bg-red-50" : revision.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
+          <button onClick={() => abrirYScroll("centinela", "centinela")} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:opacity-60 ${revision.verdicto === "ROJO" ? "border-red-300 text-red-700 hover:bg-red-50" : revision.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
             {revision.verdicto === "ROJO" ? `🔴 ${t("Ver los hallazgos")}` : revision.verdicto === "AMBAR" ? `🟡 ${t("Ver los hallazgos")}` : `✓ ${t("Revisión sin hallazgos")}`}
           </button>
         );
@@ -120,7 +127,7 @@ export function DriverBanner({
       // contestación al requerimiento (el panel tiene el campo para pegarlo).
       prim = { kind: "espera", label: t("Expediente denegado") };
       secundaria = (
-        <button onClick={() => document.getElementById("centinela")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
+        <button onClick={() => abrirYScroll("centinela", "centinela")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
           {t("Redactar recurso / contestación")} →
         </button>
       );
@@ -135,7 +142,7 @@ export function DriverBanner({
     else if (prim.kind === "avanzar") { if (!prim.confirm || (await confirmar(prim.confirm))) avanzar(prim.accion, undefined, prim.navAfter); }
     else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
-    else if (prim.kind === "ancla") document.getElementById(prim.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (prim.kind === "ancla") abrirYScroll(prim.target === "centinela" ? "centinela" : "documentos", prim.target);
   }
 
   const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-aproba-600";
