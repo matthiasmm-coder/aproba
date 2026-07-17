@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
+import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
 
 // Nuevo expediente — RÉEL : choisir un client existant (individu OU famille) ou en créer un
@@ -49,7 +50,13 @@ export function NuevoExpediente() {
   const [telefono, setTelefono] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [esFamiliar, setEsFamiliar] = useState(false);
+  // Miembros de la familia al crear: el servicio se tarifica POR MIEMBRO, así que la
+  // previsualización del presupuesto debe multiplicar igual que el portal y la factura.
+  // Familia nueva = solo el titular (el cliente añadirá el resto desde su enlace).
+  const [miembrosFam, setMiembrosFam] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [ajustando, setAjustando] = useState(false); // popup «cerrar el precio antes de enviar»
+  const [ajustado, setAjustado] = useState(false);
   const [gestoriaNombre, setGestoriaNombre] = useState("");
   // Contador mensual de expedientes (cuota del plan).
   const [usados, setUsados] = useState<number | null>(null);
@@ -144,6 +151,8 @@ export function NuevoExpediente() {
       setTelefono(tel);
       setNombreCliente(nombre);
       setEsFamiliar(Boolean(d.familiar));
+      setMiembrosFam(familiaSel ? Math.max(1, familiaSel.miembros) : 1);
+      setAjustado(false);
       setExtraFacturado(Boolean(d.extra));
       setUsados((u) => (u ?? 0) + 1);
       setStep(1);
@@ -181,6 +190,13 @@ export function NuevoExpediente() {
 
   return (
     <div className="mx-auto max-w-xl">
+      {ajustando && expId && (
+        <AjustarPresupuestoModal
+          expedienteId={expId}
+          nMiembros={miembrosFam}
+          onClose={(guardado) => { setAjustando(false); if (guardado) setAjustado(true); }}
+        />
+      )}
       <Link href="/app/expedientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
         {t("Expedientes")}
@@ -353,13 +369,19 @@ export function NuevoExpediente() {
               </button>
             </div>
             {/* Precio cerrado con el cliente (packs, varios servicios): el enlace NO se envía
-                solo, así que el gestor puede fijar antes el servicio y el descuento — el
-                presupuesto que verá el cliente ya sale ajustado. Va a la ficha, no a #cobro:
-                sin servicio la sección de Cobro está vacía (no hay tarifa que descontar). */}
+                solo, así que el gestor puede fijar antes el servicio y el descuento sin salir
+                del alta — el presupuesto que verá el cliente ya sale ajustado. */}
             {expId && (
-              <Link href={`/app/expedientes/${expId}`} className="mt-3 inline-block text-xs font-medium text-aproba-700 hover:underline">
-                {t("Ajustar servicio y descuento antes de enviarlo")}
-              </Link>
+              ajustado ? (
+                <p className="mt-3 text-xs font-medium text-aproba-700">
+                  {t("Presupuesto ajustado ✓")}{" "}
+                  <button onClick={() => setAjustando(true)} className="font-normal text-slate-400 underline transition hover:text-slate-600">{t("Volver a editar")}</button>
+                </p>
+              ) : (
+                <button onClick={() => setAjustando(true)} className="mt-3 inline-block text-xs font-medium text-aproba-700 hover:underline">
+                  {t("Ajustar servicio y descuento antes de enviarlo")}
+                </button>
+              )
             )}
 
             <div className="mt-3 flex gap-2">
