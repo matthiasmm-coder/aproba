@@ -50,6 +50,7 @@ export const RO: Record<string, string> = {
   "ui:s3.intro": "Pentru a-ți începe trámite-ul, gestoría ta cere o plată la început. Vei primi factura pe loc.",
   "ui:s3.anticipo": "{label} — avans",
   "ui:s3.iva": "IVA (21 %)",
+  "ui:s3.descuento": "Reducere",
   "ui:s3.totalHoy": "Total de plată azi",
   "ui:s3.queda": "Va rămâne o plată de {monto} la finalizarea trámite-ului. Te vom anunța.",
   "ui:s3.tarjeta": "Card",

@@ -1,5 +1,6 @@
 import "server-only";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { aplicarDescuento, descuentoValido, etiquetaDescuento, type Descuento as DescuentoExp } from "@/lib/multi-servicio";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchServiciosDeWorkspace } from "./data/config";
 import { TIPO_A_SERVICIO } from "./tramites";
@@ -28,6 +29,10 @@ export type DatosEncargo = {
   // Override manual de tasas/suplidos del expediente (si el gestor los ajustó): lista PLANA
   // que sustituye a los suplidos por servicio en §5. null = usar los de cada servicio.
   suplidosOverride: { concepto: string; importe: number }[] | null;
+  descuento: DescuentoExp | null; // rebaja de honorarios (nunca tasas)
+  // Familiar → la hoja es POR PERSONA y no conoce N: el IMPORTE fijo se muestra como
+  // línea informativa. Sin familia (N=1) los plazos se calculan exactos (aplicarDescuento).
+  esFamiliar: boolean;
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
 };
 
@@ -43,7 +48,7 @@ const limpiar = (t: string) => t
   .replace(/\u20AC/g, "EUR")                 // €
   .replace(/[\u00AB\u00BB\u201C\u201D]/g, '"') // « » " "
   .replace(/[\u2018\u2019]/g, "'")           // ' '
-  .replace(/[\u2013\u2014]/g, "-")           // – —
+  .replace(/[\u2013\u2014\u2212]/g, "-")     // – — − (signo menos del descuento: sin él «−150 EUR» quedaría «150 EUR»)
   .replace(/\u2026/g, "...")                  // …
   .replace(/[\u00A0\t\r]/g, " ")            // nbsp, tab, CR → espacio (conserva \n)
   .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "") // controles
@@ -57,7 +62,8 @@ const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 
 type ExpRow = {
   id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
-  suplidosOverride?: { concepto: string; importe: number }[] | null; workspaceId: string;
+  suplidosOverride?: { concepto: string; importe: number }[] | null; descuento?: unknown; familiaId?: string | null;
+  workspaceId: string;
   cliente: Record<string, string | null> | null;
 };
 
@@ -116,6 +122,8 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       noIncluye: s((sv as { noIncluye?: string }).noIncluye),
       suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0),
     })),
+    descuento: descuentoValido(exp.descuento),
+    esFamiliar: Boolean(exp.familiaId),
     suplidosOverride: Array.isArray(exp.suplidosOverride)
       ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
       : null,
@@ -303,9 +311,34 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
         if (sv.anticipo > 0 || sv.resto > 0) m.fila(sv.label, `${eur(sv.anticipo + sv.resto)} + IVA (21%)`);
       }
     }
-    if (anticipoTotal > 0) m.fila("Al inicio (a la firma)", `${eur(anticipoTotal)} + IVA (21%)`);
-    if (restoTotal > 0) m.fila("Al finalizar el trámite", `${eur(restoTotal)} + IVA (21%)`);
-    m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
+    // Descuento del expediente. Sin familia (N=1): plazos EXACTOS con el mismo helper que
+    // la factura (aplicarDescuento) — lo que el cliente firma coincide al céntimo con lo
+    // que se le facturará. Familiar: la hoja es POR PERSONA y no conoce N → PORCENTAJE se
+    // aplica exacto por persona; IMPORTE fijo (definido sobre el total del expediente) se
+    // muestra como línea informativa sin repartir.
+    const dHoja = d.descuento;
+    if (dHoja && !d.esFamiliar) {
+      const reb = aplicarDescuento({ anticipo: anticipoTotal, resto: restoTotal }, 1, dHoja);
+      m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
+      m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `${etiquetaDescuento(dHoja)}`);
+      if (reb.anticipo > 0) m.fila("Al inicio (a la firma)", `${eur(reb.anticipo)} + IVA (21%)`);
+      if (reb.resto > 0) m.fila("Al finalizar el trámite", `${eur(reb.resto)} + IVA (21%)`);
+      m.fila("Total con descuento", `${eur(Math.round((reb.anticipo + reb.resto) * 100) / 100)} + IVA (21%)`);
+    } else if (dHoja?.tipo === "PORCENTAJE") {
+      const f = 1 - dHoja.valor / 100;
+      const antReb = Math.round(anticipoTotal * f * 100) / 100;
+      const resReb = Math.round(restoTotal * f * 100) / 100;
+      m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
+      m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `${etiquetaDescuento(dHoja)}`);
+      if (antReb > 0) m.fila("Al inicio (a la firma)", `${eur(antReb)} + IVA (21%)`);
+      if (resReb > 0) m.fila("Al finalizar el trámite", `${eur(resReb)} + IVA (21%)`);
+      m.fila("Total con descuento", `${eur(antReb + resReb)} + IVA (21%)`);
+    } else {
+      if (anticipoTotal > 0) m.fila("Al inicio (a la firma)", `${eur(anticipoTotal)} + IVA (21%)`);
+      if (restoTotal > 0) m.fila("Al finalizar el trámite", `${eur(restoTotal)} + IVA (21%)`);
+      m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
+      if (dHoja?.tipo === "IMPORTE") m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `−${eur(dHoja.valor)} (sobre el total del expediente)`);
+    }
   } else {
     m.fila("Honorarios", "Según presupuesto");
   }

@@ -185,6 +185,7 @@ export const UI: Record<string, Tr> = {
   },
   "s3.anticipo": { es: "{label} — anticipo", en: "{label} — upfront", fr: "{label} — acompte", it: "{label} — acconto", de: "{label} — Anzahlung" },
   "s3.iva": { es: "IVA (21 %)", en: "VAT (21%)", fr: "TVA (21 %)", it: "IVA (21%)", de: "MwSt. (21 %)" },
+  "s3.descuento": { es: "Descuento", en: "Discount", fr: "Remise", it: "Sconto", de: "Rabatt" },
   "s3.sinIva": { es: "tasa/suplido, sin IVA", en: "official fee, no VAT", fr: "taxe officielle, sans TVA", it: "tassa ufficiale, senza IVA", de: "Amtsgebühr, ohne MwSt." },
   "fam.faltan": { es: "{nombre}: {n} campos por rellenar", en: "{nombre}: {n} fields left to fill", fr: "{nombre} : {n} champs à remplir", it: "{nombre}: {n} campi da compilare", de: "{nombre}: {n} Felder auszufüllen" },
   "s1.faltanCorto": { es: "{n} por rellenar", en: "{n} to fill", fr: "{n} à remplir", it: "{n} da compilare", de: "{n} offen" },

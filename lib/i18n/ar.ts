@@ -50,6 +50,7 @@ export const AR: Record<string, string> = {
   "ui:s3.intro": "لبدء معاملتك، يطلب مكتبك دفعة عند البدء. ستصلك الفاتورة فوراً.",
   "ui:s3.anticipo": "{label} — دفعة مقدمة",
   "ui:s3.iva": "ضريبة IVA (21%)",
+  "ui:s3.descuento": "خصم",
   "ui:s3.totalHoy": "المبلغ المستحق اليوم",
   "ui:s3.queda": "ستبقى دفعة قدرها {monto} عند انتهاء المعاملة. سنخبرك بذلك.",
   "ui:s3.tarjeta": "بطاقة بنكية",

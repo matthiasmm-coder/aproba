@@ -7,8 +7,9 @@ import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo"
 // Autorización: el portalToken (mismo nivel de acceso que /j). Solo si la
 // gestoría tiene la función activada en Ajustes.
 
-const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, workspaceId, cliente:Cliente(*)";
-const SELECT_SIN_SUP = SELECT.replace(", suplidosOverride", "");
+const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, familiaId, workspaceId, cliente:Cliente(*)";
+const SELECT_SIN_DESC = SELECT.replace(", descuento", "");
+const SELECT_SIN_SUP = SELECT_SIN_DESC.replace(", suplidosOverride", "");
 const SELECT_SIN_EXTRAS = SELECT_SIN_SUP.replace(", serviciosExtra", "");
 
 export async function GET(req: Request) {
@@ -19,11 +20,12 @@ export async function GET(req: Request) {
 
   const admin = createSupabaseAdmin();
   let res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(SELECT_SIN_DESC).eq("portalToken", token).maybeSingle() as typeof res;
   if (res.error) res = await admin.from("Expediente").select(SELECT_SIN_SUP).eq("portalToken", token).maybeSingle() as typeof res;
   if (res.error) res = await admin.from("Expediente").select(SELECT_SIN_EXTRAS).eq("portalToken", token).maybeSingle() as typeof res;
   const exp = res.data as unknown as {
     id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
-    suplidosOverride?: { concepto: string; importe: number }[] | null; workspaceId: string;
+    suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId?: string | null; workspaceId: string;
     cliente: Record<string, string | null> | null;
   } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado" }, { status: 404 });

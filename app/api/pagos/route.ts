@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
 import { ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -20,7 +20,7 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // (webhook PSP) queda como evolución; hoy se emite factura para pago por transferencia.
 
 const uuid = () => crypto.randomUUID();
-const SELECT_EXP = "id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, referencia, familiaId, cliente:Cliente(nombre, apellidos)";
+const SELECT_EXP = "id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, referencia, familiaId, cliente:Cliente(nombre, apellidos)";
 type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
@@ -45,12 +45,14 @@ export async function POST(req: Request) {
   let viaGestor = false; // solo el gestor autenticado puede editar la factura
   // Repli sin familiaId si la migración expediente-familia.sql no está aplicada:
   // la emisión de facturas NUNCA debe romperse por una columna opcional.
-  const SELECT_EXP_SIN_SUP = SELECT_EXP.replace(", suplidosOverride", "");
+  const SELECT_EXP_SIN_DESC = SELECT_EXP.replace(", descuento", "");
+  const SELECT_EXP_SIN_SUP = SELECT_EXP_SIN_DESC.replace(", suplidosOverride", "");
   const SELECT_EXP_SIN_EXTRAS = SELECT_EXP_SIN_SUP.replace(", serviciosExtra", "");
   const SELECT_EXP_SIN_FAMILIA = SELECT_EXP_SIN_EXTRAS.replace(", familiaId", "");
   if (body.token?.trim()) {
     // Portal del cliente: el token es único.
     let res = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_DESC).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("portalToken", body.token.trim()).maybeSingle();
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
     const { data: auth } = await supa.auth.getUser();
     if (!auth?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     let res = await supa.from("Expediente").select(SELECT_EXP).eq("id", body.expedienteId.trim()).maybeSingle();
+    if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_DESC).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("id", body.expedienteId.trim()).maybeSingle();
@@ -112,7 +115,11 @@ export async function POST(req: Request) {
     const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
     const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo }, catalogo);
     const tarifa = tarifaDeServicios(serviciosExp);
-    const b = (momento === "ANTICIPO" ? tarifa.anticipo : tarifa.resto) * nMiembros;
+    // Descuento del expediente (pedido por Juan): rebaja los honorarios tras el ×N;
+    // reparto proporcional anticipo/resto con coherencia al céntimo (mismo helper que
+    // la ficha, el portal y la hoja de encargo).
+    const conDescuento = aplicarDescuento(tarifa, nMiembros, descuentoValido((exp as { descuento?: unknown }).descuento));
+    const b = momento === "ANTICIPO" ? conDescuento.anticipo : conDescuento.resto;
     if (b <= 0) return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
     // Tasas y suplidos del servicio (SIN IVA, art. 78.Tres.3º LIVA): van en la PRIMERA
     // factura del expediente — el anticipo si lo hay (provisión de fondos), si no el
@@ -160,7 +167,7 @@ export async function POST(req: Request) {
           id: uuid(),
           expedienteId: exp.id,
           tipo: "COMENTARIO",
-          descripcion: `📄 Factura ${previa.numero} actualizada: ${Number(previa.total).toFixed(2)} € → ${total.toFixed(2)} € (cambio de miembros o de servicios)`,
+          descripcion: `📄 Factura ${previa.numero} actualizada: ${Number(previa.total).toFixed(2)} € → ${total.toFixed(2)} € (cambio de miembros, de servicios o de descuento)`,
         });
         return NextResponse.json({ ok: true, yaExistia: true, facturaId: previa.id, numero: previa.numero, total, estado: "EMITIDA" });
       }

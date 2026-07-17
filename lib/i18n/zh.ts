@@ -50,6 +50,7 @@ export const ZH: Record<string, string> = {
   "ui:s3.intro": "为了启动你的手续，事务所需要你先支付一笔款项。你会立即收到发票。",
   "ui:s3.anticipo": "{label}——预付款",
   "ui:s3.iva": "增值税（21%）",
+  "ui:s3.descuento": "折扣",
   "ui:s3.totalHoy": "今天应付总额",
   "ui:s3.queda": "手续办结时还需支付{monto}。到时我们会通知你。",
   "ui:s3.tarjeta": "银行卡",

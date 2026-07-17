@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios";
-import { eur, totalDe } from "@/lib/facturas";
+import { eur, totalDe, r2 } from "@/lib/facturas";
+import { aplicarDescuento, etiquetaDescuento, type Descuento } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { labelADocTipo } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
@@ -61,6 +62,7 @@ export function ClientPortal({
   servicioInicial,
   serviciosExtraClaves,
   suplidosOverride,
+  descuento = null,
   docsSubidos,
 }: {
   servicios?: Servicio[];
@@ -78,6 +80,7 @@ export function ClientPortal({
   servicioInicial?: string | null;
   serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
+  descuento?: Descuento | null; // descuento del expediente (rebaja honorarios, nunca tasas)
   docsSubidos?: { tipo: string; estado: string }[];
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
@@ -209,8 +212,16 @@ export function ClientPortal({
   // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
   // añadidos en el paso Datos), no la prop SSR que llegó congelada del servidor.
   const nMiembros = Math.max(1, familia ? famMiembros.length : 1);
-  const anticipo = ((tramite?.anticipo ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0)) * nMiembros;
-  const resto = ((tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0)) * nMiembros;
+  // Honorarios del expediente: unidad × N, y DESPUÉS el descuento del gestor (mismo
+  // helper y mismo orden que /api/pagos — el total mostrado DEBE cuadrar con Stripe).
+  const tarifaUnit = {
+    anticipo: (tramite?.anticipo ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
+    resto: (tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
+  };
+  const rebajadoExp = aplicarDescuento(tarifaUnit, nMiembros, descuento);
+  const anticipoBruto = r2(tarifaUnit.anticipo * nMiembros);
+  const anticipo = rebajadoExp.anticipo;
+  const resto = rebajadoExp.resto;
   // Tasas y suplidos (SIN IVA): mismos que el servidor pondrá en la PRIMERA factura
   // (el anticipo si lo hay). ×N miembros — el total mostrado DEBE cuadrar con Stripe.
   // Si el gestor ajustó las tasas para este expediente (override), sustituyen a las del
@@ -493,15 +504,37 @@ export function ClientPortal({
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
                           + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
-                      <p className="shrink-0 text-sm font-bold text-slate-700">{eur(
-                        totalDe((tr.anticipo + tr.resto + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0) + (sv.resto ?? 0), 0)) * nMiembros)
-                        + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros
-                      )}</p>
+                      <p className="shrink-0 text-right text-sm font-bold text-slate-700">
+                        {(() => {
+                          const reb = aplicarDescuento({
+                            anticipo: tr.anticipo + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
+                            resto: tr.resto + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
+                          }, nMiembros, descuento);
+                          // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
+                          // totalDe(a+r) puede desviarse 1 céntimo de lo que el cliente paga.
+                          const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
+                          return (
+                            <>
+                              {eur(precio)}
+                              {reb.rebaja > 0 && <span dir="ltr" className="ml-1.5 rounded-full bg-aproba-100 px-1.5 py-0.5 text-[10px] font-semibold text-aproba-700">{etiquetaDescuento(descuento)}</span>}
+                            </>
+                          );
+                        })()}
+                      </p>
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     <p className="mt-1 text-xs text-slate-400">
                       {tr.anticipo > 0 && tr.resto > 0
-                        ? t("pago.split", { a: eur(totalDe(tr.anticipo * nMiembros)), b: eur(totalDe(tr.resto * nMiembros)) })
+                        ? (() => {
+                            // MISMA base que el precio de arriba (servicio + extras): con
+                            // descuento IMPORTE, repartirlo solo sobre la tarjeta restaría
+                            // el importe completo dos veces y el split no cuadraría.
+                            const rebTr = aplicarDescuento({
+                              anticipo: tr.anticipo + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
+                              resto: tr.resto + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
+                            }, nMiembros, descuento);
+                            return t("pago.split", { a: eur(totalDe(rebTr.anticipo)), b: eur(totalDe(rebTr.resto)) });
+                          })()
                         : tr.anticipo > 0
                           ? t("pago.unico")
                           : t("pago.final")}
@@ -771,10 +804,20 @@ export function ClientPortal({
             <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-500">{t("s3.anticipo", { label: [servicioLabel(tramite.id, tramite.label, lang), ...extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang))].join(" + ") })}</span>
-                <span className="font-medium text-slate-800">{eur(anticipo)}</span>
+                <span className="font-medium text-slate-800">{eur(anticipoBruto)}</span>
               </div>
+              {anticipoBruto - anticipo > 0.004 && (
+                <div className="mt-1.5 flex items-center justify-between text-sm">
+                  {/* La etiqueta solo con PORCENTAJE: con IMPORTE mostraría el total del
+                      expediente (−100 €) junto a la parte del anticipo (−30 €) — dos cifras
+                      distintas bajo el mismo «Descuento». dir=ltr: en árabe (RTL) el signo
+                      − inicial se reordenaría detrás de la cifra. */}
+                  <span className="text-slate-500">{t("s3.descuento")}{descuento?.tipo === "PORCENTAJE" && <> <span dir="ltr" className="text-xs text-aproba-700">{etiquetaDescuento(descuento)}</span></>}</span>
+                  <span dir="ltr" className="font-medium text-aproba-700">−{eur(r2(anticipoBruto - anticipo))}</span>
+                </div>
+              )}
               {nMiembros > 1 && (
-                <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(anticipo / nMiembros), n: nMiembros })}</p>
+                <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(r2(anticipoBruto / nMiembros)), n: nMiembros })}</p>
               )}
               <div className="mt-1.5 flex items-center justify-between text-sm">
                 <span className="text-slate-500">{t("s3.iva")}</span>

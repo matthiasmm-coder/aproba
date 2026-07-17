@@ -7,7 +7,8 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento } from "@/lib/multi-servicio";
+import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { r2, eur } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
@@ -72,6 +73,8 @@ export default async function ExpedienteDetail({
   // Tasas y suplidos del servicio, ×N miembros — MISMO formato que /api/pagos (el popup
   // de cobro debe emitir exactamente lo que emitiría el portal).
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
+  // Descuento del expediente: rebaja los honorarios (tras ×N) — mismo helper que /api/pagos.
+  const tarifaExp = aplicarDescuento(tarifa, nMiembrosExp, e.descuento);
   // Override manual del expediente (si el gestor ajustó las tasas) o los del servicio.
   const suplidosBase = suplidosDeExpediente(e.suplidosOverride, serviciosExp);
   const suplidosExp = suplidosBase.map((x) => ({
@@ -256,7 +259,7 @@ export default async function ExpedienteDetail({
             const pagado = e.facturasPago.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + f.total, 0);
             if (pendiente > 0) return `${eur(r2(pendiente))} ${t("pendiente")}`;
             if (pagado > 0) return t("Al día");
-            const prevista = (tarifa.anticipo + tarifa.resto) * nMiembrosExp;
+            const prevista = tarifaExp.anticipo + tarifaExp.resto;
             return prevista > 0 ? eur(r2(prevista)) : undefined;
           })()}
         >
@@ -265,8 +268,8 @@ export default async function ExpedienteDetail({
           expedienteId={e.id}
           // Expediente familiar: el servicio es POR MIEMBRO — mismo multiplicador que
           // el portal y la factura automática; si no, el gestor sub-factura el pago final.
-          anticipo={tarifa.anticipo * Math.max(1, familia?.miembros.length ?? 1)}
-          resto={tarifa.resto * Math.max(1, familia?.miembros.length ?? 1)}
+          anticipo={tarifaExp.anticipo}
+          resto={tarifaExp.resto}
           facturas={e.facturasPago}
           clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
           conceptoFinal={`Liquidación final — ${etiquetaServicios} (${e.referencia})`}
@@ -276,7 +279,8 @@ export default async function ExpedienteDetail({
         {/* Tasas y suplidos ajustables por expediente (pedido por Juan): alimentan hoja de
             encargo, primera factura y presupuesto. Solo cuando hay cobro o tasas que ajustar. */}
         {(tarifa.anticipo > 0 || tarifa.resto > 0 || suplidosBase.length > 0 || e.suplidosOverride !== null) && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
+            <DescuentoExpediente expedienteId={e.id} inicial={e.descuento} tarifa={tarifa} nMiembros={nMiembrosExp} />
             <SuplidosExpediente expedienteId={e.id} inicial={suplidosBase} esOverride={e.suplidosOverride !== null} />
           </div>
         )}

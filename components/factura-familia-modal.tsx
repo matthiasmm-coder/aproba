@@ -7,7 +7,7 @@ import { eur, totalesFactura, IVA, type LineaFactura, type Suplido } from "@/lib
 import { TASA_790 } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
 
-type Prefill = { clienteNombre: string; lineas: { concepto: string; base: number }[]; servicios: { id: string; label: string }[] };
+type Prefill = { clienteNombre: string; lineas: { concepto: string; base: number }[]; servicios: { id: string; label: string }[]; descuentoPrefill?: number | null };
 
 // Popup de factura FAMILIAR: una línea por miembro (base = resto del servicio) + descuento
 // familiar (%/€) como línea negativa. Al validar → POST /api/familias/[id]/factura (emite y
@@ -20,8 +20,11 @@ export function FacturaFamiliaModal({ familiaId, prefill, onClose }: { familiaId
   const [lineas, setLineas] = useState<LineaFactura[]>(prefill.lineas.length ? prefill.lineas.map((l) => ({ ...l })) : [{ concepto: "", base: 0 }]);
   const [suplidos, setSuplidos] = useState<Suplido[]>([]);
   const [notas, setNotas] = useState("");
-  const [descModo, setDescModo] = useState<"pct" | "eur">("pct");
-  const [descValor, setDescValor] = useState("");
+  // Si el expediente tiene descuento, se precarga aquí su parte «resto» en euros (las
+  // líneas son brutas): así la factura manual abre YA cuadrada con el portal y la hoja
+  // de encargo. El gestor puede ajustarlo o quitarlo como cualquier descuento del modal.
+  const [descModo, setDescModo] = useState<"pct" | "eur">(prefill.descuentoPrefill ? "eur" : "pct");
+  const [descValor, setDescValor] = useState(prefill.descuentoPrefill ? String(prefill.descuentoPrefill) : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

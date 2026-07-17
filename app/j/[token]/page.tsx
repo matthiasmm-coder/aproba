@@ -6,6 +6,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { descuentoValido, type Descuento as DescuentoT } from "@/lib/multi-servicio";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import type { MiembroInicial } from "@/components/datos-familia";
@@ -55,6 +56,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let servicioInicial: string | null = null;
   let serviciosExtraClaves: string[] = [];
   let suplidosOverride: { concepto: string; importe: number }[] | null = null;
+  let descuentoExp: DescuentoT | null = null;
   let docsSubidos: { tipo: string; estado: string }[] = [];
   // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
   // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
@@ -63,10 +65,11 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", suplidosOverride", "").replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", descuento", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", descuento", "").replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", descuento", "").replace(", suplidosOverride", "").replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
@@ -104,6 +107,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       // wizard, pero suman documentos requeridos y tarifa (deben cuadrar con /api/pagos).
       const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
       serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
+      descuentoExp = descuentoValido((exp as unknown as { descuento?: unknown }).descuento);
       const supOv = (exp as unknown as { suplidosOverride?: { concepto: string; importe: number }[] | null }).suplidosOverride;
       suplidosOverride = Array.isArray(supOv) ? supOv.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) })) : null;
       try {
@@ -194,6 +198,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       servicioInicial={servicioInicial}
       serviciosExtraClaves={serviciosExtraClaves}
       suplidosOverride={suplidosOverride}
+      descuento={descuentoExp}
       docsSubidos={docsSubidos}
     />
   );

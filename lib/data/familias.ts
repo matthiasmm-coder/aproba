@@ -3,7 +3,7 @@ import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
@@ -100,7 +100,10 @@ export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | 
 
 // ── Factura familiar ──
 export type LineaPrefill = { concepto: string; base: number };
-export type FacturaFamiliaPrefill = { familiaId: string; clienteNombre: string; lineas: LineaPrefill[]; servicios: { id: string; label: string }[] };
+// descuentoPrefill: parte «resto» del descuento del expediente, en euros — el modal la
+// precarga como descuento familiar para que la factura manual cuadre con lo prometido
+// en el portal y la hoja de encargo (las líneas del prefill son BRUTAS por miembro).
+export type FacturaFamiliaPrefill = { familiaId: string; clienteNombre: string; lineas: LineaPrefill[]; servicios: { id: string; label: string }[]; descuentoPrefill?: number | null };
 export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre: string; total: number; estado: string; fechaEmision: string | null };
 
 // Prefill de la factura familiar: «una línea por miembro» (lo que promete el modal),
@@ -111,15 +114,16 @@ export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre:
 export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<FacturaFamiliaPrefill | null> {
   try {
     const supabase = await createSupabaseServer();
-    const SEL = (extras: boolean) =>
-      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}))`;
-    let res = await supabase.from("Familia").select(SEL(true)).eq("id", familiaId).maybeSingle();
-    if (res.error) res = await supabase.from("Familia").select(SEL(false)).eq("id", familiaId).maybeSingle() as typeof res;
+    const SEL = (extras: boolean, desc: boolean) =>
+      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}${desc ? ", descuento" : ""}))`;
+    let res = await supabase.from("Familia").select(SEL(true, true)).eq("id", familiaId).maybeSingle();
+    if (res.error) res = await supabase.from("Familia").select(SEL(true, false)).eq("id", familiaId).maybeSingle() as typeof res;
+    if (res.error) res = await supabase.from("Familia").select(SEL(false, false)).eq("id", familiaId).maybeSingle() as typeof res;
     const { data, error } = res;
     if (error || !data) return null;
     const fam = data as unknown as {
       id: string; nombre: string; workspaceId: string;
-      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null }[] | null }[] | null;
+      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown }[] | null }[] | null;
     };
     const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
@@ -132,24 +136,36 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
       const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
       return { label: labelServicios(svs, TIPO_LABEL[e.tipo] ?? e.tipo), base: tarifaDeServicios(svs).resto };
     };
+    // Parte «resto» del descuento del expediente (mismo helper y reparto que /api/pagos):
+    // las líneas del prefill son brutas, así que la rebaja va como descuento del modal.
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown }, n: number) => {
+      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
+      const tarifa = tarifaDeServicios(svs);
+      const reb = aplicarDescuento(tarifa, n, descuentoValido(e.descuento));
+      return r2(r2(tarifa.resto * Math.max(1, n)) - reb.resto);
+    };
+    let descuentoPrefill = 0;
     if (expedientesTotales.length === 1) {
       // Un solo expediente familiar (modelo actual) → una línea por miembro, ×N.
       const { label, base } = lineaDe(expedientesTotales[0]);
       for (const m of miembros) {
         lineas.push({ concepto: `${label} · ${nombreCortoDe(m)}`, base });
       }
+      descuentoPrefill = rebajaRestoDe(expedientesTotales[0], miembros.length);
     } else {
       for (const m of miembros) {
         const nombreCorto = nombreCortoDe(m);
         for (const e of m.expedientes ?? []) {
           const { label, base } = lineaDe(e);
           lineas.push({ concepto: `${label} · ${nombreCorto}`, base });
+          descuentoPrefill = r2(descuentoPrefill + rebajaRestoDe(e, 1));
         }
       }
     }
     const titular = miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0];
     const clienteNombre = titular ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim() || fam.nombre : fam.nombre;
-    return { familiaId: fam.id, clienteNombre, lineas, servicios: servicios.map((s) => ({ id: s.id, label: s.label })) };
+    return { familiaId: fam.id, clienteNombre, lineas, servicios: servicios.map((s) => ({ id: s.id, label: s.label })), descuentoPrefill: descuentoPrefill > 0 ? descuentoPrefill : null };
   } catch { return null; }
 }
 

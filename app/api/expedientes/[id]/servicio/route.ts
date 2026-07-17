@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
+import { aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { reconciliarProgresoDocs } from "@/lib/documentos-upload";
 
@@ -28,13 +29,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // El repli está GATED por el mensaje (patrón de fetchExpedienteDetalle): un error
   // transitorio (503, timeout) NO debe pasar por «columna ausente» — aquí esa confusión
   // decidiría una ESCRITURA equivocada (falso 409, quitar extras perdido en silencio).
-  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle();
+  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento").eq("id", id).maybeSingle();
+  if (q.error && /descuento|column|schema cache/i.test(q.error.message)) {
+    q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle() as typeof q;
+  }
   const faltaColumna = Boolean(q.error && /serviciosExtra|column|schema cache/i.test(q.error.message));
   if (q.error && !faltaColumna) return NextResponse.json({ error: q.error.message }, { status: 500 });
   if (faltaColumna) q = await supa.from("Expediente").select("id, familiaId, servicioClave").eq("id", id).maybeSingle() as typeof q;
   if (q.error) return NextResponse.json({ error: q.error.message }, { status: 500 });
   const columnaExtras = !faltaColumna;
-  const exp = q.data as { id: string; familiaId: string | null; servicioClave: string | null; serviciosExtra?: string[] | null } | null;
+  const exp = q.data as { id: string; familiaId: string | null; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
   if (extrasIn !== null && extrasIn.length > 0 && !columnaExtras) {
     return NextResponse.json({ error: "Falta la migración: ejecuta supabase/servicios-extra.sql en Supabase." }, { status: 409 });
@@ -96,10 +100,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);
       nMiembros = Math.max(1, count ?? 1);
     }
-    const teorica = {
-      ANTICIPO: serviciosFinales.reduce((a, s) => a + (Number(s.anticipo) || 0), 0) * nMiembros,
-      FINAL: serviciosFinales.reduce((a, s) => a + (Number(s.resto) || 0), 0) * nMiembros,
-    };
+    // La tarifa teórica pasa por el MISMO descuento que factura /api/pagos: sin él,
+    // el aviso invitaría a facturar la diferencia sobre el BRUTO y el gestor
+    // sobrefacturaría respecto a lo prometido en el portal y la hoja de encargo.
+    const conDesc = aplicarDescuento(
+      {
+        anticipo: serviciosFinales.reduce((a, s) => a + (Number(s.anticipo) || 0), 0),
+        resto: serviciosFinales.reduce((a, s) => a + (Number(s.resto) || 0), 0),
+      },
+      nMiembros,
+      descuentoValido(exp.descuento),
+    );
+    const teorica = { ANTICIPO: conDesc.anticipo, FINAL: conDesc.resto };
     const { data: pagadas } = await admin.from("Factura")
       .select("numero, baseImponible, momento, estado, origen")
       .eq("expedienteId", id).in("momento", ["ANTICIPO", "FINAL"]).eq("estado", "PAGADA").eq("origen", "AUTOMATICA");

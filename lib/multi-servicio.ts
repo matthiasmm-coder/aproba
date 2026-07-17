@@ -49,6 +49,57 @@ export function tarifaDeServicios(servicios: Servicio[]): { anticipo: number; re
   };
 }
 
+// ── Descuento por expediente (pedido por Juan) ───────────────────────────────
+// Se aplica a los HONORARIOS (tras el ×N de familia); las tasas/suplidos nunca se
+// descuentan. Reparto proporcional anticipo/resto con coherencia AL CÉNTIMO:
+// anticipo se redondea y el resto absorbe la diferencia (anticipo+resto == total
+// rebajado exacto) — el realineado de facturas compara totales.
+export type Descuento = { tipo: "PORCENTAJE" | "IMPORTE"; valor: number; motivo?: string };
+
+export function descuentoValido(d: unknown): Descuento | null {
+  if (!d || typeof d !== "object") return null;
+  const x = d as { tipo?: unknown; valor?: unknown; motivo?: unknown };
+  const valor = Number(x.valor);
+  if (!Number.isFinite(valor)) return null;
+  if (x.tipo === "PORCENTAJE" && valor > 0 && valor <= 100) {
+    return { tipo: "PORCENTAJE", valor, ...(typeof x.motivo === "string" && x.motivo.trim() ? { motivo: x.motivo.trim() } : {}) };
+  }
+  const redondeado = Math.round(valor * 100) / 100;
+  if (x.tipo === "IMPORTE" && redondeado > 0) {
+    return { tipo: "IMPORTE", valor: redondeado, ...(typeof x.motivo === "string" && x.motivo.trim() ? { motivo: x.motivo.trim() } : {}) };
+  }
+  return null;
+}
+
+export function aplicarDescuento(
+  tarifa: { anticipo: number; resto: number },
+  nMiembros: number,
+  descuento: Descuento | null | undefined,
+): { anticipo: number; resto: number; bruto: number; rebaja: number } {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const N = Math.max(1, nMiembros);
+  const antBruto = r2(tarifa.anticipo * N);
+  const resBruto = r2(tarifa.resto * N);
+  const bruto = r2(antBruto + resBruto);
+  const d = descuentoValido(descuento);
+  if (!d || bruto <= 0) return { anticipo: antBruto, resto: resBruto, bruto, rebaja: 0 };
+  const rebaja = d.tipo === "PORCENTAJE" ? r2(bruto * d.valor / 100) : Math.min(r2(d.valor), bruto);
+  const total = r2(bruto - rebaja);
+  const anticipo = antBruto > 0 ? Math.min(total, r2(antBruto * (total / bruto))) : 0;
+  const resto = r2(total - anticipo);
+  return { anticipo, resto, bruto, rebaja };
+}
+
+// Etiqueta corta del descuento («−10 %» / «−1.500,00 €») para tarjetas y filas.
+// Mismo formato de miles que eur() (lib/facturas) para no divergir del resto de importes.
+export function etiquetaDescuento(d: Descuento | null | undefined): string {
+  const v = descuentoValido(d);
+  if (!v) return "";
+  if (v.tipo === "PORCENTAJE") return `−${v.valor} %`;
+  const [int, dec] = v.valor.toFixed(2).split(".");
+  return `−${int.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${dec} €`;
+}
+
 // Fusión de la cita presencial: si UN servicio la exige, el expediente la exige;
 // si uno de esos la asume el gestor, acude el gestor. MISMA regla en las 4 superficies
 // (avanzar, ficha, /s, agenda) — si divergen, la UI promete una cita que la API no da.
