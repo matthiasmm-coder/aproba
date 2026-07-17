@@ -19,11 +19,13 @@ export async function POST(req: Request) {
 
   const nombre = clamp(body.nombre, 120);
   const apellidos = clamp(body.apellidos, 120);
+  const despacho = clamp(body.despacho, 160);
   const email = clamp(body.email, 160).toLowerCase();
   const telefono = clamp(body.telefono, 40);
   const equipo = EQUIPO_OPCIONES.includes(clamp(body.equipo, 40)) ? clamp(body.equipo, 40) : "";
   if (nombre.length < 2) return fail("Indica tu nombre.");
   if (apellidos.length < 2) return fail("Indica tus apellidos.");
+  if (despacho.length < 2) return fail("Indica el nombre de tu despacho.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Email no válido.");
   if (!telefono) return fail("Indica un teléfono de contacto.");
   if (!equipo) return fail("Indica cuántas personas sois.");
@@ -32,6 +34,7 @@ export async function POST(req: Request) {
   const rows: [string, string][] = [
     ["Servicio", servicio],
     ["Nombre", `${nombre} ${apellidos}`],
+    ["Despacho", despacho],
     ["Email", email],
     ["Teléfono", telefono],
     ["Equipo", equipo],
@@ -40,6 +43,19 @@ export async function POST(req: Request) {
 
   // Copia de seguridad en logs (recuperable desde el panel de logs si el email falla).
   console.log("[presupuesto]", JSON.stringify(Object.fromEntries(rows)));
+
+  // Propuesta comercial en PDF (borrador para revisar y reenviar al prospecto): con el
+  // precio calculado según el equipo, la charte Aproba, condiciones y firma. Best-effort:
+  // si la generación falla, el email de la solicitud sale igual (sin adjunto).
+  let adjunto: { filename: string; content: Buffer } | null = null;
+  try {
+    const { generarPropuestaPDF } = await import("@/lib/propuesta");
+    const pdf = await generarPropuestaPDF({ nombre, apellidos, despacho, email, telefono, equipo });
+    const slug = despacho.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "despacho";
+    adjunto = { filename: `Aproba-Presupuesto-${slug}.pdf`, content: Buffer.from(pdf) };
+  } catch (e) {
+    console.error("[presupuesto pdf]", e instanceof Error ? e.message : e);
+  }
 
   // Destinatario de los leads. Configurable vía env (PRESUPUESTO_NOTIFY_EMAIL en Vercel);
   // por defecto, el email del fundador.
@@ -50,16 +66,18 @@ export async function POST(req: Request) {
       .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(k)}</td><td style="padding:4px 0;color:#0f172a;font-weight:500">${escapeHtml(v)}</td></tr>`)
       .join("");
     const html = `<p style="font-weight:700;color:#0f172a;margin:0 0 8px">Nueva solicitud de presupuesto</p>`
-      + `<table style="border-collapse:collapse;font-family:Helvetica,Arial,sans-serif;font-size:14px">${trs}</table>`;
+      + `<table style="border-collapse:collapse;font-family:Helvetica,Arial,sans-serif;font-size:14px">${trs}</table>`
+      + (adjunto ? `<p style="margin:12px 0 0;color:#64748b;font-size:13px">Adjunta va la propuesta comercial lista para revisar y reenviar.</p>` : "");
     const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
     try {
       await new Resend(process.env.RESEND_API_KEY).emails.send({
         from,
         to: notify,
         replyTo: email,
-        subject: `[Presupuesto · ${servicio}] ${nombre} ${apellidos}`,
+        subject: `[Presupuesto · ${servicio}] ${nombre} ${apellidos} (${despacho})`,
         html,
         text,
+        ...(adjunto ? { attachments: [adjunto] } : {}),
       });
     } catch (e) {
       // No bloqueamos la respuesta: la solicitud queda registrada en logs.

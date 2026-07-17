@@ -57,7 +57,7 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ servicio: SERVICIO.nombre, nombre: "", apellidos: "", email: "", telefono: "", equipo: "", comentarios: "", website: "" });
+  const [form, setForm] = useState({ servicio: SERVICIO.nombre, nombre: "", apellidos: "", despacho: "", email: "", telefono: "", equipo: "", comentarios: "", website: "" });
 
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -67,6 +67,7 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
     setError(null);
     if (form.nombre.trim().length < 2) { setError("Indica tu nombre."); return; }
     if (form.apellidos.trim().length < 2) { setError("Indica tus apellidos."); return; }
+    if (form.despacho.trim().length < 2) { setError("Indica el nombre de tu despacho."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError("Introduce un email válido."); return; }
     if (!form.telefono.trim()) { setError("Indica un teléfono de contacto."); return; }
     if (!form.equipo) { setError("Indica cuántas personas sois."); return; }
@@ -118,6 +119,7 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
               <div><label className={label}>Nombre *</label><input value={form.nombre} onChange={set("nombre")} className={inp} placeholder="Tu nombre" /></div>
               <div><label className={label}>Apellidos *</label><input value={form.apellidos} onChange={set("apellidos")} className={inp} placeholder="Tus apellidos" /></div>
             </div>
+            <div><label className={label}>Despacho / empresa *</label><input value={form.despacho} onChange={set("despacho")} className={inp} placeholder="Nombre de tu despacho" /></div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Email *</label><input type="email" value={form.email} onChange={set("email")} className={inp} placeholder="tucorreo@despacho.com" /></div>
               <div><label className={label}>Teléfono *</label><input type="tel" value={form.telefono} onChange={set("telefono")} className={inp} placeholder="600 000 000" /></div>
