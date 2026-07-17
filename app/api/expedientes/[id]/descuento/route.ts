@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
+import { honorariosCobrados, tieneCuotas } from "@/lib/facturas";
 import { aplicarDescuento, descuentoValido, etiquetaDescuento, serviciosDeExpediente, suplidosDeExpediente, tarifaDeServicios } from "@/lib/multi-servicio";
 
 // El gestor aplica un descuento a ESTE expediente (packs familiares, varios servicios) —
@@ -80,29 +81,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     userId: user.id,
   });
 
-  // ⚠️ Dinero silencioso (mismo precedente que la ruta de cambio de servicio): una
-  // factura automática YA PAGADA no se realinea (las EMITIDA sí, al siguiente paso
-  // por /api/pagos). Si con el nuevo descuento lo cobrado ya no coincide con la
-  // tarifa teórica, avisamos en el historial para que el gestor ajuste a mano.
+  // Si el anticipo ya está cobrado, el descuento que le tocaba cae ENTERO en el pago
+  // final (restoPendiente): el cliente acaba pagando el total rebajado sin que nadie
+  // toque una factura pagada. Solo queda un caso que ninguna factura de cobro puede
+  // expresar: que YA haya pagado más que el total rebajado (descuento muy grande, o
+  // expediente enteramente cobrado). Eso es una DEVOLUCIÓN → aviso en el historial.
   try {
     if (tarifaCtx) {
       const conDesc = aplicarDescuento(tarifaCtx.tarifa, tarifaCtx.nMiembros, valor);
-      const teorica = { ANTICIPO: conDesc.anticipo, FINAL: conDesc.resto };
-      const { data: pagadas } = await admin.from("Factura")
-        .select("numero, baseImponible, momento")
-        .eq("expedienteId", id).in("momento", ["ANTICIPO", "FINAL"]).eq("estado", "PAGADA").eq("origen", "AUTOMATICA");
-      for (const f of (pagadas ?? []) as { numero: string; baseImponible: number | string; momento: "ANTICIPO" | "FINAL" }[]) {
-        const base = Number(f.baseImponible) || 0;
-        const debe = teorica[f.momento];
-        // conDesc.bruto > 0: con tarifa sin configurar no hay teórica que comparar
-        // (a diferencia de la ruta servicio, aquí un «debe» de 0 € por descuento sí es real).
-        if (conDesc.bruto > 0 && Math.abs(debe - base) >= 0.01) {
-          const etiqueta = f.momento === "ANTICIPO" ? "anticipo" : "liquidación final";
-          await admin.from("ExpedienteEvento").insert({
-            id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
-            descripcion: `⚠️ La factura de ${etiqueta} (${f.numero}) ya está pagada sobre una base de ${base.toFixed(2)} € y con el descuento la tarifa teórica es ${debe.toFixed(2)} € — ajusta la diferencia manualmente desde Cobros.`,
-          });
-        }
+      const total = Math.round((conDesc.anticipo + conDesc.resto) * 100) / 100;
+      const { data: fRows } = await admin.from("Factura")
+        .select("momento, estado, baseImponible")
+        .eq("expedienteId", id);
+      const facturas = (fRows ?? []) as { momento: string | null; estado: string; baseImponible: number | string | null }[];
+      const cobrado = honorariosCobrados(facturas);
+      // conDesc.bruto > 0: sin tarifa configurada no hay total con el que comparar.
+      if (conDesc.bruto > 0 && cobrado - total > 0.005) {
+        const devolver = Math.round((cobrado - total) * 100) / 100;
+        await admin.from("ExpedienteEvento").insert({
+          id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
+          descripcion: `⚠️ El cliente ya ha pagado ${cobrado.toFixed(2)} € de honorarios y con el descuento el total es ${total.toFixed(2)} € — no queda pago final donde aplicarlo: devuélvele ${devolver.toFixed(2)} € (+ IVA) o compénsalo en otro expediente.`,
+        });
+      } else if (valor && conDesc.bruto > 0 && tieneCuotas(facturas)) {
+        // Las cuotas ya emitidas NO se realinean (a diferencia del pago final): si no lo
+        // decimos, el descuento simplemente no llega al cliente y nadie se entera.
+        const pendiente = Math.round((total - cobrado) * 100) / 100;
+        await admin.from("ExpedienteEvento").insert({
+          id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
+          descripcion: `⚠️ Este expediente se cobra en cuotas y el descuento NO las modifica: quedan ${pendiente.toFixed(2)} € de honorarios por cobrar (total con descuento ${total.toFixed(2)} €, ya pagados ${cobrado.toFixed(2)} €). Ajusta las cuotas pendientes a mano desde Cobros.`,
+        });
       }
     }
   } catch { /* el aviso es best-effort, nunca bloquea el cambio */ }

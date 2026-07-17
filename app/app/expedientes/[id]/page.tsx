@@ -7,9 +7,9 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
-import { r2, eur } from "@/lib/facturas";
+import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
@@ -74,7 +74,14 @@ export default async function ExpedienteDetail({
   // de cobro debe emitir exactamente lo que emitiría el portal).
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
   // Descuento del expediente: rebaja los honorarios (tras ×N) — mismo helper que /api/pagos.
-  const tarifaExp = aplicarDescuento(tarifa, nMiembrosExp, e.descuento);
+  // El pago final muestra el PENDIENTE real: si el anticipo ya se cobró (a precio pleno,
+  // porque el descuento llegó después), el resto del descuento cae entero aquí — la ficha
+  // debe enseñar lo mismo que emitirá /api/pagos, ni un céntimo más.
+  const rebajaExp = aplicarDescuento(tarifa, nMiembrosExp, e.descuento);
+  const tarifaExp = {
+    anticipo: rebajaExp.anticipo,
+    resto: restoPendiente(rebajaExp, anticipoPagado(e.facturasPago)),
+  };
   // Override manual del expediente (si el gestor ajustó las tasas) o los del servicio.
   const suplidosBase = suplidosDeExpediente(e.suplidosOverride, serviciosExp);
   const suplidosExp = suplidosBase.map((x) => ({

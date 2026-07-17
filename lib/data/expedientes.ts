@@ -142,7 +142,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por expediente
   descuento?: unknown; // descuento del expediente (jsonb {tipo, valor, motivo})
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
-  facturas: { id: string; numero: string; total: number | string; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
+  facturas: { id: string; numero: string; total: number | string; baseImponible?: number | string | null; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
 
 // Facturas liées (pour le panneau Cobros du détail).
@@ -150,6 +150,7 @@ export type FacturaPago = {
   id: string;
   numero: string;
   total: number;
+  baseImponible: number; // honorarios sin IVA ni suplidos — decide el pendiente con descuento
   estado: string;
   origen: "MANUAL" | "AUTOMATICA";
   momento: string | null; // ANTICIPO | FINAL | CUOTA_i (plan de cuotas) | null
@@ -193,7 +194,7 @@ const DETALLE_SELECT =
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
-   facturas:Factura(id, numero, total, estado, origen, momento, metodoPago)`;
+   facturas:Factura(id, numero, total, baseImponible, estado, origen, momento, metodoPago)`;
 
 function mapearDetalle(data: unknown): ExpedienteDetalle {
   const e = data as unknown as DetalleRow;
@@ -266,6 +267,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
       id: f.id,
       numero: f.numero,
       total: Number(f.total),
+      baseImponible: Number(f.baseImponible ?? 0),
       estado: f.estado,
       origen: (f.origen === "AUTOMATICA" ? "AUTOMATICA" : "MANUAL") as "MANUAL" | "AUTOMATICA",
       momento: f.momento ?? null, // se conserva tal cual (CUOTA_i identifica las cuotas)

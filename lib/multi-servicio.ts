@@ -75,19 +75,45 @@ export function aplicarDescuento(
   tarifa: { anticipo: number; resto: number },
   nMiembros: number,
   descuento: Descuento | null | undefined,
-): { anticipo: number; resto: number; bruto: number; rebaja: number } {
+): { anticipo: number; resto: number; bruto: number; rebaja: number; anticipoBruto: number } {
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const N = Math.max(1, nMiembros);
   const antBruto = r2(tarifa.anticipo * N);
   const resBruto = r2(tarifa.resto * N);
   const bruto = r2(antBruto + resBruto);
   const d = descuentoValido(descuento);
-  if (!d || bruto <= 0) return { anticipo: antBruto, resto: resBruto, bruto, rebaja: 0 };
+  if (!d || bruto <= 0) return { anticipo: antBruto, resto: resBruto, bruto, rebaja: 0, anticipoBruto: antBruto };
   const rebaja = d.tipo === "PORCENTAJE" ? r2(bruto * d.valor / 100) : Math.min(r2(d.valor), bruto);
   const total = r2(bruto - rebaja);
   const anticipo = antBruto > 0 ? Math.min(total, r2(antBruto * (total / bruto))) : 0;
   const resto = r2(total - anticipo);
-  return { anticipo, resto, bruto, rebaja };
+  return { anticipo, resto, bruto, rebaja, anticipoBruto: antBruto };
+}
+
+// Lo que queda por cobrar en el PAGO FINAL.
+// Una factura PAGADA no se reescribe NUNCA. Si el descuento llegó DESPUÉS de cobrar el
+// anticipo, la parte de la rebaja que le tocaba a ese anticipo no se aplicó en ningún
+// sitio: se TRASLADA al pago final para que el cliente acabe pagando el total rebajado.
+//
+// Solo se traslada la rebaja del ANTICIPO, y solo lo que el cliente no llegó a recibir:
+//   traslado = min( pagado de más respecto al anticipo rebajado , rebaja del anticipo )
+// El tope es lo que impide que el final absorba desvíos AJENOS al descuento — si el
+// gestor editó la factura del anticipo para cobrar trabajo extra, o si la tarifa subió
+// después de cobrarla, el pago final NO debe devolver ni recobrar esa diferencia (de eso
+// avisa la ruta de cambio de servicio). Sin descuento el traslado es 0: reb.resto tal cual.
+// Nunca negativo: si el cliente ya pagó más que el total rebajado hay que DEVOLVERLE la
+// diferencia, y eso ninguna factura de cobro puede expresarlo (avisa la ruta del descuento).
+export function restoPendiente(
+  reb: { anticipo: number; resto: number; anticipoBruto: number },
+  anticipoPagado: number | null,
+): number {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  if (anticipoPagado === null) return reb.resto;
+  const rebajaDelAnticipo = r2(reb.anticipoBruto - reb.anticipo);
+  if (rebajaDelAnticipo <= 0) return reb.resto; // sin descuento en el anticipo: nada que trasladar
+  const noRecibido = Math.max(0, r2(anticipoPagado - reb.anticipo));
+  const traslado = Math.min(noRecibido, rebajaDelAnticipo);
+  return Math.max(0, r2(reb.resto - traslado));
 }
 
 // Etiqueta corta del descuento («−10 %» / «−1.500,00 €») para tarjetas y filas.

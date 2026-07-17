@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
+import { aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { reconciliarProgresoDocs } from "@/lib/documentos-upload";
 
@@ -118,12 +118,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     for (const f of (pagadas ?? []) as { numero: string; baseImponible: number | string; momento: "ANTICIPO" | "FINAL" }[]) {
       const base = Number(f.baseImponible) || 0;
       const debe = teorica[f.momento];
-      if (debe > 0 && Math.abs(debe - base) >= 0.01) {
-        const etiqueta = f.momento === "ANTICIPO" ? "anticipo" : "liquidación final";
+      if (debe <= 0) continue;
+      const etiqueta = f.momento === "ANTICIPO" ? "anticipo" : "liquidación final";
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      if (debe - base >= 0.01) {
+        // Infracobro: cobró menos de lo que ahora vale ese plazo (servicio añadido a
+        // mitad de expediente) → nadie lo cobrará nunca si no lo hace a mano.
         await admin.from("ExpedienteEvento").insert({
           id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
           descripcion: `⚠️ La factura de ${etiqueta} (${f.numero}) ya está pagada sobre una base de ${base.toFixed(2)} € y la tarifa actual es ${debe.toFixed(2)} € — factura la diferencia manualmente desde Cobros.`,
         });
+      } else if (base - debe >= 0.01) {
+        // Sobrecobro: el pago final ya absorbe SOLO la parte que venga del descuento
+        // (restoPendiente). Avisar de esa parte pediría facturar/devolver dos veces:
+        // solo se avisa de lo que ninguna factura puede recuperar.
+        const absorbeElFinal = f.momento === "ANTICIPO" ? r2(conDesc.resto - restoPendiente(conDesc, base)) : 0;
+        const sinAbsorber = r2(base - debe - absorbeElFinal);
+        if (sinAbsorber >= 0.01) {
+          await admin.from("ExpedienteEvento").insert({
+            id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
+            descripcion: `⚠️ La factura de ${etiqueta} (${f.numero}) está pagada sobre una base de ${base.toFixed(2)} € y la tarifa actual es ${debe.toFixed(2)} € — el cliente ha pagado ${sinAbsorber.toFixed(2)} € (+ IVA) de más: devuélveselos o compénsalos en el pago final desde Cobros.`,
+          });
+        }
       }
     }
   } catch { /* el aviso es best-effort, nunca bloquea el cambio */ }

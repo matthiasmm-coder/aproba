@@ -36,6 +36,43 @@ export function totalesFactura(lineas: LineaFactura[], suplidos: Suplido[] = [])
   return { base, iva, suplidosTotal, total: r2(base + iva + suplidosTotal) };
 }
 
+// Honorarios del ANTICIPO ya COBRADOS (base imponible: sin IVA y sin suplidos), o null
+// si todavía no hay ninguno pagado. Decide el pago final cuando hay descuento: una
+// factura PAGADA no se reescribe nunca, así que el descuento que le tocaba al anticipo
+// solo puede caer en el final (ver restoPendiente en lib/multi-servicio).
+// Definición ÚNICA para la ficha, /api/pagos y la factura familiar — si divergen, el
+// gestor cobra un importe distinto del que promete el portal.
+export function anticipoPagado(
+  facturas: { momento: string | null; estado: string; baseImponible: number | string | null }[],
+): number | null {
+  const pagadas = facturas.filter((f) => f.momento === "ANTICIPO" && f.estado === "PAGADA");
+  if (!pagadas.length) return null;
+  const base = r2(pagadas.reduce((a, f) => a + (Number(f.baseImponible) || 0), 0));
+  // Un anticipo cobrado a 0 € no existe (base > 0 en las 3 vías de emisión): si apareciera,
+  // devolver 0 haría que restoPendiente tratara «pagado 0» como pago real y cobrara de más.
+  return base > 0 ? base : null;
+}
+
+// Honorarios YA cobrados del expediente, en cualquier plazo: anticipo, pago final y las
+// CUOTAS del fraccionamiento. Sirve para detectar la única situación que ninguna factura
+// puede arreglar: que el cliente ya haya pagado MÁS que el total rebajado (→ devolución).
+// Las facturas manuales (momento null) quedan fuera a propósito: pueden ser de cualquier
+// concepto y contarlas inventaría devoluciones que no existen.
+const MOMENTO_HONORARIOS = /^(ANTICIPO|FINAL|CUOTA_\d+)$/;
+export function honorariosCobrados(
+  facturas: { momento: string | null; estado: string; baseImponible: number | string | null }[],
+): number {
+  return r2(facturas
+    .filter((f) => f.estado === "PAGADA" && MOMENTO_HONORARIOS.test(f.momento ?? ""))
+    .reduce((a, f) => a + (Number(f.baseImponible) || 0), 0));
+}
+
+// ¿El resto se está cobrando fraccionado? Las cuotas se emiten en el momento de fraccionar
+// y NADIE las realinea después: un descuento posterior no las toca (aviso explícito).
+export function tieneCuotas(facturas: { momento: string | null; estado: string }[]): boolean {
+  return facturas.some((f) => /^CUOTA_\d+$/.test(f.momento ?? "") && f.estado !== "ANULADA");
+}
+
 // Format monétaire espagnol : 4356.5 → "4.356,50 €"
 export function eur(n: number): string {
   const [int, dec] = n.toFixed(2).split(".");

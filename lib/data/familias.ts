@@ -3,7 +3,8 @@ import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
+import { anticipoPagado } from "@/lib/facturas";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 // Couche d'accès aux familles (Supabase + RLS). Repli propre: si la table Familia n'existe
@@ -114,16 +115,20 @@ export type FacturaFamiliaResumen = { id: string; numero: string; clienteNombre:
 export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<FacturaFamiliaPrefill | null> {
   try {
     const supabase = await createSupabaseServer();
-    const SEL = (extras: boolean, desc: boolean) =>
-      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}${desc ? ", descuento" : ""}))`;
-    let res = await supabase.from("Familia").select(SEL(true, true)).eq("id", familiaId).maybeSingle();
-    if (res.error) res = await supabase.from("Familia").select(SEL(true, false)).eq("id", familiaId).maybeSingle() as typeof res;
-    if (res.error) res = await supabase.from("Familia").select(SEL(false, false)).eq("id", familiaId).maybeSingle() as typeof res;
+    // Peldaños: el último NO lleva el embed de Factura ni columnas nuevas — si algo falla
+    // (migración pendiente, embed roto), el modal debe conservar el prefill entero (líneas
+    // por miembro, servicios, titular) aunque pierda el descuento, no quedarse en null.
+    const SEL = (extras: boolean, desc: boolean, fact: boolean) =>
+      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}${desc ? ", descuento" : ""}${fact ? ", facturas:Factura(momento, estado, baseImponible)" : ""}))`;
+    let res = await supabase.from("Familia").select(SEL(true, true, true)).eq("id", familiaId).maybeSingle();
+    if (res.error) res = await supabase.from("Familia").select(SEL(true, true, false)).eq("id", familiaId).maybeSingle() as typeof res;
+    if (res.error) res = await supabase.from("Familia").select(SEL(true, false, false)).eq("id", familiaId).maybeSingle() as typeof res;
+    if (res.error) res = await supabase.from("Familia").select(SEL(false, false, false)).eq("id", familiaId).maybeSingle() as typeof res;
     const { data, error } = res;
     if (error || !data) return null;
     const fam = data as unknown as {
       id: string; nombre: string; workspaceId: string;
-      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown }[] | null }[] | null;
+      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }[] | null }[] | null;
     };
     const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
@@ -136,14 +141,16 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
       const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
       return { label: labelServicios(svs, TIPO_LABEL[e.tipo] ?? e.tipo), base: tarifaDeServicios(svs).resto };
     };
-    // Parte «resto» del descuento del expediente (mismo helper y reparto que /api/pagos):
-    // las líneas del prefill son brutas, así que la rebaja va como descuento del modal.
+    // Rebaja que le toca al PAGO FINAL (misma regla que /api/pagos y la ficha): las líneas
+    // del prefill son brutas, así que la diferencia va como descuento del modal. Si el
+    // anticipo ya se cobró, restoPendiente hace caer aquí el descuento entero.
     const r2 = (n: number) => Math.round(n * 100) / 100;
-    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown }, n: number) => {
+    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }, n: number) => {
       const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
       const tarifa = tarifaDeServicios(svs);
       const reb = aplicarDescuento(tarifa, n, descuentoValido(e.descuento));
-      return r2(r2(tarifa.resto * Math.max(1, n)) - reb.resto);
+      const pendiente = restoPendiente(reb, anticipoPagado(e.facturas ?? []));
+      return r2(r2(tarifa.resto * Math.max(1, n)) - pendiente);
     };
     let descuentoPrefill = 0;
     if (expedientesTotales.length === 1) {

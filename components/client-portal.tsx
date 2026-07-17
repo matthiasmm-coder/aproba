@@ -221,6 +221,10 @@ export function ClientPortal({
   const rebajadoExp = aplicarDescuento(tarifaUnit, nMiembros, descuento);
   const anticipoBruto = r2(tarifaUnit.anticipo * nMiembros);
   const anticipo = rebajadoExp.anticipo;
+  // `resto` es el reparto proporcional, NO el pendiente real (restoPendiente): aquí es
+  // correcto porque este portal solo se ve ANTES de cobrar el anticipo — en cuanto la
+  // factura se paga, /j conmuta a PortalCompletado y enseña el total de la factura real.
+  // Si algún día esta pantalla sobrevive al pago, «s3.queda» mentiría: usar restoPendiente.
   const resto = rebajadoExp.resto;
   // Tasas y suplidos (SIN IVA): mismos que el servidor pondrá en la PRIMERA factura
   // (el anticipo si lo hay). ×N miembros — el total mostrado DEBE cuadrar con Stripe.

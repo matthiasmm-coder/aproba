@@ -3,8 +3,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, descuentoValido } from "@/lib/multi-servicio";
-import { ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
+import { anticipoPagado, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -119,8 +119,30 @@ export async function POST(req: Request) {
     // reparto proporcional anticipo/resto con coherencia al céntimo (mismo helper que
     // la ficha, el portal y la hoja de encargo).
     const conDescuento = aplicarDescuento(tarifa, nMiembros, descuentoValido((exp as { descuento?: unknown }).descuento));
-    const b = momento === "ANTICIPO" ? conDescuento.anticipo : conDescuento.resto;
-    if (b <= 0) return NextResponse.json({ error: "Este servicio no tiene pago configurado en este momento" }, { status: 400 });
+    let b: number;
+    if (momento === "ANTICIPO") {
+      b = conDescuento.anticipo;
+    } else {
+      // Pago final: si el anticipo YA está pagado, su factura no se puede reescribir —
+      // el descuento que le tocaba cae entero aquí para que el cliente acabe pagando
+      // exactamente el total rebajado (restoPendiente). Si aún no está pagado, es su
+      // parte proporcional y la factura del anticipo se realinea sola más abajo.
+      const { data: fPagadas } = await admin.from("Factura")
+        .select("momento, estado, baseImponible")
+        .eq("expedienteId", exp.id).eq("momento", "ANTICIPO").eq("estado", "PAGADA");
+      b = restoPendiente(conDescuento, anticipoPagado((fPagadas ?? []) as { momento: string | null; estado: string; baseImponible: number | string | null }[]));
+    }
+    // b <= 0 por el DESCUENTO (la tarifa sí está configurada) no es lo mismo que un
+    // servicio sin pago en este momento: decirlo mal manda al gestor a Ajustes a buscar
+    // una tarifa que está bien. Fail-closed en ambos casos: nunca se cobra de más.
+    if (b <= 0) {
+      const porDescuento = conDescuento.bruto > 0 && conDescuento.rebaja > 0;
+      return NextResponse.json({
+        error: porDescuento
+          ? "Con el descuento no queda nada por cobrar en este momento (el cliente ya ha pagado el total rebajado o más). Revisa el descuento del expediente."
+          : "Este servicio no tiene pago configurado en este momento",
+      }, { status: 400 });
+    }
     // Tasas y suplidos del servicio (SIN IVA, art. 78.Tres.3º LIVA): van en la PRIMERA
     // factura del expediente — el anticipo si lo hay (provisión de fondos), si no el
     // pago final. ×N miembros en familia (cada solicitante paga su tasa).
