@@ -7,7 +7,8 @@ import { Resend } from "resend";
 // el email.
 const fail = (msg: string, status = 400) => NextResponse.json({ error: msg }, { status });
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-const SERVICIOS = ["Puesta en marcha", "Aproba Despegue"];
+// Un solo servicio desde 2026-07-17 (base 390 € + 300 €/persona; el presupuesto se hace a mano).
+const EQUIPO_OPCIONES = ["Autónomo (solo yo)", "2 personas", "3 personas", "4 personas", "5 personas", "Más de 5"];
 const clamp = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
 export async function POST(req: Request) {
@@ -17,30 +18,25 @@ export async function POST(req: Request) {
   if (clamp(body.website, 80)) return NextResponse.json({ ok: true });
 
   const nombre = clamp(body.nombre, 120);
+  const apellidos = clamp(body.apellidos, 120);
   const email = clamp(body.email, 160).toLowerCase();
-  const servicio = SERVICIOS.includes(clamp(body.servicio, 60)) ? clamp(body.servicio, 60) : SERVICIOS[0];
-  const esDespegue = servicio === "Aproba Despegue";
-  const empresa = clamp(body.empresa, 160);
   const telefono = clamp(body.telefono, 40);
-  const expedientes = clamp(body.expedientes, 20);
-  const participantes = clamp(body.participantes, 20);
+  const equipo = EQUIPO_OPCIONES.includes(clamp(body.equipo, 40)) ? clamp(body.equipo, 40) : "";
   if (nombre.length < 2) return fail("Indica tu nombre.");
+  if (apellidos.length < 2) return fail("Indica tus apellidos.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Email no válido.");
-  if (!empresa) return fail("Indica tu despacho o empresa.");
   if (!telefono) return fail("Indica un teléfono de contacto.");
-  if (!expedientes) return fail("Indica el nº de expedientes a migrar.");
-  if (esDespegue && !participantes) return fail("Indica el nº de personas a formar.");
+  if (!equipo) return fail("Indica cuántas personas sois.");
 
+  const servicio = "Aproba Despegue";
   const rows: [string, string][] = [
     ["Servicio", servicio],
-    ["Nombre", nombre],
-    ["Despacho / empresa", empresa],
+    ["Nombre", `${nombre} ${apellidos}`],
     ["Email", email],
     ["Teléfono", telefono],
-    ["Expedientes a migrar", expedientes],
+    ["Equipo", equipo],
+    ["Comentarios", clamp(body.comentarios, 2000) || "(sin comentarios)"],
   ];
-  if (esDespegue) rows.push(["Personas a formar", participantes]);
-  rows.push(["Comentarios", clamp(body.comentarios, 2000) || "—"]);
 
   // Copia de seguridad en logs (recuperable desde el panel de logs si el email falla).
   console.log("[presupuesto]", JSON.stringify(Object.fromEntries(rows)));
@@ -61,7 +57,7 @@ export async function POST(req: Request) {
         from,
         to: notify,
         replyTo: email,
-        subject: `[Presupuesto · ${servicio}] ${nombre}`,
+        subject: `[Presupuesto · ${servicio}] ${nombre} ${apellidos}`,
         html,
         text,
       });
