@@ -604,6 +604,7 @@ export const CA: Record<string, string> = {
   "Valor del descuento": "Valor del descompte",
   "Motivo (p. ej. pack familiar) — opcional": "Motiu (p. ex. pack familiar) — opcional",
   "Motivo del descuento": "Motiu del descompte",
+  "Ajustar servicio y descuento antes de enviarlo": "Ajusta el servei i el descompte abans d'enviar-lo",
   "trámites, pagos y documentos": "tràmits, pagaments i documents",
   "avisos automáticos en cada paso": "avisos automàtics a cada pas",
   "cuenta bancaria": "compte bancari",

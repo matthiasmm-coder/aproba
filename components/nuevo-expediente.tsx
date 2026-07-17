@@ -44,6 +44,7 @@ export function NuevoExpediente() {
   const [error, setError] = useState<string | null>(null);
   // résultat
   const [ref, setRef] = useState("");
+  const [expId, setExpId] = useState("");
   const [token, setToken] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
@@ -138,6 +139,7 @@ export function NuevoExpediente() {
       if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el expediente. Vuelve a intentarlo."));
 
       setRef(d.referencia);
+      setExpId(d.expedienteId);
       setToken(d.portalToken);
       setTelefono(tel);
       setNombreCliente(nombre);
@@ -350,6 +352,16 @@ export function NuevoExpediente() {
                 {copied ? t("¡Copiado!") : t("Copiar")}
               </button>
             </div>
+            {/* Precio cerrado con el cliente (packs, varios servicios): el enlace NO se envía
+                solo, así que el gestor puede fijar antes el servicio y el descuento — el
+                presupuesto que verá el cliente ya sale ajustado. Va a la ficha, no a #cobro:
+                sin servicio la sección de Cobro está vacía (no hay tarifa que descontar). */}
+            {expId && (
+              <Link href={`/app/expedientes/${expId}`} className="mt-3 inline-block text-xs font-medium text-aproba-700 hover:underline">
+                {t("Ajustar servicio y descuento antes de enviarlo")}
+              </Link>
+            )}
+
             <div className="mt-3 flex gap-2">
               <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.4-.5-.6-.5h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.2-.1-.5-.2zM12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2z" /></svg>
