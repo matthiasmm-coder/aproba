@@ -101,6 +101,7 @@ export function ClientPortal({
   const [asig, setAsig] = useState<ServiciosAsignacion | null>(asignacion ?? null);
   // Página «miembros primero»: servicios elegidos POR miembro (inverso de asig).
   const [svcPorMiembro, setSvcPorMiembro] = useState<Record<string, string[]>>({});
+  const [svcInfo, setSvcInfo] = useState<string | null>(null); // «i» descripción de servicio (clave m.id:sv.id)
   const nombreCliente = clienteNombre ?? "Julia";
   const nombreGestoria = gestoria ?? "Gestoría Vallès";
   const inicialesGestoria = nombreGestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
@@ -636,11 +637,23 @@ export function ClientPortal({
                           })}
                           className={`truncate rounded-lg border px-3 py-2.5 text-sm font-medium transition ${activo ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
                         >
-                          {servicioLabel(sv.id, sv.label, lang)}
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate">{servicioLabel(sv.id, sv.label, lang)}</span>
+                            <span
+                              role="button"
+                              aria-label={t("s2.queEsto")}
+                              onClick={(e) => { e.stopPropagation(); setSvcInfo((v) => (v === `${m.id}:${sv.id}` ? null : `${m.id}:${sv.id}`)); }}
+                              className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-400 hover:border-aproba-600 hover:text-aproba-700"
+                            >i</span>
+                          </span>
                         </button>
                       );
                     })}
                   </div>
+                  {svcInfo?.startsWith(`${m.id}:`) && (() => {
+                    const sv = servicios.find((x) => x.id === svcInfo.split(":").slice(1).join(":"));
+                    return sv ? <p className="mt-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-600">{servicioDesc(sv.id, sv.desc, lang)}</p> : null;
+                  })()}
                 </div>
               ))}
               {(() => {
