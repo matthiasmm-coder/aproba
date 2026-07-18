@@ -7,7 +7,7 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
@@ -70,24 +70,24 @@ export default async function ExpedienteDetail({
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
-  // Tasas y suplidos del servicio, ×N miembros — MISMO formato que /api/pagos (el popup
-  // de cobro debe emitir exactamente lo que emitiría el portal).
+  // Tasas y suplidos del servicio — MISMO cálculo que /api/pagos (el popup de cobro
+  // debe emitir exactamente lo que emitiría el portal). Familia heterogénea: cada
+  // servicio × SUS miembros asignados (tarifaAsignada); sin asignación, ×N clásico.
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
-  // Descuento del expediente: rebaja los honorarios (tras ×N) — mismo helper que /api/pagos.
+  const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
+  // Descuento del expediente sobre la tarifa YA multiplicada (nMiembros=1 aquí).
   // El pago final muestra el PENDIENTE real: si el anticipo ya se cobró (a precio pleno,
   // porque el descuento llegó después), el resto del descuento cae entero aquí — la ficha
   // debe enseñar lo mismo que emitirá /api/pagos, ni un céntimo más.
-  const rebajaExp = aplicarDescuento(tarifa, nMiembrosExp, e.descuento);
+  const rebajaExp = aplicarDescuento(tarifaMult, 1, e.descuento);
   const tarifaExp = {
     anticipo: rebajaExp.anticipo,
     resto: restoPendiente(rebajaExp, anticipoPagado(e.facturasPago)),
   };
-  // Override manual del expediente (si el gestor ajustó las tasas) o los del servicio.
+  // Override manual del expediente (si el gestor ajustó las tasas) o los del servicio,
+  // ya multiplicados (override global ×N; los del servicio ×miembros de SU servicio).
   const suplidosBase = suplidosDeExpediente(e.suplidosOverride, serviciosExp);
-  const suplidosExp = suplidosBase.map((x) => ({
-    concepto: nMiembrosExp > 1 ? `${x.concepto} (×${nMiembrosExp})` : x.concepto,
-    importe: r2(x.importe * nMiembrosExp),
-  }));
+  const suplidosExp = suplidosAsignados(e.suplidosOverride, serviciosExp, e.serviciosAsignacion, nMiembrosExp);
 
   // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.

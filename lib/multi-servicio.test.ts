@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { aplicarDescuento, descuentoValido, etiquetaDescuento, restoPendiente } from "./multi-servicio";
+import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, restoPendiente, suplidosAsignados, tarifaAsignada } from "./multi-servicio";
+import type { Servicio } from "./servicios";
 
 // Invariante central del descuento: anticipo + resto == bruto − rebaja AL CÉNTIMO,
 // en todas las combinaciones (el realineado de facturas compara totales exactos).
@@ -130,6 +131,61 @@ describe("restoPendiente", () => {
     const r = aplicarDescuento({ anticipo: 150, resto: 200 }, 3, { tipo: "IMPORTE", valor: 100 });
     expect(restoPendiente(r, 450)).toBe(500);
     expect(450 + restoPendiente(r, 450)).toBe(950);
+  });
+});
+
+// Fixtures mínimas (solo los campos que usan los helpers de dinero).
+const svc = (id: string, anticipo: number, resto: number, suplidos: { concepto: string; importe: number }[] = []): Servicio =>
+  ({ id, label: id, desc: "", docs: [], active: true, precio: anticipo + resto, anticipo, resto, suplidos } as unknown as Servicio);
+
+describe("asignación de servicios a miembros (familia heterogénea)", () => {
+  const arraigo = svc("arraigo", 150, 200, [{ concepto: "Tasa 790", importe: 16.08 }]);
+  const renovacion = svc("renovacion", 80, 100);
+
+  it("asignacionValida: limpia entradas inválidas, null si no queda nada", () => {
+    expect(asignacionValida({ arraigo: ["c1"], renovacion: ["c2", "c2", " "] })).toEqual({ arraigo: ["c1"], renovacion: ["c2"] });
+    expect(asignacionValida({ arraigo: [] })).toBeNull();
+    expect(asignacionValida({ "": ["c1"] })).toBeNull();
+    expect(asignacionValida(["c1"])).toBeNull();
+    expect(asignacionValida(null)).toBeNull();
+  });
+
+  it("miembrosDeServicio: sin entrada → todos; con lista → su tamaño, capado a N", () => {
+    expect(miembrosDeServicio(null, "arraigo", 3)).toBe(3);
+    expect(miembrosDeServicio({ arraigo: ["c1"] }, "arraigo", 3)).toBe(1);
+    expect(miembrosDeServicio({ arraigo: ["c1"] }, "renovacion", 3)).toBe(3);
+    // asignación obsoleta (más ids que miembros) no puede cobrar de más
+    expect(miembrosDeServicio({ arraigo: ["c1", "c2", "c3", "c4"] }, "arraigo", 3)).toBe(3);
+  });
+
+  it("RETROCOMPAT: sin asignación, tarifaAsignada == tarifaDeServicios ×N exacto", () => {
+    expect(tarifaAsignada([arraigo, renovacion], null, 3)).toEqual({ anticipo: (150 + 80) * 3, resto: (200 + 100) * 3 });
+    expect(tarifaAsignada([arraigo], null, 1)).toEqual({ anticipo: 150, resto: 200 });
+  });
+
+  it("el caso de Juan: padre arraigo + madre renovación en familia de 3 → cada servicio ×1", () => {
+    const t = tarifaAsignada([arraigo, renovacion], { arraigo: ["padre"], renovacion: ["madre"] }, 3);
+    expect(t).toEqual({ anticipo: 230, resto: 300 });
+    // y el descuento se aplica SOBRE la tarifa ya multiplicada (nMiembros=1)
+    const reb = aplicarDescuento(t, 1, { tipo: "PORCENTAJE", valor: 10 });
+    expect(reb).toEqual({ anticipo: 207, resto: 270, bruto: 530, rebaja: 53, anticipoBruto: 230 });
+  });
+
+  it("mixto: un servicio asignado a 2, el otro a todos", () => {
+    expect(tarifaAsignada([arraigo, renovacion], { arraigo: ["c1", "c2"] }, 3))
+      .toEqual({ anticipo: 150 * 2 + 80 * 3, resto: 200 * 2 + 100 * 3 });
+  });
+
+  it("suplidosAsignados: la tasa sigue a los miembros de SU servicio", () => {
+    expect(suplidosAsignados(null, [arraigo, renovacion], { arraigo: ["padre"] }, 3))
+      .toEqual([{ concepto: "Tasa 790", importe: 16.08 }]);
+    expect(suplidosAsignados(null, [arraigo], null, 3))
+      .toEqual([{ concepto: "Tasa 790 (×3)", importe: 48.24 }]);
+  });
+
+  it("suplidosAsignados: el override manual sigue siendo global ×N (lista plana)", () => {
+    expect(suplidosAsignados([{ concepto: "Tasa ajustada", importe: 12 }], [arraigo], { arraigo: ["c1"] }, 3))
+      .toEqual([{ concepto: "Tasa ajustada (×3)", importe: 36 }]);
   });
 });
 

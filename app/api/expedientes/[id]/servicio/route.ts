@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
+import { aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { reconciliarProgresoDocs } from "@/lib/documentos-upload";
 
@@ -29,7 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // El repli está GATED por el mensaje (patrón de fetchExpedienteDetalle): un error
   // transitorio (503, timeout) NO debe pasar por «columna ausente» — aquí esa confusión
   // decidiría una ESCRITURA equivocada (falso 409, quitar extras perdido en silencio).
-  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento").eq("id", id).maybeSingle();
+  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento, serviciosAsignacion").eq("id", id).maybeSingle();
+  if (q.error && /serviciosAsignacion|column|schema cache/i.test(q.error.message)) {
+    q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento").eq("id", id).maybeSingle() as typeof q;
+  }
   if (q.error && /descuento|column|schema cache/i.test(q.error.message)) {
     q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle() as typeof q;
   }
@@ -100,15 +103,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);
       nMiembros = Math.max(1, count ?? 1);
     }
-    // La tarifa teórica pasa por el MISMO descuento que factura /api/pagos: sin él,
-    // el aviso invitaría a facturar la diferencia sobre el BRUTO y el gestor
-    // sobrefacturaría respecto a lo prometido en el portal y la hoja de encargo.
+    // La tarifa teórica pasa por la MISMA asignación por miembros y el MISMO descuento
+    // que factura /api/pagos: sin ellos, el aviso invitaría a facturar la diferencia
+    // sobre el bruto ×N y el gestor sobrefacturaría respecto a lo prometido.
     const conDesc = aplicarDescuento(
-      {
-        anticipo: serviciosFinales.reduce((a, s) => a + (Number(s.anticipo) || 0), 0),
-        resto: serviciosFinales.reduce((a, s) => a + (Number(s.resto) || 0), 0),
-      },
-      nMiembros,
+      tarifaAsignada(serviciosFinales, asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion), nMiembros),
+      1,
       descuentoValido(exp.descuento),
     );
     const teorica = { ANTICIPO: conDesc.anticipo, FINAL: conDesc.resto };

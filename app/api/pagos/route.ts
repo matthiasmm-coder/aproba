@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -25,7 +25,7 @@ const uuid = () => crypto.randomUUID();
 // alguna columna de la ficha faltara en una base antigua.
 const JOIN_CLI = "cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia)";
 const JOIN_CLI_MIN = "cliente:Cliente(nombre, apellidos)";
-const SELECT_EXP = `id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, referencia, familiaId, ${JOIN_CLI}`;
+const SELECT_EXP = `id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, referencia, familiaId, ${JOIN_CLI}`;
 type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
@@ -50,7 +50,8 @@ export async function POST(req: Request) {
   let viaGestor = false; // solo el gestor autenticado puede editar la factura
   // Repli sin familiaId si la migración expediente-familia.sql no está aplicada:
   // la emisión de facturas NUNCA debe romperse por una columna opcional.
-  const SELECT_EXP_SIN_DESC = SELECT_EXP.replace(", descuento", "");
+  const SELECT_EXP_SIN_ASIG = SELECT_EXP.replace(", serviciosAsignacion", "");
+  const SELECT_EXP_SIN_DESC = SELECT_EXP_SIN_ASIG.replace(", descuento", "");
   const SELECT_EXP_SIN_SUP = SELECT_EXP_SIN_DESC.replace(", suplidosOverride", "");
   const SELECT_EXP_SIN_EXTRAS = SELECT_EXP_SIN_SUP.replace(", serviciosExtra", "");
   const SELECT_EXP_SIN_FAMILIA = SELECT_EXP_SIN_EXTRAS.replace(", familiaId", "");
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
   if (body.token?.trim()) {
     // Portal del cliente: el token es único.
     let res = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_ASIG).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_DESC).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("portalToken", body.token.trim()).maybeSingle();
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
     const { data: auth } = await supa.auth.getUser();
     if (!auth?.user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     let res = await supa.from("Expediente").select(SELECT_EXP).eq("id", body.expedienteId.trim()).maybeSingle();
+    if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_ASIG).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_DESC).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("id", body.expedienteId.trim()).maybeSingle();
@@ -118,15 +121,17 @@ export async function POST(req: Request) {
     }
     if (total <= 0) return NextResponse.json({ error: "El importe de la factura debe ser mayor que 0" }, { status: 400 });
   } else {
-    // Tarifa — config real del workspace (ServicioConfig). Multi-servicio: la factura
-    // automática cobra la SUMA de las tarifas (principal + extras), después ×N miembros.
+    // Tarifa — config real del workspace (ServicioConfig). Multi-servicio: cada servicio
+    // × SUS miembros asignados (familia heterogénea, pedido de Juan); sin asignación,
+    // todos los servicios ×N — el comportamiento clásico, garantizado por tarifaAsignada.
     const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
     const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo }, catalogo);
-    const tarifa = tarifaDeServicios(serviciosExp);
-    // Descuento del expediente (pedido por Juan): rebaja los honorarios tras el ×N;
-    // reparto proporcional anticipo/resto con coherencia al céntimo (mismo helper que
-    // la ficha, el portal y la hoja de encargo).
-    const conDescuento = aplicarDescuento(tarifa, nMiembros, descuentoValido((exp as { descuento?: unknown }).descuento));
+    const asignacion = asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion);
+    const tarifa = tarifaAsignada(serviciosExp, asignacion, nMiembros);
+    // Descuento del expediente (pedido por Juan): rebaja los honorarios sobre la tarifa
+    // YA multiplicada (nMiembros=1 aquí); reparto proporcional anticipo/resto con
+    // coherencia al céntimo (mismo helper que la ficha, el portal y la hoja de encargo).
+    const conDescuento = aplicarDescuento(tarifa, 1, descuentoValido((exp as { descuento?: unknown }).descuento));
     let b: number;
     if (momento === "ANTICIPO") {
       b = conDescuento.anticipo;
@@ -153,13 +158,10 @@ export async function POST(req: Request) {
     }
     // Tasas y suplidos del servicio (SIN IVA, art. 78.Tres.3º LIVA): van en la PRIMERA
     // factura del expediente — el anticipo si lo hay (provisión de fondos), si no el
-    // pago final. ×N miembros en familia (cada solicitante paga su tasa).
+    // pago final. Cada tasa ×(miembros de SU servicio); el override manual, global ×N.
     const esPrimera = momento === "ANTICIPO" || tarifa.anticipo <= 0;
     if (esPrimera) {
-      const sup = suplidosDeExpediente(exp.suplidosOverride, serviciosExp).map((x) => ({
-        concepto: nMiembros > 1 ? `${x.concepto} (×${nMiembros})` : x.concepto,
-        importe: r2(x.importe * nMiembros),
-      }));
+      const sup = suplidosAsignados(exp.suplidosOverride, serviciosExp, asignacion, nMiembros);
       if (sup.length) suplidos = sup;
     }
     baseImponible = b; iva = ivaDe(b);

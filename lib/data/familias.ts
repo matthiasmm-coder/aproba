@@ -3,7 +3,7 @@ import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ESTADO_META } from "@/lib/types";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
 import { anticipoPagado } from "@/lib/facturas";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
@@ -119,7 +119,7 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
     // (migración pendiente, embed roto), el modal debe conservar el prefill entero (líneas
     // por miembro, servicios, titular) aunque pierda el descuento, no quedarse en null.
     const SEL = (extras: boolean, desc: boolean, fact: boolean) =>
-      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}${desc ? ", descuento" : ""}${fact ? ", facturas:Factura(momento, estado, baseImponible)" : ""}))`;
+      `id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id, tipo, servicioClave${extras ? ", serviciosExtra" : ""}${desc ? ", descuento, serviciosAsignacion" : ""}${fact ? ", facturas:Factura(momento, estado, baseImponible)" : ""}))`;
     let res = await supabase.from("Familia").select(SEL(true, true, true)).eq("id", familiaId).maybeSingle();
     if (res.error) res = await supabase.from("Familia").select(SEL(true, true, false)).eq("id", familiaId).maybeSingle() as typeof res;
     if (res.error) res = await supabase.from("Familia").select(SEL(true, false, false)).eq("id", familiaId).maybeSingle() as typeof res;
@@ -128,7 +128,7 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
     if (error || !data) return null;
     const fam = data as unknown as {
       id: string; nombre: string; workspaceId: string;
-      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }[] | null }[] | null;
+      clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosAsignacion?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }[] | null }[] | null;
     };
     const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
@@ -145,12 +145,14 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
     // del prefill son brutas, así que la diferencia va como descuento del modal. Si el
     // anticipo ya se cobró, restoPendiente hace caer aquí el descuento entero.
     const r2 = (n: number) => Math.round(n * 100) / 100;
-    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }, n: number) => {
+    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosAsignacion?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }, n: number) => {
       const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
-      const tarifa = tarifaDeServicios(svs);
-      const reb = aplicarDescuento(tarifa, n, descuentoValido(e.descuento));
+      // Tarifa YA multiplicada por la asignación de miembros (sin asignación = ×n clásico);
+      // aplicarDescuento con nMiembros=1 — misma regla que /api/pagos y la ficha.
+      const tarifa = tarifaAsignada(svs, asignacionValida(e.serviciosAsignacion), n);
+      const reb = aplicarDescuento(tarifa, 1, descuentoValido(e.descuento));
       const pendiente = restoPendiente(reb, anticipoPagado(e.facturas ?? []));
-      return r2(r2(tarifa.resto * Math.max(1, n)) - pendiente);
+      return r2(tarifa.resto - pendiente);
     };
     let descuentoPrefill = 0;
     if (expedientesTotales.length === 1) {

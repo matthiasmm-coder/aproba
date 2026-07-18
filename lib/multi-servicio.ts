@@ -137,6 +137,81 @@ export function citaDeServicios(servicios: Servicio[]): { citaPresencial: boolea
   };
 }
 
+// ── Asignación de servicios a miembros concretos (familia heterogénea) ───────
+// Pedido de Juan: «que un servicio corresponda únicamente al padre, otro a la madre».
+// { "<servicioClave>": [clienteId, ...] } en Expediente.serviciosAsignacion.
+// Un servicio SIN entrada (o con lista vacía) se aplica a TODOS los miembros — el
+// comportamiento ×N de siempre; con asignación null todo queda exactamente como hoy.
+export type ServiciosAsignacion = Record<string, string[]>;
+
+export function asignacionValida(a: unknown): ServiciosAsignacion | null {
+  if (!a || typeof a !== "object" || Array.isArray(a)) return null;
+  const out: ServiciosAsignacion = {};
+  for (const [clave, ids] of Object.entries(a as Record<string, unknown>)) {
+    if (!clave.trim() || !Array.isArray(ids)) continue;
+    const limpios = [...new Set(ids.filter((x): x is string => typeof x === "string" && x.trim().length > 0))];
+    if (limpios.length) out[clave] = limpios;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// Nº de miembros que llevan UN servicio: su lista si existe, si no TODOS (×N clásico).
+// Cap a nMiembros: una asignación obsoleta (miembro borrado) no puede cobrar de más.
+export function miembrosDeServicio(asignacion: ServiciosAsignacion | null | undefined, clave: string, nMiembros: number): number {
+  const N = Math.max(1, nMiembros);
+  const lista = asignacion?.[clave];
+  if (!lista?.length) return N;
+  return Math.min(lista.length, N);
+}
+
+// Tarifa del expediente YA multiplicada: Σ servicio × sus miembros asignados.
+// Sustituye al patrón «tarifaDeServicios(svs) y después ×N» en las superficies de
+// dinero. Se pasa a aplicarDescuento con nMiembros=1 (ya viene multiplicada): el
+// reparto del descuento y restoPendiente quedan intactos al céntimo. Sin asignación
+// devuelve exactamente tarifaDeServicios ×N — retrocompatible por construcción.
+export function tarifaAsignada(
+  servicios: Servicio[],
+  asignacion: ServiciosAsignacion | null | undefined,
+  nMiembros: number,
+): { anticipo: number; resto: number } {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  let anticipo = 0, resto = 0;
+  for (const s of servicios) {
+    const n = miembrosDeServicio(asignacion, s.id, nMiembros);
+    anticipo = r2(anticipo + r2((Number(s.anticipo) || 0) * n));
+    resto = r2(resto + r2((Number(s.resto) || 0) * n));
+  }
+  return { anticipo, resto };
+}
+
+// Suplidos FINALES del expediente, ya multiplicados («cada solicitante paga su tasa»):
+// los de cada servicio ×(miembros de ESE servicio), con el ×n en el concepto. El
+// override manual del expediente sigue siendo GLOBAL ×N — es una lista plana ajustada
+// a mano, sin atribución por servicio (documentado; el gestor ve lo que factura).
+export function suplidosAsignados(
+  override: { concepto: string; importe: number }[] | null | undefined,
+  servicios: Servicio[],
+  asignacion: ServiciosAsignacion | null | undefined,
+  nMiembros: number,
+): { concepto: string; importe: number }[] {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const N = Math.max(1, nMiembros);
+  if (Array.isArray(override)) {
+    return override
+      .filter((x) => x.concepto && Number(x.importe) > 0)
+      .map((x) => ({ concepto: N > 1 ? `${x.concepto} (×${N})` : x.concepto, importe: r2(Number(x.importe) * N) }));
+  }
+  const out: { concepto: string; importe: number }[] = [];
+  for (const s of servicios) {
+    const n = miembrosDeServicio(asignacion, s.id, nMiembros);
+    for (const x of s.suplidos ?? []) {
+      if (!x.concepto || !(Number(x.importe) > 0)) continue;
+      out.push({ concepto: n > 1 ? `${x.concepto} (×${n})` : x.concepto, importe: r2(Number(x.importe) * n) });
+    }
+  }
+  return out;
+}
+
 // Tasas y suplidos de todos los servicios (principal + extras), en orden. SIN IVA —
 // van al presupuesto y a la PRIMERA factura automática del expediente (×N en familia).
 export function suplidosDeServicios(servicios: Servicio[]): { concepto: string; importe: number }[] {

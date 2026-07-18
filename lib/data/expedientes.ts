@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { clavesDeExpediente, descuentoValido, type Descuento } from "@/lib/multi-servicio";
+import { asignacionValida, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
@@ -141,6 +141,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   serviciosExtra?: string[] | null; // multi-servicio (claves adicionales)
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por expediente
   descuento?: unknown; // descuento del expediente (jsonb {tipo, valor, motivo})
+  serviciosAsignacion?: unknown; // jsonb {clave: clienteId[]}
   eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; baseImponible?: number | string | null; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
@@ -166,6 +167,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   serviciosExtra: string[]; // multi-servicio: claves ADICIONALES (principal = servicioClave)
   suplidosOverride: { concepto: string; importe: number }[] | null; // null = usar los del servicio
   descuento: Descuento | null; // null = sin descuento
+  serviciosAsignacion: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
@@ -189,7 +191,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -260,6 +262,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
         .filter((x) => x.concepto && x.importe > 0);
     })(),
     descuento: descuentoValido((e as { descuento?: unknown }).descuento),
+    serviciosAsignacion: asignacionValida((e as { serviciosAsignacion?: unknown }).serviciosAsignacion),
     portalToken: e.portalToken ?? null,
     familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
@@ -281,17 +284,20 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
   // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
+  if (res.error && /serviciosAsignacion|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "")).eq("id", id).maybeSingle() as typeof res;
+  }
   if (res.error && /descuento|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -304,17 +310,20 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (!token) return null;
   const admin = createSupabaseAdmin();
   let res = await admin.from("Expediente").select(DETALLE_SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error && /serviciosAsignacion|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  }
   if (res.error && /descuento|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);

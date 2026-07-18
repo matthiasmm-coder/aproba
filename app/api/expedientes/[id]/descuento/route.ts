@@ -3,7 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { honorariosCobrados, tieneCuotas } from "@/lib/facturas";
-import { aplicarDescuento, descuentoValido, etiquetaDescuento, serviciosDeExpediente, suplidosDeExpediente, tarifaDeServicios } from "@/lib/multi-servicio";
+import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, serviciosDeExpediente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 
 // El gestor aplica un descuento a ESTE expediente (packs familiares, varios servicios) —
 // pedido por Juan. Se guarda en Expediente.descuento y alimenta la ficha, la primera
@@ -39,21 +39,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // Contexto de tarifa (best-effort: si algo falla, el descuento se guarda igual —
   // estos datos solo alimentan la guarda de tasas y el aviso de facturas pagadas).
-  let tarifaCtx: { tarifa: { anticipo: number; resto: number }; nMiembros: number; conSuplidos: boolean } | null = null;
+  // La tarifa viene YA multiplicada por la asignación de miembros (tarifaAsignada):
+  // aplicarDescuento se llama siempre con nMiembros=1 sobre ella.
+  let tarifaCtx: { tarifa: { anticipo: number; resto: number }; conSuplidos: boolean } | null = null;
   try {
-    const [{ data: full }, { servicios }] = await Promise.all([
-      admin.from("Expediente").select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId").eq("id", id).maybeSingle(),
-      fetchServiciosConfig(),
-    ]);
+    let resFull = await admin.from("Expediente").select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId, serviciosAsignacion").eq("id", id).maybeSingle();
+    if (resFull.error && /serviciosAsignacion|column|schema cache/i.test(resFull.error.message)) {
+      resFull = await admin.from("Expediente").select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId").eq("id", id).maybeSingle() as typeof resFull;
+    }
+    const { servicios } = await fetchServiciosConfig();
+    const full = resFull.data;
     if (full) {
-      const f = full as { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId: string | null };
+      const f = full as { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId: string | null; serviciosAsignacion?: unknown };
       const svs = serviciosDeExpediente(f, servicios);
       let nMiembros = 1;
       if (f.familiaId) {
         const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", f.familiaId);
         nMiembros = Math.max(1, count ?? 1);
       }
-      tarifaCtx = { tarifa: tarifaDeServicios(svs), nMiembros, conSuplidos: suplidosDeExpediente(f.suplidosOverride, svs).length > 0 };
+      const asignacion = asignacionValida(f.serviciosAsignacion);
+      tarifaCtx = {
+        tarifa: tarifaAsignada(svs, asignacion, nMiembros),
+        conSuplidos: suplidosAsignados(f.suplidosOverride, svs, asignacion, nMiembros).length > 0,
+      };
     }
   } catch { /* sin contexto: se omiten guarda y aviso */ }
 
@@ -61,7 +69,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // tasas/suplidos (viajan en la primera factura automática y el portal saltaría el
   // paso de pago). Solo se bloquea si HAY suplidos; un «gratis» sin tasas es legítimo.
   if (valor && tarifaCtx?.conSuplidos) {
-    const previa = aplicarDescuento(tarifaCtx.tarifa, tarifaCtx.nMiembros, valor);
+    const previa = aplicarDescuento(tarifaCtx.tarifa, 1, valor);
     if (previa.bruto > 0 && previa.anticipo + previa.resto <= 0) {
       return NextResponse.json({ error: "Con este descuento los honorarios quedan en 0 € y las tasas/suplidos del expediente no se podrían facturar (van en la primera factura). Deja al menos 0,01 € de honorarios o quita los suplidos." }, { status: 400 });
     }
@@ -88,7 +96,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // expediente enteramente cobrado). Eso es una DEVOLUCIÓN → aviso en el historial.
   try {
     if (tarifaCtx) {
-      const conDesc = aplicarDescuento(tarifaCtx.tarifa, tarifaCtx.nMiembros, valor);
+      const conDesc = aplicarDescuento(tarifaCtx.tarifa, 1, valor);
       const total = Math.round((conDesc.anticipo + conDesc.resto) * 100) / 100;
       const { data: fRows } = await admin.from("Factura")
         .select("momento, estado, baseImponible")
