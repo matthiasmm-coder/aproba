@@ -90,26 +90,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // del expediente ni dispara avisos: es una corrección de la lista, no una regresión.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { code?: string };
+  let body: { code?: string; clienteId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const code = (body.code ?? "").trim();
+  const clienteId = (body.clienteId ?? "").trim() || null;
   if (!code) return NextResponse.json({ error: "Falta el formulario." }, { status: 400 });
 
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  // Bajo RLS (anti-IDOR) + lectura defensiva de la columna.
-  const { data: exp, error: eSel } = await supabase.from("Expediente").select("id, formulariosGenerados").eq("id", id).maybeSingle();
+  // Bajo RLS (anti-IDOR) + lectura defensiva de las columnas (repli sin el mapa por miembro).
+  let resSel = await supabase.from("Expediente").select("id, formulariosGenerados, formulariosPorMiembro").eq("id", id).maybeSingle();
+  if (resSel.error && /formulariosPorMiembro|column|schema cache/i.test(resSel.error.message)) {
+    resSel = await supabase.from("Expediente").select("id, formulariosGenerados").eq("id", id).maybeSingle() as typeof resSel;
+  }
+  const { data: exp, error: eSel } = resSel;
   if (eSel) return NextResponse.json({ error: "Falta la migración de formulariosGenerados." }, { status: 409 });
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const actuales = (exp.formulariosGenerados as string[] | null) ?? [];
+  const pmRaw = (exp as { formulariosPorMiembro?: unknown }).formulariosPorMiembro;
+  const pm = pmRaw && typeof pmRaw === "object" && !Array.isArray(pmRaw) ? pmRaw as Record<string, string[]> : null;
   if (!actuales.includes(code)) return NextResponse.json({ ok: true }); // ya no está
   // .select("id") → un update a 0 filas (expediente borrado entre medias, RLS futura) se
   // trata como fallo en lugar de responder ok + evento mentiroso.
   const { data: upd, error } = await supabase.from("Expediente")
-    .update({ formulariosGenerados: actuales.filter((c) => c !== code) })
+    .update((() => {
+      // Familia: quitar SOLO del miembro indicado; la lista plana queda = unión restante.
+      if (clienteId && pm && Array.isArray(pm[clienteId])) {
+        const pm2 = { ...pm, [clienteId]: pm[clienteId].filter((c: string) => c !== code) };
+        const union = [...new Set(Object.values(pm2).flat())];
+        return { formulariosPorMiembro: pm2, formulariosGenerados: actuales.filter((c) => c === code ? union.includes(code) : true) };
+      }
+      return { formulariosGenerados: actuales.filter((c) => c !== code) };
+    })())
     .eq("id", id).select("id");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!upd?.length) return NextResponse.json({ error: "No se pudo quitar." }, { status: 409 });
@@ -137,12 +152,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // curation légitime («ningún modelo aplica») et doit être persisté tel quel.
   const catalogo = new Set(formulariosDisponibles().map((f) => f.code));
   let seleccion: string[] | null = null;
-  try { const b = await req.json(); if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string" && catalogo.has(x)); } catch { /* sans corps */ }
+  let porMiembro: Record<string, string[]> | null = null;
+  try {
+    const b = await req.json();
+    if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string" && catalogo.has(x));
+    // Curación POR miembro (familia heterogénea): {clienteId: codes[]} filtrada al catálogo.
+    if (b?.porMiembro && typeof b.porMiembro === "object" && !Array.isArray(b.porMiembro)) {
+      porMiembro = {};
+      for (const [k, v] of Object.entries(b.porMiembro as Record<string, unknown>)) {
+        if (Array.isArray(v)) porMiembro[k] = v.filter((x): x is string => typeof x === "string" && catalogo.has(x));
+      }
+    }
+  } catch { /* sans corps */ }
   if (seleccion === null) seleccion = buildFormularios(exp).map((f) => f.tipo);
 
   // Persiste la selección EXACTA → el cliente verá solo esos (defensivo: la columna
   // puede no existir antes de la migración; en ese caso se ignora sin romper nada).
-  const { error: errSel } = await supabase.from("Expediente").update({ formulariosGenerados: seleccion }).eq("id", id);
+  let { error: errSel } = await supabase.from("Expediente").update({ formulariosGenerados: seleccion, ...(porMiembro ? { formulariosPorMiembro: porMiembro } : {}) }).eq("id", id);
+  if (errSel && porMiembro && /formulariosPorMiembro|column|schema cache/i.test(errSel.message)) {
+    ({ error: errSel } = await supabase.from("Expediente").update({ formulariosGenerados: seleccion }).eq("id", id));
+  }
   if (errSel) console.warn("[formularios] no se pudo persistir la selección (¿migración pendiente?):", errSel.message);
 
   const tipos = seleccion.join(", ");

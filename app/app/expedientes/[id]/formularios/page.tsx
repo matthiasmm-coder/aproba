@@ -36,7 +36,7 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     // Cada clave resuelve con SU tipo (no el del expediente): si no, el miembro de la
     // renovación heredaría los EX del arraigo por el repli del slot principal.
     const modelos = [...new Set((claves.filter(Boolean) as string[]).flatMap((c) => formulariosDelTramite(SERVICIO_A_TIPO[c] ?? exp.tipoEnum, [c])))];
-    return [a.id, exp.formulariosCurados ? modelos.filter((m) => iniciales.includes(m)) : modelos];
+    return [a.id, exp.formulariosPorMiembro?.[a.id] ?? (exp.formulariosCurados ? modelos.filter((m) => iniciales.includes(m)) : modelos)];
   }));
 
   return <FormulariosView exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;

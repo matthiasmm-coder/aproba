@@ -11,10 +11,12 @@ import { confirmar } from "@/components/confirm-dialog";
 // guardada (también en familia: si tasaPath existe es un resto del flujo individual —
 // mejor visible y borrable que huérfano). Familiar: el chip de formulario lleva a la
 // página Formularios (un juego por solicitante).
-export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia, tieneTasa }: {
+export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia, tieneTasa, porMiembro = null, miembros = [] }: {
   expedienteId: string;
   formularios: { code: string; tipo: string }[];
   esFamilia: boolean;
+  porMiembro?: Record<string, string[]> | null; // curación por miembro (familia heterogénea)
+  miembros?: { id: string; nombre: string }[];
   tieneTasa: boolean;
 }) {
   const t = useT();
@@ -36,9 +38,9 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
     } finally { setBorrando(null); }
   }
 
-  async function quitarFormulario(code: string) {
+  async function quitarFormulario(code: string, clienteId?: string) {
     if (!(await confirmar({ mensaje: t("¿Quitar {code} de los formularios generados?").replace("{code}", code), peligro: true, confirmarLabel: t("Quitar") }))) return;
-    void ejecutar(code, () => fetch(`/api/expedientes/${expedienteId}/formularios`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }));
+    void ejecutar(code, () => fetch(`/api/expedientes/${expedienteId}/formularios`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, ...(clienteId ? { clienteId } : {}) }) }));
   }
 
   // Ruta propia (no comparte el espacio de nombres de los códigos EX): borra el PDF del
@@ -54,6 +56,32 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
   const IconDl = <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>;
   const IconX = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>;
   const enVuelo = borrando !== null;
+
+  // Familia heterogénea con curación por miembro: chips agrupados bajo el nombre de cada
+  // miembro, con borrado individual (pedido de Matthias).
+  if (esFamilia && porMiembro && miembros.length) {
+    return (
+      <div className="space-y-3">
+        {miembros.filter((mb) => (porMiembro[mb.id] ?? []).length > 0).map((mb) => (
+          <div key={mb.id}>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{mb.nombre}</p>
+            <div className="flex flex-wrap gap-3">
+              {(porMiembro[mb.id] ?? []).map((code) => (
+                <span key={code} className={chipCls}>
+                  <a href={`/api/expedientes/${expedienteId}/formularios?tipo=${encodeURIComponent(code)}&modo=oficial&clienteId=${mb.id}`} className={bodyCls}>
+                    {IconDl}
+                    <span className="text-sm font-medium text-slate-700">{code}</span>
+                  </a>
+                  <button onClick={() => quitarFormulario(code, mb.id)} disabled={enVuelo} aria-label={`${t("Quitar")} ${code}`} className={xCls}>{IconX}</button>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+        {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div>

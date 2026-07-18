@@ -55,7 +55,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
     setErrorMarcar(false);
     try {
       const res = await fetch(`/api/expedientes/${exp.id}/formularios`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: union }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: union, ...(applicants.length ? { porMiembro: selMiembro } : {}) }),
       });
       if (res.ok) { setMarcado(true); router.refresh(); } else { setErrorMarcar(true); }
     } catch {
