@@ -16,7 +16,8 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // Expediente familiar: un juego de formularios por solicitante (rellenado con sus datos).
   // p2Inicial: casilla p.2 forzada previamente (persistida) para inicializar el selector.
   const [applicants, p2Inicial] = await Promise.all([
-    exp.familiaId ? fetchSolicitantesDeFamilia(exp.familiaId) : Promise.resolve([]),
+    // Familia heterogénea: los solicitantes son los miembros CON servicio asignado.
+    exp.familiaId ? fetchSolicitantesDeFamilia(exp.familiaId, exp.serviciosAsignacion ? [...new Set(Object.values(exp.serviciosAsignacion).flat())] : null) : Promise.resolve([]),
     createSupabaseServer().then((sb) => fetchP2Overrides(sb, id)),
   ]);
   // Selección inicial: si la lista ya fue CURADA (persistida, aunque esté vacía), ELLA es
