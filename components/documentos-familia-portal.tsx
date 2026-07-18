@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { partirDocsFamilia } from "@/lib/familia";
 import { labelADocTipo } from "@/lib/tramites";
-import { makeT, docLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
+import { makeT, docLabel, docHelp, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 import type { MiembroInicial } from "@/components/datos-familia";
 
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
@@ -35,6 +35,7 @@ export function DocumentosFamiliaPortal({
   const { comunes, porMiembro } = partirDocsFamilia(requiredDocs.filter((l) => !esFirma(l)));
   const solicitantes = useMemo(() => miembros.filter((m) => m.esSolicitante), [miembros]);
   const [estados, setEstados] = useState<Record<string, Estado>>({});
+  const [ayuda, setAyuda] = useState<string | null>(null); // «i»: qué documento es exactamente
   const [prog, setProg] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const pendiente = useRef<{ label: string; clienteId: string | null } | null>(null);
@@ -125,6 +126,14 @@ export function DocumentosFamiliaPortal({
               )}
             </span>
             <span className="truncate text-sm font-medium text-slate-800">{docLabel(label, lang)}</span>
+            {docHelp(label, lang) && (
+              <button
+                type="button"
+                aria-label={t("s2.queEsto")}
+                onClick={() => setAyuda((v) => (v === keyFor(clienteId, label) ? null : keyFor(clienteId, label)))}
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-400 hover:border-aproba-600 hover:text-aproba-700"
+              >i</button>
+            )}
           </div>
           {st === "analyzing" ? (
             <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{pct}%</span>
@@ -140,6 +149,9 @@ export function DocumentosFamiliaPortal({
           </div>
         )}
         {st === "alerta" && alertas.length > 0 && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{alertas.join(" · ")}</p>}
+        {ayuda === keyFor(clienteId, label) && (
+          <p className="mt-2 rounded-lg bg-cream-50 px-3 py-2 text-xs leading-relaxed text-slate-600" dir="auto">{docHelp(label, lang)}</p>
+        )}
       </div>
     );
   }

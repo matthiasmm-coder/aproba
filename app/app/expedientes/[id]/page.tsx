@@ -231,10 +231,16 @@ export default async function ExpedienteDetail({
             // Incluye la tasa 790-012 guardada. Familiar: chips → página (por solicitante).
             <FormulariosGeneradosChips expedienteId={e.id} formularios={e.formularios} esFamilia={Boolean(familia)} tieneTasa={e.tieneTasa} porMiembro={e.formulariosPorMiembro} miembros={familia?.miembros.map((m) => ({ id: m.id, nombre: m.nombre })) ?? []} />
           ) : (
-            <Link href={`/app/expedientes/${e.id}/formularios`} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
-              <svg className="h-5 w-5 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
-              {t("Generar EX + 790-012 desde los datos validados")}
-            </Link>
+            // Primera apertura (nada generado): la acción debe estar ABIERTA y ser franca
+            // (pedido de Matthias) — botón primario a la página de generación, donde vive
+            // «Marcar como generados», en vez de un cuadro punteado discreto.
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={`/app/expedientes/${e.id}/formularios`} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
+                {t("Generar formularios")}
+              </Link>
+              <span className="text-xs text-slate-400">{t("EX + tasa 790-012, rellenados con los datos validados. Después podrás marcarlos como generados.")}</span>
+            </div>
           )}
         </SeccionPlegable>
 

@@ -611,6 +611,7 @@ export const CA: Record<string, string> = {
   "Quitar asignación": "Treu l'assignació",
   "No se pudo guardar la asignación.": "No s'ha pogut desar l'assignació.",
   "Ajustar servicio y descuento antes de enviarlo": "Ajusta el servei i el descompte abans d'enviar-lo",
+  "EX + tasa 790-012, rellenados con los datos validados. Después podrás marcarlos como generados.": "EX + taxa 790-012, emplenats amb les dades validades. Després podràs marcar-los com a generats.",
   "Ajustar servicio y descuento": "Ajusta el servei i el descompte",
   "Cerrar aquí el precio antes de enviar el enlace: el cliente verá ya el presupuesto con el descuento aplicado.": "Tanca aquí el preu abans d'enviar l'enllaç: el client ja veurà el pressupost amb el descompte aplicat.",
   "Servicio principal": "Servei principal",
