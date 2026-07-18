@@ -97,6 +97,9 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false }: { 
         <div className="mt-6 rounded-lg bg-cream-50 p-4">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturar a")}</p>
           <p className="mt-1 font-medium text-slate-800">{f.cliente}</p>
+          {/* Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan. */}
+          {f.clienteDatos?.documento && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.documento}</p>}
+          {f.clienteDatos?.direccion && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.direccion}</p>}
         </div>
 
         {/* Líneas */}

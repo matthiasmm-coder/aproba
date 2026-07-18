@@ -4,7 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { serviciosDeExpediente, tarifaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, descuentoValido, restoPendiente } from "@/lib/multi-servicio";
-import { anticipoPagado, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
+import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -20,7 +20,12 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // (webhook PSP) queda como evolución; hoy se emite factura para pago por transferencia.
 
 const uuid = () => crypto.randomUUID();
-const SELECT_EXP = "id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, referencia, familiaId, cliente:Cliente(nombre, apellidos)";
+// La jointure cliente lleva también los datos fiscales (documento + dirección) para el
+// snapshot de la factura; el último repli (CLI_MIN) vuelve al par nombre/apellidos si
+// alguna columna de la ficha faltara en una base antigua.
+const JOIN_CLI = "cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia)";
+const JOIN_CLI_MIN = "cliente:Cliente(nombre, apellidos)";
+const SELECT_EXP = `id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, referencia, familiaId, ${JOIN_CLI}`;
 type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
@@ -49,6 +54,7 @@ export async function POST(req: Request) {
   const SELECT_EXP_SIN_SUP = SELECT_EXP_SIN_DESC.replace(", suplidosOverride", "");
   const SELECT_EXP_SIN_EXTRAS = SELECT_EXP_SIN_SUP.replace(", serviciosExtra", "");
   const SELECT_EXP_SIN_FAMILIA = SELECT_EXP_SIN_EXTRAS.replace(", familiaId", "");
+  const SELECT_EXP_CLI_MIN = SELECT_EXP_SIN_FAMILIA.replace(JOIN_CLI, JOIN_CLI_MIN);
   if (body.token?.trim()) {
     // Portal del cliente: el token es único.
     let res = await admin.from("Expediente").select(SELECT_EXP).eq("portalToken", body.token.trim()).maybeSingle();
@@ -56,6 +62,7 @@ export async function POST(req: Request) {
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("portalToken", body.token.trim()).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SELECT_EXP_CLI_MIN).eq("portalToken", body.token.trim()).maybeSingle();
     if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
     exp = res.data as unknown as ExpRow | null;
   } else if (body.expedienteId?.trim()) {
@@ -68,6 +75,7 @@ export async function POST(req: Request) {
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_SUP).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_EXTRAS).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_SIN_FAMILIA).eq("id", body.expedienteId.trim()).maybeSingle();
+    if (res.error) res = await supa.from("Expediente").select(SELECT_EXP_CLI_MIN).eq("id", body.expedienteId.trim()).maybeSingle();
     if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
     exp = res.data as unknown as ExpRow | null;
     viaGestor = true;
@@ -183,7 +191,14 @@ export async function POST(req: Request) {
     // devolverla — si no, Stripe cobraría un importe distinto del que el portal muestra.
     const editadaPorGestor = previa.origen !== "AUTOMATICA";
     if (!fac && !editadaPorGestor && previa.estado === "EMITIDA" && Number(previa.total) !== total) {
-      const { error: eUp } = await admin.from("Factura").update({ baseImponible, iva, total, concepto, suplidos: suplidos ?? null }).eq("id", previa.id).eq("estado", "EMITIDA");
+      // El realineado también refresca el snapshot fiscal: la factura sigue sin pagar,
+      // y así una emitida antes de la migración recoge los datos del cliente.
+      const clienteDatos = datosFiscalesDeCliente(exp.cliente as Parameters<typeof datosFiscalesDeCliente>[0]);
+      let { error: eUp } = await admin.from("Factura").update({ baseImponible, iva, total, concepto, suplidos: suplidos ?? null, ...(clienteDatos ? { clienteDatos } : {}) }).eq("id", previa.id).eq("estado", "EMITIDA");
+      if (eUp && clienteDatos && /clienteDatos/i.test(eUp.message)) {
+        // Columna sin migrar: el realineado (dinero) no puede fallar por el snapshot.
+        eUp = (await admin.from("Factura").update({ baseImponible, iva, total, concepto, suplidos: suplidos ?? null }).eq("id", previa.id).eq("estado", "EMITIDA")).error;
+      }
       if (!eUp) {
         await admin.from("ExpedienteEvento").insert({
           id: uuid(),
@@ -214,7 +229,9 @@ export async function POST(req: Request) {
   const ahora = new Date();
   const vencimiento = new Date(ahora.getTime() + 14 * 864e5);
   const facturaId = uuid();
-  let { error: e4 } = await admin.from("Factura").insert({
+  // Snapshot fiscal del cliente (documento + dirección), congelado al emitir.
+  const clienteDatos = datosFiscalesDeCliente(exp.cliente as Parameters<typeof datosFiscalesDeCliente>[0]);
+  const payloadBase = {
     id: facturaId,
     workspaceId: exp.workspaceId,
     expedienteId: exp.id,
@@ -231,18 +248,22 @@ export async function POST(req: Request) {
     fechaEmision: ahora.toISOString(),
     fechaVencimiento: vencimiento.toISOString(),
     ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
+  };
+  let { error: e4 } = await admin.from("Factura").insert({
+    ...payloadBase,
+    ...(clienteDatos ? { clienteDatos } : {}),
     ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
   });
+  // Repli: si la migración factura-cliente-datos.sql no está ejecutada, reintenta sin
+  // el snapshot — la emisión NUNCA debe romperse por una columna opcional.
+  if (e4 && clienteDatos && /clienteDatos/i.test(e4.message)) {
+    const retry = await admin.from("Factura").insert({ ...payloadBase, ...(exp.familiaId ? { familiaId: exp.familiaId } : {}) });
+    e4 = retry.error;
+  }
   // Repli: si la migración factura-familia.sql no está ejecutada (columna
   // familiaId ausente), reintenta sin el vínculo — la factura no puede perderse.
   if (e4 && exp.familiaId && /familiaId/i.test(e4.message)) {
-    const retry = await admin.from("Factura").insert({
-      id: facturaId, workspaceId: exp.workspaceId, expedienteId: exp.id, numero,
-      clienteNombre, concepto, baseImponible, iva, total,
-      estado: "EMITIDA", origen: "AUTOMATICA", momento, metodoPago: "TRANSFERENCIA",
-      fechaEmision: ahora.toISOString(), fechaVencimiento: vencimiento.toISOString(),
-      ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
-    });
+    const retry = await admin.from("Factura").insert(payloadBase);
     e4 = retry.error;
   }
   if (e4) {

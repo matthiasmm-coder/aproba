@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fmtFechaCorta } from "@/lib/tramites";
-import type { Factura, FacturaEstado, LineaFactura, Suplido } from "@/lib/facturas";
+import type { ClienteDatosFactura, Factura, FacturaEstado, LineaFactura, Suplido } from "@/lib/facturas";
 
 // Couche d'accès aux facturas (Supabase + RLS).
 
@@ -19,6 +19,7 @@ type Row = {
   suplidos?: Suplido[] | null;
   notas?: string | null;
   archivadoAt?: string | null;
+  clienteDatos?: unknown;
 };
 
 // lineas/suplidos/notas (Pro/Business) y archivadoAt son columnas nuevas. Se piden en el
@@ -27,19 +28,21 @@ type Row = {
 const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento";
 const SELECT_LIN: string = `${COLS_BASE}, lineas, suplidos, notas`;
 const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
+const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
 
 // Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
 // caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
 // activas). Mismo criterio gateado que el resto del repo.
 const FALTA_COLUMNA = /column|schema cache|does not exist/i;
 
-// Tres niveles de repli: completo → sin archivadoAt (falta factura-archivado.sql) → base
-// (falta también factura-lineas.sql).
+// Cuatro niveles de repli: completo → sin clienteDatos (falta factura-cliente-datos.sql)
+// → sin archivadoAt (falta factura-archivado.sql) → base (falta también factura-lineas.sql).
 async function selectFacturas<T>(
   run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
   contexto = "Facturas",
 ): Promise<T> {
-  let res = await run(SELECT_FULL);
+  let res = await run(SELECT_CLI);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_FULL);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_LIN);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(COLS_BASE);
   if (res.error) throw new Error(`${contexto}: ${res.error.message}`);
@@ -62,6 +65,7 @@ function mapRow(f: Row): Factura {
     suplidos: Array.isArray(f.suplidos) ? f.suplidos : undefined,
     notas: f.notas ?? null,
     archivado: Boolean(f.archivadoAt),
+    clienteDatos: f.clienteDatos && typeof f.clienteDatos === "object" ? (f.clienteDatos as ClienteDatosFactura) : null,
   };
 }
 

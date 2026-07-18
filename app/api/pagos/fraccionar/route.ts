@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { r2, ivaDe } from "@/lib/facturas";
+import { r2, ivaDe, datosFiscalesDeCliente } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -29,11 +29,19 @@ export async function POST(req: Request) {
   const { data: { user } } = await supa.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  const { data: exp } = await supa
+  // Jointure cliente extendida para el snapshot fiscal de cada cuota; repli al par
+  // nombre/apellidos si alguna columna de la ficha faltara en una base antigua.
+  let resExp = await supa
+    .from("Expediente")
+    .select("id, referencia, tipo, workspaceId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia), facturas:Factura(id, momento, estado)")
+    .eq("id", expedienteId)
+    .maybeSingle();
+  if (resExp.error) resExp = await supa
     .from("Expediente")
     .select("id, referencia, tipo, workspaceId, cliente:Cliente(nombre, apellidos), facturas:Factura(id, momento, estado)")
     .eq("id", expedienteId)
-    .maybeSingle();
+    .maybeSingle() as typeof resExp;
+  const exp = resExp.data;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   // Un solo plan de cuotas por expediente, y nunca sobre un pago final ya emitido.
@@ -45,9 +53,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ya existe una factura de pago final. Anúlala antes de fraccionar." }, { status: 409 });
   }
 
-  const cliRaw = exp.cliente as { nombre?: string | null; apellidos?: string | null } | { nombre?: string | null; apellidos?: string | null }[] | null;
+  type Cli = { nombre?: string | null; apellidos?: string | null } & Parameters<typeof datosFiscalesDeCliente>[0];
+  const cliRaw = exp.cliente as unknown as Cli | Cli[] | null;
   const cli = Array.isArray(cliRaw) ? cliRaw[0] : cliRaw;
   const clienteNombre = `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente";
+  const clienteDatos = datosFiscalesDeCliente(cli);
   const tramiteLabel = TIPO_LABEL[exp.tipo as string] ?? String(exp.tipo);
 
   // Reparto: n-1 cuotas iguales redondeadas; la última absorbe el resto (Σ bases = baseTotal).
@@ -80,12 +90,17 @@ export async function POST(req: Request) {
       baseImponible: base, iva, total,
       estado: "EMITIDA", origen: "MANUAL", momento: `CUOTA_${i + 1}`, metodoPago: "TRANSFERENCIA",
       fechaEmision: ahora.toISOString(), fechaVencimiento: vence.toISOString(),
+      ...(clienteDatos ? { clienteDatos } : {}),
     });
     emitidas.push({ facturaId, numero, total, vence: vence.toISOString() });
   }
   // Inserción ATÓMICA (un solo INSERT): si otra emisión concurrente pisa un número, no se
   // escribe NADA — sin planes de cuotas parciales — y el «reintenta» es veraz.
-  const { error } = await admin.from("Factura").insert(filas);
+  let { error } = await admin.from("Factura").insert(filas);
+  // Repli: columna clienteDatos sin migrar → reintenta sin el snapshot (el plan no puede perderse).
+  if (error && clienteDatos && /clienteDatos/i.test(error.message)) {
+    error = (await admin.from("Factura").insert(filas.map(({ clienteDatos: _cd, ...resto }) => resto))).error;
+  }
   if (error) {
     const dup = /duplicate|unique/i.test(error.message);
     return NextResponse.json({ error: dup ? "Conflicto de numeración; reintenta (no se emitió ninguna cuota)." : error.message }, { status: dup ? 409 : 500 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { totalesFactura } from "@/lib/facturas";
+import { datosFiscalesDeCliente, totalesFactura } from "@/lib/facturas";
 import { facturacionAvanzada } from "@/lib/planes";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -20,11 +20,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Familia + miembros + sus expedientes (bajo RLS → null si no es del workspace).
-  const { data: fam, error: eFam } = await supabase
+  // La jointure lleva los datos fiscales del titular para el snapshot de la factura;
+  // repli a la versión mínima si alguna columna de la ficha faltara en una base antigua.
+  let resFam = await supabase
+    .from("Familia")
+    .select("id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, expedientes:Expediente(id))")
+    .eq("id", id)
+    .maybeSingle();
+  if (resFam.error) resFam = await supabase
     .from("Familia")
     .select("id, nombre, workspaceId, clientes:Cliente(id, nombre, apellidos, parentesco, expedientes:Expediente(id))")
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle() as typeof resFam;
+  const { data: fam, error: eFam } = resFam;
   if (eFam) return NextResponse.json({ error: eFam.message }, { status: 500 });
   if (!fam) return NextResponse.json({ error: "Familia no encontrada." }, { status: 404 });
 
@@ -49,9 +57,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Ancla: el expediente del titular (para el email + trazabilidad); si no, el de cualquier
   // miembro. Puede no existir ninguno → factura sin envío automático (el gestor comparte el enlace).
-  type Cli = { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string }[] | null };
+  type Cli = { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string }[] | null } & Parameters<typeof datosFiscalesDeCliente>[0];
   const miembros = ((fam.clientes ?? []) as unknown as Cli[]).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
   const titular = miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0] ?? null;
+  // Snapshot fiscal del TITULAR (la factura familiar se emite a su nombre).
+  const clienteDatos = datosFiscalesDeCliente(titular);
   const anchorExpedienteId = (titular?.expedientes?.[0]?.id) ?? miembros.find((m) => (m.expedientes?.length ?? 0) > 0)?.expedientes?.[0]?.id ?? null;
 
   const clienteAuto = titular ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim() : "";
@@ -77,11 +87,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     estado: "EMITIDA", origen: "MANUAL", momento: null, metodoPago: "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(), fechaVencimiento: vencimiento.toISOString(),
     lineas, suplidos, notas: body.notas?.trim() || null,
+    ...(clienteDatos ? { clienteDatos } : {}),
   };
   let { error: eIns } = await admin.from("Factura").insert(fila);
+  if (eIns && clienteDatos && /clienteDatos/i.test(eIns.message)) {
+    // Repli si la migración factura-cliente-datos.sql no está aplicada: emite sin snapshot.
+    delete fila.clienteDatos;
+    ({ error: eIns } = await admin.from("Factura").insert(fila));
+  }
   if (eIns && /familiaId|column|schema cache|does not exist/i.test(eIns.message)) {
     // Repli si la migración factura-familia.sql no está aplicada: emite sin el vínculo familia.
     delete fila.familiaId;
+    delete fila.clienteDatos;
     ({ error: eIns } = await admin.from("Factura").insert(fila));
   }
   if (eIns) {

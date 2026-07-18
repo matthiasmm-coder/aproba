@@ -59,7 +59,12 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8
 
   y -= 20;
   text("FACTURAR A", M, 8, bold, grey); y -= 15;
-  text(f.cliente, M, 12, bold); y -= 30;
+  text(f.cliente, M, 12, bold); y -= 15;
+  // Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan.
+  for (const dato of [f.clienteDatos?.documento, f.clienteDatos?.direccion].filter(Boolean) as string[]) {
+    text(dato, M, 9, font, slate); y -= 13;
+  }
+  y -= 15;
 
   // Tabla de líneas
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];

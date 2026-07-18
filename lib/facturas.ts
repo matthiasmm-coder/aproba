@@ -5,6 +5,28 @@ export type FacturaEstado = "BORRADOR" | "EMITIDA" | "PAGADA" | "VENCIDA";
 export type LineaFactura = { concepto: string; base: number };
 export type Suplido = { concepto: string; importe: number };
 
+// Datos fiscales del cliente CONGELADOS al emitir (pedido de Juan): documento de
+// identidad y dirección. Snapshot, no join vivo — una factura emitida no debe cambiar
+// cuando el cliente se muda, y VeriFactu exigirá inmutabilidad.
+export type ClienteDatosFactura = { documento?: string; direccion?: string };
+
+export function datosFiscalesDeCliente(c: {
+  numeroDocumento?: string | null; pasaporte?: string | null;
+  via?: string | null; numeroVia?: string | null; piso?: string | null;
+  codigoPostal?: string | null; municipio?: string | null; provincia?: string | null;
+} | null | undefined): ClienteDatosFactura | null {
+  if (!c) return null;
+  const t = (v: unknown) => String(v ?? "").trim();
+  // El NIE/DNI es el identificador fiscal en España; el pasaporte solo si no hay otro.
+  const documento = t(c.numeroDocumento) ? `NIE/DNI ${t(c.numeroDocumento)}` : t(c.pasaporte) ? `Pasaporte ${t(c.pasaporte)}` : "";
+  const calle = [t(c.via), t(c.numeroVia), t(c.piso)].filter(Boolean).join(", ");
+  const prov = t(c.provincia) && t(c.provincia).toLowerCase() !== t(c.municipio).toLowerCase() ? ` (${t(c.provincia)})` : "";
+  const localidad = [t(c.codigoPostal), t(c.municipio)].filter(Boolean).join(" ") + prov;
+  const direccion = [calle, localidad.trim()].filter(Boolean).join(" · ");
+  if (!documento && !direccion) return null;
+  return { ...(documento ? { documento } : {}), ...(direccion ? { direccion } : {}) };
+}
+
 export type Factura = {
   id: string;
   numero: string;
@@ -20,6 +42,7 @@ export type Factura = {
   suplidos?: Suplido[]; // gastos sin IVA
   notas?: string | null;
   archivado?: boolean; // fuera de la lista de trabajo y de los cobros pendientes (sin borrar)
+  clienteDatos?: ClienteDatosFactura | null; // snapshot al emitir (documento + dirección)
 };
 
 export const IVA = 0.21;
