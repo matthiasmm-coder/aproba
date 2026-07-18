@@ -203,7 +203,12 @@ export function ClientPortal({
   // estable — los slots se indexan por posición) y tarifa. Mismas reglas que el servidor.
   // Catálogo SIN filtrar por active: un extra desactivado después de asignarse sigue
   // sumando en /api/pagos — el portal debe enseñar el mismo precio y los mismos docs.
-  const extrasServicios = (serviciosExtraClaves ?? [])
+  // Extras VIVOS: los del gestor (SSR) al abrir, y los derivados de la selección por
+  // miembros al confirmar — si no, el paso de pago tarificaría solo el principal
+  // mientras la factura del servidor cobra la asignación completa (incoherencia real
+  // detectada por Matthias: 242 € en pantalla, 847 € en la factura).
+  const [extrasClaves, setExtrasClaves] = useState<string[]>(serviciosExtraClaves ?? []);
+  const extrasServicios = extrasClaves
     .filter((c) => c !== tramiteId)
     .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
     .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv));
@@ -378,6 +383,7 @@ export function ClientPortal({
       if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
     }
     setTramiteId(principal);
+    setExtrasClaves(clavesElegidas.slice(1));
     setAsig(inversa);
     setStep(2);
   }
