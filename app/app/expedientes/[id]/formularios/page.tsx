@@ -1,3 +1,4 @@
+import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle } from "@/lib/data/expedientes";
 import { fetchSolicitantesDeFamilia } from "@/lib/data/familias";
@@ -25,5 +26,18 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // de la ficha al primer clic de descarga (el POST guarda la selección completa).
   // Sin curar todavía → defaults del trámite.
   const iniciales = exp.formulariosCurados ? exp.formularios.map((f) => f.code) : oficiales;
-  return <FormulariosView exp={exp} oficiales={iniciales} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Familia heterogénea: los modelos POR DEFECTO de cada miembro son los de SUS servicios
+  // asignados (Fred arraigo ≠ Antoine reagrupación). Curado previo: se intersecta.
+  const asig = exp.serviciosAsignacion;
+  const oficialesPorMiembro = Object.fromEntries(applicants.map((a) => {
+    const claves = asig
+      ? Object.entries(asig).filter(([, ids]) => ids.includes(a.id)).map(([k]) => k)
+      : [exp.servicioClave, ...exp.serviciosExtra];
+    // Cada clave resuelve con SU tipo (no el del expediente): si no, el miembro de la
+    // renovación heredaría los EX del arraigo por el repli del slot principal.
+    const modelos = [...new Set((claves.filter(Boolean) as string[]).flatMap((c) => formulariosDelTramite(SERVICIO_A_TIPO[c] ?? exp.tipoEnum, [c])))];
+    return [a.id, exp.formulariosCurados ? modelos.filter((m) => iniciales.includes(m)) : modelos];
+  }));
+
+  return <FormulariosView exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

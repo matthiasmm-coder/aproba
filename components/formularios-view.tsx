@@ -11,8 +11,8 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], todos = [], applicants = [], p2Opciones = {}, p2Inicial = {} }: {
-  exp: Expediente; oficiales?: string[]; todos?: { code: string; label: string }[];
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {} }: {
+  exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
@@ -23,6 +23,9 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
   const [marcado, setMarcado] = useState(false);
   const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
+  // Familia: selección POR miembro (modelos de SUS servicios); el añadido manual elige miembro.
+  const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
+  const union = applicants.length ? [...new Set(Object.values(selMiembro).flat())] : seleccion;
   // Casilla de trámite de la p.2 elegida por modelo ("" = automático, según el trámite).
   // Se PERSISTE en el expediente para que el export ZIP y el portal del cliente rellenen
   // la misma casilla (fire-and-forget; sin migración degrada a solo-esta-descarga).
@@ -52,7 +55,7 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
     setErrorMarcar(false);
     try {
       const res = await fetch(`/api/expedientes/${exp.id}/formularios`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: seleccion }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: union }),
       });
       if (res.ok) { setMarcado(true); router.refresh(); } else { setErrorMarcar(true); }
     } catch {
@@ -94,8 +97,9 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
             : t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}
         </p>
 
-        {/* Gestión del conjunto de formularios (chips con quitar) */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* Gestión del conjunto de formularios (chips con quitar). En familia se gestiona
+            POR miembro más abajo — la fila global desaparece (pedido de Matthias). */}
+        {!esFamilia && <div className="mt-4 flex flex-wrap items-center gap-2">
           {seleccion.map((tipo) => (
             <span key={tipo} className="inline-flex items-center overflow-hidden rounded-lg bg-slate-100 text-sm font-semibold text-slate-700">
               <span className="px-3 py-1.5">{tipo}</span>
@@ -111,13 +115,13 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
               {porAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
             </select>
           )}
-        </div>
+        </div>}
 
         {/* Casilla de trámite de la p.2 (EX-17: inicial/renovación/duplicado; EX-15: NIE).
             «Automático» la deduce del trámite del expediente; el gestor puede forzarla. */}
-        {seleccion.some((tipo) => p2Opciones[tipo]?.length) && (
+        {union.some((tipo) => p2Opciones[tipo]?.length) && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {seleccion.filter((tipo) => p2Opciones[tipo]?.length).map((tipo) => (
+            {union.filter((tipo) => p2Opciones[tipo]?.length).map((tipo) => (
               <label key={tipo} className="inline-flex items-center gap-2 text-xs text-slate-500">
                 <span className="font-semibold text-slate-600">{tipo}</span> {t("· casilla de la pág. 2:")}
                 <select
@@ -136,16 +140,33 @@ export function FormulariosView({ exp, oficiales = [], todos = [], applicants = 
         {/* Descargas rellenadas */}
         {esFamilia ? (
           <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
-            {applicants.map((a) => (
+            {applicants.map((a) => {
+              const propios = selMiembro[a.id] ?? [];
+              const paraAñadir = todos.filter((x) => !propios.includes(x.code));
+              return (
               <div key={a.id}>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{a.nombre}</p>
-                <div className="flex flex-wrap gap-2">
-                  {seleccion.map((tipo) => descarga(tipo, a.id))}
+                <div className="flex flex-wrap items-center gap-2">
+                  {propios.map((tipo) => (
+                    <span key={tipo} className="inline-flex items-center gap-1">
+                      {descarga(tipo, a.id)}
+                      <button onClick={() => setSelMiembro((m) => ({ ...m, [a.id]: (m[a.id] ?? []).filter((x) => x !== tipo) }))} aria-label={`${t("Quitar")} ${tipo}`} className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                      </button>
+                    </span>
+                  ))}
+                  {paraAñadir.length > 0 && (
+                    <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-xs text-slate-500 outline-none focus:border-aproba-600">
+                      <option value="">{t("+ Añadir formulario…")}</option>
+                      {paraAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
+                    </select>
+                  )}
                   {/* La tasa es NOMINATIVA → una por solicitante, con sus datos. */}
                   <Tasa790Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-012")} · ${a.nombre.split(" ")[0]}`} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <>
