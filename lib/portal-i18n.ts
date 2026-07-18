@@ -49,6 +49,9 @@ export const UI: Record<string, Tr> = {
     it: "Il tuo studio ti assiste nella tua pratica di immigrazione. Quale ti serve?",
     de: "Deine Kanzlei hilft dir bei deinem Aufenthaltsverfahren. Welches brauchst du?",
   },
+  "s0.famTotal": { es: "Total para la familia", en: "Total for the family", fr: "Total pour la famille", it: "Totale per la famiglia", de: "Gesamt für die Familie" },
+  "s0.famError": { es: "Elige al menos un trámite para un miembro.", en: "Choose at least one procedure for one member.", fr: "Choisissez au moins une démarche pour un membre.", it: "Scegli almeno una pratica per un membro.", de: "Wählen Sie mindestens ein Verfahren für ein Mitglied." },
+  "s1.famTutor": { es: "Un menor lleva un trámite: completa también todos los datos del titular (su representante legal).", en: "A minor has a procedure: please also complete all the holder's details (their legal representative).", fr: "Un mineur a une démarche : complétez aussi toutes les données du titulaire (son représentant légal).", it: "Un minore ha una pratica: completa anche tutti i dati del titolare (il suo rappresentante legale).", de: "Ein Minderjähriger hat ein Verfahren: Bitte füllen Sie auch alle Daten des Inhabers (gesetzlicher Vertreter) aus." },
   "s0.sinServicios": {
     es: "Tu gestoría aún no ha configurado los servicios disponibles.",
     en: "Your agency hasn't set up the available services yet.",

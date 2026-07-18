@@ -97,6 +97,10 @@ export function ClientPortal({
   const [tramiteId, setTramiteId] = useState<string | null>(servicioInicial ?? null);
   // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
   const [famMiembros, setFamMiembros] = useState<MiembroInicial[]>(familia?.miembros ?? []);
+  // Familia heterogénea: asignación viva (SSR del gestor o elegida aquí por el titular).
+  const [asig, setAsig] = useState<ServiciosAsignacion | null>(asignacion ?? null);
+  // Página «miembros primero»: servicios elegidos POR miembro (inverso de asig).
+  const [svcPorMiembro, setSvcPorMiembro] = useState<Record<string, string[]>>({});
   const nombreCliente = clienteNombre ?? "Julia";
   const nombreGestoria = gestoria ?? "Gestoría Vallès";
   const inicialesGestoria = nombreGestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
@@ -222,7 +226,7 @@ export function ClientPortal({
   };
   // Familia heterogénea: cada servicio × SUS miembros asignados (tarifaAsignada, ya
   // multiplicada → aplicarDescuento con nMiembros=1). Sin asignación = ×N clásico.
-  const tarifaExpPre = tarifaAsignada(tramite ? [tramite, ...extrasServicios] : extrasServicios, asignacion, nMiembros);
+  const tarifaExpPre = tarifaAsignada(tramite ? [tramite, ...extrasServicios] : extrasServicios, asig, nMiembros);
   const rebajadoExp = aplicarDescuento(tarifaExpPre, 1, descuento);
   const anticipoBruto = tarifaExpPre.anticipo;
   const anticipo = rebajadoExp.anticipo;
@@ -242,7 +246,7 @@ export function ClientPortal({
   const suplidosUnitTotal = ovUnit
     ? ovUnit.reduce((a, x) => a + Number(x.importe), 0)
     : null; // null → cada tarjeta calcula el suyo con suplidosUnit
-  const suplidosExp = suplidosAsignados(ovUnit, tramite ? [tramite, ...extrasServicios] : extrasServicios, asignacion, nMiembros);
+  const suplidosExp = suplidosAsignados(ovUnit, tramite ? [tramite, ...extrasServicios] : extrasServicios, asig, nMiembros);
   const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
   const conPago = anticipo > 0;
   const PASO_PAGO = 3;
@@ -340,6 +344,29 @@ export function ClientPortal({
       setGuardandoDatos(false);
       if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
     }
+    setStep(1);
+  }
+
+  // Familiar «miembros primero»: el titular elige el trámite de CADA miembro; se deriva
+  // principal (primer servicio del catálogo entre los elegidos) + asignación, y el
+  // servidor filtra contra la realidad. El pricing local (asig) sigue el mismo dato.
+  async function confirmarTramitesFamilia() {
+    setErrorPaso(null);
+    const inversa: Record<string, string[]> = {};
+    for (const [miembroId, claves] of Object.entries(svcPorMiembro)) {
+      for (const c of claves) inversa[c] = [...(inversa[c] ?? []), miembroId];
+    }
+    const clavesElegidas = servicios.filter((sv) => inversa[sv.id]?.length).map((sv) => sv.id);
+    if (!clavesElegidas.length) { setErrorPaso(t("s0.famError")); return; }
+    const principal = clavesElegidas[0];
+    if (token) {
+      setGuardandoDatos(true);
+      const ok = await postSeguro("/api/portal/iniciar", { token, clave: principal, asignacion: inversa });
+      setGuardandoDatos(false);
+      if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
+    }
+    setTramiteId(principal);
+    setAsig(inversa);
     setStep(1);
   }
 
@@ -492,6 +519,59 @@ export function ClientPortal({
                 {t("s0.extras", { lista: extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang)).join(" + ") })}
               </div>
             )}
+            {familia && token ? (
+              /* ── «Miembros primero» (familia heterogénea): el titular elige el trámite
+                    de cada miembro; los precios salen de tarifaAsignada, como la factura. ── */
+              <div className="mt-6 space-y-3">
+                {famMiembros.map((m) => (
+                  <div key={m.id} className="rounded-xl border-2 border-slate-200 bg-white p-4">
+                    <p className="font-semibold text-slate-900">{`${m.nombre} ${m.apellidos ?? ""}`.trim()}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {servicios.map((sv) => {
+                        const activo = (svcPorMiembro[m.id] ?? []).includes(sv.id);
+                        return (
+                          <button
+                            key={sv.id}
+                            onClick={() => setSvcPorMiembro((prev) => {
+                              const lista = prev[m.id] ?? [];
+                              return { ...prev, [m.id]: activo ? lista.filter((x) => x !== sv.id) : [...lista, sv.id] };
+                            })}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${activo ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}
+                          >
+                            {servicioLabel(sv.id, sv.label, lang)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {(() => {
+                  const inversa: Record<string, string[]> = {};
+                  for (const [mid, claves] of Object.entries(svcPorMiembro)) for (const c of claves) inversa[c] = [...(inversa[c] ?? []), mid];
+                  const elegidos = servicios.filter((sv) => inversa[sv.id]?.length);
+                  if (!elegidos.length) return null;
+                  const tPre = tarifaAsignada(elegidos, inversa, nMiembros);
+                  const reb = aplicarDescuento(tPre, 1, descuento);
+                  const sup = suplidosAsignados(ovUnit, elegidos, inversa, nMiembros).reduce((acc, x) => acc + x.importe, 0);
+                  const total = r2(r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + sup);
+                  return (
+                    <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
+                      <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>
+                      <span className="text-lg font-bold text-slate-900">{eur(total)} <span className="text-xs font-medium text-slate-500">{t("pago.ivaIncluido")}</span></span>
+                    </div>
+                  );
+                })()}
+                {errorPaso && <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
+                <button
+                  onClick={confirmarTramitesFamilia}
+                  disabled={guardandoDatos}
+                  className="mt-4 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  {guardandoDatos ? "…" : t("common.continuar")}
+                </button>
+              </div>
+            ) : (
+            <>
             <div className="mt-6 space-y-3">
               {servicios.length === 0 && (
                 <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
@@ -513,7 +593,7 @@ export function ClientPortal({
                           + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
                       <p className="shrink-0 text-right text-sm font-bold text-slate-700">
                         {(() => {
-                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asignacion, nMiembros), 1, descuento);
+                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
                           // totalDe(a+r) puede desviarse 1 céntimo de lo que el cliente paga.
                           const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
@@ -533,14 +613,14 @@ export function ClientPortal({
                             // MISMA base que el precio de arriba (servicio + extras): con
                             // descuento IMPORTE, repartirlo solo sobre la tarjeta restaría
                             // el importe completo dos veces y el split no cuadraría.
-                            const rebTr = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asignacion, nMiembros), 1, descuento);
+                            const rebTr = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
                             return t("pago.split", { a: eur(totalDe(rebTr.anticipo)), b: eur(totalDe(rebTr.resto)) });
                           })()
                         : tr.anticipo > 0
                           ? t("pago.unico")
                           : t("pago.final")}
                       {" · "}{t("pago.ivaIncluido")}
-                      {nMiembros > 1 && !asignacion && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
+                      {nMiembros > 1 && !asig && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
                     </p>
                   </div>
                   <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
@@ -556,19 +636,42 @@ export function ClientPortal({
             >
               {t("common.continuar")}
             </button>
+            </>
+            )}
           </div>
         )}
 
         {/* ── Step 1 · Datos (familiar → multi-membre) ── */}
         {step === 1 && familia && token && (
+          <>
+          {errorPaso && <p role="alert" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
           <DatosFamilia
             token={token}
             lang={lang}
             miembrosIniciales={famMiembros}
             onMiembrosChange={setFamMiembros}
             onBack={() => setStep(0)}
-            onContinue={(ms) => { setFamMiembros(ms); setStep(2); }}
+            onContinue={(ms) => {
+              // Regla del tutor (familia heterogénea): si un MENOR lleva un trámite
+              // asignado, los datos del titular son obligatorios aunque él no lleve
+              // ninguno — los formularios del menor los firma su representante legal.
+              const conServicio = new Set(Object.values(asig ?? {}).flat());
+              const esMenor = (f: Record<string, string | undefined>) => {
+                const fn = Date.parse(f.fechaNacimiento ?? "");
+                return Number.isFinite(fn) && (Date.now() - fn) < 18 * 365.25 * 864e5;
+              };
+              const hayMenorConServicio = asig && ms.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>));
+              if (hayMenorConServicio) {
+                const titular = ms.find((m) => (m.parentesco ?? "").toUpperCase() === "TITULAR") ?? ms[0];
+                const fT = { ...fichaVacia(), ...(titular?.ficha ?? {}) } as Record<string, string>;
+                const completa = REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim()) && docIdentidadOk(fT);
+                if (!completa) { setErrorPaso(t("s1.famTutor")); return; }
+              }
+              setErrorPaso(null);
+              setFamMiembros(ms); setStep(2);
+            }}
           />
+          </>
         )}
 
         {/* ── Step 1 · Datos (individual) ── */}
@@ -817,7 +920,7 @@ export function ClientPortal({
                   <span dir="ltr" className="font-medium text-aproba-700">−{eur(r2(anticipoBruto - anticipo))}</span>
                 </div>
               )}
-              {nMiembros > 1 && !asignacion && (
+              {nMiembros > 1 && !asig && (
                 <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(r2(anticipoBruto / nMiembros)), n: nMiembros })}</p>
               )}
               <div className="mt-1.5 flex items-center justify-between text-sm">
