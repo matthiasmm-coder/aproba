@@ -90,7 +90,7 @@ export function ClientPortal({
     if (!token || !servicioInicial) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
     const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim()) && docIdentidadOk(base);
-    return fichaCompleta ? 2 : 1;
+    return fichaCompleta ? 2 : (familia ? 0 : 1);
   });
   const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial));
   const [lang, setLang] = useState<Lang>("es");
@@ -257,7 +257,7 @@ export function ClientPortal({
   const validacionActiva = Boolean(token);
   const datosOk = !validacionActiva || faltan === 0;
 
-  const stepLabels = [t("step.tramite"), t("step.datos"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])];
+  const stepLabels = familia ? [t("step.datos"), t("step.tramite"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])] : [t("step.tramite"), t("step.datos"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])];
 
   function upload(i: number) {
     if (token) {
@@ -358,6 +358,17 @@ export function ClientPortal({
     }
     const clavesElegidas = servicios.filter((sv) => inversa[sv.id]?.length).map((sv) => sv.id);
     if (!clavesElegidas.length) { setErrorPaso(t("s0.famError")); return; }
+    // Regla del tutor: un MENOR con trámite exige la ficha completa del TITULAR.
+    const conServicio = new Set(Object.values(inversa).flat());
+    const esMenor = (f: Record<string, string | undefined>) => {
+      const fn = Date.parse(f.fechaNacimiento ?? "");
+      return Number.isFinite(fn) && (Date.now() - fn) < 18 * 365.25 * 864e5;
+    };
+    if (famMiembros.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>))) {
+      const titular = famMiembros.find((m) => (m.parentesco ?? "").toUpperCase() === "TITULAR") ?? famMiembros[0];
+      const fT = { ...fichaVacia(), ...(titular?.ficha ?? {}) } as Record<string, string>;
+      if (!(REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim()) && docIdentidadOk(fT))) { setErrorPaso(t("s1.famTutor")); return; }
+    }
     const principal = clavesElegidas[0];
     if (token) {
       setGuardandoDatos(true);
@@ -367,7 +378,7 @@ export function ClientPortal({
     }
     setTramiteId(principal);
     setAsig(inversa);
-    setStep(1);
+    setStep(2);
   }
 
   async function pagar() {
@@ -520,55 +531,18 @@ export function ClientPortal({
               </div>
             )}
             {familia && token ? (
-              /* ── «Miembros primero» (familia heterogénea): el titular elige el trámite
-                    de cada miembro; los precios salen de tarifaAsignada, como la factura. ── */
-              <div className="mt-6 space-y-3">
-                {famMiembros.map((m) => (
-                  <div key={m.id} className="rounded-xl border-2 border-slate-200 bg-white p-4">
-                    <p className="font-semibold text-slate-900">{`${m.nombre} ${m.apellidos ?? ""}`.trim()}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {servicios.map((sv) => {
-                        const activo = (svcPorMiembro[m.id] ?? []).includes(sv.id);
-                        return (
-                          <button
-                            key={sv.id}
-                            onClick={() => setSvcPorMiembro((prev) => {
-                              const lista = prev[m.id] ?? [];
-                              return { ...prev, [m.id]: activo ? lista.filter((x) => x !== sv.id) : [...lista, sv.id] };
-                            })}
-                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${activo ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}
-                          >
-                            {servicioLabel(sv.id, sv.label, lang)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {(() => {
-                  const inversa: Record<string, string[]> = {};
-                  for (const [mid, claves] of Object.entries(svcPorMiembro)) for (const c of claves) inversa[c] = [...(inversa[c] ?? []), mid];
-                  const elegidos = servicios.filter((sv) => inversa[sv.id]?.length);
-                  if (!elegidos.length) return null;
-                  const tPre = tarifaAsignada(elegidos, inversa, nMiembros);
-                  const reb = aplicarDescuento(tPre, 1, descuento);
-                  const sup = suplidosAsignados(ovUnit, elegidos, inversa, nMiembros).reduce((acc, x) => acc + x.importe, 0);
-                  const total = r2(r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + sup);
-                  return (
-                    <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
-                      <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>
-                      <span className="text-lg font-bold text-slate-900">{eur(total)} <span className="text-xs font-medium text-slate-500">{t("pago.ivaIncluido")}</span></span>
-                    </div>
-                  );
-                })()}
-                {errorPaso && <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
-                <button
-                  onClick={confirmarTramitesFamilia}
-                  disabled={guardandoDatos}
-                  className="mt-4 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
-                >
-                  {guardandoDatos ? "…" : t("common.continuar")}
-                </button>
+              /* ── Página 1 (familia): DATOS de cada miembro + casilla «el trámite es para
+                    esta persona»; los servicios se eligen en la página siguiente. ── */
+              <div className="mt-6">
+                {errorPaso && <p role="alert" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
+                <DatosFamilia
+                  token={token}
+                  lang={lang}
+                  miembrosIniciales={famMiembros}
+                  onMiembrosChange={setFamMiembros}
+                  onBack={() => {}}
+                  onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); setStep(1); }}
+                />
               </div>
             ) : (
             <>
@@ -643,35 +617,59 @@ export function ClientPortal({
 
         {/* ── Step 1 · Datos (familiar → multi-membre) ── */}
         {step === 1 && familia && token && (
-          <>
-          {errorPaso && <p role="alert" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
-          <DatosFamilia
-            token={token}
-            lang={lang}
-            miembrosIniciales={famMiembros}
-            onMiembrosChange={setFamMiembros}
-            onBack={() => setStep(0)}
-            onContinue={(ms) => {
-              // Regla del tutor (familia heterogénea): si un MENOR lleva un trámite
-              // asignado, los datos del titular son obligatorios aunque él no lleve
-              // ninguno — los formularios del menor los firma su representante legal.
-              const conServicio = new Set(Object.values(asig ?? {}).flat());
-              const esMenor = (f: Record<string, string | undefined>) => {
-                const fn = Date.parse(f.fechaNacimiento ?? "");
-                return Number.isFinite(fn) && (Date.now() - fn) < 18 * 365.25 * 864e5;
-              };
-              const hayMenorConServicio = asig && ms.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>));
-              if (hayMenorConServicio) {
-                const titular = ms.find((m) => (m.parentesco ?? "").toUpperCase() === "TITULAR") ?? ms[0];
-                const fT = { ...fichaVacia(), ...(titular?.ficha ?? {}) } as Record<string, string>;
-                const completa = REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim()) && docIdentidadOk(fT);
-                if (!completa) { setErrorPaso(t("s1.famTutor")); return; }
-              }
-              setErrorPaso(null);
-              setFamMiembros(ms); setStep(2);
-            }}
-          />
-          </>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.tramite")}</h1>
+            <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
+            <div className="mt-6 space-y-3">
+              {famMiembros.filter((m) => m.esSolicitante).map((m) => (
+                <div key={m.id} className="rounded-xl border-2 border-slate-200 bg-white p-4">
+                  <p className="font-semibold text-slate-900">{`${m.nombre} ${m.apellidos ?? ""}`.trim()}</p>
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
+                    {servicios.map((sv) => {
+                      const activo = (svcPorMiembro[m.id] ?? []).includes(sv.id);
+                      return (
+                        <button
+                          key={sv.id}
+                          onClick={() => setSvcPorMiembro((prev) => {
+                            const lista = prev[m.id] ?? [];
+                            return { ...prev, [m.id]: activo ? lista.filter((x) => x !== sv.id) : [...lista, sv.id] };
+                          })}
+                          className={`truncate rounded-lg border px-3 py-2.5 text-sm font-medium transition ${activo ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                        >
+                          {servicioLabel(sv.id, sv.label, lang)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {(() => {
+                const inversa: Record<string, string[]> = {};
+                for (const [mid, claves] of Object.entries(svcPorMiembro)) for (const c of claves) inversa[c] = [...(inversa[c] ?? []), mid];
+                const elegidos = servicios.filter((sv) => inversa[sv.id]?.length);
+                if (!elegidos.length) return null;
+                const tPre = tarifaAsignada(elegidos, inversa, nMiembros);
+                const reb = aplicarDescuento(tPre, 1, descuento);
+                const sup = suplidosAsignados(ovUnit, elegidos, inversa, nMiembros).reduce((acc, x) => acc + x.importe, 0);
+                const total = r2(r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + sup);
+                return (
+                  <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
+                    <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>
+                    <span className="text-lg font-bold text-slate-900">{eur(total)} <span className="text-xs font-medium text-slate-500">{t("pago.ivaIncluido")}</span></span>
+                  </div>
+                );
+              })()}
+              {errorPaso && <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
+              <button
+                onClick={confirmarTramitesFamilia}
+                disabled={guardandoDatos}
+                className="mt-4 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {guardandoDatos ? "…" : t("common.continuar")}
+              </button>
+              <button onClick={() => setStep(0)} className="w-full text-center text-sm text-slate-500 hover:text-slate-800">{t("common.atras")}</button>
+            </div>
+          </div>
         )}
 
         {/* ── Step 1 · Datos (individual) ── */}
