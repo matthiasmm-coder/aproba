@@ -17,9 +17,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   let res = await supabase
     .from("Expediente")
-    .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, familiaId, workspaceId, cliente:Cliente(*)")
+    .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, cliente:Cliente(*)")
     .eq("id", id)
     .maybeSingle();
+  if (res.error) res = await supabase
+    .from("Expediente")
+    .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, familiaId, workspaceId, cliente:Cliente(*)")
+    .eq("id", id)
+    .maybeSingle() as typeof res;
   if (res.error) res = await supabase
     .from("Expediente")
     .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId, workspaceId, cliente:Cliente(*)")
@@ -37,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .maybeSingle() as typeof res;
   const exp = res.data as unknown as {
     id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
-    suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId?: string | null; workspaceId: string;
+    suplidosOverride?: { concepto: string; importe: number }[] | null; serviciosAsignacion?: unknown; familiaId?: string | null; workspaceId: string;
     cliente: Record<string, string | null> | null;
   } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });

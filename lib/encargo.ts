@@ -1,6 +1,6 @@
 import "server-only";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { aplicarDescuento, descuentoValido, etiquetaDescuento, type Descuento as DescuentoExp } from "@/lib/multi-servicio";
+import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, type Descuento as DescuentoExp } from "@/lib/multi-servicio";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchServiciosDeWorkspace } from "./data/config";
 import { TIPO_A_SERVICIO } from "./tramites";
@@ -62,7 +62,7 @@ const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 
 type ExpRow = {
   id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
-  suplidosOverride?: { concepto: string; importe: number }[] | null; descuento?: unknown; familiaId?: string | null;
+  suplidosOverride?: { concepto: string; importe: number }[] | null; descuento?: unknown; serviciosAsignacion?: unknown; familiaId?: string | null;
   workspaceId: string;
   cliente: Record<string, string | null> | null;
 };
@@ -101,6 +101,20 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   } catch { /* sin tarjeta */ }
   if (!medios.length) medios.push("Transferencia bancaria (datos facilitados en la factura)");
 
+  // Familia heterogénea: nombres y nº de miembros para el §5 (solo si hay asignación).
+  const asignacion = asignacionValida(exp.serviciosAsignacion);
+  let miembrosNombres: Record<string, string> = {};
+  let nMiembrosFam = 1;
+  const conAsignacion = Boolean(exp.familiaId && asignacion);
+  if (exp.familiaId) {
+    try {
+      const { data: fam } = await admin.from("Cliente").select("id, nombre, apellidos").eq("familiaId", exp.familiaId);
+      const filas = (fam ?? []) as { id: string; nombre: string | null; apellidos: string | null }[];
+      nMiembrosFam = Math.max(1, filas.length);
+      miembrosNombres = Object.fromEntries(filas.map((m) => [m.id, `${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim()]));
+    } catch { /* sin nombres: se muestra el conteo */ }
+  }
+
   const c = exp.cliente ?? {};
   return {
     referencia: exp.referencia,
@@ -116,14 +130,26 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
       telefono: s(c.telefono), email: s(c.email),
     },
-    servicios: listaServicios.map((sv) => ({
-      label: sv.label, desc: sv.desc,
-      anticipo: sv.anticipo, resto: sv.resto,
-      noIncluye: s((sv as { noIncluye?: string }).noIncluye),
-      suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0),
-    })),
+    servicios: listaServicios.map((sv) => {
+      // Familia heterogénea: cada servicio ×SUS miembros asignados, con los nombres en el
+      // label — el contrato dice quién lleva qué y los importes son ABSOLUTOS (no por
+      // persona), así el §5 cuadra al céntimo con la factura (tarifaAsignada).
+      const n = conAsignacion ? miembrosDeServicio(asignacion, sv.id, nMiembrosFam) : 1;
+      const nombres = conAsignacion
+        ? (asignacion?.[sv.id]?.map((id) => miembrosNombres[id]).filter(Boolean).join(", ") || `toda la familia (${n})`)
+        : "";
+      const r2n = (x: number) => Math.round(x * n * 100) / 100;
+      return {
+        label: sv.label + (conAsignacion ? ` (${nombres})` : ""), desc: sv.desc,
+        anticipo: conAsignacion ? r2n(sv.anticipo) : sv.anticipo,
+        resto: conAsignacion ? r2n(sv.resto) : sv.resto,
+        noIncluye: s((sv as { noIncluye?: string }).noIncluye),
+        suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0)
+          .map((x) => (conAsignacion && n > 1 ? { concepto: `${x.concepto} (×${n})`, importe: r2n(x.importe) } : x)),
+      };
+    }),
     descuento: descuentoValido(exp.descuento),
-    esFamiliar: Boolean(exp.familiaId),
+    esFamiliar: Boolean(exp.familiaId) && !conAsignacion,
     suplidosOverride: Array.isArray(exp.suplidosOverride)
       ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
       : null,

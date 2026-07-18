@@ -9,6 +9,7 @@ import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
+import { AsignarMiembros } from "@/components/asignar-miembros";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
@@ -287,7 +288,16 @@ export default async function ExpedienteDetail({
             encargo, primera factura y presupuesto. Solo cuando hay cobro o tasas que ajustar. */}
         {(tarifa.anticipo > 0 || tarifa.resto > 0 || suplidosBase.length > 0 || e.suplidosOverride !== null) && (
           <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
-            <DescuentoExpediente expedienteId={e.id} inicial={e.descuento} tarifa={tarifa} nMiembros={nMiembrosExp} />
+            {/* Familia heterogénea: asignar cada servicio a miembros concretos. */}
+            {familia && serviciosExp.length > 0 && (
+              <AsignarMiembros
+                expedienteId={e.id}
+                servicios={serviciosExp.map((s) => ({ id: s.id, label: s.label }))}
+                miembros={familia.miembros.map((m) => ({ id: m.id, nombre: m.nombre }))}
+                inicial={e.serviciosAsignacion}
+              />
+            )}
+            <DescuentoExpediente expedienteId={e.id} inicial={e.descuento} tarifa={tarifaMult} nMiembros={1} />
             <SuplidosExpediente expedienteId={e.id} inicial={suplidosBase} esOverride={e.suplidosOverride !== null} />
           </div>
         )}

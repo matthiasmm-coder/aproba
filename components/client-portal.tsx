@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios";
 import { eur, totalDe, r2 } from "@/lib/facturas";
-import { aplicarDescuento, etiquetaDescuento, type Descuento } from "@/lib/multi-servicio";
+import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { labelADocTipo } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
@@ -63,6 +63,7 @@ export function ClientPortal({
   serviciosExtraClaves,
   suplidosOverride,
   descuento = null,
+  asignacion = null,
   docsSubidos,
 }: {
   servicios?: Servicio[];
@@ -80,7 +81,8 @@ export function ClientPortal({
   servicioInicial?: string | null;
   serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
-  descuento?: Descuento | null; // descuento del expediente (rebaja honorarios, nunca tasas)
+  descuento?: Descuento | null;
+  asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
   docsSubidos?: { tipo: string; estado: string }[];
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
@@ -218,8 +220,11 @@ export function ClientPortal({
     anticipo: (tramite?.anticipo ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
     resto: (tramite?.resto ?? 0) + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
   };
-  const rebajadoExp = aplicarDescuento(tarifaUnit, nMiembros, descuento);
-  const anticipoBruto = r2(tarifaUnit.anticipo * nMiembros);
+  // Familia heterogénea: cada servicio × SUS miembros asignados (tarifaAsignada, ya
+  // multiplicada → aplicarDescuento con nMiembros=1). Sin asignación = ×N clásico.
+  const tarifaExpPre = tarifaAsignada(tramite ? [tramite, ...extrasServicios] : extrasServicios, asignacion, nMiembros);
+  const rebajadoExp = aplicarDescuento(tarifaExpPre, 1, descuento);
+  const anticipoBruto = tarifaExpPre.anticipo;
   const anticipo = rebajadoExp.anticipo;
   // `resto` es el reparto proporcional, NO el pendiente real (restoPendiente): aquí es
   // correcto porque este portal solo se ve ANTES de cobrar el anticipo — en cuanto la
@@ -237,9 +242,7 @@ export function ClientPortal({
   const suplidosUnitTotal = ovUnit
     ? ovUnit.reduce((a, x) => a + Number(x.importe), 0)
     : null; // null → cada tarjeta calcula el suyo con suplidosUnit
-  const suplidosExp = (ovUnit ?? [tramite, ...extrasServicios].flatMap((sv) => sv?.suplidos ?? []))
-    .filter((x) => x.concepto && Number(x.importe) > 0)
-    .map((x) => ({ concepto: x.concepto, importe: Math.round(Number(x.importe) * nMiembros * 100) / 100 }));
+  const suplidosExp = suplidosAsignados(ovUnit, tramite ? [tramite, ...extrasServicios] : extrasServicios, asignacion, nMiembros);
   const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
   const conPago = anticipo > 0;
   const PASO_PAGO = 3;
@@ -510,10 +513,7 @@ export function ClientPortal({
                           + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
                       <p className="shrink-0 text-right text-sm font-bold text-slate-700">
                         {(() => {
-                          const reb = aplicarDescuento({
-                            anticipo: tr.anticipo + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
-                            resto: tr.resto + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
-                          }, nMiembros, descuento);
+                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asignacion, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
                           // totalDe(a+r) puede desviarse 1 céntimo de lo que el cliente paga.
                           const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
@@ -533,17 +533,14 @@ export function ClientPortal({
                             // MISMA base que el precio de arriba (servicio + extras): con
                             // descuento IMPORTE, repartirlo solo sobre la tarjeta restaría
                             // el importe completo dos veces y el split no cuadraría.
-                            const rebTr = aplicarDescuento({
-                              anticipo: tr.anticipo + extrasServicios.reduce((a, sv) => a + (sv.anticipo ?? 0), 0),
-                              resto: tr.resto + extrasServicios.reduce((a, sv) => a + (sv.resto ?? 0), 0),
-                            }, nMiembros, descuento);
+                            const rebTr = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asignacion, nMiembros), 1, descuento);
                             return t("pago.split", { a: eur(totalDe(rebTr.anticipo)), b: eur(totalDe(rebTr.resto)) });
                           })()
                         : tr.anticipo > 0
                           ? t("pago.unico")
                           : t("pago.final")}
                       {" · "}{t("pago.ivaIncluido")}
-                      {nMiembros > 1 && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
+                      {nMiembros > 1 && !asignacion && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
                     </p>
                   </div>
                   <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
@@ -820,7 +817,7 @@ export function ClientPortal({
                   <span dir="ltr" className="font-medium text-aproba-700">−{eur(r2(anticipoBruto - anticipo))}</span>
                 </div>
               )}
-              {nMiembros > 1 && (
+              {nMiembros > 1 && !asignacion && (
                 <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(r2(anticipoBruto / nMiembros)), n: nMiembros })}</p>
               )}
               <div className="mt-1.5 flex items-center justify-between text-sm">
