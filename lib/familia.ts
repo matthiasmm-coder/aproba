@@ -44,3 +44,29 @@ export const partirDocsFamilia = (labels: string[]) => ({
   comunes: labels.filter(esDocComunFamilia),
   porMiembro: labels.filter((l) => !esDocComunFamilia(l)),
 });
+
+// Familia HETEROGÉNEA: docs COMUNES (se suben UNA vez, clienteId null) + los de CADA
+// miembro según SUS servicios asignados. Sin entrada en la asignación → el servicio
+// aplica a todos (mismo criterio que miembrosDeServicio/tarifaAsignada). La hoja de
+// encargo / el mandato NUNCA salen de aquí: son del bloque firma (común, con descarga) —
+// misma exclusión que hacía el portal /j sobre la lista plana.
+export function docsFamiliaPorServicios(
+  servicios: { id: string; docs?: string[] }[],
+  asignacion: Record<string, string[]> | null | undefined,
+  solicitantes: { id: string }[],
+): { comunes: string[]; porMiembro: Record<string, string[]> } {
+  const norm = (l: string) => l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const esFirma = (l: string) => { const n = norm(l); return n.includes("encargo") || n.includes("mandato"); };
+  const comunes: string[] = [];
+  const porMiembro: Record<string, string[]> = Object.fromEntries(solicitantes.map((m) => [m.id, [] as string[]]));
+  for (const sv of servicios) {
+    const lista = asignacion?.[sv.id];
+    const destinatarios = lista?.length ? solicitantes.filter((m) => lista.includes(m.id)) : solicitantes;
+    for (const d of sv.docs ?? []) {
+      if (esFirma(d)) continue;
+      if (esDocComunFamilia(d)) { if (!comunes.includes(d)) comunes.push(d); }
+      else for (const m of destinatarios) if (!porMiembro[m.id].includes(d)) porMiembro[m.id].push(d);
+    }
+  }
+  return { comunes, porMiembro };
+}

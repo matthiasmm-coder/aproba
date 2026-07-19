@@ -14,6 +14,7 @@ import {
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
+import { docsFamiliaPorServicios } from "@/lib/familia";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -219,6 +220,14 @@ export function ClientPortal({
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
   // la pantalla final no debe afirmar que todo está enviado (faltan documentos).
   const docsCompletos = requiredDocs.length === 0 || allValidated;
+  // FAMILIA heterogénea: docs COMUNES (una vez) + los de CADA miembro según SUS
+  // servicios asignados. Solicitante = casilla marcada O asignado a algún servicio
+  // (la asignación manda, como en formularios). Mismo helper que /s.
+  const asignadosIds = new Set(Object.values(asig ?? {}).flat());
+  const solicitantesFam = famMiembros.filter((m) => m.esSolicitante || asignadosIds.has(m.id));
+  const docsFam = familia
+    ? docsFamiliaPorServicios([tramite, ...extrasServicios].filter((sv): sv is NonNullable<typeof sv> => Boolean(sv)), asig, solicitantesFam)
+    : { comunes: [] as string[], porMiembro: {} as Record<string, string[]> };
   // Expediente FAMILIAR: el servicio se tarifica POR MIEMBRO → el pago total
   // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
   // añadidos en el paso Datos), no la prop SSR que llegó congelada del servidor.
@@ -761,7 +770,8 @@ export function ClientPortal({
             token={token}
             lang={lang}
             miembros={famMiembros}
-            requiredDocs={requiredDocs}
+            docsComunes={docsFam.comunes}
+            docsPorMiembro={docsFam.porMiembro}
             encargoActivo={encargoActivo && Boolean(token)}
             onBack={() => setStep(1)}
             onContinue={proceder}

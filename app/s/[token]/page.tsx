@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, citaDeServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeServicios, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
+import { docsFamiliaPorServicios } from "@/lib/familia";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 
@@ -19,22 +20,28 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const { token } = await params;
   const admin = createSupabaseAdmin();
 
-  const SELECT = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre), documentos:Documento(id, tipo, estado, storagePath)";
-  // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas.
-  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  const BASE = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre)";
+  // Documento.clienteId: atribuye cada subida a su miembro (familia). Repli sin él al final.
+  const SELECT = `${BASE}, documentos:Documento(id, tipo, estado, storagePath, clienteId)`;
+  const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
+  // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas
+  // (la MÁS nueva se quita primero: serviciosAsignacion → serviciosExtra → …).
+  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(SELECT).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(SELECT_VIEJO).eq("portalToken", token).maybeSingle();
   const data = res.data;
 
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
-    serviciosExtra?: string[] | null;
+    serviciosExtra?: string[] | null; serviciosAsignacion?: unknown;
     formulariosGenerados?: string[] | null; tasaPath?: string | null; familiaId?: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
-    documentos: { id: string; tipo: string; estado: string; storagePath: string | null }[] | null;
+    documentos: { id: string; tipo: string; estado: string; storagePath: string | null; clienteId?: string | null }[] | null;
   };
   const exp = data as unknown as Row | null;
   const uno = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
@@ -60,14 +67,19 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
   ];
 
-  // Statut de chaque document requis (par type normalisé) + id pour le téléchargement.
-  const subido = new Map((exp.documentos ?? []).map((d) => [d.tipo, d]));
-  const docs: SegDoc[] = requeridos.map((label) => {
-    const d = subido.get(labelADocTipo(label));
+  // Statut d'un document requis (par type normalisé + membre) + id pour le téléchargement.
+  const subidoDe = (tipo: string, clienteId: string | null, replComun = false) =>
+    (exp.documentos ?? []).find((d) => d.tipo === tipo && (d.clienteId ?? null) === clienteId)
+    // Continuidad: un doc PERSONAL subido por el /s antiguo (plano, sin clienteId) no debe
+    // volver a pedirse — vale el común del mismo tipo, salvo si ese tipo ES común de verdad.
+    ?? (replComun && clienteId !== null ? (exp.documentos ?? []).find((d) => d.tipo === tipo && (d.clienteId ?? null) === null) : undefined);
+  const segDoc = (label: string, clienteId: string | null, grupo?: string, replComun = false): SegDoc => {
+    const d = subidoDe(labelADocTipo(label), clienteId, replComun);
     const status: SegDoc["status"] =
       d?.estado === "VALIDADO" ? "ok" : d?.estado === "PROCESANDO" ? "procesando" : d?.estado === "RECHAZADO" ? "rechazado" : "pendiente";
-    return { label, status, docId: d?.storagePath ? d.id : undefined };
-  });
+    return { label, status, docId: d?.storagePath ? d.id : undefined, ...(clienteId ? { clienteId } : {}), ...(grupo ? { grupo } : {}) };
+  };
+  const docs: SegDoc[] = requeridos.map((label) => segDoc(label, null));
 
   // Formularios descargables: la selección EXACTA que el gestor generó (persistida);
   // si no está (expedientes antiguos / antes de la migración), repli sobre los modelos
@@ -80,15 +92,35 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
   // nominativa, presencia detectada en el storage por ruta determinista).
   let miembros: { id: string; nombre: string; tieneTasa: boolean }[] | undefined;
+  // Familia: documentos agrupados — COMUNES (una vez) + los de CADA miembro según SUS
+  // servicios asignados (mismo helper que el portal /j). Sin asignación → retro-compat.
+  let docsFamiliares: SegDoc[] | undefined;
+  let gruposDocs: { id: string; nombre?: string; parentesco?: string | null }[] | undefined;
   if (exp.familiaId) {
     let mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante").eq("familiaId", exp.familiaId);
     if (mm.error) mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco").eq("familiaId", exp.familiaId) as typeof mm;
     const rows = ((mm.data ?? []) as unknown[]) as { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; esSolicitante?: boolean }[];
-    const sol = rows.filter((r) => r.esSolicitante);
+    const asignacion = asignacionValida(exp.serviciosAsignacion);
+    const asignados = new Set(Object.values(asignacion ?? {}).flat());
+    const sol = rows.filter((r) => r.esSolicitante || asignados.has(r.id));
     const lista = sol.length ? sol : rows;
     const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
     const conTasa = new Set((archivos ?? []).map((a) => a.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
     miembros = lista.map((r) => ({ id: r.id, nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro", tieneTasa: conTasa.has(r.id) }));
+
+    const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista);
+    const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO, ...fam.comunes].map(labelADocTipo));
+    docsFamiliares = [
+      ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []).map((l) => segDoc(l, null, "comunes")),
+      ...fam.comunes.map((l) => segDoc(l, null, "comunes")),
+      ...lista.flatMap((r) => (fam.porMiembro[r.id] ?? []).map((l) => segDoc(l, r.id, r.id, !tiposComunes.has(labelADocTipo(l))))),
+    ];
+    gruposDocs = [
+      ...(docsFamiliares.some((d) => d.grupo === "comunes") ? [{ id: "comunes" }] : []),
+      ...lista
+        .filter((r) => (fam.porMiembro[r.id] ?? []).length)
+        .map((r) => ({ id: r.id, nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro", parentesco: r.parentesco })),
+    ];
   }
 
   return (
@@ -102,7 +134,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       citaPresencial={cita.citaPresencial}
       citaQuien={cita.citaQuien}
       cita={{ fecha: exp.fechaCita, hora: exp.citaHora, lugar: exp.citaLugar, notas: exp.citaNotas }}
-      docs={docs}
+      docs={docsFamiliares ?? docs}
+      gruposDocs={gruposDocs}
       formularios={formularios}
       tasaDisponible={tasaDisponible}
       miembros={miembros}

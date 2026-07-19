@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { partirDocsFamilia } from "@/lib/familia";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { labelADocTipo } from "@/lib/tramites";
 import { makeT, docLabel, docHelp, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 import type { MiembroInicial } from "@/components/datos-familia";
@@ -21,20 +20,36 @@ const esMenor = (m: MiembroInicial) => {
 // Étape Documentos d'un expediente FAMILIAL : docs COMUNES (une fois, clienteId null) + docs
 // PERSONNELS de chaque solicitante (clienteId = membre). Upload XHR avec barre de progression
 // (subida réelle → análisis IA) + avertissement si tout n'est pas validé (on peut continuer).
+// Hoja de encargo / mandato: UN solo par para toda la familia (común, clienteId null),
+// con botón de descarga — nunca por miembro. Mismas etiquetas que DOCS_FIRMA en /j.
+const FIRMA_LABELS = ["Hoja de encargo firmada", "Mandato de representación firmado"];
+
 export function DocumentosFamiliaPortal({
-  token, lang, miembros, requiredDocs, encargoActivo, onBack, onContinue,
+  token, lang, miembros, docsComunes, docsPorMiembro, encargoActivo, onBack, onContinue,
 }: {
-  token: string; lang: Lang; miembros: MiembroInicial[]; requiredDocs: string[]; encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
+  token: string; lang: Lang; miembros: MiembroInicial[];
+  // Calculado por el llamante con docsFamiliaPorServicios: comunes (se suben UNA vez)
+  // + los de CADA miembro según SUS servicios asignados (familia heterogénea).
+  docsComunes: string[]; docsPorMiembro: Record<string, string[]>;
+  encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
   const t = makeT(lang);
-  // Hoja de encargo / mandato firmados: UN solo par para toda la familia (común,
-  // clienteId null), con botón de descarga — nunca por miembro (partirDocsFamilia
-  // los clasificaría como personales y sin enlace = callejón sin salida).
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
-  const firmaLabels = encargoActivo ? requiredDocs.filter(esFirma) : [];
-  const { comunes, porMiembro } = partirDocsFamilia(requiredDocs.filter((l) => !esFirma(l)));
-  const solicitantes = useMemo(() => miembros.filter((m) => m.esSolicitante), [miembros]);
+  const firmaLabels = encargoActivo ? FIRMA_LABELS : [];
+  const comunes = docsComunes.filter((l) => !esFirma(l));
+  // Miembros CON documentos propios (los solicitantes o asignados a algún servicio).
+  const solicitantes = useMemo(
+    () => miembros.filter((m) => (docsPorMiembro[m.id] ?? []).length > 0 || m.esSolicitante),
+    [miembros, docsPorMiembro],
+  );
   const [estados, setEstados] = useState<Record<string, Estado>>({});
+  // Secciones desplegables: comunes + primer miembro abiertos al llegar; el resto
+  // plegado (con 3 miembros × 5 docs la lista plana era un muro de tarjetas).
+  const [abiertas, setAbiertas] = useState<Record<string, boolean>>(() => {
+    const primero = miembros.find((m) => (docsPorMiembro[m.id] ?? []).length > 0 || m.esSolicitante);
+    return { comunes: true, ...(primero ? { [primero.id]: true } : {}) };
+  });
+  const toggle = (k: string) => setAbiertas((a) => ({ ...a, [k]: !a[k] }));
   const [ayuda, setAyuda] = useState<string | null>(null); // «i»: qué documento es exactamente
   const [prog, setProg] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,10 +67,10 @@ export function DocumentosFamiliaPortal({
   // Todas las casillas requeridas (comunes + por solicitante + representante) → aviso de completitud.
   const requiredKeys = useMemo(() => {
     const ks = [...firmaLabels.map((l) => keyFor(null, l)), ...comunes.map((l) => keyFor(null, l))];
-    for (const m of solicitantes) for (const l of porMiembro) ks.push(keyFor(m.id, l));
+    for (const m of solicitantes) for (const l of docsPorMiembro[m.id] ?? []) ks.push(keyFor(m.id, l));
     if (representante) ks.push(keyFor(representante.id, DOC_REPRESENTANTE));
     return ks;
-  }, [firmaLabels, comunes, porMiembro, solicitantes, representante]);
+  }, [firmaLabels, comunes, docsPorMiembro, solicitantes, representante]);
   const total = requiredKeys.length;
   const validados = requiredKeys.filter((k) => estados[k]?.status === "validado").length;
   const todosOk = total > 0 && validados === total;
@@ -156,6 +171,35 @@ export function DocumentosFamiliaPortal({
     );
   }
 
+  // Cabecera desplegable de una sección de documentos: chip + título + avance n/m + chevron.
+  function Seccion({ id, chip, titulo, hint, labels, clienteId, children }: {
+    id: string; chip?: string; titulo: string; hint?: string; labels: string[]; clienteId: string | null; children?: ReactNode;
+  }) {
+    const abierta = Boolean(abiertas[id]);
+    const done = labels.filter((l) => estados[keyFor(clienteId, l)]?.status === "validado").length;
+    return (
+      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <button type="button" onClick={() => toggle(id)} aria-expanded={abierta} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+          <span className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {chip && <span className="shrink-0 rounded-full bg-cream-50 px-2 py-0.5 normal-case text-slate-500">{chip}</span>}
+            <span className="truncate">{titulo}</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            <span className={`text-xs font-semibold tabular-nums ${labels.length > 0 && done === labels.length ? "text-aproba-700" : "text-slate-400"}`}>{done}/{labels.length}</span>
+            <svg className={`h-4 w-4 text-slate-400 transition-transform ${abierta ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+          </span>
+        </button>
+        {abierta && (
+          <div className="space-y-2 px-3 pb-3">
+            {hint && <p className="px-1 text-[11px] leading-relaxed text-slate-400">{hint}</p>}
+            {children}
+            {labels.map((l) => <Slot key={`${clienteId ?? "comun"}:${l}`} clienteId={clienteId} label={l} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onFile} />
@@ -185,25 +229,23 @@ export function DocumentosFamiliaPortal({
       )}
 
       {comunes.length > 0 && (
-        <div className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("fam.docs.comunes")}</p>
-          <div className="space-y-2">
-            {comunes.map((l) => <Slot key={l} clienteId={null} label={l} />)}
-          </div>
-        </div>
+        <Seccion id="comunes" titulo={t("fam.docs.comunes")} hint={t("fam.docs.comunesHint")} labels={comunes} clienteId={null} />
       )}
 
-      {porMiembro.length > 0 && solicitantes.map((m) => (
-        <div key={m.id} className="mt-6">
-          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <span className="rounded-full bg-cream-50 px-2 py-0.5 text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
-            {`${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || t("fam.miembro")}
-          </p>
-          <div className="space-y-2">
-            {porMiembro.map((l) => <Slot key={`${m.id}:${l}`} clienteId={m.id} label={l} />)}
-          </div>
-        </div>
-      ))}
+      {solicitantes.map((m) => {
+        const propios = docsPorMiembro[m.id] ?? [];
+        if (!propios.length) return null;
+        return (
+          <Seccion
+            key={m.id}
+            id={m.id}
+            chip={parentescoI18n(m.parentesco, lang) || t("fam.miembro")}
+            titulo={`${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || t("fam.miembro")}
+            labels={propios}
+            clienteId={m.id}
+          />
+        );
+      })}
 
       {representante && (
         <div className="mt-6">

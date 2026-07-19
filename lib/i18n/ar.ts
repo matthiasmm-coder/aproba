@@ -139,6 +139,7 @@ export const AR: Record<string, string> = {
   "ui:fam.docs.titulo": "وثائق العائلة",
   "ui:fam.docs.intro": "الوثائق المشتركة تُرفع مرة واحدة فقط. أما الشخصية، فواحدة لكل فرد.",
   "ui:fam.docs.comunes": "الوثائق المشتركة للعائلة",
+  "ui:fam.docs.comunesHint": "تُرفع مرة واحدة فقط للعائلة كلها.",
   "ui:fam.docs.representante": "الممثل القانوني (الأب/الأم)",
   "ui:fam.docs.representanteAyuda": "يوجد قاصر في الطلب: ارفع وثيقة هوية الممثل القانوني.",
   "ui:fam.docs.cambiar": "تغيير",
