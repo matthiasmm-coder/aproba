@@ -91,8 +91,10 @@ export default async function Clientes() {
             <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{t("datos reales")}</span>
           </p>
         </div>
-        <Link href="/app/importar" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Importar datos")}</Link>
-        <Link href="/app/clientes/nuevo" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("+ Nuevo cliente")}</Link>
+        <div className="flex gap-2">
+          <Link href="/app/importar" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Importar datos")}</Link>
+          <Link href="/app/clientes/nuevo" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("+ Nuevo cliente")}</Link>
+        </div>
       </div>
 
       {error ? (
