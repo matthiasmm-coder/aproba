@@ -140,6 +140,8 @@ export const ZH: Record<string, string> = {
   "ui:fam.docs.intro": "共同文件只需上传一次；个人文件则每位成员各上传一份。",
   "ui:fam.docs.comunes": "家庭共同文件",
   "ui:fam.docs.comunesHint": "全家只需上传一次。",
+  "ui:seg.zipTodo": "全部下载（ZIP）",
+  "ui:seg.zipDocs": "下载已上传的文件（ZIP）",
   "ui:fam.docs.representante": "法定代理人（父亲/母亲）",
   "ui:fam.docs.representanteAyuda": "申请中包含未成年人：请上传法定代理人的身份证件。",
   "ui:fam.docs.cambiar": "更换",

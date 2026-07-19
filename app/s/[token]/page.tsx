@@ -26,7 +26,8 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas
   // (la MÁS nueva se quita primero: serviciosAsignacion → serviciosExtra → …).
-  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath`).eq("portalToken", token).maybeSingle();
@@ -38,7 +39,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     id: string; referencia: string; estado: string; tipo: string;
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
     serviciosExtra?: string[] | null; serviciosAsignacion?: unknown;
-    formulariosGenerados?: string[] | null; tasaPath?: string | null; familiaId?: string | null;
+    formulariosGenerados?: string[] | null; formulariosPorMiembro?: Record<string, string[]> | null; tasaPath?: string | null; familiaId?: string | null;
     cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     documentos: { id: string; tipo: string; estado: string; storagePath: string | null; clienteId?: string | null }[] | null;
@@ -91,7 +92,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
   // nominativa, presencia detectada en el storage por ruta determinista).
-  let miembros: { id: string; nombre: string; tieneTasa: boolean }[] | undefined;
+  let miembros: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[] | undefined;
   // Familia: documentos agrupados — COMUNES (una vez) + los de CADA miembro según SUS
   // servicios asignados (mismo helper que el portal /j). Sin asignación → retro-compat.
   let docsFamiliares: SegDoc[] | undefined;
@@ -106,7 +107,16 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     const lista = sol.length ? sol : rows;
     const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
     const conTasa = new Set((archivos ?? []).map((a) => a.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
-    miembros = lista.map((r) => ({ id: r.id, nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro", tieneTasa: conTasa.has(r.id) }));
+    // Formularios del MIEMBRO: exactamente la selección que el gestor generó para él
+    // (formulariosPorMiembro). Sin mapa (datos antiguos) → repli a la lista plana.
+    const pmForms = exp.formulariosPorMiembro && typeof exp.formulariosPorMiembro === "object" && !Array.isArray(exp.formulariosPorMiembro)
+      ? exp.formulariosPorMiembro : null;
+    miembros = lista.map((r) => ({
+      id: r.id,
+      nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro",
+      tieneTasa: conTasa.has(r.id),
+      formularios: pmForms ? (pmForms[r.id] ?? []) : formularios,
+    }));
 
     const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista);
     const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO, ...fam.comunes].map(labelADocTipo));

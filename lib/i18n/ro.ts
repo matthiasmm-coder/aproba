@@ -140,6 +140,8 @@ export const RO: Record<string, string> = {
   "ui:fam.docs.intro": "Documentele comune se încarcă o singură dată. Cele personale, câte unul pentru fiecare membru.",
   "ui:fam.docs.comunes": "Documente comune ale familiei",
   "ui:fam.docs.comunesHint": "Se încarcă o singură dată pentru toată familia.",
+  "ui:seg.zipTodo": "Descarcă tot (ZIP)",
+  "ui:seg.zipDocs": "Descarcă documentele încărcate (ZIP)",
   "ui:fam.docs.representante": "Reprezentant legal (tată/mamă)",
   "ui:fam.docs.representanteAyuda": "Există un minor în cerere: încarcă actul de identitate al reprezentantului.",
   "ui:fam.docs.cambiar": "Schimbă",

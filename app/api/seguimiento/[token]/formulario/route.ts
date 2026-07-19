@@ -26,23 +26,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   if ((ORDEN[exp.estado] ?? 0) < ORDEN.FORM_GENERADO) {
     return NextResponse.json({ error: "Los formularios aún no están listos." }, { status: 403 });
   }
-  // El modelo debe estar en lo que el gestor generó (selección persistida). Repli sobre
-  // los modelos del trámite si la columna aún no existe (antes de la migración).
-  let permitidos: string[] | null = null;
-  try {
-    const admin = createSupabaseAdmin();
-    const { data, error } = await admin.from("Expediente").select("formulariosGenerados").eq("portalToken", token).maybeSingle();
-    const fg = (data as { formulariosGenerados?: string[] | null } | null)?.formulariosGenerados;
-    if (!error && Array.isArray(fg)) permitidos = fg;
-  } catch { /* repli */ }
-  const lista = permitidos && permitidos.length ? permitidos : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
-  if (!lista.includes(tipo)) {
-    return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
-  }
-
   // Expediente FAMILIAR: ?clienteId=<miembro> → formulario relleno con LOS DATOS DE ESE
   // solicitante (anti-IDOR: el miembro debe pertenecer a la familia del expediente).
   const clienteId = new URL(req.url).searchParams.get("clienteId")?.trim() || "";
+
+  // El modelo debe estar en lo que el gestor generó (selección persistida) — y con
+  // curación POR MIEMBRO, en lo generado para ESE miembro (un miembro no descarga el
+  // formulario de otro con sus datos). Replis en cadena si faltan las columnas.
+  let permitidos: string[] | null = null;
+  try {
+    const admin = createSupabaseAdmin();
+    let res = await admin.from("Expediente").select("formulariosGenerados, formulariosPorMiembro").eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select("formulariosGenerados").eq("portalToken", token).maybeSingle() as typeof res;
+    const row = res.data as { formulariosGenerados?: string[] | null; formulariosPorMiembro?: unknown } | null;
+    if (!res.error && row) {
+      const pm = row.formulariosPorMiembro && typeof row.formulariosPorMiembro === "object" && !Array.isArray(row.formulariosPorMiembro)
+        ? (row.formulariosPorMiembro as Record<string, string[]>) : null;
+      if (clienteId && pm) permitidos = Array.isArray(pm[clienteId]) ? pm[clienteId] : [];
+      else if (Array.isArray(row.formulariosGenerados)) permitidos = row.formulariosGenerados;
+    }
+  } catch { /* repli */ }
+  const lista = permitidos && permitidos.length ? permitidos : (permitidos ? [] : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]));
+  if (!lista.includes(tipo)) {
+    return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
+  }
   let datos = datosNormalizados(exp);
   let extra: ExtraFormulario | undefined;
   let sufijo = "";

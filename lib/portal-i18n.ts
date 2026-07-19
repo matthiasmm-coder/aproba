@@ -255,6 +255,8 @@ export const UI: Record<string, Tr> = {
     de: "Hier siehst du den Fortschritt deines Verfahrens und fehlende Dokumente.",
   },
   "seg.progreso": { es: "Avance", en: "Progress", fr: "Avancement", it: "Avanzamento", de: "Fortschritt" },
+  "seg.zipTodo": { es: "Descargar todo (ZIP)", en: "Download all (ZIP)", fr: "Tout télécharger (ZIP)", it: "Scarica tutto (ZIP)", de: "Alles herunterladen (ZIP)" },
+  "seg.zipDocs": { es: "Descargar los documentos subidos (ZIP)", en: "Download uploaded documents (ZIP)", fr: "Télécharger les documents envoyés (ZIP)", it: "Scarica i documenti caricati (ZIP)", de: "Hochgeladene Dokumente herunterladen (ZIP)" },
   "seg.docsTitulo": { es: "Tus documentos", en: "Your documents", fr: "Vos documents", it: "I tuoi documenti", de: "Deine Dokumente" },
   "s4.pagada": { es: "Pagada", en: "Paid", fr: "Payée", it: "Pagata", de: "Bezahlt" },
   "done.pagoPendiente": { es: "Pago pendiente", en: "Payment pending", fr: "Paiement en attente", it: "Pagamento in sospeso", de: "Zahlung ausstehend" },

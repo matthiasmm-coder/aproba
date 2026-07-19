@@ -93,8 +93,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // Expediente FAMILIAR: un juego de formularios POR SOLICITANTE (con sus datos) + la tasa
   // nominativa de cada uno (ruta determinista tasa-790-012-{clienteId}.pdf del storage).
   try {
-    const { data: extra } = await admin.from("Expediente").select("formulariosGenerados, tasaPath").eq("id", id).maybeSingle();
+    let exRes = await admin.from("Expediente").select("formulariosGenerados, formulariosPorMiembro, tasaPath").eq("id", id).maybeSingle();
+    if (exRes.error) exRes = await admin.from("Expediente").select("formulariosGenerados, tasaPath").eq("id", id).maybeSingle() as typeof exRes;
+    const extra = exRes.data as { formulariosGenerados?: string[] | null; formulariosPorMiembro?: unknown; tasaPath?: string | null } | null;
     const generados: string[] = Array.isArray(extra?.formulariosGenerados) ? (extra!.formulariosGenerados as string[]) : [];
+    // Curación POR MIEMBRO: el ZIP lleva el MISMO juego que la sección Formularios de la
+    // ficha (los del miembro), no la unión entera para cada uno.
+    const pmZip = extra?.formulariosPorMiembro && typeof extra.formulariosPorMiembro === "object" && !Array.isArray(extra.formulariosPorMiembro)
+      ? (extra.formulariosPorMiembro as Record<string, string[]>) : null;
 
     type MiembroExp = { id: string; nombre: string; datos: ReturnType<typeof datosNormalizados>; fechaNacimiento: string | null };
     let solicitantes: MiembroExp[] = [];
@@ -118,7 +124,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const tramiteDe = (code: string) => p2o[code] ?? exp.tipoEnum;
       if (solicitantes.length) {
         for (const s of solicitantes) {
-          for (const code of generados) {
+          for (const code of (pmZip ? (pmZip[s.id] ?? []) : generados)) {
             try {
               const { datos, extra: ex } = formularioParaMiembro(code, datosTitular, s.datos, s.fechaNacimiento);
               const b = await rellenarOficial(code, datos, tramiteDe(code), ex);

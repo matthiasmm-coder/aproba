@@ -25,7 +25,7 @@ export function Seguimiento({
   token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
-  miembros?: { id: string; nombre: string; tieneTasa: boolean }[];
+  miembros?: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[];
   // Familia: secciones de documentos (comunes + una por miembro) — los SegDoc llevan
   // grupo/clienteId y aquí solo se agrupan y pliegan. Sin esto: lista plana (individual).
   gruposDocs?: { id: string; nombre?: string; parentesco?: string | null }[];
@@ -268,6 +268,15 @@ export function Seguimiento({
             <span className={`text-xs font-medium ${faltan ? "text-amber-600" : "text-aproba-700"}`}>{faltan ? t("seg.faltan") : t("seg.todoAlDia")}</span>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
+          {docs.filter((d) => d.docId).length >= 2 && (
+            <a
+              href={`/api/seguimiento/${token}/documentos-zip`}
+              download
+              className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700"
+            >
+              <Download className="h-3.5 w-3.5" />{t("seg.zipDocs")}
+            </a>
+          )}
           {gruposDocs?.length ? (
             <div className="space-y-3">
               {gruposDocs.map((g) => {
@@ -340,8 +349,18 @@ export function Seguimiento({
               </span>
             </a>
           );
+          // Todo lo del miembro (o del expediente individual) en un único ZIP.
+          const LinkZip = ({ clienteId }: { clienteId?: string }) => (
+            <a
+              href={`/api/seguimiento/${token}/formularios-zip${clienteId ? `?clienteId=${clienteId}` : ""}`}
+              download
+              className="inline-flex items-center gap-1.5 rounded-lg border border-aproba-300 bg-aproba-50 px-3 py-2 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-100"
+            >
+              <Download className="h-3.5 w-3.5" />{t("seg.zipTodo")}
+            </a>
+          );
           const esFamilia = Boolean(miembros?.length);
-          const hayContenido = formularios.length > 0 || tasaDisponible || (esFamilia && miembros!.some((m) => m.tieneTasa));
+          const hayContenido = formularios.length > 0 || tasaDisponible || (esFamilia && miembros!.some((m) => (m.formularios ?? formularios).length > 0 || m.tieneTasa));
           if (!hayContenido) return null;
           return (
             <div className="mt-6">
@@ -349,20 +368,26 @@ export function Seguimiento({
               <p className="mt-0.5 text-xs text-slate-400">{t("seg.formulariosSub")}</p>
               {esFamilia ? (
                 <div className="mt-2 space-y-4">
-                  {miembros!.map((m) => (
-                    <div key={m.id}>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{m.nombre}</p>
-                      <div className="space-y-2">
-                        {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
-                        {formularios.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
+                  {miembros!.map((m) => {
+                    const suyos = m.formularios ?? formularios;
+                    if (!suyos.length && !m.tieneTasa) return null;
+                    return (
+                      <div key={m.id}>
+                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{m.nombre}</p>
+                        <div className="space-y-2">
+                          {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
+                          {suyos.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
+                          {suyos.length + (m.tieneTasa ? 1 : 0) >= 2 && <LinkZip clienteId={m.id} />}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="mt-2 space-y-2">
                   {tasaDisponible && <LinkTasa />}
                   {formularios.map((f) => <LinkForm key={f} f={f} />)}
+                  {formularios.length + (tasaDisponible ? 1 : 0) >= 2 && <LinkZip />}
                 </div>
               )}
             </div>
