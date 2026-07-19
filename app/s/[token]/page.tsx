@@ -85,9 +85,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // Formularios descargables: la selección EXACTA que el gestor generó (persistida);
   // si no está (expedientes antiguos / antes de la migración), repli sobre los modelos
   // del trámite una vez generados. La tasa se muestra si el gestor la guardó.
-  const formularios = (exp.formulariosGenerados && exp.formulariosGenerados.length)
+  // SOLO lo que el gestor GENERÓ (persistido). Nada de modelos por defecto según el
+  // estado: sin generación explícita el cliente no ve formularios (pedido de Matthias).
+  // Único repli: columna ilegible (pre-migración, formulariosGenerados === undefined).
+  const formularios = Array.isArray(exp.formulariosGenerados)
     ? exp.formulariosGenerados
-    : (FORM_LISTOS.has(exp.estado) ? formulariosDelTramite(exp.tipo, [exp.servicioClave, ...(exp.serviciosExtra ?? [])]) : []);
+    : (exp.formulariosGenerados === undefined && FORM_LISTOS.has(exp.estado)
+      ? formulariosDelTramite(exp.tipo, [exp.servicioClave, ...(exp.serviciosExtra ?? [])]) : []);
   const tasaDisponible = Boolean(exp.tasaPath);
 
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa

@@ -33,6 +33,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   // El modelo debe estar en lo que el gestor generó (selección persistida) — y con
   // curación POR MIEMBRO, en lo generado para ESE miembro (un miembro no descarga el
   // formulario de otro con sus datos). Replis en cadena si faltan las columnas.
+  // permitidos === null ⇔ columnas ilegibles (pre-migración) → modelos del trámite.
+  // Con columnas legibles, la VERDAD es lo persistido: nada generado → nada que servir.
   let permitidos: string[] | null = null;
   try {
     const admin = createSupabaseAdmin();
@@ -43,10 +45,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       const pm = row.formulariosPorMiembro && typeof row.formulariosPorMiembro === "object" && !Array.isArray(row.formulariosPorMiembro)
         ? (row.formulariosPorMiembro as Record<string, string[]>) : null;
       if (clienteId && pm) permitidos = Array.isArray(pm[clienteId]) ? pm[clienteId] : [];
-      else if (Array.isArray(row.formulariosGenerados)) permitidos = row.formulariosGenerados;
+      else permitidos = Array.isArray(row.formulariosGenerados) ? row.formulariosGenerados : [];
     }
   } catch { /* repli */ }
-  const lista = permitidos && permitidos.length ? permitidos : (permitidos ? [] : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]));
+  const lista = permitidos === null ? formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]) : permitidos;
   if (!lista.includes(tipo)) {
     return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
   }

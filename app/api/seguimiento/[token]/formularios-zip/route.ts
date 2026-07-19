@@ -32,7 +32,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
 
   const admin = createSupabaseAdmin();
   // Selección generada por el gestor (por miembro si la migración existe; replis en cadena).
-  let flat: string[] | null = null;
+  // legible=false ⇔ columnas ilegibles (pre-migración) → modelos del trámite.
+  // Con columnas legibles: SOLO lo persistido (nada generado → 404 más abajo).
+  let legible = false;
+  let flat: string[] = [];
   let pm: Record<string, string[]> | null = null;
   let tasaPath: string | null = null;
   try {
@@ -40,6 +43,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     if (res.error) res = await admin.from("Expediente").select("formulariosGenerados, tasaPath").eq("portalToken", token).maybeSingle() as typeof res;
     const row = res.data as { formulariosGenerados?: string[] | null; formulariosPorMiembro?: unknown; tasaPath?: string | null } | null;
     if (!res.error && row) {
+      legible = true;
       if (Array.isArray(row.formulariosGenerados)) flat = row.formulariosGenerados;
       if (row.formulariosPorMiembro && typeof row.formulariosPorMiembro === "object" && !Array.isArray(row.formulariosPorMiembro)) {
         pm = row.formulariosPorMiembro as Record<string, string[]>;
@@ -47,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       tasaPath = row.tasaPath ?? null;
     }
   } catch { /* repli */ }
-  const base = flat && flat.length ? flat : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
+  const base = legible ? flat : formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
 
   // Datos + lista del MIEMBRO (familiar) o del titular (individual).
   let lista = base;
