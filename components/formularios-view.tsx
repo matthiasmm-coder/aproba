@@ -65,12 +65,18 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
     }
   }
 
-  // Descargar un formulario YA ES generarlo: el estado avanza solo (fire-and-forget),
-  // sin obligar al gestor a un segundo clic ritual «Marcar como generados».
-  const alDescargar = () => { if (!marcado && !marcando) void marcarGenerados(); };
+  // Descargar un formulario YA ES generarlo — pero SOLO ese (y solo para ese miembro):
+  // añade incremental, sin marcar la selección entera de la página (el botón «Marcar
+  // como generados» sigue siendo el gesto explícito para todo el juego curado).
+  const alDescargar = (tipo: string, clienteId?: string) => {
+    void fetch(`/api/expedientes/${exp.id}/formularios`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anadir: { code: tipo, ...(clienteId ? { clienteId } : {}) } }),
+    }).then((r) => { if (r.ok) router.refresh(); });
+  };
 
   const descarga = (tipo: string, clienteId?: string, label?: string) => (
-    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} onClick={alDescargar} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} onClick={() => alDescargar(tipo, clienteId)} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
       {IconDescarga}{tipo}{label ? ` ${label}` : ""}
     </a>
   );

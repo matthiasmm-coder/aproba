@@ -11,13 +11,14 @@ import { confirmar } from "@/components/confirm-dialog";
 // guardada (también en familia: si tasaPath existe es un resto del flujo individual —
 // mejor visible y borrable que huérfano). Familiar: el chip de formulario lleva a la
 // página Formularios (un juego por solicitante).
-export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia, tieneTasa, porMiembro = null, miembros = [] }: {
+export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia, tieneTasa, porMiembro = null, miembros = [], tasaMiembros = [] }: {
   expedienteId: string;
   formularios: { code: string; tipo: string }[];
   esFamilia: boolean;
   porMiembro?: Record<string, string[]> | null; // curación por miembro (familia heterogénea)
   miembros?: { id: string; nombre: string }[];
   tieneTasa: boolean;
+  tasaMiembros?: string[]; // miembros con tasa 790 NOMINATIVA guardada (storage)
 }) {
   const t = useT();
   const router = useRouter();
@@ -45,9 +46,9 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
 
   // Ruta propia (no comparte el espacio de nombres de los códigos EX): borra el PDF del
   // bucket y limpia tasaPath.
-  async function quitarTasa() {
+  async function quitarTasa(clienteId?: string) {
     if (!(await confirmar({ mensaje: t("¿Quitar {code} de los formularios generados?").replace("{code}", t("la tasa 790-012")), peligro: true, confirmarLabel: t("Quitar") }))) return;
-    void ejecutar("tasa", () => fetch(`/api/expedientes/${expedienteId}/tasa`, { method: "DELETE" }));
+    void ejecutar(`tasa${clienteId ?? ""}`, () => fetch(`/api/expedientes/${expedienteId}/tasa${clienteId ? `?clienteId=${clienteId}` : ""}`, { method: "DELETE" }));
   }
 
   const chipCls = "flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-aproba-300 hover:shadow-sm";
@@ -57,27 +58,50 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
   const IconX = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>;
   const enVuelo = borrando !== null;
 
-  // Familia heterogénea con curación por miembro: chips agrupados bajo el nombre de cada
-  // miembro, con borrado individual (pedido de Matthias).
-  if (esFamilia && porMiembro && miembros.length) {
+  // Familia heterogénea con curación por miembro (o tasas nominativas): TODOS los
+  // solicitantes listados — chips de SUS formularios + SU tasa 790, y «Sin generar»
+  // para quien aún no tiene nada (pedido de Matthias).
+  if (esFamilia && miembros.length && (porMiembro || tasaMiembros.length)) {
+    const pm = porMiembro ?? {};
     return (
       <div className="space-y-3">
-        {miembros.filter((mb) => (porMiembro[mb.id] ?? []).length > 0).map((mb) => (
-          <div key={mb.id}>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{mb.nombre}</p>
-            <div className="flex flex-wrap gap-3">
-              {(porMiembro[mb.id] ?? []).map((code) => (
-                <span key={code} className={chipCls}>
-                  <a href={`/api/expedientes/${expedienteId}/formularios?tipo=${encodeURIComponent(code)}&modo=oficial&clienteId=${mb.id}`} className={bodyCls}>
-                    {IconDl}
-                    <span className="text-sm font-medium text-slate-700">{code}</span>
-                  </a>
-                  <button onClick={() => quitarFormulario(code, mb.id)} disabled={enVuelo} aria-label={`${t("Quitar")} ${code}`} className={xCls}>{IconX}</button>
-                </span>
-              ))}
+        {miembros.map((mb) => {
+          const codes = pm[mb.id] ?? [];
+          const conTasa = tasaMiembros.includes(mb.id);
+          return (
+            <div key={mb.id}>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {mb.nombre}
+                {!codes.length && !conTasa && <span className="ml-2 font-normal normal-case tracking-normal text-slate-300">· {t("Sin generar")}</span>}
+              </p>
+              {(codes.length > 0 || conTasa) && (
+                <div className="flex flex-wrap gap-3">
+                  {codes.map((code) => (
+                    <span key={code} className={chipCls}>
+                      <a href={`/api/expedientes/${expedienteId}/formularios?tipo=${encodeURIComponent(code)}&modo=oficial&clienteId=${mb.id}`} className={bodyCls}>
+                        {IconDl}
+                        <span className="text-sm font-medium text-slate-700">{code}</span>
+                      </a>
+                      <button onClick={() => quitarFormulario(code, mb.id)} disabled={enVuelo} aria-label={`${t("Quitar")} ${code}`} className={xCls}>{IconX}</button>
+                    </span>
+                  ))}
+                  {conTasa && (
+                    <span className={chipCls}>
+                      <a href={`/api/expedientes/${expedienteId}/tasa?clienteId=${mb.id}`} title={t("Descargar la tasa oficial guardada")} className={bodyCls}>
+                        {IconDl}
+                        <span className="text-sm font-medium text-slate-700">{t("Tasa 790-012")}</span>
+                        <span className="text-xs text-aproba-700">PDF</span>
+                      </a>
+                      <button onClick={() => quitarTasa(mb.id)} disabled={enVuelo} aria-busy={borrando === `tasa${mb.id}`} aria-label={`${t("Quitar")} ${t("Tasa 790-012")}`} className={xCls}>
+                        {borrando === `tasa${mb.id}` ? <span className="text-xs">…</span> : IconX}
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
       </div>
     );
@@ -117,7 +141,7 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
               <span className="text-sm font-medium text-slate-700">{t("Tasa 790-012")}</span>
               <span className="text-xs text-aproba-700">PDF</span>
             </a>
-            <button onClick={quitarTasa} disabled={enVuelo} aria-busy={borrando === "tasa"} aria-label={`${t("Quitar")} ${t("Tasa 790-012")}`} title={`${t("Quitar")} ${t("Tasa 790-012")}`} className={xCls}>
+            <button onClick={() => quitarTasa()} disabled={enVuelo} aria-busy={borrando === "tasa"} aria-label={`${t("Quitar")} ${t("Tasa 790-012")}`} title={`${t("Quitar")} ${t("Tasa 790-012")}`} className={xCls}>
               {borrando === "tasa" ? <span className="text-xs">…</span> : IconX}
             </button>
           </span>

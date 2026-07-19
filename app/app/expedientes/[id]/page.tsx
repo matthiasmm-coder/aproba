@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente } from "@/lib/data/expedientes";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
@@ -74,6 +75,18 @@ export default async function ExpedienteDetail({
   // Tasas y suplidos del servicio — MISMO cálculo que /api/pagos (el popup de cobro
   // debe emitir exactamente lo que emitiría el portal). Familia heterogénea: cada
   // servicio × SUS miembros asignados (tarifaAsignada); sin asignación, ×N clásico.
+  // Tasas 790 NOMINATIVAS de la familia (storage, ruta determinista) → chips en la
+  // sección Formularios (antes eran invisibles en la ficha: solo /s y el ZIP las veían).
+  let tasaMiembrosIds: string[] = [];
+  if (familia) {
+    try {
+      const { data: archivos } = await createSupabaseAdmin().storage.from("documentos").list(e.id);
+      const conTasa = new Set((archivos ?? []).map((x) => x.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
+      tasaMiembrosIds = familia.miembros.filter((m) => conTasa.has(m.id)).map((m) => m.id);
+    } catch { /* sin storage legible → sin chips de tasa */ }
+  }
+  const asignadosExp = new Set(Object.values(e.serviciosAsignacion ?? {}).flat());
+  const solicitantesExp = familia ? (() => { const sol = familia.miembros.filter((m) => m.esSolicitante || asignadosExp.has(m.id)); return sol.length ? sol : familia.miembros; })() : [];
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
   const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
   // Descuento del expediente sobre la tarifa YA multiplicada (nMiembros=1 aquí).
@@ -219,33 +232,29 @@ export default async function ExpedienteDetail({
         <SeccionPlegable
           id="formularios"
           titulo={t("Formularios")}
-          resumen={e.formularios.length > 0 || e.tieneTasa ? `${e.formularios.length + (e.tieneTasa ? 1 : 0)} PDF` : t("Sin generar")}
+          resumen={e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? `${e.formularios.length + (e.tieneTasa ? 1 : 0) + tasaMiembrosIds.length} PDF` : t("Sin generar")}
           right={
             <Link href={`/app/expedientes/${e.id}/formularios`} className="text-xs font-semibold text-aproba-700 hover:underline">
-              {e.formularios.length > 0 || e.tieneTasa ? t("Ver / imprimir →") : t("Generar →")}
+              {e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
             </Link>
           }
         >
-          {e.formularios.length > 0 || e.tieneTasa ? (
+          {e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? (
             // Descarga DIRECTA del PDF oficial relleno (editable) + × para quitar cada uno.
             // Incluye la tasa 790-012 guardada. Familiar: chips → página (por solicitante).
-            <FormulariosGeneradosChips expedienteId={e.id} formularios={e.formularios} esFamilia={Boolean(familia)} tieneTasa={e.tieneTasa} porMiembro={e.formulariosPorMiembro} miembros={familia?.miembros.map((m) => ({ id: m.id, nombre: m.nombre })) ?? []} />
+            <FormulariosGeneradosChips expedienteId={e.id} formularios={e.formularios} esFamilia={Boolean(familia)} tieneTasa={e.tieneTasa} porMiembro={e.formulariosPorMiembro} miembros={solicitantesExp.map((m) => ({ id: m.id, nombre: m.nombre }))} tasaMiembros={tasaMiembrosIds} />
           ) : (
             // Nada generado. FAMILIAR (pedido de Matthias): SOLO los nombres de los
             // solicitantes — la generación vive en la página («Generar →» arriba); al
             // generar, los formularios de cada miembro aparecen bajo su nombre.
             familia ? (
               <div className="space-y-2">
-                {(() => {
-                  const asignadosF = new Set(Object.values(e.serviciosAsignacion ?? {}).flat());
-                  const sol = familia.miembros.filter((m) => m.esSolicitante || asignadosF.has(m.id));
-                  return (sol.length ? sol : familia.miembros).map((m) => (
-                    <p key={m.id} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      {m.nombre}
-                      <span className="font-normal normal-case tracking-normal text-slate-300">· {t("Sin generar")}</span>
-                    </p>
-                  ));
-                })()}
+                {solicitantesExp.map((m) => (
+                  <p key={m.id} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    {m.nombre}
+                    <span className="font-normal normal-case tracking-normal text-slate-300">· {t("Sin generar")}</span>
+                  </p>
+                ))}
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-3">

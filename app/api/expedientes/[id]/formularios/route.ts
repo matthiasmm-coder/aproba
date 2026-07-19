@@ -153,8 +153,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const catalogo = new Set(formulariosDisponibles().map((f) => f.code));
   let seleccion: string[] | null = null;
   let porMiembro: Record<string, string[]> | null = null;
+  let anadir: { code: string; clienteId: string | null } | null = null;
   try {
     const b = await req.json();
+    // INCREMENTAL (descarga de UN formulario): añade SOLO ese código — al miembro si
+    // viene clienteId — sin tocar el resto de lo ya generado. Antes, descargar uno
+    // marcaba la selección ENTERA de la página (bug real de Matthias: un EX para
+    // Antoine persistía también los defaults, y la atribución de Fred se perdía).
+    if (b?.anadir && typeof b.anadir === "object") {
+      const code = typeof b.anadir.code === "string" && catalogo.has(b.anadir.code) ? b.anadir.code : "";
+      if (!code) return NextResponse.json({ error: "Formulario no válido." }, { status: 400 });
+      anadir = { code, clienteId: typeof b.anadir.clienteId === "string" && b.anadir.clienteId.trim() ? b.anadir.clienteId.trim() : null };
+    }
     if (Array.isArray(b?.tipos)) seleccion = b.tipos.filter((x: unknown): x is string => typeof x === "string" && catalogo.has(x));
     // Curación POR miembro (familia heterogénea): {clienteId: codes[]} filtrada al catálogo.
     if (b?.porMiembro && typeof b.porMiembro === "object" && !Array.isArray(b.porMiembro)) {
@@ -164,6 +174,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
   } catch { /* sans corps */ }
+  let anadirNuevo = true;
+  if (anadir) {
+    // Lee el estado actual (ambas columnas, con repli) y fusiona.
+    let resAct = await supabase.from("Expediente").select("formulariosGenerados, formulariosPorMiembro").eq("id", id).maybeSingle();
+    if (resAct.error) resAct = await supabase.from("Expediente").select("formulariosGenerados").eq("id", id).maybeSingle() as typeof resAct;
+    const act = resAct.data as { formulariosGenerados?: string[] | null; formulariosPorMiembro?: unknown } | null;
+    const flatAct = Array.isArray(act?.formulariosGenerados) ? act!.formulariosGenerados! : [];
+    const pmAct = act?.formulariosPorMiembro && typeof act.formulariosPorMiembro === "object" && !Array.isArray(act.formulariosPorMiembro)
+      ? { ...(act.formulariosPorMiembro as Record<string, string[]>) } : null;
+    seleccion = flatAct.includes(anadir.code) ? flatAct : [...flatAct, anadir.code];
+    if (anadir.clienteId && exp.familiaId) {
+      const pm2 = pmAct ?? {};
+      const propios = Array.isArray(pm2[anadir.clienteId]) ? pm2[anadir.clienteId] : [];
+      anadirNuevo = !propios.includes(anadir.code);
+      pm2[anadir.clienteId] = anadirNuevo ? [...propios, anadir.code] : propios;
+      porMiembro = pm2;
+    } else {
+      anadirNuevo = !flatAct.includes(anadir.code);
+      if (pmAct) porMiembro = pmAct; // no pisar la curación existente al añadir un código global
+    }
+  }
   if (seleccion === null) seleccion = buildFormularios(exp).map((f) => f.tipo);
 
   // Persiste la selección EXACTA → el cliente verá solo esos (defensivo: la columna
@@ -187,10 +218,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (w?.workspaceId) await dispararAviso(admin, { workspaceId: w.workspaceId as string, expedienteId: id, clave: "form_generado", baseUrl: baseUrlFromRequest(req) });
     } catch { /* un aviso ne doit jamais empêcher la génération */ }
   }
-  await supabase.from("ExpedienteEvento").insert({
-    id: crypto.randomUUID(), expedienteId: id, tipo: "FORM_GENERADO",
-    descripcion: `Formularios generados: ${tipos}`, userId: user.id,
-  });
+  // Re-descarga de un código ya generado → sin evento (evita el ruido en el historial).
+  if (!anadir || anadirNuevo) {
+    await supabase.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(), expedienteId: id, tipo: "FORM_GENERADO",
+      descripcion: anadir ? `Formulario ${anadir.code} generado` : `Formularios generados: ${tipos}`, userId: user.id,
+    });
+  }
 
   return NextResponse.json({ ok: true, estado: exp.estado === "DOCS_VALIDADOS" ? "FORM_GENERADO" : exp.estado });
 }
