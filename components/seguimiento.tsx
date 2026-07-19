@@ -32,15 +32,15 @@ export function Seguimiento({
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
-  // Familia: sección completa (todo ok) → plegada al llegar; con pendientes → abierta.
+  // TODAS las listas desplegables del portal llegan PLEGADAS (pedido de Matthias):
+  // el cliente ve las cabeceras con su avance n/m y abre lo que necesita.
   const [plegados, setPlegados] = useState<Record<string, boolean>>(() => {
     const pl: Record<string, boolean> = {};
-    for (const g of gruposDocs ?? []) {
-      const del = docsIniciales.filter((d) => d.grupo === g.id);
-      pl[g.id] = del.length > 0 && del.every((d) => d.status === "ok");
-    }
+    for (const g of gruposDocs ?? []) pl[g.id] = true;
     return pl;
   });
+  // Formularios por miembro: misma regla — desplegable por miembro, plegado por defecto.
+  const [formAbiertos, setFormAbiertos] = useState<Record<string, boolean>>({});
   const [subiendo, setSubiendo] = useState<number | null>(null);
   const [progreso, setProgreso] = useState<number | null>(null); // % subida en curso (misma barra que /j)
   const fileRef = useRef<HTMLInputElement>(null);
@@ -370,15 +370,25 @@ export function Seguimiento({
                 <div className="mt-2 space-y-4">
                   {miembros!.map((m) => {
                     const suyos = m.formularios ?? formularios;
-                    if (!suyos.length && !m.tieneTasa) return null;
+                    const nArchivos = suyos.length + (m.tieneTasa ? 1 : 0);
+                    if (!nArchivos) return null;
+                    const abierta = Boolean(formAbiertos[m.id]);
                     return (
-                      <div key={m.id}>
-                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{m.nombre}</p>
-                        <div className="space-y-2">
-                          {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
-                          {suyos.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
-                          {suyos.length + (m.tieneTasa ? 1 : 0) >= 2 && <LinkZip clienteId={m.id} />}
-                        </div>
+                      <div key={m.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <button type="button" onClick={() => setFormAbiertos((p) => ({ ...p, [m.id]: !p[m.id] }))} aria-expanded={abierta} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                          <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-slate-500">{m.nombre}</span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className="text-xs font-semibold tabular-nums text-slate-400">{nArchivos} PDF</span>
+                            <svg className={`h-4 w-4 text-slate-400 transition-transform ${abierta ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                          </span>
+                        </button>
+                        {abierta && (
+                          <div className="space-y-2 px-3 pb-3">
+                            {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
+                            {suyos.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
+                            {nArchivos >= 2 && <LinkZip clienteId={m.id} />}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

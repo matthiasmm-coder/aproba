@@ -43,12 +43,9 @@ export function DocumentosFamiliaPortal({
     [miembros, docsPorMiembro],
   );
   const [estados, setEstados] = useState<Record<string, Estado>>({});
-  // Secciones desplegables: comunes + primer miembro abiertos al llegar; el resto
-  // plegado (con 3 miembros × 5 docs la lista plana era un muro de tarjetas).
-  const [abiertas, setAbiertas] = useState<Record<string, boolean>>(() => {
-    const primero = miembros.find((m) => (docsPorMiembro[m.id] ?? []).length > 0 || m.esSolicitante);
-    return { comunes: true, ...(primero ? { [primero.id]: true } : {}) };
-  });
+  // TODAS las secciones llegan PLEGADAS (pedido de Matthias): cabeceras con avance
+  // n/m a la vista, el cliente abre la que le toca.
+  const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setAbiertas((a) => ({ ...a, [k]: !a[k] }));
   const [ayuda, setAyuda] = useState<string | null>(null); // «i»: qué documento es exactamente
   const [prog, setProg] = useState<Record<string, number>>({});
