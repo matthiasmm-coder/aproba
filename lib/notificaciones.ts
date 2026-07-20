@@ -161,7 +161,7 @@ export async function dispararAviso(
     const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -182,13 +182,18 @@ export async function dispararAviso(
         if (error) console.error("[aviso email]", error.message ?? error);
       }
       console.log(`[aviso ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | ${aviso.evento} | ${cuerpo}`);
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, portalUrl) });
       console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${aviso.evento}`);
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
@@ -271,7 +276,7 @@ export async function enviarSeguimiento(
     const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -290,7 +295,8 @@ export async function enviarSeguimiento(
         if (error) console.error("[seguimiento email]", error.message ?? error);
       }
       console.log(`[seguimiento ${estadoEmail}] email → ${cliente?.email || "(sin contacto)"} | ${link ?? ""}`);
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
@@ -298,6 +304,10 @@ export async function enviarSeguimiento(
         : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, link) }) : "SIMULADO";
       console.log(`[seguimiento ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${link ?? ""}`);
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     const { sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
@@ -382,7 +392,7 @@ export async function enviarSolicitudPago(
     const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -396,7 +406,8 @@ export async function enviarSolicitudPago(
         if (error) console.error("[solicitudPago email]", error.message ?? error);
       }
       console.log(`[solicitudPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
@@ -410,6 +421,10 @@ export async function enviarSolicitudPago(
       estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, lineas) });
       console.log(`[solicitudPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     const { sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
@@ -458,7 +473,7 @@ export async function enviarConfirmacionPago(
     const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -472,7 +487,8 @@ export async function enviarConfirmacionPago(
         if (error) console.error("[confirmacionPago email]", error.message ?? error);
       }
       console.log(`[confirmacionPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${via}`);
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
@@ -480,6 +496,10 @@ export async function enviarConfirmacionPago(
       estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) });
       console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
     await admin.from("ExpedienteEvento").insert({
@@ -585,7 +605,7 @@ export async function enviarRecordatorioDocs(
     const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -611,7 +631,8 @@ export async function enviarRecordatorioDocs(
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[recordatorioDocs email]", error.message ?? error);
       }
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
@@ -619,6 +640,10 @@ export async function enviarRecordatorioDocs(
       estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
         : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) }) : "SIMULADO";
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     // Sin NINGÚN contacto utilizable → mismo aviso al gestor que antes (sin evento).
     const global = estadoGlobal([estadoEmail, estadoWa]);
@@ -685,7 +710,7 @@ export async function enviarAvisoRenovacion(
     const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
 
     let estadoEmail: Estado | null = null;
-    if (canal.email) {
+    const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
       const destino = cliente?.email ?? "";
       if (!destino) {
@@ -699,12 +724,17 @@ export async function enviarAvisoRenovacion(
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[avisoRenovacion email]", error.message ?? error);
       }
-    }
+    };
+    if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, body, link) });
     }
+    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
+    // a secas): el cliente no puede quedarse sin su aviso → repli por email
+    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
+    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
 
     // Sin ningún contacto utilizable → mismo retorno que antes (sin evento).
     const global = estadoGlobal([estadoEmail, estadoWa]);
