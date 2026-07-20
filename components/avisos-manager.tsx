@@ -120,6 +120,16 @@ export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsApp
           </div>
         </div>
         {canalError && <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{canalError}</p>}
+        {/* Garde-fou (caso real Gestoría S&D): WhatsApp elegido sin estar disponible en la
+            plataforma → decirlo AQUÍ, claro y sin culpar al gestor, antes de que un envío
+            falle en el historial. Mientras tanto los avisos salen por email (repli servidor). */}
+        {!envioWhatsAppActivo && canal !== "EMAIL" && (
+          <p role="status" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            {canal === "WHATSAPP"
+              ? t("WhatsApp todavía no está disponible en Aproba. Mientras tanto, estos avisos se entregan por email, para que tu cliente no se quede sin nada.")
+              : t("WhatsApp todavía no está disponible en Aproba: de momento tus clientes reciben solo el email.")}
+          </p>
+        )}
       </div>
 
       {/* Estado de envío por canal : real vs simulación */}
@@ -132,7 +142,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsApp
         {conWhatsApp && bandera(
           envioWhatsAppActivo,
           envioWhatsAppActivo ? t("Envíos por WhatsApp activos.") : t("WhatsApp en modo simulación."),
-          envioWhatsAppActivo ? t("Tus clientes reciben estos avisos por WhatsApp automáticamente.") : t("Los mensajes se registran en el historial del expediente pero todavía no se envían (falta configurar el número de WhatsApp)."),
+          envioWhatsAppActivo ? t("Tus clientes reciben estos avisos por WhatsApp automáticamente.") : t("WhatsApp aún no está disponible en la plataforma; mientras tanto el aviso se entrega por email."),
         )}
       </div>
 

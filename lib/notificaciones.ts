@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
-import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, type CanalAvisos } from "@/lib/whatsapp";
+import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, whatsappDisponible, canalesEfectivos, type CanalAvisos } from "@/lib/whatsapp";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeServicios } from "@/lib/multi-servicio";
@@ -21,7 +21,8 @@ export const resendDisponible = () => Boolean(process.env.RESEND_API_KEY);
 type Estado = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";
 
 // ── Canal del workspace: qué canales intentar y cómo journaliser el resultado ──
-const quiereCanales = (canal: CanalAvisos) => ({ email: canal !== "WHATSAPP", whatsapp: canal !== "EMAIL" });
+// Repli si WhatsApp no está disponible en la plataforma: ver canalesEfectivos (lib/whatsapp).
+const quiereCanales = (canal: CanalAvisos) => canalesEfectivos(canal, whatsappDisponible());
 
 // Estado global de un envío multi-canal (para los retornos {enviado, motivo} al gestor):
 // basta con que UN canal haya salido para considerarlo enviado. ERROR pesa más que

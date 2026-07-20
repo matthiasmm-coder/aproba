@@ -16,6 +16,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const whatsappDisponible = () =>
   Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
 
+// Canales EFECTIVOS de un aviso según el canal elegido y la disponibilidad real de
+// WhatsApp en la plataforma. Garde-fou (agujero real: Gestoría S&D, 14/07): con canal
+// WHATSAPP y Twilio sin configurar, el cliente no recibía NADA — mientras WhatsApp no
+// esté disponible, esos avisos se entregan por email.
+export const canalesEfectivos = (canal: CanalAvisos, waDisponible: boolean) => ({
+  email: canal !== "WHATSAPP" || !waDisponible,
+  whatsapp: canal !== "EMAIL",
+});
+
 export type EstadoWhatsApp = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";
 
 // Normaliza a E.164: quita separadores, convierte «00…» en «+…» y añade +34 a un móvil
