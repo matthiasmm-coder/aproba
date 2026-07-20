@@ -240,6 +240,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                   {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
                 </button>
                 <span className="text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</span>
+                <span className="text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</span>
               </>
             )}
             {billingError && <span className="text-sm text-red-600">{billingError}</span>}

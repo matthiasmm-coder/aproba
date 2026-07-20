@@ -662,6 +662,7 @@ export const CA: Record<string, string> = {
   "— Ignorar —": "— Ignora —",
   "— Sin expediente —": "— Sense expedient —",
   "… y {n} más": "… i {n} més",
+  "¿Tienes un código promocional? Podrás introducirlo en la página de pago.": "Tens un codi promocional? Podràs introduir-lo a la pàgina de pagament.",
   "Ajustar servicio y descuento": "Ajusta el servei i el descompte",
   "Cerrar aquí el precio antes de enviar el enlace: el cliente verá ya el presupuesto con el descuento aplicado.": "Tanca aquí el preu abans d'enviar l'enllaç: el client ja veurà el pressupost amb el descompte aplicat.",
   "Servicio principal": "Servei principal",

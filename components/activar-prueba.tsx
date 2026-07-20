@@ -63,6 +63,7 @@ export function ActivarPrueba() {
       >
         {loading ? t("Abriendo el pago seguro…") : t("Añadir tarjeta y empezar la prueba")}
       </button>
+      <p className="mt-2 text-center text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</p>
     </div>
   );
 }
