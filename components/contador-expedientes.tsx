@@ -9,6 +9,18 @@ import { useT } from "@/components/lang-provider";
 export function ContadorExpedientes({ usados, plan, enPrueba }: { usados: number; plan: string; enPrueba: boolean }) {
   const t = useT();
   const limite = limiteExpedientes(plan);
+  // BUSINESS: ilimitado → tarjeta compacta sin barra ni avisos de coste.
+  if (!Number.isFinite(limite)) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-800">{t("Expedientes este mes")}</p>
+          <p className="text-lg font-bold tabular-nums text-slate-900">{usados}</p>
+        </div>
+        <p className="mt-0.5 text-xs text-aproba-700">{t("Plan")} {planLabel(plan)} · {t("expedientes ilimitados, sin coste adicional")}</p>
+      </div>
+    );
+  }
   const restantes = limite - usados;
   const enLimite = usados >= limite;              // alcanzado o superado
   const extra = Math.max(0, usados - limite);     // ya creados por encima del límite

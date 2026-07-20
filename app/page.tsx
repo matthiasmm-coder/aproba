@@ -65,7 +65,7 @@ const CON = [
 const PLANES = [
   { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
   { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
-  { nombre: "Business", precio: "199", anual: "1.990", incluidos: "100", para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Multi-oficina", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
+  { nombre: "Business", precio: "199", anual: "1.990", incluidos: null, para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Expedientes ilimitados", "Multi-oficina", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
 ];
 
 const FAQ = [
@@ -353,7 +353,7 @@ export default function Landing() {
                 <p className="mt-1 text-center text-sm text-slate-500">{p.para}</p>
                 <p className="mt-5 text-center"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
                 <p className="mt-1 text-center text-xs text-slate-500">o {p.anual}&nbsp;€/año · 2 meses gratis</p>
-                <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-center text-xs font-medium text-aproba-700">{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></p>
+                <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-center text-xs font-medium text-aproba-700">{p.incluidos ? <>{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></> : <>Expedientes ilimitados, sin coste por expediente</>}</p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>

@@ -7,7 +7,7 @@ export const PLANES: Record<PlanId, {
   label: string;
   precio: number; // €/mois
   maxUsuarios: number; // Infinity = ilimitado
-  maxExpedientes: number; // límite mensual; por encima → PRECIO_EXPEDIENTE_EXTRA €/expediente
+  maxExpedientes: number; // límite mensual (Infinity = ilimitado); por encima → PRECIO_EXPEDIENTE_EXTRA €/expediente
   para: string;
   features: string[];
 }> = {
@@ -31,9 +31,11 @@ export const PLANES: Record<PlanId, {
     label: "Business",
     precio: 199,
     maxUsuarios: Infinity,
-    maxExpedientes: 100,
-    para: "Multi-oficina · hasta 100 expedientes/mes",
-    features: ["Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "Multi-oficina", "Onboarding dedicado"],
+    // Ilimitado (decisión 2026-07-20): creadosMes > Infinity nunca es cierto → el
+    // cobro de overage (lib/overage) no aplica jamás a BUSINESS, sin tocar su código.
+    maxExpedientes: Infinity,
+    para: "Multi-oficina · expedientes ilimitados",
+    features: ["Expedientes ilimitados", "Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "Multi-oficina", "Onboarding dedicado"],
   },
 };
 
