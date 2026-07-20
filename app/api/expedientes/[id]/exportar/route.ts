@@ -6,6 +6,7 @@ import { fetchFacturasDeExpediente } from "@/lib/data/facturas";
 import { fetchDespacho } from "@/lib/data/config";
 import { datosNormalizados, datosDeCliente, formularioParaMiembro } from "@/lib/formularios";
 import { rellenarOficial } from "@/lib/ex-forms";
+import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
@@ -167,6 +168,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // 4) Facturas del expediente → PDF
   try {
     const facturas = await fetchFacturasDeExpediente(id);
+    const mDatos = await completarClienteDatosFacturas(facturas.filter((f) => !f.clienteDatos).map((f) => f.id));
+    for (const f of facturas) if (!f.clienteDatos && mDatos.has(f.id)) f.clienteDatos = mDatos.get(f.id)!;
     if (facturas.length) {
       const d = await fetchDespacho();
       const emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };

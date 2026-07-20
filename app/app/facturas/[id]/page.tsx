@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { fetchFactura } from "@/lib/data/facturas";
+import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
@@ -18,6 +19,12 @@ async function esAdminActual(): Promise<boolean> {
 export default async function FacturaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [f, d, esAdmin] = await Promise.all([fetchFactura(id), fetchDespacho(), esAdminActual()]);
+  // Factura emitida ANTES del snapshot fiscal → se completa desde el cliente del
+  // expediente y queda CONGELADA (pedido de Juan: las antiguas también con datos).
+  if (f && !f.clienteDatos) {
+    const m = await completarClienteDatosFacturas([f.id]);
+    if (m.has(f.id)) f.clienteDatos = m.get(f.id)!;
+  }
   if (!f) notFound();
 
   // Émetteur = le vrai despacho de l'utilisateur (nom, NIF, domicilio, email de facturación).

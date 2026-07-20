@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchFacturas } from "@/lib/data/facturas";
+import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchDespacho } from "@/lib/data/config";
 import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
@@ -19,6 +20,9 @@ export async function GET() {
 
   const [facturas, despacho] = await Promise.all([fetchFacturas(), fetchDespacho()]);
   const exportables = facturas.filter((f) => !f.archivado && f.estado !== "BORRADOR");
+  // Facturas antiguas sin snapshot fiscal → completar y congelar antes del PDF.
+  const m = await completarClienteDatosFacturas(exportables.filter((f) => !f.clienteDatos).map((f) => f.id));
+  for (const f of exportables) if (!f.clienteDatos && m.has(f.id)) f.clienteDatos = m.get(f.id)!;
   if (exportables.length === 0) {
     return NextResponse.json({ error: "No hay facturas emitidas o pagadas para exportar." }, { status: 404 });
   }
