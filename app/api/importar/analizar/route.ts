@@ -44,7 +44,7 @@ const PROMPT_SISTEMA = `Eres el asistente de migración de Aproba (software para
 Recibes las primeras filas de una tabla exportada por un despacho (Excel casero, MN Program, Sudespacho…) y propones el mapeo hacia el esquema de Aproba. NO transformas datos: solo propones el mapeo; el código lo ejecuta de forma determinista y el gestor lo valida.
 
 Campos de destino posibles para una columna (usa null si la columna no corresponde a ninguno):
-- Cliente: nombre, apellidos, nombreCompleto (nombre Y apellidos juntos en una sola columna), sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, nacionalidad, numeroDocumento (NIE/DNI), pasaporte, documento (columna que MEZCLA NIE y pasaportes), estadoCivil, nombrePadre, nombreMadre, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email, idioma, fechaCaducidad (caducidad de la TIE/residencia)
+- Cliente: nombre, apellidos, nombreCompleto (nombre Y apellidos juntos en una sola columna), sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, nacionalidad, numeroDocumento (NIE/DNI), pasaporte, documento (columna que MEZCLA NIE y pasaportes), estadoCivil, nombrePadre, nombreMadre, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email, idioma, fechaCaducidad (caducidad de la TIE/residencia), fechaResolucion (fecha de RESOLUCIÓN de un expediente, típica de las listas de la regularización extraordinaria 2026)
 - Expediente: referencia, tramite (tipo de trámite en texto libre), estado, notas
 - Familia: familia (clave de agrupación familiar), parentesco
 
@@ -56,6 +56,7 @@ Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
   "estados": { "<valor libre visto>": "<uno de: BORRADOR, DOCS_PENDIENTES, DOCS_VALIDADOS, FORM_GENERADO, PRESENTADO, RESUELTO, CITA_HUELLAS, FINALIZADO, RECHAZADO>", … },
   "crearExpedientes": true|false (true si hay columna de trámite con valores mapeables),
   "crearFamilias": true|false (true si hay agrupación familiar),
+  "regularizacion2026": true|false (true SOLO si la tabla parece una lista de la regularización extraordinaria 2026: menciones a «regularización», «arraigo extraordinario», «DA 21», o una columna de fecha de resolución con fechas de 2026),
   "notas": ["observación breve para el gestor", …]
 }
 
@@ -160,6 +161,7 @@ export async function POST(req: Request) {
       estados,
       crearExpedientes: Boolean(propuesta.crearExpedientes) && colTramite !== undefined,
       crearFamilias: Boolean(propuesta.crearFamilias),
+      regularizacion2026: Boolean((propuesta as { regularizacion2026?: boolean }).regularizacion2026),
       notas: Array.isArray(propuesta.notas) ? propuesta.notas.filter((n): n is string => typeof n === "string").slice(0, 8) : [],
     },
     valoresTramite: distintos(colTramite),

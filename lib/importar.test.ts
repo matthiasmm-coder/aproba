@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMapeo, marcarDuplicadosInternos, partirNombreCompleto, normalizarTelefono, esNie, type Mapeo } from "./importar";
+import { aplicarMapeo, marcarDuplicadosInternos, partirNombreCompleto, normalizarTelefono, esNie, masUnAno, type Mapeo } from "./importar";
 
 const mapeo: Mapeo = {
   columnas: [
@@ -17,6 +17,33 @@ const mapeo: Mapeo = {
   crearExpedientes: true,
   crearFamilias: true,
 };
+
+describe("regularización 2026 — caducidad = resolución + 1 año", () => {
+  const base: Mapeo = {
+    columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "fechaResolucion" }, { indice: 2, campo: "fechaCaducidad" }],
+    tramites: {}, estados: {}, crearExpedientes: false, crearFamilias: false,
+  };
+
+  it("con el flag activo, la resolución genera la caducidad del año siguiente", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], { ...base, regularizacion2026: true });
+    expect(f.fechaCaducidad).toBe("2027-08-15");
+  });
+
+  it("sin el flag, la fecha de resolución no inventa ninguna caducidad", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], base);
+    expect(f.fechaCaducidad).toBe("");
+  });
+
+  it("una caducidad explícita SIEMPRE gana sobre el cálculo", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", "01/03/2028"]], { ...base, regularizacion2026: true });
+    expect(f.fechaCaducidad).toBe("2028-03-01");
+  });
+
+  it("masUnAno respeta el 29 de febrero (año no bisiesto → 1 de marzo)", () => {
+    expect(masUnAno("2028-02-29")).toBe("2029-03-01");
+    expect(masUnAno("no es fecha")).toBe("");
+  });
+});
 
 describe("importar — motor determinista", () => {
   it("fila típica de Excel casero: nombre completo con coma, NIE, teléfono sin prefijo, fechas ES", () => {

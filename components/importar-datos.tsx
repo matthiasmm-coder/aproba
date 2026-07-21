@@ -37,7 +37,7 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["nombrePadre", "Nombre del padre"], ["nombreMadre", "Nombre de la madre"],
     ["via", "Domicilio (calle)"], ["numeroVia", "Número"], ["piso", "Piso / puerta"],
     ["codigoPostal", "Código postal"], ["municipio", "Municipio"], ["provincia", "Provincia"],
-    ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"],
+    ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha de resolución (regularización)"],
   ] },
   { grupo: "Expediente", campos: [
     ["tramite", "Trámite"], ["estado", "Estado"], ["referencia", "Referencia"], ["notas", "Notas"],
@@ -232,6 +232,16 @@ export function ImportarDatos() {
               {t("Crear familias")}
             </label>
           </div>
+
+          {/* Regularización extraordinaria 2026: la autorización dura 1 año → la caducidad
+              (y el aviso de renovación) sale de la fecha de resolución. */}
+          <label className="mt-3 flex items-start gap-2 rounded-xl border border-aproba-200 bg-aproba-50 p-3 text-sm text-aproba-800">
+            <input type="checkbox" checked={Boolean(mapeo.regularizacion2026)} onChange={(e) => setMapeo({ ...mapeo, regularizacion2026: e.target.checked })} className="mt-0.5 h-4 w-4 accent-aproba-600" />
+            <span>
+              <span className="font-semibold">{t("Son expedientes de la regularización extraordinaria 2026")}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-aproba-700">{t("La autorización dura un año: calculamos la caducidad desde la fecha de resolución y Vigía te avisa de cada renovación.")}</span>
+            </span>
+          </label>
 
           {mapeo.crearExpedientes && analisis.valoresTramite.length > 0 && (
             <div className="mt-5">
