@@ -1,6 +1,8 @@
 // Dossier familial: constantes partagées (rôle/parenté). La parenté est un texte libre
 // contrôlé (comme sexo/estadoCivil dans lib/ficha.ts), pas un enum Postgres → évolutif.
 
+import { labelADocTipo, dedupDocs } from "@/lib/tramites";
+
 export const PARENTESCOS = [
   ["TITULAR", "Titular"],
   ["CONYUGE", "Cónyuge"],
@@ -53,10 +55,19 @@ export const partirDocsFamilia = (labels: string[]) => ({
 export function docsFamiliaPorServicios(
   servicios: { id: string; docs?: string[] }[],
   asignacion: Record<string, string[]> | null | undefined,
-  solicitantes: { id: string }[],
+  solicitantes: { id: string; fechaNacimiento?: string | null }[],
 ): { comunes: string[]; porMiembro: Record<string, string[]> } {
   const norm = (l: string) => l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const esFirma = (l: string) => { const n = norm(l); return n.includes("encargo") || n.includes("mandato"); };
+  // Menor de edad → sin certificado de antecedentes penales (regla legal; pedido de Juan).
+  const esMenor = (f?: string | null) => {
+    if (!f) return false;
+    const d = new Date(f);
+    if (Number.isNaN(d.getTime())) return false;
+    const edad = (Date.now() - d.getTime()) / (365.25 * 864e5);
+    return edad >= 0 && edad < 18;
+  };
+  const menores = new Set(solicitantes.filter((m) => esMenor(m.fechaNacimiento)).map((m) => m.id));
   const comunes: string[] = [];
   const porMiembro: Record<string, string[]> = Object.fromEntries(solicitantes.map((m) => [m.id, [] as string[]]));
   for (const sv of servicios) {
@@ -64,9 +75,16 @@ export function docsFamiliaPorServicios(
     const destinatarios = lista?.length ? solicitantes.filter((m) => lista.includes(m.id)) : solicitantes;
     for (const d of sv.docs ?? []) {
       if (esFirma(d)) continue;
-      if (esDocComunFamilia(d)) { if (!comunes.includes(d)) comunes.push(d); }
-      else for (const m of destinatarios) if (!porMiembro[m.id].includes(d)) porMiembro[m.id].push(d);
+      const tipo = labelADocTipo(d);
+      if (esDocComunFamilia(d)) { comunes.push(d); }
+      else for (const m of destinatarios) {
+        if (tipo === "ANTECEDENTES_PENALES" && menores.has(m.id)) continue;
+        porMiembro[m.id].push(d);
+      }
     }
   }
-  return { comunes, porMiembro };
+  // Dedup por TIPO (dos servicios piden «Pasaporte» y «Pasaporte completo» → una casilla),
+  // los personalizados (OTRO) por etiqueta — caso real de Juan: el pasaporte salía doble.
+  for (const id of Object.keys(porMiembro)) porMiembro[id] = dedupDocs(porMiembro[id]);
+  return { comunes: dedupDocs(comunes), porMiembro };
 }

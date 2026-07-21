@@ -102,9 +102,10 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   let docsFamiliares: SegDoc[] | undefined;
   let gruposDocs: { id: string; nombre?: string; parentesco?: string | null }[] | undefined;
   if (exp.familiaId) {
-    let mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante").eq("familiaId", exp.familiaId);
+    let mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante, fechaNacimiento").eq("familiaId", exp.familiaId);
+    if (mm.error) mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco, esSolicitante").eq("familiaId", exp.familiaId) as typeof mm;
     if (mm.error) mm = await admin.from("Cliente").select("id, nombre, apellidos, parentesco").eq("familiaId", exp.familiaId) as typeof mm;
-    const rows = ((mm.data ?? []) as unknown[]) as { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; esSolicitante?: boolean }[];
+    const rows = ((mm.data ?? []) as unknown[]) as { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; esSolicitante?: boolean; fechaNacimiento?: string | null }[];
     const asignacion = asignacionValida(exp.serviciosAsignacion);
     const asignados = new Set(Object.values(asignacion ?? {}).flat());
     const sol = rows.filter((r) => r.esSolicitante || asignados.has(r.id));
@@ -122,7 +123,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       formularios: pmForms ? (pmForms[r.id] ?? []) : formularios,
     }));
 
-    const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista);
+    const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista.map((r) => ({ id: r.id, fechaNacimiento: r.fechaNacimiento ?? null })));
     const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO, ...fam.comunes].map(labelADocTipo));
     docsFamiliares = [
       ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []).map((l) => segDoc(l, null, "comunes")),

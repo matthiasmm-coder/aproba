@@ -554,7 +554,14 @@ export const servicioDesc = (id: string, original: string, lang: Lang) =>
   SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].desc, lang, original, `servicio:${id}.desc`) : original;
 
 // Document : normalise le libellé (es) → enum → label/help traduits.
-export const docLabel = (label: string, lang: Lang) => { const t = labelADocTipo(label); return pick(DOC_I18N[t]?.label, lang, label, `doc:${t}.label`); };
+// Un documento PERSONALIZADO del gestor (tipo OTRO) debe mostrarse con SU nombre tal
+// cual (caso real de Juan: salían siete «Documento» genéricos) — solo los tipos
+// conocidos se traducen.
+export const docLabel = (label: string, lang: Lang) => {
+  const t = labelADocTipo(label);
+  if (t === "OTRO") return label.trim() || pick(DOC_I18N.OTRO?.label, lang, label, "doc:OTRO.label");
+  return pick(DOC_I18N[t]?.label, lang, label, `doc:${t}.label`);
+};
 export const docHelp = (label: string, lang: Lang) => { const t = labelADocTipo(label); return pick(DOC_I18N[t]?.help, lang, "", `doc:${t}.help`); };
 
 // Langue initiale : préférence du navigateur si elle fait partie des 5, sinon ES.

@@ -226,7 +226,12 @@ export function ClientPortal({
   const asignadosIds = new Set(Object.values(asig ?? {}).flat());
   const solicitantesFam = famMiembros.filter((m) => m.esSolicitante || asignadosIds.has(m.id));
   const docsFam = familia
-    ? docsFamiliaPorServicios([tramite, ...extrasServicios].filter((sv): sv is NonNullable<typeof sv> => Boolean(sv)), asig, solicitantesFam)
+    ? docsFamiliaPorServicios(
+        [tramite, ...extrasServicios].filter((sv): sv is NonNullable<typeof sv> => Boolean(sv)),
+        asig,
+        // fechaNacimiento de la ficha → los MENORES no cargan antecedentes penales.
+        solicitantesFam.map((m) => ({ id: m.id, fechaNacimiento: m.ficha?.fechaNacimiento ?? null })),
+      )
     : { comunes: [] as string[], porMiembro: {} as Record<string, string[]> };
   // Expediente FAMILIAR: el servicio se tarifica POR MIEMBRO → el pago total
   // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
@@ -364,6 +369,26 @@ export function ClientPortal({
   // Familiar «miembros primero»: el titular elige el trámite de CADA miembro; se deriva
   // principal (primer servicio del catálogo entre los elegidos) + asignación, y el
   // servidor filtra contra la realidad. El pricing local (asig) sigue el mismo dato.
+  // FAMILIA con servicio ya fijado por el gestor (asignación, extras, descuento…): el
+  // cliente NO vuelve a elegir servicios — solo datos y documentos (pedido de Juan: su
+  // clienta re-eligió y desconfiguró todo). El servidor además ignora cualquier intento
+  // de reescritura (iniciar: primero-escribe-gana).
+  const serviciosFijados = Boolean(familia) && Boolean(servicioInicial);
+
+  // Avance directo datos → documentos cuando el trámite viene fijado: confirma en el
+  // servidor (avanza el estado) sin enviar ninguna asignación.
+  async function continuarConTramiteFijado() {
+    setErrorPaso(null);
+    if (token && servicioInicial) {
+      void fetch("/api/portal/iniciar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, clave: servicioInicial }),
+      }).catch(() => { /* el avance de estado es best-effort; los docs no dependen de él */ });
+      setTramiteId(servicioInicial);
+    }
+    setStep(2);
+  }
+
   async function confirmarTramitesFamilia() {
     setErrorPaso(null);
     const inversa: Record<string, string[]> = {};
@@ -556,7 +581,7 @@ export function ClientPortal({
                   miembrosIniciales={famMiembros}
                   onMiembrosChange={setFamMiembros}
                   onBack={() => {}}
-                  onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); setStep(1); }}
+                  onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); if (serviciosFijados) { void continuarConTramiteFijado(); } else { setStep(1); } }}
                 />
               </div>
             ) : (
@@ -631,7 +656,7 @@ export function ClientPortal({
         )}
 
         {/* ── Step 1 · Datos (familiar → multi-membre) ── */}
-        {step === 1 && familia && token && (
+        {step === 1 && familia && !serviciosFijados && token && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.tramite")}</h1>
             <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
@@ -773,7 +798,7 @@ export function ClientPortal({
             docsComunes={docsFam.comunes}
             docsPorMiembro={docsFam.porMiembro}
             encargoActivo={encargoActivo && Boolean(token)}
-            onBack={() => setStep(1)}
+            onBack={() => setStep(serviciosFijados ? 0 : 1)}
             onContinue={proceder}
           />
         )}

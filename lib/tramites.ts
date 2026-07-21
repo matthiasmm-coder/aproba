@@ -48,6 +48,23 @@ export function labelADocTipo(label: string): string {
   return "OTRO";
 }
 
+// Deduplicación de documentos requeridos: dos servicios pueden pedir el mismo documento
+// con etiquetas distintas («Pasaporte» / «Pasaporte completo» → mismo tipo) — se queda la
+// PRIMERA etiqueta (la del servicio principal). Los personalizados (OTRO) se deduplican
+// por etiqueta normalizada: dos documentos custom distintos deben sobrevivir ambos.
+export function dedupDocs(labels: string[]): string[] {
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const l of labels) {
+    const tipo = labelADocTipo(l);
+    const clave = tipo === "OTRO" ? `otro:${l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()}` : tipo;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    out.push(l);
+  }
+  return out;
+}
+
 // Documentos requeridos que aún faltan (no VALIDADO/PROCESANDO). Fuente única usada
 // en /s/[token], el aviso de seguimiento, el detalle del gestor y el recordatorio.
 export function docsFaltantes(

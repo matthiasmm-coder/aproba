@@ -9,6 +9,29 @@ const PADRE = { id: "p1" };
 const MADRE = { id: "m1" };
 
 describe("docsFamiliaPorServicios", () => {
+  it("dedup por TIPO: «Pasaporte» y «Pasaporte completo» entre servicios → una sola casilla", () => {
+    const A = { id: "a", docs: ["Pasaporte", "Contrato de trabajo"] };
+    const B = { id: "b", docs: ["Pasaporte completo", "TIE actual"] };
+    const r = docsFamiliaPorServicios([A, B], null, [{ id: "m1" }]);
+    expect(r.porMiembro.m1.filter((d) => d.toLowerCase().includes("pasaporte"))).toEqual(["Pasaporte"]);
+  });
+
+  it("dos documentos PERSONALIZADOS distintos (tipo OTRO) sobreviven ambos", () => {
+    const A = { id: "a", docs: ["Carta de la parroquia", "Informe de arraigo del ayuntamiento"] };
+    const r = docsFamiliaPorServicios([A], null, [{ id: "m1" }]);
+    expect(r.porMiembro.m1).toEqual(["Carta de la parroquia", "Informe de arraigo del ayuntamiento"]);
+  });
+
+  it("menor de edad → sin antecedentes penales; adulto sí", () => {
+    const A = { id: "a", docs: ["Pasaporte", "Antecedentes penales"] };
+    const r = docsFamiliaPorServicios([A], null, [
+      { id: "adulto", fechaNacimiento: "1990-01-01" },
+      { id: "menor", fechaNacimiento: "2015-06-01" },
+    ]);
+    expect(r.porMiembro.adulto).toContain("Antecedentes penales");
+    expect(r.porMiembro.menor).toEqual(["Pasaporte"]);
+  });
+
   it("asigna a cada miembro los docs de SUS servicios y saca los comunes aparte", () => {
     const r = docsFamiliaPorServicios([ARRAIGO, RENOVACION], { arraigo_social: ["p1"], renovacion_tie: ["m1"] }, [PADRE, MADRE]);
     expect(r.comunes).toEqual(["Empadronamiento histórico", "Libro de familia"]);

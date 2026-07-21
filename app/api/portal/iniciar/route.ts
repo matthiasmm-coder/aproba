@@ -20,13 +20,46 @@ export async function POST(req: Request) {
   if (!token || !clave) return NextResponse.json({ error: "token y clave requeridos" }, { status: 400 });
 
   const admin = createSupabaseAdmin();
-  const { data: exp, error: e1 } = await admin
+  // serviciosAsignacion/servicioClave con repli: si el gestor YA configuró el expediente,
+  // el portal no debe poder pisarlo (caso real de Juan: la clienta re-eligió servicios y
+  // desconfiguró asignación y descuento).
+  let res1 = await admin
+    .from("Expediente")
+    .select("id, estado, workspaceId, familiaId, servicioClave, serviciosAsignacion")
+    .eq("portalToken", token)
+    .maybeSingle();
+  if (res1.error) res1 = await admin
+    .from("Expediente")
+    .select("id, estado, workspaceId, familiaId, servicioClave")
+    .eq("portalToken", token)
+    .maybeSingle() as typeof res1;
+  if (res1.error) res1 = await admin
     .from("Expediente")
     .select("id, estado, workspaceId, familiaId")
     .eq("portalToken", token)
-    .maybeSingle();
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
+    .maybeSingle() as typeof res1;
+  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosAsignacion?: unknown } | null;
+  if (res1.error) return NextResponse.json({ error: res1.error.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
+
+  // PRIMERO-ESCRIBE-GANA (familia): el gestor fijó el servicio antes de enviar el enlace
+  // → el portal solo avanza el estado; tipo, servicios y asignación quedan intactos.
+  if (Boolean(exp.familiaId) && Boolean(exp.servicioClave)) {
+    const { error: eAv } = await admin.from("Expediente").update({
+      estado: exp.estado === "BORRADOR" ? "DOCS_PENDIENTES" : exp.estado,
+      updatedAt: new Date().toISOString(),
+    }).eq("id", exp.id);
+    if (eAv) return NextResponse.json({ error: eAv.message }, { status: 500 });
+    if (exp.estado === "BORRADOR") {
+      await admin.from("ExpedienteEvento").insert({
+        id: crypto.randomUUID(),
+        expedienteId: exp.id,
+        tipo: "ESTADO_CAMBIADO",
+        descripcion: "El cliente confirmó el trámite configurado por el despacho",
+      });
+    }
+    return NextResponse.json({ ok: true, tipo: SERVICIO_A_TIPO[exp.servicioClave!] ?? "OTRO", bloqueado: true });
+  }
 
   // La clave debe ser un servicio del despacho: una clave arbitraria dejaría el
   // principal «huérfano» y la factura automática cobraría solo los extras (multi-

@@ -1,4 +1,5 @@
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
+import { dedupDocs } from "@/lib/tramites";
 import type { Servicio } from "@/lib/servicios";
 
 // Multi-servicio: un expediente tiene UN servicio principal (servicioClave, repli
@@ -37,7 +38,9 @@ export function serviciosDeExpediente(exp: ExpConServicios, catalogo: Servicio[]
 export function docsDeServicios(servicios: Servicio[]): string[] {
   const out: string[] = [];
   for (const s of servicios) for (const d of s.docs ?? []) if (!out.includes(d)) out.push(d);
-  return out;
+  // Mismo documento con etiquetas distintas entre servicios («Pasaporte» / «Pasaporte
+  // completo») → una sola casilla (caso real de Juan: el pasaporte salía dos veces).
+  return dedupDocs(out);
 }
 
 // Suma de tarifas: la factura automática (ANTICIPO/FINAL) cobra la suma de todos los
