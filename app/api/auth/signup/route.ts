@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 // Inscription d'un gestor / avocat.
@@ -42,6 +43,23 @@ export async function POST(req: Request) {
       { error: dup ? "Ya existe una cuenta con este email. Inicia sesión." : error.message },
       { status: dup ? 409 : 400 },
     );
+  }
+
+  // Fil-piège fundador: cada registro dispara un email a Matthias para que la
+  // secuencia de activación empiece el DÍA 0 (S&D pasó una semana sin contacto porque
+  // nadie se enteró del alta). Best-effort: jamás bloquea la inscripción.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const destino = process.env.FUNDADOR_EMAIL || "matthias.merlemounier@gmail.com";
+      await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from: `"Aproba" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
+        to: destino,
+        subject: `🆕 Nuevo registro en Aproba: ${nombre}`,
+        text: `${nombre} <${email}> acaba de crear su cuenta.\n\nSiguiente paso del playbook: mail de bienvenida (día 0) y, en 2-3 días, el empujón del import.\n\nPide a Claude «où en est ${nombre}» antes de escribirle.`,
+      });
+    } catch (e) {
+      console.error("[signup aviso fundador]", e instanceof Error ? e.message : e);
+    }
   }
 
   // Le trigger handle_new_user a créé la ligne public.User. La session est ouverte
