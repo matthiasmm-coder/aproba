@@ -41,13 +41,14 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false }: { 
 
   return (
     <div className="mx-auto max-w-2xl">
-      {/* Actions — cachées à l'impression */}
-      <div className="mb-6 flex items-center justify-between print:hidden">
-        <Link href="/app/facturas" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      {/* Actions — cachées à l'impression. Móvil: enlace arriba y botones en líneas
+          que envuelven (antes la fila fija de ~545px desbordaba la pantalla). */}
+      <div className="mb-6 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+        <Link href="/app/facturas" className="inline-flex items-center gap-1 self-start py-1 text-sm text-slate-500 hover:text-slate-800 sm:py-0">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           {t("Facturas")}
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
           {editable && f.estado !== "PAGADA" && (
             <button onClick={() => setEditando(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
