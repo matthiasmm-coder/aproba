@@ -23,14 +23,14 @@ async function getContexto() {
     const perfilP = supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle();
     // Défensif : si la colonne modoPrueba n'existe pas encore (migration pas appliquée),
     // on réessaie sans elle → l'app ne casse jamais (le testeur degrade en essai normal).
-    let memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt, modoPrueba))").limit(1).maybeSingle();
+    let memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, stripeSubscriptionId, trialEndsAt, modoPrueba))").limit(1).maybeSingle();
     if (memRes.error) {
       memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt))").limit(1).maybeSingle();
     }
     const mem = memRes.data;
     const { data: perfil } = await perfilP;
     if (!mem) return "SIN_WORKSPACE" as const;
-    type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null; trialEndsAt?: string | null; modoPrueba?: boolean | null };
+    type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null; stripeSubscriptionId?: string | null; trialEndsAt?: string | null; modoPrueba?: boolean | null };
     const ws = (mem as { Workspace?: { nombre?: string; Subscription?: SubInfo | SubInfo[] } } | null)?.Workspace;
     // PostgREST renvoie la relation 1-1 Subscription comme tableau (créée via index unique).
     const subRaw = ws?.Subscription;
@@ -40,12 +40,20 @@ async function getContexto() {
     //  - essai TESTEUR (modoPrueba) : on laisse passer 30 j gratuits ; à l'expiration → blocage (s'abonner).
     //  - essai NORMAL : carte obligatoire d'emblée (SIN_TARJETA).
     // La démo (estado ACTIVA) est exemptée ; sans Stripe configuré, on n'impose rien.
-    if (stripeDisponible() && sub?.estado === "TRIAL" && !sub?.stripeCustomerId) {
+    if (stripeDisponible() && sub?.estado === "TRIAL") {
       const expirado = sub?.trialEndsAt ? Date.parse(sub.trialEndsAt) <= Date.now() : false;
-      if (sub?.modoPrueba) {
-        if (expirado) return "PRUEBA_EXPIRADA" as const;
-      } else {
-        return "SIN_TARJETA" as const;
+      if (!sub?.stripeCustomerId) {
+        if (sub?.modoPrueba) {
+          if (expirado) return "PRUEBA_EXPIRADA" as const;
+        } else {
+          return "SIN_TARJETA" as const;
+        }
+      } else if (expirado && !sub?.stripeSubscriptionId) {
+        // Customer créé (checkout OUVERT) mais souscription jamais terminée : sans ce blocage,
+        // commencer un paiement puis fermer l'onglet donnait un accès gratuit illimité après
+        // l'essai. Ceux qui ONT une souscription restent gérés par Stripe + la réconciliation
+        // (on ne verrouille jamais un payeur sur un simple retard de webhook).
+        return "PRUEBA_EXPIRADA" as const;
       }
     }
     return {
