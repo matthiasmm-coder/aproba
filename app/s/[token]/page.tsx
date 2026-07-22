@@ -7,6 +7,10 @@ import { docsFamiliaPorServicios } from "@/lib/familia";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 
+// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
+export const metadata = { robots: { index: false, follow: false } };
+
+
 // Estados en los que los formularios ya están generados (se exponen al cliente).
 const FORM_LISTOS = new Set(["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO"]);
 

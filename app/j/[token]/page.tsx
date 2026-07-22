@@ -11,6 +11,10 @@ import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import type { MiembroInicial } from "@/components/datos-familia";
 
+// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
+export const metadata = { robots: { index: false, follow: false } };
+
+
 // Lien WhatsApp du client : /j/{token} → résout l'expediente réel (cliente,
 // gestoría, services + tarifas du workspace). Token inconnu → portail de démo.
 
