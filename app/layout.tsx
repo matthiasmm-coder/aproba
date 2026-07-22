@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   // Favicon: PNG determinista generado desde la marca de la plataforma (el SVG con <text>
   // dependía de la fuente del sistema y salía una «a» en vez del α). app/favicon.ico cubre
   // los navegadores que piden /favicon.ico directamente.
-  icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/icon.png?v=2", apple: "/apple-touch-icon.png?v=2" },
 };
 
 export const viewport: Viewport = {

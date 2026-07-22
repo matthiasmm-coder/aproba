@@ -14,10 +14,12 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "es",
     background_color: "#fdfcfb",
     theme_color: "#0E8C5F",
+    // ?v=2 : les icônes ont changé (α réel du header) — le query bust force les
+    // navigateurs/launchers à re-télécharger au lieu de servir leur cache d'icônes.
     icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { src: "/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
+      { src: "/icon-maskable-512.png?v=2", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
