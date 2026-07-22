@@ -267,14 +267,10 @@ export default function Landing() {
       <section className="border-y border-aproba-200 bg-aproba-50 py-16">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Regularización extraordinaria 2026</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tightest text-slate-900">Tus expedientes de la regularización renuevan todos a la vez</h2>
+          <h2 className="mt-3 text-3xl font-bold tracking-tightest text-slate-900">1.174.978 autorizaciones caducan a la vez en 2027</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-            Se presentaron <span className="font-semibold text-slate-900">1.174.978 solicitudes</span> y las autorizaciones duran un año:
-            en 2027 caducan casi todas al mismo tiempo. Si tu despacho presentó 100 expedientes, son 100 renovaciones que llegan el mismo mes.
-          </p>
-          <p className="mx-auto mt-3 max-w-2xl text-lg leading-relaxed text-slate-600">
-            Importa tu lista tal como la tienes y Aproba calcula cada caducidad y te avisa a tiempo:
-            <span className="font-semibold text-slate-900"> tu cartera de la regularización, convertida en trabajo recurrente.</span>
+            ¿Presentaste 100 expedientes? Son 100 renovaciones el mismo mes.
+            <span className="font-semibold text-slate-900"> Importa tu lista y Aproba te avisa de cada una a tiempo.</span>
           </p>
           <div className="mt-6">
             <DemoButton className="px-6 py-3" />
