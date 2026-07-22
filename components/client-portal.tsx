@@ -321,7 +321,10 @@ export function ClientPortal({
       if (!ok || !data) throw new Error(data?.error ?? t("s2.noSeLee"));
       const alertas: string[] = data.alertas ?? [];
       if (data.estado === "VALIDADO") {
-        setCamposReales((m) => ({ ...m, [i]: (data.campos ?? []).slice(0, 6).map((c) => [c.label, c.value]) }));
+        // Défense en profondeur: si l'API renvoie campos en objet/absent (doc firmado sin IA),
+        // Array.isArray évite le {}.slice qui cassait tout le portail. Chaque entrée est aussi gardée.
+        const campos = Array.isArray(data.campos) ? data.campos : [];
+        setCamposReales((m) => ({ ...m, [i]: campos.slice(0, 6).map((c) => [c?.label ?? "", c?.value ?? ""]) }));
         if (alertas.length) setAlertasReales((m) => ({ ...m, [i]: alertas }));
         setDocs((d) => ({ ...d, [i]: { status: "validado", attempts: d[i]?.attempts ?? 1 } }));
       } else {

@@ -85,7 +85,10 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     if (eFirma) throw new Error(eFirma.message);
     await admin.from("ExpedienteEvento").insert({ id: uuid(), expedienteId: exp.id, tipo: "DOC_VALIDADO", descripcion: `Documento firmado recibido: ${docLabel}` });
     if (notificar) await dispararAviso(admin, { workspaceId: exp.workspaceId, expedienteId: exp.id, clave: "doc_validado", vars: { documento: docLabel }, baseUrl });
-    return { ok: true, estado: "VALIDADO", campos: {}, alertas: [] };
+    // campos DEBE ser un array (el tipo lo es): un {} aquí hacía que el portal
+    // ejecutara {}.slice(...) al recibir la respuesta → «slice is not a function»
+    // y la página del cliente crashea al subir el encargo/mandato firmado.
+    return { ok: true, estado: "VALIDADO", campos: [], alertas: [] };
   }
 
   // ── Validación IA (Claude Vision) ──
