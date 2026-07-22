@@ -139,24 +139,27 @@ export function DatosFamilia({
           const nombre = nombreMiembro(m) || parentescoI18n(m.parentesco, lang) || t("fam.miembro");
           return (
             <div key={m.id} className={`rounded-xl border bg-white p-4 ${m.esSolicitante ? "border-aproba-300 ring-1 ring-aproba-100" : "border-slate-200"}`}>
-              <div className="flex items-center justify-between gap-2">
-                <button onClick={() => toggle(m.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <span className="inline-block rounded-full bg-cream-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
-                  <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{nombre}</span>
+              <div className="flex items-start justify-between gap-2">
+                {/* Chips arriba, nombre a ancho completo debajo: en 375px el nombre nunca desaparece. */}
+                <button onClick={() => toggle(m.id)} className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-block rounded-full bg-cream-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{parentescoI18n(m.parentesco, lang) || t("fam.miembro")}</span>
+                    {faltanDe(m) > 0 && (
+                      <span title={t("fam.faltan", { nombre, n: faltanDe(m) })} className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        {t("s1.faltanCorto", { n: faltanDe(m) })}
+                      </span>
+                    )}
+                    {m.esSolicitante && <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">{t("fam.solicitante")}</span>}
+                  </span>
+                  <span className="text-[15px] font-semibold leading-snug text-slate-900">{nombre}</span>
                 </button>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {faltanDe(m) > 0 && (
-                    <span title={t("fam.faltan", { nombre, n: faltanDe(m) })} className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                      {t("s1.faltanCorto", { n: faltanDe(m) })}
-                    </span>
-                  )}
-                  {m.esSolicitante && <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold text-aproba-700">{t("fam.solicitante")}</span>}
+                <div className="flex shrink-0 items-center">
                   {miembros.length > 1 && (
-                    <button onClick={() => quitar(m.id)} aria-label={t("fam.quitar")} className="rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
+                    <button onClick={() => quitar(m.id)} aria-label={t("fam.quitar")} className="rounded-md p-2.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
                     </button>
                   )}
-                  <button onClick={() => toggle(m.id)} aria-label={t("fam.miembro")} className="rounded-md p-1.5 text-slate-400">
+                  <button onClick={() => toggle(m.id)} aria-label={t("fam.miembro")} aria-expanded={m.abierto} className="rounded-md p-2.5 text-slate-400">
                     <svg className={`h-4 w-4 transition ${m.abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                 </div>
@@ -172,14 +175,14 @@ export function DatosFamilia({
                       </select>
                     </div>
                     <label className="flex items-end gap-2 pb-2 text-sm text-slate-600">
-                      <input type="checkbox" checked={m.esSolicitante} onChange={() => toggleSolicitante(m.id)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                      <input type="checkbox" checked={m.esSolicitante} onChange={() => toggleSolicitante(m.id)} className="h-5 w-5 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       {t("fam.esSolicitante")}
                     </label>
                   </div>
 
                   {idx > 0 && (
                     <label className="mb-4 flex items-center gap-2 rounded-lg bg-cream-50 px-3 py-2 text-sm text-slate-600">
-                      <input type="checkbox" checked={m.mismoDomicilio} onChange={() => toggleMismoDomicilio(m.id)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                      <input type="checkbox" checked={m.mismoDomicilio} onChange={() => toggleMismoDomicilio(m.id)} className="h-5 w-5 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       {t("fam.mismoDomicilio", { nombre: titularNombre })}
                     </label>
                   )}

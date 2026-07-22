@@ -124,8 +124,9 @@ export default async function ExpedienteDetail({
 
       {/* En-tête + position dans le pipeline */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        {/* Móvil: título a ancho completo y acciones debajo; ≥sm: título + acciones en una fila. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
@@ -139,7 +140,7 @@ export default async function ExpedienteDetail({
               </span>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
             <ExportarZipButton expedienteId={e.id} referencia={e.referencia} />
             <ArchivarButton id={e.id} />

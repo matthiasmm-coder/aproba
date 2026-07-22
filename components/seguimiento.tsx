@@ -124,7 +124,7 @@ export function Seguimiento({
                         )}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">{docLabel(d.label, lang)}</p>
+                        <p className="text-sm font-medium leading-snug text-slate-800 line-clamp-2">{docLabel(d.label, lang)}</p>
                         <p className={`text-xs ${d.errorRed ? "text-amber-700" : d.status === "ok" ? "text-aproba-700" : d.status === "rechazado" ? "text-red-600" : d.status === "procesando" ? "text-amber-600" : "text-slate-400"}`}>
                           {d.errorRed ? t("seg.docReintenta") : d.status === "ok" ? t("seg.docOk") : d.status === "procesando" ? t("s2.analizando") : d.status === "rechazado" ? t("seg.docRechazado") : t("seg.docPendiente")}
                         </p>
@@ -136,12 +136,12 @@ export function Seguimiento({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {d.docId && (
-                        <a href={`/api/seguimiento/${token}/documento/${d.docId}`} download aria-label={t("seg.descargar")} title={t("seg.descargar")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
-                          <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t("seg.descargar")}</span>
+                        <a href={`/api/seguimiento/${token}/documento/${d.docId}`} download aria-label={t("seg.descargar")} title={t("seg.descargar")} className="inline-flex min-h-[40px] items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+                          <Download className="h-4 w-4" /><span className="hidden sm:inline">{t("seg.descargar")}</span>
                         </a>
                       )}
                       {(d.status === "pendiente" || d.status === "rechazado" || d.status === "procesando") && (
-                        <button onClick={() => pedirArchivo(i)} disabled={subiendoEste} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+                        <button onClick={() => pedirArchivo(i)} disabled={subiendoEste} className="flex min-h-[44px] items-center rounded-lg bg-aproba-600 px-4 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
                           {subiendoEste ? t("s2.analizando") : t("s2.subir")}
                         </button>
                       )}
@@ -171,7 +171,7 @@ export function Seguimiento({
             value={lang}
             onChange={(e) => elegirLang(e.target.value as Lang)}
             aria-label={t("lang.selectLabel")}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-aproba-600"
+            className="min-h-[40px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-600 outline-none focus:border-aproba-600"
           >
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
           </select>

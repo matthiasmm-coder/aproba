@@ -73,15 +73,15 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
       </Link>
 
       {/* En-tête */}
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-aproba-100 text-lg font-semibold text-aproba-700">{initials(nombre)}</span>
-          <div>
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-lg font-semibold text-aproba-700">{initials(nombre)}</span>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{nombre}</h1>
             <p className="text-slate-500">{nacionalidad}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex flex-col gap-3 sm:items-end">
           <div className="flex items-center gap-3">
             <EliminarClienteButton clienteId={cliente.id} nombre={nombre} />
             <EditarCliente clienteId={cliente.id} ficha={ficha} />

@@ -523,7 +523,7 @@ export function ClientPortal({
               <div key={l} className="flex flex-1 items-center gap-2">
                 <div className="flex-1">
                   <div className={`h-1 rounded-full transition-colors duration-300 ${i <= step ? "bg-aproba-600" : "bg-slate-200"}`} />
-                  <p className={`mt-1.5 text-[10px] font-medium ${i <= step ? "text-aproba-700" : "text-slate-400"}`}>{l}</p>
+                  <p className={`mt-1.5 text-[11px] font-medium ${i <= step ? "text-aproba-700" : "text-slate-400"}`}>{l}</p>
                 </div>
               </div>
             ))}
@@ -534,7 +534,7 @@ export function ClientPortal({
         {reanudado && step < PASO_LISTO && (
           <div className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-aproba-200 bg-aproba-50 px-3.5 py-2.5">
             <p className="text-sm text-aproba-700">👋 {t("common.reanudado")}</p>
-            <button onClick={() => setReanudado(false)} aria-label="OK" className="shrink-0 rounded-md px-1.5 text-aproba-400 hover:text-aproba-700">✕</button>
+            <button onClick={() => setReanudado(false)} aria-label="OK" className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-aproba-400 hover:text-aproba-700">✕</button>
           </div>
         )}
 
@@ -843,28 +843,28 @@ export function ClientPortal({
                             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                           )}
                         </span>
-                        <span className="truncate text-sm font-medium text-slate-800">{docLabel(label, lang)}</span>
+                        <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-2">{docLabel(label, lang)}</span>
                         {ayuda && (
                           <button
                             type="button"
                             onClick={() => setDocInfo((cur) => (cur === i ? null : i))}
                             aria-label={t("s2.queEsto")}
                             aria-expanded={docInfo === i}
-                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${
-                              docInfo === i ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 text-slate-400 hover:border-aproba-400 hover:text-aproba-600"
-                            }`}
+                            className="-m-2 flex h-9 w-9 shrink-0 items-center justify-center"
                           >
-                            i
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition ${
+                              docInfo === i ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 text-slate-400 hover:border-aproba-400 hover:text-aproba-600"
+                            }`}>i</span>
                           </button>
                         )}
                       </div>
                       {st === "pending" && (
-                        <button onClick={() => upload(i)} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
+                        <button onClick={() => upload(i)} className="flex min-h-[44px] shrink-0 items-center rounded-lg bg-aproba-600 px-4 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("s2.subir")}</button>
                       )}
                       {st === "analyzing" && <span className="shrink-0 text-xs font-semibold tabular-nums text-aproba-600">{Math.round(prog[i] ?? 0)}%</span>}
                       {st === "validado" && <span className="shrink-0 text-xs font-semibold text-aproba-700">{t("s2.validado")}</span>}
                       {(st === "validado" || st === "alerta") && (
-                        <button type="button" onClick={() => quitarDoc(i)} aria-label={t("s2.eliminar")} title={t("s2.eliminar")} className="shrink-0 rounded-md p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600">
+                        <button type="button" onClick={() => quitarDoc(i)} aria-label={t("s2.eliminar")} title={t("s2.eliminar")} className="shrink-0 rounded-md p-2.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600">
                           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" /></svg>
                         </button>
                       )}

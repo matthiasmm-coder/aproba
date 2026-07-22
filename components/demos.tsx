@@ -583,14 +583,17 @@ export function HowItWorks() {
 
         <div className="mx-auto mt-10 max-w-xl text-center">
           <p className="flex min-h-[3.75rem] items-center justify-center text-lg font-medium text-slate-700 transition-all duration-300">{CAPTIONS[step]}</p>
-          <div className="mt-4 flex items-center justify-center gap-2">
+          <div className="mt-2 flex items-center justify-center">
+            {/* Zona táctil de 40px por punto; el punto visible sigue siendo discreto. */}
             {Array.from({ length: STEPS }).map((_, i) => (
               <button
                 key={i}
                 onClick={() => setStep(i)}
                 aria-label={`Paso ${i + 1}`}
-                className={`h-2 rounded-full transition-all duration-300 ${i === step ? "w-8 bg-aproba-600" : "w-2 bg-slate-300 hover:bg-slate-400"}`}
-              />
+                className="flex h-10 items-center px-1.5"
+              >
+                <span className={`h-2 rounded-full transition-all duration-300 ${i === step ? "w-8 bg-aproba-600" : "w-2 bg-slate-300 hover:bg-slate-400"}`} />
+              </button>
             ))}
           </div>
         </div>

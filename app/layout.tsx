@@ -21,6 +21,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Sin esto, env(safe-area-inset-*) vale 0 en iPhone y la tab bar queda bajo la barra home.
+  viewportFit: "cover",
   themeColor: "#0E8C5F",
 };
 
