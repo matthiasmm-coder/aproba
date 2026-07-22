@@ -36,6 +36,10 @@ async function getContexto() {
     const subRaw = ws?.Subscription;
     const sub = Array.isArray(subRaw) ? subRaw[0] : subRaw;
     const plan = sub?.plan;
+    // Suscripción CANCELADA (impago agotado o baja definitiva en Stripe) → pantalla de pago.
+    // PAST_DUE se deja pasar a propósito: Stripe está reintentando el cobro (dunning) y
+    // cortar el acceso al primer fallo de tarjeta castigaría a un cliente real de paso.
+    if (stripeDisponible() && sub?.estado === "CANCELADA") return "SIN_TARJETA" as const;
     // Garde essai / carte. Un despacho en essai sans customer Stripe :
     //  - essai TESTEUR (modoPrueba) : on laisse passer 30 j gratuits ; à l'expiration → blocage (s'abonner).
     //  - essai NORMAL : carte obligatoire d'emblée (SIN_TARJETA).
