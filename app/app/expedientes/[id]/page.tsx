@@ -207,9 +207,9 @@ export default async function ExpedienteDetail({
           {despachoEncargo && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">
               {t("Para firmar:")}{" "}
-              <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">{t("hoja de encargo (PDF)")}</a>
+              <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
               {" · "}
-              <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">{t("mandato (PDF)")}</a>
+              <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
             </p>
           )}
           <div className="space-y-3">
@@ -235,7 +235,7 @@ export default async function ExpedienteDetail({
           titulo={t("Formularios")}
           resumen={e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? `${e.formularios.length + (e.tieneTasa ? 1 : 0) + tasaMiembrosIds.length} PDF` : t("Sin generar")}
           right={
-            <Link href={`/app/expedientes/${e.id}/formularios`} className="text-xs font-semibold text-aproba-700 hover:underline">
+            <Link href={`/app/expedientes/${e.id}/formularios`} className="-my-2 py-2 text-xs font-semibold text-aproba-700 hover:underline sm:my-0 sm:py-0">
               {e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
             </Link>
           }

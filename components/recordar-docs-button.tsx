@@ -28,7 +28,7 @@ export function RecordarDocsButton({ expedienteId }: { expedienteId: string }) {
       <button
         onClick={recordar}
         disabled={estado === "enviando" || estado === "ok"}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-default disabled:opacity-70"
+        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-default disabled:opacity-70 sm:min-h-0"
       >
         {estado === "ok" ? (
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>

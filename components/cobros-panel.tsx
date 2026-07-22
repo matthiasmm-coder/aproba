@@ -156,7 +156,7 @@ export function CobrosPanel({ ocultarTitulo = false,
               // Sin factura de anticipo: el gestor puede emitirla desde aquí (modo interno —
               // en el flujo con portal la emite el cliente al confirmar el trámite).
               accionPendiente={
-                <button onClick={() => setCrear("ANTICIPO")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50">
+                <button onClick={() => setCrear("ANTICIPO")} className="min-h-[36px] rounded-lg border border-aproba-300 px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:min-h-0">
                   {t("Solicitar anticipo")}
                 </button>
               }
@@ -181,7 +181,7 @@ export function CobrosPanel({ ocultarTitulo = false,
 
             {/* Alternativa: fraccionar el pago final en N cuotas mensuales. */}
             {!fracOpen ? (
-              <button onClick={() => { setFracBase(resto); setError(null); setFracOpen(true); }} className="mt-2 text-xs font-semibold text-aproba-700 hover:underline">
+              <button onClick={() => { setFracBase(resto); setError(null); setFracOpen(true); }} className="-mb-2 mt-2 py-2 text-xs font-semibold text-aproba-700 hover:underline sm:mb-0 sm:py-0">
                 {t("O fraccionar en cuotas…")}
               </button>
             ) : (
@@ -206,9 +206,9 @@ export function CobrosPanel({ ocultarTitulo = false,
                     ⚠️ {t("Las tasas y suplidos ({monto}) no entran en las cuotas — factúralos aparte.").replace("{monto}", eur(suplidosTotal))}
                   </p>
                 )}
-                <div className="mt-2 flex justify-end gap-2">
-                  <button onClick={() => setFracOpen(false)} disabled={fraccionando} className="text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
-                  <button onClick={fraccionar} disabled={fraccionando || fracBase <= 0} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button onClick={() => setFracOpen(false)} disabled={fraccionando} className="px-2 py-2 text-xs text-slate-400 transition hover:text-slate-600 sm:px-0 sm:py-0">{t("Cancelar")}</button>
+                  <button onClick={fraccionar} disabled={fraccionando || fracBase <= 0} className="min-h-[36px] rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300 sm:min-h-0">
                     {fraccionando ? t("Emitiendo…") : t("Emitir cuotas")}
                   </button>
                 </div>
@@ -220,7 +220,7 @@ export function CobrosPanel({ ocultarTitulo = false,
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
         <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-400">
-          {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="font-semibold text-aproba-700 hover:underline">{t("Crea la factura manualmente")}</Link>.
+          {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>.
         </p>
       </div>
 

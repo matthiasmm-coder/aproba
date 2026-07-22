@@ -47,7 +47,7 @@ export function DescuentoExpediente({ expedienteId, inicial, tarifa, nMiembros }
     return (
       <button
         onClick={() => { setTipo(inicial?.tipo ?? "PORCENTAJE"); setValor(inicial?.valor ?? 0); setMotivo(inicial?.motivo ?? ""); setError(null); setAbierto(true); }}
-        className="text-xs font-medium text-aproba-700 hover:underline"
+        className="-my-2 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:py-0"
       >
         {inicial ? t("Editar descuento") : t("Aplicar descuento")}
       </button>

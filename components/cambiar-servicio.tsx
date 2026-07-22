@@ -43,7 +43,7 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
 
   if (!abierto) {
     return (
-      <button onClick={() => { setClave(actualClave ?? ""); setExtras(extrasActuales); setError(null); setAbierto(true); }} className="mt-1 text-xs font-medium text-aproba-700 hover:underline">
+      <button onClick={() => { setClave(actualClave ?? ""); setExtras(extrasActuales); setError(null); setAbierto(true); }} className="-my-2 mt-1 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:mt-1 sm:py-0">
         {extrasActuales.length > 0 ? t("Cambiar servicios") : t("Cambiar servicio")}
       </button>
     );
@@ -56,8 +56,8 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
           <option value="" disabled>{t("Elige un servicio…")}</option>
           {servicios.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
-        <button onClick={guardar} disabled={busy} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">{busy ? "…" : t("Guardar")}</button>
-        <button onClick={() => { setAbierto(false); setError(null); }} disabled={busy} className="text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
+        <button onClick={guardar} disabled={busy} className="min-h-[36px] rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300 sm:min-h-0">{busy ? "…" : t("Guardar")}</button>
+        <button onClick={() => { setAbierto(false); setError(null); }} disabled={busy} className="-my-2 py-2 text-xs text-slate-400 transition hover:text-slate-600 sm:my-0 sm:py-0">{t("Cancelar")}</button>
       </div>
       {/* Servicios adicionales: suman sus documentos, formularios y tarifa al expediente. */}
       <div className="flex flex-wrap items-center gap-1.5">

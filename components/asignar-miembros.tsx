@@ -55,7 +55,7 @@ export function AsignarMiembros({ expedienteId, servicios, miembros, inicial }: 
 
   if (!abierto) {
     return (
-      <button onClick={abrir} className="text-xs font-medium text-aproba-700 hover:underline">
+      <button onClick={abrir} className="-my-2 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:py-0">
         {inicial ? t("Editar asignación por miembro") : t("Asignar servicios por miembro")}
       </button>
     );
@@ -90,10 +90,10 @@ export function AsignarMiembros({ expedienteId, servicios, miembros, inicial }: 
       {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
         {inicial && (
-          <button onClick={() => enviar(null)} disabled={busy} className="mr-auto text-xs text-slate-400 transition hover:text-slate-600">{t("Quitar asignación")}</button>
+          <button onClick={() => enviar(null)} disabled={busy} className="mr-auto px-1 py-2 text-xs text-slate-400 transition hover:text-slate-600 sm:px-0 sm:py-0">{t("Quitar asignación")}</button>
         )}
-        <button onClick={() => { setAbierto(false); setError(null); }} disabled={busy} className="text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
-        <button onClick={() => enviar(sel)} disabled={busy} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+        <button onClick={() => { setAbierto(false); setError(null); }} disabled={busy} className="px-1 py-2 text-xs text-slate-400 transition hover:text-slate-600 sm:px-0 sm:py-0">{t("Cancelar")}</button>
+        <button onClick={() => enviar(sel)} disabled={busy} className="min-h-[36px] rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300 sm:min-h-0">
           {busy ? "…" : t("Guardar")}
         </button>
       </div>

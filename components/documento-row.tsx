@@ -49,7 +49,9 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between gap-2">
+      {/* Móvil: nombre del documento a ancho completo y acciones debajo (antes «Certificado de e…»);
+          ≥sm: la fila única de siempre — la versión de escritorio no cambia. */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <button
           type="button"
           onClick={() => tieneDatos && setAbierto((a) => !a)}
@@ -61,18 +63,18 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cream-50 text-slate-400">
             <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
           </span>
-          <span className="truncate font-medium text-slate-900 group-hover:text-aproba-700">{d.tipoLabel}</span>
+          <span className="min-w-0 font-medium leading-snug text-slate-900 line-clamp-2 group-hover:text-aproba-700 sm:line-clamp-1">{d.tipoLabel}</span>
           {tieneDatos && (
             <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:text-aproba-600 ${abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
           )}
         </button>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
           {d.tieneArchivo && (
             <a
               href={`/api/expedientes/${expedienteId}/documentos/${d.id}`}
               download
               title={d.nombreArchivo ? `${t("Descargar")} ${d.nombreArchivo}` : t("Descargar el documento del cliente")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-aproba-300 hover:bg-aproba-50 hover:text-aproba-700"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-aproba-300 hover:bg-aproba-50 hover:text-aproba-700 sm:min-h-0"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
               {t("Descargar")}
@@ -86,7 +88,7 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
               disabled={eliminando}
               title={t("Eliminar el documento (el cliente podrá volver a subirlo)")}
               aria-label={t("Eliminar el documento (el cliente podrá volver a subirlo)")}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 sm:h-7 sm:w-7"
             >
               {eliminando ? (
                 <span className="text-xs">…</span>
@@ -105,7 +107,7 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Datos extraídos por IA")}</span>
             <ConfidenceBar value={d.extraction.confianzaGlobal} />
           </div>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
             {d.extraction.campos.map((c) => (
               <div key={c.label} className="min-w-0">
                 <dt className="text-xs text-slate-400">{c.label}</dt>

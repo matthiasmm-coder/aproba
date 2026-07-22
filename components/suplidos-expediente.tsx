@@ -53,7 +53,7 @@ export function SuplidosExpediente({ expedienteId, inicial, esOverride }: {
 
   if (!abierto) {
     return (
-      <button onClick={() => { setFilas(inicial.length ? inicial : [{ concepto: "", importe: 0 }]); setError(null); setAbierto(true); }} className="text-xs font-medium text-aproba-700 hover:underline">
+      <button onClick={() => { setFilas(inicial.length ? inicial : [{ concepto: "", importe: 0 }]); setError(null); setAbierto(true); }} className="-my-2 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:py-0">
         {t("Ajustar tasas y suplidos")}
       </button>
     );

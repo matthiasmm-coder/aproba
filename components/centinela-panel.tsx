@@ -172,7 +172,7 @@ export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }:
         {/* Requerimiento real recibido → borrador de contestación */}
         <div className="mt-4 border-t border-slate-100 pt-3">
           {!reqAbierto ? (
-            <button onClick={() => setReqAbierto(true)} className="text-xs font-medium text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline">
+            <button onClick={() => setReqAbierto(true)} className="-my-2 py-2 text-left text-xs font-medium text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline sm:my-0 sm:py-0">
               {t("¿Has recibido un requerimiento? Pégalo aquí y redacto la contestación")}
             </button>
           ) : (
