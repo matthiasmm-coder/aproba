@@ -15,7 +15,10 @@ export const metadata: Metadata = {
   applicationName: "Aproba",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Aproba" },
-  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  // Favicon: PNG determinista generado desde la marca de la plataforma (el SVG con <text>
+  // dependía de la fuente del sistema y salía una «a» en vez del α). app/favicon.ico cubre
+  // los navegadores que piden /favicon.ico directamente.
+  icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
