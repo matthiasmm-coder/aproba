@@ -4,7 +4,7 @@ import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
-import { DemoButton, DemoModalHost } from "@/components/solicitar-demo";
+import { DemoButton } from "@/components/solicitar-demo";
 
 const PAINS = [
   "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",
@@ -407,7 +407,7 @@ export default function Landing() {
           <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
           <p className="mx-auto mt-3 max-w-lg text-aproba-100">Ve Aproba con tus propios casos, en 20 minutos y sin compromiso.</p>
           <DemoButton variant="invert" className="mt-8 px-6 py-3" />
-          <p className="mt-4 text-xs text-aproba-200">Te respondemos en menos de 24 h laborables</p>
+          <p className="mt-4 text-xs text-aproba-200">Eliges tú el día y la hora · confirmación al instante</p>
         </div>
       </section>
 
@@ -425,7 +425,6 @@ export default function Landing() {
         </div>
       </footer>
 
-      <DemoModalHost />
     </div>
   );
 }

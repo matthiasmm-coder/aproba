@@ -9,6 +9,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const EVENTO = "aproba:demo";
 
+// El CTA «Solicita una demo» lleva directamente al Calendly del fundador: el
+// visitante elige su hueco sin esperar a que le contestemos. Calendly captura
+// su email al reservar, así que no perdemos el lead. (El formulario/modal de
+// abajo queda como alternativa reutilizable; hoy no está montado en la landing.)
+const CALENDLY_URL = "https://calendly.com/matthias-merlemounier/20min";
+
 const VARIANTES = {
   primary: "bg-aproba-600 text-white shadow-sm hover:bg-aproba-700",
   invert: "bg-white text-aproba-700 shadow-sm hover:bg-aproba-50",
@@ -17,13 +23,14 @@ const VARIANTES = {
 
 export function DemoButton({ variant = "primary", className = "", children }: { variant?: keyof typeof VARIANTES; className?: string; children?: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new CustomEvent(EVENTO))}
-      className={`whitespace-nowrap rounded-lg text-center text-sm font-semibold transition ${VARIANTES[variant]} ${className}`}
+    <a
+      href={CALENDLY_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-block whitespace-nowrap rounded-lg text-center text-sm font-semibold transition ${VARIANTES[variant]} ${className}`}
     >
       {children ?? "Solicita una demo"}
-    </button>
+    </a>
   );
 }
 
