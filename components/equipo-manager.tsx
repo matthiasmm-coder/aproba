@@ -184,6 +184,14 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
     setPlanPendiente(null);
   }
 
+  // El toggle Mensual/Anual solo existe en el estado «sin tarjeta y sin suscripción»;
+  // ahí TODOS los precios visibles siguen el ciclo elegido (anual = 10× mensual,
+  // «2 meses gratis»). Con suscripción activa se mantiene €/mes (no conocemos aquí
+  // el ciclo real de Stripe y el toggle no se muestra).
+  const eligeCiclo = puedeGestionar && billingDisponible && !tarjeta && !suscripcionStripe;
+  const precioCiclo = (mensual: number) =>
+    eligeCiclo && intervalo === "anual" ? `${mensual * 10} ${t("€/año")}` : `${mensual} ${t("€/mes")}`;
+
   return (
     <div className="space-y-6">
       {/* ── Plan + sièges ─────────────────────────────────────────────── */}
@@ -192,7 +200,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Plan")}</h3>
             <p className="mt-1 text-lg font-bold text-slate-900">
-              {t(planLabel(plan))} <span className="text-sm font-medium text-slate-400">· {PLANES[plan as keyof typeof PLANES]?.precio}{t("€/mes")}</span>
+              {t(planLabel(plan))} <span className="text-sm font-medium text-slate-400">· {precioCiclo(PLANES[plan as keyof typeof PLANES]?.precio ?? 0)}</span>
             </p>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className={`rounded-full px-2 py-0.5 font-semibold ${estadoSub.pill}`}>{t(estadoSub.label)}</span>
@@ -323,7 +331,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                   >
                     <span className="font-semibold text-slate-800">{t(p.label)}</span>
                     <span className="block text-xs text-slate-500">
-                      {p.precio}{t("€/mes")} · {p.maxUsuarios === Infinity ? t("∞ usuarios") : `${p.maxUsuarios} ${p.maxUsuarios > 1 ? t("usuarios") : t("usuario")}`}
+                      {precioCiclo(p.precio)} · {p.maxUsuarios === Infinity ? t("∞ usuarios") : `${p.maxUsuarios} ${p.maxUsuarios > 1 ? t("usuarios") : t("usuario")}`}
                     </span>
                     {activo && <span className="text-[11px] font-semibold text-aproba-700">{t("Plan actual")}</span>}
                   </button>
@@ -334,7 +342,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
             {planPendiente && (
               <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm">
                 <span className="text-slate-700">
-                  {t("Cambiar a")} <strong>{t(planLabel(planPendiente))}</strong> ({PLANES[planPendiente as keyof typeof PLANES]?.precio}{t("€/mes")})
+                  {t("Cambiar a")} <strong>{t(planLabel(planPendiente))}</strong> ({precioCiclo(PLANES[planPendiente as keyof typeof PLANES]?.precio ?? 0)})
                   {suscripcionStripe && <span className="text-slate-500"> {t("— se aplicará prorrateo en tu próxima factura")}</span>}
                 </span>
                 <div className="ml-auto flex gap-2">
