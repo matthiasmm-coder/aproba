@@ -320,7 +320,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                     disabled={activo || tooSmall}
                     onClick={() => { setPlanError(null); setPlanPendiente(id); }}
                     title={tooSmall ? `${t("Tu equipo tiene")} ${usados} ${t("usuarios; este plan permite")} ${p.maxUsuarios}.` : ""}
-                    className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    className={`rounded-lg border px-3 py-2 text-center text-sm transition ${
                       activo ? "border-aproba-600 bg-aproba-50 ring-1 ring-aproba-600"
                       : tooSmall ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-50"
                       : "border-slate-200 hover:border-aproba-400"
