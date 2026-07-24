@@ -58,7 +58,7 @@ export function InstallPWA() {
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
+    <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5 text-center">
       <h3 className="text-sm font-semibold text-slate-800">{t("Instala Aproba como app")}</h3>
       <p className="mt-1 text-sm text-slate-500">{t("Accede a Aproba desde tu pantalla de inicio, como una aplicación, sin abrir el navegador.")}</p>
       <div className="mt-4">

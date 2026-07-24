@@ -17,7 +17,7 @@ export function LangSelector() {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
+    <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5 text-center">
       <h3 className="text-sm font-semibold text-slate-800">{t("Idioma de la interfaz")}</h3>
       <p className="mt-1 text-sm text-slate-500">{t("Elige el idioma en el que quieres ver Aproba.")}</p>
       <div className="mt-4 inline-flex gap-1 rounded-lg bg-slate-100 p-1">
