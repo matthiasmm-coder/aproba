@@ -16,11 +16,14 @@ const MODELO = "claude-opus-4-8"; // misma familia que Centinela: precisión ant
 
 // Celda XLSX → string estable. cellDates:true entrega Date para las fechas → ISO
 // (nunca el formato en-US de raw:false, que volvería ambiguas las fechas dd/mm).
+// SheetJS crea la fecha a MEDIANOCHE LOCAL del día real → hay que leer los componentes
+// LOCALES (getFullYear/Month/Date), no los UTC: con getUTC* una caducidad 12/03 se
+// convertía en 11/03 en runtimes al este de UTC (Europa). Verificado en CEST/UTC/NY.
 function celda(v: unknown): string {
   if (v == null) return "";
   if (v instanceof Date) {
     if (Number.isNaN(v.getTime())) return "";
-    return `${v.getUTCFullYear()}-${String(v.getUTCMonth() + 1).padStart(2, "0")}-${String(v.getUTCDate()).padStart(2, "0")}`;
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
   }
   return String(v).trim();
 }
