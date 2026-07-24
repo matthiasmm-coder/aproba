@@ -36,7 +36,13 @@ export function normalizarFechaCsv(v: string): string {
 
 export function parseCSV(text: string): string[][] {
   const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
-  const sep = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+  // Separador: tabulación (pegado directo desde Excel/Sheets — el portapapeles es TSV),
+  // si no ; o , como antes. Un CSV normal no tiene tabs → cae al comportamiento previo.
+  const cuenta = (re: RegExp) => firstLine.match(re)?.length ?? 0;
+  const tabs = cuenta(/\t/g);
+  const sep = tabs > 0 && tabs >= cuenta(/;/g) && tabs >= cuenta(/,/g)
+    ? "\t"
+    : (cuenta(/;/g) >= cuenta(/,/g) ? ";" : ",");
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
