@@ -68,11 +68,11 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   // Historial de servicios: trámites del PASADO (migrados o cerrados). Defensivo: [] si la
   // tabla ServicioHistorico aún no está migrada. Se fusiona con los expedientes REALES para
   // que la ficha cuente UNA sola historia, venga de una migración o de un expediente.
-  let historicos: { id: string; tipo: string; etiqueta: string | null; fecha: string | null; estado: string | null }[] = [];
+  let historicos: { id: string; tipo: string; etiqueta: string | null; fecha: string | null; estado: string | null; importe: number | string | null }[] = [];
   try {
     const { data: hs, error: eh } = await supabase
       .from("ServicioHistorico")
-      .select("id, tipo, etiqueta, fecha, estado")
+      .select("id, tipo, etiqueta, fecha, estado, importe")
       .eq("clienteId", id)
       .order("fecha", { ascending: false });
     if (!eh) historicos = (hs ?? []) as typeof historicos;
@@ -82,14 +82,16 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
     ...expedientes.map((e) => ({
       id: e.id, href: `/app/expedientes/${e.id}` as string | undefined,
       label: TIPO_LABEL[e.tipo] ?? e.tipo, sub: e.referencia, importado: false,
-      estado: e.estado, orden: new Date(e.createdAt).getTime() || 0,
+      estado: e.estado, importe: null as number | null, orden: new Date(e.createdAt).getTime() || 0,
     })),
     ...historicos.map((h) => ({
       id: h.id, href: undefined as string | undefined,
       label: h.etiqueta || TIPO_LABEL[h.tipo] || h.tipo, sub: fmtFechaCorta(h.fecha) ?? "—", importado: true,
-      estado: h.estado || "FINALIZADO", orden: h.fecha ? (new Date(h.fecha).getTime() || 0) : 0,
+      estado: h.estado || "FINALIZADO", importe: h.importe != null ? Number(h.importe) : null, orden: h.fecha ? (new Date(h.fecha).getTime() || 0) : 0,
     })),
   ].sort((a, b) => b.orden - a.orden);
+  // Total facturado en el PASADO (histórico migrado) — informativo, NO son facturas emitidas.
+  const historicoTotal = servicios.reduce((s, x) => s + (x.importe ?? 0), 0);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -122,8 +124,11 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* Historial de servicios — expedientes reales + servicios migrados, una sola historia */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Historial de servicios")} ({servicios.length})</h2>
+          <div className="mb-3 flex items-start justify-between">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Historial de servicios")} ({servicios.length})</h2>
+              {historicoTotal > 0 && <p className="mt-0.5 text-xs text-slate-400">{eur(historicoTotal)} {t("facturado (histórico)")}</p>}
+            </div>
             <Link href="/app/expedientes/nuevo" className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nuevo")}</Link>
           </div>
           <div className="space-y-1">
@@ -138,6 +143,7 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
                       {s.importado ? <>{s.sub} · <span className="italic">{t("importado")}</span></> : <span className="font-mono">{s.sub}</span>}
                     </p>
                   </div>
+                  {s.importe != null && <span className="shrink-0 text-xs font-semibold text-slate-600">{eur(s.importe)}</span>}
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
                 </>
               );

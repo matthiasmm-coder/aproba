@@ -360,6 +360,7 @@ model ServicioHistorico {
   estado        String? // resultado (FINALIZADO, RESUELTO, RECHAZADO…) — informativo
   referencia    String? // referencia original del Excel, si la había
   notas         String?
+  importe       Decimal? @db.Decimal(10, 2) // importe facturado en el pasado (info; NO genera factura)
   origen        String   @default("MIGRACION") // de dónde vino (MIGRACION…)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

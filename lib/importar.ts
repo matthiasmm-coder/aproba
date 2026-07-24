@@ -12,7 +12,7 @@ import { SERVICIO_A_TIPO } from "@/lib/tramites";
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
 export const CAMPOS_CLIENTE = [...FICHA_KEYS, "idioma", "fechaCaducidad"] as const;
-export const CAMPOS_EXPEDIENTE = ["referencia", "tramite", "estado", "notas"] as const;
+export const CAMPOS_EXPEDIENTE = ["referencia", "tramite", "estado", "notas", "importe"] as const;
 export const CAMPOS_ESPECIALES = ["nombreCompleto", "documento", "familia", "parentesco", "fechaResolucion"] as const;
 export type CampoImport = (typeof CAMPOS_CLIENTE)[number] | (typeof CAMPOS_EXPEDIENTE)[number] | (typeof CAMPOS_ESPECIALES)[number];
 
@@ -97,6 +97,26 @@ export function normalizarEstadoCivil(v: string): string {
   return ESTADOS_CIVILES[v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()] ?? "";
 }
 
+// Importe libre → número. «690€» → 690 ; «1.290,50 €» → 1290.5 ; «300» → 300. Formato
+// español (miles «.», decimal «,») y también inglés simple. null si no hay número válido.
+export function parseImporte(v: string): number | null {
+  let s = v.replace(/[^\d.,-]/g, "").trim(); // quita €, espacios, letras
+  if (!s) return null;
+  const tieneComa = s.includes(",");
+  const tienePunto = s.includes(".");
+  if (tieneComa && tienePunto) {
+    s = s.replace(/\./g, "").replace(",", "."); // «1.290,50» → miles «.», decimal «,»
+  } else if (tieneComa) {
+    s = s.replace(",", "."); // decimal español
+  } else if (tienePunto) {
+    // «.» solo: decimal si 1-2 dígitos tras el último punto; miles si son 3 (o varios puntos)
+    const partes = s.split(".");
+    if (partes.length > 2 || partes[partes.length - 1].length === 3) s = s.replace(/\./g, "");
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+
 // ── Aplicar el mapeo a las filas (puro, testeable) ───────────────────────────────────
 export type FilaImportada = {
   ficha: ClienteFicha;
@@ -110,6 +130,7 @@ export type FilaImportada = {
   servicio: string | null;     // clave del catálogo (null = sin servicio en el historial)
   estado: string;              // EstadoExpediente (resultado del servicio)
   notas: string;
+  importe: number | null;      // importe facturado en el pasado (info; NO genera factura)
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
 };
 
@@ -119,7 +140,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", servicio: null, estado: "", notas: "", avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", servicio: null, estado: "", notas: "", importe: null, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -149,6 +170,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
         case "tramite": tramiteBruto = v; break;
         case "estado": estadoBruto = v; break;
         case "notas": out.notas = v; break;
+        case "importe": out.importe = parseImporte(v); break;
         default: (ficha as Record<string, string>)[campo] = v;
       }
     }

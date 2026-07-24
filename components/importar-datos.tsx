@@ -40,7 +40,7 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha de resolución (regularización)"],
   ] },
   { grupo: "Servicio realizado", campos: [
-    ["tramite", "Trámite / servicio"], ["estado", "Estado (resultado)"], ["referencia", "Referencia"], ["notas", "Notas"],
+    ["tramite", "Trámite / servicio"], ["importe", "Importe cobrado (histórico)"], ["estado", "Estado (resultado)"], ["referencia", "Referencia"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
 ];
@@ -58,6 +58,7 @@ export function ImportarDatos() {
   const [ejecutando, setEjecutando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [verNotas, setVerNotas] = useState(false);
 
   async function analizar(hoja?: string) {
     if (!archivo && !texto.trim()) return;
@@ -178,8 +179,12 @@ export function ImportarDatos() {
             </div>
           )}
           {analisis.propuesta.notas.length > 0 && (
-            <div className="mb-4 rounded-xl border border-aproba-200 bg-aproba-50 p-3 text-sm text-aproba-800">
-              {analisis.propuesta.notas.map((n, i) => <p key={i}>· {n}</p>)}
+            <div className="mb-4 rounded-xl border border-aproba-200 bg-aproba-50 px-3 py-2.5 text-sm text-aproba-800">
+              <button type="button" onClick={() => setVerNotas((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left font-medium">
+                <span>{t("La IA revisó tu archivo")} · {analisis.propuesta.notas.length} {t("observaciones")}</span>
+                <svg className={`h-4 w-4 shrink-0 transition ${verNotas ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              {verNotas && <div className="mt-2 space-y-1 border-t border-aproba-200 pt-2 text-xs leading-relaxed">{analisis.propuesta.notas.map((n, i) => <p key={i}>· {n}</p>)}</div>}
             </div>
           )}
 
@@ -188,41 +193,16 @@ export function ImportarDatos() {
             {t("La primera fila son títulos de columna")}
           </label>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-3 py-2">{t("Columna del archivo")}</th>
-                  <th className="px-3 py-2">{t("Ejemplo")}</th>
-                  <th className="px-3 py-2">{t("Campo en Aproba")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mapeo.columnas.map((c) => (
-                  <tr key={c.indice} className="border-b border-slate-50">
-                    <td className="px-3 py-2 font-medium text-slate-700">{cabeceras[c.indice]?.trim() || `${t("Columna")} ${c.indice + 1}`}</td>
-                    <td className="max-w-[180px] truncate px-3 py-2 text-slate-400">{primeraFilaDatos[c.indice] ?? ""}</td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={c.campo ?? ""}
-                        onChange={(e) => setMapeo({ ...mapeo, columnas: mapeo.columnas.map((x) => x.indice === c.indice ? { ...x, campo: (e.target.value || null) as CampoImport | null } : x) })}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
-                      >
-                        <option value="">{t("— Ignorar —")}</option>
-                        {GRUPOS.map((g) => (
-                          <optgroup key={g.grupo} label={g.grupo}>
-                            {g.campos.map(([campo, label]) => <option key={campo} value={campo}>{label}</option>)}
-                          </optgroup>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MapeoColumnas
+            columnas={mapeo.columnas}
+            cabeceras={cabeceras}
+            ejemplos={primeraFilaDatos}
+            t={t}
+            onChange={(indice, campo) => setMapeo({ ...mapeo, columnas: mapeo.columnas.map((x) => x.indice === indice ? { ...x, campo } : x) })}
+          />
 
-          <div className="mt-4 flex flex-wrap gap-6">
+          <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Qué se importa")}</p>
+          <div className="mt-2 flex flex-wrap gap-6">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mapeo.crearHistorial} onChange={(e) => setMapeo({ ...mapeo, crearHistorial: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Registrar el historial de servicios")}
@@ -323,7 +303,7 @@ export function ImportarDatos() {
                     <td className="px-3 py-2 font-medium text-slate-700">{`${f.ficha.nombre ?? ""} ${f.ficha.apellidos ?? ""}`.trim() || "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.ficha.numeroDocumento ?? f.ficha.pasaporte ?? "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.ficha.telefono ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{mapeo.crearHistorial && f.servicio ? `${nombreServicio(f.servicio)} · ${f.estado}` : "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{mapeo.crearHistorial && f.servicio ? `${nombreServicio(f.servicio)} · ${f.estado}${f.importe != null ? ` · ${f.importe}€` : ""}` : "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.fechaCaducidad || f.caducidadDerivada || "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.familia || "—"}</td>
                   </tr>
@@ -388,6 +368,71 @@ export function ImportarDatos() {
       )}
 
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+// Mapeo de columnas → campos: muestra arriba las columnas RECONOCIDAS (lo que hay que
+// revisar de verdad) y pliega abajo las ignoradas (basura del export). Todas siguen siendo
+// editables — el poder está, pero sin abrumar.
+function MapeoColumnas({ columnas, cabeceras, ejemplos, t, onChange }: {
+  columnas: Mapeo["columnas"];
+  cabeceras: string[];
+  ejemplos: string[];
+  t: (s: string) => string;
+  onChange: (indice: number, campo: CampoImport | null) => void;
+}) {
+  const [verIgnoradas, setVerIgnoradas] = useState(false);
+  const mapeadas = columnas.filter((c) => c.campo);
+  const ignoradas = columnas.filter((c) => !c.campo);
+  const nombreCol = (c: Mapeo["columnas"][number]) => cabeceras[c.indice]?.trim() || `${t("Columna")} ${c.indice + 1}`;
+  const fila = (c: Mapeo["columnas"][number]) => (
+    <tr key={c.indice} className="border-b border-slate-50 last:border-0">
+      <td className="px-3 py-2 font-medium text-slate-700">{nombreCol(c)}</td>
+      <td className="max-w-[180px] truncate px-3 py-2 text-slate-400">{ejemplos[c.indice] ?? ""}</td>
+      <td className="px-3 py-2">
+        <select
+          value={c.campo ?? ""}
+          onChange={(e) => onChange(c.indice, (e.target.value || null) as CampoImport | null)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+        >
+          <option value="">{t("— Ignorar —")}</option>
+          {GRUPOS.map((g) => (
+            <optgroup key={g.grupo} label={g.grupo}>
+              {g.campos.map(([campo, label]) => <option key={campo} value={campo}>{label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </td>
+    </tr>
+  );
+  return (
+    <div>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+              <th className="px-3 py-2">{t("Columna del archivo")}</th>
+              <th className="px-3 py-2">{t("Ejemplo")}</th>
+              <th className="px-3 py-2">{t("Campo en Aproba")}</th>
+            </tr>
+          </thead>
+          <tbody>{mapeadas.map(fila)}</tbody>
+        </table>
+      </div>
+      {ignoradas.length > 0 && (
+        <div className="mt-2">
+          <button type="button" onClick={() => setVerIgnoradas((v) => !v)} className="text-xs font-medium text-slate-500 hover:text-slate-700">
+            {verIgnoradas ? "▾ " : "▸ "}{ignoradas.length} {t("columnas sin usar")}
+            <span className="font-normal text-slate-400"> · {ignoradas.map(nombreCol).join(", ")}</span>
+          </button>
+          {verIgnoradas && (
+            <div className="mt-2 overflow-x-auto rounded-xl border border-dashed border-slate-200 bg-white">
+              <table className="w-full text-sm"><tbody>{ignoradas.map(fila)}</tbody></table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

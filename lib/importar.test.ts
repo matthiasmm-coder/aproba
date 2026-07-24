@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMapeo, marcarDuplicadosInternos, partirNombreCompleto, normalizarTelefono, esNie, masUnAno, type Mapeo } from "./importar";
+import { aplicarMapeo, marcarDuplicadosInternos, partirNombreCompleto, normalizarTelefono, esNie, masUnAno, parseImporte, type Mapeo } from "./importar";
 
 const mapeo: Mapeo = {
   columnas: [
@@ -78,6 +78,27 @@ describe("caducidad derivada del servicio (Vigía estimada por validez legal)", 
     const [f] = aplicarMapeo([["Ana Pérez", "Arraigo social", "15/03/2026", "20/12/2028"]], m2);
     expect(f.fechaCaducidad).toBe("2028-12-20");
     expect(f.caducidadDerivada).toBe("");
+  });
+});
+
+describe("parseImporte — montants historiques (info, no factura)", () => {
+  it("varios formatos españoles e ingleses", () => {
+    expect(parseImporte("690€")).toBe(690);
+    expect(parseImporte("1.290,50 €")).toBe(1290.5);
+    expect(parseImporte("300")).toBe(300);
+    expect(parseImporte("150.50")).toBe(150.5);
+    expect(parseImporte("28.470 €")).toBe(28470);
+    expect(parseImporte("1.000.000")).toBe(1000000);
+    expect(parseImporte("")).toBeNull();
+    expect(parseImporte("—")).toBeNull();
+  });
+  it("aplicarMapeo captura el importe de la columna", () => {
+    const m: Mapeo = {
+      columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "importe" }] as Mapeo["columnas"],
+      tramites: {}, estados: {}, crearHistorial: true, crearFamilias: false,
+    };
+    const [f] = aplicarMapeo([["Ana Pérez", "690€"]], m);
+    expect(f.importe).toBe(690);
   });
 });
 

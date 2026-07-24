@@ -190,6 +190,7 @@ export async function POST(req: Request) {
           estado: f.estado || "FINALIZADO",
           referencia: f.referencia || null,
           notas: f.notas ? f.notas.slice(0, 1000) : null,
+          importe: f.importe,
           origen: "MIGRACION",
           updatedAt: ahora(),
         });
