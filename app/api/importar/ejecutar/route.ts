@@ -166,24 +166,39 @@ export async function POST(req: Request) {
     try {
       const { data: histExist } = await admin
         .from("ServicioHistorico")
-        .select("clienteId, servicioClave, fecha, referencia")
+        .select("id, clienteId, servicioClave, fecha, referencia, importe")
         .eq("workspaceId", workspaceId);
-      const refs = new Set(((histExist ?? []) as { referencia: string | null }[]).map((e) => e.referencia).filter(Boolean) as string[]);
-      const combos = new Set(((histExist ?? []) as { clienteId: string; servicioClave: string | null; fecha: string | null }[])
-        .map((e) => `${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`));
+      // Índices por referencia y por (cliente+servicio+fecha) → id + importe: sirven para
+      // dedup Y para RELLENAR huecos al reimportar (p. ej. añadir el importe a un servicio
+      // ya migrado sin él). El reimport enriquece, no duplica.
+      type Rec = { id: string; importe: number | null };
+      const porRef = new Map<string, Rec>();
+      const porCombo = new Map<string, Rec>();
+      for (const e of (histExist ?? []) as { id: string; clienteId: string; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null }[]) {
+        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null };
+        if (e.referencia) porRef.set(e.referencia, rec);
+        porCombo.set(`${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
+      }
       const lote: Record<string, unknown>[] = [];
+      const rellenos: { id: string; importe: number }[] = [];
       for (let i = 0; i < filas.length; i++) {
         const f = filas[i];
         const clienteId = clienteDe.get(i);
         if (!clienteId || !f.servicio) continue;
         const fechaSrv = f.fechaResolucion || ""; // fecha en que se realizó/resolvió
-        if (f.referencia && refs.has(f.referencia)) { r.serviciosOmitidos++; continue; }
-        if (!f.referencia && combos.has(`${clienteId}|${f.servicio}|${fechaSrv}`)) { r.serviciosOmitidos++; continue; }
-        if (f.referencia) refs.add(f.referencia);
-        combos.add(`${clienteId}|${f.servicio}|${fechaSrv}`);
+        const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
+        const existente = (f.referencia ? porRef.get(f.referencia) : undefined) ?? porCombo.get(combo);
+        if (existente) {
+          r.serviciosOmitidos++;
+          if (existente.importe == null && f.importe != null) { existente.importe = f.importe; rellenos.push({ id: existente.id, importe: f.importe }); }
+          continue;
+        }
         const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
+        const rec: Rec = { id: uid(), importe: f.importe };
+        if (f.referencia) porRef.set(f.referencia, rec);
+        porCombo.set(combo, rec);
         lote.push({
-          id: uid(), workspaceId, clienteId,
+          id: rec.id, workspaceId, clienteId,
           tipo, servicioClave: f.servicio,
           etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
           fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,
@@ -199,7 +214,9 @@ export async function POST(req: Request) {
         const { error } = await admin.from("ServicioHistorico").insert(lote.slice(i, i + 100));
         if (error) throw error;
       }
+      for (const rl of rellenos) await admin.from("ServicioHistorico").update({ importe: rl.importe, updatedAt: ahora() }).eq("id", rl.id);
       r.serviciosCreados = lote.length;
+      if (rellenos.length) avisosExtra.push(`${rellenos.length} importes añadidos a servicios ya migrados.`);
     } catch (e) {
       // Repli propre: si falta la migración servicio-historico.sql, el resto del import no se cae.
       avisosExtra.push(`Historial de servicios no registrado (¿falta ejecutar servicio-historico.sql?): ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`);
