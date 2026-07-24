@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { getStripe, precioDePlan, stripeDisponible, ensureCustomer } from "@/lib/billing";
+import { getStripe, precioDePlan, stripeDisponible, ensureCustomer, tasaIva } from "@/lib/billing";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { puedeGestionarEquipo, type PlanId } from "@/lib/planes";
 
@@ -70,14 +70,24 @@ export async function POST(req: Request) {
     }
 
     const origin = baseUrlFromRequest(req);
+    // Los precios son SIN IVA (landing «/mes + IVA»): el 21 % se añade encima y
+    // queda como default de la suscripción → también en cada renovación.
+    const iva = await tasaIva();
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price, quantity: 1 }],
       subscription_data: {
         metadata: { workspaceId: ws },
+        default_tax_rates: [iva],
         ...(trialEnd ? { trial_end: trialEnd } : {}),
       },
+      // NIF/CIF del despacho en la factura (B2B): Stripe lo pide y lo valida.
+      // Con un customer EXISTENTE, tax_id_collection exige customer_update
+      // name+address=auto (Checkout recoge razón social y dirección y las guarda
+      // en el customer → factura completa española). Atrapado por el e2e en test.
+      tax_id_collection: { enabled: true },
+      customer_update: { name: "auto", address: "auto" },
       allow_promotion_codes: true,
       success_url: `${origin}${volverA}?billing=ok`,
       cancel_url: `${origin}${volverA}?billing=cancelado`,

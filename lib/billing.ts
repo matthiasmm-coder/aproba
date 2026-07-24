@@ -26,8 +26,34 @@ export function getStripe(): Stripe {
     cliente = new Stripe(key, { maxNetworkRetries: 2 });
     claveCacheada = key;
     precios.clear();
+    ivaCacheado = null;
   }
   return cliente;
+}
+
+// IVA 21 % « exclusive » (los precios de la landing son SIN IVA, «/mes + IVA»).
+// Auto-provisionado como ensureCustomer: se busca por metadata y, si el modo
+// (test/live) todavía no lo tiene, se crea — nada que pegar a mano en el dashboard.
+// ⚠️ Tipo fijo peninsular/Baleares. Canarias/Ceuta/Melilla (IGIC/IPSI, no sujeto
+// a IVA): al convertir un cliente de allí, quitarle default_tax_rates a SU
+// suscripción en el dashboard (o pasar a Stripe Tax).
+let ivaCacheado: string | null = null;
+export async function tasaIva(): Promise<string> {
+  if (ivaCacheado) return ivaCacheado;
+  const stripe = getStripe();
+  const existentes = await stripe.taxRates.list({ active: true, limit: 100 });
+  const iva = existentes.data.find(
+    (t) => t.metadata?.app === "aproba" && t.percentage === 21 && !t.inclusive,
+  ) ?? await stripe.taxRates.create({
+    display_name: "IVA",
+    percentage: 21,
+    inclusive: false,
+    country: "ES",
+    description: "IVA 21% (España peninsular y Baleares)",
+    metadata: { app: "aproba" },
+  });
+  ivaCacheado = iva.id;
+  return iva.id;
 }
 
 // Garantit un customer Stripe valide DANS LE MODE COURANT (test vs live).
@@ -107,10 +133,11 @@ export async function cobrarExpedienteExtra(opts: {
   const it = await getStripe().invoiceItems.create(
     {
       customer: opts.customerId,
-      amount: Math.round(PRECIO_EXPEDIENTE_EXTRA * 100), // céntimos
+      amount: Math.round(PRECIO_EXPEDIENTE_EXTRA * 100), // céntimos, SIN IVA (landing: «después 3 €/expediente» bajo «Precios sin IVA»)
       currency: "eur",
       description: `Expediente extra ${opts.referencia} (por encima del límite del plan)`,
       metadata: { expedienteId: opts.expedienteId },
+      tax_rates: [await tasaIva()],
     },
     { idempotencyKey: `ov_${opts.expedienteId}` },
   );
