@@ -155,6 +155,7 @@ model Workspace {
   vencimientos Vencimiento[]
   docsSueltos  DocumentoCliente[]
   revisiones   CentinelaRevision[]
+  serviciosHistoricos ServicioHistorico[]
 }
 
 // Comptes bancaires du despacho (réception des paiements clients).
@@ -314,6 +315,7 @@ model Cliente {
   docsSueltos  DocumentoCliente[]
   citasPrevias CitaPrevia[]
   vencimientos Vencimiento[]
+  serviciosHistoricos ServicioHistorico[]
 
   @@index([workspaceId])
   @@index([familiaId])
@@ -341,6 +343,32 @@ model Vencimiento {
 
   @@index([workspaceId, fecha])
   @@index([clienteId])
+}
+
+// Historial de servicios de un cliente: trámites ya realizados en el PASADO (importados de
+// una migración, o trámites cerrados). NO es un expediente (sin kanban, sin portal, sin
+// contador de cuota): solo el registro "a este cliente se le hizo X el día D". La ficha
+// muestra este historial junto a los expedientes reales. Ver supabase/servicio-historico.sql.
+model ServicioHistorico {
+  id            String      @id @default(cuid())
+  workspaceId   String
+  clienteId     String
+  tipo          TipoTramite @default(OTRO)
+  servicioClave String? // clave del ServicioConfig del despacho (si se mapeó)
+  etiqueta      String // nombre mostrado (label del catálogo o el trámite bruto)
+  fecha         DateTime? // fecha en que se realizó/resolvió el servicio
+  estado        String? // resultado (FINALIZADO, RESUELTO, RECHAZADO…) — informativo
+  referencia    String? // referencia original del Excel, si la había
+  notas         String?
+  origen        String   @default("MIGRACION") // de dónde vino (MIGRACION…)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cliente   Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@index([workspaceId])
 }
 
 // Documento SUELTO de un cliente (subido por el gestor desde la ficha del cliente, sin

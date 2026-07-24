@@ -6,6 +6,8 @@
 
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { normalizarFechaCsv } from "@/lib/csv-clientes";
+import { caducidadEstimada } from "@/lib/validez";
+import { SERVICIO_A_TIPO } from "@/lib/tramites";
 
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
@@ -19,11 +21,12 @@ export const TODOS_LOS_CAMPOS: CampoImport[] = [...CAMPOS_CLIENTE, ...CAMPOS_EXP
 export type MapeoColumna = { indice: number; campo: CampoImport | null };
 export type Mapeo = {
   columnas: MapeoColumna[];
-  // Valores libres de la columna «tramite» → clave de servicio del catálogo (o null = sin expediente).
+  // Valores libres de la columna «tramite» → clave de servicio del catálogo (o null = sin servicio).
   tramites: Record<string, string | null>;
-  // Valores libres de la columna «estado» → EstadoExpediente.
+  // Valores libres de la columna «estado» → EstadoExpediente (resultado informativo del servicio).
   estados: Record<string, string>;
-  crearExpedientes: boolean;
+  // Registrar el trámite en el HISTORIAL de servicios del cliente (NO crea expediente).
+  crearHistorial: boolean;
   crearFamilias: boolean;
   // Regularización extraordinaria 2026 (RD 316/2026): la autorización dura UN AÑO desde
   // la resolución. Con este flag, una columna «fecha de resolución» genera la caducidad
@@ -98,12 +101,14 @@ export function normalizarEstadoCivil(v: string): string {
 export type FilaImportada = {
   ficha: ClienteFicha;
   idioma: string;
-  fechaCaducidad: string;      // ISO o ""
+  fechaCaducidad: string;      // ISO o "" — caducidad EXPLÍCITA (columna del Excel) → Vigía REAL
+  caducidadDerivada: string;   // ISO o "" — estimada del servicio + fecha de resolución → Vigía ESTIMADA
+  fechaResolucion: string;     // ISO o "" — fecha en que se realizó/resolvió el servicio
   familia: string;             // clave de agrupación libre ("" = sin familia)
   parentesco: string;
   referencia: string;
-  servicio: string | null;     // clave del catálogo (null = sin expediente)
-  estado: string;              // EstadoExpediente
+  servicio: string | null;     // clave del catálogo (null = sin servicio en el historial)
+  estado: string;              // EstadoExpediente (resultado del servicio)
   notas: string;
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
 };
@@ -114,7 +119,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", familia: "", parentesco: "", referencia: "", servicio: null, estado: "", notas: "", avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", servicio: null, estado: "", notas: "", avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -148,13 +153,8 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
       }
     }
 
-    // Regularización 2026: caducidad = resolución + 1 año (no pisa una caducidad explícita).
-    if (mapeo.regularizacion2026 && resolucion && !out.fechaCaducidad) {
-      const cad = masUnAno(resolucion);
-      if (cad) out.fechaCaducidad = cad;
-    }
-
-    if (mapeo.crearExpedientes && tramiteBruto) {
+    // Servicio (del trámite libre) → historial de servicios del cliente (NO expediente).
+    if (mapeo.crearHistorial && tramiteBruto) {
       const servicio = mapeo.tramites[tramiteBruto];
       if (servicio) out.servicio = servicio;
       else if (servicio === undefined) out.avisos.push(`Trámite sin mapear: «${tramiteBruto}»`);
@@ -164,8 +164,25 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
       if (e && (ESTADOS_EXPEDIENTE as readonly string[]).includes(e)) out.estado = e;
       else out.avisos.push(`Estado sin mapear: «${estadoBruto}»`);
     }
-    // Archivo histórico sin columna de estado → FINALIZADO (el valor está en Vigía, no en el kanban).
+    // Servicio histórico sin estado → FINALIZADO (es pasado; el radar vive en Vigía, no en el kanban).
     if (out.servicio && !out.estado) out.estado = "FINALIZADO";
+
+    // ── Caducidad DERIVADA (Vigía ESTIMADA) — solo si NO hay caducidad explícita ──
+    // «De la fecha del servicio se deduce la renovación»: la tarjeta que produce el trámite
+    // dura MESES_VALIDEZ[tipo] → caducidad = resolución + esa validez. Nacionalidad/NIE
+    // (validez null) no generan vencimiento, correctamente.
+    out.fechaResolucion = resolucion;
+    if (!out.fechaCaducidad && resolucion) {
+      if (out.servicio) {
+        const cad = caducidadEstimada(SERVICIO_A_TIPO[out.servicio] ?? "OTRO", resolucion);
+        if (cad) out.caducidadDerivada = cad;
+      }
+      // Regularización extraordinaria 2026: autorización de 1 año aunque el servicio no esté mapeado.
+      if (!out.caducidadDerivada && mapeo.regularizacion2026) {
+        const cad = masUnAno(resolucion);
+        if (cad) out.caducidadDerivada = cad;
+      }
+    }
 
     const nie = ficha.numeroDocumento ?? "";
     if (nie && !esNie(nie) && !esDni(nie)) out.avisos.push(`NIE/DNI con formato extraño: «${nie}»`);

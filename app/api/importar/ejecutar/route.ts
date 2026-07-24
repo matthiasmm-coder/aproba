@@ -3,7 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { sembrarVencimiento } from "@/lib/vencimientos";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { SERVICIO_A_TIPO } from "@/lib/tramites";
+import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { FICHA_KEYS } from "@/lib/ficha";
 import { aplicarMapeo, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, type Mapeo, type FilaImportada } from "@/lib/importar";
 
@@ -22,12 +22,14 @@ const PARENTESCO: Record<string, string> = {
 };
 const normParentesco = (v: string) => PARENTESCO[v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()] ?? (v ? "OTRO" : "");
 
-// Import de MIGRACIÓN: crea/completa clientes, familias y expedientes históricos.
+// Import de MIGRACIÓN: crea/completa clientes y familias, registra el HISTORIAL de
+// servicios (trámites ya realizados — NO expedientes: sin kanban, sin portal, sin cuota)
+// y siembra Vigía.
 // - Idempotente: por NIE/pasaporte/email (clientes), nombre (familias), referencia o
-//   (cliente+servicio) (expedientes). Reimportar el mismo archivo no duplica nada.
-// - Los expedientes migrados NO tocan UsoMensual (esta ruta jamás incrementa el
-//   contador): migrar 200 dosieres no puede costar 600 € de overage.
-// - Caducidades → Vigía (fuente REAL), como el alta manual.
+//   (cliente+servicio+fecha) (historial). Reimportar el mismo archivo no duplica nada.
+// - NUNCA toca UsoMensual: migrar 200 dosieres no puede costar 600 € de overage.
+// - Vigía: caducidad EXPLÍCITA (columna) = REAL; DERIVADA (servicio + fecha de resolución
+//   × validez legal) = ESTIMADA. Nacionalidad/NIE no generan vencimiento.
 export async function POST(req: Request) {
   const supa = await createSupabaseServer();
   const { data: { user } } = await supa.auth.getUser();
@@ -44,7 +46,9 @@ export async function POST(req: Request) {
 
   // Defensa: claves de servicio y estados validados contra la realidad, no el cliente.
   const admin = createSupabaseAdmin();
-  const catalogo = new Set((await fetchServiciosDeWorkspace(admin, workspaceId)).map((s) => s.id));
+  const serviciosWs = await fetchServiciosDeWorkspace(admin, workspaceId);
+  const catalogo = new Set(serviciosWs.map((s) => s.id));
+  const catalogoLabel = new Map(serviciosWs.map((s) => [s.id, s.label] as const));
   for (const [k, v] of Object.entries(mapeo.tramites ?? {})) if (v && !catalogo.has(v)) mapeo.tramites[k] = null;
   for (const [k, v] of Object.entries(mapeo.estados ?? {})) if (!(ESTADOS_EXPEDIENTE as readonly string[]).includes(v)) delete mapeo.estados[k];
 
@@ -77,7 +81,8 @@ export async function POST(req: Request) {
     for (const f of (fams ?? []) as { id: string; nombre: string }[]) familiasPorNombre.set(f.nombre.trim().toLowerCase(), f.id);
   }
 
-  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, expedientesCreados: 0, expedientesOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
+  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, serviciosCreados: 0, serviciosOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
+  const avisosExtra: string[] = [];
   const ahora = () => new Date().toISOString();
 
   // ── 1. Familias nuevas ──
@@ -128,7 +133,8 @@ export async function POST(req: Request) {
         if (v && !(actual?.[k] ?? "")) patch[k] = v;
       }
       if (familiaId && !actual?.familiaId) { patch.familiaId = familiaId; if (parentesco) patch.parentesco = parentesco; }
-      if (f.fechaCaducidad) { patch.fechaCaducidad = f.fechaCaducidad; patch.tipoVencimiento = "TIE"; }
+      const efectivaCad = f.fechaCaducidad || f.caducidadDerivada; // migración nunca pisa una caducidad ya trabajada
+      if (efectivaCad && !actual?.fechaCaducidad) { patch.fechaCaducidad = efectivaCad; patch.tipoVencimiento = "TIE"; }
       if (Object.keys(patch).length) {
         const { error } = await admin.from("Cliente").update({ ...patch, updatedAt: ahora() }).eq("id", idExistente);
         if (!error) r.clientesActualizados++;
@@ -145,7 +151,7 @@ export async function POST(req: Request) {
         ...Object.fromEntries(FICHA_KEYS.map((k) => [k, (f.ficha as Record<string, string | undefined>)[k] ?? null])),
         ...(f.idioma ? { idioma: f.idioma } : {}),
         ...(familiaId ? { familiaId, parentesco: parentesco || "OTRO", esSolicitante: false } : { esSolicitante: false }),
-        ...(f.fechaCaducidad ? { fechaCaducidad: f.fechaCaducidad, tipoVencimiento: "TIE" } : {}),
+        ...((f.fechaCaducidad || f.caducidadDerivada) ? { fechaCaducidad: f.fechaCaducidad || f.caducidadDerivada, tipoVencimiento: "TIE" } : {}),
       });
     }
   }
@@ -155,56 +161,67 @@ export async function POST(req: Request) {
   }
   r.clientesCreados = nuevos.length;
 
-  // ── 3. Expedientes históricos (SIN portalToken, SIN contador) ──
-  if (mapeo.crearExpedientes) {
-    const { data: expsExist } = await admin.from("Expediente").select("id, referencia, clienteId, servicioClave").eq("workspaceId", workspaceId);
-    const refsUsadas = new Set(((expsExist ?? []) as { referencia: string }[]).map((e) => e.referencia));
-    const combos = new Set(((expsExist ?? []) as { clienteId: string | null; servicioClave: string | null }[]).map((e) => `${e.clienteId}|${e.servicioClave}`));
-    const lote: Record<string, unknown>[] = [];
-    const eventos: Record<string, unknown>[] = [];
-    let n = refsUsadas.size + 1;
-    for (let i = 0; i < filas.length; i++) {
-      const f = filas[i];
-      const clienteId = clienteDe.get(i);
-      if (!clienteId || !f.servicio) continue;
-      if (f.referencia && refsUsadas.has(f.referencia)) { r.expedientesOmitidos++; continue; }
-      if (!f.referencia && combos.has(`${clienteId}|${f.servicio}`)) { r.expedientesOmitidos++; continue; }
-      let referencia = f.referencia;
-      if (!referencia) { do { referencia = `MIG-${String(n++).padStart(4, "0")}`; } while (refsUsadas.has(referencia)); }
-      refsUsadas.add(referencia);
-      combos.add(`${clienteId}|${f.servicio}`);
-      const id = uid();
-      const familiaId = mapeo.crearFamilias && f.familia ? familiasPorNombre.get(f.familia.trim().toLowerCase()) ?? null : null;
-      lote.push({
-        id, workspaceId, clienteId, referencia,
-        tipo: SERVICIO_A_TIPO[f.servicio] ?? "OTRO", servicioClave: f.servicio,
-        estado: f.estado || "FINALIZADO",
-        ...(familiaId ? { familiaId } : {}),
-        updatedAt: ahora(),
-      });
-      eventos.push({ id: uid(), expedienteId: id, tipo: "COMENTARIO", descripcion: f.notas ? `Importado (migración). Notas: ${f.notas.slice(0, 500)}` : "Importado (migración)", userId: user.id });
+  // ── 3. Historial de servicios (trámites del PASADO — NI expediente, NI portal, NI cuota) ──
+  if (mapeo.crearHistorial) {
+    try {
+      const { data: histExist } = await admin
+        .from("ServicioHistorico")
+        .select("clienteId, servicioClave, fecha, referencia")
+        .eq("workspaceId", workspaceId);
+      const refs = new Set(((histExist ?? []) as { referencia: string | null }[]).map((e) => e.referencia).filter(Boolean) as string[]);
+      const combos = new Set(((histExist ?? []) as { clienteId: string; servicioClave: string | null; fecha: string | null }[])
+        .map((e) => `${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`));
+      const lote: Record<string, unknown>[] = [];
+      for (let i = 0; i < filas.length; i++) {
+        const f = filas[i];
+        const clienteId = clienteDe.get(i);
+        if (!clienteId || !f.servicio) continue;
+        const fechaSrv = f.fechaResolucion || ""; // fecha en que se realizó/resolvió
+        if (f.referencia && refs.has(f.referencia)) { r.serviciosOmitidos++; continue; }
+        if (!f.referencia && combos.has(`${clienteId}|${f.servicio}|${fechaSrv}`)) { r.serviciosOmitidos++; continue; }
+        if (f.referencia) refs.add(f.referencia);
+        combos.add(`${clienteId}|${f.servicio}|${fechaSrv}`);
+        const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
+        lote.push({
+          id: uid(), workspaceId, clienteId,
+          tipo, servicioClave: f.servicio,
+          etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
+          fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,
+          estado: f.estado || "FINALIZADO",
+          referencia: f.referencia || null,
+          notas: f.notas ? f.notas.slice(0, 1000) : null,
+          origen: "MIGRACION",
+          updatedAt: ahora(),
+        });
+      }
+      for (let i = 0; i < lote.length; i += 100) {
+        const { error } = await admin.from("ServicioHistorico").insert(lote.slice(i, i + 100));
+        if (error) throw error;
+      }
+      r.serviciosCreados = lote.length;
+    } catch (e) {
+      // Repli propre: si falta la migración servicio-historico.sql, el resto del import no se cae.
+      avisosExtra.push(`Historial de servicios no registrado (¿falta ejecutar servicio-historico.sql?): ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`);
     }
-    for (let i = 0; i < lote.length; i += 100) {
-      const { error } = await admin.from("Expediente").insert(lote.slice(i, i + 100));
-      if (error) return NextResponse.json({ error: `Expedientes: ${error.message}`, parcial: r }, { status: 500 });
-    }
-    for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));
-    r.expedientesCreados = lote.length;
   }
 
-  // ── 4. Vigía: caducidades → vencimientos (fuente REAL, como el alta manual) ──
+  // ── 4. Vigía: caducidad → vencimiento. Explícita (columna del Excel) = REAL; derivada
+  //     del servicio + fecha de resolución (validez legal de la tarjeta) = ESTIMADA. ──
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
     const clienteId = clienteDe.get(i);
-    if (!clienteId || !f.fechaCaducidad) continue;
+    if (!clienteId) continue;
+    const efectiva = f.fechaCaducidad || f.caducidadDerivada;
+    if (!efectiva) continue;
     try {
-      await sembrarVencimiento(admin, { workspaceId, clienteId, fecha: `${f.fechaCaducidad}T00:00:00.000Z`, tipo: "TIE", fuente: "REAL" });
+      await sembrarVencimiento(admin, { workspaceId, clienteId, fecha: `${efectiva}T00:00:00.000Z`, tipo: "TIE", fuente: f.fechaCaducidad ? "REAL" : "ESTIMADA" });
       r.vencimientos++;
     } catch { /* Vigía sin migrar → sin vencimientos, el import no se cae */ }
   }
 
   const avisosFilas = filas.flatMap((f, i) => f.avisos.map((a) => `Fila ${i + 1}: ${a}`));
-  r.avisos = avisosFilas.slice(0, 40);
-  if (avisosFilas.length > 40) r.avisos.push(`… y ${avisosFilas.length - 40} avisos más`);
+  const todos = [...avisosExtra, ...avisosFilas];
+  r.avisos = todos.slice(0, 40);
+  if (todos.length > 40) r.avisos.push(`… y ${todos.length - 40} avisos más`);
   return NextResponse.json(r);
 }

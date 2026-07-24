@@ -57,7 +57,7 @@ Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
   "columnas": [{ "indice": 0, "campo": "<campo o null>" }, …] (una entrada POR COLUMNA, en orden),
   "tramites": { "<valor libre visto>": "<clave de servicio del catálogo o null>", … },
   "estados": { "<valor libre visto>": "<uno de: BORRADOR, DOCS_PENDIENTES, DOCS_VALIDADOS, FORM_GENERADO, PRESENTADO, RESUELTO, CITA_HUELLAS, FINALIZADO, RECHAZADO>", … },
-  "crearExpedientes": true|false (true si hay columna de trámite con valores mapeables),
+  "crearHistorial": true|false (true si hay una columna de trámite/servicio con valores mapeables; se registrará en el HISTORIAL de servicios del cliente, NUNCA como expediente activo),
   "crearFamilias": true|false (true si hay agrupación familiar),
   "regularizacion2026": true|false (true SOLO si la tabla parece una lista de la regularización extraordinaria 2026: menciones a «regularización», «arraigo extraordinario», «DA 21», o una columna de fecha de resolución con fechas de 2026),
   "notas": ["observación breve para el gestor", …]
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[importar] modelo", e instanceof Error ? e.message : e);
     // Sin propuesta → el gestor mapea a mano (la UI funciona igual).
-    propuesta = { primeraFilaEsCabecera: true, columnas: [], tramites: {}, estados: {}, crearExpedientes: false, crearFamilias: false, notas: ["No se pudo generar la propuesta automática; mapea las columnas a mano."] };
+    propuesta = { primeraFilaEsCabecera: true, columnas: [], tramites: {}, estados: {}, crearHistorial: false, crearFamilias: false, notas: ["No se pudo generar la propuesta automática; mapea las columnas a mano."] };
   }
 
   // ── Validación estricta de la propuesta (el modelo PROPONE; nunca se confía en su shape) ──
@@ -162,7 +162,7 @@ export async function POST(req: Request) {
       columnas,
       tramites,
       estados,
-      crearExpedientes: Boolean(propuesta.crearExpedientes) && colTramite !== undefined,
+      crearHistorial: Boolean(propuesta.crearHistorial) && colTramite !== undefined,
       crearFamilias: Boolean(propuesta.crearFamilias),
       regularizacion2026: Boolean((propuesta as { regularizacion2026?: boolean }).regularizacion2026),
       notas: Array.isArray(propuesta.notas) ? propuesta.notas.filter((n): n is string => typeof n === "string").slice(0, 8) : [],

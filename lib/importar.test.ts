@@ -14,34 +14,70 @@ const mapeo: Mapeo = {
   ],
   tramites: { "Arraigo social": "arraigo_social", "Renovación TIE": "renovacion_tie" },
   estados: { "Terminado": "FINALIZADO", "En trámite": "PRESENTADO" },
-  crearExpedientes: true,
+  crearHistorial: true,
   crearFamilias: true,
 };
 
-describe("regularización 2026 — caducidad = resolución + 1 año", () => {
+describe("regularización 2026 — caducidad DERIVADA = resolución + 1 año", () => {
   const base: Mapeo = {
     columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "fechaResolucion" }, { indice: 2, campo: "fechaCaducidad" }],
-    tramites: {}, estados: {}, crearExpedientes: false, crearFamilias: false,
+    tramites: {}, estados: {}, crearHistorial: false, crearFamilias: false,
   };
 
-  it("con el flag activo, la resolución genera la caducidad del año siguiente", () => {
+  it("con el flag activo, la resolución genera la caducidad derivada (no la explícita)", () => {
     const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], { ...base, regularizacion2026: true });
-    expect(f.fechaCaducidad).toBe("2027-08-15");
-  });
-
-  it("sin el flag, la fecha de resolución no inventa ninguna caducidad", () => {
-    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], base);
+    expect(f.caducidadDerivada).toBe("2027-08-15");
     expect(f.fechaCaducidad).toBe("");
   });
 
-  it("una caducidad explícita SIEMPRE gana sobre el cálculo", () => {
+  it("sin el flag y sin servicio, la fecha de resolución no inventa ninguna caducidad", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], base);
+    expect(f.fechaCaducidad).toBe("");
+    expect(f.caducidadDerivada).toBe("");
+  });
+
+  it("una caducidad explícita SIEMPRE gana: no se deriva nada", () => {
     const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", "01/03/2028"]], { ...base, regularizacion2026: true });
     expect(f.fechaCaducidad).toBe("2028-03-01");
+    expect(f.caducidadDerivada).toBe("");
   });
 
   it("masUnAno respeta el 29 de febrero (año no bisiesto → 1 de marzo)", () => {
     expect(masUnAno("2028-02-29")).toBe("2029-03-01");
     expect(masUnAno("no es fecha")).toBe("");
+  });
+});
+
+describe("caducidad derivada del servicio (Vigía estimada por validez legal)", () => {
+  const m: Mapeo = {
+    columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "tramite" }, { indice: 2, campo: "fechaResolucion" }],
+    tramites: { "Arraigo social": "arraigo_social", "Renovación": "renovacion_tie", "Nacionalidad": "nacionalidad" },
+    estados: {}, crearHistorial: true, crearFamilias: false,
+  };
+
+  it("arraigo social (12 meses) → caducidad al año siguiente; expone fechaResolucion", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "Arraigo social", "15/03/2026"]], m);
+    expect(f.servicio).toBe("arraigo_social");
+    expect(f.caducidadDerivada).toBe("2027-03-15");
+    expect(f.fechaResolucion).toBe("2026-03-15");
+  });
+
+  it("renovación de TIE (48 meses) → caducidad a 4 años", () => {
+    const [f] = aplicarMapeo([["Chen Wei", "Renovación", "10/06/2025"]], m);
+    expect(f.caducidadDerivada).toBe("2029-06-10");
+  });
+
+  it("nacionalidad no caduca → sin caducidad derivada", () => {
+    const [f] = aplicarMapeo([["José Ruiz", "Nacionalidad", "01/02/2024"]], m);
+    expect(f.servicio).toBe("nacionalidad");
+    expect(f.caducidadDerivada).toBe("");
+  });
+
+  it("una caducidad explícita gana sobre la derivada del servicio", () => {
+    const m2: Mapeo = { ...m, columnas: [...m.columnas, { indice: 3, campo: "fechaCaducidad" }] };
+    const [f] = aplicarMapeo([["Ana Pérez", "Arraigo social", "15/03/2026", "20/12/2028"]], m2);
+    expect(f.fechaCaducidad).toBe("2028-12-20");
+    expect(f.caducidadDerivada).toBe("");
   });
 });
 

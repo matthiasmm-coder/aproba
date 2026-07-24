@@ -22,7 +22,7 @@ type Analisis = {
 
 type Resultado = {
   clientesCreados: number; clientesActualizados: number; clientesOmitidos: number;
-  familias: number; expedientesCreados: number; expedientesOmitidos: number;
+  familias: number; serviciosCreados: number; serviciosOmitidos: number;
   vencimientos: number; avisos: string[];
 };
 
@@ -39,8 +39,8 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["codigoPostal", "Código postal"], ["municipio", "Municipio"], ["provincia", "Provincia"],
     ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha de resolución (regularización)"],
   ] },
-  { grupo: "Expediente", campos: [
-    ["tramite", "Trámite"], ["estado", "Estado"], ["referencia", "Referencia"], ["notas", "Notas"],
+  { grupo: "Servicio realizado", campos: [
+    ["tramite", "Trámite / servicio"], ["estado", "Estado (resultado)"], ["referencia", "Referencia"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
 ];
@@ -102,7 +102,7 @@ export function ImportarDatos() {
     const filas = aplicarMapeo(datos, mapeo);
     marcarDuplicadosInternos(filas);
     const conAviso = filas.filter((f) => f.avisos.length);
-    return { filas, total: filas.length, conAviso, expedientes: filas.filter((f) => f.servicio).length, caducidades: filas.filter((f) => f.fechaCaducidad).length };
+    return { filas, total: filas.length, conAviso, servicios: filas.filter((f) => f.servicio).length, caducidades: filas.filter((f) => f.fechaCaducidad || f.caducidadDerivada).length };
   }, [analisis, mapeo, paso]);
 
   const cabeceras = analisis ? (mapeo?.primeraFilaEsCabecera ? analisis.filas[0] ?? [] : []) : [];
@@ -224,8 +224,8 @@ export function ImportarDatos() {
 
           <div className="mt-4 flex flex-wrap gap-6">
             <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={mapeo.crearExpedientes} onChange={(e) => setMapeo({ ...mapeo, crearExpedientes: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
-              {t("Crear expedientes (histórico)")}
+              <input type="checkbox" checked={mapeo.crearHistorial} onChange={(e) => setMapeo({ ...mapeo, crearHistorial: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
+              {t("Registrar el historial de servicios")}
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mapeo.crearFamilias} onChange={(e) => setMapeo({ ...mapeo, crearFamilias: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
@@ -238,12 +238,12 @@ export function ImportarDatos() {
           <label className="mt-3 flex items-start gap-2 rounded-xl border border-aproba-200 bg-aproba-50 p-3 text-sm text-aproba-800">
             <input type="checkbox" checked={Boolean(mapeo.regularizacion2026)} onChange={(e) => setMapeo({ ...mapeo, regularizacion2026: e.target.checked })} className="mt-0.5 h-4 w-4 accent-aproba-600" />
             <span>
-              <span className="font-semibold">{t("Son expedientes de la regularización extraordinaria 2026")}</span>
+              <span className="font-semibold">{t("Son trámites de la regularización extraordinaria 2026")}</span>
               <span className="mt-0.5 block text-xs leading-relaxed text-aproba-700">{t("La autorización dura un año: calculamos la caducidad desde la fecha de resolución y Vigía te avisa de cada renovación.")}</span>
             </span>
           </label>
 
-          {mapeo.crearExpedientes && analisis.valoresTramite.length > 0 && (
+          {mapeo.crearHistorial && analisis.valoresTramite.length > 0 && (
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus trámites → tus servicios")}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -265,7 +265,7 @@ export function ImportarDatos() {
             </div>
           )}
 
-          {mapeo.crearExpedientes && analisis.valoresEstado.length > 0 && (
+          {mapeo.crearHistorial && analisis.valoresEstado.length > 0 && (
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus estados → estados de Aproba")}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -299,7 +299,7 @@ export function ImportarDatos() {
         <div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Chip n={previa.total} label={t("filas")} />
-            <Chip n={mapeo.crearExpedientes ? previa.expedientes : 0} label={t("expedientes")} />
+            <Chip n={mapeo.crearHistorial ? previa.servicios : 0} label={t("servicios")} />
             <Chip n={previa.caducidades} label={t("caducidades → Vigía")} />
             <Chip n={previa.conAviso.length} label={t("con avisos")} />
           </div>
@@ -323,8 +323,8 @@ export function ImportarDatos() {
                     <td className="px-3 py-2 font-medium text-slate-700">{`${f.ficha.nombre ?? ""} ${f.ficha.apellidos ?? ""}`.trim() || "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.ficha.numeroDocumento ?? f.ficha.pasaporte ?? "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.ficha.telefono ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{mapeo.crearExpedientes && f.servicio ? `${nombreServicio(f.servicio)} · ${f.estado}` : "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{f.fechaCaducidad || "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{mapeo.crearHistorial && f.servicio ? `${nombreServicio(f.servicio)} · ${f.estado}` : "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{f.fechaCaducidad || f.caducidadDerivada || "—"}</td>
                     <td className="px-3 py-2 text-slate-500">{f.familia || "—"}</td>
                   </tr>
                 ))}
@@ -342,7 +342,7 @@ export function ImportarDatos() {
             </div>
           )}
 
-          <p className="mt-4 text-xs text-slate-400">{t("Reimportar el mismo archivo no crea duplicados, y los expedientes migrados no consumen tu cuota mensual.")}</p>
+          <p className="mt-4 text-xs text-slate-400">{t("Reimportar el mismo archivo no crea duplicados, y los servicios migrados no consumen tu cuota mensual.")}</p>
 
           <div className="mt-4 flex gap-3">
             <button onClick={() => setPaso(2)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Atrás")}</button>
@@ -365,14 +365,14 @@ export function ImportarDatos() {
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Chip n={resultado.clientesCreados} label={t("clientes nuevos")} />
             <Chip n={resultado.clientesActualizados} label={t("completados")} />
-            <Chip n={resultado.expedientesCreados} label={t("expedientes")} />
+            <Chip n={resultado.serviciosCreados} label={t("servicios (histórico)")} />
             <Chip n={resultado.vencimientos} label={t("vencimientos Vigía")} />
           </div>
-          {(resultado.familias > 0 || resultado.expedientesOmitidos > 0 || resultado.clientesOmitidos > 0) && (
+          {(resultado.familias > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0) && (
             <p className="mt-3 text-sm text-slate-500">
               {resultado.familias > 0 && `${resultado.familias} ${t("familias")} · `}
               {resultado.clientesOmitidos > 0 && `${resultado.clientesOmitidos} ${t("clientes omitidos (duplicados)")} · `}
-              {resultado.expedientesOmitidos > 0 && `${resultado.expedientesOmitidos} ${t("expedientes ya existentes")}`}
+              {resultado.serviciosOmitidos > 0 && `${resultado.serviciosOmitidos} ${t("servicios ya en el historial")}`}
             </p>
           )}
           {resultado.avisos.length > 0 && (
@@ -382,8 +382,7 @@ export function ImportarDatos() {
           )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/app/clientes" className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Ver clientes")}</Link>
-            <Link href="/app/expedientes" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver expedientes")}</Link>
-            <Link href="/app/vencimientos" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver Vigía")}</Link>
+            <Link href="/app/vencimientos" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver Vigía (renovaciones)")}</Link>
           </div>
         </div>
       )}

@@ -13,20 +13,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const uuid = () => crypto.randomUUID();
 const esFaltaMigracion = (msg: string) => /relation .*Vencimiento.* does not exist|schema cache|column/i.test(msg);
 
-// Validez (meses) de la tarjeta que RESULTA de cada trámite (tipificación legal española,
-// v1 constante; v2: configurable por servicio). null = el trámite no produce tarjeta que caduque.
-export const MESES_VALIDEZ: Record<string, number | null> = {
-  ARRAIGO_SOCIAL: 12, // residencia inicial: 1 año
-  ARRAIGO_LABORAL: 12,
-  ARRAIGO_FAMILIAR: 12,
-  TIE: 12, // primera TIE genérica
-  REAGRUPACION: 12,
-  RENOVACION: 48, // renovación estándar: 4 años
-  RESIDENCIA_LARGA: 60, // larga duración: tarjeta cada 5 años
-  NACIONALIDAD: null, // no caduca
-  NIE: null, // el certificado NIE no se "renueva" como una TIE
-  OTRO: null,
-};
+// Validez legal (meses) de la tarjeta que resulta de cada trámite. Definición ÚNICA en
+// lib/validez.ts (módulo puro, compartido con el motor de importación que corre también en
+// el cliente). Se re-exporta aquí para los importadores existentes (avanzar/route.ts…).
+export { MESES_VALIDEZ } from "@/lib/validez";
 
 // Días de antelación con la que el cron avisa al gestor.
 export const DIAS_AVISO = 60;

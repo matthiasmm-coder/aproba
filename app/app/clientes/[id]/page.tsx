@@ -65,6 +65,32 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
     if (!eDs) docsSueltos = (ds ?? []) as unknown as DocSuelto[];
   } catch { /* tabla aún no migrada */ }
 
+  // Historial de servicios: trámites del PASADO (migrados o cerrados). Defensivo: [] si la
+  // tabla ServicioHistorico aún no está migrada. Se fusiona con los expedientes REALES para
+  // que la ficha cuente UNA sola historia, venga de una migración o de un expediente.
+  let historicos: { id: string; tipo: string; etiqueta: string | null; fecha: string | null; estado: string | null }[] = [];
+  try {
+    const { data: hs, error: eh } = await supabase
+      .from("ServicioHistorico")
+      .select("id, tipo, etiqueta, fecha, estado")
+      .eq("clienteId", id)
+      .order("fecha", { ascending: false });
+    if (!eh) historicos = (hs ?? []) as typeof historicos;
+  } catch { /* tabla aún no migrada */ }
+
+  const servicios = [
+    ...expedientes.map((e) => ({
+      id: e.id, href: `/app/expedientes/${e.id}` as string | undefined,
+      label: TIPO_LABEL[e.tipo] ?? e.tipo, sub: e.referencia, importado: false,
+      estado: e.estado, orden: new Date(e.createdAt).getTime() || 0,
+    })),
+    ...historicos.map((h) => ({
+      id: h.id, href: undefined as string | undefined,
+      label: h.etiqueta || TIPO_LABEL[h.tipo] || h.tipo, sub: fmtFechaCorta(h.fecha) ?? "—", importado: true,
+      estado: h.estado || "FINALIZADO", orden: h.fecha ? (new Date(h.fecha).getTime() || 0) : 0,
+    })),
+  ].sort((a, b) => b.orden - a.orden);
+
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/app/clientes" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
@@ -87,34 +113,41 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
             <EditarCliente clienteId={cliente.id} ficha={ficha} />
           </div>
           <div className="hidden gap-6 text-center sm:flex">
-            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{expedientes.length}</p><p className="text-xs text-slate-400">{t("expedientes")}</p></div>
+            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{servicios.length}</p><p className="text-xs text-slate-400">{t("servicios")}</p></div>
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
           </div>
         </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Expedientes */}
+        {/* Historial de servicios — expedientes reales + servicios migrados, una sola historia */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Expedientes")} ({expedientes.length})</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Historial de servicios")} ({servicios.length})</h2>
             <Link href="/app/expedientes/nuevo" className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nuevo")}</Link>
           </div>
           <div className="space-y-1">
-            {expedientes.map((e) => {
-              const meta = ESTADO_META[e.estado as keyof typeof ESTADO_META] ?? { ...ESTADO_FALLBACK, label: e.estado };
-              return (
-                <Link key={e.id} href={`/app/expedientes/${e.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-cream-50">
+            {servicios.map((s) => {
+              const meta = ESTADO_META[s.estado as keyof typeof ESTADO_META] ?? { ...ESTADO_FALLBACK, label: s.estado };
+              const cuerpo = (
+                <>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-800">{t(TIPO_LABEL[e.tipo] ?? e.tipo)}</p>
-                    <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
+                    <p className="truncate text-sm font-medium text-slate-800">{t(s.label)}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {s.importado ? <>{s.sub} · <span className="italic">{t("importado")}</span></> : <span className="font-mono">{s.sub}</span>}
+                    </p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-                </Link>
+                </>
+              );
+              return s.href ? (
+                <Link key={s.id} href={s.href} className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-cream-50">{cuerpo}</Link>
+              ) : (
+                <div key={s.id} className="flex items-center gap-3 rounded-lg px-2 py-2">{cuerpo}</div>
               );
             })}
-            {expedientes.length === 0 && <p className="px-2 text-sm text-slate-400">{t("Sin expedientes.")}</p>}
+            {servicios.length === 0 && <p className="px-2 text-sm text-slate-400">{t("Sin servicios.")}</p>}
           </div>
         </div>
 
