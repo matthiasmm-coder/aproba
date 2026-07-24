@@ -190,7 +190,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   // el ciclo real de Stripe y el toggle no se muestra).
   const eligeCiclo = puedeGestionar && billingDisponible && !tarjeta && !suscripcionStripe;
   const precioCiclo = (mensual: number) =>
-    eligeCiclo && intervalo === "anual" ? `${mensual * 10} ${t("€/año")}` : `${mensual} ${t("€/mes")}`;
+    eligeCiclo && intervalo === "anual" ? `${mensual * 10} ${t("€/año")} + IVA` : `${mensual} ${t("€/mes")} + IVA`;
 
   return (
     <div className="space-y-6">
