@@ -70,6 +70,8 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   // Facturation Stripe (checkout / portal)
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+  // Ciclo elegido para el checkout de «Añadir tarjeta» — el anual (2 meses gratis) también aquí, no solo en /onboarding/pago.
+  const [intervalo, setIntervalo] = useState<"mensual" | "anual">("mensual");
 
   // Résiliation (à la fin de période) / réactivation
   const [cancelAtEnd, setCancelAtEnd] = useState(inicial.cancelAtPeriodEnd);
@@ -98,7 +100,12 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   async function abrirBilling(endpoint: "checkout" | "portal") {
     setBillingError(null);
     setBillingBusy(true);
-    const res = await fetch(`/api/billing/${endpoint}`, { method: "POST" });
+    const res = await fetch(`/api/billing/${endpoint}`, {
+      method: "POST",
+      ...(endpoint === "checkout"
+        ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ intervalo }) }
+        : {}),
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.url) {
       setBillingBusy(false);
@@ -230,18 +237,35 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                 {billingBusy ? t("Abriendo…") : t("Gestionar facturación")}
               </button>
             ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={billingBusy}
-                  onClick={() => abrirBilling("checkout")}
-                  className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
-                >
-                  {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
-                </button>
-                <span className="text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</span>
-                <span className="text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</span>
-              </>
+              <div className="w-full">
+                <div className="mb-3 grid max-w-xs grid-cols-2 gap-2" role="radiogroup" aria-label={t("Ciclo de facturación")}>
+                  {([{ id: "mensual" as const, label: t("Mensual"), nota: null }, { id: "anual" as const, label: t("Anual"), nota: t("2 meses gratis") }]).map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={intervalo === o.id}
+                      onClick={() => setIntervalo(o.id)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${intervalo === o.id ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                    >
+                      {o.label}
+                      {o.nota && <span className={`block text-xs font-medium ${intervalo === o.id ? "text-aproba-600" : "text-slate-400"}`}>{o.nota}</span>}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={billingBusy}
+                    onClick={() => abrirBilling("checkout")}
+                    className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                  >
+                    {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
+                  </button>
+                  <span className="text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</span>
+                  <span className="text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</span>
+                </div>
+              </div>
             )}
             {billingError && <span className="text-sm text-red-600">{billingError}</span>}
           </div>
