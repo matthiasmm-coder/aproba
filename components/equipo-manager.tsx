@@ -245,8 +245,17 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                 {billingBusy ? t("Abriendo…") : t("Gestionar facturación")}
               </button>
             ) : (
-              <div className="w-full">
-                <div className="mb-3 grid max-w-xs grid-cols-2 gap-2" role="radiogroup" aria-label={t("Ciclo de facturación")}>
+              <div className="w-full text-center">
+                <button
+                  type="button"
+                  disabled={billingBusy}
+                  onClick={() => abrirBilling("checkout")}
+                  className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                >
+                  {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
+                </button>
+                <p className="mx-auto mt-2 max-w-md text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</p>
+                <div className="mx-auto mt-4 grid max-w-xs grid-cols-2 gap-2" role="radiogroup" aria-label={t("Ciclo de facturación")}>
                   {([{ id: "mensual" as const, label: t("Mensual"), nota: null }, { id: "anual" as const, label: t("Anual"), nota: t("2 meses gratis") }]).map((o) => (
                     <button
                       key={o.id}
@@ -261,21 +270,9 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                     </button>
                   ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={billingBusy}
-                    onClick={() => abrirBilling("checkout")}
-                    className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
-                  >
-                    {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
-                  </button>
-                  <span className="text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</span>
-                  <span className="text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</span>
-                </div>
               </div>
             )}
-            {billingError && <span className="text-sm text-red-600">{billingError}</span>}
+            {billingError && <span className="w-full text-center text-sm text-red-600">{billingError}</span>}
           </div>
         )}
 
@@ -310,7 +307,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
 
         {puedeGestionar && (
           <div className="mt-4 border-t border-slate-200 pt-4">
-            <p className="text-xs font-medium text-slate-500">{t("Cambiar de plan")}</p>
+            <p className="text-xs font-medium text-slate-500">{t("Elegir plan")}</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               {PLAN_IDS.map((id) => {
                 const p = PLANES[id];
@@ -354,6 +351,11 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
               </div>
             )}
             {planError && <p className="mt-2 text-sm text-red-600">{planError}</p>}
+
+            {/* Recordatorio del código promo, al pie — solo cuando hay checkout por delante. */}
+            {eligeCiclo && (
+              <p className="mt-4 text-center text-xs text-aproba-700">{t("¿Tienes un código promocional? Podrás introducirlo en la página de pago.")}</p>
+            )}
           </div>
         )}
       </div>

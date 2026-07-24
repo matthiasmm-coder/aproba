@@ -515,7 +515,7 @@ export const CA: Record<string, string> = {
   "Sí, cancelar": "Sí, cancel·lar",
   "Volver": "Tornar",
   "Cancelar suscripción": "Cancel·lar subscripció",
-  "Cambiar de plan": "Canviar de pla",
+  "Elegir plan": "Triar pla",
   "Tu equipo tiene": "El teu equip té",
   "usuarios; este plan permite": "usuaris; aquest pla permet",
   "∞ usuarios": "∞ usuaris",
