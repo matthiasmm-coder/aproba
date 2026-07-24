@@ -254,7 +254,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                 >
                   {billingBusy ? t("Abriendo…") : t("Añadir tarjeta de pago")}
                 </button>
-                <p className="mx-auto mt-2 max-w-md text-xs text-slate-400">{t("Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.")}</p>
+                <p className="mx-auto mt-2 text-xs text-slate-400">{t("Tu suscripción se activará al añadir una tarjeta de pago. No se cobra hasta el final de la prueba.")}</p>
                 <div className="mx-auto mt-4 grid max-w-xs grid-cols-2 gap-2" role="radiogroup" aria-label={t("Ciclo de facturación")}>
                   {([{ id: "mensual" as const, label: t("Mensual"), nota: null }, { id: "anual" as const, label: t("Anual"), nota: t("2 meses gratis") }]).map((o) => (
                     <button

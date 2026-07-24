@@ -503,7 +503,7 @@ export const CA: Record<string, string> = {
   "Cambiar tarjeta": "Canviar targeta",
   "Gestionar facturación": "Gestionar la facturació",
   "Añadir tarjeta de pago": "Afegir targeta de pagament",
-  "Sin tarjeta registrada. Tu suscripción se activará al añadir una — no se cobra hasta el final de la prueba.": "Sense targeta registrada. La teva subscripció s'activarà en afegir-ne una — no es cobra fins al final de la prova.",
+  "Tu suscripción se activará al añadir una tarjeta de pago. No se cobra hasta el final de la prueba.": "La teva subscripció s'activarà en afegir una targeta de pagament. No es cobra fins al final de la prova.",
   "Tu suscripción se cancelará": "La teva subscripció es cancel·larà",
   "el": "el",
   "al final del periodo": "al final del període",
