@@ -6,7 +6,7 @@
 
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { normalizarFechaCsv } from "@/lib/csv-clientes";
-import { caducidadEstimada } from "@/lib/validez";
+import { MESES_VALIDEZ, sumarMeses } from "@/lib/validez";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
@@ -23,27 +23,25 @@ export type Mapeo = {
   columnas: MapeoColumna[];
   // Valores libres de la columna «tramite» → clave de servicio del catálogo (o null = sin servicio).
   tramites: Record<string, string | null>;
+  // Validez legal (MESES) de la tarjeta que produce CADA trámite → de ahí sale la renovación.
+  // Se decide POR TRÁMITE, no con un interruptor global: la IA la propone según la naturaleza
+  // del trámite (arraigo 12, renovación 48, larga duración 60, regularización 2026 12,
+  // nacionalidad/NIE null = no caduca) y el gestor la ajusta. `null` = no genera vencimiento.
+  // Clave ausente → repli sobre la validez legal del servicio mapeado del catálogo.
+  validezMeses: Record<string, number | null>;
   // Valores libres de la columna «estado» → EstadoExpediente (resultado informativo del servicio).
   estados: Record<string, string>;
   // Registrar el trámite en el HISTORIAL de servicios del cliente (NO crea expediente).
   crearHistorial: boolean;
   crearFamilias: boolean;
-  // Regularización extraordinaria 2026 (RD 316/2026): la autorización dura UN AÑO desde
-  // la resolución. Con este flag, una columna «fecha de resolución» genera la caducidad
-  // (resolución + 1 año) y, con ella, el aviso de renovación en Vigía. Es LA razón por la
-  // que un despacho quiere meter aquí su lista: ~600.000 títulos caducan a la vez en 2027.
-  regularizacion2026?: boolean;
 };
 
-// Fecha ISO + 1 año (mismo día). Devuelve "" si la entrada no es una fecha ISO válida.
-export function masUnAno(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
-  if (!m) return "";
-  const [, y, mo, d] = m;
-  const dt = new Date(Date.UTC(+y + 1, +mo - 1, +d));
-  if (Number.isNaN(dt.getTime())) return "";
-  return dt.toISOString().slice(0, 10);
-}
+// Correcciones del gestor en la pantalla de revisión (por índice de fila de datos).
+export type OverrideFila = {
+  nombre?: string; apellidos?: string; telefono?: string; email?: string;
+  caducidad?: string;   // ISO — el gestor manda: fija la caducidad efectiva ("" = ninguna)
+  excluir?: boolean;    // no importar esta fila
+};
 
 export const ESTADOS_EXPEDIENTE = [
   "BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS", "FORM_GENERADO",
@@ -127,10 +125,12 @@ export type FilaImportada = {
   familia: string;             // clave de agrupación libre ("" = sin familia)
   parentesco: string;
   referencia: string;
+  tramite: string;             // valor libre del archivo («Arraigo social», «Regularización DA 21»…)
   servicio: string | null;     // clave del catálogo (null = sin servicio en el historial)
   estado: string;              // EstadoExpediente (resultado del servicio)
   notas: string;
   importe: number | null;      // importe facturado en el pasado (info; NO genera factura)
+  excluir: boolean;            // el gestor la descartó en la revisión
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
 };
 
@@ -140,7 +140,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", servicio: null, estado: "", notas: "", importe: null, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, excluir: false, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -190,18 +190,19 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
     if (out.servicio && !out.estado) out.estado = "FINALIZADO";
 
     // ── Caducidad DERIVADA (Vigía ESTIMADA) — solo si NO hay caducidad explícita ──
-    // «De la fecha del servicio se deduce la renovación»: la tarjeta que produce el trámite
-    // dura MESES_VALIDEZ[tipo] → caducidad = resolución + esa validez. Nacionalidad/NIE
-    // (validez null) no generan vencimiento, correctamente.
+    // «De la naturaleza del trámite y de su fecha se deduce la renovación»: la tarjeta que
+    // produce ESE trámite dura N meses → caducidad = resolución + N. La validez viene, por
+    // orden: (1) la propuesta POR TRÁMITE (IA + gestor), (2) la validez legal del servicio
+    // del catálogo. `null` = no caduca (nacionalidad, NIE…) → ningún vencimiento.
+    out.tramite = tramiteBruto;
     out.fechaResolucion = resolucion;
     if (!out.fechaCaducidad && resolucion) {
-      if (out.servicio) {
-        const cad = caducidadEstimada(SERVICIO_A_TIPO[out.servicio] ?? "OTRO", resolucion);
-        if (cad) out.caducidadDerivada = cad;
-      }
-      // Regularización extraordinaria 2026: autorización de 1 año aunque el servicio no esté mapeado.
-      if (!out.caducidadDerivada && mapeo.regularizacion2026) {
-        const cad = masUnAno(resolucion);
+      const propuesta = tramiteBruto ? mapeo.validezMeses?.[tramiteBruto] : undefined;
+      const meses = propuesta !== undefined
+        ? propuesta
+        : (out.servicio ? MESES_VALIDEZ[SERVICIO_A_TIPO[out.servicio] ?? "OTRO"] ?? null : null);
+      if (meses) {
+        const cad = sumarMeses(resolucion, meses);
         if (cad) out.caducidadDerivada = cad;
       }
     }
@@ -211,6 +212,27 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
     if (!ficha.nombre?.trim()) out.avisos.push("Fila sin nombre");
     return out;
   });
+}
+
+// Correcciones del gestor (pantalla de revisión) aplicadas DESPUÉS del mapeo. Puro: lo usan
+// igual la vista previa (cliente) y el import (servidor, que es la autoridad — nunca se fía
+// de los valores ya calculados por el navegador, solo de estas correcciones explícitas).
+export function aplicarOverrides(filas: FilaImportada[], overrides?: Record<number, OverrideFila> | null): void {
+  if (!overrides) return;
+  for (const [k, ov] of Object.entries(overrides)) {
+    const f = filas[Number(k)];
+    if (!f || !ov) continue;
+    if (typeof ov.nombre === "string") f.ficha.nombre = limpiarEspacios(ov.nombre);
+    if (typeof ov.apellidos === "string") f.ficha.apellidos = limpiarEspacios(ov.apellidos) || undefined;
+    if (typeof ov.telefono === "string") f.ficha.telefono = ov.telefono.trim() ? normalizarTelefono(ov.telefono) : undefined;
+    if (typeof ov.email === "string") f.ficha.email = ov.email.trim() || undefined;
+    if (typeof ov.caducidad === "string") {
+      // Una fecha escrita por el gestor es REAL (manda sobre la estimada); vacía = sin vencimiento.
+      f.fechaCaducidad = normalizarFechaCsv(ov.caducidad);
+      f.caducidadDerivada = "";
+    }
+    if (ov.excluir) f.excluir = true;
+  }
 }
 
 // Duplicados DENTRO del archivo (por NIE/pasaporte/email) — el upsert cubre los de la base.

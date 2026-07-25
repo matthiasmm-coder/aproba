@@ -5,7 +5,7 @@ import { sembrarVencimiento } from "@/lib/vencimientos";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { FICHA_KEYS } from "@/lib/ficha";
-import { aplicarMapeo, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, type Mapeo, type FilaImportada } from "@/lib/importar";
+import { aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, type Mapeo, type OverrideFila, type FilaImportada } from "@/lib/importar";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (!mem?.workspaceId) return NextResponse.json({ error: "Sin despacho." }, { status: 403 });
   const workspaceId = mem.workspaceId as string;
 
-  let body: { filas?: unknown; mapeo?: Mapeo; primeraFilaEsCabecera?: boolean };
+  let body: { filas?: unknown; mapeo?: Mapeo; primeraFilaEsCabecera?: boolean; overrides?: Record<number, OverrideFila> };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const brutas = Array.isArray(body.filas) ? (body.filas as string[][]).slice(0, MAX_FILAS + 1) : [];
   const mapeo = body.mapeo;
@@ -51,10 +51,19 @@ export async function POST(req: Request) {
   const catalogoLabel = new Map(serviciosWs.map((s) => [s.id, s.label] as const));
   for (const [k, v] of Object.entries(mapeo.tramites ?? {})) if (v && !catalogo.has(v)) mapeo.tramites[k] = null;
   for (const [k, v] of Object.entries(mapeo.estados ?? {})) if (!(ESTADOS_EXPEDIENTE as readonly string[]).includes(v)) delete mapeo.estados[k];
+  // Validez por trámite: solo meses plausibles (1-240) o null («no caduca»). Nunca se fía del cliente.
+  const validez: Record<string, number | null> = {};
+  for (const [k, v] of Object.entries(mapeo.validezMeses ?? {})) {
+    if (v === null) { validez[k] = null; continue; }
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0 && n <= 240) validez[k] = Math.round(n);
+  }
+  mapeo.validezMeses = validez;
 
   const datos = body.primeraFilaEsCabecera === false ? brutas : brutas.slice(1);
   const filas = aplicarMapeo(datos.map((f) => f.map((c) => String(c ?? ""))), mapeo);
   marcarDuplicadosInternos(filas);
+  aplicarOverrides(filas, body.overrides); // correcciones del gestor en la revisión
 
   // ── Clientes existentes del despacho (match en memoria: 1 select, no N) ──
   const { data: existentes } = await admin
@@ -108,6 +117,7 @@ export async function POST(req: Request) {
   const titularDeFamilia = new Set<string>();
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
+    if (f.excluir) { r.clientesOmitidos++; continue; } // descartada por el gestor en la revisión
     if (!f.ficha.nombre?.trim()) { r.clientesOmitidos++; continue; }
     if (f.avisos.some((a) => a.startsWith("Duplicado en el archivo"))) { r.clientesOmitidos++; continue; }
     const nie = f.ficha.numeroDocumento?.toUpperCase();

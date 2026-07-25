@@ -138,9 +138,13 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
                 <>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-800">{t(s.label)}</p>
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+                      <span className="truncate">{t(s.label)}</span>
+                      {/* Servicio prestado ANTES de usar Aproba (traído por la migración) */}
+                      {s.importado && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("Pre-migración")}</span>}
+                    </p>
                     <p className="truncate text-xs text-slate-400">
-                      {s.importado ? <>{s.sub} · <span className="italic">{t("importado")}</span></> : <span className="font-mono">{s.sub}</span>}
+                      {s.importado ? s.sub : <span className="font-mono">{s.sub}</span>}
                     </p>
                   </div>
                   {s.importe != null && <span className="shrink-0 text-xs font-semibold text-slate-600">{eur(s.importe)}</span>}

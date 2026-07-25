@@ -3,11 +3,14 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
-import { aplicarMapeo, marcarDuplicadosInternos, TODOS_LOS_CAMPOS, ESTADOS_EXPEDIENTE, type CampoImport, type Mapeo } from "@/lib/importar";
+import {
+  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE,
+  type CampoImport, type Mapeo, type OverrideFila, type FilaImportada,
+} from "@/lib/importar";
 
-// Asistente de migración: cualquier Excel/CSV (o texto pegado) → la IA propone el
-// mapeo → el gestor lo valida → import idempotente. Las 4 realidades del mercado
-// (Excel casero, exports de MN Program/Sudespacho, listas) entran por AQUÍ.
+// Asistente de migración: cualquier Excel/CSV (o texto pegado) → la IA propone el mapeo y,
+// para CADA trámite, cuánto dura la tarjeta que produce (de ahí sale la renovación) → el
+// gestor revisa cliente por cliente, corrige lo que quiera y valida TODO de una vez.
 
 type Analisis = {
   hojas: { nombre: string; filas: number }[];
@@ -37,13 +40,21 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["nombrePadre", "Nombre del padre"], ["nombreMadre", "Nombre de la madre"],
     ["via", "Domicilio (calle)"], ["numeroVia", "Número"], ["piso", "Piso / puerta"],
     ["codigoPostal", "Código postal"], ["municipio", "Municipio"], ["provincia", "Provincia"],
-    ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha de resolución (regularización)"],
+    ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha del trámite / resolución"],
   ] },
   { grupo: "Servicio realizado", campos: [
     ["tramite", "Trámite / servicio"], ["importe", "Importe cobrado (histórico)"], ["estado", "Estado (resultado)"], ["referencia", "Referencia"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
 ];
+
+// Opciones de validez (meses) de la tarjeta que produce un trámite.
+const VALIDEZ_OPCIONES: [number, string][] = [[12, "1 año"], [24, "2 años"], [36, "3 años"], [48, "4 años"], [60, "5 años"]];
+
+const fmtFecha = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+};
 
 export function ImportarDatos() {
   const t = useT();
@@ -54,11 +65,14 @@ export function ImportarDatos() {
   const [analizando, setAnalizando] = useState(false);
   const [analisis, setAnalisis] = useState<Analisis | null>(null);
   const [mapeo, setMapeo] = useState<(Mapeo & { primeraFilaEsCabecera: boolean }) | null>(null);
+  const [overrides, setOverrides] = useState<Record<number, OverrideFila>>({});
   const [paso, setPaso] = useState(1);
   const [ejecutando, setEjecutando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verNotas, setVerNotas] = useState(false);
+  const [verAvanzado, setVerAvanzado] = useState(false);
+  const [visibles, setVisibles] = useState(20);
 
   async function analizar(hoja?: string) {
     if (!archivo && !texto.trim()) return;
@@ -73,6 +87,7 @@ export function ImportarDatos() {
       if (!res.ok) throw new Error(d.error ?? t("No se pudo analizar el archivo."));
       setAnalisis(d);
       setMapeo({ ...d.propuesta });
+      setOverrides({});
       setPaso(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo analizar el archivo."));
@@ -85,7 +100,7 @@ export function ImportarDatos() {
     try {
       const res = await fetch("/api/importar/ejecutar", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filas: analisis.filas, mapeo, primeraFilaEsCabecera: mapeo.primeraFilaEsCabecera }),
+        body: JSON.stringify({ filas: analisis.filas, mapeo, primeraFilaEsCabecera: mapeo.primeraFilaEsCabecera, overrides }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? t("No se pudo importar."));
@@ -96,19 +111,30 @@ export function ImportarDatos() {
     } finally { setEjecutando(false); }
   }
 
-  // Vista previa local con el MISMO motor determinista que ejecuta el servidor.
+  // Vista previa local con el MISMO motor determinista que ejecuta el servidor
+  // (mapeo → duplicados → correcciones del gestor).
   const previa = useMemo(() => {
     if (!analisis || !mapeo || paso !== 3) return null;
     const datos = mapeo.primeraFilaEsCabecera ? analisis.filas.slice(1) : analisis.filas;
     const filas = aplicarMapeo(datos, mapeo);
     marcarDuplicadosInternos(filas);
-    const conAviso = filas.filter((f) => f.avisos.length);
-    return { filas, total: filas.length, conAviso, servicios: filas.filter((f) => f.servicio).length, caducidades: filas.filter((f) => f.fechaCaducidad || f.caducidadDerivada).length };
-  }, [analisis, mapeo, paso]);
+    aplicarOverrides(filas, overrides);
+    const entra = (f: FilaImportada) => !f.excluir && Boolean(f.ficha.nombre?.trim()) && !f.avisos.some((a) => a.startsWith("Duplicado en el archivo"));
+    const activas = filas.filter(entra);
+    return {
+      filas,
+      entra,
+      clientes: activas.length,
+      descartadas: filas.length - activas.length,
+      servicios: mapeo.crearHistorial ? activas.filter((f) => f.servicio).length : 0,
+      renovaciones: activas.filter((f) => f.fechaCaducidad || f.caducidadDerivada).length,
+    };
+  }, [analisis, mapeo, paso, overrides]);
 
   const cabeceras = analisis ? (mapeo?.primeraFilaEsCabecera ? analisis.filas[0] ?? [] : []) : [];
   const primeraFilaDatos = analisis ? (mapeo?.primeraFilaEsCabecera ? analisis.filas[1] : analisis.filas[0]) ?? [] : [];
   const nombreServicio = (clave: string | null) => analisis?.catalogo.find((c) => c.clave === clave)?.nombre ?? clave ?? "—";
+  const setOv = (i: number, patch: OverrideFila) => setOverrides((o) => ({ ...o, [i]: { ...o[i], ...patch } }));
 
   const Chip = ({ n, label }: { n: number; label: string }) => (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center">
@@ -116,6 +142,8 @@ export function ImportarDatos() {
       <p className="mt-0.5 text-xs text-slate-500">{label}</p>
     </div>
   );
+
+  const nMapeadas = mapeo?.columnas.filter((c) => c.campo).length ?? 0;
 
   return (
     <div className="max-w-4xl">
@@ -166,7 +194,7 @@ export function ImportarDatos() {
         </div>
       )}
 
-      {/* Paso 2 · Mapeo */}
+      {/* Paso 2 · Qué se importa (lo esencial arriba, el detalle plegado) */}
       {paso === 2 && analisis && mapeo && (
         <div>
           {analisis.hojas.length > 1 && (
@@ -178,156 +206,232 @@ export function ImportarDatos() {
               {analizando && <span className="text-xs text-slate-400">{t("Analizando…")}</span>}
             </div>
           )}
-          {analisis.propuesta.notas.length > 0 && (
-            <div className="mb-4 rounded-xl border border-aproba-200 bg-aproba-50 px-3 py-2.5 text-sm text-aproba-800">
-              <button type="button" onClick={() => setVerNotas((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left font-medium">
-                <span>{t("La IA revisó tu archivo")} · {analisis.propuesta.notas.length} {t("observaciones")}</span>
-                <svg className={`h-4 w-4 shrink-0 transition ${verNotas ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-              </button>
-              {verNotas && <div className="mt-2 space-y-1 border-t border-aproba-200 pt-2 text-xs leading-relaxed">{analisis.propuesta.notas.map((n, i) => <p key={i}>· {n}</p>)}</div>}
+
+          <div className="rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
+            <p className="text-sm font-semibold text-aproba-800">
+              ✓ {t("La IA ha entendido tu archivo")} — {nMapeadas} {t("columnas reconocidas")}
+            </p>
+            <p className="mt-0.5 text-xs text-aproba-700">{t("Revisa abajo las renovaciones y confirma. Podrás corregir cliente por cliente en el siguiente paso.")}</p>
+          </div>
+
+          {/* Lo único que de verdad decide el gestor: qué es cada trámite y cuánto dura */}
+          {mapeo.crearHistorial && analisis.valoresTramite.length > 0 && (
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus trámites")}</p>
+              <p className="mt-1 text-xs text-slate-400">{t("La renovación de cada cliente sale de aquí: la IA ha deducido cuánto dura la tarjeta que produce cada trámite.")}</p>
+              <div className="mt-2 space-y-2">
+                {analisis.valoresTramite.map((v) => (
+                  <div key={v} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700" title={v}>{v}</span>
+                    <select
+                      value={mapeo.tramites[v] ?? ""}
+                      onChange={(e) => setMapeo({ ...mapeo, tramites: { ...mapeo.tramites, [v]: e.target.value || null } })}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+                    >
+                      <option value="">{t("— Sin servicio del catálogo —")}</option>
+                      {analisis.catalogo.map((s) => <option key={s.clave} value={s.clave}>{s.nombre}</option>)}
+                    </select>
+                    <span className="text-xs text-slate-400">{t("renueva a los")}</span>
+                    <select
+                      value={mapeo.validezMeses?.[v] == null ? "" : String(mapeo.validezMeses[v])}
+                      onChange={(e) => setMapeo({ ...mapeo, validezMeses: { ...mapeo.validezMeses, [v]: e.target.value ? Number(e.target.value) : null } })}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+                    >
+                      <option value="">{t("No caduca")}</option>
+                      {[...VALIDEZ_OPCIONES, ...(mapeo.validezMeses?.[v] && !VALIDEZ_OPCIONES.some(([m]) => m === mapeo.validezMeses[v]) ? [[mapeo.validezMeses[v] as number, `${mapeo.validezMeses[v]} ${t("meses")}`] as [number, string]] : [])]
+                        .map(([m, l]) => <option key={m} value={m}>{t(l)}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-
-          <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={mapeo.primeraFilaEsCabecera} onChange={(e) => setMapeo({ ...mapeo, primeraFilaEsCabecera: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
-            {t("La primera fila son títulos de columna")}
-          </label>
-
-          <MapeoColumnas
-            columnas={mapeo.columnas}
-            cabeceras={cabeceras}
-            ejemplos={primeraFilaDatos}
-            t={t}
-            onChange={(indice, campo) => setMapeo({ ...mapeo, columnas: mapeo.columnas.map((x) => x.indice === indice ? { ...x, campo } : x) })}
-          />
 
           <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Qué se importa")}</p>
           <div className="mt-2 flex flex-wrap gap-6">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mapeo.crearHistorial} onChange={(e) => setMapeo({ ...mapeo, crearHistorial: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
-              {t("Registrar el historial de servicios")}
+              {t("Historial de servicios")}
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mapeo.crearFamilias} onChange={(e) => setMapeo({ ...mapeo, crearFamilias: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Crear familias")}
             </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={mapeo.primeraFilaEsCabecera} onChange={(e) => setMapeo({ ...mapeo, primeraFilaEsCabecera: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
+              {t("La primera fila son títulos")}
+            </label>
           </div>
 
-          {/* Regularización extraordinaria 2026: la autorización dura 1 año → la caducidad
-              (y el aviso de renovación) sale de la fecha de resolución. */}
-          <label className="mt-3 flex items-start gap-2 rounded-xl border border-aproba-200 bg-aproba-50 p-3 text-sm text-aproba-800">
-            <input type="checkbox" checked={Boolean(mapeo.regularizacion2026)} onChange={(e) => setMapeo({ ...mapeo, regularizacion2026: e.target.checked })} className="mt-0.5 h-4 w-4 accent-aproba-600" />
-            <span>
-              <span className="font-semibold">{t("Son trámites de la regularización extraordinaria 2026")}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-aproba-700">{t("La autorización dura un año: calculamos la caducidad desde la fecha de resolución y Vigía te avisa de cada renovación.")}</span>
-            </span>
-          </label>
-
-          {mapeo.crearHistorial && analisis.valoresTramite.length > 0 && (
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus trámites → tus servicios")}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {analisis.valoresTramite.map((v) => (
-                  <div key={v} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                    <span className="min-w-0 flex-1 truncate text-slate-700" title={v}>{v}</span>
-                    <span className="text-slate-300">→</span>
-                    <select
-                      value={mapeo.tramites[v] ?? ""}
-                      onChange={(e) => setMapeo({ ...mapeo, tramites: { ...mapeo.tramites, [v]: e.target.value || null } })}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600"
-                    >
-                      <option value="">{t("— Sin expediente —")}</option>
-                      {analisis.catalogo.map((s) => <option key={s.clave} value={s.clave}>{s.nombre}</option>)}
-                    </select>
+          {/* Detalle: correspondencias de columnas y estados — plegado (rara vez hace falta) */}
+          <div className="mt-6">
+            <button type="button" onClick={() => setVerAvanzado((v) => !v)} className="text-sm font-medium text-slate-500 hover:text-slate-700">
+              {verAvanzado ? "▾ " : "▸ "}{t("Ver las correspondencias de columnas")}
+            </button>
+            {verAvanzado && (
+              <div className="mt-3">
+                {analisis.propuesta.notas.length > 0 && (
+                  <div className="mb-3 rounded-xl border border-slate-200 bg-cream-50 px-3 py-2.5 text-sm text-slate-700">
+                    <button type="button" onClick={() => setVerNotas((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left font-medium">
+                      <span>{t("Observaciones de la IA")} · {analisis.propuesta.notas.length}</span>
+                      <svg className={`h-4 w-4 shrink-0 transition ${verNotas ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                    {verNotas && <div className="mt-2 space-y-1 border-t border-slate-200 pt-2 text-xs leading-relaxed">{analisis.propuesta.notas.map((n, i) => <p key={i}>· {n}</p>)}</div>}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {mapeo.crearHistorial && analisis.valoresEstado.length > 0 && (
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus estados → estados de Aproba")}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {analisis.valoresEstado.map((v) => (
-                  <div key={v} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                    <span className="min-w-0 flex-1 truncate text-slate-700" title={v}>{v}</span>
-                    <span className="text-slate-300">→</span>
-                    <select
-                      value={mapeo.estados[v] ?? ""}
-                      onChange={(e) => setMapeo({ ...mapeo, estados: { ...mapeo.estados, [v]: e.target.value } })}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600"
-                    >
-                      <option value="">FINALIZADO</option>
-                      {ESTADOS_EXPEDIENTE.map((e2) => <option key={e2} value={e2}>{e2}</option>)}
-                    </select>
+                )}
+                <MapeoColumnas
+                  columnas={mapeo.columnas}
+                  cabeceras={cabeceras}
+                  ejemplos={primeraFilaDatos}
+                  t={t}
+                  onChange={(indice, campo) => setMapeo({ ...mapeo, columnas: mapeo.columnas.map((x) => x.indice === indice ? { ...x, campo } : x) })}
+                />
+                {mapeo.crearHistorial && analisis.valoresEstado.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus estados → estados de Aproba")}</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {analisis.valoresEstado.map((v) => (
+                        <div key={v} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                          <span className="min-w-0 flex-1 truncate text-slate-700" title={v}>{v}</span>
+                          <span className="text-slate-300">→</span>
+                          <select
+                            value={mapeo.estados[v] ?? ""}
+                            onChange={(e) => setMapeo({ ...mapeo, estados: { ...mapeo.estados, [v]: e.target.value } })}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600"
+                          >
+                            <option value="">FINALIZADO</option>
+                            {ESTADOS_EXPEDIENTE.map((e2) => <option key={e2} value={e2}>{e2}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="mt-6 flex gap-3">
             <button onClick={() => setPaso(1)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Atrás")}</button>
-            <button onClick={() => setPaso(3)} className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Revisar antes de importar")}</button>
+            <button onClick={() => { setVisibles(20); setPaso(3); }} className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Revisar clientes")}</button>
           </div>
         </div>
       )}
 
-      {/* Paso 3 · Revisión */}
+      {/* Paso 3 · Revisión cliente por cliente (editable) */}
       {paso === 3 && analisis && mapeo && previa && (
         <div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Chip n={previa.total} label={t("filas")} />
-            <Chip n={mapeo.crearHistorial ? previa.servicios : 0} label={t("servicios")} />
-            <Chip n={previa.caducidades} label={t("caducidades → Vigía")} />
-            <Chip n={previa.conAviso.length} label={t("con avisos")} />
+            <Chip n={previa.clientes} label={t("clientes")} />
+            <Chip n={previa.servicios} label={t("servicios")} />
+            <Chip n={previa.renovaciones} label={t("renovaciones → Vigía")} />
+            <Chip n={previa.descartadas} label={t("descartadas")} />
           </div>
           {analisis.truncado && <p className="mt-2 text-xs text-amber-600">{t("El archivo supera 1500 filas: se importan las 1500 primeras. Repite con el resto.")}</p>}
+          <p className="mt-3 text-sm text-slate-500">{t("Revisa y corrige lo que haga falta. Lo que dejes vacío lo completará el cliente desde su enlace.")}</p>
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-3 py-2">{t("Nombre")}</th>
-                  <th className="px-3 py-2">{t("Documento")}</th>
-                  <th className="px-3 py-2">{t("Teléfono")}</th>
-                  <th className="px-3 py-2">{t("Trámite")}</th>
-                  <th className="px-3 py-2">{t("Caducidad")}</th>
-                  <th className="px-3 py-2">{t("Familia")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previa.filas.slice(0, 8).map((f, i) => (
-                  <tr key={i} className="border-b border-slate-50">
-                    <td className="px-3 py-2 font-medium text-slate-700">{`${f.ficha.nombre ?? ""} ${f.ficha.apellidos ?? ""}`.trim() || "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{f.ficha.numeroDocumento ?? f.ficha.pasaporte ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{f.ficha.telefono ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{mapeo.crearHistorial && f.servicio ? `${nombreServicio(f.servicio)} · ${f.estado}${f.importe != null ? ` · ${f.importe}€` : ""}` : "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{f.fechaCaducidad || f.caducidadDerivada || "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{f.familia || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-4 space-y-3">
+            {previa.filas.slice(0, visibles).map((f, i) => {
+              const dup = f.avisos.find((a) => a.startsWith("Duplicado en el archivo"));
+              const sinNombre = !f.ficha.nombre?.trim();
+              const dentro = previa.entra(f);
+              const cad = f.fechaCaducidad || f.caducidadDerivada;
+              const fuente = f.fechaCaducidad ? (overrides[i]?.caducidad !== undefined ? t("editada") : t("del archivo")) : f.caducidadDerivada ? t("estimada del servicio") : "";
+              return (
+                <div key={i} className={`rounded-xl border p-4 ${dentro ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50"}`}>
+                  <div className="flex flex-wrap items-start gap-2">
+                    <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                      <input
+                        value={f.ficha.nombre ?? ""}
+                        onChange={(e) => setOv(i, { nombre: e.target.value })}
+                        placeholder={t("Nombre")}
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
+                      />
+                      <input
+                        value={f.ficha.apellidos ?? ""}
+                        onChange={(e) => setOv(i, { apellidos: e.target.value })}
+                        placeholder={t("Apellidos")}
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setOv(i, { excluir: !f.excluir })}
+                      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${f.excluir ? "border-aproba-300 text-aproba-700 hover:bg-aproba-50" : "border-slate-300 text-slate-500 hover:border-red-300 hover:text-red-600"}`}
+                    >
+                      {f.excluir ? t("Recuperar") : t("No importar")}
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    {(f.ficha.numeroDocumento || f.ficha.pasaporte) && <span className="font-mono">{f.ficha.numeroDocumento ?? f.ficha.pasaporte}</span>}
+                    {f.ficha.nacionalidad && <span>{f.ficha.nacionalidad}</span>}
+                    {f.ficha.fechaNacimiento && <span>{t("nac.")} {fmtFecha(f.ficha.fechaNacimiento)}</span>}
+                    {f.familia && <span className="rounded-full bg-slate-100 px-2 py-0.5">{f.familia}{f.parentesco ? ` · ${f.parentesco.toLowerCase()}` : ""}</span>}
+                    {dup && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">{t("duplicado — no se importa")}</span>}
+                    {sinNombre && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{t("sin nombre — no se importa")}</span>}
+                  </div>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <input
+                      value={f.ficha.telefono ?? ""}
+                      onChange={(e) => setOv(i, { telefono: e.target.value })}
+                      placeholder={t("Teléfono")}
+                      inputMode="tel"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                    />
+                    <input
+                      value={f.ficha.email ?? ""}
+                      onChange={(e) => setOv(i, { email: e.target.value })}
+                      placeholder={t("Email")}
+                      inputMode="email"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                    />
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div className="min-w-0 text-sm">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">{t("Servicio realizado")}</p>
+                      <p className="truncate text-slate-700">
+                        {f.servicio ? nombreServicio(f.servicio) : (f.tramite || "—")}
+                        {f.fechaResolucion && <span className="text-slate-400"> · {fmtFecha(f.fechaResolucion)}</span>}
+                        {f.importe != null && <span className="font-medium text-slate-600"> · {f.importe} €</span>}
+                        {!f.servicio && f.tramite && <span className="text-amber-600"> · {t("sin servicio del catálogo")}</span>}
+                      </p>
+                    </div>
+                    <div className="text-sm">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">{t("Renovación (Vigía)")}</p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={cad}
+                          onChange={(e) => setOv(i, { caducidad: e.target.value })}
+                          className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                        />
+                        {fuente && <span className="text-xs text-slate-400">{fuente}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {f.avisos.filter((a) => !a.startsWith("Duplicado en el archivo") && a !== "Fila sin nombre").length > 0 && (
+                    <p className="mt-2 text-xs text-amber-600">{f.avisos.filter((a) => !a.startsWith("Duplicado en el archivo") && a !== "Fila sin nombre").join(" · ")}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {previa.conAviso.length > 0 && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs font-semibold text-amber-800">{t("Avisos (las filas se importan igualmente):")}</p>
-              <ul className="mt-1 space-y-0.5 text-xs text-amber-700">
-                {previa.conAviso.slice(0, 10).map((f, i) => <li key={i}>· {`${f.ficha.nombre ?? ""} ${f.ficha.apellidos ?? ""}`.trim() || t("(sin nombre)")}: {f.avisos.join(" · ")}</li>)}
-                {previa.conAviso.length > 10 && <li>{t("… y {n} más").replace("{n}", String(previa.conAviso.length - 10))}</li>}
-              </ul>
-            </div>
+          {previa.filas.length > visibles && (
+            <button onClick={() => setVisibles((v) => v + 20)} className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">
+              {t("Mostrar más")} ({previa.filas.length - visibles})
+            </button>
           )}
 
           <p className="mt-4 text-xs text-slate-400">{t("Reimportar el mismo archivo no crea duplicados, y los servicios migrados no consumen tu cuota mensual.")}</p>
 
-          <div className="mt-4 flex gap-3">
-            <button onClick={() => setPaso(2)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Atrás")}</button>
-            <button onClick={ejecutar} disabled={ejecutando} className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-              {ejecutando ? t("Importando…") : t("Importar ahora")}
+          <div className="sticky bottom-0 mt-4 flex gap-3 border-t border-slate-200 bg-cream-50/95 py-3 backdrop-blur">
+            <button onClick={() => setPaso(2)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Atrás")}</button>
+            <button onClick={ejecutar} disabled={ejecutando || previa.clientes === 0} className="flex-1 rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+              {ejecutando ? t("Importando…") : `${t("Importar")} ${previa.clientes} ${previa.clientes === 1 ? t("cliente") : t("clientes")}`}
             </button>
           </div>
         </div>
@@ -372,9 +476,8 @@ export function ImportarDatos() {
   );
 }
 
-// Mapeo de columnas → campos: muestra arriba las columnas RECONOCIDAS (lo que hay que
-// revisar de verdad) y pliega abajo las ignoradas (basura del export). Todas siguen siendo
-// editables — el poder está, pero sin abrumar.
+// Mapeo de columnas → campos: arriba las RECONOCIDAS, plegadas abajo las ignoradas
+// (basura del export). Todas siguen siendo editables — el poder está, pero sin abrumar.
 function MapeoColumnas({ columnas, cabeceras, ejemplos, t, onChange }: {
   columnas: Mapeo["columnas"];
   cabeceras: string[];

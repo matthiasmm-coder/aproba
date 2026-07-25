@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMapeo, marcarDuplicadosInternos, partirNombreCompleto, normalizarTelefono, esNie, masUnAno, parseImporte, type Mapeo } from "./importar";
+import {
+  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, partirNombreCompleto,
+  normalizarTelefono, esNie, parseImporte, type Mapeo,
+} from "./importar";
 
 const mapeo: Mapeo = {
   columnas: [
@@ -13,71 +16,94 @@ const mapeo: Mapeo = {
     { indice: 7, campo: null },
   ],
   tramites: { "Arraigo social": "arraigo_social", "Renovación TIE": "renovacion_tie" },
+  validezMeses: {},
   estados: { "Terminado": "FINALIZADO", "En trámite": "PRESENTADO" },
   crearHistorial: true,
   crearFamilias: true,
 };
 
-describe("regularización 2026 — caducidad DERIVADA = resolución + 1 año", () => {
+// La renovación se deduce de la NATURALEZA del trámite (validez legal de la tarjeta que
+// produce), no de un interruptor global: cada trámite lleva sus propios meses.
+describe("renovación deducida por trámite", () => {
   const base: Mapeo = {
-    columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "fechaResolucion" }, { indice: 2, campo: "fechaCaducidad" }],
-    tramites: {}, estados: {}, crearHistorial: false, crearFamilias: false,
+    columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "tramite" }, { indice: 2, campo: "fechaResolucion" }, { indice: 3, campo: "fechaCaducidad" }],
+    tramites: { "Regularización DA 21": null, "Renovación": "renovacion_tie", "Nacionalidad": "nacionalidad", "Arraigo social": "arraigo_social" },
+    validezMeses: { "Regularización DA 21": 12, "Renovación": 48, "Nacionalidad": null },
+    estados: {}, crearHistorial: true, crearFamilias: false,
   };
 
-  it("con el flag activo, la resolución genera la caducidad derivada (no la explícita)", () => {
-    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], { ...base, regularizacion2026: true });
-    expect(f.caducidadDerivada).toBe("2027-08-15");
-    expect(f.fechaCaducidad).toBe("");
+  it("regularización 2026 (sin servicio en el catálogo) → renovación al año", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "Regularización DA 21", "30/06/2026", ""]], base);
+    expect(f.servicio).toBeNull();
+    expect(f.caducidadDerivada).toBe("2027-06-30");
   });
 
-  it("sin el flag y sin servicio, la fecha de resolución no inventa ninguna caducidad", () => {
-    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", ""]], base);
-    expect(f.fechaCaducidad).toBe("");
+  it("renovación de TIE → 4 años", () => {
+    const [f] = aplicarMapeo([["Chen Wei", "Renovación", "10/06/2025", ""]], base);
+    expect(f.caducidadDerivada).toBe("2029-06-10");
+  });
+
+  it("nacionalidad (validez null) → ningún vencimiento", () => {
+    const [f] = aplicarMapeo([["José Ruiz", "Nacionalidad", "01/02/2024", ""]], base);
     expect(f.caducidadDerivada).toBe("");
   });
 
-  it("una caducidad explícita SIEMPRE gana: no se deriva nada", () => {
-    const [f] = aplicarMapeo([["Ana Pérez", "15/08/2026", "01/03/2028"]], { ...base, regularizacion2026: true });
+  it("sin validez propuesta → repli sobre la validez legal del servicio del catálogo", () => {
+    const [f] = aplicarMapeo([["Nour Haddad", "Arraigo social", "12/01/2026", ""]], base);
+    expect(f.caducidadDerivada).toBe("2027-01-12"); // arraigo = 12 meses
+  });
+
+  it("una caducidad explícita SIEMPRE gana: no se deduce nada", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "Regularización DA 21", "30/06/2026", "01/03/2028"]], base);
     expect(f.fechaCaducidad).toBe("2028-03-01");
     expect(f.caducidadDerivada).toBe("");
   });
 
-  it("masUnAno respeta el 29 de febrero (año no bisiesto → 1 de marzo)", () => {
-    expect(masUnAno("2028-02-29")).toBe("2029-03-01");
-    expect(masUnAno("no es fecha")).toBe("");
+  it("expone el trámite bruto y la fecha del servicio para la revisión", () => {
+    const [f] = aplicarMapeo([["Ana Pérez", "Regularización DA 21", "30/06/2026", ""]], base);
+    expect(f.tramite).toBe("Regularización DA 21");
+    expect(f.fechaResolucion).toBe("2026-06-30");
   });
 });
 
-describe("caducidad derivada del servicio (Vigía estimada por validez legal)", () => {
-  const m: Mapeo = {
-    columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "tramite" }, { indice: 2, campo: "fechaResolucion" }],
-    tramites: { "Arraigo social": "arraigo_social", "Renovación": "renovacion_tie", "Nacionalidad": "nacionalidad" },
-    estados: {}, crearHistorial: true, crearFamilias: false,
-  };
+describe("aplicarOverrides — correcciones del gestor antes de importar", () => {
+  const filaBase = () => aplicarMapeo([["GARCÍA LÓPEZ, MARÍA", "X1234567L", "612345678", "Arraigo social", "Terminado", "15/03/2027", "Familia García", ""]], mapeo);
 
-  it("arraigo social (12 meses) → caducidad al año siguiente; expone fechaResolucion", () => {
-    const [f] = aplicarMapeo([["Ana Pérez", "Arraigo social", "15/03/2026"]], m);
-    expect(f.servicio).toBe("arraigo_social");
-    expect(f.caducidadDerivada).toBe("2027-03-15");
-    expect(f.fechaResolucion).toBe("2026-03-15");
+  it("corrige nombre, teléfono y email", () => {
+    const filas = filaBase();
+    aplicarOverrides(filas, { 0: { nombre: "Maria Luisa", telefono: "699 88 77 66", email: "  maria@email.com " } });
+    expect(filas[0].ficha.nombre).toBe("Maria Luisa");
+    expect(filas[0].ficha.telefono).toBe("+34699887766");
+    expect(filas[0].ficha.email).toBe("maria@email.com");
   });
 
-  it("renovación de TIE (48 meses) → caducidad a 4 años", () => {
-    const [f] = aplicarMapeo([["Chen Wei", "Renovación", "10/06/2025"]], m);
-    expect(f.caducidadDerivada).toBe("2029-06-10");
+  it("una fecha escrita por el gestor manda y anula la estimada", () => {
+    const filas = aplicarMapeo([["Ana Pérez", "", "", "Arraigo social", "", "", "", ""]], { ...mapeo, columnas: [...mapeo.columnas, { indice: 8, campo: "fechaResolucion" }] });
+    aplicarOverrides(filas, { 0: { caducidad: "2030-05-01" } });
+    expect(filas[0].fechaCaducidad).toBe("2030-05-01");
+    expect(filas[0].caducidadDerivada).toBe("");
   });
 
-  it("nacionalidad no caduca → sin caducidad derivada", () => {
-    const [f] = aplicarMapeo([["José Ruiz", "Nacionalidad", "01/02/2024"]], m);
-    expect(f.servicio).toBe("nacionalidad");
-    expect(f.caducidadDerivada).toBe("");
+  it("vaciar la fecha deja al cliente sin vencimiento", () => {
+    const filas = filaBase();
+    expect(filas[0].fechaCaducidad).toBe("2027-03-15");
+    aplicarOverrides(filas, { 0: { caducidad: "" } });
+    expect(filas[0].fechaCaducidad).toBe("");
+    expect(filas[0].caducidadDerivada).toBe("");
   });
 
-  it("una caducidad explícita gana sobre la derivada del servicio", () => {
-    const m2: Mapeo = { ...m, columnas: [...m.columnas, { indice: 3, campo: "fechaCaducidad" }] };
-    const [f] = aplicarMapeo([["Ana Pérez", "Arraigo social", "15/03/2026", "20/12/2028"]], m2);
-    expect(f.fechaCaducidad).toBe("2028-12-20");
-    expect(f.caducidadDerivada).toBe("");
+  it("excluir marca la fila como descartada", () => {
+    const filas = filaBase();
+    expect(filas[0].excluir).toBe(false);
+    aplicarOverrides(filas, { 0: { excluir: true } });
+    expect(filas[0].excluir).toBe(true);
+  });
+
+  it("sin overrides no toca nada", () => {
+    const filas = filaBase();
+    aplicarOverrides(filas, undefined);
+    expect(filas[0].ficha.nombre).toBe("MARÍA");
+    expect(filas[0].excluir).toBe(false);
   });
 });
 
@@ -94,8 +120,8 @@ describe("parseImporte — montants historiques (info, no factura)", () => {
   });
   it("aplicarMapeo captura el importe de la columna", () => {
     const m: Mapeo = {
-      columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "importe" }] as Mapeo["columnas"],
-      tramites: {}, estados: {}, crearHistorial: true, crearFamilias: false,
+      columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "importe" }],
+      tramites: {}, validezMeses: {}, estados: {}, crearHistorial: true, crearFamilias: false,
     };
     const [f] = aplicarMapeo([["Ana Pérez", "690€"]], m);
     expect(f.importe).toBe(690);
@@ -116,7 +142,7 @@ describe("importar — motor determinista", () => {
     expect(f.avisos).toEqual([]);
   });
 
-  it("documento no NIE/DNI → pasaporte; sin estado → FINALIZADO; trámite sin mapear → aviso sin expediente", () => {
+  it("documento no NIE/DNI → pasaporte; sin estado → FINALIZADO; trámite sin mapear → aviso sin servicio", () => {
     const m: Mapeo = { ...mapeo, estados: {} };
     const [f] = aplicarMapeo([["Aissatou Diallo", "AB1234567", "+221771234567", "Nacionalidad", "", "", "", ""]], m);
     expect(f.ficha.pasaporte).toBe("AB1234567");
