@@ -137,17 +137,19 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
               const cuerpo = (
                 <>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
+                  {/* El nombre ocupa su propia línea (bloque truncado): un badge en la misma
+                      línea flex lo aplastaba a cero y desbordaba sobre el importe. */}
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-                      <span className="truncate">{t(s.label)}</span>
+                    <p className="truncate text-sm font-medium text-slate-800">{t(s.label)}</p>
+                    {/* Meta en 2ª línea: la tarjeta es estrecha, y en la 1ª el nombre quedaba
+                        aplastado (o desbordaba) al competir con el badge y el importe. */}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
                       {/* Servicio prestado ANTES de usar Aproba (traído por la migración) */}
-                      {s.importado && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("Pre-migración")}</span>}
-                    </p>
-                    <p className="truncate text-xs text-slate-400">
-                      {s.importado ? s.sub : <span className="font-mono">{s.sub}</span>}
-                    </p>
+                      {s.importado && <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("Pre-migración")}</span>}
+                      <span className={`truncate ${s.importado ? "" : "font-mono"}`}>{s.sub}</span>
+                      {s.importe != null && <span className="shrink-0 font-semibold text-slate-600">· {eur(s.importe)}</span>}
+                    </div>
                   </div>
-                  {s.importe != null && <span className="shrink-0 text-xs font-semibold text-slate-600">{eur(s.importe)}</span>}
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
                 </>
               );
