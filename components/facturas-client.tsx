@@ -253,7 +253,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {STATS.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
             <p className="text-sm text-slate-500">{s.label}</p>
             <p className={`mt-1 text-2xl font-bold tracking-tightest ${s.tone}`}>{s.value}</p>
             <p className="mt-0.5 text-xs text-slate-400">{s.sub}</p>
