@@ -106,7 +106,7 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (
-          <Link key={k.label} href={k.href} className={`rounded-2xl border p-5 transition hover:shadow-sm ${k.tone}`}>
+          <Link key={k.label} href={k.href} className={`flex flex-col items-center rounded-2xl border p-5 text-center transition hover:shadow-sm ${k.tone}`}>
             <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${k.emph ? "bg-aproba-600 text-white" : "bg-slate-100 text-slate-500"}`}><Icon name={k.icon} /></span>
             <p className={`mt-4 text-3xl font-bold tracking-tightest ${k.num}`}>{k.n}</p>
             <p className="text-sm font-medium text-slate-600">{k.label}</p>
