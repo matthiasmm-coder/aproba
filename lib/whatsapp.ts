@@ -19,16 +19,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 //    esperada tiene 3 variables: {{1}} gestoría, {{2}} cuerpo, {{3}} enlace.
 //    ⚠️ Meta prohíbe saltos de línea en las variables → se sanean a « · ».
 
+// Interruptor de PLATAFORMA (decisión 2026-07-26): WhatsApp APAGADO hasta tener un
+// sender propio + plantilla aprobada por Meta (coste por mensaje + complejidad → solo
+// email por ahora). Con él en false, TODOS los avisos salen por email, aunque un
+// workspace tenga canalAvisos=WHATSAPP en base (S&D) — sin tocar su configuración.
+// Para reactivar: ponerlo en true Y restaurar el selector de canal en
+// components/avisos-manager.tsx (retirado en el mismo commit).
+export const WHATSAPP_PLATAFORMA = false;
+
 export const whatsappDisponible = () =>
-  Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
+  WHATSAPP_PLATAFORMA && Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
 
 // Canales EFECTIVOS de un aviso según el canal elegido y la disponibilidad real de
 // WhatsApp en la plataforma. Garde-fou (agujero real: Gestoría S&D, 14/07): con canal
-// WHATSAPP y Twilio sin configurar, el cliente no recibía NADA — mientras WhatsApp no
-// esté disponible, esos avisos se entregan por email.
+// WHATSAPP y WhatsApp indisponible, el cliente no recibía NADA — esos avisos se
+// entregan por email, y NO se intenta (ni journaliza) un WhatsApp que no puede salir.
 export const canalesEfectivos = (canal: CanalAvisos, waDisponible: boolean) => ({
   email: canal !== "WHATSAPP" || !waDisponible,
-  whatsapp: canal !== "EMAIL",
+  whatsapp: canal !== "EMAIL" && waDisponible,
 });
 
 export type EstadoWhatsApp = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";

@@ -104,7 +104,7 @@ export default async function Ajustes() {
         <AjustesSection
           id="notificaciones"
           title={t("Notificaciones al cliente")}
-          subtitle={`${despacho.canalAvisos === "WHATSAPP" ? "WhatsApp" : despacho.canalAvisos === "AMBOS" ? "Email + WhatsApp" : "Email"} · ${t("avisos automáticos en cada paso")}`}
+          subtitle={`Email · ${t("avisos automáticos en cada paso")}`}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
