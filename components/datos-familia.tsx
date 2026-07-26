@@ -10,10 +10,11 @@ type Miembro = { id: string; parentesco: string; ficha: ClienteFicha; esSolicita
 
 // Campos de domicilio (para la casilla "mismo domicilio que el titular").
 const DOMICILIO_KEYS = FICHA_CAMPOS.filter((f) => f.grupo === "Domicilio").map((f) => f.k);
-// Misma regla de completitud que el flujo individual: todo salvo «piso», y para
+// Misma regla de completitud que el flujo individual: todo salvo «piso» y el NIE
+// (muchos extranjeros aún no lo tienen; el documento obligatorio es el pasaporte
+// o la carta nacional de identidad). Antigua regla «al menos NIE o pasaporte» retirada:
 // NIE/pasaporte basta UNO de los dos (un reagrupado suele tener solo pasaporte).
-const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso" && f.k !== "numeroDocumento" && f.k !== "pasaporte").map((f) => f.k);
-const docIdentidadOk = (f: ClienteFicha) => Boolean((f.numeroDocumento ?? "").trim() || (f.pasaporte ?? "").trim());
+const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso" && f.k !== "numeroDocumento").map((f) => f.k);
 const nombreMiembro = (m: Miembro) => `${(m.ficha.nombre ?? "").trim()} ${(m.ficha.apellidos ?? "").trim()}`.trim();
 const copiaDomicilio = (dst: ClienteFicha, src: ClienteFicha): ClienteFicha => {
   const out = { ...dst };
@@ -125,7 +126,7 @@ export function DatosFamilia({
   // un acompañante incompleto solo muestra el badge.
   const faltanDe = (m: Miembro) => {
     const ficha = m.mismoDomicilio && miembros[0] ? copiaDomicilio(m.ficha, miembros[0].ficha) : m.ficha;
-    return REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length + (docIdentidadOk(ficha) ? 0 : 1);
+    return REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length;
   };
   const solicitantesIncompletos = miembros.filter((m) => m.esSolicitante && faltanDe(m) > 0);
 

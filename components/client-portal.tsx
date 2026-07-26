@@ -31,8 +31,7 @@ const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firma
 // Champs obligatoires : tous sauf « piso / puerta » et les deux documents — pour
 // NIE/pasaporte la règle est « AU MOINS UN des deux » (primera solicitud = souvent
 // passeport seul ; nacionalizado = NIE seul). Exiger les deux bloquerait Continuar.
-const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso" && f.k !== "numeroDocumento" && f.k !== "pasaporte").map((f) => f.k);
-const docIdentidadOk = (f: Record<string, string | undefined>) => Boolean((f.numeroDocumento ?? "").trim() || (f.pasaporte ?? "").trim());
+const REQUIRED_KEYS = FICHA_CAMPOS.filter((f) => f.k !== "piso" && f.k !== "numeroDocumento").map((f) => f.k);
 
 const EXTRACTED: Record<string, [string, string][]> = {
   Pasaporte: [["Nombre", "Julia Mendoza"], ["Nº", "AV284917"], ["Caducidad", "22/08/2029"]],
@@ -90,7 +89,7 @@ export function ClientPortal({
   const [step, setStep] = useState(() => {
     if (!token || !servicioInicial) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
-    const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim()) && docIdentidadOk(base);
+    const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
     return fichaCompleta ? 2 : (familia ? 0 : 1);
   });
   const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial));
@@ -272,7 +271,7 @@ export function ClientPortal({
   const PASO_LISTO = 4;
 
   // Validation des données (active en mode réel) : compte les champs requis vides.
-  const faltan = REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length + (docIdentidadOk(ficha) ? 0 : 1);
+  const faltan = REQUIRED_KEYS.filter((k) => !((ficha[k] ?? "").trim())).length;
   const validacionActiva = Boolean(token);
   const datosOk = !validacionActiva || faltan === 0;
 
@@ -409,7 +408,7 @@ export function ClientPortal({
     if (famMiembros.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>))) {
       const titular = famMiembros.find((m) => (m.parentesco ?? "").toUpperCase() === "TITULAR") ?? famMiembros[0];
       const fT = { ...fichaVacia(), ...(titular?.ficha ?? {}) } as Record<string, string>;
-      if (!(REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim()) && docIdentidadOk(fT))) { setErrorPaso(t("s1.famTutor")); return; }
+      if (!REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim())) { setErrorPaso(t("s1.famTutor")); return; }
     }
     const principal = clavesElegidas[0];
     if (token) {
@@ -727,7 +726,9 @@ export function ClientPortal({
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{grupoLabel(grupo, lang)}</p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {FICHA_CAMPOS.filter((f) => f.grupo === grupo).map((f) => {
-                      const req = f.k !== "piso";
+                      // Obligatorio todo salvo «piso» y el NIE (muchos extranjeros aún no lo
+                      // tienen); el documento de identidad obligatorio es pasaporte/carta nacional.
+                      const req = f.k !== "piso" && f.k !== "numeroDocumento";
                       const vacio = !((ficha[f.k] ?? "").trim());
                       return (
                         <div key={f.k} className={f.w === "full" ? "sm:col-span-2" : ""}>

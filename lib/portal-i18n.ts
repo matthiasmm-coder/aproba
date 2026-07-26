@@ -408,7 +408,9 @@ export const FIELD_LABELS: Record<string, Tr> = {
   lugarNacimiento: { es: "Lugar de nacimiento (ciudad)", en: "Place of birth (city)", fr: "Lieu de naissance (ville)", it: "Luogo di nascita (città)", de: "Geburtsort (Stadt)" },
   paisNacimiento: { es: "País de nacimiento", en: "Country of birth", fr: "Pays de naissance", it: "Paese di nascita", de: "Geburtsland" },
   numeroDocumento: { es: "NIE", en: "NIE", fr: "NIE", it: "NIE", de: "NIE" },
-  pasaporte: { es: "Pasaporte", en: "Passport", fr: "Passeport", it: "Passaporto", de: "Reisepass" },
+  // «o documento de identidad»: los UE (rumanos, italianos…) suelen venir con su carta
+  // nacional, no con pasaporte — es el documento OBLIGATORIO del portal (el NIE no lo es).
+  pasaporte: { es: "Pasaporte o documento de identidad", en: "Passport or national ID card", fr: "Passeport ou carte d'identité", it: "Passaporto o carta d'identità", de: "Reisepass oder Personalausweis", ar: "جواز السفر أو بطاقة الهوية", ro: "Pașaport sau carte de identitate", zh: "护照或身份证" },
   nombrePadre: { es: "Apellidos de los padres", en: "Parents' surname", fr: "Nom de famille des parents", it: "Cognome dei genitori", de: "Nachname der Eltern" },
   nombreMadre: { es: "Nombre de la madre", en: "Mother's name", fr: "Nom de la mère", it: "Nome della madre", de: "Name der Mutter" },
   via: { es: "Domicilio (calle, plaza…)", en: "Address (street, square…)", fr: "Adresse (rue, place…)", it: "Indirizzo (via, piazza…)", de: "Adresse (Straße, Platz…)" },

@@ -47,7 +47,7 @@ export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Ident
   { k: "lugarNacimiento", label: "Lugar de nacimiento (ciudad)", grupo: "Identidad", w: "half" },
   { k: "paisNacimiento", label: "País de nacimiento", grupo: "Identidad", w: "half" },
   { k: "numeroDocumento", label: "NIE", grupo: "Identidad", w: "half" },
-  { k: "pasaporte", label: "Pasaporte", grupo: "Identidad", w: "half" },
+  { k: "pasaporte", label: "Pasaporte / doc. de identidad", grupo: "Identidad", w: "half" },
   { k: "via", label: "Domicilio (calle, plaza…)", grupo: "Domicilio", w: "full", ac: "street-address" },
   { k: "numeroVia", label: "Número", grupo: "Domicilio", w: "half", inputMode: "numeric" },
   { k: "piso", label: "Piso / puerta", grupo: "Domicilio", w: "half" },
