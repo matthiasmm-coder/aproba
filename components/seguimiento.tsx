@@ -20,9 +20,9 @@ function Download({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, miembros, gruposDocs,
+  token, gestoria, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, miembros, gruposDocs,
 }: {
-  token: string; gestoria: string; clienteNombre: string; idioma: string; referencia: string; estado: string;
+  token: string; gestoria: string; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
   miembros?: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[];
@@ -404,6 +404,19 @@ export function Seguimiento({
           );
         })()}
 
+        {/* Espacio persistente del cliente: todos sus trámites + solicitar uno nuevo */}
+        {espacioUrl && (
+          <a
+            href={espacioUrl}
+            className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-aproba-400 hover:text-aproba-700"
+          >
+            <span className="flex items-center gap-2.5">
+              <svg className="h-4 w-4 text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+              {t("seg.espacio")}
+            </span>
+            <span aria-hidden>→</span>
+          </a>
+        )}
         <p className="mt-8 flex items-center justify-center gap-1 text-xs text-slate-400">{t("header.con")} <AprobaMark size={13} /> aproba</p>
       </div>
     </div>

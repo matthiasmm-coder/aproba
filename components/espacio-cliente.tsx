@@ -1,0 +1,189 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AprobaMark } from "./logo";
+import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
+
+// ESPACIO PERSISTENTE DEL CLIENTE — la cara visible de /c/[token]: sus trámites en curso
+// y terminados (incluido el histórico pre-migración) + solicitar un trámite nuevo, en su
+// idioma (8 lenguas, mismas convenciones visuales que /j y /s).
+
+export type EspacioExp = {
+  referencia: string;
+  servicioId: string | null;
+  label: string;
+  extras: { id: string; label: string }[];
+  denegado: boolean;
+  enCurso: boolean;
+  url: string | null;   // /s/<token> del expediente (null = histórico importado)
+  fecha: string;        // dd/mm/aaaa
+};
+export type EspacioServicio = { id: string; label: string; precio: number };
+
+const LANG_KEY = "aproba.portal.lang";
+const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
+
+export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, terminados, servicios }: {
+  token: string; gestoria: string; nombre: string; idioma: string;
+  enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[];
+}) {
+  const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [estado, setEstado] = useState<"idle" | "enviando" | "ok">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const t = makeT(lang);
+
+  useEffect(() => {
+    const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;
+    const efectivo = saved && LANGS.some((l) => l.code === saved) ? saved : esLangSoportada(idioma) ? (idioma as Lang) : detectarLang();
+    setLang(efectivo);
+    document.documentElement.lang = efectivo;
+    document.documentElement.dir = esRTL(efectivo) ? "rtl" : "ltr";
+  }, [idioma]);
+
+  function elegirLang(l: Lang) {
+    setLang(l);
+    document.documentElement.lang = l;
+    document.documentElement.dir = esRTL(l) ? "rtl" : "ltr";
+    try { window.localStorage.setItem(LANG_KEY, l); } catch { /* privado */ }
+  }
+
+  const nombreServicio = (id: string | null, original: string) => (id ? servicioLabel(id, original, lang) : original);
+
+  function toggle(id: string) {
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+    setError(null);
+  }
+
+  async function solicitar() {
+    if (!sel.size || estado !== "idle") return;
+    setEstado("enviando");
+    setError(null);
+    try {
+      const res = await fetch("/api/espacio/solicitar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, servicios: [...sel] }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (d.codigo === "ya_en_curso") throw new Error(t("esp.yaEnCurso", { servicio: nombreServicio(d.servicio ?? null, d.servicioLabel ?? "") }));
+        throw new Error(d.error ?? t("esp.error"));
+      }
+      setEstado("ok");
+      window.location.href = d.url; // directo a /j para subir documentos
+    } catch (e) {
+      setEstado("idle");
+      setError(e instanceof Error ? e.message : t("esp.error"));
+    }
+  }
+
+  const total = servicios.filter((s) => sel.has(s.id)).reduce((sum, s) => sum + s.precio, 0);
+
+  const Item = ({ e }: { e: EspacioExp }) => {
+    const cuerpo = (
+      <>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-800">
+            {nombreServicio(e.servicioId, e.label)}
+            {e.extras.length > 0 && <span className="font-normal text-slate-500"> + {e.extras.map((x) => nombreServicio(x.id, x.label)).join(" + ")}</span>}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            {e.referencia && <span className="font-mono">{e.referencia}</span>}
+            {e.referencia && e.fecha && " · "}
+            {e.fecha}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+          e.enCurso ? "bg-aproba-100 text-aproba-700" : e.denegado ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+        }`}>
+          {e.enCurso ? t("esp.encurso") : e.denegado ? t("esp.chipDenegado") : t("esp.terminados")}
+        </span>
+        {e.url && <span className="shrink-0 text-sm font-semibold text-aproba-700">{t("esp.ver")} →</span>}
+      </>
+    );
+    return e.url ? (
+      <a href={e.url} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-aproba-400">{cuerpo}</a>
+    ) : (
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">{cuerpo}</div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-cream-50 px-4 py-8">
+      <div className="mx-auto max-w-xl">
+        {/* Cabecera: gestoría + idioma */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-aproba-700">{gestoria}</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">
+              {nombre ? `${t("esp.titulo")} · ${nombre.split(" ")[0]}` : t("esp.titulo")}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">{t("esp.subtitulo", { gestoria })}</p>
+          </div>
+          <select
+            value={lang}
+            onChange={(e) => elegirLang(e.target.value as Lang)}
+            aria-label={t("lang.selectLabel")}
+            className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+          >
+            {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
+          </select>
+        </div>
+
+        {/* En curso */}
+        <h2 className="mt-7 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("esp.encurso")} ({enCurso.length})</h2>
+        <div className="mt-2 space-y-2">
+          {enCurso.map((e, i) => <Item key={i} e={e} />)}
+          {enCurso.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-400">{t("esp.sinTramites")}</p>}
+        </div>
+
+        {/* Terminados (incluye el histórico pre-migración) */}
+        {terminados.length > 0 && (
+          <>
+            <h2 className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("esp.terminados")} ({terminados.length})</h2>
+            <div className="mt-2 space-y-2">
+              {terminados.map((e, i) => <Item key={i} e={e} />)}
+            </div>
+          </>
+        )}
+
+        {/* Solicitar un nuevo trámite */}
+        {servicios.length > 0 && (
+          <div className="mt-8 rounded-2xl border border-aproba-200 bg-white p-5">
+            <h2 className="text-base font-bold tracking-tightest text-slate-900">{t("esp.nuevo")}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t("esp.nuevoDesc")}</p>
+            <div className="mt-3 space-y-2">
+              {servicios.map((s) => (
+                <label key={s.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${sel.has(s.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 hover:border-slate-300"}`}>
+                  <input type="checkbox" checked={sel.has(s.id)} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600" />
+                  <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">{servicioLabel(s.id, s.label, lang)}</span>
+                  {s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
+                </label>
+              ))}
+            </div>
+            {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {estado === "ok" ? (
+              <p className="mt-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm font-medium text-aproba-700">{t("esp.redirigiendo")}</p>
+            ) : (
+              <button
+                type="button"
+                onClick={solicitar}
+                disabled={!sel.size || estado !== "idle"}
+                className="mt-4 w-full rounded-xl bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {estado === "enviando" ? t("esp.enviando") : `${t("esp.solicitar")}${total > 0 ? ` · ${fmtEur(total)}` : ""}`}
+              </button>
+            )}
+          </div>
+        )}
+
+        <p className="mt-8 flex items-center justify-center gap-1 text-xs text-slate-400">{t("header.con")} <AprobaMark size={13} /> aproba</p>
+      </div>
+    </div>
+  );
+}

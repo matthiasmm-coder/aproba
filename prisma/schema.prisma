@@ -305,6 +305,9 @@ model Cliente {
   // Vigía: caducidad extraída por la IA del último TIE validado (AAAA-MM-DD, machine-written).
   fechaCaducidad  String?
   tipoVencimiento String? // qué caduca (TIE, …)
+  // Espacio del cliente (/c/[token]): token estable por PERSONA — lista sus trámites y
+  // permite solicitar nuevos. Índice único parcial en SQL (cliente-espacio.sql).
+  espacioToken    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

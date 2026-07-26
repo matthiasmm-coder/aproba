@@ -60,12 +60,8 @@ function iconoYSufijo(email: Estado | null, wa: Estado | null): { icono: string;
   return { icono: "📧📱", sufijo: ambosOk ? "" : ` (email ${etiquetaEstado(email ?? "ERROR")} · WhatsApp ${etiquetaEstado(wa ?? "ERROR")})` };
 }
 
-// Cuerpo WhatsApp estándar: la gestoría en negrita (el número remitente es el central
-// de Aproba, el cliente debe saber quién le escribe) + texto + enlace si lo hay.
-// El nombre se sanea (asteriscos/saltos romperían la negrita), como el from del email.
-const textoWhatsApp = (gestoria: string, cuerpo: string, link?: string | null) =>
-  `*${gestoria.replace(/[*\r\n]/g, " ").trim()}*\n${cuerpo}${link ? `\n\n${link}` : ""}`;
-
+// El cuerpo WhatsApp (gestoría en negrita + texto + enlace) se compone DENTRO de
+// enviarWhatsApp: en modo plantilla (producción) esas partes van como variables.
 const primerNombre = (n: string) => (n || "").trim().split(/\s+/)[0] || (n || "cliente");
 const render = (tpl: string, vars: Record<string, string>) =>
   tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
@@ -187,7 +183,7 @@ export async function dispararAviso(
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, portalUrl) });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link: portalUrl });
       console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${aviso.evento}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -301,7 +297,7 @@ export async function enviarSeguimiento(
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
-        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, cuerpo, link) }) : "SIMULADO";
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link }) : "SIMULADO";
       console.log(`[seguimiento ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${link ?? ""}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -418,7 +414,7 @@ export async function enviarSolicitudPago(
           : "Tu gestoría te facilitará los datos para realizar el pago.",
         ...(tarjetaOn ? [`Pagar con tarjeta: ${opts.baseUrl}/api/pagos/checkout?f=${opts.facturaId}`] : []),
       ].join("\n");
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, lineas) });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: lineas });
       console.log(`[solicitudPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -493,7 +489,7 @@ export async function enviarConfirmacionPago(
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       const texto = `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.`;
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link });
       console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -638,7 +634,7 @@ export async function enviarRecordatorioDocs(
     if (canal.whatsapp) {
       const texto = `${t("notif.recDocs.intro", { nombre })}\n• ${faltantes.join("\n• ")}\n${t("notif.recDocs.outro")}`;
       estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
-        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, texto, link) }) : "SIMULADO";
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link }) : "SIMULADO";
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email
@@ -729,7 +725,7 @@ export async function enviarAvisoRenovacion(
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, texto: textoWhatsApp(gestoria, body, link) });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: body, link });
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email

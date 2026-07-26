@@ -8,10 +8,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 //
 // Env (número central de Aproba, como el remitente de email):
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM (E.164, ej. +14155238886)
+//   TWILIO_CONTENT_SID (opcional, HX…): SID de la plantilla aprobada por Meta.
 //
-// Producción: los mensajes iniciados por el negocio fuera de la ventana de 24 h exigen
-// plantilla aprobada por Meta (Twilio Content API). Este módulo centraliza el envío para
-// que ese cambio sea un solo punto.
+// DOS modos de envío, decididos por la presencia de TWILIO_CONTENT_SID:
+//  - SIN ContentSid → texto libre (Body). Solo funciona en el SANDBOX de Twilio (el
+//    destinatario tiene que haber enviado «join <código>» antes) o dentro de la ventana
+//    de 24 h. Para probar, no para clientes reales.
+//  - CON ContentSid → plantilla aprobada (Content API): es el ÚNICO modo que entrega
+//    mensajes iniciados por el negocio a cualquier número en producción. La plantilla
+//    esperada tiene 3 variables: {{1}} gestoría, {{2}} cuerpo, {{3}} enlace.
+//    ⚠️ Meta prohíbe saltos de línea en las variables → se sanean a « · ».
 
 export const whatsappDisponible = () =>
   Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
@@ -39,26 +45,44 @@ export function telefonoE164(telefono: string | null | undefined): string | null
   return null;
 }
 
-export async function enviarWhatsApp(opts: { telefono: string | null | undefined; texto: string }): Promise<EstadoWhatsApp> {
+// Variable de plantilla: Meta rechaza saltos de línea/tabs y variables enormes.
+const varPlantilla = (s: string, max = 640) =>
+  s.replace(/[\r\n\t]+/g, " · ").replace(/\s{2,}/g, " ").trim().slice(0, max);
+
+export async function enviarWhatsApp(opts: {
+  telefono: string | null | undefined;
+  gestoria: string;          // remitente lógico (el número central es de Aproba)
+  cuerpo: string;            // texto del aviso (puede llevar saltos de línea)
+  link?: string | null;      // enlace del portal, si lo hay
+}): Promise<EstadoWhatsApp> {
   const to = telefonoE164(opts.telefono);
   if (!to) return "SIN_CONTACTO";
+  const gestoria = opts.gestoria.replace(/[*\r\n]/g, " ").trim() || "Tu gestoría";
+  const textoLibre = `*${gestoria}*\n${opts.cuerpo}${opts.link ? `\n\n${opts.link}` : ""}`;
   if (!whatsappDisponible()) {
-    console.log(`[whatsapp SIMULADO] → ${to} | ${opts.texto.replace(/\n/g, " · ")}`);
+    console.log(`[whatsapp SIMULADO] → ${to} | ${textoLibre.replace(/\n/g, " · ")}`);
     return "SIMULADO";
   }
   try {
     const sid = process.env.TWILIO_ACCOUNT_SID!;
+    const contentSid = process.env.TWILIO_CONTENT_SID;
+    // La plantilla no admite variables vacías → el enlace cae al sitio de la app.
+    const linkPlantilla = opts.link ?? (process.env.NEXT_PUBLIC_APP_URL ?? "https://aproba-software.com").replace(/\/$/, "");
+    const params: Record<string, string> = contentSid
+      ? {
+          From: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+          To: `whatsapp:${to}`,
+          ContentSid: contentSid,
+          ContentVariables: JSON.stringify({ "1": varPlantilla(gestoria, 80), "2": varPlantilla(opts.cuerpo), "3": varPlantilla(linkPlantilla, 300) }),
+        }
+      : { From: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`, To: `whatsapp:${to}`, Body: textoLibre };
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        From: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
-        To: `whatsapp:${to}`,
-        Body: opts.texto,
-      }).toString(),
+      body: new URLSearchParams(params).toString(),
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => "");

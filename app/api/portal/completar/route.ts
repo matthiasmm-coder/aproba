@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { enviarSeguimiento } from "@/lib/notificaciones";
+import { asegurarEspacioToken } from "@/lib/espacio";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
 // Fin du parcours SANS paiement (le client a envoyé ses documents). Envoie le
@@ -12,8 +13,11 @@ export async function POST(req: Request) {
   if (!token) return NextResponse.json({ error: "Falta el enlace." }, { status: 400 });
 
   const admin = createSupabaseAdmin();
-  const { data: exp } = await admin.from("Expediente").select("id").eq("portalToken", token).maybeSingle();
+  const { data: exp } = await admin.from("Expediente").select("id, clienteId").eq("portalToken", token).maybeSingle();
   if (!exp) return NextResponse.json({ error: "Enlace no válido." }, { status: 404 });
+
+  // Primer expediente terminado → nace el ESPACIO persistente del cliente (idempotente).
+  if (exp.clienteId) await asegurarEspacioToken(admin, exp.clienteId as string);
 
   await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl: baseUrlFromRequest(req) });
   return NextResponse.json({ ok: true });

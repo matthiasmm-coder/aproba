@@ -6,6 +6,7 @@ import { serviciosDeExpediente, docsDeServicios, citaDeServicios, asignacionVali
 import { docsFamiliaPorServicios } from "@/lib/familia";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
+import { asegurarEspacioToken } from "@/lib/espacio";
 
 // Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
 export const metadata = { robots: { index: false, follow: false } };
@@ -24,7 +25,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const { token } = await params;
   const admin = createSupabaseAdmin();
 
-  const BASE = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(nombre, idioma), workspace:Workspace(id, nombre)";
+  const BASE = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(id, nombre, idioma), workspace:Workspace(id, nombre)";
   // Documento.clienteId: atribuye cada subida a su miembro (familia). Repli sin él al final.
   const SELECT = `${BASE}, documentos:Documento(id, tipo, estado, storagePath, clienteId)`;
   const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
@@ -44,7 +45,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
     serviciosExtra?: string[] | null; serviciosAsignacion?: unknown;
     formulariosGenerados?: string[] | null; formulariosPorMiembro?: Record<string, string[]> | null; tasaPath?: string | null; familiaId?: string | null;
-    cliente: { nombre: string | null; idioma: string | null } | { nombre: string | null; idioma: string | null }[] | null;
+    cliente: { id: string; nombre: string | null; idioma: string | null } | { id: string; nombre: string | null; idioma: string | null }[] | null;
     workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
     documentos: { id: string; tipo: string; estado: string; storagePath: string | null; clienteId?: string | null }[] | null;
   };
@@ -142,10 +143,15 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     ];
   }
 
+  // Espacio persistente del cliente: se crea (perezoso e idempotente) la primera vez
+  // que visita su seguimiento — cubre también a los clientes anteriores a la función.
+  const espacioToken = cliente?.id ? await asegurarEspacioToken(admin, cliente.id) : null;
+
   return (
     <Seguimiento
       token={token}
       gestoria={ws.nombre}
+      espacioUrl={espacioToken ? `/c/${espacioToken}` : null}
       clienteNombre={cliente?.nombre ?? ""}
       idioma={cliente?.idioma ?? "es"}
       referencia={exp.referencia}

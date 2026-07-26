@@ -38,6 +38,23 @@ export const UI: Record<string, Tr> = {
   "step.documentos": { es: "Documentos", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente" },
   "step.pago": { es: "Pago", en: "Payment", fr: "Paiement", it: "Pagamento", de: "Zahlung" },
 
+  // ── Espacio persistente del cliente (/c/[token]) ──
+  "seg.espacio": { es: "Ver todos mis trámites", en: "See all my applications", fr: "Voir toutes mes démarches", it: "Vedi tutte le mie pratiche", de: "Alle meine Verfahren ansehen", ar: "عرض جميع معاملاتي", ro: "Vezi toate dosarele mele", zh: "查看我的所有手续" },
+  "esp.titulo": { es: "Tus trámites", en: "Your applications", fr: "Vos démarches", it: "Le tue pratiche", de: "Deine Verfahren", ar: "معاملاتك", ro: "Dosarele tale", zh: "你的手续" },
+  "esp.subtitulo": { es: "Aquí tienes todos tus trámites con {gestoria}.", en: "All your applications with {gestoria}.", fr: "Toutes vos démarches avec {gestoria}.", it: "Tutte le tue pratiche con {gestoria}.", de: "Alle deine Verfahren bei {gestoria}.", ar: "كل معاملاتك مع {gestoria}.", ro: "Toate dosarele tale cu {gestoria}.", zh: "你在{gestoria}的所有手续。" },
+  "esp.encurso": { es: "En curso", en: "In progress", fr: "En cours", it: "In corso", de: "In Bearbeitung", ar: "قيد المعالجة", ro: "În curs", zh: "进行中" },
+  "esp.terminados": { es: "Terminados", en: "Completed", fr: "Terminées", it: "Concluse", de: "Abgeschlossen", ar: "منتهية", ro: "Finalizate", zh: "已完成" },
+  "esp.sinTramites": { es: "Aún no tienes trámites.", en: "You have no applications yet.", fr: "Vous n'avez pas encore de démarche.", it: "Non hai ancora pratiche.", de: "Du hast noch keine Verfahren.", ar: "ليس لديك معاملات بعد.", ro: "Nu ai încă niciun dosar.", zh: "你还没有手续。" },
+  "esp.chipDenegado": { es: "Denegado", en: "Refused", fr: "Refusée", it: "Respinta", de: "Abgelehnt", ar: "مرفوض", ro: "Respins", zh: "被拒绝" },
+  "esp.ver": { es: "Ver", en: "View", fr: "Voir", it: "Vedi", de: "Ansehen", ar: "عرض", ro: "Vezi", zh: "查看" },
+  "esp.nuevo": { es: "Solicitar un nuevo trámite", en: "Request a new application", fr: "Demander une nouvelle démarche", it: "Richiedi una nuova pratica", de: "Neues Verfahren beantragen", ar: "طلب معاملة جديدة", ro: "Solicită un dosar nou", zh: "申请新手续" },
+  "esp.nuevoDesc": { es: "Elige el servicio que necesitas: podrás subir tus documentos al momento.", en: "Choose the service you need — you can upload your documents right away.", fr: "Choisissez le service dont vous avez besoin : vous pourrez envoyer vos documents immédiatement.", it: "Scegli il servizio che ti serve: potrai caricare subito i tuoi documenti.", de: "Wähle den Dienst, den du brauchst – deine Dokumente kannst du sofort hochladen.", ar: "اختر الخدمة التي تحتاجها — يمكنك رفع مستنداتك فوراً.", ro: "Alege serviciul de care ai nevoie — poți încărca documentele imediat.", zh: "选择你需要的服务，之后可立即上传文件。" },
+  "esp.solicitar": { es: "Solicitar", en: "Request", fr: "Demander", it: "Richiedi", de: "Beantragen", ar: "إرسال الطلب", ro: "Solicită", zh: "提交申请" },
+  "esp.enviando": { es: "Enviando…", en: "Sending…", fr: "Envoi…", it: "Invio…", de: "Wird gesendet…", ar: "جارٍ الإرسال…", ro: "Se trimite…", zh: "发送中…" },
+  "esp.yaEnCurso": { es: "Ya tienes un trámite de {servicio} en curso.", en: "You already have a {servicio} application in progress.", fr: "Vous avez déjà une démarche {servicio} en cours.", it: "Hai già una pratica di {servicio} in corso.", de: "Du hast bereits ein laufendes Verfahren ({servicio}).", ar: "لديك بالفعل معاملة {servicio} قيد المعالجة.", ro: "Ai deja un dosar {servicio} în curs.", zh: "你已有一个进行中的{servicio}手续。" },
+  "esp.error": { es: "No se ha podido enviar. Inténtalo de nuevo.", en: "Could not send. Please try again.", fr: "L'envoi a échoué. Réessayez.", it: "Invio non riuscito. Riprova.", de: "Senden fehlgeschlagen. Bitte erneut versuchen.", ar: "تعذر الإرسال. حاول مرة أخرى.", ro: "Nu s-a putut trimite. Încearcă din nou.", zh: "发送失败，请重试。" },
+  "esp.redirigiendo": { es: "¡Listo! Te llevamos a subir tus documentos…", en: "Done! Taking you to upload your documents…", fr: "C'est fait ! Vous allez pouvoir envoyer vos documents…", it: "Fatto! Ti portiamo a caricare i documenti…", de: "Fertig! Du kannst jetzt deine Dokumente hochladen…", ar: "تم! ننقلك الآن لرفع مستنداتك…", ro: "Gata! Te ducem să încarci documentele…", zh: "完成！即将前往上传文件…" },
+
   "common.continuar": { es: "Continuar", en: "Continue", fr: "Continuer", it: "Continua", de: "Weiter" },
   "common.atras": { es: "Atrás", en: "Back", fr: "Retour", it: "Indietro", de: "Zurück" },
 
