@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { periodoCuota } from "@/lib/cuota";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
@@ -82,18 +83,30 @@ export function NuevoExpediente() {
         setFamilias(((fams ?? []) as unknown as { id: string; nombre: string; clientes: { id: string }[] | null }[]).map((f) => ({ id: f.id, nombre: f.nombre, miembros: (f.clientes ?? []).length })));
       } catch { /* sans familles */ }
 
+      // La suscripción da el plan Y el día ancla del ciclo de facturación (la cuota se
+      // renueva el día en que se paga, no el 1 — ver lib/cuota).
+      let subCiclo: { currentPeriodEnd?: string | null; trialEndsAt?: string | null } | null = null;
       try {
-        let subRes = await supabase.from("Subscription").select("plan, estado, modoPrueba").limit(1).maybeSingle();
+        let subRes = await supabase.from("Subscription").select("plan, estado, modoPrueba, currentPeriodEnd, trialEndsAt").limit(1).maybeSingle();
+        if (subRes.error) subRes = await supabase.from("Subscription").select("plan, estado, modoPrueba").limit(1).maybeSingle();
         if (subRes.error) subRes = await supabase.from("Subscription").select("plan, estado").limit(1).maybeSingle();
-        const sub = subRes.data as { plan?: string; estado?: string; modoPrueba?: boolean | null } | null;
+        const sub = subRes.data as { plan?: string; estado?: string; modoPrueba?: boolean | null; currentPeriodEnd?: string | null; trialEndsAt?: string | null } | null;
         if (sub?.plan) setPlan(sub.plan);
         setEnPrueba(sub?.estado === "TRIAL" || sub?.modoPrueba === true);
+        subCiclo = sub ? { currentPeriodEnd: sub.currentPeriodEnd, trialEndsAt: sub.trialEndsAt } : null;
       } catch { /* STARTER */ }
 
-      const ahora = new Date();
-      const inicioMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1)).toISOString();
-      const { count } = await supabase.from("Expediente").select("*", { count: "exact", head: true }).gte("createdAt", inicioMes);
-      setUsados(count ?? 0);
+      // Contador MONÓTONO del ciclo en curso — el mismo que decide el cobro del excedente
+      // (lib/overage.ts): no baja al borrar expedientes. Sin fila aún = 0 creados.
+      // Repli al count vivo si supabase/uso-mensual.sql no está aplicado todavía.
+      const { clave, inicio } = periodoCuota(new Date(), subCiclo);
+      const uso = await supabase.from("UsoMensual").select("expedientesCreados").eq("mes", clave).maybeSingle();
+      if (!uso.error) {
+        setUsados((uso.data?.expedientesCreados as number | null) ?? 0);
+      } else {
+        const { count } = await supabase.from("Expediente").select("*", { count: "exact", head: true }).gte("createdAt", inicio.toISOString());
+        setUsados(count ?? 0);
+      }
     })();
   }, []);
 
