@@ -195,7 +195,7 @@ export function Seguimiento({
         {/* La PRÓXIMA ACCIÓN del migrante, arriba del todo: o le toca subir algo (ámbar,
             con botón), o puede estar tranquilo (verde). La cita ya tiene su tarjeta. */}
         {estado !== "RECHAZADO" && (faltan > 0 ? (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">{t("seg.next.titulo")}</p>
             <p className="mt-1 text-sm font-semibold text-amber-800">{t("seg.next.docs", { n: faltan })}</p>
             <button
@@ -204,15 +204,17 @@ export function Seguimiento({
             >{t("seg.next.subir")} ↓</button>
           </div>
         ) : estado !== "CITA_HUELLAS" && estado !== "FINALIZADO" ? (
-          <div className="mt-6 rounded-2xl border border-aproba-200 bg-aproba-50 p-4">
+          <div className="mt-6 rounded-2xl border border-aproba-200 bg-aproba-50 p-4 text-center">
             <p className="text-sm text-aproba-700">✓ {t("seg.next.ok")}</p>
           </div>
         ) : null)}
 
         {/* Milestones */}
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("seg.progreso")}</p>
-          <ol className="space-y-0">
+          {/* El bloque de jalones se centra ENTERO (w-fit + mx-auto): centrar cada línea
+              desalinearía las pastillas y rompería el hilo vertical que las une. */}
+          <ol className="mx-auto w-fit space-y-0 text-left">
             {MILESTONES.map((m, i) => {
               const done = idx >= m.at;
               const current = !done && (i === 0 || idx >= MILESTONES[i - 1].at);
