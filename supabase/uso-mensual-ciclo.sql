@@ -17,8 +17,11 @@
 -- (Mismo día ancla que lib/cuota.ts: currentPeriodEnd → trialEndsAt → día 1.)
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- `distinct on`: un despacho con dos filas de Subscription duplicaría la clave y
+-- reventaría el `on conflict` ("cannot affect row a second time"). Gana la más reciente.
 with ancla as (
-  select w."id" as ws,
+  select distinct on (w."id")
+         w."id" as ws,
          coalesce(
            extract(day from s."currentPeriodEnd")::int,
            extract(day from s."trialEndsAt")::int,
@@ -26,6 +29,7 @@ with ancla as (
          )::int as dia
   from "Workspace" w
   left join "Subscription" s on s."workspaceId" = w."id"
+  order by w."id", s."currentPeriodEnd" desc nulls last
 ),
 -- Último día de este mes y del anterior, para recortar un ancla 29/30/31.
 limites as (
