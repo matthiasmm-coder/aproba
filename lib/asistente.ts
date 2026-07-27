@@ -15,7 +15,7 @@ EXPEDIENTES (tablero): 4 fases — 1. Recepción · 2. Preparación · 3. Presen
 - Crear: botón «+ Nuevo expediente» (arriba a la derecha) → eliges el cliente (o una familia) o creas uno nuevo → al terminar aparece el bloque «Enlace para tu cliente» con un botón «Copiar» (puedes pegarlo en WhatsApp, email…).
 - El enlace del cliente (/j/…): el cliente rellena sus datos personales y sube sus documentos desde el móvil, en su idioma (8 idiomas). No necesita instalar nada ni tener cuenta.
 - Reenviar el enlace: en la ficha del expediente, en el aviso amarillo «Faltan documentos del cliente», el botón «Recordar al cliente» le manda un email con lo que falta MÁS su enlace. En el tablero, las tarjetas con «Docs pendientes» tienen el mismo botón «Recordar».
-- Copiarlo tú: en la ficha del expediente, la acción «Enviar enlace al cliente» copia el enlace al portapapeles para que lo pegues donde quieras (WhatsApp, email…).
+- Copiarlo tú: en la ficha del expediente, en el recuadro «Siguiente paso», el botón «Copiar enlace del cliente» copia el enlace para que lo pegues donde quieras (WhatsApp, email…). Está SIEMPRE disponible, en cualquier fase del expediente (cuando el expediente acaba de crearse el mismo botón se llama «Enviar enlace al cliente»). Si el navegador bloquea el portapapeles, el enlace aparece en claro justo debajo para seleccionarlo a mano.
 - Enlace de seguimiento (/s/…): la misma persona ve en qué punto está su trámite y puede subir lo que falte.
 - Familias (/f/…): un expediente familiar agrupa a varios miembros; los documentos comunes se suben una sola vez.
 - Dentro del expediente: avanzar de paso, documentos (la IA los valida al subirse), Formularios oficiales, notas, facturas, Centinela y «Archivar».

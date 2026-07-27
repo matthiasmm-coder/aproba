@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { copiarTexto } from "@/lib/copiar";
 import { ArrowIcon } from "@/components/icons";
 import type { ExpedienteEstado } from "@/lib/types";
 
@@ -38,6 +39,7 @@ export function DriverBanner({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [citaOpen, setCitaOpen] = useState(false);
+  const [enlaceEnClaro, setEnlaceEnClaro] = useState<string | null>(null);
   const [cita, setCita] = useState({ fecha: "", hora: "", lugar: "", notas: "" });
 
   async function avanzar(accion: string, extra?: Record<string, unknown>, navHref?: string) {
@@ -54,13 +56,17 @@ export function DriverBanner({
     } finally { setLoading(false); }
   }
 
-  function copiarEnlace() {
+  async function copiarEnlace() {
     if (!portalToken) return;
     const url = `${window.location.origin}/j/${portalToken}`;
-    navigator.clipboard?.writeText(url).then(
-      () => { setInfo(t("Enlace copiado. Envíaselo al cliente.")); setError(null); window.setTimeout(() => setInfo(null), 5000); },
-      () => setError(t("No se pudo copiar el enlace.")),
-    );
+    if (await copiarTexto(url)) {
+      setInfo(t("Enlace copiado. Envíaselo al cliente.")); setError(null);
+      window.setTimeout(() => setInfo(null), 5000);
+    } else {
+      // Nunca dejar al gestor sin el enlace: si el navegador bloquea el portapapeles,
+      // se muestra en claro para seleccionarlo a mano.
+      setInfo(null); setError(null); setEnlaceEnClaro(url);
+    }
   }
 
   type Prim =
@@ -136,6 +142,11 @@ export function DriverBanner({
   }
 
   const actionable = prim.kind !== "espera";
+  // El enlace del cliente vivía SOLO en el paso BORRADOR: en cuanto se subía un
+  // documento (el cliente o el propio gestor), el expediente pasaba a DOCS_PENDIENTES
+  // y el enlace se volvía irrecuperable desde la ficha. Ahora está siempre a mano,
+  // salvo cuando ya es la acción principal (no duplicar el mismo botón).
+  const enlaceSiempre = Boolean(portalToken) && prim.kind !== "copiar";
   async function onPrimary() {
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
@@ -171,11 +182,32 @@ export function DriverBanner({
             </span>
           </div>
         )}
-        {secundaria && <div className="shrink-0">{secundaria}</div>}
+        {(secundaria || enlaceSiempre) && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {secundaria}
+            {enlaceSiempre && (
+              <button onClick={copiarEnlace} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
+                {t("Copiar enlace del cliente")}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
       {info && <p className="mt-2 text-xs font-medium text-aproba-700">{info}</p>}
+      {enlaceEnClaro && (
+        <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] text-slate-500">{t("Tu navegador ha bloqueado el portapapeles. Selecciona el enlace y cópialo a mano:")}</p>
+          <input
+            readOnly
+            value={enlaceEnClaro}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label={t("Enlace del cliente")}
+            className="mt-1 w-full bg-transparent font-mono text-xs text-slate-700 outline-none"
+          />
+        </div>
+      )}
 
       {prim.kind === "cita" && citaOpen && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">

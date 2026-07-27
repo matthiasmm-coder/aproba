@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { periodoCuota } from "@/lib/cuota";
+import { copiarTexto } from "@/lib/copiar";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
@@ -56,6 +57,7 @@ export function NuevoExpediente() {
   // Familia nueva = solo el titular (el cliente añadirá el resto desde su enlace).
   const [miembrosFam, setMiembrosFam] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [falloCopia, setFalloCopia] = useState(false);
   const [ajustando, setAjustando] = useState(false); // popup «cerrar el precio antes de enviar»
   const [ajustado, setAjustado] = useState(false);
   const [gestoriaNombre, setGestoriaNombre] = useState("");
@@ -192,11 +194,16 @@ export function NuevoExpediente() {
     ? `https://wa.me/${telefono.replace(/\D/g, "")}?text=${encodeURIComponent(waMsg)}`
     : `https://wa.me/?text=${encodeURIComponent(waMsg)}`;
 
-  function copiar() {
-    navigator.clipboard?.writeText(portalFull).then(() => {
+  // Sin manejo del fallo, el botón «Copiar» quedaba MUDO cuando el navegador bloqueaba
+  // el portapapeles: ni copiado, ni aviso. El gestor creía haber copiado el enlace.
+  async function copiar() {
+    if (await copiarTexto(portalFull)) {
+      setFalloCopia(false);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
-    });
+    } else {
+      setFalloCopia(true); // la UI muestra el enlace en claro para copiarlo a mano
+    }
   }
 
   const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
@@ -376,11 +383,24 @@ export function NuevoExpediente() {
             <p className="text-sm font-semibold text-slate-800">{t("Enlace para tu cliente")}</p>
             <p className="mt-1 text-xs text-slate-500">{t("Envíaselo por WhatsApp. Elegirá su trámite y subirá sus datos y documentos sin instalar nada.")}</p>
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-cream-50 px-3 py-2.5">
-              <span className="flex-1 truncate font-mono text-sm text-slate-700">{portalUrl}</span>
+              {/* input readonly y no <span>: si el portapapeles falla, el gestor todavía
+                  puede seleccionarlo entero y copiarlo a mano. */}
+              <input
+                readOnly
+                value={portalUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                aria-label={t("Enlace para tu cliente")}
+                className="min-w-0 flex-1 bg-transparent font-mono text-sm text-slate-700 outline-none"
+              />
               <button onClick={copiar} className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400">
                 {copied ? t("¡Copiado!") : t("Copiar")}
               </button>
             </div>
+            {falloCopia && (
+              <p role="alert" className="mt-2 text-xs text-red-600">
+                {t("Tu navegador ha bloqueado el portapapeles. Selecciona el enlace de arriba y cópialo a mano.")}
+              </p>
+            )}
             {/* Precio cerrado con el cliente (packs, varios servicios): el enlace NO se envía
                 solo, así que el gestor puede fijar antes el servicio y el descuento sin salir
                 del alta — el presupuesto que verá el cliente ya sale ajustado. */}
