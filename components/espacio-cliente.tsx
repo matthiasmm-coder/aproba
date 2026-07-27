@@ -85,31 +85,33 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
   const total = servicios.filter((s) => sel.has(s.id)).reduce((sum, s) => sum + s.precio, 0);
 
   const Item = ({ e }: { e: EspacioExp }) => {
+    // El nombre del trámite ocupa su PROPIA línea y puede envolver: en móviles de 320 px
+    // competía con el chip y el «Ver →» y se cortaba («Nationalité espagno…»), justo el
+    // dato que el cliente necesita leer. El chip baja a la línea de meta.
     const cuerpo = (
       <>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-800">
+          <p className="text-sm font-semibold text-slate-800">
             {nombreServicio(e.servicioId, e.label)}
             {e.extras.length > 0 && <span className="font-normal text-slate-500"> + {e.extras.map((x) => nombreServicio(x.id, x.label)).join(" + ")}</span>}
           </p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
             {e.referencia && <span className="font-mono">{e.referencia}</span>}
-            {e.referencia && e.fecha && " · "}
-            {e.fecha}
-          </p>
+            {e.fecha && <span>{e.fecha}</span>}
+            <span className={`rounded-full px-2 py-0.5 font-semibold ${
+              e.enCurso ? "bg-aproba-100 text-aproba-700" : e.denegado ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+            }`}>
+              {e.enCurso ? t("esp.encurso") : e.denegado ? t("esp.chipDenegado") : t("esp.chipTerminado")}
+            </span>
+          </div>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-          e.enCurso ? "bg-aproba-100 text-aproba-700" : e.denegado ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
-        }`}>
-          {e.enCurso ? t("esp.encurso") : e.denegado ? t("esp.chipDenegado") : t("esp.terminados")}
-        </span>
-        {e.url && <span className="shrink-0 text-sm font-semibold text-aproba-700">{t("esp.ver")} →</span>}
+        {e.url && <span className="shrink-0 self-center text-sm font-semibold text-aproba-700">{t("esp.ver")} →</span>}
       </>
     );
     return e.url ? (
-      <a href={e.url} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-aproba-400">{cuerpo}</a>
+      <a href={e.url} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-aproba-400">{cuerpo}</a>
     ) : (
-      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">{cuerpo}</div>
+      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">{cuerpo}</div>
     );
   };
 
