@@ -37,6 +37,7 @@ export function Seguimiento({
   const [plegados, setPlegados] = useState<Record<string, boolean>>(() => {
     const pl: Record<string, boolean> = {};
     for (const g of gruposDocs ?? []) pl[g.id] = true;
+    pl.__docs = true; // flujo individual: la lista de documentos también llega plegada
     return pl;
   });
   // Formularios por miembro: misma regla — desplegable por miembro, plegado por defecto.
@@ -199,7 +200,11 @@ export function Seguimiento({
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">{t("seg.next.titulo")}</p>
             <p className="mt-1 text-sm font-semibold text-amber-800">{t("seg.next.docs", { n: faltan })}</p>
             <button
-              onClick={() => document.getElementById("seg-docs")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              onClick={() => {
+                // La lista llega plegada: se abre antes de desplazarse hasta ella.
+                setPlegados((pl) => ({ ...pl, __docs: false }));
+                document.getElementById("seg-docs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
               className="mt-3 min-h-[44px] rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
             >{t("seg.next.subir")} ↓</button>
           </div>
@@ -309,7 +314,24 @@ export function Seguimiento({
               })}
             </div>
           ) : (
-            <div className="space-y-2">{docs.map((d, i) => cartaDoc(d, i))}</div>
+            // Flujo individual: UNA carta plegable, igual que las de los portales de familia
+            // (pedido de Matthias: todas las listas del portal llegan PLEGADAS).
+            (() => {
+              const okN = docs.filter((d) => d.status === "ok").length;
+              const abierta = !plegados.__docs;
+              return (
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <button type="button" onClick={() => setPlegados((pl) => ({ ...pl, __docs: !pl.__docs }))} aria-expanded={abierta} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                    <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-slate-500">{clienteNombre || t("seg.docsTitulo")}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className={`text-xs font-semibold tabular-nums ${okN === docs.length && docs.length > 0 ? "text-aproba-700" : "text-slate-400"}`}>{okN}/{docs.length}</span>
+                      <svg className={`h-4 w-4 text-slate-400 transition-transform ${abierta ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </span>
+                  </button>
+                  {abierta && <div className="space-y-2 px-3 pb-3">{docs.map((d, i) => cartaDoc(d, i))}</div>}
+                </div>
+              );
+            })()
           )}
         </div>
 
