@@ -4,6 +4,8 @@ import { AprobaLogo } from "@/components/logo";
 import { LogoutButton } from "@/components/logout-button";
 import { ActivarPrueba } from "@/components/activar-prueba";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { reconciliarSuscripcion } from "@/lib/billing";
 
 // Le titre suit le cas : dire « Activa tu prueba » à quelqu'un dont l'essai vient
 // d'expirer contredit l'écran lui-même (il ne commence rien, il continue).
@@ -20,17 +22,40 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
   if (!user) redirect("/login");
   const expirada = (await searchParams)?.prueba === "expirada";
 
-  // Plan du despacho (RLS) pour afficher le PRIX avant de demander la carte — on ne
-  // fait pas entrer une carte à l'aveugle. Défensif : sans plan lisible, l'écran
-  // reste générique (le checkout Stripe reste la source de vérité du montant).
+  // Workspace résolu SOUS SESSION (RLS) — jamais depuis un paramètre : on n'agit
+  // ensuite en service_role que sur le despacho dont l'utilisateur est bien membre.
+  let workspaceId: string | null = null;
   let plan: string | null = null;
+  let stripeCustomerId: string | null = null;
+  let stripeSubscriptionId: string | null = null;
   try {
-    const { data } = await supabase.from("Membership").select("Workspace(Subscription(plan))").limit(1).maybeSingle();
+    const { data } = await supabase
+      .from("Membership")
+      .select("workspaceId, Workspace(Subscription(plan, stripeCustomerId, stripeSubscriptionId))")
+      .limit(1)
+      .maybeSingle();
+    workspaceId = (data as { workspaceId?: string } | null)?.workspaceId ?? null;
     const w = (data as { Workspace?: unknown } | null)?.Workspace;
     const ws = (Array.isArray(w) ? w[0] : w) as { Subscription?: unknown } | null;
-    const sub = (Array.isArray(ws?.Subscription) ? ws?.Subscription[0] : ws?.Subscription) as { plan?: string } | null;
+    const sub = (Array.isArray(ws?.Subscription) ? ws?.Subscription[0] : ws?.Subscription) as
+      { plan?: string; stripeCustomerId?: string | null; stripeSubscriptionId?: string | null } | null;
     if (sub?.plan) plan = String(sub.plan);
+    stripeCustomerId = sub?.stripeCustomerId ?? null;
+    stripeSubscriptionId = sub?.stripeSubscriptionId ?? null;
   } catch { /* écran générique */ }
+
+  // ── Auto-réparation du décalage webhook ──────────────────────────────────────
+  // Stripe renvoie l'utilisateur dans l'app avant, parfois, d'avoir livré
+  // `customer.subscription.created`. Sans ceci, un despacho qui VIENT de payer est
+  // renvoyé sur cet écran de paiement — il croit que sa carte a échoué et paie deux
+  // fois. On demande la vérité à Stripe et on ouvre l'accès si l'abonnement existe.
+  // On ne redirige JAMAIS sur la seule foi de la DB (une ligne incohérente ferait
+  // une boucle infinie avec le garde du layout) : uniquement après avoir confirmé
+  // auprès de Stripe qu'un abonnement vivant existe ET réécrit la ligne.
+  if (stripeCustomerId && workspaceId && !stripeSubscriptionId) {
+    const admin = createSupabaseAdmin();
+    if (await reconciliarSuscripcion(admin, workspaceId, stripeCustomerId)) redirect("/app");
+  }
 
   return (
     <div className="min-h-screen bg-cream-50">

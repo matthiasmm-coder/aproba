@@ -1,5 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { PRECIO_EXPEDIENTE_EXTRA, type PlanId } from "@/lib/planes";
 
 // Facturation SaaS (abonnement du despacho à Aproba) via Stripe.
@@ -170,4 +171,38 @@ export function patchDesdeStripe(sub: Stripe.Subscription): Record<string, unkno
     ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000).toISOString() } : {}),
     ...(sub.trial_end ? { trialEndsAt: new Date(sub.trial_end * 1000).toISOString() } : {}),
   };
+}
+
+// Réparation à la volée du décalage webhook. Le retour de Stripe Checkout renvoie
+// l'utilisateur dans l'app AVANT que `customer.subscription.created` ne soit forcément
+// livré : la DB n'a alors pas encore `stripeSubscriptionId`, le garde du layout croit
+// l'essai expiré et le renvoie sur l'écran de paiement qu'il vient de régler.
+// Ici on demande la vérité directement à Stripe et on écrit le MÊME patch que le
+// webhook (patchDesdeStripe), donc aucune divergence de sémantique possible.
+// Best-effort : ne lance jamais, retourne false si rien à réparer.
+export async function reconciliarSuscripcion(
+  admin: SupabaseClient,
+  workspaceId: string,
+  customerId: string,
+): Promise<boolean> {
+  if (!stripeDisponible() || !customerId) return false;
+  try {
+    const stripe = getStripe();
+    const lista = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
+    // Une souscription « morte » ne doit pas rouvrir l'accès : on ne retient que
+    // celles qui donnent droit au service (trialing inclus — le plancher de 48 h).
+    const viva = lista.data.find((s) =>
+      ["trialing", "active", "past_due", "unpaid"].includes(s.status),
+    );
+    if (!viva) return false;
+    const { error } = await admin.from("Subscription").update(patchDesdeStripe(viva)).eq("workspaceId", workspaceId);
+    if (error) {
+      console.error("[reconciliar] escritura:", error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("[reconciliar]", e instanceof Error ? e.message : e);
+    return false;
+  }
 }
