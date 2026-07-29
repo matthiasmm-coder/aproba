@@ -14,10 +14,16 @@ export async function POST(req: Request) {
   if (!stripeDisponible()) return fail("La facturación todavía no está configurada en este entorno.", 503);
 
   // Destination de retour (par défaut Ajustes ; l'onboarding passe "/app").
-  const body = (await req.json().catch(() => ({}))) as { volverA?: string; intervalo?: string };
+  const body = (await req.json().catch(() => ({}))) as { volverA?: string; intervalo?: string; plan?: string };
   const volverA = typeof body.volverA === "string" && body.volverA.startsWith("/") ? body.volverA : "/app/ajustes";
   // Ciclo de facturación elegido por el usuario (anual = «2 meses gratis» de la landing).
   const intervalo = body.intervalo === "anual" ? "anual" : "mensual";
+  // Plan elegido EN el muro de pago (antes solo se podía contratar el plan del alta).
+  // Solo decide el PRECIO del checkout: la DB no se toca antes de pagar — al completarse,
+  // el webhook deduce el plan del lookup_key (patchDesdeStripe) y lo escribe él.
+  // Un checkout abandonado no cambia nada.
+  const planElegido: PlanId | null =
+    body.plan === "STARTER" || body.plan === "PRO" || body.plan === "BUSINESS" ? body.plan : null;
 
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -54,7 +60,7 @@ export async function POST(req: Request) {
       await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
     }
 
-    const price = await precioDePlan((sub.plan as PlanId) ?? "STARTER", intervalo);
+    const price = await precioDePlan(planElegido ?? ((sub.plan as PlanId) ?? "STARTER"), intervalo);
 
     // Conserver les jours d'essai restants (carte non débitée avant la fin de l'essai).
     // Stripe rejette un trial_end à moins de ~48 h dans le futur → on défend.
