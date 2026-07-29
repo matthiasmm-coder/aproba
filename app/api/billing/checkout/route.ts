@@ -63,16 +63,16 @@ export async function POST(req: Request) {
     const price = await precioDePlan(planElegido ?? ((sub.plan as PlanId) ?? "STARTER"), intervalo);
 
     // Conserver les jours d'essai restants (carte non débitée avant la fin de l'essai).
-    // Stripe rejette un trial_end à moins de ~48 h dans le futur → on défend.
+    // Stripe Checkout rejette un trial_end à moins de 48 h dans le futur → en dessous,
+    // il n'y a PAS de trial : la première facture s'encaisse dans le Checkout même.
+    // Décision produit (29/07) : essai écoulé → débit IMMÉDIAT. Le mois gratuit a déjà
+    // été consommé ; l'ancien plancher de 48 h faisait afficher « 0,00 € aujourd'hui »
+    // à quelqu'un qui vient précisément payer.
     const MIN_TRIAL_MS = 48 * 60 * 60 * 1000;
     const restanteMs = sub.trialEndsAt ? Date.parse(sub.trialEndsAt as string) - Date.now() : 0;
     let trialEnd: number | undefined;
     if (restanteMs >= MIN_TRIAL_MS) {
       trialEnd = Math.floor(Date.parse(sub.trialEndsAt as string) / 1000);
-    } else if (sub.estado === "TRIAL") {
-      // Essai DB (presque) écoulé mais despacho encore en TRIAL : on accorde un plancher
-      // de 48 h pour ne pas débiter par surprise une carte qu'on vient d'ajouter.
-      trialEnd = Math.floor((Date.now() + MIN_TRIAL_MS) / 1000);
     }
 
     const origin = baseUrlFromRequest(req);
