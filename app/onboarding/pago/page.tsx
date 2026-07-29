@@ -69,24 +69,24 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
 
       <main className="mx-auto max-w-md px-6 pb-20 pt-10">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-aproba-50 text-aproba-600">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-aproba-50 text-aproba-600">
             <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
           </span>
           {expirada ? (
             <>
-              <h1 className="mt-4 text-2xl font-bold tracking-tightest text-slate-900">Tu mes de prueba ha terminado</h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Tu mes de prueba ha terminado</h1>
+              <p className="mt-2 text-center text-sm leading-relaxed text-slate-600">
                 Esperamos que Aproba te haya sido útil. <strong className="font-semibold text-slate-800">Para seguir accediendo a tu cuenta, activa tu suscripción.</strong> Puedes cancelar cuando quieras desde Ajustes.
               </p>
               {/* Quien choca con un muro de pago piensa primero en sus datos: decirlo explícitamente. */}
-              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-center text-xs leading-relaxed text-slate-500">
                 Tus expedientes, clientes y documentos están guardados tal y como los dejaste. Al activar tu plan lo recuperas todo al instante.
               </p>
             </>
           ) : (
             <>
-              <h1 className="mt-4 text-2xl font-bold tracking-tightest text-slate-900">Empieza tu mes de prueba</h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Empieza tu mes de prueba</h1>
+              <p className="mt-2 text-center text-sm leading-relaxed text-slate-600">
                 Para activar tu cuenta, añade una tarjeta. <strong className="font-semibold text-slate-800">No se cobra nada durante 1 mes.</strong> Al terminar la prueba se cobrará tu plan, y puedes cancelar cuando quieras desde Ajustes.
               </p>
             </>
