@@ -130,7 +130,7 @@ export function Seguimiento({
                         )}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium leading-snug text-slate-800 line-clamp-2">{docLabel(d.label, lang)}</p>
+                        <p className="text-sm font-medium leading-snug text-slate-800 line-clamp-3">{docLabel(d.label, lang)}</p>
                         <p className={`text-xs ${d.errorRed ? "text-amber-700" : d.status === "ok" ? "text-aproba-700" : d.status === "rechazado" ? "text-red-600" : d.status === "procesando" ? "text-amber-600" : "text-slate-400"}`}>
                           {d.errorRed ? t("seg.docReintenta") : d.status === "ok" ? t("seg.docOk") : d.status === "procesando" ? t("s2.analizando") : d.status === "rechazado" ? t("seg.docRechazado") : t("seg.docPendiente")}
                         </p>

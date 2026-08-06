@@ -137,7 +137,7 @@ export function DocumentosFamiliaPortal({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
               )}
             </span>
-            <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-2">{docLabel(label, lang)}</span>
+            <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-3">{docLabel(label, lang)}</span>
             {docHelp(label, lang) && (
               <button
                 type="button"
