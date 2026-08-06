@@ -72,6 +72,11 @@ export async function POST(req: Request) {
       }
       const pathMandato = `plantillas/${r.workspaceId}/mandato-propio.pdf`;
       const buf = Buffer.from(await fMandato.arrayBuffer());
+      // El MIME lo declara el navegador y se puede falsear: comprobamos la firma real del
+      // fichero. Un no-PDF servido tal cual rompería la descarga de TODOS los clientes.
+      if (!buf.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+        return NextResponse.json({ error: "El fichero no es un PDF válido." }, { status: 400 });
+      }
       const { error: eUp } = await r.admin.storage.from("documentos").upload(pathMandato, buf, { contentType: "application/pdf", upsert: true });
       if (eUp) return NextResponse.json({ error: `No se pudo guardar el PDF: ${eUp.message}` }, { status: 500 });
       patchEncargo.mandatoPropioPath = pathMandato;
