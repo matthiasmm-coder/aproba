@@ -45,6 +45,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Interruptor «ocultar precios» (cabecera de la sección Servicios): rama propia que
+  // escribe SOLO su columna — si viviera en la rama encargo, guardar el encargo sin el
+  // campo lo RESETEARÍA a false en silencio.
+  if (str("soloOcultarPrecios") === "1") {
+    const { error: eOc } = await r.admin.from("Workspace")
+      .update({ portalOcultarPrecios: str("portalOcultarPrecios") === "1" })
+      .eq("id", r.workspaceId);
+    if (eOc) {
+      const falta = /portalOcultarPrecios|schema cache|column/i.test(eOc.message);
+      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/portal-encargo-opciones.sql en Supabase." : eOc.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // Modo «solo encargo»: el bloque Hoja de encargo/mandato guarda ÚNICAMENTE sus
   // campos (si no, machacaría nombre/NIF con vacíos). Requiere supabase/hoja-encargo.sql.
   if (str("soloEncargo") === "1") {
@@ -57,7 +71,6 @@ export async function POST(req: Request) {
       // Opciones 06/08 (portal-encargo-opciones.sql). El textarea llega tal cual; se
       // recorta y se vacía a NULL para que la hoja sepa cuándo usar la lista automática.
       encargoFormasPago: str("encargoFormasPago").slice(0, 1200).trim() || null,
-      portalOcultarPrecios: str("portalOcultarPrecios") === "1",
     };
 
     // Modelo de mandato PROPIO (PDF): se guarda en Storage y se referencia por columna.

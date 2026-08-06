@@ -11,6 +11,7 @@ import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { EncargoConfig } from "@/components/encargo-config";
+import { OcultarPreciosToggle } from "@/components/ocultar-precios-toggle";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
 
@@ -97,6 +98,7 @@ export default async function Ajustes() {
           icon={IconServicios}
         >
           <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
+            <OcultarPreciosToggle inicial={despacho.portalOcultarPrecios} />
             <ServiciosManager inicial={servicios} />
           </fieldset>
         </AjustesSection>
@@ -132,7 +134,6 @@ export default async function Ajustes() {
                 mandatarioColegiado: despacho.mandatarioColegiado ?? "",
                 mandatarioColegio: despacho.mandatarioColegio ?? "",
                 encargoFormasPago: despacho.encargoFormasPago ?? "",
-                portalOcultarPrecios: despacho.portalOcultarPrecios,
                 mandatoPropio: Boolean(despacho.mandatoPropioPath),
               }}
             />

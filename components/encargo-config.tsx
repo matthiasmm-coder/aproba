@@ -15,7 +15,6 @@ export type EncargoConfigInicial = {
   mandatarioColegio: string;
   // Opciones 06/08 (supabase/portal-encargo-opciones.sql):
   encargoFormasPago: string;      // una por línea; "" = lista automática
-  portalOcultarPrecios: boolean;  // el portal no muestra precios en la selección
   mandatoPropio: boolean;         // hay un modelo de mandato PDF subido
 };
 
@@ -27,7 +26,6 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
   const [colegiado, setColegiado] = useState(inicial.mandatarioColegiado);
   const [colegio, setColegio] = useState(inicial.mandatarioColegio);
   const [formasPago, setFormasPago] = useState(inicial.encargoFormasPago);
-  const [ocultarPrecios, setOcultarPrecios] = useState(inicial.portalOcultarPrecios);
   const [mandatoPropio, setMandatoPropio] = useState(inicial.mandatoPropio);
   const [mandatoFile, setMandatoFile] = useState<File | null>(null);
   const [quitarMandato, setQuitarMandato] = useState(false);
@@ -46,7 +44,6 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
       fd.set("mandatarioColegiado", colegiado);
       fd.set("mandatarioColegio", colegio);
       fd.set("encargoFormasPago", formasPago);
-      fd.set("portalOcultarPrecios", ocultarPrecios ? "1" : "0");
       if (mandatoFile) fd.set("mandatoPropio", mandatoFile);
       if (quitarMandato) fd.set("quitarMandatoPropio", "1");
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
@@ -140,21 +137,6 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
             <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se entrega TAL CUAL al cliente (sin relleno automático de datos). Vacío = mandato generado por Aproba con los datos del expediente.")}</p>
           </div>
 
-          <div className="sm:col-span-2 flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div>
-              <p className="text-xs font-semibold text-slate-700">{t("Ocultar precios al cliente")}</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{t("El portal no muestra ningún importe en la selección de servicios (ni 0 €). Las facturas que emitas sí muestran su importe: el cliente ve lo que paga.")}</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={ocultarPrecios}
-              onClick={() => setOcultarPrecios((v) => !v)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition ${ocultarPrecios ? "bg-aproba-600" : "bg-slate-300"}`}
-            >
-              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ocultarPrecios ? "left-[22px]" : "left-0.5"}`} />
-            </button>
-          </div>
         </div>
       )}
 
