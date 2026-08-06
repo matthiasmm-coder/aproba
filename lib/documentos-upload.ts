@@ -97,7 +97,13 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     resultado = await extraerDocumento(buffer, file.type);
   } catch (err) {
     await admin.from("Documento").update({ estado: "PENDIENTE" }).eq("id", docId);
-    throw new Error(err instanceof Error ? err.message : "Error de validación IA");
+    // Caída transitoria del proveedor IA (sobrecarga 529, rate limit 429, timeout…):
+    // el mensaje crudo del SDK (inglés/JSON) NO debe llegar al cliente final — misma
+    // familia que el bug del 06/08 (error técnico mostrado tal cual a un migrante).
+    // El documento queda PENDIENTE: el gestor lo ve y el cliente puede reintentar.
+    // El error real se conserva en logs para diagnóstico.
+    console.error("[upload] validación IA caída:", err instanceof Error ? err.message : err);
+    throw new Error("La validación automática no está disponible en este momento. Tu documento se ha guardado — vuelve a intentarlo en unos minutos.");
   }
 
   // ¿El documento detectado corresponde al pedido?
