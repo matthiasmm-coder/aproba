@@ -6,8 +6,7 @@ import Link from "next/link";
 import { BOARD_PHASES, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
-import { NextAction } from "@/components/next-action";
-import { ProximasCitas } from "@/components/proximas-citas";
+import { AgendaCitas } from "@/components/agenda-citas";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
 
 export type DashItem = {
@@ -30,27 +29,6 @@ const diasHasta = (iso?: string) => {
 };
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
-function AccionRow({ e }: { e: DashItem }) {
-  const t = useT();
-  const dias = diasHasta(e.fechaLimiteISO);
-  const vencido = dias < 0;
-  const pronto = dias >= 0 && dias <= 7;
-  return (
-    <Link href={`/app/expedientes/${e.id}`} className="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5 transition last:border-0 hover:bg-cream-50">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{initials(e.clienteNombre)}</span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-slate-800">{e.clienteNombre}</p>
-        <p className="truncate text-xs text-slate-400">{e.tipoLabel}</p>
-        {/* La acción canónica (misma fuente que tablero y ficha). En móvil, 2ª línea. */}
-        <NextAction estado={e.estado} className="sm:hidden" />
-      </div>
-      <NextAction estado={e.estado} className="hidden shrink-0 sm:inline-flex" />
-      {e.fechaLimite && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${vencido ? "bg-red-100 text-red-700" : pronto ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{vencido ? t("Vencido") : e.fechaLimite}</span>}
-      <span className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-semibold text-aproba-700 md:flex">{initials(e.asignadoA)}</span>
-    </Link>
-  );
-}
-
 function Icon({ name }: { name: string }) {
   const c = "h-[18px] w-[18px]";
   if (name === "bell") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
@@ -60,7 +38,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, caducanPronto = 0, caducadas = 0 }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; caducanPronto?: number; caducadas?: number }) {
+export function DashboardClient({ items, usuario, citas, clientes, caducanPronto = 0, caducadas = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; caducanPronto?: number; caducadas?: number; hoy: string }) {
   const t = useT();
   const router = useRouter();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
@@ -122,18 +100,10 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
         ))}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">{t("Requieren tu acción")}</h2>
-          <Link href="/app/expedientes" className="text-sm font-semibold text-aproba-700 hover:underline">{t("Ver tablero")} →</Link>
-        </div>
-        <div>{accion.slice(0, 8).map((e) => <AccionRow key={e.id} e={e} />)}</div>
-        {accion.length > 8 && <Link href="/app/expedientes" className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-800">{t("Ver los")} {accion.length} {t("expedientes")} →</Link>}
-        {accion.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("Nada pendiente. ¡Buen trabajo!")}</p>}
-      </div>
-
+      {/* La lista «Requieren tu acción» se retiró (pedido de Matthias, 07/08/2026):
+          duplicaba el KPI de arriba, que ya enlaza al tablero con el detalle. */}
       <div className="mt-6">
-        <ProximasCitas citas={citas} clientes={clientes} />
+        <AgendaCitas citas={citas} clientes={clientes} hoy={hoy} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

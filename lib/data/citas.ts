@@ -27,17 +27,23 @@ export type ItemAgenda = {
 export type ClienteMin = { id: string; nombre: string; apellidos: string | null; email: string | null; telefono: string | null };
 
 const hoy = () => new Date().toISOString().slice(0, 10);
+const restarDias = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
-export async function fetchProximasCitas(): Promise<ItemAgenda[]> {
+// Por defecto: solo futuro, 12 items (la lista clásica). La agenda semanal del Inicio
+// pide una ventana más ancha (desdeDias hacia atrás + max alto) para poder navegar
+// entre semanas sin mentir con días vacíos.
+export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: number }): Promise<ItemAgenda[]> {
+  const max = opts?.max ?? 12;
   const supabase = await createSupabaseServer();
-  const today = hoy();
+  const today = opts?.desdeDias ? restarDias(hoy(), opts.desdeDias) : hoy();
+  const limite = Math.max(30, max);
   const items: ItemAgenda[] = [];
 
   // (a) Citas previas próximas (no canceladas ni realizadas). duracion/precio son
   // columnas nuevas: si la migración no se aplicó, se reintenta sin ellas.
   try {
-    const sel = (cols: string) => supabase.from("CitaPrevia").select(cols).gte("fecha", today).not("estado", "in", "(cancelada,realizada)").order("fecha", { ascending: true }).limit(30);
+    const sel = (cols: string) => supabase.from("CitaPrevia").select(cols).gte("fecha", today).not("estado", "in", "(cancelada,realizada)").order("fecha", { ascending: true }).limit(limite);
     let res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId, duracion, precio");
     if (res.error) res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId");
     for (const c of (res.data ?? []) as unknown as Record<string, unknown>[]) {
@@ -56,7 +62,7 @@ export async function fetchProximasCitas(): Promise<ItemAgenda[]> {
       .eq("estado", "CITA_HUELLAS")
       .gte("fechaCita", today)
       .order("fechaCita", { ascending: true })
-      .limit(30);
+      .limit(limite);
     let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)");
     if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)") as typeof resC;
     const data = resC.data as unknown as Record<string, unknown>[] | null;
@@ -74,7 +80,7 @@ export async function fetchProximasCitas(): Promise<ItemAgenda[]> {
   } catch { /* sin citas de administración */ }
 
   items.sort((a, b) => (a.fecha + (a.hora ?? "99:99")).localeCompare(b.fecha + (b.hora ?? "99:99")));
-  return items.slice(0, 12);
+  return items.slice(0, max);
 }
 
 // Lista mínima de clientes del workspace, para vincular una cita previa.

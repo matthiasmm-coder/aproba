@@ -43,7 +43,8 @@ export default async function Dashboard() {
     supabase.auth.getUser(),
     fetchExpedientesResumen(),
     fetchChecklist(supabase, t),
-    fetchProximasCitas(),
+    // Agenda semanal: 90 días hacia atrás para poder navegar a semanas pasadas.
+    fetchProximasCitas({ desdeDias: 90, max: 300 }),
     fetchClientesMin(),
     fetchVencimientos(), // KPI «Caducan pronto» (Vigía visible desde Inicio)
   ]);
@@ -64,7 +65,7 @@ export default async function Dashboard() {
   return (
     <>
       <OnboardingChecklist items={checklist} />
-      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} caducanPronto={caducanPronto} caducadas={caducadas} />
+      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} caducanPronto={caducanPronto} caducadas={caducadas} hoy={new Date().toISOString().slice(0, 10)} />
     </>
   );
 }
