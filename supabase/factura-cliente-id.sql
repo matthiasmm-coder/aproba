@@ -12,7 +12,9 @@
 -- 1) Columna + FK. ON DELETE SET NULL: las facturas NUNCA se borran con el cliente
 --    (la eliminación de cliente ya está bloqueada con 409 si tiene expedientes; esto
 --    cubre el resto de caminos sin arriesgar historial contable).
-ALTER TABLE "Factura" ADD COLUMN IF NOT EXISTS "clienteId" uuid REFERENCES "Cliente"(id) ON DELETE SET NULL;
+-- TEXT, no uuid: los ids de la app son TEXT (schema.sql: Cliente.id TEXT, como
+-- Expediente.clienteId). El primer intento con uuid falló: tipos incompatibles.
+ALTER TABLE "Factura" ADD COLUMN IF NOT EXISTS "clienteId" TEXT REFERENCES "Cliente"(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS "Factura_workspace_cliente_idx" ON "Factura" ("workspaceId", "clienteId");
 
