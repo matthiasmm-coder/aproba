@@ -24,6 +24,9 @@ export async function GET(req: Request) {
     .maybeSingle();
   if (!f) return aviso("nofactura");
   if (f.estado === "PAGADA") return NextResponse.redirect(`${origin}/pagar/exito?f=${facturaId}`, 303);
+  // Una factura anulada no debe poder cobrarse desde un enlace antiguo que siga en el
+  // correo del cliente (auditoría 06/08 — guarda lista ANTES de que exista «anular»).
+  if (f.estado === "ANULADA") return aviso("anulada");
 
   const key = await fetchStripeKeyDeWorkspace(admin, f.workspaceId as string);
   if (!key) return aviso("sintarjeta"); // la gestoría no tiene el cobro con tarjeta activado

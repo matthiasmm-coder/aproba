@@ -18,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: f } = await supabase.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", id).maybeSingle();
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
   if (f.estado === "PAGADA") return NextResponse.json({ ok: true, estado: "PAGADA" });
+  if (f.estado === "ANULADA") return NextResponse.json({ error: "La factura está anulada: no puede marcarse como pagada." }, { status: 409 });
 
   const admin = createSupabaseAdmin();
   const r = await marcarFacturaPagada(admin, id, "TRANSFERENCIA");

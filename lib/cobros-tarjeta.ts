@@ -91,6 +91,9 @@ export async function marcarFacturaPagada(
   const { data: f } = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
   if (!f) return null;
   if (f.estado === "PAGADA") return "ya";
+  // Una ANULADA no puede transitar a PAGADA (webhook rezagado, cron, doble clic): el dinero
+  // recibido sobre una factura anulada es una devolución pendiente, no un cobro.
+  if (f.estado === "ANULADA") return null;
   // Update CONDICIONAL (.neq estado PAGADA) + .select(): si dos llamadores concurren
   // (redirect de Stripe + clic manual del gestor, o el cron), solo UNO ve la transición
   // → solo uno envía la confirmación al cliente.
@@ -99,6 +102,7 @@ export async function marcarFacturaPagada(
     .update({ estado: "PAGADA", metodoPago: metodo })
     .eq("id", facturaId)
     .neq("estado", "PAGADA")
+    .neq("estado", "ANULADA")
     .select("id");
   if (error) return null;
   if (!upd?.length) return "ya"; // otro llamador la marcó entre el select y el update

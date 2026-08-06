@@ -99,6 +99,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   const { data: f } = await supabase.from("Factura").select("id, numero, estado, workspaceId").eq("id", id).maybeSingle();
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
+  // Integridad contable (auditoría 06/08): una factura COBRADA nunca se elimina — el dinero
+  // encajado desaparecería del historial y la numeración quedaría con huecos. El borrado
+  // queda para errores NO cobrados; lo cobrado se corrige con rectificativa.
+  if (f.estado === "PAGADA") return NextResponse.json({ error: "Una factura pagada no se puede eliminar. Emite una rectificativa si necesitas corregirla." }, { status: 409 });
 
   const { data: mem } = await supabase.from("Membership").select("role").eq("workspaceId", (f as { workspaceId: string }).workspaceId).eq("userId", user.id).maybeSingle();
   if (!puedeGestionarEquipo((mem as { role?: string } | null)?.role)) {

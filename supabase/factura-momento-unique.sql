@@ -8,6 +8,9 @@
 -- revísalo antes (no debería ocurrir: el código ya impone la idempotencia).
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- 06/08/2026: comprobado en PROD que este índice NO estaba creado (dos inserts con el
+-- mismo (expediente, momento) pasaron). Ejecutar. Se excluye ANULADA para que, cuando
+-- exista la acción «anular», anular + re-emitir el mismo momento no choque con el índice.
 create unique index if not exists "Factura_expediente_momento_key"
   on "Factura" ("expedienteId", "momento")
-  where "momento" is not null;
+  where "momento" is not null and "estado" <> 'ANULADA';
