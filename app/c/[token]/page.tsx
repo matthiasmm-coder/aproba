@@ -39,7 +39,10 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
   } catch { /* columna ausente */ }
   if (!cliente) notFound();
 
-  const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", cliente.workspaceId).maybeSingle();
+  let resWs = await admin.from("Workspace").select("nombre, portalOcultarPrecios").eq("id", cliente.workspaceId).maybeSingle();
+  if (resWs.error) resWs = await admin.from("Workspace").select("nombre").eq("id", cliente.workspaceId).maybeSingle();
+  const ws = resWs.data;
+  const ocultarPrecios = Boolean((ws as { portalOcultarPrecios?: boolean } | null)?.portalOcultarPrecios);
   const gestoria = (ws as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
 
   // Expedientes del cliente (defensivo con las columnas más nuevas).
@@ -84,7 +87,9 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
 
   const activos: EspacioServicio[] = servicios
     .filter((s) => s.active)
-    .map((s) => ({ id: s.id, label: s.label, precio: s.precio }));
+    .map((s) => ({ id: s.id, label: s.label, precio: ocultarPrecios ? 0 : s.precio }));
+  // Precios ocultos (opción del despacho): el espacio muestra los servicios sin importe
+  // (el componente ya omite precios a 0, y el total del botón desaparece solo).
 
   return (
     <EspacioCliente

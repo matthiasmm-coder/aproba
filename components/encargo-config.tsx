@@ -13,6 +13,10 @@ export type EncargoConfigInicial = {
   mandatarioDni: string;
   mandatarioColegiado: string;
   mandatarioColegio: string;
+  // Opciones 06/08 (supabase/portal-encargo-opciones.sql):
+  encargoFormasPago: string;      // una por línea; "" = lista automática
+  portalOcultarPrecios: boolean;  // el portal no muestra precios en la selección
+  mandatoPropio: boolean;         // hay un modelo de mandato PDF subido
 };
 
 export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
@@ -22,6 +26,11 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
   const [dni, setDni] = useState(inicial.mandatarioDni);
   const [colegiado, setColegiado] = useState(inicial.mandatarioColegiado);
   const [colegio, setColegio] = useState(inicial.mandatarioColegio);
+  const [formasPago, setFormasPago] = useState(inicial.encargoFormasPago);
+  const [ocultarPrecios, setOcultarPrecios] = useState(inicial.portalOcultarPrecios);
+  const [mandatoPropio, setMandatoPropio] = useState(inicial.mandatoPropio);
+  const [mandatoFile, setMandatoFile] = useState<File | null>(null);
+  const [quitarMandato, setQuitarMandato] = useState(false);
   const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +45,15 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
       fd.set("mandatarioDni", dni);
       fd.set("mandatarioColegiado", colegiado);
       fd.set("mandatarioColegio", colegio);
+      fd.set("encargoFormasPago", formasPago);
+      fd.set("portalOcultarPrecios", ocultarPrecios ? "1" : "0");
+      if (mandatoFile) fd.set("mandatoPropio", mandatoFile);
+      if (quitarMandato) fd.set("quitarMandatoPropio", "1");
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
+      if (mandatoFile) { setMandatoPropio(true); setMandatoFile(null); }
+      if (quitarMandato) { setMandatoPropio(false); setQuitarMandato(false); }
       setEstado("saved");
       window.setTimeout(() => setEstado("idle"), 2500);
     } catch (e) {
@@ -87,6 +102,58 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
           <div>
             <label className={lbl}>{t("Colegio profesional (opcional)")}</label>
             <input value={colegio} onChange={(e) => setColegio(e.target.value)} maxLength={120} className={inp} placeholder={t("Colegio Oficial de Gestores Administrativos de…")} />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className={lbl}>{t("Formas de pago en la hoja de encargo (una por línea)")}</label>
+            <textarea
+              value={formasPago}
+              onChange={(e) => setFormasPago(e.target.value)}
+              rows={4}
+              maxLength={1200}
+              className={inp}
+              placeholder={t("Transferencia bancaria — IBAN ES00 0000 0000 0000 0000 0000\nBizum: 600 000 000\nPago con tarjeta mediante enlace seguro")}
+            />
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se imprimen tal cual en el apartado de pago de la hoja. Vacío = lista automática (IBAN activo + tarjeta si está configurada).")}</p>
+          </div>
+
+          <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label className={lbl}>{t("Modelo de mandato propio (PDF)")}</label>
+            {mandatoPropio && !quitarMandato ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-medium text-aproba-700">✓ {t("Modelo propio activo — las descargas de mandato sirven tu PDF")}</span>
+                <button type="button" onClick={() => setQuitarMandato(true)} className="text-xs font-semibold text-red-600 hover:underline">{t("Quitar y volver al generado")}</button>
+              </div>
+            ) : quitarMandato ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs text-slate-500">{t("Se volverá al mandato generado al guardar.")}</span>
+                <button type="button" onClick={() => setQuitarMandato(false)} className="text-xs font-semibold text-slate-600 hover:underline">{t("Cancelar")}</button>
+              </div>
+            ) : (
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setMandatoFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-aproba-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-aproba-700"
+              />
+            )}
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se entrega TAL CUAL al cliente (sin relleno automático de datos). Vacío = mandato generado por Aproba con los datos del expediente.")}</p>
+          </div>
+
+          <div className="sm:col-span-2 flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div>
+              <p className="text-xs font-semibold text-slate-700">{t("Ocultar precios al cliente")}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{t("El portal no muestra ningún importe en la selección de servicios (ni 0 €). Las facturas que emitas sí muestran su importe: el cliente ve lo que paga.")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={ocultarPrecios}
+              onClick={() => setOcultarPrecios((v) => !v)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition ${ocultarPrecios ? "bg-aproba-600" : "bg-slate-300"}`}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ocultarPrecios ? "left-[22px]" : "left-0.5"}`} />
+            </button>
           </div>
         </div>
       )}

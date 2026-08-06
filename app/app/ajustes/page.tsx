@@ -66,7 +66,7 @@ export default async function Ajustes() {
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, portalOcultarPrecios: false, encargoFormasPago: null, mandatoPropioPath: null })),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -131,6 +131,9 @@ export default async function Ajustes() {
                 mandatarioDni: despacho.mandatarioDni ?? "",
                 mandatarioColegiado: despacho.mandatarioColegiado ?? "",
                 mandatarioColegio: despacho.mandatarioColegio ?? "",
+                encargoFormasPago: despacho.encargoFormasPago ?? "",
+                portalOcultarPrecios: despacho.portalOcultarPrecios,
+                mandatoPropio: Boolean(despacho.mandatoPropioPath),
               }}
             />
           </AjustesSection>

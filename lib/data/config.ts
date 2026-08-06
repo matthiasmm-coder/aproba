@@ -93,13 +93,18 @@ export type Despacho = {
   mandatarioColegiado: string | null; mandatarioColegio: string | null;
   // Canal de los avisos al cliente (supabase/whatsapp-canal.sql) — EMAIL pre-migración.
   canalAvisos: CanalAvisos;
+  // Opciones portal/encargo (supabase/portal-encargo-opciones.sql) — replis pre-migración.
+  portalOcultarPrecios: boolean;
+  encargoFormasPago: string | null;
+  mandatoPropioPath: string | null;
 };
 
 export async function fetchDespacho(): Promise<Despacho> {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
   // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
-  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
+  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, portalOcultarPrecios, encargoFormasPago, mandatoPropioPath");
+  if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
   // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, canalAvisos");
@@ -120,6 +125,9 @@ export async function fetchDespacho(): Promise<Despacho> {
     mandatarioColegiado: (ws.mandatarioColegiado as string | null) ?? null,
     mandatarioColegio: (ws.mandatarioColegio as string | null) ?? null,
     canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
+    portalOcultarPrecios: Boolean(ws.portalOcultarPrecios),
+    encargoFormasPago: (ws.encargoFormasPago as string | null) ?? null,
+    mandatoPropioPath: (ws.mandatoPropioPath as string | null) ?? null,
   };
 }
 

@@ -58,6 +58,7 @@ export function ClientPortal({
   token,
   tarjetaActiva,
   encargoActivo,
+  ocultarPrecios = false,
   familia,
   servicioInicial,
   serviciosExtraClaves,
@@ -67,6 +68,7 @@ export function ClientPortal({
   docsSubidos,
 }: {
   servicios?: Servicio[];
+  ocultarPrecios?: boolean;
   referencia?: string; // expediente réel (lien token) — sinon démo
   clienteNombre?: string;
   clienteFicha?: ClienteFicha;
@@ -607,7 +609,7 @@ export function ClientPortal({
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
                           + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
-                      <p className="shrink-0 text-right text-sm font-bold text-slate-700">
+                      {!ocultarPrecios && <p className="shrink-0 text-right text-sm font-bold text-slate-700">
                         {(() => {
                           const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
@@ -620,10 +622,10 @@ export function ClientPortal({
                             </>
                           );
                         })()}
-                      </p>
+                      </p>}
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    {!ocultarPrecios && <p className="mt-1 text-xs text-slate-400">
                       {tr.anticipo > 0 && tr.resto > 0
                         ? (() => {
                             // MISMA base que el precio de arriba (servicio + extras): con
@@ -637,7 +639,7 @@ export function ClientPortal({
                           : t("pago.final")}
                       {" · "}{t("pago.ivaIncluido")}
                       {nMiembros > 1 && !asig && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
-                    </p>
+                    </p>}
                   </div>
                   <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
                     {tramiteId === tr.id && <Check className="h-3 w-3" />}
@@ -695,6 +697,7 @@ export function ClientPortal({
                 const reb = aplicarDescuento(tPre, 1, descuento);
                 const sup = suplidosAsignados(ovUnit, elegidos, inversa, nMiembros).reduce((acc, x) => acc + x.importe, 0);
                 const total = r2(r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + sup);
+                if (ocultarPrecios) return null;
                 return (
                   <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
                     <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>

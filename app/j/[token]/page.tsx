@@ -55,6 +55,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let clienteIdioma = "es";
   let tarjetaActiva = false;
   let encargoActivo = false;
+  let ocultarPrecios = false;
   let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
@@ -70,8 +71,10 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva, portalOcultarPrecios)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
+    // Repli pre-migración portal-encargo-opciones.sql (columna portalOcultarPrecios ausente).
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", portalOcultarPrecios", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
@@ -131,6 +134,9 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       const claveServicio = exp.servicioClave ?? (exp.tipo ? TIPO_A_SERVICIO[exp.tipo] : undefined);
       const servicioResuelve = Boolean(claveServicio) && servicios.some((sv) => sv.id === claveServicio);
       encargoActivo = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva) && servicioResuelve;
+      // Precios ocultos en la selección (opción del despacho, 06/08). Los importes de
+      // facturas emitidas NO se ocultan: el cliente debe ver lo que paga.
+      ocultarPrecios = Boolean((exp.workspace as { portalOcultarPrecios?: boolean }).portalOcultarPrecios);
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.
       const { data: fin } = await admin
         .from("ExpedienteEvento")
@@ -201,6 +207,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       token={portalToken}
       tarjetaActiva={tarjetaActiva}
       encargoActivo={encargoActivo}
+      ocultarPrecios={ocultarPrecios}
       familia={familia}
       servicioInicial={servicioInicial}
       serviciosExtraClaves={serviciosExtraClaves}

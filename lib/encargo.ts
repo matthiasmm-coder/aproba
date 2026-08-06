@@ -70,6 +70,9 @@ type ExpRow = {
 export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<DatosEncargo | null> {
   // Workspace: datos del despacho + mandatario. Replis si la migración no está aplicada.
   let wsRes = await admin.from("Workspace")
+    .select("nombre, nif, domicilio, emailFacturacion, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
+    .eq("id", exp.workspaceId).maybeSingle();
+  if (wsRes.error) wsRes = await admin.from("Workspace")
     .select("nombre, nif, domicilio, emailFacturacion, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio")
     .eq("id", exp.workspaceId).maybeSingle();
   if (wsRes.error) wsRes = await admin.from("Workspace").select("nombre, nif, domicilio, emailFacturacion").eq("id", exp.workspaceId).maybeSingle();
@@ -89,16 +92,25 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   const listaServicios = [principal, ...extras];
 
   // Medios de pago reales del despacho: IBAN activo + tarjeta si está configurada.
-  const medios: string[] = [];
-  try {
-    const { data: cuentas } = await admin.from("CuentaBancaria").select("iban, titular").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
-    const c = cuentas?.[0] as { iban?: string; titular?: string } | undefined;
-    if (c?.iban) medios.push(`Transferencia bancaria a la cuenta ${c.iban} (titular: ${c.titular ?? s(ws.nombre)})`);
-  } catch { /* tabla sin migrar */ }
-  try {
-    const { fetchStripeKeyDeWorkspace } = await import("./cobros-tarjeta");
-    if (await fetchStripeKeyDeWorkspace(admin, exp.workspaceId)) medios.push("Pago con tarjeta (enlace de pago seguro online)");
-  } catch { /* sin tarjeta */ }
+  // Formas de pago PROPIAS del despacho (Ajustes, una por línea): si existen, mandan
+  // sobre la lista automática — petición de Juan 06/08, generalizada por workspace.
+  const formasPropias = String((ws as { encargoFormasPago?: string | null }).encargoFormasPago ?? "")
+    .split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 12);
+
+  const medios: string[] = [...formasPropias];
+  // La lista automática (IBAN + tarjeta) solo se construye si el despacho NO definió
+  // las suyas: mezclar ambas duplicaría la transferencia con dos redacciones.
+  if (!formasPropias.length) {
+    try {
+      const { data: cuentas } = await admin.from("CuentaBancaria").select("iban, titular").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
+      const c = cuentas?.[0] as { iban?: string; titular?: string } | undefined;
+      if (c?.iban) medios.push(`Transferencia bancaria a la cuenta ${c.iban} (titular: ${c.titular ?? s(ws.nombre)})`);
+    } catch { /* tabla sin migrar */ }
+    try {
+      const { fetchStripeKeyDeWorkspace } = await import("./cobros-tarjeta");
+      if (await fetchStripeKeyDeWorkspace(admin, exp.workspaceId)) medios.push("Pago con tarjeta (enlace de pago seguro online)");
+    } catch { /* sin tarjeta */ }
+  }
   if (!medios.length) medios.push("Transferencia bancaria (datos facilitados en la factura)");
 
   // Familia heterogénea: nombres y nº de miembros para el §5 (solo si hay asignación).

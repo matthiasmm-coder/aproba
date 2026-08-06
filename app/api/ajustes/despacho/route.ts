@@ -54,11 +54,39 @@ export async function POST(req: Request) {
       mandatarioDni: str("mandatarioDni") || null,
       mandatarioColegiado: str("mandatarioColegiado") || null,
       mandatarioColegio: str("mandatarioColegio") || null,
+      // Opciones 06/08 (portal-encargo-opciones.sql). El textarea llega tal cual; se
+      // recorta y se vacía a NULL para que la hoja sepa cuándo usar la lista automática.
+      encargoFormasPago: str("encargoFormasPago").slice(0, 1200).trim() || null,
+      portalOcultarPrecios: str("portalOcultarPrecios") === "1",
     };
+
+    // Modelo de mandato PROPIO (PDF): se guarda en Storage y se referencia por columna.
+    // Se entrega tal cual (sin relleno) — decisión documentada en la migración.
+    const fMandato = form.get("mandatoPropio");
+    if (fMandato instanceof File && fMandato.size > 0) {
+      if (fMandato.type !== "application/pdf") {
+        return NextResponse.json({ error: "El modelo de mandato debe ser un PDF." }, { status: 400 });
+      }
+      if (fMandato.size > 8 * 1024 * 1024) {
+        return NextResponse.json({ error: "El PDF del mandato supera los 8 MB." }, { status: 400 });
+      }
+      const pathMandato = `plantillas/${r.workspaceId}/mandato-propio.pdf`;
+      const buf = Buffer.from(await fMandato.arrayBuffer());
+      const { error: eUp } = await r.admin.storage.from("documentos").upload(pathMandato, buf, { contentType: "application/pdf", upsert: true });
+      if (eUp) return NextResponse.json({ error: `No se pudo guardar el PDF: ${eUp.message}` }, { status: 500 });
+      patchEncargo.mandatoPropioPath = pathMandato;
+    } else if (str("quitarMandatoPropio") === "1") {
+      await r.admin.storage.from("documentos").remove([`plantillas/${r.workspaceId}/mandato-propio.pdf`]).catch(() => {});
+      patchEncargo.mandatoPropioPath = null;
+    }
+
     const { error: eEnc } = await r.admin.from("Workspace").update(patchEncargo).eq("id", r.workspaceId);
     if (eEnc) {
+      const faltaNuevas = /encargoFormasPago|portalOcultarPrecios|mandatoPropioPath/i.test(eEnc.message);
       const falta = /hojaEncargoActiva|mandatario|schema cache|column/i.test(eEnc.message);
-      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/hoja-encargo.sql en Supabase." : eEnc.message }, { status: 500 });
+      return NextResponse.json({ error: faltaNuevas
+        ? "Falta la migración: ejecuta supabase/portal-encargo-opciones.sql en Supabase."
+        : falta ? "Falta la migración: ejecuta supabase/hoja-encargo.sql en Supabase." : eEnc.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }
