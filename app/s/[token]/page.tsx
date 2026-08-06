@@ -68,9 +68,11 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     // Solo si el servicio resuelve (mismo criterio que datosEncargo) → sin dead link.
     encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva) && Boolean(servicio);
   } catch { /* pre-migración */ }
+  // Firma PRIMERO (mismo orden que /j y que las secciones de familia): el cliente
+  // descarga en el bloque de arriba y sube en los primeros huecos de la lista.
   const requeridos: string[] = [
-    ...docsDeServicios(serviciosExp),
     ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
+    ...docsDeServicios(serviciosExp),
   ];
 
   // Statut d'un document requis (par type normalisé + membre) + id pour le téléchargement.

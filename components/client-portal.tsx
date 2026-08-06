@@ -146,7 +146,7 @@ export function ClientPortal({
       const sv = catalogo.find((x) => x.id === c);
       for (const d of sv?.docs ?? []) if (!base.includes(d)) base.push(d);
     }
-    const labels = [...base, ...(encargoActivo && token ? DOCS_FIRMA : [])];
+    const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
     labels.forEach((label, i) => {
       const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
       if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
@@ -215,7 +215,10 @@ export function ClientPortal({
     .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv));
   const docsBase = [...(tramite?.docs ?? [])];
   for (const sv of extrasServicios) for (const d of sv.docs ?? []) if (!docsBase.includes(d)) docsBase.push(d);
-  const requiredDocs = [...docsBase, ...(encargoActivo && token ? DOCS_FIRMA : [])];
+  // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
+  // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
+  // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
+  const requiredDocs = [...(encargoActivo && token ? DOCS_FIRMA : []), ...docsBase];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
