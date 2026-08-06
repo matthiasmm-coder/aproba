@@ -71,7 +71,8 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   }));
 
   const nacionalidad = cliente.nacionalidad ?? "—";
-  const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR").reduce((s, f) => s + totalDe(f.base), 0);
+  // Una ANULADA no cuenta como facturado: se dejó sin efecto (auditoría 06/08).
+  const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDe(f.base), 0);
 
   // Documentos sueltos del cliente (sin expediente). Defensivo: [] si falta la migración.
   let docsSueltos: DocSuelto[] = [];

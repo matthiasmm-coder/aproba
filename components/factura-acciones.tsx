@@ -6,9 +6,10 @@ import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import type { FacturaEstado } from "@/lib/facturas";
 
-// Acciones por factura: archivar/restaurar (no destructivo, cualquier miembro) y eliminar
+// Acciones por factura: anular (deja sin efecto SIN romper la numeración — la vía correcta
+// para una factura emitida por error), archivar/restaurar (no destructivo) y eliminar
 // (definitivo, solo admin). Reutilizado en la tabla de la lista y en la ficha de la factura.
-// El diálogo de borrado avisa del efecto contable en facturas ya emitidas/pagadas.
+// Anular solo aparece en EMITIDA/VENCIDA: un borrador se borra, una pagada se rectifica.
 export function FacturaAcciones({
   id, numero, estado, archivada, esAdmin, onDone,
 }: {
@@ -21,7 +22,7 @@ export function FacturaAcciones({
 }) {
   const t = useT();
   const router = useRouter();
-  const [busy, setBusy] = useState<null | "archivar" | "borrar">(null);
+  const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular">(null);
   const [error, setError] = useState<string | null>(null);
 
   async function archivar() {
@@ -37,6 +38,24 @@ export function FacturaAcciones({
       setBusy(null); // los sub-componentes ya no se remontan: hay que resetear a mano
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo archivar la factura."));
+      setBusy(null);
+    }
+  }
+
+  async function anular() {
+    const mensaje = t("Vas a anular la factura {n}. Dejará de contar como facturada y no se podrá cobrar, pero se conserva con su número (la numeración correlativa no se rompe). ¿Continuar?").replace("{n}", numero);
+    if (!(await confirmar({ mensaje, titulo: t("Anular factura"), confirmarLabel: t("Anular"), peligro: true }))) return;
+    setBusy("anular"); setError(null);
+    try {
+      const res = await fetch(`/api/facturas/${id}/anular`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo anular la factura."));
+      router.refresh();
+      setBusy(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo anular la factura."));
       setBusy(null);
     }
   }
@@ -64,6 +83,17 @@ export function FacturaAcciones({
 
   return (
     <div className="flex items-center justify-end gap-1">
+      {(estado === "EMITIDA" || estado === "VENCIDA") && (
+        <button
+          onClick={anular}
+          disabled={busy !== null}
+          title={t("Anular")}
+          aria-label={t("Anular factura {n}").replace("{n}", numero)}
+          className="rounded p-1.5 text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40"
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
+        </button>
+      )}
       <button
         onClick={archivar}
         disabled={busy !== null}

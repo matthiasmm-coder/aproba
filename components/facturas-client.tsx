@@ -128,7 +128,9 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
   const visibles = filtered.filter((f) => !f.archivado);
   const archivadas = filtered.filter((f) => f.archivado);
 
-  const facturado = visibles.filter((f) => f.estado !== "BORRADOR").reduce((s, f) => s + totalDe(f.base), 0);
+  // Una ANULADA no suma en «facturado»: la factura existe (numeración intacta) pero
+  // se dejó sin efecto. Cobrado y pendiente ya la excluyen por su propio filtro.
+  const facturado = visibles.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDe(f.base), 0);
   const cobrado = visibles.filter((f) => f.estado === "PAGADA").reduce((s, f) => s + totalDe(f.base), 0);
   const pendiente = visibles.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((s, f) => s + totalDe(f.base), 0);
   const vencidas = visibles.filter((f) => f.estado === "VENCIDA").length;

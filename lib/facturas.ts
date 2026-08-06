@@ -1,4 +1,7 @@
-export type FacturaEstado = "BORRADOR" | "EMITIDA" | "PAGADA" | "VENCIDA";
+// ANULADA: factura emitida que se deja sin efecto SIN borrarla (la numeración correlativa
+// no se rompe). Existía de facto en la BD y en algún filtro, pero no en el tipo — la
+// auditoría del 06/08 lo formalizó junto con la acción «anular».
+export type FacturaEstado = "BORRADOR" | "EMITIDA" | "PAGADA" | "VENCIDA" | "ANULADA";
 
 // Línea de honorarios (sujeta a IVA) y suplido (gasto a cuenta del cliente, SIN IVA y
 // fuera de la base imponible — p.ej. la tasa 790). Facturas personalizables (Pro/Business).
@@ -107,6 +110,7 @@ export const FACTURA_ESTADO_META: Record<FacturaEstado, { label: string; pill: s
   EMITIDA: { label: "Emitida", pill: "bg-amber-100 text-amber-700" },
   PAGADA: { label: "Pagada", pill: "bg-aproba-100 text-aproba-700" },
   VENCIDA: { label: "Vencida", pill: "bg-red-100 text-red-700" },
+  ANULADA: { label: "Anulada", pill: "bg-slate-100 text-slate-400 line-through" },
 };
 
 export const FACTURAS: Factura[] = [
