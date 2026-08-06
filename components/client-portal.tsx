@@ -268,7 +268,11 @@ export function ClientPortal({
     : null; // null → cada tarjeta calcula el suyo con suplidosUnit
   const suplidosExp = suplidosAsignados(ovUnit, tramite ? [tramite, ...extrasServicios] : extrasServicios, asig, nMiembros);
   const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
-  const conPago = anticipo > 0;
+  // Precios ocultos ⇒ SIN pago upfront en el portal: el cliente no ha visto ningún
+  // importe, así que no se le puede pedir un anticipo calculado desde la tarifa.
+  // El cobro llega después por las facturas que emite el gestor (importe editable,
+  // en un pago o fraccionado en cuotas) — y esas SÍ muestran su importe en /s.
+  const conPago = anticipo > 0 && !ocultarPrecios;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
 
