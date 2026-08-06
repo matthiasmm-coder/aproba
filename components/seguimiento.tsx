@@ -7,6 +7,11 @@ import { subirConProgreso } from "@/lib/subir-con-progreso";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean; clienteId?: string; grupo?: string };
 
+// Documentos del ciclo de firma (mismas etiquetas que /j). Mientras alguno no esté
+// subido con éxito, /s muestra el bloque de descarga hoja/mandato: su ayuda dice
+// «el PDF que descargaste arriba» y ese «arriba» tiene que existir también aquí.
+const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
+
 const LANG_KEY = "aproba.portal.lang";
 const ORDEN: Record<string, number> = { BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3, PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4 };
 // AAAA-MM-JJ → JJ/MM/AAAA (date de cita stockée en ISO).
@@ -275,6 +280,23 @@ export function Seguimiento({
             <span className={`text-xs font-medium ${faltan ? "text-amber-600" : "text-aproba-700"}`}>{faltan ? t("seg.faltan") : t("seg.todoAlDia")}</span>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
+          {/* Descarga hoja/mandato mientras las versiones firmadas no estén subidas con
+              éxito — el cliente que llega a /s sin haberlos guardado desde /j necesita
+              poder bajarlos aquí (el endpoint reexige hojaEncargoActiva por token). */}
+          {docs.some((d) => DOCS_FIRMA.includes(d.label) && d.status !== "ok") && (
+            <div className="mb-3 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
+              <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
+              <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                  <Download className="h-4 w-4" />{t("firma.hoja")}
+                </a>
+                <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
+                  <Download className="h-4 w-4" />{t("firma.mandato")}
+                </a>
+              </div>
+            </div>
+          )}
           {docs.filter((d) => d.docId).length >= 2 && (
             <a
               href={`/api/seguimiento/${token}/documentos-zip`}
