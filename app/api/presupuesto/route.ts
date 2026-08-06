@@ -11,11 +11,41 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "
 const EQUIPO_OPCIONES = ["Autónomo (solo yo)", "2 personas", "3 personas", "4 personas", "5 personas", "Más de 5"];
 const clamp = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
+// ── Rate limit en memoria (auditoría 06/08) ──
+// Era el ÚNICO endpoint público sin límite de caudal: /api/demo ya tenía este mismo
+// mecanismo. Sin él, un bot podía inundar el buzón del equipo (y el cupo de Resend)
+// disparando el formulario en bucle. Mismo diseño que /api/demo a propósito: si un día
+// se mueve a KV/Turnstile, se cambian los dos igual.
+const HORA = 3_600_000;
+const MAX_POR_IP_HORA = 3;
+const MAX_GLOBAL_DIA = 50;
+const porIp = new Map<string, number[]>();
+let global = { dia: "", n: 0 };
+
+function admitir(ip: string): boolean {
+  const ahora = Date.now();
+  const dia = new Date().toISOString().slice(0, 10);
+  if (global.dia !== dia) global = { dia, n: 0 };
+  if (global.n >= MAX_GLOBAL_DIA) return false;
+  const previos = (porIp.get(ip) ?? []).filter((t) => ahora - t < HORA);
+  if (previos.length >= MAX_POR_IP_HORA) return false;
+  previos.push(ahora);
+  porIp.set(ip, previos);
+  if (porIp.size > 500) {
+    for (const [k, v] of porIp) if (v.every((t) => ahora - t >= HORA)) porIp.delete(k);
+  }
+  global.n += 1;
+  return true;
+}
+
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   // Honeypot: si el campo oculto viene relleno, es un bot → fingimos éxito.
   if (clamp(body.website, 80)) return NextResponse.json({ ok: true });
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "desconocida";
+  if (!admitir(ip)) return fail("Demasiadas solicitudes. Inténtalo de nuevo más tarde.", 429);
 
   const nombre = clamp(body.nombre, 120);
   const apellidos = clamp(body.apellidos, 120);
