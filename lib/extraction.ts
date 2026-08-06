@@ -40,7 +40,8 @@ EVALUACIÓN DE CALIDAD (muy importante para el gestor):
 - notas: observación libre breve si hace falta (o null).
 
 SALIDA:
-Devuelve únicamente el objeto JSON que cumple el esquema proporcionado. Nada de texto adicional, ni explicaciones, ni markdown.`;
+Devuelve únicamente el objeto JSON que cumple el esquema proporcionado. Nada de texto adicional, ni explicaciones, ni markdown.
+REGLA ABSOLUTA: devuelve el JSON SIEMPRE, también cuando la imagen esté vacía, en blanco, borrosa, cortada o no sea un documento. En esos casos: tipo_documento "desconocido", legibilidad "ilegible", y en alertas el motivo CONCRETO y qué debe hacer el cliente. Ejemplos: "La foto está borrosa: vuelve a hacerla con el móvil quieto y buena luz", "Solo se ve media página: sube el documento completo", "La imagen no contiene ningún documento: comprueba que has subido el archivo correcto". NUNCA respondas con una frase fuera del JSON.`;
 
 // Squelette JSON attendu — on guide le modèle par l'exemple plutôt que par
 // output_config.format : le schéma strict dépasse la limite de 16 champs à type
@@ -123,6 +124,25 @@ export type ResultadoExtraccion = {
 
 const MEDIA_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+// Repli quand le modèle n'a pas renvoyé de JSON exploitable : on rend un résultat VALIDE
+// marqué RECHAZADO. Le document est enregistré, le client voit quoi refaire, et le gestor
+// garde la trace — au lieu d'un 502 qui perd l'upload et ne dit rien à personne.
+function respuestaIlegible(raw: string, inputTokens: number, outputTokens: number): ResultadoExtraccion {
+  console.error("[extraction] respuesta no-JSON del modelo:", raw.slice(0, 300));
+  return {
+    estado: "RECHAZADO",
+    tipoDetectado: "desconocido",
+    confianzaGlobal: 0,
+    legibilidad: "ilegible",
+    campos: [],
+    fechaCaducidad: null,
+    alertas: ["No se ha podido leer el documento. Haz una foto más nítida, con buena luz y el documento completo dentro del encuadre."],
+    modelo: MODELO_EXTRACTION,
+    inputTokens,
+    outputTokens,
+  };
+}
+
 export async function extraerDocumento(buffer: Buffer, mimeType: string): Promise<ResultadoExtraccion> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Falta ANTHROPIC_API_KEY en .env.local — la validación IA no está configurada.");
@@ -158,7 +178,30 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
   let raw = (texto && "text" in texto ? texto.text : "{}").trim();
   // défense : retirer d'éventuelles clôtures markdown ```json … ```
   raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  const cruda = JSON.parse(raw) as ExtraccionCruda;
+
+  // Le modèle répond parfois en PROSE au lieu du JSON — typiquement quand la photo est
+  // floue, sombre ou vide : « No he recibido ninguna imagen… ». Un JSON.parse nu levait
+  // alors une exception qui remontait jusqu'à la route → 502 → **le document n'était
+  // jamais enregistré** et le client rebouclait sans comprendre. C'est le bug signalé
+  // par Juan le 06/08/2026 (« otro cliente no puede cargar documentos »), reproduit en
+  // production. Un document illisible est un cas NORMAL du métier : il doit finir en
+  // RECHAZADO avec un message clair, jamais en erreur serveur.
+  let cruda: ExtraccionCruda;
+  try {
+    cruda = JSON.parse(raw) as ExtraccionCruda;
+  } catch {
+    // 2e chance : le modèle a pu préfixer le JSON d'une phrase. On isole le 1er objet.
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) {
+      try {
+        cruda = JSON.parse(m[0]) as ExtraccionCruda;
+      } catch {
+        return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens);
+      }
+    } else {
+      return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens);
+    }
+  }
 
   const campos = LABELS.flatMap(([campo, label]) => {
     const v = cruda[campo];
@@ -168,16 +211,27 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
 
   // Décision : illisible → RECHAZADO (le client doit re-soumettre) ; sinon VALIDADO
   // (les alertas restent visibles pour le gestor : caducado, recadré, etc.).
-  const estado = cruda.legibilidad === "ilegible" ? "RECHAZADO" : "VALIDADO";
+  // La legibilidad se resuelve ANTES: un null del modelo contaba como "ilegible" en el
+  // resultado pero VALIDABA el documento (el check miraba cruda.legibilidad, no el repli).
+  const legibilidad = cruda.legibilidad ?? "ilegible";
+  const estado = legibilidad === "ilegible" ? "RECHAZADO" : "VALIDADO";
+
+  // Un rechazo SIEMPRE lleva un motivo accionable. El prompt ya lo exige; esto es el
+  // filet si el modelo devuelve ilegible con alertas vacías — el cliente debe saber
+  // qué ha fallado y qué reenviar, no ver un rechazo mudo.
+  const alertas = (Array.isArray(cruda.alertas) ? cruda.alertas : []).filter((a): a is string => typeof a === "string" && !!a.trim());
+  if (estado === "RECHAZADO" && !alertas.length) {
+    alertas.push("No se ha podido leer el documento. Vuelve a subirlo: foto nítida, con buena luz y el documento completo dentro del encuadre.");
+  }
 
   return {
     estado,
     tipoDetectado: cruda.tipo_documento ?? "desconocido",
     confianzaGlobal: cruda.confianza_global ?? 0,
-    legibilidad: cruda.legibilidad ?? "ilegible",
+    legibilidad,
     campos,
     fechaCaducidad: typeof cruda.fecha_caducidad === "string" && cruda.fecha_caducidad ? cruda.fecha_caducidad : null,
-    alertas: cruda.alertas ?? [],
+    alertas,
     modelo: MODELO_EXTRACTION,
     inputTokens: res.usage.input_tokens,
     outputTokens: res.usage.output_tokens,
