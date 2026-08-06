@@ -25,8 +25,8 @@ const uuid = () => crypto.randomUUID();
 // alguna columna de la ficha faltara en una base antigua.
 const JOIN_CLI = "cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia)";
 const JOIN_CLI_MIN = "cliente:Cliente(nombre, apellidos)";
-const SELECT_EXP = `id, workspaceId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, referencia, familiaId, ${JOIN_CLI}`;
-type ExpRow = { id: string; workspaceId: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
+const SELECT_EXP = `id, workspaceId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, referencia, familiaId, ${JOIN_CLI}`;
+type ExpRow = { id: string; workspaceId: string; clienteId?: string | null; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
   let body: {
@@ -253,9 +253,21 @@ export async function POST(req: Request) {
   };
   let { error: e4 } = await admin.from("Factura").insert({
     ...payloadBase,
+    // FK real hacia el cliente (fix homónimos 06/08): la factura pertenece al cliente del
+    // expediente aunque el gestor personalice el nombre mostrado en clienteNombre.
+    ...(exp.clienteId ? { clienteId: exp.clienteId } : {}),
     ...(clienteDatos ? { clienteDatos } : {}),
     ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
   });
+  // Repli: si la migración factura-cliente-id.sql no está ejecutada, reintenta sin la FK.
+  if (e4 && exp.clienteId && /clienteId/i.test(e4.message)) {
+    const retry = await admin.from("Factura").insert({
+      ...payloadBase,
+      ...(clienteDatos ? { clienteDatos } : {}),
+      ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
+    });
+    e4 = retry.error;
+  }
   // Repli: si la migración factura-cliente-datos.sql no está ejecutada, reintenta sin
   // el snapshot — la emisión NUNCA debe romperse por una columna opcional.
   if (e4 && clienteDatos && /clienteDatos/i.test(e4.message)) {

@@ -39,14 +39,29 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
 
   const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim();
 
-  const [{ data: expRows }, { data: facRows }] = await Promise.all([
-    supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false }),
-    // Factura est dénormalisée par nom de client (pas de FK clienteId).
-    supabase.from("Factura").select("id, numero, concepto, baseImponible, estado, fechaEmision").eq("clienteNombre", nombre).order("numero", { ascending: false }),
-  ]);
+  const { data: expRows } = await supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false });
+
+  // Facturas del cliente — por FK clienteId (fix homónimos 06/08: dos «Juan García» del
+  // mismo despacho ya NO comparten facturas). El repli por nombre queda SOLO para:
+  //   · facturas antiguas sin backfill y manuales de nombre libre (clienteId IS NULL);
+  //   · el despliegue anterior a la migración factura-cliente-id.sql (columna ausente).
+  const FAC_COLS = "id, numero, concepto, baseImponible, estado, fechaEmision";
+  type FacRow = { id: string; numero: string; concepto: string; baseImponible: number | string; estado: string; fechaEmision: string | null };
+  let facRows: FacRow[] = [];
+  const porFk = await supabase.from("Factura").select(FAC_COLS).eq("clienteId", id);
+  if (!porFk.error) {
+    const porNombre = nombre
+      ? await supabase.from("Factura").select(FAC_COLS).is("clienteId", null).eq("clienteNombre", nombre)
+      : { data: [] as FacRow[] };
+    facRows = [...((porFk.data ?? []) as FacRow[]), ...((porNombre.data ?? []) as FacRow[])];
+  } else {
+    const viejo = await supabase.from("Factura").select(FAC_COLS).eq("clienteNombre", nombre);
+    facRows = (viejo.data ?? []) as FacRow[];
+  }
+  facRows.sort((a, b) => String(b.numero).localeCompare(String(a.numero)));
 
   const expedientes = (expRows ?? []) as { id: string; referencia: string; tipo: string; estado: string; createdAt: string }[];
-  const facturas = ((facRows ?? []) as { id: string; numero: string; concepto: string; baseImponible: number | string; estado: string; fechaEmision: string | null }[]).map((f) => ({
+  const facturas = facRows.map((f) => ({
     id: f.id,
     numero: f.numero,
     concepto: f.concepto,

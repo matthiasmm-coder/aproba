@@ -83,6 +83,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const facturaId = uuid();
   const fila: Record<string, unknown> = {
     id: facturaId, workspaceId: fam.workspaceId, familiaId: fam.id, expedienteId: anchorExpedienteId,
+    // FK real hacia el titular (fix homónimos 06/08): la factura familiar se emite a su
+    // nombre, mismo criterio que el snapshot fiscal clienteDatos.
+    ...(titular?.id ? { clienteId: titular.id } : {}),
     numero, clienteNombre, concepto, baseImponible: base, iva, total,
     estado: "EMITIDA", origen: "MANUAL", momento: null, metodoPago: "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(), fechaVencimiento: vencimiento.toISOString(),
@@ -90,6 +93,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...(clienteDatos ? { clienteDatos } : {}),
   };
   let { error: eIns } = await admin.from("Factura").insert(fila);
+  if (eIns && fila.clienteId && /clienteId/i.test(eIns.message)) {
+    // Repli si la migración factura-cliente-id.sql no está aplicada: emite sin la FK.
+    // Debe ir ANTES del repli genérico de columnas, que borraría familiaId por error.
+    delete fila.clienteId;
+    ({ error: eIns } = await admin.from("Factura").insert(fila));
+  }
   if (eIns && clienteDatos && /clienteDatos/i.test(eIns.message)) {
     // Repli si la migración factura-cliente-datos.sql no está aplicada: emite sin snapshot.
     delete fila.clienteDatos;
@@ -99,6 +108,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Repli si la migración factura-familia.sql no está aplicada: emite sin el vínculo familia.
     delete fila.familiaId;
     delete fila.clienteDatos;
+    delete fila.clienteId;
     ({ error: eIns } = await admin.from("Factura").insert(fila));
   }
   if (eIns) {

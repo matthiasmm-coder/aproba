@@ -43,6 +43,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const nombreAntes = `${actual.nombre ?? ""} ${actual.apellidos ?? ""}`.trim();
   const nombreDespues = `${patch.nombre ?? actual.nombre ?? ""} ${patch.apellidos ?? actual.apellidos ?? ""}`.trim();
   if (nombreDespues && nombreAntes && nombreDespues !== nombreAntes) {
+    // 1) Por FK (facturas con clienteId — cubre también familiares y manuales vinculadas).
+    //    Defensivo: si la migración factura-cliente-id.sql no está aplicada, se ignora.
+    const porFk = await admin.from("Factura").update({ clienteNombre: nombreDespues })
+      .eq("clienteId", id).eq("clienteNombre", nombreAntes);
+    if (porFk.error && !/clienteId/i.test(porFk.error.message)) {
+      console.error("[clientes:PATCH] re-sync facturas (FK) falló", { clienteId: id, error: porFk.error.message });
+    }
+    // 2) Por expediente (facturas antiguas sin FK) — el camino histórico, intacto.
     const { data: exps } = await admin.from("Expediente").select("id").eq("clienteId", id);
     const expIds = (exps ?? []).map((e) => e.id as string);
     if (expIds.length) {

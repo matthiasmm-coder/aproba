@@ -33,12 +33,12 @@ export async function POST(req: Request) {
   // nombre/apellidos si alguna columna de la ficha faltara en una base antigua.
   let resExp = await supa
     .from("Expediente")
-    .select("id, referencia, tipo, workspaceId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia), facturas:Factura(id, momento, estado)")
+    .select("id, referencia, tipo, workspaceId, clienteId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia), facturas:Factura(id, momento, estado)")
     .eq("id", expedienteId)
     .maybeSingle();
   if (resExp.error) resExp = await supa
     .from("Expediente")
-    .select("id, referencia, tipo, workspaceId, cliente:Cliente(nombre, apellidos), facturas:Factura(id, momento, estado)")
+    .select("id, referencia, tipo, workspaceId, clienteId, cliente:Cliente(nombre, apellidos), facturas:Factura(id, momento, estado)")
     .eq("id", expedienteId)
     .maybeSingle() as typeof resExp;
   const exp = resExp.data;
@@ -85,6 +85,8 @@ export async function POST(req: Request) {
     const facturaId = uuid();
     filas.push({
       id: facturaId, workspaceId: exp.workspaceId, expedienteId: exp.id,
+      // FK real hacia el cliente (fix homónimos 06/08).
+      ...(exp.clienteId ? { clienteId: exp.clienteId } : {}),
       numero, clienteNombre,
       concepto: `Cuota ${i + 1} de ${n} — ${tramiteLabel} (${exp.referencia})`,
       baseImponible: base, iva, total,
@@ -97,9 +99,13 @@ export async function POST(req: Request) {
   // Inserción ATÓMICA (un solo INSERT): si otra emisión concurrente pisa un número, no se
   // escribe NADA — sin planes de cuotas parciales — y el «reintenta» es veraz.
   let { error } = await admin.from("Factura").insert(filas);
+  // Repli: columna clienteId sin migrar (factura-cliente-id.sql) → reintenta sin la FK.
+  if (error && exp.clienteId && /clienteId/i.test(error.message)) {
+    error = (await admin.from("Factura").insert(filas.map(({ clienteId: _ci, ...resto }) => resto))).error;
+  }
   // Repli: columna clienteDatos sin migrar → reintenta sin el snapshot (el plan no puede perderse).
   if (error && clienteDatos && /clienteDatos/i.test(error.message)) {
-    error = (await admin.from("Factura").insert(filas.map(({ clienteDatos: _cd, ...resto }) => resto))).error;
+    error = (await admin.from("Factura").insert(filas.map(({ clienteId: _ci, clienteDatos: _cd, ...resto }) => resto))).error;
   }
   if (error) {
     const dup = /duplicate|unique/i.test(error.message);
