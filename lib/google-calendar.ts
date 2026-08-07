@@ -20,8 +20,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
-export const googleOAuthDisponible = () =>
-  Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+// SIEMPRE con trim(): al pegar las credenciales en el panel de Vercel se cuela un
+// salto de línea con facilidad, y Google responde «invalid_client — The OAuth client
+// was not found» (pasó el 07/08/2026), un error que no apunta para nada a su causa.
+const clientId = () => (process.env.GOOGLE_OAUTH_CLIENT_ID ?? "").trim();
+const clientSecret = () => (process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "").trim();
+
+export const googleOAuthDisponible = () => Boolean(clientId() && clientSecret());
 
 // ── Cifrado credencial (idéntico a lib/cobros-tarjeta.ts, sal propia) ────────────
 const encKey = (): Buffer | null => {
@@ -77,7 +82,7 @@ export function verificarState(state: string): string | null {
 
 export function urlConexionGoogle(redirectUri: string, state: string): string {
   const p = new URLSearchParams({
-    client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
+    client_id: clientId(),
     redirect_uri: redirectUri,
     response_type: "code",
     scope: SCOPE,
@@ -94,8 +99,8 @@ export async function intercambiarCodigo(code: string, redirectUri: string): Pro
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+      client_id: clientId(),
+      client_secret: clientSecret(),
       redirect_uri: redirectUri,
       grant_type: "authorization_code",
     }),
@@ -111,8 +116,8 @@ async function accessTokenDe(refreshToken: string): Promise<string | null> {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       refresh_token: refreshToken,
-      client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+      client_id: clientId(),
+      client_secret: clientSecret(),
       grant_type: "refresh_token",
     }),
   });
