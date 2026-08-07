@@ -47,14 +47,19 @@ function validarVideo(body: CuerpoCita): { modo: "auto" | "manual" | null; prov:
   return { modo, prov: proveedorDeEnlace(enlace), enlace };
 }
 
-// Quita las columnas nuevas del insert/update — repli pre-migración
-// (cita-videollamada.sql y google-calendar.sql): el guardado y la invitación
-// funcionan igual; solo se pierde su persistencia al reabrir la cita.
+// Replis pre-migración GRANULARES: cada migración pendiente quita SOLO sus columnas.
+// (Si falta google-calendar.sql pero cita-videollamada.sql ya está, el proveedor y el
+// enlace SÍ se persisten — un repli de todo-o-nada los perdía sin necesidad.)
+const sinGoogleEvento = <T extends { googleEventoId?: unknown }>(fila: T) => {
+  const { googleEventoId: _ge, ...resto } = fila;
+  return resto;
+};
 const sinVideo = <T extends { videoProveedor?: unknown; videoEnlace?: unknown; googleEventoId?: unknown }>(fila: T) => {
   const { videoProveedor: _vp, videoEnlace: _ve, googleEventoId: _ge, ...resto } = fila;
   return resto;
 };
-const faltaColumnaVideo = (msg: string) => /videoProveedor|videoEnlace|googleEventoId/i.test(msg);
+const faltaColumnaGoogle = (msg: string) => /googleEventoId/i.test(msg);
+const faltaColumnaVideo = (msg: string) => /videoProveedor|videoEnlace/i.test(msg);
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
@@ -112,6 +117,7 @@ export async function POST(req: Request) {
   };
 
   let { error } = await supabase.from("CitaPrevia").insert(fila);
+  if (error && faltaColumnaGoogle(error.message)) ({ error } = await supabase.from("CitaPrevia").insert(sinGoogleEvento(fila)));
   if (error && faltaColumnaVideo(error.message)) ({ error } = await supabase.from("CitaPrevia").insert(sinVideo(fila)));
   if (error) {
     const falta = /relation .*CitaPrevia.* does not exist|schema cache/i.test(error.message);
@@ -239,6 +245,7 @@ export async function PUT(req: Request) {
     googleEventoId,
   };
   let { error } = await supabase.from("CitaPrevia").update(patch).eq("id", id); // RLS
+  if (error && faltaColumnaGoogle(error.message)) ({ error } = await supabase.from("CitaPrevia").update(sinGoogleEvento(patch)).eq("id", id));
   if (error && faltaColumnaVideo(error.message)) ({ error } = await supabase.from("CitaPrevia").update(sinVideo(patch)).eq("id", id));
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
