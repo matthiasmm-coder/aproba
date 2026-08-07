@@ -116,7 +116,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <Link
           href={`/app/expedientes/${c.expedienteId}`}
           title={tooltip(c)}
-          className={`block rounded-md border border-aproba-100 bg-aproba-50 px-1.5 py-1 text-aproba-900 transition hover:border-aproba-300 ${pasada(c) ? "opacity-45" : ""}`}
+          className={`block rounded-md border border-aproba-100 bg-aproba-50 px-1.5 py-1 text-center text-aproba-900 transition hover:border-aproba-300 ${pasada(c) ? "opacity-45" : ""}`}
         >
           {inner}
         </Link>
@@ -127,7 +127,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <button
           onClick={() => setEditId(c.id)}
           title={`${tooltip(c)} — ${t("Editar")}`}
-          className="w-full rounded-md border border-aproba-100 bg-aproba-50 px-1.5 py-1 pr-7 text-left text-aproba-900 transition hover:border-aproba-300 md:pr-1.5"
+          className="w-full rounded-md border border-aproba-100 bg-aproba-50 px-7 py-1 text-center text-aproba-900 transition hover:border-aproba-300 md:px-1.5"
         >
           {inner}
         </button>
