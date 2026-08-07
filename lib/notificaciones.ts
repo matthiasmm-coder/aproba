@@ -538,7 +538,7 @@ function icsCitaPrevia(o: { uid: string; gestoria: string; fecha: string; hora: 
 export async function enviarConfirmacionCitaPrevia(opts: {
   nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
   actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
-  videoProveedor?: "meet" | "teams" | null; videoEnlace?: string | null; citaId?: string | null;
+  videoProveedor?: "meet" | "teams" | "otro" | null; videoEnlace?: string | null; citaId?: string | null;
 }): Promise<boolean> {
   try {
     if (!opts.email || !resendDisponible()) return false;
@@ -546,11 +546,13 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm} min` : ""}` : `${mm} min`; };
     const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}${opts.duracion ? ` (${fmtDur(opts.duracion)})` : ""}`;
     const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b">${k}</td><td style="font-weight:600">${v}</td></tr>`;
-    const provLabel = opts.videoProveedor === "teams" ? "Microsoft Teams" : "Google Meet";
+    // "otro" = herramienta cualquiera (Zoom…): etiqueta genérica, sin paréntesis redundante.
+    const provLabel = opts.videoProveedor === "teams" ? "Microsoft Teams" : opts.videoProveedor === "meet" ? "Google Meet" : null;
     const esVideo = Boolean(opts.videoEnlace);
+    const lugarVideo = provLabel ? `Videollamada (${provLabel})` : "Videollamada";
     const detalle = [
       fila("Fecha", cuando),
-      esVideo ? fila("Lugar", `Videollamada (${provLabel})`) : opts.lugar ? fila("Lugar", opts.lugar) : "",
+      esVideo ? fila("Lugar", lugarVideo) : opts.lugar ? fila("Lugar", opts.lugar) : "",
       opts.motivo ? fila("Motivo", opts.motivo) : "",
       opts.precio != null ? fila("Precio", opts.precio === 0 ? "Gratis" : fmtEur(opts.precio)) : "",
     ].join("");
@@ -565,7 +567,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
       // Videollamada → botón para unirse; la invitación .ics va adjunta.
-      cta: esVideo && opts.videoEnlace ? { url: opts.videoEnlace, label: `Unirse a la videollamada (${provLabel})` } : null,
+      cta: esVideo && opts.videoEnlace ? { url: opts.videoEnlace, label: provLabel ? `Unirse a la videollamada (${provLabel})` : "Unirse a la videollamada" } : null,
       footerNota: `Mensaje de ${opts.gestoria}. Por favor, no respondas a este correo.`,
       preheader: mod ? `Cita modificada: ${cuando}` : `Cita: ${cuando}`,
     });
@@ -581,7 +583,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
             fecha: opts.fecha,
             hora: opts.hora as string,
             duracion: opts.duracion as number,
-            lugar: esVideo ? `Videollamada (${provLabel})` : (opts.lugar || "Por confirmar"),
+            lugar: esVideo ? lugarVideo : (opts.lugar || "Por confirmar"),
             enlace: opts.videoEnlace ?? null,
           })).toString("base64"),
         }]
@@ -590,8 +592,8 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from, to: opts.email, subject: mod ? `Cita modificada · ${opts.gestoria}` : `Cita confirmada · ${opts.gestoria}`, html,
       text: mod
-        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${esVideo ? ` · Videollamada (${provLabel}): ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`
-        : `Tu cita con ${opts.gestoria}: ${cuando}${esVideo ? ` · Videollamada (${provLabel}): ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`
+        : `Tu cita con ${opts.gestoria}: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`,
       attachments: adjuntos,
     });
     return !error;

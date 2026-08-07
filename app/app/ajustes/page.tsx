@@ -5,6 +5,7 @@ import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
 import { CuentasBancarias } from "@/components/cuentas-bancarias";
 import { CobroTarjetaConfig } from "@/components/cobro-tarjeta-config";
+import { GoogleCalendarConfig } from "@/components/google-calendar-config";
 import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
@@ -159,6 +160,7 @@ export default async function Ajustes() {
               </div>
             )}
             {puedeEditar && <CobroTarjetaConfig />}
+            {puedeEditar && <GoogleCalendarConfig />}
           </div>
         </AjustesSection>
 

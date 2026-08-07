@@ -7,12 +7,10 @@ import type { ClienteMin } from "@/lib/data/citas";
 
 const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el selector
 
-// Dónde crea el gestor la reunión con un clic (pestaña nueva); copia el enlace y lo pega.
+// Modo MANUAL: vale el enlace de cualquier herramienta (Meet, Teams, Zoom…) — solo
+// se exige una URL https. Atajos para crear la reunión en otra pestaña y pegarla.
 const CREAR_REUNION = { meet: "https://meet.google.com/new", teams: "https://teams.live.com" } as const;
-const ENLACE_VALIDO = {
-  meet: /^https:\/\/meet\.google\.com\/[a-z0-9-]{6,}$/i,
-  teams: /^https:\/\/(teams\.live\.com|teams\.microsoft\.com)\/\S+$/i,
-} as const;
+const ENLACE_HTTPS = /^https:\/\/\S{4,480}$/;
 
 function LogoMeet({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -57,10 +55,14 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const [duracion, setDuracion] = useState(30);
   const [precio, setPrecio] = useState("");
   const [lugar, setLugar] = useState("");
-  // Videollamada: lugar forzado a «Videollamada» (solo lectura) + proveedor + enlace.
+  // Videollamada: lugar forzado a «Videollamada» (solo lectura). Dos modos:
+  //   auto   — Aproba crea la reunión de Google Meet al guardar (workspace conectado);
+  //   manual — el gestor pega el enlace de cualquier herramienta.
   const [esVideo, setEsVideo] = useState(false);
-  const [videoProv, setVideoProv] = useState<"meet" | "teams">("meet");
+  const [modo, setModo] = useState<"auto" | "manual">("manual");
   const [videoEnlace, setVideoEnlace] = useState("");
+  // Estado de la integración Google (se consulta al marcar la casilla, una sola vez).
+  const [gcal, setGcal] = useState<{ configurado: boolean; conectado: boolean } | null>(null);
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
   const [notificar, setNotificar] = useState(!citaId); // crear: marcado; editar: opt-in (sin parpadeo)
@@ -88,8 +90,10 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         setDuracion(typeof c.duracion === "number" ? c.duracion : 30);
         setPrecio(c.precio != null ? String(c.precio) : "");
         setLugar(c.lugar ?? ""); setMotivo(c.motivo ?? ""); setNotas(c.notas ?? "");
+        // Edición: siempre modo manual con el enlace existente (predecible; elegir
+        // «auto» de nuevo crearía una reunión NUEVA, cosa que rara vez se quiere).
         setEsVideo(Boolean(c.videoProveedor));
-        setVideoProv(c.videoProveedor === "teams" ? "teams" : "meet");
+        setModo("manual");
         setVideoEnlace(c.videoEnlace ?? "");
         setNotificar(false); // en edición, avisar al cliente es opt-in
       } catch { if (vivo) setError(t("No se pudo cargar la cita.")); }
@@ -111,9 +115,27 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
     setFoco(false);
   }
 
-  // Videollamada → email, hora y enlace válido obligatorios (la duración siempre tiene valor).
-  const enlaceOk = ENLACE_VALIDO[videoProv].test(videoEnlace.trim());
-  const faltaVideo = esVideo && (!email.trim() || !hora || !enlaceOk);
+  // Al marcar la casilla, consultar UNA vez la integración Google; si está conectada
+  // y es una cita nueva, proponer el modo automático por defecto.
+  useEffect(() => {
+    if (!esVideo || gcal) return;
+    let vivo = true;
+    fetch("/api/integraciones/google")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!vivo) return;
+        const st = { configurado: Boolean(d?.configurado), conectado: Boolean(d?.conectado) };
+        setGcal(st);
+        if (st.conectado && !citaId) setModo("auto");
+      })
+      .catch(() => { if (vivo) setGcal({ configurado: false, conectado: false }); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esVideo]);
+
+  // Videollamada → email y hora obligatorios; en manual, además un enlace https válido.
+  const enlaceOk = ENLACE_HTTPS.test(videoEnlace.trim());
+  const faltaVideo = esVideo && (!email.trim() || !hora || (modo === "manual" && !enlaceOk));
 
   async function crear() {
     setBusy(true); setError(null);
@@ -124,8 +146,8 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         precio: precio.trim() ? Number(precio) : undefined,
         lugar: esVideo ? "Videollamada" : lugar,
         motivo, notas,
-        videoProveedor: esVideo ? videoProv : null,
-        videoEnlace: esVideo ? videoEnlace.trim() : null,
+        videoModo: esVideo ? modo : null,
+        videoEnlace: esVideo && modo === "manual" ? videoEnlace.trim() : null,
       };
       const res = await fetch("/api/citas-previas", {
         method: edicion ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
@@ -230,48 +252,63 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
             </label>
             {esVideo && (
               <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {([["meet", "Google Meet"], ["teams", "Microsoft Teams"]] as const).map(([p, nombre]) => (
+                {/* Con Google conectado: elegir entre crear el Meet automáticamente o pegar
+                    un enlace. Sin conexión: solo manual (con invitación a conectar). */}
+                {gcal?.conectado && (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button
-                      key={p}
                       type="button"
-                      onClick={() => setVideoProv(p)}
-                      aria-pressed={videoProv === p}
-                      className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm font-semibold transition ${videoProv === p ? "border-aproba-600 ring-2 ring-aproba-100 text-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
+                      onClick={() => setModo("auto")}
+                      aria-pressed={modo === "auto"}
+                      className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm font-semibold transition ${modo === "auto" ? "border-aproba-600 ring-2 ring-aproba-100 text-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
                     >
-                      {p === "meet" ? <LogoMeet /> : <LogoTeams />}
-                      {nombre}
+                      <LogoMeet />
+                      {t("Crear Google Meet automáticamente")}
                     </button>
-                  ))}
-                </div>
-                <div className="mt-3">
-                  <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Enlace de la videollamada")} <span className="text-amber-500">*</span></label>
-                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModo("manual")}
+                      aria-pressed={modo === "manual"}
+                      className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm font-semibold transition ${modo === "manual" ? "border-aproba-600 ring-2 ring-aproba-100 text-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
+                    >
+                      {t("Pegar un enlace")}
+                    </button>
+                  </div>
+                )}
+
+                {modo === "auto" && gcal?.conectado ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                    {t("Al guardar se creará la reunión de Google Meet y se añadirá a tu calendario. El cliente recibirá el enlace en su invitación.")}
+                  </p>
+                ) : (
+                  <div className={gcal?.conectado ? "mt-3" : ""}>
+                    <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Enlace de la videollamada")} <span className="text-amber-500">*</span></label>
                     <input
                       value={videoEnlace}
                       onChange={(e) => setVideoEnlace(e.target.value)}
-                      placeholder={videoProv === "meet" ? "https://meet.google.com/abc-defg-hij" : "https://teams.live.com/meet/…"}
+                      placeholder="https://meet.google.com/… · https://teams.live.com/… · https://zoom.us/…"
                       className={`${fld} bg-white`}
                     />
-                    <a
-                      href={CREAR_REUNION[videoProv]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700"
-                    >
-                      {t("Crear reunión")}
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-                    </a>
-                  </div>
-                  {videoEnlace.trim() && !enlaceOk && (
-                    <p className="mt-1 text-[11px] text-red-600">
-                      {videoProv === "meet" ? t("Pega un enlace de meet.google.com.") : t("Pega un enlace de teams.live.com o teams.microsoft.com.")}
+                    {videoEnlace.trim() && !enlaceOk && (
+                      <p className="mt-1 text-[11px] text-red-600">{t("Pega el enlace https:// de la reunión.")}</p>
+                    )}
+                    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+                      {t("Crear la reunión en:")}
+                      <a href={CREAR_REUNION.meet} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+                        <LogoMeet className="h-3.5 w-3.5" /> Google Meet ↗
+                      </a>
+                      <a href={CREAR_REUNION.teams} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+                        <LogoTeams className="h-3.5 w-3.5" /> Microsoft Teams ↗
+                      </a>
+                      <span className="text-slate-400">{t("o pega el de cualquier otra herramienta (Zoom…).")}</span>
                     </p>
-                  )}
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                    {t("«Crear reunión» abre el proveedor en otra pestaña: crea la reunión, copia el enlace y pégalo aquí. El cliente lo recibirá con su invitación de calendario.")}
-                  </p>
-                </div>
+                    {gcal && gcal.configurado && !gcal.conectado && (
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                        {t("Conecta tu cuenta de Google en")} <a href="/app/ajustes" className="font-semibold text-aproba-700 hover:underline">{t("Ajustes")}</a> {t("para crear reuniones de Meet automáticamente.")}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
