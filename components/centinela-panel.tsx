@@ -78,7 +78,7 @@ export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }:
 
   return (
     <section id="centinela" className="scroll-mt-20">
-      <div className={`mb-3 flex items-center ${ocultarTitulo ? "justify-end" : "justify-between"}`}>
+      <div className={`mb-3 flex items-center ${ocultarTitulo ? "justify-center" : "justify-between"}`}>
         {!ocultarTitulo && <span className="text-sm font-semibold text-slate-700">{t("Revisión «como Extranjería»")}</span>}
         <button
           onClick={revisar}

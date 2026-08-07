@@ -67,7 +67,7 @@ export function RellenarMercurio({ campos, referencia, rellenos, total, ocultarT
           )}
         </div>
       ) : (
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <button onClick={rellenar} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             {t("Rellenar en Mercurio")}
