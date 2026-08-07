@@ -29,6 +29,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
   const t = useT();
   const router = useRouter();
   const [offset, setOffset] = useState(0); // semanas respecto a la actual
+  const [diaSel, setDiaSel] = useState<string | null>(null); // móvil: día elegido en la tira
   const [abierto, setAbierto] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
@@ -43,6 +44,9 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
 
   const lunes = addDias(lunesDe(hoy), offset * 7);
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => addDias(lunes, i)), [lunes]);
+  // Día activo de la tira móvil: el elegido si pertenece a la semana visible; si no
+  // (se cambió de semana), hoy cuando cae en esa semana, o el lunes. Derivado, sin efecto.
+  const diaActivo = diaSel && dias.includes(diaSel) ? diaSel : dias.includes(hoy) ? hoy : dias[0];
 
   const porDia = useMemo(() => {
     const m = new Map<string, ItemAgenda[]>();
@@ -166,14 +170,53 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
 
       <p className="mb-2 text-center text-sm font-medium text-slate-600 lg:hidden">{etiqueta(dias[0], dias[6])}</p>
 
-      {/* Rejilla: 7 columnas en escritorio, lista de días apilados en móvil. */}
-      <div className="grid grid-cols-1 gap-1 md:grid-cols-7 md:gap-0 md:divide-x md:divide-slate-100 md:overflow-hidden md:rounded-xl md:border md:border-slate-100">
+      {/* ── Móvil: tira de 7 días (puntos = citas) + lista del día elegido ──
+          Apilar las 7 columnas hacía scrollear seis filas vacías para ver una cita;
+          la tira es el patrón de los calendarios móviles: todo el contexto en una
+          fila, el detalle del día debajo. El día elegido vive en diaSel y se
+          RE-DERIVA al cambiar de semana (si ya no pertenece, cae en hoy o lunes). */}
+      <div className="md:hidden">
+        <div className="grid grid-cols-7 gap-1">
+          {dias.map((d, i) => {
+            const del = porDia.get(d) ?? [];
+            const esHoy = d === hoy;
+            const sel = d === diaActivo;
+            return (
+              <button
+                key={d}
+                onClick={() => setDiaSel(d)}
+                aria-pressed={sel}
+                className={`flex min-h-[3.5rem] flex-col items-center rounded-xl py-1.5 transition ${sel ? "bg-aproba-600" : esHoy ? "bg-aproba-50" : "active:bg-slate-100"}`}
+              >
+                <span className={`text-[10px] font-semibold uppercase tracking-wide ${sel ? "text-aproba-100" : "text-slate-400"}`}>{t(DIAS[i])}</span>
+                <span className={`text-sm font-bold ${sel ? "text-white" : esHoy ? "text-aproba-700" : "text-slate-700"}`}>{aDate(d).getUTCDate()}</span>
+                <span className="mt-1 flex h-1.5 items-center gap-0.5">
+                  {del.slice(0, 3).map((c) => (
+                    <span key={c.id} className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white/80" : c.tipo === "administracion" ? "bg-indigo-500" : "bg-aproba-500"}`} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 space-y-1.5">
+          {(porDia.get(diaActivo) ?? []).map((c) => <Chip key={c.id} c={c} />)}
+          {totalSemana === 0 ? (
+            <p className="py-3 text-center text-sm text-slate-400">{t("Sin citas esta semana. Crea una para empezar tu agenda.")}</p>
+          ) : (porDia.get(diaActivo) ?? []).length === 0 && (
+            <p className="py-3 text-center text-sm text-slate-400">{t("Sin citas este día.")}</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Escritorio: rejilla semanal de 7 columnas ── */}
+      <div className="hidden md:grid md:grid-cols-7 md:divide-x md:divide-slate-100 md:overflow-hidden md:rounded-xl md:border md:border-slate-100">
         {dias.map((d, i) => {
           const del = porDia.get(d) ?? [];
           const esHoy = d === hoy;
           return (
-            <div key={d} className={`rounded-lg px-1.5 py-2 md:min-h-[8.5rem] md:rounded-none ${esHoy ? "bg-aproba-50/60" : ""}`}>
-              <div className="flex items-center gap-1.5 px-1 md:flex-col md:gap-0.5">
+            <div key={d} className={`min-h-[8.5rem] px-1.5 py-2 ${esHoy ? "bg-aproba-50/60" : ""}`}>
+              <div className="flex flex-col items-center gap-0.5 px-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t(DIAS[i])}</span>
                 <span className={`text-sm font-bold ${esHoy ? "flex h-6 w-6 items-center justify-center rounded-full bg-aproba-600 text-white" : "text-slate-700"}`}>
                   {aDate(d).getUTCDate()}
@@ -186,7 +229,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
       </div>
 
       {totalSemana === 0 && (
-        <p className="mt-3 text-center text-sm text-slate-400">{t("Sin citas esta semana. Crea una para empezar tu agenda.")}</p>
+        <p className="mt-3 hidden text-center text-sm text-slate-400 md:block">{t("Sin citas esta semana. Crea una para empezar tu agenda.")}</p>
       )}
 
       {abierto && <NuevaCitaModal clientes={clientes} onClose={() => setAbierto(false)} />}
