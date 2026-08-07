@@ -63,7 +63,7 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cream-50 text-slate-400">
             <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
           </span>
-          <span className="min-w-0 font-medium leading-snug text-slate-900 line-clamp-2 group-hover:text-aproba-700 sm:line-clamp-1">{d.tipoLabel}</span>
+          <span className="min-w-0 text-sm font-medium leading-snug text-slate-900 line-clamp-2 group-hover:text-aproba-700 sm:line-clamp-1">{d.tipoLabel}</span>
           {tieneDatos && (
             <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:text-aproba-600 ${abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
           )}
