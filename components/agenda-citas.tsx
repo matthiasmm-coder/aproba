@@ -83,23 +83,31 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
     } finally { setBorrando(null); }
   }
 
-  const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm}` : ""}` : `${mm} min`; };
+  // Fin de la cita (HH:MM) a partir de hora + duración — solo previas con ambas.
+  const horaFin = (c: ItemAgenda) => {
+    if (!c.hora || c.tipo !== "previa" || !c.duracion) return null;
+    const [h, m] = c.hora.split(":").map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    const tot = (h * 60 + m + c.duracion) % 1440;
+    return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
+  };
   const tooltip = (c: ItemAgenda) => (c.tipo === "administracion"
     ? [t("Cita administración"), c.referencia, c.hora, c.lugar]
-    : [c.clienteNombre, c.motivo || t("Consulta"), c.hora, c.duracion ? fmtDur(c.duracion) : null, c.lugar]
+    : [c.clienteNombre, c.motivo || t("Consulta"), c.hora, c.lugar]
   ).filter(Boolean).join(" · ");
 
+  // Tarjeta de cita, 3 líneas: franja horaria (14:00 – 14:30) / nombre / motivo, lugar.
+  // Un solo color (verde) para ambos tipos — pedido de Matthias: sin leyenda ni índigo.
   const Chip = ({ c }: { c: ItemAgenda }) => {
+    const fin = horaFin(c);
     const sub = (c.tipo === "administracion"
-      ? [t("Administración"), c.referencia]
+      ? [t("Administración"), c.referencia, c.lugar]
       : [c.motivo || t("Consulta"), c.lugar]
-    ).filter(Boolean).join(" · ");
+    ).filter(Boolean).join(", ");
     const inner = (
       <>
-        <p className="truncate text-[11px] leading-tight">
-          {c.hora && <span className="font-bold">{c.hora}</span>}{c.hora && " "}
-          <span className="font-medium">{c.clienteNombre}</span>
-        </p>
+        {c.hora && <p className="text-[11px] font-bold leading-tight">{c.hora}{fin ? ` – ${fin}` : ""}</p>}
+        <p className="truncate text-[11px] font-medium leading-tight">{c.clienteNombre}</p>
         <p className="truncate text-[10px] opacity-70">{sub}</p>
       </>
     );
@@ -108,7 +116,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <Link
           href={`/app/expedientes/${c.expedienteId}`}
           title={tooltip(c)}
-          className={`block rounded-md border border-indigo-100 bg-indigo-50 px-1.5 py-1 text-indigo-900 transition hover:border-indigo-300 ${pasada(c) ? "opacity-45" : ""}`}
+          className={`block rounded-md border border-aproba-100 bg-aproba-50 px-1.5 py-1 text-aproba-900 transition hover:border-aproba-300 ${pasada(c) ? "opacity-45" : ""}`}
         >
           {inner}
         </Link>
@@ -141,13 +149,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-3">
-          <h2 className="font-semibold text-slate-900">{t("Agenda")}</h2>
-          <span className="hidden items-center gap-3 text-[11px] text-slate-400 sm:flex">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-aproba-500" /> {t("Consulta")}</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-500" /> {t("Administración")}</span>
-          </span>
-        </div>
+        <h2 className="font-semibold text-slate-900">{t("Agenda")}</h2>
         <div className="flex items-center gap-2">
           <div className="flex items-center overflow-hidden rounded-lg border border-slate-200">
             <button onClick={() => setOffset((o) => o - 1)} aria-label={t("Semana anterior")} className="p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
@@ -192,7 +194,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
                 <span className={`text-sm font-bold ${sel ? "text-white" : esHoy ? "text-aproba-700" : "text-slate-700"}`}>{aDate(d).getUTCDate()}</span>
                 <span className="mt-1 flex h-1.5 items-center gap-0.5">
                   {del.slice(0, 3).map((c) => (
-                    <span key={c.id} className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white/80" : c.tipo === "administracion" ? "bg-indigo-500" : "bg-aproba-500"}`} />
+                    <span key={c.id} className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white/80" : "bg-aproba-500"}`} />
                   ))}
                 </span>
               </button>
