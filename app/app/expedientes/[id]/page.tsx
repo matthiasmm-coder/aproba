@@ -173,13 +173,17 @@ export default async function ExpedienteDetail({
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
       {docsPendientes.length > 0 && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
           <div className="min-w-0 text-sm text-amber-800">
-            <p className="font-semibold">{t("Faltan documentos del cliente")} ({docsPendientes.length})</p>
+            {/* Icono en la MISMA línea que el título: centrar una columna con el icono
+                a la izquierda dejaría el bloque visiblemente descentrado. */}
+            <p className="flex items-center justify-center gap-2 font-semibold">
+              <svg className="h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+              {t("Faltan documentos del cliente")} ({docsPendientes.length})
+            </p>
             <p className="mt-0.5">{docsPendientes.join(" · ")}</p>
             <p className="mt-1 text-xs text-amber-700">{t("El cliente puede enviarlos desde su enlace en cualquier momento, aunque hayas avanzado de paso.")}</p>
-            <RecordarDocsButton expedienteId={e.id} />
+            <div className="flex justify-center"><RecordarDocsButton expedienteId={e.id} /></div>
           </div>
         </div>
       )}
