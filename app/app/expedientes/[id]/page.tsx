@@ -258,7 +258,7 @@ export default async function ExpedienteDetail({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-3 text-center">
+              <div className="flex flex-col items-center gap-2 text-center">
                 <Link href={`/app/expedientes/${e.id}/formularios`} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>
                   {t("Generar formularios")}
