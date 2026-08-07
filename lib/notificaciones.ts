@@ -511,9 +511,34 @@ export async function enviarConfirmacionPago(
 
 // Confirmación de CITA PREVIA (consulta) al cliente: fecha/hora/lugar/motivo. Sin DB,
 // solo envía si hay email y Resend. Devuelve true si se envió.
+// Invitación de calendario (.ics) para citas con hora y duración — el cliente la abre
+// y la cita entra en su calendario con el enlace de la videollamada. Hora FLOTANTE
+// (sin zona): correcta para gestor y cliente en España sin arrastrar VTIMEZONE.
+function icsCitaPrevia(o: { uid: string; gestoria: string; fecha: string; hora: string; duracion: number; lugar: string; enlace?: string | null }): string {
+  const [y, mo, d] = o.fecha.split("-").map(Number);
+  const [h, mi] = o.hora.split(":").map(Number);
+  const ini = new Date(Date.UTC(y, mo - 1, d, h, mi));
+  const fin = new Date(ini.getTime() + o.duracion * 60000);
+  const fmt = (x: Date) => x.toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "T"); // YYYYMMDDTHHMMSS
+  const limpio = (s: string) => s.replace(/[\r\n;,]/g, " ").trim();
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Aproba//Citas//ES", "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${o.uid}@aproba-software.com`,
+    `DTSTAMP:${fmt(ini)}`,
+    `DTSTART:${fmt(ini)}`,
+    `DTEND:${fmt(fin)}`,
+    `SUMMARY:Cita con ${limpio(o.gestoria)}`,
+    `LOCATION:${limpio(o.lugar)}`,
+    ...(o.enlace ? [`DESCRIPTION:Enlace para unirse: ${o.enlace}`, `URL:${o.enlace}`] : []),
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+}
+
 export async function enviarConfirmacionCitaPrevia(opts: {
   nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
   actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
+  videoProveedor?: "meet" | "teams" | null; videoEnlace?: string | null; citaId?: string | null;
 }): Promise<boolean> {
   try {
     if (!opts.email || !resendDisponible()) return false;
@@ -521,9 +546,11 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm} min` : ""}` : `${mm} min`; };
     const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}${opts.duracion ? ` (${fmtDur(opts.duracion)})` : ""}`;
     const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b">${k}</td><td style="font-weight:600">${v}</td></tr>`;
+    const provLabel = opts.videoProveedor === "teams" ? "Microsoft Teams" : "Google Meet";
+    const esVideo = Boolean(opts.videoEnlace);
     const detalle = [
       fila("Fecha", cuando),
-      opts.lugar ? fila("Lugar", opts.lugar) : "",
+      esVideo ? fila("Lugar", `Videollamada (${provLabel})`) : opts.lugar ? fila("Lugar", opts.lugar) : "",
       opts.motivo ? fila("Motivo", opts.motivo) : "",
       opts.precio != null ? fila("Precio", opts.precio === 0 ? "Gratis" : fmtEur(opts.precio)) : "",
     ].join("");
@@ -537,15 +564,35 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
+      // Videollamada → botón para unirse; la invitación .ics va adjunta.
+      cta: esVideo && opts.videoEnlace ? { url: opts.videoEnlace, label: `Unirse a la videollamada (${provLabel})` } : null,
       footerNota: `Mensaje de ${opts.gestoria}. Por favor, no respondas a este correo.`,
       preheader: mod ? `Cita modificada: ${cuando}` : `Cita: ${cuando}`,
     });
+    // Adjunto .ics cuando hay hora y duración (siempre en videollamadas): el cliente
+    // añade la cita a su calendario con un toque, con el enlace dentro.
+    const conIcs = Boolean(opts.hora && opts.duracion);
+    const adjuntos = conIcs
+      ? [{
+          filename: "invitacion.ics",
+          content: Buffer.from(icsCitaPrevia({
+            uid: opts.citaId || `${opts.fecha}-${opts.hora}`,
+            gestoria: opts.gestoria,
+            fecha: opts.fecha,
+            hora: opts.hora as string,
+            duracion: opts.duracion as number,
+            lugar: esVideo ? `Videollamada (${provLabel})` : (opts.lugar || "Por confirmar"),
+            enlace: opts.videoEnlace ?? null,
+          })).toString("base64"),
+        }]
+      : undefined;
     const from = `"${String(opts.gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from, to: opts.email, subject: mod ? `Cita modificada · ${opts.gestoria}` : `Cita confirmada · ${opts.gestoria}`, html,
       text: mod
-        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`
-        : `Tu cita con ${opts.gestoria}: ${cuando}${opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${esVideo ? ` · Videollamada (${provLabel}): ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`
+        : `Tu cita con ${opts.gestoria}: ${cuando}${esVideo ? ` · Videollamada (${provLabel}): ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+      attachments: adjuntos,
     });
     return !error;
   } catch (e) {

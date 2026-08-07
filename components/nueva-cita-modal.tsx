@@ -7,6 +7,39 @@ import type { ClienteMin } from "@/lib/data/citas";
 
 const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el selector
 
+// Dónde crea el gestor la reunión con un clic (pestaña nueva); copia el enlace y lo pega.
+const CREAR_REUNION = { meet: "https://meet.google.com/new", teams: "https://teams.live.com" } as const;
+const ENLACE_VALIDO = {
+  meet: /^https:\/\/meet\.google\.com\/[a-z0-9-]{6,}$/i,
+  teams: /^https:\/\/(teams\.live\.com|teams\.microsoft\.com)\/\S+$/i,
+} as const;
+
+function LogoMeet({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <path fill="#00832d" d="M13.5 12l3 3.4 4 2.6.7-6-.7-5.8-4.1 2.3z" />
+      <path fill="#0066da" d="M0 16.6v4.1c0 .9.8 1.7 1.7 1.7h4.1l.9-3.1-.9-2.7-2.9-.9z" />
+      <path fill="#e94235" d="M5.8 1.6L0 7.4l3 .9 2.8-.9.9-2.8z" />
+      <path fill="#2684fc" d="M5.8 7.4H0v9.2h5.8z" />
+      <path fill="#00ac47" d="M22.9 4.1l-2.4 2v11.9l2.4 1.9c.6.5 1.1.1 1.1-.6V4.7c0-.7-.5-1.1-1.1-.6z" />
+      <path fill="#00ac47" d="M13.5 12v4.6H5.8v5.8h10.9c.9 0 1.7-.8 1.7-1.7v-2.7z" />
+      <path fill="#ffba00" d="M16.7 1.6H5.8v5.8h7.7V12l4.9-.1V3.3c0-.9-.8-1.7-1.7-1.7z" />
+    </svg>
+  );
+}
+function LogoTeams({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="17.5" cy="6.2" r="2.4" fill="#7b83eb" />
+      <path fill="#7b83eb" d="M21.6 9.6h-5.2c-.6 0-1 .4-1 1v5.6c0 2.2 1.4 3.9 3.6 3.9s3.6-1.7 3.6-3.9v-5.6c0-.6-.4-1-1-1z" />
+      <circle cx="10.2" cy="5" r="3" fill="#5059c9" />
+      <path fill="#5059c9" d="M14.6 9.6H4.1c-.6 0-1.1.5-1.1 1.1v6.2c0 3 2.1 5.5 5.3 5.5s5.3-2.5 5.3-5.5v-6.2c0-.6-.4-1.1-1-1.1z" />
+      <rect x="1.5" y="7.5" width="11" height="11" rx="1.6" fill="#4b53bc" />
+      <path fill="#fff" d="M9.6 10.6H8v5h-1.9v-5H4.5V9h5.1z" />
+    </svg>
+  );
+}
+
 // Modal para crear o EDITAR una CITA PREVIA (consulta). El gestor escribe el nombre: si
 // coincide con un cliente existente puede seleccionarlo (rellena email/teléfono y la
 // vincula), o deja un nombre libre (prospecto). Fecha obligatoria; aviso por email opcional.
@@ -24,6 +57,10 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const [duracion, setDuracion] = useState(30);
   const [precio, setPrecio] = useState("");
   const [lugar, setLugar] = useState("");
+  // Videollamada: lugar forzado a «Videollamada» (solo lectura) + proveedor + enlace.
+  const [esVideo, setEsVideo] = useState(false);
+  const [videoProv, setVideoProv] = useState<"meet" | "teams">("meet");
+  const [videoEnlace, setVideoEnlace] = useState("");
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
   const [notificar, setNotificar] = useState(!citaId); // crear: marcado; editar: opt-in (sin parpadeo)
@@ -51,6 +88,9 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         setDuracion(typeof c.duracion === "number" ? c.duracion : 30);
         setPrecio(c.precio != null ? String(c.precio) : "");
         setLugar(c.lugar ?? ""); setMotivo(c.motivo ?? ""); setNotas(c.notas ?? "");
+        setEsVideo(Boolean(c.videoProveedor));
+        setVideoProv(c.videoProveedor === "teams" ? "teams" : "meet");
+        setVideoEnlace(c.videoEnlace ?? "");
         setNotificar(false); // en edición, avisar al cliente es opt-in
       } catch { if (vivo) setError(t("No se pudo cargar la cita.")); }
     })();
@@ -71,11 +111,22 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
     setFoco(false);
   }
 
+  // Videollamada → email, hora y enlace válido obligatorios (la duración siempre tiene valor).
+  const enlaceOk = ENLACE_VALIDO[videoProv].test(videoEnlace.trim());
+  const faltaVideo = esVideo && (!email.trim() || !hora || !enlaceOk);
+
   async function crear() {
     setBusy(true); setError(null);
     try {
       const notif = notificar && Boolean(email.trim());
-      const datos = { clienteId, nombre, email, telefono, fecha, hora, duracion, precio: precio.trim() ? Number(precio) : undefined, lugar, motivo, notas };
+      const datos = {
+        clienteId, nombre, email, telefono, fecha, hora, duracion,
+        precio: precio.trim() ? Number(precio) : undefined,
+        lugar: esVideo ? "Videollamada" : lugar,
+        motivo, notas,
+        videoProveedor: esVideo ? videoProv : null,
+        videoEnlace: esVideo ? videoEnlace.trim() : null,
+      };
       const res = await fetch("/api/citas-previas", {
         method: edicion ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(edicion ? { id: citaId, ...datos, notificar: notif } : { ...datos, notificar: notif }),
@@ -126,7 +177,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
           </div>
 
           <div>
-            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Email")}</label>
+            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Email")} {esVideo && <span className="text-amber-500">*</span>}</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fld} />
           </div>
           <div>
@@ -139,7 +190,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={fld} />
           </div>
           <div>
-            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Hora")}</label>
+            <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Hora")} {esVideo && <span className="text-amber-500">*</span>}</label>
             <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={fld} />
           </div>
 
@@ -162,8 +213,69 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
 
           <div className="sm:col-span-2">
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Lugar")}</label>
-            <input value={lugar} onChange={(e) => setLugar(e.target.value)} placeholder={t("Oficina, videollamada, dirección…")} className={fld} />
+            <input
+              value={esVideo ? t("Videollamada") : lugar}
+              onChange={(e) => setLugar(e.target.value)}
+              readOnly={esVideo}
+              placeholder={t("Oficina, dirección…")}
+              className={`${fld} ${esVideo ? "bg-slate-50 text-slate-500" : ""}`}
+            />
           </div>
+
+          {/* ── Videollamada: proveedor con logo + enlace de la reunión ── */}
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={esVideo} onChange={(e) => setEsVideo(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+              {t("Videollamada")}
+            </label>
+            {esVideo && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {([["meet", "Google Meet"], ["teams", "Microsoft Teams"]] as const).map(([p, nombre]) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setVideoProv(p)}
+                      aria-pressed={videoProv === p}
+                      className={`flex items-center justify-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm font-semibold transition ${videoProv === p ? "border-aproba-600 ring-2 ring-aproba-100 text-slate-900" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
+                    >
+                      {p === "meet" ? <LogoMeet /> : <LogoTeams />}
+                      {nombre}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Enlace de la videollamada")} <span className="text-amber-500">*</span></label>
+                  <div className="flex gap-2">
+                    <input
+                      value={videoEnlace}
+                      onChange={(e) => setVideoEnlace(e.target.value)}
+                      placeholder={videoProv === "meet" ? "https://meet.google.com/abc-defg-hij" : "https://teams.live.com/meet/…"}
+                      className={`${fld} bg-white`}
+                    />
+                    <a
+                      href={CREAR_REUNION[videoProv]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700"
+                    >
+                      {t("Crear reunión")}
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+                    </a>
+                  </div>
+                  {videoEnlace.trim() && !enlaceOk && (
+                    <p className="mt-1 text-[11px] text-red-600">
+                      {videoProv === "meet" ? t("Pega un enlace de meet.google.com.") : t("Pega un enlace de teams.live.com o teams.microsoft.com.")}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    {t("«Crear reunión» abre el proveedor en otra pestaña: crea la reunión, copia el enlace y pégalo aquí. El cliente lo recibirá con su invitación de calendario.")}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="sm:col-span-2">
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Motivo")}</label>
             <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={t("Consulta inicial, revisión de documentación…")} className={fld} />
@@ -184,7 +296,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">{t("Cancelar")}</button>
-          <button onClick={crear} disabled={busy || !nombre.trim() || !fecha} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+          <button onClick={crear} disabled={busy || !nombre.trim() || !fecha || faltaVideo} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
             {busy ? t("Guardando…") : edicion ? t("Guardar cambios") : t("Crear cita")}
           </button>
         </div>
