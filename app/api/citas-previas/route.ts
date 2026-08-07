@@ -41,9 +41,15 @@ function validarVideo(body: CuerpoCita): { modo: "auto" | "manual" | null; prov:
   if (!Number.isFinite(body.duracion) || Number(body.duracion) <= 0) return { modo, prov: null, enlace: null, error: "Para una videollamada, la duración es obligatoria." };
   if (modo === "auto") return { modo, prov: "meet", enlace: null }; // el enlace lo crea el servidor
   const enlace = String(body.videoEnlace ?? "").trim();
+  // El enlace es OPCIONAL (pedido de Matthias): marcar la cita como videollamada no
+  // debe bloquear al gestor si todavía no tiene la sala. Se guarda como videollamada
+  // sin enlace («otro» hace de marca para que al reabrir la casilla siga marcada) y
+  // el enlace se añade editando la cita. Si SÍ escribe algo, debe ser una URL válida:
+  // un enlace roto en la invitación del cliente es peor que ninguno.
+  if (!enlace) return { modo, prov: "otro", enlace: null };
   let valida = /^https:\/\/\S{4,480}$/.test(enlace);
   if (valida) { try { new URL(enlace); } catch { valida = false; } }
-  if (!valida) return { modo, prov: null, enlace: null, error: "Pega el enlace https:// de la reunión (Meet, Teams, Zoom…)." };
+  if (!valida) return { modo, prov: null, enlace: null, error: "Pega el enlace https:// de la reunión (Meet, Teams, Zoom…) o déjalo vacío para añadirlo más tarde." };
   return { modo, prov: proveedorDeEnlace(enlace), enlace };
 }
 

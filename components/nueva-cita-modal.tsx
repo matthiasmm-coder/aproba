@@ -92,7 +92,9 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         setLugar(c.lugar ?? ""); setMotivo(c.motivo ?? ""); setNotas(c.notas ?? "");
         // Edición: siempre modo manual con el enlace existente (predecible; elegir
         // «auto» de nuevo crearía una reunión NUEVA, cosa que rara vez se quiere).
-        setEsVideo(Boolean(c.videoProveedor));
+        // Doble señal: el proveedor guardado o el lugar «Videollamada» (una cita
+        // marcada como videollamada SIN enlace debe reabrirse con la casilla puesta).
+        setEsVideo(Boolean(c.videoProveedor) || c.lugar === "Videollamada");
         setModo("manual");
         setVideoEnlace(c.videoEnlace ?? "");
         setNotificar(false); // en edición, avisar al cliente es opt-in
@@ -133,9 +135,12 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esVideo]);
 
-  // Videollamada → email y hora obligatorios; en manual, además un enlace https válido.
+  // Videollamada → email y hora obligatorios. El ENLACE es opcional: se puede guardar
+  // la cita como videollamada y añadirlo más tarde (pedido de Matthias: no bloquear al
+  // gestor). Solo bloquea si escribió algo que no es una URL válida.
+  const enlaceVacio = videoEnlace.trim() === "";
   const enlaceOk = ENLACE_HTTPS.test(videoEnlace.trim());
-  const faltaVideo = esVideo && (!email.trim() || !hora || (modo === "manual" && !enlaceOk));
+  const faltaVideo = esVideo && (!email.trim() || !hora || (modo === "manual" && !enlaceVacio && !enlaceOk));
 
   async function crear() {
     setBusy(true); setError(null);
@@ -282,7 +287,9 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
                   </p>
                 ) : (
                   <div className={gcal?.conectado ? "mt-3" : ""}>
-                    <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Enlace de la videollamada")} <span className="text-amber-500">*</span></label>
+                    <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                      {t("Enlace de la videollamada")} <span className="normal-case text-slate-300">({t("opcional")})</span>
+                    </label>
                     <input
                       value={videoEnlace}
                       onChange={(e) => setVideoEnlace(e.target.value)}
@@ -290,7 +297,10 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
                       className={`${fld} bg-white`}
                     />
                     {videoEnlace.trim() && !enlaceOk && (
-                      <p className="mt-1 text-[11px] text-red-600">{t("Pega el enlace https:// de la reunión.")}</p>
+                      <p className="mt-1 text-[11px] text-red-600">{t("Pega el enlace https:// de la reunión, o déjalo vacío.")}</p>
+                    )}
+                    {enlaceVacio && (
+                      <p className="mt-1 text-[11px] text-slate-400">{t("Puedes guardar la cita sin enlace y añadirlo más tarde editándola. El cliente recibirá la cita como videollamada, sin enlace.")}</p>
                     )}
                     <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
                       {t("Crear la reunión en:")}
