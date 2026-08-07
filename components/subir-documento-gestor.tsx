@@ -39,9 +39,9 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
   }
 
   return (
-    <div id="subir-interno" className="mt-3 rounded-xl border border-dashed border-slate-300 bg-cream-50/40 p-4">
+    <div id="subir-interno" className="mt-3 rounded-xl border border-dashed border-slate-300 bg-cream-50/40 p-4 text-center">
       <p className="text-xs font-medium text-slate-600">{t("¿Ya tienes la documentación? Súbela tú mismo, sin enviar el enlace al cliente.")}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t("Tipo de documento")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
           {docsRequeridos.length > 0 ? (
             <>
