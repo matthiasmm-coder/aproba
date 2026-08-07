@@ -160,7 +160,6 @@ export default async function Ajustes() {
               </div>
             )}
             {puedeEditar && <CobroTarjetaConfig />}
-            {puedeEditar && <GoogleCalendarConfig />}
           </div>
         </AjustesSection>
 
@@ -208,6 +207,9 @@ export default async function Ajustes() {
           <div className="mt-4">
             <InstallPWA />
           </div>
+
+          {/* Integración de videollamadas (Google Meet) — cierra la sección. */}
+          {puedeEditar && <GoogleCalendarConfig />}
 
         </AjustesSection>
       </div>

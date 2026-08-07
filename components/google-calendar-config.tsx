@@ -50,18 +50,18 @@ export function GoogleCalendarConfig() {
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 text-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="max-w-xl">
           <p className="text-sm font-semibold text-slate-800">{t("Videollamadas · Google Meet")}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
             {t("Conecta la cuenta de Google del despacho para crear la reunión de Meet automáticamente al guardar una cita: el evento entra en tu calendario y el cliente recibe el enlace. Sin conexión, siempre puedes pegar el enlace a mano.")}
           </p>
         </div>
         {estado === null ? (
           <span className="text-xs text-slate-400">…</span>
         ) : estado.conectado ? (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-aproba-100 px-2.5 py-1 text-xs font-semibold text-aproba-700">
               <span className="h-1.5 w-1.5 rounded-full bg-aproba-600" /> {t("Conectado")}
             </span>
@@ -70,15 +70,15 @@ export function GoogleCalendarConfig() {
             </button>
           </div>
         ) : estado.configurado ? (
-          <a href="/api/integraciones/google/conectar" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-aproba-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">
+          <a href="/api/integraciones/google/conectar" className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">
             {t("Conectar con Google")}
           </a>
         ) : (
-          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{t("Próximamente")}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{t("Próximamente")}</span>
         )}
       </div>
       {aviso && (
-        <p role="status" className={`mt-3 rounded-md border px-3 py-2 text-xs ${aviso.tono === "ok" ? "border-aproba-200 bg-aproba-50 text-aproba-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+        <p role="status" className={`mx-auto mt-3 max-w-xl rounded-md border px-3 py-2 text-xs ${aviso.tono === "ok" ? "border-aproba-200 bg-aproba-50 text-aproba-800" : "border-red-200 bg-red-50 text-red-700"}`}>
           {aviso.texto}
         </p>
       )}
