@@ -10,15 +10,15 @@ import { confirmar } from "@/components/confirm-dialog";
 // Conectar = navegación completa (el flujo OAuth redirige fuera y vuelve a Ajustes).
 export function GoogleCalendarConfig() {
   const t = useT();
-  const [estado, setEstado] = useState<{ configurado: boolean; conectado: boolean } | null>(null);
+  const [estado, setEstado] = useState<{ configurado: boolean; conectado: boolean; caducada: boolean } | null>(null);
   const [aviso, setAviso] = useState<{ tono: "ok" | "error"; texto: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const cargar = () => {
     fetch("/api/integraciones/google")
       .then((r) => r.json())
-      .then((d) => setEstado({ configurado: Boolean(d?.configurado), conectado: Boolean(d?.conectado) }))
-      .catch(() => setEstado({ configurado: false, conectado: false }));
+      .then((d) => setEstado({ configurado: Boolean(d?.configurado), conectado: Boolean(d?.conectado), caducada: Boolean(d?.caducada) }))
+      .catch(() => setEstado({ configurado: false, conectado: false, caducada: false }));
   };
 
   useEffect(() => {
@@ -68,6 +68,25 @@ export function GoogleCalendarConfig() {
             <button onClick={desconectar} disabled={busy} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-red-200 hover:text-red-600 disabled:opacity-50">
               {t("Desconectar")}
             </button>
+          </div>
+        ) : estado.caducada ? (
+          // Credencial guardada que Google ya NO acepta: decirlo claramente en vez de
+          // fingir «Conectado» y fallar al guardar la cita.
+          <div className="flex flex-col items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> {t("Conexión caducada")}
+            </span>
+            <p className="max-w-md text-[11px] leading-relaxed text-slate-500">
+              {t("Google ya no acepta la conexión (caduca sola cada 7 días mientras la app esté en modo de prueba, o si revocaste el acceso). Vuelve a conectarla; mientras tanto, puedes pegar el enlace de la reunión a mano.")}
+            </p>
+            <div className="flex items-center gap-2">
+              <a href="/api/integraciones/google/conectar" className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">
+                {t("Volver a conectar")}
+              </a>
+              <button onClick={desconectar} disabled={busy} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-red-200 hover:text-red-600 disabled:opacity-50">
+                {t("Desconectar")}
+              </button>
+            </div>
           </div>
         ) : estado.configurado ? (
           <a href="/api/integraciones/google/conectar" className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700">

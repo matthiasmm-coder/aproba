@@ -62,7 +62,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const [modo, setModo] = useState<"auto" | "manual">("manual");
   const [videoEnlace, setVideoEnlace] = useState("");
   // Estado de la integración Google (se consulta al marcar la casilla, una sola vez).
-  const [gcal, setGcal] = useState<{ configurado: boolean; conectado: boolean } | null>(null);
+  const [gcal, setGcal] = useState<{ configurado: boolean; conectado: boolean; caducada: boolean } | null>(null);
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
   const [notificar, setNotificar] = useState(!citaId); // crear: marcado; editar: opt-in (sin parpadeo)
@@ -126,11 +126,11 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
       .then((r) => r.json())
       .then((d) => {
         if (!vivo) return;
-        const st = { configurado: Boolean(d?.configurado), conectado: Boolean(d?.conectado) };
+        const st = { configurado: Boolean(d?.configurado), conectado: Boolean(d?.conectado), caducada: Boolean(d?.caducada) };
         setGcal(st);
         if (st.conectado && !citaId) setModo("auto");
       })
-      .catch(() => { if (vivo) setGcal({ configurado: false, conectado: false }); });
+      .catch(() => { if (vivo) setGcal({ configurado: false, conectado: false, caducada: false }); });
     return () => { vivo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esVideo]);
@@ -313,9 +313,15 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
                       <span className="text-slate-400">{t("o pega el de cualquier otra herramienta (Zoom…).")}</span>
                     </p>
                     {gcal && gcal.configurado && !gcal.conectado && (
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                        {t("Conecta tu cuenta de Google en")} <a href="/app/ajustes" className="font-semibold text-aproba-700 hover:underline">{t("Ajustes")}</a> {t("para crear reuniones de Meet automáticamente.")}
-                      </p>
+                      gcal.caducada ? (
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-amber-700">
+                          {t("La conexión con Google ha caducado: vuelve a conectarla en")} <a href="/app/ajustes" className="font-semibold underline">{t("Ajustes")}</a> {t("para volver a crear reuniones automáticamente.")}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                          {t("Conecta tu cuenta de Google en")} <a href="/app/ajustes" className="font-semibold text-aproba-700 hover:underline">{t("Ajustes")}</a> {t("para crear reuniones de Meet automáticamente.")}
+                        </p>
+                      )
                     )}
                   </div>
                 )}

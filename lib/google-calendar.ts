@@ -135,6 +135,19 @@ export async function revocarCredencial(credencialEnc: string): Promise<void> {
   }).catch(() => { /* best-effort */ });
 }
 
+// Estado REAL de la conexión: no basta con que exista la credencial — en modo Testing
+// de Google los refresh tokens mueren a los 7 días, y el gestor también puede revocar
+// el acceso desde su cuenta. Sin esta prueba, Ajustes diría «Conectado» sobre una
+// conexión muerta y el fallo aparecería al guardar una cita. Cuesta una llamada al
+// endpoint de token (no consume cuota de Calendar).
+export async function probarConexion(admin: SupabaseClient, workspaceId: string): Promise<"ok" | "caducada" | "sin_conexion"> {
+  const enc = await credencialDeWorkspace(admin, workspaceId);
+  if (!enc) return "sin_conexion";
+  const cred = descifrarCredencial(enc);
+  if (!cred) return "caducada"; // ilegible (¿se rotó el service_role?) → hay que reconectar
+  return (await accessTokenDe(cred.refresh_token)) ? "ok" : "caducada";
+}
+
 // Credencial activa del workspace (o null: sin migrar / sin conectar / indescifrable).
 export async function credencialDeWorkspace(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
   try {
