@@ -2,9 +2,9 @@ import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
-import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { asignacionValida, descuentoValido, type Descuento as DescuentoT, type ServiciosAsignacion as AsignacionT } from "@/lib/multi-servicio";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
@@ -45,6 +45,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   const { token } = await params;
 
   let servicios: Servicio[] = DEFAULT_SERVICIOS;
+  let packs: Pack[] = [];
   let referencia: string | undefined;
   let clienteNombre: string | undefined;
   let clienteFicha: ClienteFicha | undefined;
@@ -88,6 +89,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       portalToken = token;
       clienteIdioma = exp.cliente?.idioma ?? "es";
       servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id);
+      // Packs del despacho: el cliente puede elegir uno en vez de un solo trámite.
+      packs = await fetchPacksDeWorkspace(admin, exp.workspace.id);
 
       // Expediente FAMILIAR: carga los miembros (Cliente de la familia) para la etapa Datos.
       // Repli sin esSolicitante si la migración cliente-solicitante.sql no está aplicada.
@@ -196,6 +199,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   return (
     <ClientPortal
       servicios={servicios}
+      packs={packs}
       referencia={referencia}
       clienteNombre={clienteNombre}
       clienteFicha={clienteFicha}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
-import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, normTema, type Pack, type Servicio } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
@@ -53,6 +53,7 @@ function Check({ className = "" }: { className?: string }) {
 
 export function ClientPortal({
   servicios: serviciosProp,
+  packs = [],
   referencia,
   clienteNombre,
   clienteFicha,
@@ -69,6 +70,7 @@ export function ClientPortal({
   docsSubidos,
 }: {
   servicios?: Servicio[];
+  packs?: Pack[];
   referencia?: string; // expediente réel (lien token) — sinon démo
   clienteNombre?: string;
   clienteFicha?: ClienteFicha;
@@ -209,10 +211,40 @@ export function ClientPortal({
   // mientras la factura del servidor cobra la asignación completa (incoherencia real
   // detectada por Matthias: 242 € en pantalla, 847 € en la factura).
   const [extrasClaves, setExtrasClaves] = useState<string[]>(serviciosExtraClaves ?? []);
+  // Pack elegido por el cliente: se traduce a principal (1er servicio del pack que
+  // existe en el catálogo) + extras (el resto). Elegir un servicio suelto lo borra
+  // y devuelve los extras del gestor — el carrito nunca mezcla pack y suelto.
+  const [packId, setPackId] = useState<string | null>(() => {
+    // Reanudación: si lo ya guardado (principal + extras) contiene un pack entero,
+    // la tarjeta del pack vuelve marcada — si no, el cliente vería su elección perdida.
+    if (!servicioInicial) return null;
+    const sel = new Set([servicioInicial, ...(serviciosExtraClaves ?? [])]);
+    return packs.find((pk) => (pk.servicioIds ?? []).length > 0 && (pk.servicioIds ?? []).every((id) => sel.has(id)))?.id ?? null;
+  });
+  const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
+  function elegirPack(pk: Pack) {
+    const ids = svDe(pk.servicioIds ?? []);
+    if (!ids.length) return;
+    setPackId(pk.id);
+    setTramiteId(ids[0]);
+    setExtrasClaves(ids.slice(1));
+  }
+  function elegirServicio(id: string) {
+    setPackId(null);
+    setTramiteId(id);
+    setExtrasClaves(serviciosExtraClaves ?? []);
+  }
   const extrasServicios = extrasClaves
     .filter((c) => c !== tramiteId)
     .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
     .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv));
+  // Precio mostrado en una tarjeta de servicio SUELTO: lo que costaría al pulsarla,
+  // o sea con los extras del gestor (pulsarla borra el pack), nunca con los del pack.
+  const extrasTarjeta = packId
+    ? (serviciosExtraClaves ?? [])
+        .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
+        .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv))
+    : extrasServicios;
   const docsBase = [...(tramite?.docs ?? [])];
   for (const sv of extrasServicios) for (const d of sv.docs ?? []) if (!docsBase.includes(d)) docsBase.push(d);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
@@ -371,7 +403,10 @@ export function ClientPortal({
     setErrorPaso(null);
     if (token && tramiteId) {
       setGuardandoDatos(true);
-      const ok = await postSeguro("/api/portal/iniciar", { token, clave: tramiteId });
+      // Pack: el servidor recibe también los extras (los valida contra el catálogo).
+      const ok = await postSeguro("/api/portal/iniciar", packId
+        ? { token, clave: tramiteId, extras: extrasClaves }
+        : { token, clave: tramiteId });
       setGuardandoDatos(false);
       if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
     }
@@ -609,12 +644,15 @@ export function ClientPortal({
               {(() => {
                 const grupos = agruparPorTema(servicios);
                 const conTema = grupos.some((g) => g.clave);
+                // Con un pack elegido, su principal NO se marca: dos tarjetas marcadas
+                // a la vez (el pack y un servicio suelto) se leerían como «elijo varios».
+                const marcado = (id: string) => !packId && tramiteId === id;
                 const tarjeta = (tr: Servicio) => (
                 <button
                   key={tr.id}
-                  onClick={() => setTramiteId(tr.id)}
+                  onClick={() => elegirServicio(tr.id)}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
-                    tramiteId === tr.id ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="min-w-0">
@@ -623,14 +661,14 @@ export function ClientPortal({
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
                           + tasas — el mismo importe que verá al pagar (nada sube «después»).
                           «Precio a consultar» (por servicio) sustituye al importe. */}
-                      {(tr.precioOculto || extrasServicios.some((sv) => sv.precioOculto))
+                      {(tr.precioOculto || extrasTarjeta.some((sv) => sv.precioOculto))
                         ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
                         : <p className="shrink-0 text-right text-sm font-bold text-slate-700">
                         {(() => {
-                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
+                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasTarjeta], asig, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
                           // totalDe(a+r) puede desviarse 1 céntimo de lo que el cliente paga.
-                          const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasServicios.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
+                          const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasTarjeta.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
                           return (
                             <>
                               {eur(precio)}
@@ -646,13 +684,13 @@ export function ClientPortal({
                         {tr.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(tr.porcentaje ?? 0), sobre: tr.porcentajeSobre.trim() }) : `+ ${fmtPct(tr.porcentaje ?? 0)} %`}
                       </p>
                     )}
-                    {!(tr.precioOculto || extrasServicios.some((sv) => sv.precioOculto)) && <p className="mt-1 text-xs text-slate-400">
+                    {!(tr.precioOculto || extrasTarjeta.some((sv) => sv.precioOculto)) && <p className="mt-1 text-xs text-slate-400">
                       {tr.anticipo > 0 && tr.resto > 0
                         ? (() => {
                             // MISMA base que el precio de arriba (servicio + extras): con
                             // descuento IMPORTE, repartirlo solo sobre la tarjeta restaría
                             // el importe completo dos veces y el split no cuadraría.
-                            const rebTr = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
+                            const rebTr = aplicarDescuento(tarifaAsignada([tr, ...extrasTarjeta], asig, nMiembros), 1, descuento);
                             return t("pago.split", { a: eur(totalDe(rebTr.anticipo)), b: eur(totalDe(rebTr.resto)) });
                           })()
                         : tr.anticipo > 0
@@ -662,22 +700,84 @@ export function ClientPortal({
                       {nMiembros > 1 && !asig && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
                     </p>}
                   </div>
-                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${tramiteId === tr.id ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
-                    {tramiteId === tr.id && <Check className="h-3 w-3" />}
+                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
+                    {marcado(tr.id) && <Check className="h-3 w-3" />}
                   </span>
                 </button>
                 );
-                if (!conTema) return servicios.map((tr) => tarjeta(tr));
-                return grupos.map((g) => (
-                  <TemaPlegable
-                    key={g.clave || "__otros__"}
-                    titulo={g.titulo || t("tema.otros")}
-                    resumen={g.items.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: g.items.length })}
-                    abiertoInicial={g.items.some((x) => x.id === tramiteId)}
-                  >
-                    {g.items.map((tr) => tarjeta(tr))}
-                  </TemaPlegable>
-                ));
+                // Packs del despacho: elegir uno = principal + extras (un solo trámite
+                // para el cliente). Se ocultan los que ya no tienen ningún servicio vivo.
+                const packsVivos = packs.filter((pk) => svDe(pk.servicioIds ?? []).length > 0);
+                const tarjetaPack = (pk: Pack) => {
+                  const ids = svDe(pk.servicioIds ?? []);
+                  const dentro = packId === pk.id;
+                  return (
+                    <button
+                      key={pk.id}
+                      type="button"
+                      aria-pressed={dentro}
+                      onClick={() => elegirPack(pk)}
+                      className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
+                        dentro ? "border-aproba-600 bg-aproba-50" : "border-aproba-200 bg-aproba-50/40 hover:border-aproba-400"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="font-semibold text-slate-900">{pk.nombre}</p>
+                          {pk.precioOculto
+                            ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
+                            : pk.precioDesde > 0 && <p className="shrink-0 text-right text-sm font-bold text-aproba-700">{t("precio.desde", { p: eur(pk.precioDesde) })}</p>}
+                        </div>
+                        {pk.desc && <p className="text-sm text-slate-500">{pk.desc}</p>}
+                        <p className="mt-1 text-xs text-slate-400">
+                          {t("esp.packIncluye", { lista: ids.map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}
+                        </p>
+                      </div>
+                      <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${dentro ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
+                        {dentro && <Check className="h-3 w-3" />}
+                      </span>
+                    </button>
+                  );
+                };
+                const gruposPack = agruparPorTema(packsVivos);
+                const conTemaTotal = conTema || gruposPack.some((g) => g.clave);
+                if (!conTemaTotal) return <>{packsVivos.map(tarjetaPack)}{servicios.map((tr) => tarjeta(tr))}</>;
+                // Orden de los temas: el del catálogo de servicios; los que solo existen
+                // en packs se añaden después. «Otros trámites» siempre al final.
+                const claves: string[] = [];
+                for (const g of [...grupos, ...gruposPack]) if (g.clave && !claves.includes(g.clave)) claves.push(g.clave);
+                const tituloDe = (c: string) => [...grupos, ...gruposPack].find((g) => g.clave === c)?.titulo || "";
+                const sinTema = { packs: packsVivos.filter((pk) => !normTema(pk.categoria)), servicios: servicios.filter((sv) => !normTema(sv.categoria)) };
+                return (
+                  <>
+                    {claves.map((c) => {
+                      const ps = packsVivos.filter((pk) => normTema(pk.categoria) === c);
+                      const ss = servicios.filter((sv) => normTema(sv.categoria) === c);
+                      const n = ps.length + ss.length;
+                      return (
+                        <TemaPlegable
+                          key={c}
+                          titulo={tituloDe(c)}
+                          resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}
+                          abiertoInicial={ss.some((x) => x.id === tramiteId) || ps.some((pk) => pk.id === packId)}
+                        >
+                          {ps.map(tarjetaPack)}
+                          {ss.map((tr) => tarjeta(tr))}
+                        </TemaPlegable>
+                      );
+                    })}
+                    {(sinTema.packs.length > 0 || sinTema.servicios.length > 0) && (
+                      <TemaPlegable
+                        titulo={t("tema.otros")}
+                        resumen={sinTema.packs.length + sinTema.servicios.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: sinTema.packs.length + sinTema.servicios.length })}
+                        abiertoInicial={sinTema.servicios.some((x) => x.id === tramiteId) || sinTema.packs.some((pk) => pk.id === packId)}
+                      >
+                        {sinTema.packs.map(tarjetaPack)}
+                        {sinTema.servicios.map((tr) => tarjeta(tr))}
+                      </TemaPlegable>
+                    )}
+                  </>
+                );
               })()}
             </div>
             <button

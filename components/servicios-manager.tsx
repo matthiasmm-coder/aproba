@@ -318,6 +318,8 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
               className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
             />
 
+            <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }))}</div>
+
             {/* Pago del cliente : anticipo (al firmar) + resto (al finalizar) */}
             <div className="mt-3 border-t border-slate-100 pt-3">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Pago del cliente")}</p>
@@ -393,8 +395,6 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">{t("El cliente no verá importes de este servicio en su portal ni se le pedirá pago online. La hoja de encargo sí incluye el precio pactado.")}</span>
                 </span>
               </label>
-
-              <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }))}</div>
             </div>
 
             {/* Tasas y suplidos del trámite (SIN IVA, fuera de los honorarios) */}
@@ -616,9 +616,19 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                     className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                   <span className="text-xs font-medium text-slate-600">{t("Precio a consultar")}</span>
                 </label>
-                {!p.precioOculto && p.precioDesde > 0 && (
-                  <span className="pb-2 text-xs text-slate-400">{t("El cliente verá")} «{t("desde")} {eur(p.precioDesde)}»</span>
-                )}
+                {!p.precioOculto && p.precioDesde > 0 && (() => {
+                  // El «desde» es un reclamo: al elegir el pack, el cliente paga la SUMA
+                  // de los servicios incluidos. Si no coinciden lo avisamos aquí — si no,
+                  // el cliente ve «desde 900 €» y la pantalla de pago le pide 1.210 €.
+                  const suma = p.servicioIds.reduce((a, id) => a + (servicios.find((x) => x.id === id)?.precio ?? 0), 0);
+                  const desalineado = suma > 0 && Math.abs(suma - p.precioDesde) >= 1;
+                  return (
+                    <span className={`pb-2 text-xs ${desalineado ? "font-medium text-amber-600" : "text-slate-400"}`}>
+                      {t("El cliente verá")} «{t("desde")} {eur(p.precioDesde)}»
+                      {desalineado && <> · {t("pagará")} {eur(suma)} ({t("suma de los servicios, sin IVA")})</>}
+                    </span>
+                  );
+                })()}
               </div>
 
               <div className="mt-3">{campoTema(p.categoria, (v) => updatePack(p.id, { categoria: v }))}</div>
