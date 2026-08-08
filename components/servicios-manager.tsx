@@ -8,19 +8,85 @@ import { useT } from "@/components/lang-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-// Flechas ↑↓ compartidas por servicios y packs (también en el onboarding) — más
-// fiables que drag&drop en móvil.
-export function FlechasOrden({ onUp, onDown, disabledUp, disabledDown, label }: { onUp: () => void; onDown: () => void; disabledUp: boolean; disabledDown: boolean; label: string }) {
-  const cls = "rounded p-0.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30";
+// Reordenación por ARRASTRE (compartida por servicios y packs, también en el onboarding).
+// Pointer events → funciona con ratón Y con el dedo (el drag&drop HTML5 no existe en
+// táctil). Mientras se arrastra, la lista se recoloca en vivo bajo el puntero: el hueco
+// de inserción = nº de tarjetas cuyo punto medio queda por encima del puntero.
+export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[]>>, getId: (x: T) => string) {
+  const refs = useRef<Map<string, HTMLElement>>(new Map());
+  const dragRef = useRef<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  const registrar = (id: string) => (el: HTMLElement | null) => {
+    if (el) refs.current.set(id, el);
+    else refs.current.delete(id);
+  };
+
+  const colocar = (id: string, y: number) => {
+    setLista((lista) => {
+      const from = lista.findIndex((x) => getId(x) === id);
+      if (from < 0) return lista;
+      const resto = lista.filter((x) => getId(x) !== id);
+      let ins = resto.length;
+      for (let k = 0; k < resto.length; k++) {
+        const el = refs.current.get(getId(resto[k]));
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y < r.top + r.height / 2) { ins = k; break; }
+      }
+      if (ins === from) return lista;
+      const next = [...resto];
+      next.splice(ins, 0, lista[from]);
+      return next;
+    });
+  };
+
+  const asa = (id: string) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      // Captura: los move llegan al asa aunque el dedo se salga de ella. try/catch:
+      // un pointerId sintético (tests) o ya liberado lanza en Chrome.
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+      dragRef.current = id;
+      setDragId(id);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (dragRef.current !== id) return;
+      // Auto-scroll cerca de los bordes (con touch-none el gesto ya no hace scroll).
+      if (e.clientY < 90) window.scrollBy(0, -14);
+      else if (e.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
+      colocar(id, e.clientY);
+    },
+    onPointerUp: () => { dragRef.current = null; setDragId(null); },
+    onPointerCancel: () => { dragRef.current = null; setDragId(null); },
+  });
+
+  return { dragId, registrar, asa };
+}
+
+// Asa de arrastre (⠿ 4 puntos en cuadrado): mantener pulsado y mover la tarjeta a su
+// sitio. Teclado: ↑/↓ sobre el asa mueven un puesto (accesibilidad).
+export function AsaArrastre({ arrastrando, onMover, label, ...handlers }: {
+  arrastrando: boolean;
+  onMover: (delta: -1 | 1) => void;
+  label: string;
+} & Pick<React.DOMAttributes<HTMLButtonElement>, "onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel">) {
   return (
-    <span className="flex shrink-0 flex-col">
-      <button type="button" onClick={onUp} disabled={disabledUp} aria-label={`${label} ↑`} className={cls}>
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-      </button>
-      <button type="button" onClick={onDown} disabled={disabledDown} aria-label={`${label} ↓`} className={cls}>
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-      </button>
-    </span>
+    <button
+      type="button"
+      aria-label={`${label} — arrastra para reordenar (o usa ↑/↓)`}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowUp") { e.preventDefault(); onMover(-1); }
+        if (e.key === "ArrowDown") { e.preventDefault(); onMover(1); }
+      }}
+      className={`shrink-0 touch-none rounded-md p-1 transition-colors hover:bg-slate-100 hover:text-slate-500 sm:p-1.5 ${arrastrando ? "cursor-grabbing bg-slate-100 text-slate-500" : "cursor-grab text-slate-300"}`}
+      {...handlers}
+    >
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="9" cy="9" r="1.8" /><circle cx="15" cy="9" r="1.8" />
+        <circle cx="9" cy="15" r="1.8" /><circle cx="15" cy="15" r="1.8" />
+      </svg>
+    </button>
   );
 }
 
@@ -87,6 +153,9 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
   const updatePack = (id: string, patch: Partial<Pack>) =>
     setPacks((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
+  const dndServicios = useReordenar(setServicios, (s) => s.id);
+  const dndPacks = useReordenar(setPacks, (p) => p.id);
+
   const moverPack = (id: string, delta: -1 | 1) =>
     setPacks((list) => {
       const i = list.findIndex((p) => p.id === id);
@@ -142,16 +211,16 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
       </div>
 
       <div className="space-y-3">
-        {servicios.map((s, idx) => (
-          <div key={s.id} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"}`}>
-            {/* Ligne titre + toggle */}
-            <div className="flex items-center gap-3">
-              <FlechasOrden
-                onUp={() => mover(s.id, -1)}
-                onDown={() => mover(s.id, 1)}
-                disabledUp={idx === 0}
-                disabledDown={idx === servicios.length - 1}
+        {servicios.map((s) => (
+          <div key={s.id} ref={dndServicios.registrar(s.id)} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"} ${dndServicios.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
+            {/* Ligne titre + toggle (gap réduit en móvil : l'asa + toggle + corbeille
+                laissent peu de place au nom) */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AsaArrastre
+                arrastrando={dndServicios.dragId === s.id}
+                onMover={(d) => mover(s.id, d)}
                 label={s.label || t("Servicio")}
+                {...dndServicios.asa(s.id)}
               />
               <button
                 type="button"
@@ -438,15 +507,14 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
         )}
 
         <div className="space-y-3">
-          {packs.map((p, idx) => (
-            <div key={p.id} className="rounded-xl border border-aproba-100 bg-aproba-50/40 p-4">
-              <div className="flex items-center gap-3">
-                <FlechasOrden
-                  onUp={() => moverPack(p.id, -1)}
-                  onDown={() => moverPack(p.id, 1)}
-                  disabledUp={idx === 0}
-                  disabledDown={idx === packs.length - 1}
+          {packs.map((p) => (
+            <div key={p.id} ref={dndPacks.registrar(p.id)} className={`rounded-xl border border-aproba-100 bg-aproba-50/40 p-4 ${dndPacks.dragId === p.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <AsaArrastre
+                  arrastrando={dndPacks.dragId === p.id}
+                  onMover={(d) => moverPack(p.id, d)}
                   label={p.nombre || t("Pack")}
+                  {...dndPacks.asa(p.id)}
                 />
                 <input
                   value={p.nombre}

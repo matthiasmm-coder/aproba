@@ -9,7 +9,7 @@ import { guardarServicios, guardarAvisos, guardarPacks } from "@/lib/config-brow
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, filaACliente, PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type FilaCsv } from "@/lib/csv-clientes";
 import { useT } from "@/components/lang-provider";
-import { FlechasOrden } from "@/components/servicios-manager";
+import { AsaArrastre, useReordenar } from "@/components/servicios-manager";
 import { ibanValido } from "@/lib/iban";
 
 type Banco = { titular: string; iban: string; banco: string };
@@ -95,6 +95,20 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   }
 
   const patchPack = (id: string, p: Partial<Pack>) => setPacks((l) => l.map((x) => (x.id === id ? { ...x, ...p } : x)));
+
+  function moverPack(id: string, delta: -1 | 1) {
+    setPacks((l) => {
+      const i = l.findIndex((x) => x.id === id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= l.length) return l;
+      const next = [...l];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  const dndSrv = useReordenar(setServicios, (x) => x.id);
+  const dndPack = useReordenar(setPacks, (x) => x.id);
 
   function onCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -347,10 +361,10 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
         <div className="space-y-5">
           <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Puedes borrar los que no ofrezcas, ordenarlos y cambiarlo todo después en Ajustes.")}</p>
           <div className="space-y-3">
-            {servicios.map((s, sIdx) => (
-              <div key={s.id} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"}`}>
+            {servicios.map((s) => (
+              <div key={s.id} ref={dndSrv.registrar(s.id)} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"} ${dndSrv.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
                 <div className="flex items-center gap-2.5">
-                  <FlechasOrden onUp={() => moverSrv(s.id, -1)} onDown={() => moverSrv(s.id, 1)} disabledUp={sIdx === 0} disabledDown={sIdx === servicios.length - 1} label={s.label || t("Servicio")} />
+                  <AsaArrastre arrastrando={dndSrv.dragId === s.id} onMover={(d) => moverSrv(s.id, d)} label={s.label || t("Servicio")} {...dndSrv.asa(s.id)} />
                   <input value={s.label} onChange={(e) => patchSrv(s.id, { label: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
                   <button type="button" role="switch" aria-checked={s.active} onClick={() => patchSrv(s.id, { active: !s.active })} className={`relative h-6 w-11 shrink-0 rounded-full transition ${s.active ? "bg-aproba-600" : "bg-slate-300"}`}>
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${s.active ? "left-[22px]" : "left-0.5"}`} />
@@ -394,10 +408,10 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
             <p className="text-sm font-semibold text-slate-800">{t("Packs de servicios")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></p>
             <p className="mt-0.5 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre y un precio «desde…» — p. ej. un Pack Compraventa.")}</p>
             <div className="mt-3 space-y-3">
-              {packs.map((p, pIdx) => (
-                <div key={p.id} className="rounded-xl border border-aproba-100 bg-aproba-50/40 p-4">
+              {packs.map((p) => (
+                <div key={p.id} ref={dndPack.registrar(p.id)} className={`rounded-xl border border-aproba-100 bg-aproba-50/40 p-4 ${dndPack.dragId === p.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
                   <div className="flex items-center gap-2.5">
-                    <FlechasOrden onUp={() => setPacks((l) => { const n = [...l]; if (pIdx > 0) { [n[pIdx - 1], n[pIdx]] = [n[pIdx], n[pIdx - 1]]; } return n; })} onDown={() => setPacks((l) => { const n = [...l]; if (pIdx < l.length - 1) { [n[pIdx + 1], n[pIdx]] = [n[pIdx], n[pIdx + 1]]; } return n; })} disabledUp={pIdx === 0} disabledDown={pIdx === packs.length - 1} label={p.nombre || t("Pack")} />
+                    <AsaArrastre arrastrando={dndPack.dragId === p.id} onMover={(d) => moverPack(p.id, d)} label={p.nombre || t("Pack")} {...dndPack.asa(p.id)} />
                     <input value={p.nombre} placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")} onChange={(e) => patchPack(p.id, { nombre: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
                     <button type="button" onClick={() => setPacks((l) => l.filter((x) => x.id !== p.id))} aria-label={`${t("Eliminar")} ${p.nombre || t("pack")}`} className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
