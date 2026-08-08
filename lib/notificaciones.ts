@@ -72,7 +72,9 @@ const inicialesDe = (s: string) =>
 const FUENTE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 // Layout email partagé : soigné, white-label (marque = la gestoría ; « α aproba »
-// discret en pied) et compatible (table-based, styles inline) pour Gmail/Outlook/Apple.
+// discret en pied), corps CENTRADO (título, texto, pie — los bloques <table> internos
+// necesitan su propio align="center") et compatible (table-based, styles inline) pour
+// Gmail/Outlook/Apple.
 function emailLayout(opts: {
   gestoria: string;
   titulo: string;
@@ -92,19 +94,19 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:al
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6f4"><tr><td align="center" style="padding:28px 14px">
   <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e6eae8;border-radius:16px;overflow:hidden">
     <tr><td height="4" style="height:4px;background:#0E8C5F;line-height:4px;font-size:0">&nbsp;</td></tr>
-    <tr><td style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0">
-      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <tr><td align="center" style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0;text-align:center">
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr>
         <td width="42" height="42" align="center" valign="middle" bgcolor="#ECFDF5" style="width:42px;height:42px;border-radius:11px;font-family:${FUENTE};font-size:15px;font-weight:700;color:#0D6E4D">${ini}</td>
         <td style="width:12px">&nbsp;</td>
         <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>
       </tr></table>
     </td></tr>
     <tr><td style="padding:28px 30px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      <tr><td style="font-family:${FUENTE};font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;line-height:1.3;padding-bottom:12px">${titulo}</td></tr>
-      <tr><td style="font-family:${FUENTE};font-size:15px;line-height:1.65;color:#475569">${cuerpoHtml}</td></tr>
+      <tr><td align="center" style="font-family:${FUENTE};font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;line-height:1.3;padding-bottom:12px;text-align:center">${titulo}</td></tr>
+      <tr><td align="center" style="font-family:${FUENTE};font-size:15px;line-height:1.65;color:#475569;text-align:center">${cuerpoHtml}</td></tr>
       ${boton}
     </table></td></tr>
-    <tr><td style="padding:18px 30px;border-top:1px solid #eef1f0;background:#fafbfb">
+    <tr><td align="center" style="padding:18px 30px;border-top:1px solid #eef1f0;background:#fafbfb;text-align:center">
       <p style="margin:0;font-family:${FUENTE};font-size:12px;line-height:1.5;color:#94a3b8">${footerNota ?? `Mensaje de ${gestoria}.`}</p>
       <p style="margin:7px 0 0;font-family:${FUENTE};font-size:11px;color:#cbd5e1">Con la tecnología de <span style="color:#0E8C5F;font-weight:700">α</span> <span style="color:#64748b;font-weight:600">aproba</span></p>
     </td></tr>
@@ -344,11 +346,11 @@ export async function enviarSolicitudPago(
 
     const bancoBox = cuenta?.iban
       ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagar por <strong>transferencia bancaria</strong> a esta cuenta:</p>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">
-          ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b">Titular</td><td style="font-weight:600">${cuenta.titular}</td></tr>` : ""}
-          <tr><td style="padding:3px 16px 3px 0;color:#64748b">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em">${cuenta.iban}</td></tr>
-          ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b">Banco</td><td style="font-weight:600">${cuenta.banco}</td></tr>` : ""}
-          <tr><td style="padding:3px 16px 3px 0;color:#64748b">Concepto</td><td style="font-weight:600">${opts.numero}</td></tr>
+        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">
+          ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Titular</td><td style="font-weight:600;text-align:left">${cuenta.titular}</td></tr>` : ""}
+          <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em;text-align:left">${cuenta.iban}</td></tr>
+          ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Banco</td><td style="font-weight:600;text-align:left">${cuenta.banco}</td></tr>` : ""}
+          <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Concepto</td><td style="font-weight:600;text-align:left">${opts.numero}</td></tr>
         </table>`
       : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
 
@@ -545,7 +547,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const [a, m, d] = String(opts.fecha).split("-");
     const fmtDur = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h ? `${h} h${mm ? ` ${mm} min` : ""}` : `${mm} min`; };
     const cuando = `${d}/${m}/${a}${opts.hora ? ` a las ${opts.hora}` : ""}${opts.duracion ? ` (${fmtDur(opts.duracion)})` : ""}`;
-    const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b">${k}</td><td style="font-weight:600">${v}</td></tr>`;
+    const fila = (k: string, v: string) => `<tr><td style="padding:3px 18px 3px 0;color:#64748b;text-align:left">${k}</td><td style="font-weight:600;text-align:left">${v}</td></tr>`;
     // "otro" = herramienta cualquiera (Zoom…): etiqueta genérica, sin paréntesis redundante.
     const provLabel = opts.videoProveedor === "teams" ? "Microsoft Teams" : opts.videoProveedor === "meet" ? "Google Meet" : null;
     const esVideo = Boolean(opts.videoEnlace);
@@ -561,7 +563,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       ? `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> ha sido modificada. Estos son los nuevos datos:`
       : `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:`;
     const cuerpoHtml = `<p style="margin:0 0 12px">${intro}</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" style="font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
     const html = emailLayout({
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
@@ -658,7 +660,7 @@ export async function enviarRecordatorioDocs(
       } else if (resendDisponible() && link) {
         const lista = faltantes.map((d) => `<li style="margin:3px 0">${d}</li>`).join("");
         const cuerpoHtml = `<p style="margin:0 0 10px">${t("notif.recDocs.intro", { nombre })}</p>
-          <ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul>
+          <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td style="text-align:left"><ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul></td></tr></table>
           <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
         const html = emailLayout({
           gestoria,
