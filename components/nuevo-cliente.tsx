@@ -78,8 +78,11 @@ export function NuevoCliente() {
 
   const set = (k: keyof ClienteFicha | "idioma", v: string) => setCampos((c) => ({ ...c, [k]: v }));
 
-  // Rend l'input adapté au type du champ de la fiche.
-  function CampoInput({ c }: { c: (typeof FICHA_CAMPOS)[number] }) {
+  // Rend l'input adapté au type du champ de la fiche. FONCTION appelée dans le JSX,
+  // PAS un composant (<CampoInput/>) : défini dans le corps du render, un composant
+  // changerait d'identité à chaque frappe → React démonte/remonte l'input et le champ
+  // perd le focus à chaque lettre.
+  const campoInput = (c: (typeof FICHA_CAMPOS)[number]) => {
     const val = campos[c.k] ?? "";
     if (c.tipo === "sexo")
       return <select value={val} onChange={(e) => set(c.k, e.target.value)} className={`${input} bg-white`}>{SEXOS.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}</select>;
@@ -88,7 +91,7 @@ export function NuevoCliente() {
     if (c.tipo === "date")
       return <input type="date" value={val} onChange={(e) => set(c.k, e.target.value)} className={input} />;
     return <input value={val} onChange={(e) => set(c.k, e.target.value)} placeholder={PLACEHOLDER[c.k] ?? ""} className={input} />;
-  }
+  };
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -113,7 +116,7 @@ export function NuevoCliente() {
               {FICHA_CAMPOS.filter((c) => c.grupo === grupo).map((c) => (
                 <div key={c.k} className={c.w === "full" ? "sm:col-span-2" : ""}>
                   <label className="text-sm font-medium text-slate-700">{t(c.label)}{c.k === "nombre" ? " *" : ""}</label>
-                  <CampoInput c={c} />
+                  {campoInput(c)}
                 </div>
               ))}
               {grupo === "Contacto" && (
