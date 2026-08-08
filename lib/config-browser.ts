@@ -1,5 +1,5 @@
 import { createSupabaseBrowser } from "@/lib/supabase/client";
-import type { Servicio } from "@/lib/servicios";
+import type { Pack, Servicio } from "@/lib/servicios";
 import type { Aviso } from "@/lib/avisos";
 
 // Persistance de la config (Ajustes) dans Supabase, côté navigateur, sous RLS.
@@ -36,21 +36,49 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     noIncluye: s.noIncluye?.trim() || null,
     suplidos: (s.suplidos ?? []).filter((x) => x.concepto.trim() && Number(x.importe) > 0)
       .map((x) => ({ concepto: x.concepto.trim(), importe: Number(x.importe) })),
+    porcentaje: s.porcentaje && s.porcentaje > 0 ? s.porcentaje : null,
+    porcentajeSobre: s.porcentaje && s.porcentaje > 0 ? (s.porcentajeSobre?.trim() || null) : null,
+    precioOculto: Boolean(s.precioOculto),
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
   let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
   // Replis pre-migración: quitar SOLO el tramo más reciente cada vez, para que el resto
   // de la config del servicio nunca se pierda por una columna nueva.
-  if (error && /suplidos|schema cache|column/i.test(error.message)) {
-    const sinSuplidos = rows.map(({ suplidos: _s, ...r }) => r);
-    ({ error } = await supabase.from("ServicioConfig").upsert(sinSuplidos, { onConflict: "workspaceId,clave" }));
-    if (error && /noIncluye|schema cache|column/i.test(error.message)) {
-      const sinNoIncluye = sinSuplidos.map(({ noIncluye: _ni, ...r }) => r);
-      ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+  if (error && /porcentaje|precioOculto|schema cache|column/i.test(error.message)) {
+    const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, ...r }) => r);
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinPro, { onConflict: "workspaceId,clave" }));
+    if (error && /suplidos|schema cache|column/i.test(error.message)) {
+      const sinSuplidos = sinPro.map(({ suplidos: _s, ...r }) => r);
+      ({ error } = await supabase.from("ServicioConfig").upsert(sinSuplidos, { onConflict: "workspaceId,clave" }));
+      if (error && /noIncluye|schema cache|column/i.test(error.message)) {
+        const sinNoIncluye = sinSuplidos.map(({ noIncluye: _ni, ...r }) => r);
+        ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+      }
     }
   }
   if (error) throw new Error(error.message);
+}
+
+// Packs → Workspace.packs (JSONB) vía la ruta de despacho (las escrituras de
+// Workspace pasan por el servidor: RLS no da UPDATE directo al navegador).
+export async function guardarPacks(packs: Pack[]): Promise<void> {
+  const limpio = packs
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre.trim(),
+      desc: p.desc.trim(),
+      servicioIds: p.servicioIds.filter(Boolean),
+      precioDesde: Math.max(0, Number(p.precioDesde) || 0),
+      precioOculto: Boolean(p.precioOculto),
+    }))
+    .filter((p) => p.nombre);
+  const fd = new FormData();
+  fd.set("soloPacks", "1");
+  fd.set("packs", JSON.stringify(limpio));
+  const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((j as { error?: string }).error || "No se pudieron guardar los packs.");
 }
 
 export async function guardarAvisos(avisos: Aviso[]): Promise<void> {

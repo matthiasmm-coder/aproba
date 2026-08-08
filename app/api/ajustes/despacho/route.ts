@@ -45,16 +45,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Interruptor «ocultar precios» (cabecera de la sección Servicios): rama propia que
-  // escribe SOLO su columna — si viviera en la rama encargo, guardar el encargo sin el
-  // campo lo RESETEARÍA a false en silencio.
-  if (str("soloOcultarPrecios") === "1") {
-    const { error: eOc } = await r.admin.from("Workspace")
-      .update({ portalOcultarPrecios: str("portalOcultarPrecios") === "1" })
-      .eq("id", r.workspaceId);
-    if (eOc) {
-      const falta = /portalOcultarPrecios|schema cache|column/i.test(eOc.message);
-      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/portal-encargo-opciones.sql en Supabase." : eOc.message }, { status: 500 });
+  // Packs de servicios (Workspace.packs JSONB): rama propia, escribe SOLO su columna.
+  // El antiguo interruptor global «ocultar precios» (soloOcultarPrecios) se retiró:
+  // ahora es ServicioConfig.precioOculto por servicio (supabase/servicios-pro.sql).
+  if (str("soloPacks") === "1") {
+    let packs: unknown;
+    try { packs = JSON.parse(str("packs") || "[]"); } catch { packs = null; }
+    if (!Array.isArray(packs) || packs.length > 50) {
+      return NextResponse.json({ error: "Packs inválidos." }, { status: 400 });
+    }
+    const limpio = packs
+      .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+      .map((x) => ({
+        id: String(x.id ?? "").slice(0, 40),
+        nombre: String(x.nombre ?? "").trim().slice(0, 120),
+        desc: String(x.desc ?? "").trim().slice(0, 500),
+        servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s).slice(0, 60)).filter(Boolean).slice(0, 20) : [],
+        precioDesde: Math.max(0, Math.min(999999, Number(x.precioDesde) || 0)),
+        precioOculto: Boolean(x.precioOculto),
+      }))
+      .filter((p) => p.id && p.nombre);
+    const { error: ePk } = await r.admin.from("Workspace").update({ packs: limpio }).eq("id", r.workspaceId);
+    if (ePk) {
+      const falta = /packs|schema cache|column/i.test(ePk.message);
+      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/servicios-pro.sql en Supabase." : ePk.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

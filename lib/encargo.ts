@@ -25,7 +25,7 @@ export type DatosEncargo = {
     telefono: string; email: string;
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
-  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; suplidos: { concepto: string; importe: number }[] }[];
+  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
   // Override manual de tasas/suplidos del expediente (si el gestor los ajustó): lista PLANA
   // que sustituye a los suplidos por servicio en §5. null = usar los de cada servicio.
   suplidosOverride: { concepto: string; importe: number }[] | null;
@@ -158,6 +158,10 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
         noIncluye: s((sv as { noIncluye?: string }).noIncluye),
         suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0)
           .map((x) => (conAsignacion && n > 1 ? { concepto: `${x.concepto} (×${n})`, importe: r2n(x.importe) } : x)),
+        // Honorarios variables (% sobre una base): van al contrato tal cual, el
+        // importe se liquida al conocerse la base (no se multiplica por miembros).
+        porcentaje: sv.porcentaje && sv.porcentaje > 0 ? sv.porcentaje : undefined,
+        porcentajeSobre: (sv.porcentajeSobre ?? "").trim() || undefined,
       };
     }),
     descuento: descuentoValido(exp.descuento),
@@ -377,8 +381,21 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
       m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
       if (dHoja?.tipo === "IMPORTE") m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `−${eur(dHoja.valor)} (sobre el total del expediente)`);
     }
-  } else {
+  } else if (!d.servicios.some((sv) => sv.porcentaje)) {
     m.fila("Honorarios", "Según presupuesto");
+  }
+  // Honorarios variables (% sobre una base, p. ej. el precio de una compraventa):
+  // el contrato deja constancia del porcentaje y de su base; el importe se
+  // liquidará en factura al conocerse la base.
+  const conPct = d.servicios.filter((sv) => sv.porcentaje);
+  if (conPct.length) {
+    for (const sv of conPct) {
+      m.fila(
+        d.servicios.length > 1 ? `Honorarios variables (${sv.label})` : "Honorarios variables",
+        `${String(sv.porcentaje).replace(".", ",")} % sobre ${sv.porcentajeSobre ?? "la base pactada"} + IVA (21%)`,
+      );
+    }
+    m.parrafo("Los honorarios variables se liquidarán al conocerse la base sobre la que se aplican, en la factura correspondiente.", { size: 8.5, color: GRIS });
   }
   // Tasas y suplidos previstos (SIN IVA): presupuesto ajustado — el contrato enseña lo que
   // la primera factura repercutirá. Si el gestor los ajustó para este expediente (override),

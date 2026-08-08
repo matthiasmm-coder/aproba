@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { DEFAULT_AVISOS, esCanalAvisos, type Aviso, type CanalAvisos } from "@/lib/avisos";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -43,11 +43,34 @@ export function mapServicioRow(r: ServicioRow): Servicio {
         .filter((x) => x.concepto && x.importe > 0);
       return list.length ? list : undefined;
     })(),
+    porcentaje: (() => {
+      const v = Number((r as { porcentaje?: unknown }).porcentaje);
+      return Number.isFinite(v) && v > 0 ? v : undefined;
+    })(),
+    porcentajeSobre: String((r as { porcentajeSobre?: unknown }).porcentajeSobre ?? "").trim() || undefined,
+    precioOculto: Boolean((r as { precioOculto?: unknown }).precioOculto) || undefined,
   };
 }
 
-const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
-// Replis por tramo de migración (suplidos → noIncluye → base).
+// Workspace.packs (JSONB) → Pack[] validado. Defensivo: cualquier forma inesperada → [].
+export function parsePacks(raw: unknown): Pack[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+    .map((x) => ({
+      id: String(x.id ?? "").trim(),
+      nombre: String(x.nombre ?? "").trim(),
+      desc: String(x.desc ?? "").trim(),
+      servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s)).filter(Boolean) : [],
+      precioDesde: Math.max(0, Number(x.precioDesde) || 0),
+      precioOculto: Boolean(x.precioOculto) || undefined,
+    }))
+    .filter((p) => p.id && p.nombre);
+}
+
+const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
+// Replis por tramo de migración (pro → suplidos → noIncluye → base).
+const SELECT_SERVICIOS_SIN_PRO = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
 const SELECT_SERVICIOS_SIN_SUPLIDOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
 const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
 
@@ -55,6 +78,7 @@ const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active,
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("ServicioConfig").select(SELECT_SERVICIOS).order("orden");
+  if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).order("orden")) as unknown as typeof res;
   const { data, error } = res;
@@ -67,12 +91,30 @@ export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; d
 // pour le portail client (lien token) et l'API de pagos.
 export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspaceId: string): Promise<Servicio[]> {
   let res = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
+  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   const { data, error } = res;
   if (error) throw new Error(`ServicioConfig(ws): ${error.message}`);
   if (!data || data.length === 0) return DEFAULT_SERVICIOS;
   return (data as ServicioRow[]).map(mapServicioRow);
+}
+
+// Packs del workspace (Workspace.packs JSONB) — [] pre-migración o sin packs.
+export async function fetchPacksDeWorkspace(client: SupabaseClient, workspaceId: string): Promise<Pack[]> {
+  const { data, error } = await client.from("Workspace").select("packs").eq("id", workspaceId).maybeSingle();
+  if (error || !data) return [];
+  return parsePacks((data as { packs?: unknown }).packs);
+}
+
+// Packs del workspace del usuario conectado (RLS).
+export async function fetchPacksConfig(): Promise<Pack[]> {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase.from("Membership").select("Workspace(packs)").limit(1).maybeSingle();
+  if (error || !data) return [];
+  const wsRaw = (data as { Workspace?: { packs?: unknown } | { packs?: unknown }[] }).Workspace;
+  const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
+  return parsePacks(ws?.packs);
 }
 
 export type CuentaBancaria = {
@@ -94,7 +136,7 @@ export type Despacho = {
   // Canal de los avisos al cliente (supabase/whatsapp-canal.sql) — EMAIL pre-migración.
   canalAvisos: CanalAvisos;
   // Opciones portal/encargo (supabase/portal-encargo-opciones.sql) — replis pre-migración.
-  portalOcultarPrecios: boolean;
+  // (El antiguo global portalOcultarPrecios se retiró: ahora es ServicioConfig.precioOculto.)
   encargoFormasPago: string | null;
   mandatoPropioPath: string | null;
 };
@@ -103,7 +145,7 @@ export async function fetchDespacho(): Promise<Despacho> {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
   // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
-  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, portalOcultarPrecios, encargoFormasPago, mandatoPropioPath");
+  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago, mandatoPropioPath");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
   // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
@@ -125,7 +167,6 @@ export async function fetchDespacho(): Promise<Despacho> {
     mandatarioColegiado: (ws.mandatarioColegiado as string | null) ?? null,
     mandatarioColegio: (ws.mandatarioColegio as string | null) ?? null,
     canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
-    portalOcultarPrecios: Boolean(ws.portalOcultarPrecios),
     encargoFormasPago: (ws.encargoFormasPago as string | null) ?? null,
     mandatoPropioPath: (ws.mandatoPropioPath as string | null) ?? null,
   };

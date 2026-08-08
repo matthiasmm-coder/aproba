@@ -15,7 +15,7 @@ import { useT } from "@/components/lang-provider";
 // descuento es del EXPEDIENTE (uno solo, sobre el total de los servicios elegidos),
 // como en la ficha, el portal, la hoja de encargo y las facturas.
 
-type Svc = { id: string; label: string; anticipo: number; resto: number };
+type Svc = { id: string; label: string; anticipo: number; resto: number; porcentaje?: number };
 
 export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }: {
   expedienteId: string;
@@ -37,12 +37,14 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
       const sb = createSupabaseBrowser();
       try {
         // Misma lista que ve el cliente en su enlace: activos y con nombre.
-        const { data, error: e } = await sb.from("ServicioConfig").select("clave, label, anticipo, resto, active").order("orden");
+        let res = await sb.from("ServicioConfig").select("clave, label, anticipo, resto, active, porcentaje").order("orden");
+        if (res.error) res = await sb.from("ServicioConfig").select("clave, label, anticipo, resto, active").order("orden") as typeof res;
+        const { data, error: e } = res;
         if (e) throw e;
-        const rows = (data ?? []) as { clave: string; label: string | null; anticipo: number | string | null; resto: number | string | null; active: boolean | null }[];
+        const rows = (data ?? []) as { clave: string; label: string | null; anticipo: number | string | null; resto: number | string | null; active: boolean | null; porcentaje?: number | string | null }[];
         setServicios(rows
           .filter((s) => s.active !== false && (s.label ?? "").trim())
-          .map((s) => ({ id: s.clave, label: (s.label ?? "").trim(), anticipo: Number(s.anticipo) || 0, resto: Number(s.resto) || 0 })));
+          .map((s) => ({ id: s.clave, label: (s.label ?? "").trim(), anticipo: Number(s.anticipo) || 0, resto: Number(s.resto) || 0, porcentaje: Number(s.porcentaje) > 0 ? Number(s.porcentaje) : undefined })));
       } catch {
         setServicios([]);
         setError(t("No se han podido cargar tus servicios. Ajústalo desde la ficha del expediente."));
@@ -133,7 +135,7 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
             >
               <option value="" disabled>{t("Elige un servicio…")}</option>
               {servicios.map((s) => (
-                <option key={s.id} value={s.id}>{s.label} · {eur(totalDe(r2(s.anticipo + s.resto)))}</option>
+                <option key={s.id} value={s.id}>{s.label} · {eur(totalDe(r2(s.anticipo + s.resto)))}{s.porcentaje ? ` + ${String(s.porcentaje).replace(".", ",")} %` : ""}</option>
               ))}
             </select>
 

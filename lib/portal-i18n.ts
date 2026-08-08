@@ -78,6 +78,22 @@ export const UI: Record<string, Tr> = {
     it: "Il tuo studio non ha ancora configurato i servizi disponibili.",
     de: "Deine Kanzlei hat die verfügbaren Leistungen noch nicht eingerichtet.",
   },
+  "precio.consultar": {
+    es: "Precio a consultar", en: "Price on request", fr: "Prix sur demande", it: "Prezzo su richiesta",
+    de: "Preis auf Anfrage", ar: "\u0627\u0644\u0633\u0639\u0631 \u0639\u0646\u062f \u0627\u0644\u0637\u0644\u0628", ro: "Pre\u021b la cerere", zh: "\u4ef7\u683c\u9762\u8bae",
+  },
+  "precio.pctSobre": {
+    es: "+ {pct} % sobre {sobre}", en: "+ {pct}% on {sobre}", fr: "+ {pct} % sur {sobre}", it: "+ {pct} % su {sobre}",
+    de: "+ {pct} % auf {sobre}", ar: "+ {pct}\u066a \u0639\u0644\u0649 {sobre}", ro: "+ {pct} % din {sobre}", zh: "\u53e6\u6309{sobre}\u7684 {pct}%",
+  },
+  "precio.desde": {
+    es: "desde {p}", en: "from {p}", fr: "\u00e0 partir de {p}", it: "da {p}",
+    de: "ab {p}", ar: "\u0627\u0628\u062a\u062f\u0627\u0621\u064b \u0645\u0646 {p}", ro: "de la {p}", zh: "{p} \u8d77",
+  },
+  "esp.packIncluye": {
+    es: "Incluye: {lista}", en: "Includes: {lista}", fr: "Comprend\u00a0: {lista}", it: "Include: {lista}",
+    de: "Enth\u00e4lt: {lista}", ar: "\u064a\u0634\u0645\u0644: {lista}", ro: "Include: {lista}", zh: "\u5305\u542b\uff1a{lista}",
+  },
   "pago.split": {
     es: "{a} al empezar + {b} al finalizar",
     en: "{a} to start + {b} on completion",

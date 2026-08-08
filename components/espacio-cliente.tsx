@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
+import { fmtPct } from "@/lib/servicios";
 
 // ESPACIO PERSISTENTE DEL CLIENTE — la cara visible de /c/[token]: sus trámites en curso
 // y terminados (incluido el histórico pre-migración) + solicitar un trámite nuevo, en su
@@ -18,14 +19,15 @@ export type EspacioExp = {
   url: string | null;   // /s/<token> del expediente (null = histórico importado)
   fecha: string;        // dd/mm/aaaa
 };
-export type EspacioServicio = { id: string; label: string; precio: number };
+export type EspacioServicio = { id: string; label: string; precio: number; precioOculto?: boolean; porcentaje?: number; porcentajeSobre?: string };
+export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; precioOculto?: boolean };
 
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
 
-export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, terminados, servicios }: {
+export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, terminados, servicios, packs = [] }: {
   token: string; gestoria: string; nombre: string; idioma: string;
-  enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[];
+  enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[]; packs?: EspacioPack[];
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -82,7 +84,22 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
     }
   }
 
-  const total = servicios.filter((s) => sel.has(s.id)).reduce((sum, s) => sum + s.precio, 0);
+  const seleccion = servicios.filter((s) => sel.has(s.id));
+  // Si algún servicio elegido es «precio a consultar», un total parcial mentiría.
+  const totalOculto = seleccion.some((s) => s.precioOculto);
+  const total = totalOculto ? 0 : seleccion.reduce((sum, s) => sum + s.precio, 0);
+
+  // Un pack se «elige» seleccionando todos sus servicios (la solicitud ya admite varios).
+  const packDentro = (pk: EspacioPack) => pk.servicioIds.length > 0 && pk.servicioIds.every((id) => sel.has(id));
+  function togglePack(pk: EspacioPack) {
+    setSel((prev) => {
+      const n = new Set(prev);
+      if (packDentro(pk)) pk.servicioIds.forEach((id) => n.delete(id));
+      else pk.servicioIds.forEach((id) => n.add(id));
+      return n;
+    });
+    setError(null);
+  }
 
   const Item = ({ e }: { e: EspacioExp }) => {
     // El nombre del trámite ocupa su PROPIA línea y puede envolver: en móviles de 320 px
@@ -159,12 +176,46 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
           <div className="mt-8 rounded-2xl border border-aproba-200 bg-white p-5">
             <h2 className="text-base font-bold tracking-tightest text-slate-900">{t("esp.nuevo")}</h2>
             <p className="mt-1 text-sm text-slate-500">{t("esp.nuevoDesc")}</p>
+            {packs.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {packs.map((pk) => {
+                  const dentro = packDentro(pk);
+                  return (
+                    <button
+                      key={pk.id}
+                      type="button"
+                      aria-pressed={dentro}
+                      onClick={() => togglePack(pk)}
+                      className={`w-full rounded-xl border-2 px-4 py-3 text-left transition ${dentro ? "border-aproba-600 bg-aproba-50" : "border-aproba-200 bg-aproba-50/40 hover:border-aproba-400"}`}
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 text-sm font-bold text-slate-900">{pk.nombre}</span>
+                        {pk.precioOculto
+                          ? <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
+                          : pk.precioDesde > 0 && <span className="shrink-0 text-sm font-semibold text-aproba-700">{t("precio.desde", { p: fmtEur(pk.precioDesde) })}</span>}
+                      </div>
+                      {pk.desc && <p className="mt-0.5 text-xs text-slate-500">{pk.desc}</p>}
+                      <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: pk.servicioIds.map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-3 space-y-2">
               {servicios.map((s) => (
                 <label key={s.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${sel.has(s.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 hover:border-slate-300"}`}>
                   <input type="checkbox" checked={sel.has(s.id)} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600" />
-                  <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">{servicioLabel(s.id, s.label, lang)}</span>
-                  {s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
+                  <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">
+                    {servicioLabel(s.id, s.label, lang)}
+                    {Boolean(s.porcentaje) && !s.precioOculto && (
+                      <span className="mt-0.5 block text-xs font-normal text-slate-400">
+                        {s.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(s.porcentaje ?? 0), sobre: s.porcentajeSobre.trim() }) : `+ ${fmtPct(s.porcentaje ?? 0)} %`}
+                      </span>
+                    )}
+                  </span>
+                  {s.precioOculto
+                    ? <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
+                    : s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
                 </label>
               ))}
             </div>

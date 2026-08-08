@@ -1,14 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { newServicio, DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
-import { guardarServicios } from "@/lib/config-browser";
+import { fmtPct, newPack, newServicio, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
+import { guardarPacks, guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
+// Flechas ↑↓ compartidas por servicios y packs (también en el onboarding) — más
+// fiables que drag&drop en móvil.
+export function FlechasOrden({ onUp, onDown, disabledUp, disabledDown, label }: { onUp: () => void; onDown: () => void; disabledUp: boolean; disabledDown: boolean; label: string }) {
+  const cls = "rounded p-0.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30";
+  return (
+    <span className="flex shrink-0 flex-col">
+      <button type="button" onClick={onUp} disabled={disabledUp} aria-label={`${label} ↑`} className={cls}>
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+      </button>
+      <button type="button" onClick={onDown} disabled={disabledDown} aria-label={`${label} ↓`} className={cls}>
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+    </span>
+  );
+}
+
+export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[]; packsInicial?: Pack[] }) {
   const t = useT();
   const [servicios, setServicios] = useState<Servicio[]>(inicial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -18,6 +34,11 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
   const [nuevoDoc, setNuevoDoc] = useState<Record<string, string>>({});
   const removed = useRef<Set<string>>(new Set());
   const mounted = useRef(false);
+  // Packs: estado y autosave PROPIOS (van a Workspace.packs, no a ServicioConfig).
+  const [packs, setPacks] = useState<Pack[]>(packsInicial ?? []);
+  const [packsSave, setPacksSave] = useState<SaveState>("idle");
+  const [packsError, setPacksError] = useState<string | null>(null);
+  const packsMounted = useRef(false);
 
   // Persister en base (Supabase, RLS) à chaque changement — debounce 600 ms.
   useEffect(() => {
@@ -40,8 +61,52 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
     return () => window.clearTimeout(t);
   }, [servicios]);
 
+  useEffect(() => {
+    if (!packsMounted.current) {
+      packsMounted.current = true;
+      return;
+    }
+    setPacksSave("saving");
+    const t = window.setTimeout(async () => {
+      try {
+        await guardarPacks(packs);
+        setPacksSave("saved");
+        setPacksError(null);
+        window.setTimeout(() => setPacksSave((s) => (s === "saved" ? "idle" : s)), 1500);
+      } catch (e) {
+        setPacksSave("error");
+        setPacksError(e instanceof Error ? e.message : null);
+      }
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [packs]);
+
   const update = (id: string, patch: Partial<Servicio>) =>
     setServicios((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+
+  const updatePack = (id: string, patch: Partial<Pack>) =>
+    setPacks((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
+  const moverPack = (id: string, delta: -1 | 1) =>
+    setPacks((list) => {
+      const i = list.findIndex((p) => p.id === id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= list.length) return list;
+      const next = [...list];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+
+  // Subir/bajar una tarjeta: el orden del array ES la columna `orden` al guardar.
+  const mover = (id: string, delta: -1 | 1) =>
+    setServicios((list) => {
+      const i = list.findIndex((s) => s.id === id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= list.length) return list;
+      const next = [...list];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
 
   const addDoc = (id: string) => {
     const val = (nuevoDoc[id] ?? "").trim();
@@ -77,10 +142,17 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
       </div>
 
       <div className="space-y-3">
-        {servicios.map((s) => (
+        {servicios.map((s, idx) => (
           <div key={s.id} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"}`}>
             {/* Ligne titre + toggle */}
             <div className="flex items-center gap-3">
+              <FlechasOrden
+                onUp={() => mover(s.id, -1)}
+                onDown={() => mover(s.id, 1)}
+                disabledUp={idx === 0}
+                disabledDown={idx === servicios.length - 1}
+                label={s.label || t("Servicio")}
+              />
               <button
                 type="button"
                 onClick={() => setAbiertos((a) => ({ ...a, [s.id]: !a[s.id] }))}
@@ -94,7 +166,7 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                 value={s.label}
                 placeholder={t("Nombre del servicio")}
                 onChange={(e) => update(s.id, { label: e.target.value })}
-                className="flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
               />
               <button
                 onClick={() => update(s.id, { active: !s.active })}
@@ -107,7 +179,9 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
               <button
                 onClick={() => { removed.current.add(s.id); setServicios((list) => list.filter((x) => x.id !== s.id)); }}
                 aria-label={t("Eliminar servicio")}
-                className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                disabled={servicios.length <= 1}
+                title={servicios.length <= 1 ? t("Conserva al menos un servicio: si el catálogo queda vacío, reaparecen los de ejemplo.") : undefined}
+                className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
@@ -117,9 +191,12 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
               <button
                 type="button"
                 onClick={() => setAbiertos((a) => ({ ...a, [s.id]: true }))}
-                className="mt-1 block w-full pl-8 text-left text-xs text-slate-400 transition hover:text-slate-600"
+                className="mt-1 block w-full pl-14 text-left text-xs text-slate-400 transition hover:text-slate-600"
               >
-                {s.anticipo + s.resto > 0 ? `${s.anticipo + s.resto} €` : t("Gratis")} · {s.docs.length} {t("docs")}
+                {s.precioOculto
+                  ? t("Precio a consultar")
+                  : `${s.anticipo + s.resto > 0 ? `${s.anticipo + s.resto} €` : t("Gratis")}${s.porcentaje ? ` + ${fmtPct(s.porcentaje)} %` : ""}`}
+                {" · "}{s.docs.length} {t("docs")}
                 {(s.suplidos ?? []).length > 0 ? ` · ${(s.suplidos ?? []).length} ${t("tasas")}` : ""}
               </button>
             )}
@@ -169,6 +246,44 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
                       ? t("El cliente paga todo en la plataforma al finalizar el trámite — la factura se genera automáticamente.")
                       : t("Sin cobro configurado: no se pedirá pago en la plataforma.")}
               </p>
+
+              {/* Honorarios variables: % sobre una base (p. ej. compraventa). Informativo
+                  de cara al cliente; la facturación automática solo usa los importes fijos. */}
+              <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-slate-500">{t("+ Porcentaje (opcional)")}</span>
+                  <div className="relative">
+                    <input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()}
+                      onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); update(s.id, { porcentaje: v || undefined }); }}
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
+                  </div>
+                </label>
+                {/* basis ≥ min utile : avec flex-1 (basis 0) la ligne ne wrap jamais et
+                    l'input déborde de la tarjeta en móvil. */}
+                <label className="block grow basis-[200px]">
+                  <span className="mb-1 block text-xs text-slate-500">{t("Sobre qué se aplica")}</span>
+                  <input value={s.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")}
+                    onChange={(e) => update(s.id, { porcentajeSobre: e.target.value })}
+                    disabled={!s.porcentaje}
+                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                </label>
+              </div>
+              {Boolean(s.porcentaje) && (
+                <p className="mt-1.5 text-[11px] text-slate-400">
+                  {t("El cliente verá")} «{fmtPct(s.porcentaje ?? 0)} % {s.porcentajeSobre?.trim() ? `${t("sobre")} ${s.porcentajeSobre.trim()}` : t("sobre la base que indiques")}» {t("junto al precio fijo. La facturación automática solo usa los importes fijos: el importe del porcentaje lo facturas tú cuando conozcas la base.")}
+                </p>
+              )}
+
+              {/* «Precio a consultar»: oculta los importes en el portal, servicio a servicio */}
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 transition hover:border-slate-300">
+                <input type="checkbox" checked={Boolean(s.precioOculto)} onChange={(e) => update(s.id, { precioOculto: e.target.checked || undefined })}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                <span>
+                  <span className="block text-xs font-semibold text-slate-700">{t("Precio a consultar")}</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">{t("El cliente no verá importes de este servicio en su portal ni se le pedirá pago online. La hoja de encargo sí incluye el precio pactado.")}</span>
+                </span>
+              </label>
             </div>
 
             {/* Tasas y suplidos del trámite (SIN IVA, fuera de los honorarios) */}
@@ -290,7 +405,9 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
           <select
             value=""
             onChange={(e) => { addDelCatalogo(e.target.value); }}
-            className="rounded-xl border border-slate-300 px-3 py-3 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-aproba-400 focus:border-aproba-500 sm:flex-1"
+            // min-w-0 + w-full: sin ellos el ancho intrínseco del select (su opción más
+            // larga) desborda la tarjeta en móvil y ensancha TODA la sección.
+            className="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-aproba-400 focus:border-aproba-500 sm:w-auto sm:flex-1"
           >
             <option value="" disabled>{t("Añadir trámite del catálogo…")}</option>
             {enCatalogo.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
@@ -302,6 +419,107 @@ export function ServiciosManager({ inicial }: { inicial: Servicio[] }) {
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
           {t("Nuevo servicio")}
+        </button>
+      </div>
+
+      {/* ── Packs de servicios ── */}
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-800">{t("Packs de servicios")}</p>
+          <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${packsSave === "idle" ? "opacity-0" : "opacity-100"} ${packsSave === "error" ? "text-red-600" : "text-aproba-700"}`}>
+            {packsSave === "saving" && t("Guardando…")}
+            {packsSave === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Guardado")}</>)}
+            {packsSave === "error" && t("Error al guardar — reintenta")}
+          </span>
+        </div>
+        <p className="mb-4 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre y un precio «desde…». El cliente lo ve como una oferta única en su portal.")}</p>
+        {packsSave === "error" && packsError && (
+          <p role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">{packsError}</p>
+        )}
+
+        <div className="space-y-3">
+          {packs.map((p, idx) => (
+            <div key={p.id} className="rounded-xl border border-aproba-100 bg-aproba-50/40 p-4">
+              <div className="flex items-center gap-3">
+                <FlechasOrden
+                  onUp={() => moverPack(p.id, -1)}
+                  onDown={() => moverPack(p.id, 1)}
+                  disabledUp={idx === 0}
+                  disabledDown={idx === packs.length - 1}
+                  label={p.nombre || t("Pack")}
+                />
+                <input
+                  value={p.nombre}
+                  placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")}
+                  onChange={(e) => updatePack(p.id, { nombre: e.target.value })}
+                  className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+                />
+                <button
+                  onClick={() => setPacks((list) => list.filter((x) => x.id !== p.id))}
+                  aria-label={t("Eliminar pack")}
+                  className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                </button>
+              </div>
+              <input
+                value={p.desc}
+                placeholder={t("Descripción breve (la verá el cliente)")}
+                onChange={(e) => updatePack(p.id, { desc: e.target.value })}
+                className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+              />
+
+              <div className="mt-3 border-t border-aproba-100 pt-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Servicios incluidos")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {servicios.map((s) => {
+                    const dentro = p.servicioIds.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        aria-pressed={dentro}
+                        onClick={() => updatePack(p.id, { servicioIds: dentro ? p.servicioIds.filter((x) => x !== s.id) : [...p.servicioIds, s.id] })}
+                        className={`rounded-md border px-2.5 py-1 text-xs transition ${dentro ? "border-aproba-300 bg-aproba-600 font-semibold text-white" : "border-slate-200 bg-white text-slate-600 hover:border-aproba-300"}`}
+                      >
+                        {s.label || t("Sin nombre")}
+                      </button>
+                    );
+                  })}
+                </div>
+                {p.servicioIds.length === 0 && <p className="mt-1.5 text-xs font-medium text-amber-600">⚠️ {t("Elige al menos un servicio para que el pack aparezca en el portal.")}</p>}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2 border-t border-aproba-100 pt-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-slate-500">{t("Precio «desde» (sin IVA)")}</span>
+                  <div className="relative">
+                    <input type="number" min={0} step={10} value={p.precioDesde || ""} placeholder="0" onFocus={(e) => e.target.select()}
+                      disabled={Boolean(p.precioOculto)}
+                      onChange={(e) => updatePack(p.id, { precioDesde: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-28 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
+                  </div>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 pb-1.5">
+                  <input type="checkbox" checked={Boolean(p.precioOculto)} onChange={(e) => updatePack(p.id, { precioOculto: e.target.checked || undefined })}
+                    className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                  <span className="text-xs font-medium text-slate-600">{t("Precio a consultar")}</span>
+                </label>
+                {!p.precioOculto && p.precioDesde > 0 && (
+                  <span className="pb-2 text-xs text-slate-400">{t("El cliente verá")} «{t("desde")} {eur(p.precioDesde)}»</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setPacks((list) => [...list, newPack()])}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-aproba-400 hover:text-aproba-700"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+          {t("Crear pack")}
         </button>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
-import { DEFAULT_SERVICIOS, loadServicios, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, fmtPct, loadServicios, type Servicio } from "@/lib/servicios";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
@@ -58,7 +58,6 @@ export function ClientPortal({
   token,
   tarjetaActiva,
   encargoActivo,
-  ocultarPrecios = false,
   familia,
   servicioInicial,
   serviciosExtraClaves,
@@ -68,7 +67,6 @@ export function ClientPortal({
   docsSubidos,
 }: {
   servicios?: Servicio[];
-  ocultarPrecios?: boolean;
   referencia?: string; // expediente réel (lien token) — sinon démo
   clienteNombre?: string;
   clienteFicha?: ClienteFicha;
@@ -271,11 +269,12 @@ export function ClientPortal({
     : null; // null → cada tarjeta calcula el suyo con suplidosUnit
   const suplidosExp = suplidosAsignados(ovUnit, tramite ? [tramite, ...extrasServicios] : extrasServicios, asig, nMiembros);
   const suplidosTotal = suplidosExp.reduce((a, x) => a + x.importe, 0);
-  // Precios ocultos ⇒ SIN pago upfront en el portal: el cliente no ha visto ningún
-  // importe, así que no se le puede pedir un anticipo calculado desde la tarifa.
-  // El cobro llega después por las facturas que emite el gestor (importe editable,
-  // en un pago o fraccionado en cuotas) — y esas SÍ muestran su importe en /s.
-  const conPago = anticipo > 0 && !ocultarPrecios;
+  // «Precio a consultar» (por servicio) en el carrito ⇒ SIN pago upfront: el cliente
+  // no ha visto ningún importe, así que no se le puede pedir un anticipo calculado
+  // desde la tarifa. El cobro llega después por las facturas que emite el gestor —
+  // y esas SÍ muestran su importe en /s.
+  const carritoOculto = Boolean(tramite?.precioOculto) || extrasServicios.some((sv) => sv.precioOculto);
+  const conPago = anticipo > 0 && !carritoOculto;
   const PASO_PAGO = 3;
   const PASO_LISTO = 4;
 
@@ -615,8 +614,11 @@ export function ClientPortal({
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
-                          + tasas — el mismo importe que verá al pagar (nada sube «después»). */}
-                      {!ocultarPrecios && <p className="shrink-0 text-right text-sm font-bold text-slate-700">
+                          + tasas — el mismo importe que verá al pagar (nada sube «después»).
+                          «Precio a consultar» (por servicio) sustituye al importe. */}
+                      {(tr.precioOculto || extrasServicios.some((sv) => sv.precioOculto))
+                        ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
+                        : <p className="shrink-0 text-right text-sm font-bold text-slate-700">
                         {(() => {
                           const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasServicios], asig, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
@@ -632,7 +634,12 @@ export function ClientPortal({
                       </p>}
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
-                    {!ocultarPrecios && <p className="mt-1 text-xs text-slate-400">
+                    {Boolean(tr.porcentaje) && !tr.precioOculto && (
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        {tr.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(tr.porcentaje ?? 0), sobre: tr.porcentajeSobre.trim() }) : `+ ${fmtPct(tr.porcentaje ?? 0)} %`}
+                      </p>
+                    )}
+                    {!(tr.precioOculto || extrasServicios.some((sv) => sv.precioOculto)) && <p className="mt-1 text-xs text-slate-400">
                       {tr.anticipo > 0 && tr.resto > 0
                         ? (() => {
                             // MISMA base que el precio de arriba (servicio + extras): con
@@ -704,7 +711,7 @@ export function ClientPortal({
                 const reb = aplicarDescuento(tPre, 1, descuento);
                 const sup = suplidosAsignados(ovUnit, elegidos, inversa, nMiembros).reduce((acc, x) => acc + x.importe, 0);
                 const total = r2(r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + sup);
-                if (ocultarPrecios) return null;
+                if (elegidos.some((sv) => sv.precioOculto)) return null;
                 return (
                   <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
                     <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>

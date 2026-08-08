@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { EspacioCliente, type EspacioExp, type EspacioServicio } from "@/components/espacio-cliente";
 
@@ -39,10 +39,10 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
   } catch { /* columna ausente */ }
   if (!cliente) notFound();
 
-  let resWs = await admin.from("Workspace").select("nombre, portalOcultarPrecios").eq("id", cliente.workspaceId).maybeSingle();
+  // Packs junto al nombre (repli pre-migración servicios-pro.sql sin la columna).
+  let resWs = await admin.from("Workspace").select("nombre, packs").eq("id", cliente.workspaceId).maybeSingle();
   if (resWs.error) resWs = await admin.from("Workspace").select("nombre").eq("id", cliente.workspaceId).maybeSingle();
   const ws = resWs.data;
-  const ocultarPrecios = Boolean((ws as { portalOcultarPrecios?: boolean } | null)?.portalOcultarPrecios);
   const gestoria = (ws as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
 
   // Expedientes del cliente (defensivo con las columnas más nuevas).
@@ -87,9 +87,12 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
 
   const activos: EspacioServicio[] = servicios
     .filter((s) => s.active)
-    .map((s) => ({ id: s.id, label: s.label, precio: ocultarPrecios ? 0 : s.precio }));
-  // Precios ocultos (opción del despacho): el espacio muestra los servicios sin importe
-  // (el componente ya omite precios a 0, y el total del botón desaparece solo).
+    .map((s) => ({ id: s.id, label: s.label, precio: s.precio, precioOculto: s.precioOculto, porcentaje: s.porcentaje, porcentajeSobre: s.porcentajeSobre }));
+  // Packs del despacho: solo los que resuelven contra servicios activos (un pack que
+  // apunta a servicios borrados o desactivados no se ofrece).
+  const packs = parsePacks((ws as { packs?: unknown } | null)?.packs)
+    .map((p) => ({ ...p, servicioIds: p.servicioIds.filter((id) => activos.some((s) => s.id === id)) }))
+    .filter((p) => p.servicioIds.length > 0);
 
   return (
     <EspacioCliente
@@ -100,6 +103,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
       enCurso={items.filter((i) => i.enCurso)}
       terminados={[...items.filter((i) => !i.enCurso), ...historial]}
       servicios={activos}
+      packs={packs}
     />
   );
 }

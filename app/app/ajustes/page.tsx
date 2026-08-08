@@ -1,4 +1,4 @@
-import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho } from "@/lib/data/config";
+import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig } from "@/lib/data/config";
 import { fetchEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
 import { ServiciosManager } from "@/components/servicios-manager";
@@ -12,7 +12,6 @@ import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { EncargoConfig } from "@/components/encargo-config";
-import { OcultarPreciosToggle } from "@/components/ocultar-precios-toggle";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
 
@@ -63,12 +62,13 @@ const IconFacturacion = (
 
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
-  const [{ servicios }, { avisos }, cuentas, equipo, despacho] = await Promise.all([
+  const [{ servicios }, { avisos }, cuentas, equipo, despacho, packs] = await Promise.all([
     fetchServiciosConfig(),
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, portalOcultarPrecios: false, encargoFormasPago: null, mandatoPropioPath: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
+    fetchPacksConfig().catch(() => []),
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -98,9 +98,8 @@ export default async function Ajustes() {
           subtitle={`${servicios.filter((sv) => sv.active).length} ${t("activos")} · ${t("trámites, pagos y documentos")}`}
           icon={IconServicios}
         >
-          <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
-            <OcultarPreciosToggle inicial={despacho.portalOcultarPrecios} />
-            <ServiciosManager inicial={servicios} />
+          <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
+            <ServiciosManager inicial={servicios} packsInicial={packs} />
           </fieldset>
         </AjustesSection>
 
@@ -110,7 +109,7 @@ export default async function Ajustes() {
           subtitle={`Email · ${t("avisos automáticos en cada paso")}`}
           icon={IconAvisos}
         >
-          <fieldset disabled={!puedeEditar} className="m-0 border-0 p-0 disabled:opacity-70">
+          <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
             <AvisosManager
               inicial={avisos}
               envioEmailActivo={Boolean(process.env.RESEND_API_KEY)}

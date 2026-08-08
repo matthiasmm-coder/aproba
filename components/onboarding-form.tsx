@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
-import { DEFAULT_SERVICIOS, newServicio, type Servicio } from "@/lib/servicios";
-import { guardarServicios, guardarAvisos } from "@/lib/config-browser";
+import { DEFAULT_SERVICIOS, newPack, newServicio, type Pack, type Servicio } from "@/lib/servicios";
+import { guardarServicios, guardarAvisos, guardarPacks } from "@/lib/config-browser";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, filaACliente, PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type FilaCsv } from "@/lib/csv-clientes";
 import { useT } from "@/components/lang-provider";
+import { FlechasOrden } from "@/components/servicios-manager";
 import { ibanValido } from "@/lib/iban";
 
 type Banco = { titular: string; iban: string; banco: string };
@@ -32,6 +33,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   // Au démarrage de la config, les prix sont à 0 € : le gestor pose consciemment ses
   // propres tarifs (évite la confusion avec des montants par défaut qui ne sont pas les siens).
   const [servicios, setServicios] = useState<Servicio[]>(() => DEFAULT_SERVICIOS.map((s) => ({ ...s, anticipo: 0, resto: 0, precio: 0 })));
+  const [packs, setPacks] = useState<Pack[]>([]);
   const [banco, setBanco] = useState<Banco>({ titular: "", iban: "", banco: "" });
   // Cobro con tarjeta (opcional): clave secreta Stripe, se guarda cifrada en finalizar().
   const [stripeKey, setStripeKey] = useState("");
@@ -73,6 +75,26 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   function patchSrv(id: string, p: Partial<Servicio>) {
     setServicios((l) => l.map((s) => (s.id === id ? { ...s, ...p, precio: (p.anticipo ?? s.anticipo) + (p.resto ?? s.resto) } : s)));
   }
+
+  // Antes de guardar nada en base (todo vive en memoria hasta finalizar), borrar
+  // un servicio por defecto es simplemente quitarlo de la lista.
+  function quitarSrv(id: string) {
+    setServicios((l) => (l.length > 1 ? l.filter((s) => s.id !== id) : l));
+    setPacks((l) => l.map((p) => ({ ...p, servicioIds: p.servicioIds.filter((x) => x !== id) })));
+  }
+
+  function moverSrv(id: string, delta: -1 | 1) {
+    setServicios((l) => {
+      const i = l.findIndex((s) => s.id === id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= l.length) return l;
+      const next = [...l];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  const patchPack = (id: string, p: Partial<Pack>) => setPacks((l) => l.map((x) => (x.id === id ? { ...x, ...p } : x)));
 
   function onCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -129,6 +151,8 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
     if (nif.trim() || domicilio.trim() || emailFact.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim(), domicilio: domicilio.trim(), emailFacturacion: emailFact.trim() }) }); } catch { /* */ } }
     // Servicios (incluye «no incluye» por servicio, capturado en el paso Encargo).
     try { await guardarServicios(servicios, []); } catch { /* */ }
+    // Packs (opcional; pre-migración servicios-pro.sql simplemente no se guardan).
+    if (packs.length) { try { await guardarPacks(packs); } catch { /* */ } }
     // Avisos automáticos : seed des défauts pour que le nouveau despacho ait des
     // notifications fonctionnelles dès le départ (modifiables ensuite dans Ajustes).
     try { await guardarAvisos(DEFAULT_AVISOS); } catch { /* */ }
@@ -321,21 +345,42 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
       {/* ── Servicios ── */}
       {paso === "servicios" && (
         <div className="space-y-5">
-          <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Lo puedes cambiar después en Ajustes.")}</p>
+          <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Puedes borrar los que no ofrezcas, ordenarlos y cambiarlo todo después en Ajustes.")}</p>
           <div className="space-y-3">
-            {servicios.map((s) => (
+            {servicios.map((s, sIdx) => (
               <div key={s.id} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"}`}>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <FlechasOrden onUp={() => moverSrv(s.id, -1)} onDown={() => moverSrv(s.id, 1)} disabledUp={sIdx === 0} disabledDown={sIdx === servicios.length - 1} label={s.label || t("Servicio")} />
                   <input value={s.label} onChange={(e) => patchSrv(s.id, { label: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
                   <button type="button" role="switch" aria-checked={s.active} onClick={() => patchSrv(s.id, { active: !s.active })} className={`relative h-6 w-11 shrink-0 rounded-full transition ${s.active ? "bg-aproba-600" : "bg-slate-300"}`}>
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${s.active ? "left-[22px]" : "left-0.5"}`} />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => quitarSrv(s.id)}
+                    aria-label={`${t("Eliminar")} ${s.label}`}
+                    disabled={servicios.length <= 1}
+                    title={servicios.length <= 1 ? t("Conserva al menos un servicio.") : undefined}
+                    className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                  </button>
                 </div>
                 {s.active && (
-                  <div className="mt-3 flex flex-wrap gap-4">
-                    <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                    <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                  </div>
+                  <>
+                    <div className="mt-3 flex flex-wrap gap-4">
+                      <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchSrv(s.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      {Boolean(s.porcentaje) && (
+                        <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={s.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchSrv(s.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      )}
+                    </div>
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2">
+                      <input type="checkbox" checked={Boolean(s.precioOculto)} onChange={(e) => patchSrv(s.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                      <span className="text-xs text-slate-500">{t("Precio a consultar")} <span className="text-slate-400">— {t("el cliente no verá importes de este servicio")}</span></span>
+                    </label>
+                  </>
                 )}
               </div>
             ))}
@@ -343,6 +388,45 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           <button type="button" onClick={() => setServicios((l) => [...l, { ...newServicio(), label: t("Nuevo servicio") }])} className="text-sm font-semibold text-aproba-700 hover:underline">
             {t("+ Añadir un servicio")}
           </button>
+
+          {/* Packs (opcional): agrupar servicios bajo un precio «desde…» */}
+          <div className="border-t border-slate-100 pt-5">
+            <p className="text-sm font-semibold text-slate-800">{t("Packs de servicios")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></p>
+            <p className="mt-0.5 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre y un precio «desde…» — p. ej. un Pack Compraventa.")}</p>
+            <div className="mt-3 space-y-3">
+              {packs.map((p, pIdx) => (
+                <div key={p.id} className="rounded-xl border border-aproba-100 bg-aproba-50/40 p-4">
+                  <div className="flex items-center gap-2.5">
+                    <FlechasOrden onUp={() => setPacks((l) => { const n = [...l]; if (pIdx > 0) { [n[pIdx - 1], n[pIdx]] = [n[pIdx], n[pIdx - 1]]; } return n; })} onDown={() => setPacks((l) => { const n = [...l]; if (pIdx < l.length - 1) { [n[pIdx + 1], n[pIdx]] = [n[pIdx], n[pIdx + 1]]; } return n; })} disabledUp={pIdx === 0} disabledDown={pIdx === packs.length - 1} label={p.nombre || t("Pack")} />
+                    <input value={p.nombre} placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")} onChange={(e) => patchPack(p.id, { nombre: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
+                    <button type="button" onClick={() => setPacks((l) => l.filter((x) => x.id !== p.id))} aria-label={`${t("Eliminar")} ${p.nombre || t("pack")}`} className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                    </button>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {servicios.filter((s) => s.active).map((s) => {
+                      const dentro = p.servicioIds.includes(s.id);
+                      return (
+                        <button key={s.id} type="button" aria-pressed={dentro} onClick={() => patchPack(p.id, { servicioIds: dentro ? p.servicioIds.filter((x) => x !== s.id) : [...p.servicioIds, s.id] })} className={`rounded-md border px-2.5 py-1 text-xs transition ${dentro ? "border-aproba-300 bg-aproba-600 font-semibold text-white" : "border-slate-200 bg-white text-slate-600 hover:border-aproba-300"}`}>
+                          {s.label || t("Sin nombre")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <label className="text-xs text-slate-500">{t("Precio «desde» (€ sin IVA)")}<input type="number" min={0} step={10} value={p.precioDesde || ""} placeholder="0" disabled={Boolean(p.precioOculto)} onFocus={(e) => e.target.select()} onChange={(e) => patchPack(p.id, { precioDesde: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 disabled:bg-slate-50 disabled:text-slate-400" /></label>
+                    <label className="flex cursor-pointer items-center gap-2 pt-4">
+                      <input type="checkbox" checked={Boolean(p.precioOculto)} onChange={(e) => patchPack(p.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                      <span className="text-xs text-slate-500">{t("Precio a consultar")}</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => setPacks((l) => [...l, newPack()])} className="mt-2 text-sm font-semibold text-aproba-700 hover:underline">
+              {t("+ Crear pack")}
+            </button>
+          </div>
 
           {/* Hoja de encargo y mandato — misma materia que los servicios (límites del encargo) */}
           <div className="border-t border-slate-100 pt-5">

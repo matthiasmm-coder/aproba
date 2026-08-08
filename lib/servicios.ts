@@ -20,7 +20,34 @@ export type Servicio = {
   // art. 78.Tres.3º LIVA). Van al presupuesto (portal + hoja de encargo) y a la PRIMERA
   // factura automática del expediente (anticipo si lo hay; si no, el pago final).
   suplidos?: { concepto: string; importe: number }[];
+  // Honorarios variables ADEMÁS del fijo: «1,5 % sobre el precio de compraventa».
+  // Solo informativo (portal + hoja); la facturación automática usa anticipo/resto.
+  porcentaje?: number; // p. ej. 1.5 = 1,5 %
+  porcentajeSobre?: string; // sobre qué se aplica (texto libre del gestor)
+  // «Precio a consultar»: el portal del cliente no muestra importes de este servicio.
+  precioOculto?: boolean;
 };
+
+// Pack: agrupación de servicios con precio «desde…». Persistido en
+// Workspace.packs (JSONB) — NO en ServicioConfig, para no contaminar a los
+// consumidores directos de esa tabla (ver supabase/servicios-pro.sql).
+export type Pack = {
+  id: string;
+  nombre: string;
+  desc: string;
+  servicioIds: string[];
+  precioDesde: number; // 0 = sin precio indicado
+  precioOculto?: boolean;
+};
+
+export function newPack(): Pack {
+  return { id: "pack_" + Math.random().toString(36).slice(2, 9), nombre: "", desc: "", servicioIds: [], precioDesde: 0 };
+}
+
+// «1,5 %» sin decimales de ruido (1.5 → "1,5", 2 → "2").
+export function fmtPct(v: number): string {
+  return (Math.round(v * 100) / 100).toString().replace(".", ",");
+}
 
 export const STORAGE_KEY = "aproba.servicios.v1";
 
