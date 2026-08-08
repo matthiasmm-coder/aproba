@@ -37,7 +37,7 @@ export const ESTADOS_CIVILES = [["", "—"], ["S", "Soltero/a"], ["C", "Casado/a
 // Champs du portail (groupés). req = utile pour les formulaires (on marque, sans bloquer).
 // type/inputMode/ac (autocomplete): teclado correcto + autorrelleno del navegador en el
 // móvil del migrante — la ficha de 17 campos deja de ser un castigo.
-export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Identidad" | "Domicilio" | "Contacto"; tipo?: "sexo" | "estadoCivil" | "date"; w?: "full" | "half"; type?: string; inputMode?: "numeric" | "tel" | "email"; ac?: string }[] = [
+export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Identidad" | "Domicilio" | "Contacto"; tipo?: "sexo" | "estadoCivil" | "date" | "tel"; w?: "full" | "half"; type?: string; inputMode?: "numeric" | "tel" | "email"; ac?: string }[] = [
   { k: "nombre", label: "Nombre", grupo: "Identidad", w: "half", ac: "given-name" },
   { k: "apellidos", label: "Apellidos", grupo: "Identidad", w: "half", ac: "family-name" },
   { k: "sexo", label: "Sexo", grupo: "Identidad", tipo: "sexo", w: "half" },
@@ -54,7 +54,8 @@ export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Ident
   { k: "codigoPostal", label: "Código postal", grupo: "Domicilio", w: "half", inputMode: "numeric", ac: "postal-code" },
   { k: "municipio", label: "Municipio", grupo: "Domicilio", w: "half", ac: "address-level2" },
   { k: "provincia", label: "Provincia", grupo: "Domicilio", w: "half", ac: "address-level1" },
-  { k: "telefono", label: "Teléfono", grupo: "Contacto", w: "half", type: "tel", inputMode: "tel", ac: "tel" },
+  // tipo "tel" → los formularios lo pintan con <TelefonoInput> (prefijo internacional).
+  { k: "telefono", label: "Teléfono", grupo: "Contacto", tipo: "tel", w: "half", type: "tel", inputMode: "tel", ac: "tel" },
   { k: "email", label: "Email", grupo: "Contacto", w: "half", type: "email", inputMode: "email", ac: "email" },
 ];
 

@@ -78,6 +78,14 @@ export const UI: Record<string, Tr> = {
     it: "Il tuo studio non ha ancora configurato i servizi disponibili.",
     de: "Deine Kanzlei hat die verfügbaren Leistungen noch nicht eingerichtet.",
   },
+  "tel.prefijo": {
+    es: "Prefijo de pa\u00eds", en: "Country code", fr: "Indicatif du pays", it: "Prefisso internazionale",
+    de: "L\u00e4ndervorwahl", ar: "\u0631\u0645\u0632 \u0627\u0644\u062f\u0648\u0644\u0629", ro: "Prefix de \u021bar\u0103", zh: "\u56fd\u5bb6\u533a\u53f7",
+  },
+  "tel.sinPrefijo": {
+    es: "\u2014 Sin prefijo", en: "\u2014 No country code", fr: "\u2014 Sans indicatif", it: "\u2014 Senza prefisso",
+    de: "\u2014 Ohne Vorwahl", ar: "\u2014 \u0628\u062f\u0648\u0646 \u0631\u0645\u0632", ro: "\u2014 F\u0103r\u0103 prefix", zh: "\u2014 \u65e0\u533a\u53f7",
+  },
   "precio.consultar": {
     es: "Precio a consultar", en: "Price on request", fr: "Prix sur demande", it: "Prezzo su richiesta",
     de: "Preis auf Anfrage", ar: "\u0627\u0644\u0633\u0639\u0631 \u0639\u0646\u062f \u0627\u0644\u0637\u0644\u0628", ro: "Pre\u021b la cerere", zh: "\u4ef7\u683c\u9762\u8bae",

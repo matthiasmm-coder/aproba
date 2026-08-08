@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // UN solo servicio de implantación (decidido 2026-07-17): un choix binaire fait décider,
 // un menu à deux lignes fait hésiter. Config + migración son fijas, la formación escala
@@ -122,7 +123,7 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
             <div><label className={label}>Despacho / empresa *</label><input value={form.despacho} onChange={set("despacho")} className={inp} placeholder="Nombre de tu despacho" /></div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Email *</label><input type="email" value={form.email} onChange={set("email")} className={inp} placeholder="tucorreo@despacho.com" /></div>
-              <div><label className={label}>Teléfono *</label><input type="tel" value={form.telefono} onChange={set("telefono")} className={inp} placeholder="600 000 000" /></div>
+              <div><label className={label}>Teléfono *</label><div className="mt-1"><TelefonoInput value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} className={inp} placeholder="600 000 000" /></div></div>
             </div>
             <div>
               <label className={label}>¿Cuántas personas sois? *</label>

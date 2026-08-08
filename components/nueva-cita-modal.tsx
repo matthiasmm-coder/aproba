@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { TelefonoInput } from "@/components/telefono-input";
 import type { ClienteMin } from "@/lib/data/citas";
 
 const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el selector
@@ -241,7 +242,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
           </div>
           <div>
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Teléfono")}</label>
-            <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={fld} />
+            <TelefonoInput value={telefono} onChange={setTelefono} className={fld} labelPrefijo={t("Prefijo de país")} labelSinPrefijo={t("— Sin prefijo")} />
           </div>
 
           <div>

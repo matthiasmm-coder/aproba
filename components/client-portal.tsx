@@ -6,6 +6,7 @@ import { DEFAULT_SERVICIOS, fmtPct, loadServicios, type Servicio } from "@/lib/s
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
+import { TelefonoInput } from "@/components/telefono-input";
 import { labelADocTipo } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
@@ -753,7 +754,20 @@ export function ClientPortal({
                             {fieldLabel(f.k, lang)}
                             {req ? <span className="text-red-500"> *</span> : <span className="text-slate-400"> ({t("s1.opcional")})</span>}
                           </label>
-                          {f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
+                          {f.tipo === "tel" ? (
+                            <div className="mt-1">
+                              <TelefonoInput
+                                id={`ficha-${f.k}`}
+                                value={ficha[f.k] ?? ""}
+                                onChange={(v) => setFicha((d) => ({ ...d, [f.k]: v }))}
+                                labelPrefijo={t("tel.prefijo")}
+                                labelSinPrefijo={t("tel.sinPrefijo")}
+                                className={`w-full rounded-lg border px-3 py-2.5 text-base outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm ${
+                                  validacionActiva && req && vacio ? "border-amber-300 bg-amber-50/40" : "border-slate-300"
+                                }`}
+                              />
+                            </div>
+                          ) : f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
                             <select
                               id={`ficha-${f.k}`}
                               value={ficha[f.k] ?? ""}

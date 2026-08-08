@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
+import { TelefonoInput } from "@/components/telefono-input";
 import { PARENTESCOS } from "@/lib/familia";
 import { makeT, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
@@ -198,7 +199,17 @@ export function DatosFamilia({
                           {FICHA_CAMPOS.filter((f) => f.grupo === grupo).map((f) => (
                             <div key={f.k} className={f.w === "full" ? "sm:col-span-2" : ""}>
                               <label className="text-[13px] font-medium text-slate-600">{fieldLabel(f.k, lang)}</label>
-                              {f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
+                              {f.tipo === "tel" ? (
+                                <div className="mt-1">
+                                  <TelefonoInput
+                                    value={m.ficha[f.k] ?? ""}
+                                    onChange={(v) => setFicha(m.id, f.k, v)}
+                                    labelPrefijo={t("tel.prefijo")}
+                                    labelSinPrefijo={t("tel.sinPrefijo")}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-aproba-600 sm:text-sm"
+                                  />
+                                </div>
+                              ) : f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
                                 <select value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600">
                                   {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v]) => <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>)}
                                 </select>

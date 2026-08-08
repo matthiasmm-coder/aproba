@@ -158,7 +158,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
 
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
+      <div className="mt-4 border-t border-slate-100 pt-4 text-center">
         <button
           type="button"
           onClick={eliminar}
@@ -167,7 +167,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
         >
           {busy === "delete" ? t("Eliminando…") : t("Eliminar familia")}
         </button>
-        <p className="mt-1 text-xs text-slate-400">{t("Disuelve la familia: sus miembros vuelven a ser clientes individuales. No se borra a nadie.")}</p>
+        <p className="mx-auto mt-1 max-w-md text-xs text-slate-400">{t("Disuelve la familia: sus miembros vuelven a ser clientes individuales. No se borra a nadie.")}</p>
       </div>
     </div>
   );

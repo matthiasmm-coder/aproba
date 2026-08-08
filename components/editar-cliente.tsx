@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
+import { TelefonoInput } from "@/components/telefono-input";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 
@@ -100,7 +101,15 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
                     {FICHA_CAMPOS.filter((c) => c.grupo === g).map((c) => (
                       <div key={c.k} className={c.w === "full" ? "sm:col-span-2" : ""}>
                         <label className="text-xs text-slate-500">{t(c.label)}</label>
-                        {c.tipo === "sexo" || c.tipo === "estadoCivil" ? (
+                        {c.tipo === "tel" ? (
+                          <TelefonoInput
+                            value={datos[c.k] ?? ""}
+                            onChange={(v) => set(c.k, v)}
+                            className={inp}
+                            labelPrefijo={t("Prefijo de país")}
+                            labelSinPrefijo={t("— Sin prefijo")}
+                          />
+                        ) : c.tipo === "sexo" || c.tipo === "estadoCivil" ? (
                           <select value={datos[c.k] ?? ""} onChange={(e) => set(c.k, e.target.value)} className={`${inp} bg-white`}>
                             {(c.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v, lab]) => <option key={v} value={v}>{t(lab)}</option>)}
                           </select>

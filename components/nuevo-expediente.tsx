@@ -9,6 +9,7 @@ import { copiarTexto } from "@/lib/copiar";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // Nuevo expediente — RÉEL : choisir un client existant (individu OU famille) ou en créer un
 // (individual OU familia), créer l'expediente en base (referencia + token de portail),
@@ -315,7 +316,9 @@ export function NuevoExpediente() {
                   </div>
                   <div className="col-span-2">
                     <label className="text-sm font-medium text-slate-700">{t("Teléfono (WhatsApp)")}</label>
-                    <input value={nuevo.telefono} onChange={(e) => setNuevo((c) => ({ ...c, telefono: e.target.value }))} placeholder="612 345 678" className={input} />
+                    <div className="mt-1.5">
+                      <TelefonoInput value={nuevo.telefono} onChange={(v) => setNuevo((c) => ({ ...c, telefono: v }))} className={input.replace("mt-1.5 ", "")} labelPrefijo={t("Prefijo de país")} labelSinPrefijo={t("— Sin prefijo")} />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -336,7 +339,9 @@ export function NuevoExpediente() {
                     </div>
                     <div className="col-span-2">
                       <label className="text-sm font-medium text-slate-700">{t("Teléfono del titular (WhatsApp)")}</label>
-                      <input value={nuevaFam.telefono} onChange={(e) => setNuevaFam((f) => ({ ...f, telefono: e.target.value }))} placeholder="612 345 678" className={input} />
+                      <div className="mt-1.5">
+                        <TelefonoInput value={nuevaFam.telefono} onChange={(v) => setNuevaFam((f) => ({ ...f, telefono: v }))} className={input.replace("mt-1.5 ", "")} labelPrefijo={t("Prefijo de país")} labelSinPrefijo={t("— Sin prefijo")} />
+                      </div>
                     </div>
                   </div>
                 </div>

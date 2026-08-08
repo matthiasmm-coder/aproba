@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "@/components/lang-provider";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // Génération de la tasa 790-012 officielle (proxy Sede Policía Nacional) :
 // données pré-remplies + éditables, champs obligatoires validés, le gestor lit le
@@ -17,7 +18,7 @@ const hoy = () => {
 };
 
 // req = obligatoire pour la Sede (validarInputTextNoVacio). piso est facultatif.
-const CAMPOS: { k: string; label: string; w: string; req?: boolean }[] = [
+const CAMPOS: { k: string; label: string; w: string; req?: boolean; tel?: boolean }[] = [
   { k: "nif", label: "NIE / Pasaporte", w: "half", req: true },
   { k: "nombre", label: "Apellidos y nombre", w: "half", req: true },
   { k: "calle", label: "Tipo de vía", w: "third", req: true },
@@ -27,7 +28,7 @@ const CAMPOS: { k: string; label: string; w: string; req?: boolean }[] = [
   { k: "municipio", label: "Municipio", w: "third", req: true },
   { k: "provincia", label: "Provincia", w: "third", req: true },
   { k: "codigoPostal", label: "C.P.", w: "third", req: true },
-  { k: "telefono", label: "Teléfono", w: "third", req: true },
+  { k: "telefono", label: "Teléfono", w: "half", req: true, tel: true }, // half: deja sitio al selector de prefijo
   { k: "localidad", label: "Localidad de firma", w: "third", req: true },
   { k: "fecha", label: "Fecha (dd/mm/aaaa)", w: "third", req: true },
 ];
@@ -119,7 +120,11 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
                   {CAMPOS.map((f) => (
                     <div key={f.k} className={W[f.w]}>
                       <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t(f.label)}{f.req && <span className="text-amber-500"> *</span>}</label>
-                      <input className={inp(f.k, f.req)} value={campos[f.k] ?? ""} onChange={(e) => set(f.k, e.target.value)} />
+                      {f.tel ? (
+                        <TelefonoInput value={campos[f.k] ?? ""} onChange={(v) => set(f.k, v)} className={inp(f.k, f.req)} labelPrefijo={t("Prefijo de país")} labelSinPrefijo={t("— Sin prefijo")} />
+                      ) : (
+                        <input className={inp(f.k, f.req)} value={campos[f.k] ?? ""} onChange={(e) => set(f.k, e.target.value)} />
+                      )}
                     </div>
                   ))}
                   <div className="sm:col-span-6">

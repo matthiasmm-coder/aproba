@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // CTA «Solicita una demo» + modal con el formulario.
 // Los botones pueden vivir en cualquier punto de la landing (server component):
@@ -39,6 +40,7 @@ const VOLUMENES = ["1–10", "10–30", "30–100", "Más de 100"];
 export function DemoModalHost() {
   const [abierto, setAbierto] = useState(false);
   const [estado, setEstado] = useState<"idle" | "enviando" | "ok" | "error">("idle");
+  const [telefono, setTelefono] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   // Marca de apertura: el servidor señala (no descarta) los envíos «instantáneos».
   const t0 = useRef(0);
@@ -54,6 +56,7 @@ export function DemoModalHost() {
       t0.current = Date.now();
       generacion.current += 1;
       setEstado("idle");
+      setTelefono(""); // el resto del formulario es nativo y se remonta vacío
       setAbierto(true);
     };
     window.addEventListener(EVENTO, abrir);
@@ -174,7 +177,16 @@ export function DemoModalHost() {
                 </div>
                 <div>
                   <label htmlFor="demo-telefono" className="mb-1 block text-xs font-semibold text-slate-600">Teléfono <span className="font-normal text-slate-400">(opcional)</span></label>
-                  <input id="demo-telefono" name="telefono" maxLength={40} autoComplete="tel" inputMode="tel" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] text-slate-900 outline-none transition focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 sm:text-sm" placeholder="600 000 000" />
+                  {/* Formulario nativo (FormData): el valor COMPLETO (prefijo + número) viaja
+                      en un hidden; el componente controlado solo pinta los dos controles. */}
+                  <input type="hidden" name="telefono" value={telefono} />
+                  <TelefonoInput
+                    id="demo-telefono"
+                    value={telefono}
+                    onChange={setTelefono}
+                    placeholder="600 000 000"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] text-slate-900 outline-none transition focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 sm:text-sm"
+                  />
                 </div>
               </div>
               <div>

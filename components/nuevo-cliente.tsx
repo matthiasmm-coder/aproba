@@ -8,6 +8,7 @@ import { useT } from "@/components/lang-provider";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { filaACliente, camposVacios, type ClienteCsvCampos } from "@/lib/csv-clientes";
 import { PARENTESCOS, type Parentesco } from "@/lib/familia";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // Création d'un client existant du gestor, en deux modes :
 // · INDIVIDUAL — saisie d'une FICHE COMPLÈTE (mêmes champs que le portail « Tus datos »
@@ -114,7 +115,15 @@ export function TarjetaMiembro({ m, titular, onPatch, onQuitar }: {
         </div>
         <div>
           <label className="text-sm font-medium text-slate-700">{t("Teléfono")}</label>
-          <input type="tel" value={m.telefono} onChange={(e) => onPatch({ telefono: e.target.value })} placeholder="612 345 678" className={INPUT_CLS} />
+          <div className="mt-1.5">
+            <TelefonoInput
+              value={m.telefono}
+              onChange={(v) => onPatch({ telefono: v })}
+              className={INPUT_CLS.replace("mt-1.5 ", "")}
+              labelPrefijo={t("Prefijo de país")}
+              labelSinPrefijo={t("— Sin prefijo")}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -235,6 +244,12 @@ export function NuevoCliente() {
       return <select value={val} onChange={(e) => set(c.k, e.target.value)} className={`${input} bg-white`}>{ESTADOS_CIVILES.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}</select>;
     if (c.tipo === "date")
       return <input type="date" value={val} onChange={(e) => set(c.k, e.target.value)} className={input} />;
+    if (c.tipo === "tel")
+      return (
+        <div className="mt-1.5">
+          <TelefonoInput value={val} onChange={(v) => set(c.k, v)} className={input.replace("mt-1.5 ", "")} labelPrefijo={t("Prefijo de país")} labelSinPrefijo={t("— Sin prefijo")} />
+        </div>
+      );
     return <input value={val} onChange={(e) => set(c.k, e.target.value)} placeholder={PLACEHOLDER[c.k] ?? ""} className={input} />;
   };
 

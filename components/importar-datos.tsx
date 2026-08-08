@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
+import { TelefonoInput } from "@/components/telefono-input";
 import {
   aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE,
   type CampoImport, type Mapeo, type OverrideFila, type FilaImportada,
@@ -372,11 +373,12 @@ export function ImportarDatos() {
                   </div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <input
+                    <TelefonoInput
                       value={f.ficha.telefono ?? ""}
-                      onChange={(e) => setOv(i, { telefono: e.target.value })}
+                      onChange={(v) => setOv(i, { telefono: v })}
                       placeholder={t("Teléfono")}
-                      inputMode="tel"
+                      labelPrefijo={t("Prefijo de país")}
+                      labelSinPrefijo={t("— Sin prefijo")}
                       className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-aproba-600"
                     />
                     <input
