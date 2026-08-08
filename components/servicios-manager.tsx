@@ -23,6 +23,11 @@ export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[
   };
 
   const colocar = (id: string, y: number) => {
+    // FLIP: posición de cada tarjeta ANTES de reordenar → las que cambien de sitio
+    // se deslizan (transform invertido → 0) en vez de saltar. La arrastrada no se
+    // anima: aterriza directa en el hueco bajo el puntero.
+    const antes = new Map<string, number>();
+    refs.current.forEach((el, k) => antes.set(k, el.getBoundingClientRect().top));
     setLista((lista) => {
       const from = lista.findIndex((x) => getId(x) === id);
       if (from < 0) return lista;
@@ -39,38 +44,55 @@ export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[
       next.splice(ins, 0, lista[from]);
       return next;
     });
+    requestAnimationFrame(() => {
+      refs.current.forEach((el, k) => {
+        if (k === id) return;
+        const a = antes.get(k);
+        if (a == null) return;
+        const d = a - el.getBoundingClientRect().top;
+        if (d) el.animate([{ transform: `translateY(${d}px)` }, { transform: "none" }], { duration: 160, easing: "ease-out" });
+      });
+    });
   };
 
+  // Los move/up van a WINDOW, no al asa: en cuanto la lista se reordena, React
+  // RECOLOCA el nodo en el DOM (insertBefore) y Chrome libera la captura del
+  // puntero — con captura en el asa solo se podía mover UN puesto por gesto.
   const asa = (id: string) => ({
     onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
-      // Captura: los move llegan al asa aunque el dedo se salga de ella. try/catch:
-      // un pointerId sintético (tests) o ya liberado lanza en Chrome.
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
       dragRef.current = id;
       setDragId(id);
+      const move = (ev: PointerEvent) => {
+        if (dragRef.current !== id) return;
+        // Auto-scroll cerca de los bordes (con touch-none el gesto ya no hace scroll).
+        if (ev.clientY < 90) window.scrollBy(0, -14);
+        else if (ev.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
+        colocar(id, ev.clientY);
+      };
+      const fin = () => {
+        dragRef.current = null;
+        setDragId(null);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", fin);
+        window.removeEventListener("pointercancel", fin);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", fin);
+      window.addEventListener("pointercancel", fin);
     },
-    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
-      if (dragRef.current !== id) return;
-      // Auto-scroll cerca de los bordes (con touch-none el gesto ya no hace scroll).
-      if (e.clientY < 90) window.scrollBy(0, -14);
-      else if (e.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
-      colocar(id, e.clientY);
-    },
-    onPointerUp: () => { dragRef.current = null; setDragId(null); },
-    onPointerCancel: () => { dragRef.current = null; setDragId(null); },
   });
 
   return { dragId, registrar, asa };
 }
 
-// Asa de arrastre (⠿ 4 puntos en cuadrado): mantener pulsado y mover la tarjeta a su
-// sitio. Teclado: ↑/↓ sobre el asa mueven un puesto (accesibilidad).
+// Asa de arrastre (⠿ grip estándar, 2×3 puntos): mantener pulsado y mover la tarjeta
+// a su sitio. Teclado: ↑/↓ sobre el asa mueven un puesto (accesibilidad).
 export function AsaArrastre({ arrastrando, onMover, label, ...handlers }: {
   arrastrando: boolean;
   onMover: (delta: -1 | 1) => void;
   label: string;
-} & Pick<React.DOMAttributes<HTMLButtonElement>, "onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel">) {
+} & Pick<React.DOMAttributes<HTMLButtonElement>, "onPointerDown">) {
   return (
     <button
       type="button"
@@ -83,8 +105,9 @@ export function AsaArrastre({ arrastrando, onMover, label, ...handlers }: {
       {...handlers}
     >
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <circle cx="9" cy="9" r="1.8" /><circle cx="15" cy="9" r="1.8" />
-        <circle cx="9" cy="15" r="1.8" /><circle cx="15" cy="15" r="1.8" />
+        <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+        <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+        <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
       </svg>
     </button>
   );
