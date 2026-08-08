@@ -12,6 +12,17 @@ const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el s
 const CREAR_REUNION = { meet: "https://meet.google.com/new", teams: "https://teams.live.com" } as const;
 const ENLACE_HTTPS = /^https:\/\/\S{4,480}$/;
 
+// Proveedor deducido del HOST del enlace (mismo criterio que el servidor): etiqueta
+// el botón «Unirse» de la edición sin depender de la columna videoProveedor.
+const proveedorDeEnlace = (u: string): "meet" | "teams" | "otro" => {
+  try {
+    const h = new URL(u).host.toLowerCase();
+    if (h === "meet.google.com") return "meet";
+    if (h === "teams.live.com" || h === "teams.microsoft.com" || h.endsWith(".teams.microsoft.com")) return "teams";
+  } catch { /* no es URL → "otro" (el caller ya filtra) */ }
+  return "otro";
+};
+
 function LogoMeet({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden>
@@ -178,6 +189,27 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
+
+        {/* Edición de una videollamada con enlace → botón GRANDE para unirse, arriba del
+            todo (pedido de Matthias): el caso «me conecto a la reunión de ya» no debe
+            obligar a buscar el enlace entre los campos. Sigue el valor ACTUAL del campo,
+            así también refleja un enlace recién corregido. */}
+        {edicion && ENLACE_HTTPS.test(videoEnlace.trim()) && (
+          <a
+            href={videoEnlace.trim()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
+            {proveedorDeEnlace(videoEnlace.trim()) === "meet"
+              ? t("Unirse a la videollamada (Google Meet)")
+              : proveedorDeEnlace(videoEnlace.trim()) === "teams"
+                ? t("Unirse a la videollamada (Microsoft Teams)")
+                : t("Unirse a la videollamada")}
+            <svg className="h-3.5 w-3.5 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+          </a>
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {/* Cliente: búsqueda + nombre libre */}
