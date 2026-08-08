@@ -38,17 +38,88 @@ const PLACEHOLDER: Partial<Record<keyof ClienteFicha, string>> = {
   municipio: "Madrid", provincia: "Madrid",
 };
 
-// Miembro de la familia: subset de la ficha (identidad + contacto).
-type Miembro = {
+// Miembro de la familia: subset de la ficha (identidad + contacto). Compartido con
+// la sección «Crear familia» de la ficha de cliente (crear-familia-cliente.tsx).
+export type Miembro = {
   key: string; parentesco: Parentesco;
   nombre: string; apellidos: string; fechaNacimiento: string;
   numeroDocumento: string; pasaporte: string; email: string; telefono: string;
 };
 
-const nuevoMiembro = (parentesco: Parentesco): Miembro => ({
+export const nuevoMiembro = (parentesco: Parentesco): Miembro => ({
   key: Math.random().toString(36).slice(2, 9), parentesco,
   nombre: "", apellidos: "", fechaNacimiento: "", numeroDocumento: "", pasaporte: "", email: "", telefono: "",
 });
+
+const INPUT_CLS = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+
+// Tarjeta de un miembro (badge Titular fijo o select de parentesco + papelera).
+export function TarjetaMiembro({ m, titular, onPatch, onQuitar }: {
+  m: Miembro;
+  titular: boolean;
+  onPatch: (patch: Partial<Miembro>) => void;
+  onQuitar?: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between gap-3">
+        {titular ? (
+          <span className="rounded-full bg-aproba-600 px-2.5 py-1 text-xs font-semibold text-white">{t("Titular")}</span>
+        ) : (
+          <select
+            value={m.parentesco}
+            onChange={(e) => onPatch({ parentesco: e.target.value as Parentesco })}
+            aria-label={t("Parentesco del miembro")}
+            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-aproba-600"
+          >
+            {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
+          </select>
+        )}
+        {onQuitar && (
+          <button
+            type="button"
+            onClick={onQuitar}
+            aria-label={`${t("Quitar")} ${m.nombre || t("miembro")}`}
+            className="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+          </button>
+        )}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("Nombre")}{titular ? " *" : ""}</label>
+          <input value={m.nombre} onChange={(e) => onPatch({ nombre: e.target.value })} placeholder="María Camila" className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("Apellidos")}</label>
+          <input value={m.apellidos} onChange={(e) => onPatch({ apellidos: e.target.value })} placeholder="García López" className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("Fecha de nacimiento")}</label>
+          <input type="date" value={m.fechaNacimiento} onChange={(e) => onPatch({ fechaNacimiento: e.target.value })} className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">NIE</label>
+          <input value={m.numeroDocumento} onChange={(e) => onPatch({ numeroDocumento: e.target.value })} placeholder="Y1234567Z" className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("Pasaporte / doc. de identidad")}</label>
+          <input value={m.pasaporte} onChange={(e) => onPatch({ pasaporte: e.target.value })} placeholder="AB123456" className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">Email</label>
+          <input type="email" value={m.email} onChange={(e) => onPatch({ email: e.target.value })} placeholder="maria@email.com" className={INPUT_CLS} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("Teléfono")}</label>
+          <input type="tel" value={m.telefono} onChange={(e) => onPatch({ telefono: e.target.value })} placeholder="612 345 678" className={INPUT_CLS} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function NuevoCliente() {
   const t = useT();
@@ -263,62 +334,13 @@ export function NuevoCliente() {
 
         <div className="mt-6 space-y-4">
           {miembros.map((m, i) => (
-            <div key={m.key} className="rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center justify-between gap-3">
-                {i === 0 ? (
-                  <span className="rounded-full bg-aproba-600 px-2.5 py-1 text-xs font-semibold text-white">{t("Titular")}</span>
-                ) : (
-                  <select
-                    value={m.parentesco}
-                    onChange={(e) => setMiembro(m.key, { parentesco: e.target.value as Parentesco })}
-                    aria-label={t("Parentesco del miembro")}
-                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-aproba-600"
-                  >
-                    {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
-                  </select>
-                )}
-                {i > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setMiembros((l) => l.filter((x) => x.key !== m.key))}
-                    aria-label={`${t("Quitar")} ${m.nombre || t("miembro")}`}
-                    className="rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                  </button>
-                )}
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">{t("Nombre")}{i === 0 ? " *" : ""}</label>
-                  <input value={m.nombre} onChange={(e) => setMiembro(m.key, { nombre: e.target.value })} placeholder={PLACEHOLDER.nombre} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">{t("Apellidos")}</label>
-                  <input value={m.apellidos} onChange={(e) => setMiembro(m.key, { apellidos: e.target.value })} placeholder={PLACEHOLDER.apellidos} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">{t("Fecha de nacimiento")}</label>
-                  <input type="date" value={m.fechaNacimiento} onChange={(e) => setMiembro(m.key, { fechaNacimiento: e.target.value })} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">NIE</label>
-                  <input value={m.numeroDocumento} onChange={(e) => setMiembro(m.key, { numeroDocumento: e.target.value })} placeholder={PLACEHOLDER.numeroDocumento} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">{t("Pasaporte / doc. de identidad")}</label>
-                  <input value={m.pasaporte} onChange={(e) => setMiembro(m.key, { pasaporte: e.target.value })} placeholder={PLACEHOLDER.pasaporte} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Email</label>
-                  <input type="email" value={m.email} onChange={(e) => setMiembro(m.key, { email: e.target.value })} placeholder={PLACEHOLDER.email} className={input} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">{t("Teléfono")}</label>
-                  <input type="tel" value={m.telefono} onChange={(e) => setMiembro(m.key, { telefono: e.target.value })} placeholder={PLACEHOLDER.telefono} className={input} />
-                </div>
-              </div>
-            </div>
+            <TarjetaMiembro
+              key={m.key}
+              m={m}
+              titular={i === 0}
+              onPatch={(patch) => setMiembro(m.key, patch)}
+              onQuitar={i > 0 ? () => setMiembros((l) => l.filter((x) => x.key !== m.key)) : undefined}
+            />
           ))}
         </div>
 

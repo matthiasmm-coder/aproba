@@ -6,6 +6,7 @@ import { TIPO_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/facturas";
 import { formulariosDisponibles } from "@/lib/ex-forms";
 import { ClienteFormularios } from "@/components/cliente-formularios";
+import { CrearFamiliaCliente } from "@/components/crear-familia-cliente";
 import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
 import { CaducidadTie } from "@/components/caducidad-tie";
 import { EditarCliente } from "@/components/editar-cliente";
@@ -38,6 +39,13 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   const ficha = Object.fromEntries(FICHA_KEYS.map((k) => [k, (cliente as Record<string, unknown>)[k] ?? ""])) as ClienteFicha;
 
   const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim();
+
+  // ¿Pertenece ya a una familia? (columna fuera de FICHA_SELECT; defensivo pre-migración)
+  let familiaId: string | null = null;
+  {
+    const { data: fam, error: eFam } = await supabase.from("Cliente").select("familiaId").eq("id", id).maybeSingle();
+    if (!eFam) familiaId = (fam as { familiaId?: string | null } | null)?.familiaId ?? null;
+  }
 
   const { data: expRows } = await supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false });
 
@@ -212,6 +220,9 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
 
       {/* Formularios officiels autorrellenés depuis la ficha du cliente (sans expediente) */}
       <ClienteFormularios clienteId={cliente.id} formularios={formulariosDisponibles()} />
+
+      {/* Cliente individual → crear una familia a partir de él (pasa a ser el titular) */}
+      {!familiaId && <CrearFamiliaCliente clienteId={cliente.id} nombreCompleto={nombre} apellidos={cliente.apellidos ?? ""} />}
     </div>
   );
 }
