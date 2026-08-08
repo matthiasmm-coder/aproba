@@ -87,7 +87,8 @@ export default async function Clientes() {
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Clientes")}</h1>
           <p className="text-sm text-slate-500">
-            {lista.length} {t("clientes")}
+            {individuales.length} {individuales.length === 1 ? t("cliente") : t("clientes")}
+            {entradasFamilia.length > 0 && <> · {entradasFamilia.length} {entradasFamilia.length === 1 ? t("familia") : t("familias")}</>}
             <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{t("datos reales")}</span>
           </p>
         </div>

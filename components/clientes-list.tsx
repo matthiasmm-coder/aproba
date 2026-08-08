@@ -19,22 +19,57 @@ function FamIcon({ className = "" }: { className?: string }) {
 export function ClientesList({ lista }: { lista: Cli[] }) {
   const t = useT();
   const [q, setQ] = useState("");
+  const [pestana, setPestana] = useState<"individuales" | "familias">("individuales");
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
-  const filtrados = useMemo(() => {
+  // Una entrada con `miembros` ES una familia (lo decide la página al agrupar).
+  const casa = (c: Cli) => (c.miembros ? "familias" : "individuales");
+
+  const coincide = (c: Cli, nq: string) =>
+    !nq ||
+    norm(c.nombre).includes(nq) || norm(c.nacionalidad).includes(nq) ||
+    // Una familia coincide también por el nombre de SUS MIEMBROS.
+    (c.miembros ?? []).some((m) => norm(m.nombre).includes(nq) || norm(m.nacionalidad).includes(nq));
+
+  const { filtrados, nOtra, totales } = useMemo(() => {
     const nq = norm(q.trim());
-    if (!nq) return lista;
-    // Une famille matche aussi par le nom de SES MEMBRES.
-    return lista.filter((c) =>
-      norm(c.nombre).includes(nq) || norm(c.nacionalidad).includes(nq) ||
-      (c.miembros ?? []).some((m) => norm(m.nombre).includes(nq) || norm(m.nacionalidad).includes(nq)),
-    );
-  }, [q, lista]);
+    const coincidencias = lista.filter((c) => coincide(c, nq));
+    return {
+      filtrados: coincidencias.filter((c) => casa(c) === pestana),
+      // Cuántos resultados hay en la OTRA pestaña: buscar «García» estando en
+      // Individuales y no ver nada, cuando existe la familia García, sería un
+      // callejón sin salida — se ofrece saltar.
+      nOtra: coincidencias.filter((c) => casa(c) !== pestana).length,
+      totales: {
+        individuales: lista.filter((c) => !c.miembros).length,
+        familias: lista.filter((c) => c.miembros).length,
+      },
+    };
+  }, [q, lista, pestana]);
 
   const toggle = (id: string) => setAbiertas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
+  const pest = (id: "individuales" | "familias", etiqueta: string, n: number) => (
+    <button
+      type="button"
+      onClick={() => setPestana(id)}
+      aria-current={pestana === id}
+      className={`-mb-px border-b-2 px-1 pb-2.5 text-sm font-semibold transition ${
+        pestana === id ? "border-aproba-600 text-aproba-700" : "border-transparent text-slate-500 hover:text-slate-800"
+      }`}
+    >
+      {etiqueta} <span className={pestana === id ? "text-aproba-500" : "text-slate-400"}>({n})</span>
+    </button>
+  );
+
   return (
     <div>
+      {/* Pestañas: los clientes individuales y las familias no se buscan igual */}
+      <div className="mb-4 flex gap-5 border-b border-slate-200">
+        {pest("individuales", t("Clientes individuales"), totales.individuales)}
+        {pest("familias", t("Familias"), totales.familias)}
+      </div>
+
       {/* Barre de recherche */}
       <div className="relative mb-4 max-w-sm">
         <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -53,7 +88,7 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="hidden border-b border-slate-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:flex">
-          <span className="flex-1">{t("Cliente")}</span>
+          <span className="flex-1">{pestana === "familias" ? t("Familia") : t("Cliente")}</span>
           <span className="w-32">{t("Nacionalidad")}</span>
           <span className="w-40">{t("Último trámite")}</span>
           <span className="w-20 text-right">{t("Exp.")}</span>
@@ -108,7 +143,27 @@ export function ClientesList({ lista }: { lista: Cli[] }) {
         })}
         {filtrados.length === 0 && (
           q.trim() ? (
-            <p className="px-5 py-10 text-center text-sm text-slate-400">{t("Sin resultados para")} «{q}».</p>
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm text-slate-400">{t("Sin resultados para")} «{q}»{pestana === "familias" ? ` ${t("en Familias")}` : ` ${t("en Clientes individuales")}`}.</p>
+              {/* Callejón sin salida evitado: si lo buscado está en la otra pestaña, se ofrece ir. */}
+              {nOtra > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPestana(pestana === "familias" ? "individuales" : "familias")}
+                  className="mt-2 text-sm font-semibold text-aproba-700 hover:underline"
+                >
+                  {nOtra === 1 ? t("Hay 1 resultado en") : `${t("Hay")} ${nOtra} ${t("resultados en")}`}{" "}
+                  {pestana === "familias" ? t("Clientes individuales") : t("Familias")} →
+                </button>
+              )}
+            </div>
+          ) : pestana === "familias" ? (
+            <div className="px-5 py-12 text-center">
+              <p className="text-3xl">👨‍👩‍👧</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes familias")}</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Agrupa a varios clientes en una familia: expedientes juntos, documentos compartidos y una sola factura. Se crea desde «Nuevo cliente» o desde la ficha de un cliente.")}</p>
+              <Link href="/app/clientes/nuevo" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva familia")}</Link>
+            </div>
           ) : (
             // Día 1: sin clientes ≠ búsqueda sin resultados — aquí toca invitar, no un «para ""».
             <div className="px-5 py-12 text-center">
