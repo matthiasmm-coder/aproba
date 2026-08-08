@@ -6,6 +6,10 @@ import { DEFAULT_SERVICIOS, type Servicio } from "@/lib/servicios";
 // Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
 export const metadata = { robots: { index: false, follow: false } };
 
+// Sin esto la página se PRERRENDERIZA en el deploy (x-nextjs-prerender) y la demo
+// enseña la config de servicios congelada del último build, no la de Ajustes.
+export const dynamic = "force-dynamic";
+
 
 // Aperçu du portail client (démo) — même config réelle que /j/[token].
 export default async function PortalPage() {
