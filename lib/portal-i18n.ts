@@ -78,6 +78,18 @@ export const UI: Record<string, Tr> = {
     it: "Il tuo studio non ha ancora configurato i servizi disponibili.",
     de: "Deine Kanzlei hat die verfügbaren Leistungen noch nicht eingerichtet.",
   },
+  "tema.otros": {
+    es: "Otros tr\u00e1mites", en: "Other services", fr: "Autres d\u00e9marches", it: "Altre pratiche",
+    de: "Weitere Verfahren", ar: "\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0623\u062e\u0631\u0649", ro: "Alte proceduri", zh: "\u5176\u4ed6\u4e1a\u52a1",
+  },
+  "tema.nTramites": {
+    es: "{n} tr\u00e1mites", en: "{n} services", fr: "{n} d\u00e9marches", it: "{n} pratiche",
+    de: "{n} Verfahren", ar: "{n} \u0625\u062c\u0631\u0627\u0621\u0627\u062a", ro: "{n} proceduri", zh: "{n} \u9879\u4e1a\u52a1",
+  },
+  "tema.unTramite": {
+    es: "1 tr\u00e1mite", en: "1 service", fr: "1 d\u00e9marche", it: "1 pratica",
+    de: "1 Verfahren", ar: "\u0625\u062c\u0631\u0627\u0621 \u0648\u0627\u062d\u062f", ro: "1 procedur\u0103", zh: "1 \u9879\u4e1a\u52a1",
+  },
   "tel.prefijo": {
     es: "Prefijo de pa\u00eds", en: "Country code", fr: "Indicatif du pays", it: "Prefisso internazionale",
     de: "L\u00e4ndervorwahl", ar: "\u0631\u0645\u0632 \u0627\u0644\u062f\u0648\u0644\u0629", ro: "Prefix de \u021bar\u0103", zh: "\u56fd\u5bb6\u533a\u53f7",

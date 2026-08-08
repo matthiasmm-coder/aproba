@@ -87,7 +87,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
 
   const activos: EspacioServicio[] = servicios
     .filter((s) => s.active)
-    .map((s) => ({ id: s.id, label: s.label, precio: s.precio, precioOculto: s.precioOculto, porcentaje: s.porcentaje, porcentajeSobre: s.porcentajeSobre }));
+    .map((s) => ({ id: s.id, label: s.label, precio: s.precio, precioOculto: s.precioOculto, porcentaje: s.porcentaje, porcentajeSobre: s.porcentajeSobre, categoria: s.categoria }));
   // Packs del despacho: solo los que resuelven contra servicios activos (un pack que
   // apunta a servicios borrados o desactivados no se ofrece).
   const packs = parsePacks((ws as { packs?: unknown } | null)?.packs)

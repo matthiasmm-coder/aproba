@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
-import { DEFAULT_SERVICIOS, newPack, newServicio, type Pack, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, newPack, newServicio, temasUsados, type Pack, type Servicio } from "@/lib/servicios";
 import { guardarServicios, guardarAvisos, guardarPacks } from "@/lib/config-browser";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, filaACliente, PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type FilaCsv } from "@/lib/csv-clientes";
@@ -360,6 +360,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
       {paso === "servicios" && (
         <div className="space-y-5">
           <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Puedes borrar los que no ofrezcas, ordenarlos y cambiarlo todo después en Ajustes.")}</p>
+          <datalist id="aproba-temas-onb">{temasUsados(servicios, packs).map((x) => <option key={x} value={x} />)}</datalist>
           <div className="space-y-3">
             {servicios.map((s) => (
               <div key={s.id} ref={dndSrv.registrar(s.id)} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"} ${dndSrv.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
@@ -393,6 +394,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                     <label className="mt-2.5 flex cursor-pointer items-center gap-2">
                       <input type="checkbox" checked={Boolean(s.precioOculto)} onChange={(e) => patchSrv(s.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       <span className="text-xs text-slate-500">{t("Precio a consultar")} <span className="text-slate-400">— {t("el cliente no verá importes de este servicio")}</span></span>
+                    </label>
+                    <label className="mt-2.5 block text-xs text-slate-500">{t("Tema (agrupa en el portal)")}
+                      <input list="aproba-temas-onb" value={s.categoria ?? ""} placeholder={t("p. ej. Empresa, Nacionalidad…")} onChange={(e) => patchSrv(s.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
                     </label>
                   </>
                 )}
@@ -432,6 +436,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                     <label className="flex cursor-pointer items-center gap-2 pt-4">
                       <input type="checkbox" checked={Boolean(p.precioOculto)} onChange={(e) => patchPack(p.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       <span className="text-xs text-slate-500">{t("Precio a consultar")}</span>
+                    </label>
+                    <label className="min-w-[160px] flex-1 text-xs text-slate-500">{t("Tema")}
+                      <input list="aproba-temas-onb" value={p.categoria ?? ""} placeholder={t("p. ej. Empresa")} onChange={(e) => patchPack(p.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
                     </label>
                   </div>
                 </div>

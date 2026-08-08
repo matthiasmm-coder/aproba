@@ -39,14 +39,20 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     porcentaje: s.porcentaje && s.porcentaje > 0 ? s.porcentaje : null,
     porcentajeSobre: s.porcentaje && s.porcentaje > 0 ? (s.porcentajeSobre?.trim() || null) : null,
     precioOculto: Boolean(s.precioOculto),
+    categoria: s.categoria?.trim() || null,
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
   let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
   // Replis pre-migración: quitar SOLO el tramo más reciente cada vez, para que el resto
   // de la config del servicio nunca se pierda por una columna nueva.
+  // Repli categoría (migración más reciente) ANTES del repli pro: cada tramo cae solo.
+  if (error && /categoria|schema cache|column/i.test(error.message)) {
+    const sinCat = rows.map(({ categoria: _c, ...r }) => r);
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinCat, { onConflict: "workspaceId,clave" }));
+  }
   if (error && /porcentaje|precioOculto|schema cache|column/i.test(error.message)) {
-    const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, ...r }) => r);
+    const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, categoria: _c, ...r }) => r);
     ({ error } = await supabase.from("ServicioConfig").upsert(sinPro, { onConflict: "workspaceId,clave" }));
     if (error && /suplidos|schema cache|column/i.test(error.message)) {
       const sinSuplidos = sinPro.map(({ suplidos: _s, ...r }) => r);
@@ -71,6 +77,7 @@ export async function guardarPacks(packs: Pack[]): Promise<void> {
       servicioIds: p.servicioIds.filter(Boolean),
       precioDesde: Math.max(0, Number(p.precioDesde) || 0),
       precioOculto: Boolean(p.precioOculto),
+      categoria: p.categoria?.trim() || "",
     }))
     .filter((p) => p.nombre);
   const fd = new FormData();

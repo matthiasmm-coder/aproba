@@ -63,6 +63,7 @@ export async function POST(req: Request) {
         servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s).slice(0, 60)).filter(Boolean).slice(0, 20) : [],
         precioDesde: Math.max(0, Math.min(999999, Number(x.precioDesde) || 0)),
         precioOculto: Boolean(x.precioOculto),
+        categoria: String(x.categoria ?? "").trim().slice(0, 60),
       }))
       .filter((p) => p.id && p.nombre);
     const { error: ePk } = await r.admin.from("Workspace").update({ packs: limpio }).eq("id", r.workspaceId);

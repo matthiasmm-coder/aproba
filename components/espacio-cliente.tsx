@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
-import { fmtPct } from "@/lib/servicios";
+import { agruparPorTema, fmtPct, normTema } from "@/lib/servicios";
+import { TemaPlegable } from "@/components/tema-plegable";
 
 // ESPACIO PERSISTENTE DEL CLIENTE — la cara visible de /c/[token]: sus trámites en curso
 // y terminados (incluido el histórico pre-migración) + solicitar un trámite nuevo, en su
@@ -19,8 +20,8 @@ export type EspacioExp = {
   url: string | null;   // /s/<token> del expediente (null = histórico importado)
   fecha: string;        // dd/mm/aaaa
 };
-export type EspacioServicio = { id: string; label: string; precio: number; precioOculto?: boolean; porcentaje?: number; porcentajeSobre?: string };
-export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; precioOculto?: boolean };
+export type EspacioServicio = { id: string; label: string; precio: number; precioOculto?: boolean; porcentaje?: number; porcentajeSobre?: string; categoria?: string };
+export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; precioOculto?: boolean; categoria?: string };
 
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
@@ -176,9 +177,10 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
           <div className="mt-8 rounded-2xl border border-aproba-200 bg-white p-5">
             <h2 className="text-base font-bold tracking-tightest text-slate-900">{t("esp.nuevo")}</h2>
             <p className="mt-1 text-sm text-slate-500">{t("esp.nuevoDesc")}</p>
-            {packs.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {packs.map((pk) => {
+            {/* Catálogo: si el despacho puso temas, cada tema es un desplegable PLEGADO
+                con SUS packs y SUS servicios dentro. Sin temas → packs y lista, como antes. */}
+            {(() => {
+              const tarjetaPack = (pk: EspacioPack) => {
                   const dentro = packDentro(pk);
                   return (
                     <button
@@ -198,11 +200,8 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                       <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: pk.servicioIds.map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
                     </button>
                   );
-                })}
-              </div>
-            )}
-            <div className="mt-3 space-y-2">
-              {servicios.map((s) => (
+              };
+              const filaServicio = (s: EspacioServicio) => (
                 <label key={s.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${sel.has(s.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 hover:border-slate-300"}`}>
                   <input type="checkbox" checked={sel.has(s.id)} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600" />
                   <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">
@@ -217,8 +216,49 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                     ? <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
                     : s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
                 </label>
-              ))}
-            </div>
+              );
+              const gruposSrv = agruparPorTema(servicios);
+              const gruposPack = agruparPorTema(packs);
+              const conTema = [...gruposSrv, ...gruposPack].some((g) => g.clave);
+              if (!conTema) {
+                return (
+                  <>
+                    {packs.length > 0 && <div className="mt-3 space-y-2">{packs.map(tarjetaPack)}</div>}
+                    <div className="mt-3 space-y-2">{servicios.map(filaServicio)}</div>
+                  </>
+                );
+              }
+              // Orden de los temas: el del catálogo de servicios; los temas que solo
+              // existen en packs se añaden después. «Sin tema» siempre al final.
+              const claves: string[] = [];
+              for (const g of [...gruposSrv, ...gruposPack]) if (g.clave && !claves.includes(g.clave)) claves.push(g.clave);
+              const tituloDe = (c: string) => [...gruposSrv, ...gruposPack].find((g) => g.clave === c)?.titulo || "";
+              const sueltos = { packs: packs.filter((p) => !normTema(p.categoria)), servicios: servicios.filter((x) => !normTema(x.categoria)) };
+              return (
+                <div className="mt-3 space-y-2">
+                  {claves.map((c) => {
+                    const ps = packs.filter((p) => normTema(p.categoria) === c);
+                    const ss = servicios.filter((x) => normTema(x.categoria) === c);
+                    const n = ps.length + ss.length;
+                    return (
+                      <TemaPlegable key={c} titulo={tituloDe(c)} resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}>
+                        {ps.map(tarjetaPack)}
+                        {ss.map(filaServicio)}
+                      </TemaPlegable>
+                    );
+                  })}
+                  {(sueltos.packs.length > 0 || sueltos.servicios.length > 0) && (
+                    <TemaPlegable
+                      titulo={t("tema.otros")}
+                      resumen={sueltos.packs.length + sueltos.servicios.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: sueltos.packs.length + sueltos.servicios.length })}
+                    >
+                      {sueltos.packs.map(tarjetaPack)}
+                      {sueltos.servicios.map(filaServicio)}
+                    </TemaPlegable>
+                  )}
+                </div>
+              );
+            })()}
             {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             {estado === "ok" ? (
               <p className="mt-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm font-medium text-aproba-700">{t("esp.redirigiendo")}</p>

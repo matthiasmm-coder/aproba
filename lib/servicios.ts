@@ -26,6 +26,9 @@ export type Servicio = {
   porcentajeSobre?: string; // sobre qué se aplica (texto libre del gestor)
   // «Precio a consultar»: el portal del cliente no muestra importes de este servicio.
   precioOculto?: boolean;
+  // Tema del catálogo («Empresa», «Nacionalidad»…), texto libre del despacho. Vacío =
+  // «Otros trámites». En el portal cada tema es un desplegable plegado.
+  categoria?: string;
 };
 
 // Pack: agrupación de servicios con precio «desde…». Persistido en
@@ -38,6 +41,7 @@ export type Pack = {
   servicioIds: string[];
   precioDesde: number; // 0 = sin precio indicado
   precioOculto?: boolean;
+  categoria?: string; // mismo tema libre que los servicios
 };
 
 export function newPack(): Pack {
@@ -115,4 +119,50 @@ export function newServicio(): Servicio {
     citaPresencial: false,
     citaQuien: "cliente",
   };
+}
+
+// ── Temas del catálogo ───────────────────────────────────────────────────────
+// Un tema es texto libre; se compara NORMALIZADO (sin acentos, sin may/min, sin
+// espacios de sobra) para que «Nacionalidad» y «nacionalidad » sean el mismo tema,
+// pero se MUESTRA con la primera grafía que escribió el despacho.
+export const normTema = (v: string | null | undefined): string =>
+  (v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+export type Tema<T> = { clave: string; titulo: string; items: T[] };
+
+// Agrupa preservando el ORDEN del catálogo: el tema aparece donde aparece su primer
+// elemento (así el arrastre de los servicios ordena también los temas). Los elementos
+// sin tema van a un grupo final con clave "" (el llamante le pone su título traducido).
+export function agruparPorTema<T extends { categoria?: string }>(items: T[]): Tema<T>[] {
+  const grupos: Tema<T>[] = [];
+  const indice = new Map<string, number>();
+  for (const it of items) {
+    const clave = normTema(it.categoria);
+    const i = indice.get(clave);
+    if (i === undefined) {
+      indice.set(clave, grupos.length);
+      grupos.push({ clave, titulo: (it.categoria ?? "").trim(), items: [it] });
+    } else {
+      grupos[i].items.push(it);
+    }
+  }
+  // «Sin tema» siempre al final, pase lo que pase en el orden del catálogo.
+  return [...grupos.filter((g) => g.clave), ...grupos.filter((g) => !g.clave)];
+}
+
+// Lista de temas ya usados (para el datalist del gestor), en orden de catálogo.
+export function temasUsados(...listas: { categoria?: string }[][]): string[] {
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const lista of listas) {
+    for (const it of lista) {
+      const t = (it.categoria ?? "").trim();
+      if (!t) continue;
+      const k = normTema(t);
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      out.push(t);
+    }
+  }
+  return out;
 }

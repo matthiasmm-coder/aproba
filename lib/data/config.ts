@@ -49,6 +49,7 @@ export function mapServicioRow(r: ServicioRow): Servicio {
     })(),
     porcentajeSobre: String((r as { porcentajeSobre?: unknown }).porcentajeSobre ?? "").trim() || undefined,
     precioOculto: Boolean((r as { precioOculto?: unknown }).precioOculto) || undefined,
+    categoria: String((r as { categoria?: unknown }).categoria ?? "").trim() || undefined,
   };
 }
 
@@ -64,12 +65,14 @@ export function parsePacks(raw: unknown): Pack[] {
       servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s)).filter(Boolean) : [],
       precioDesde: Math.max(0, Number(x.precioDesde) || 0),
       precioOculto: Boolean(x.precioOculto) || undefined,
+      categoria: String(x.categoria ?? "").trim() || undefined,
     }))
     .filter((p) => p.id && p.nombre);
 }
 
-const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
-// Replis por tramo de migración (pro → suplidos → noIncluye → base).
+const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria";
+// Replis por tramo de migración (categoría → pro → suplidos → noIncluye → base).
+const SELECT_SERVICIOS_SIN_CATEGORIA = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
 const SELECT_SERVICIOS_SIN_PRO = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
 const SELECT_SERVICIOS_SIN_SUPLIDOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
 const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
@@ -78,6 +81,7 @@ const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active,
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("ServicioConfig").select(SELECT_SERVICIOS).order("orden");
+  if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CATEGORIA).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).order("orden")) as unknown as typeof res;
@@ -91,6 +95,7 @@ export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; d
 // pour le portail client (lien token) et l'API de pagos.
 export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspaceId: string): Promise<Servicio[]> {
   let res = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
+  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CATEGORIA).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
   if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;

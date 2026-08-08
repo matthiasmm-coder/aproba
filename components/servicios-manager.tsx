@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fmtPct, newPack, newServicio, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
+import { fmtPct, newPack, newServicio, temasUsados, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { guardarPacks, guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
@@ -211,6 +211,21 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
     setServicios((list) => list.map((s) => (s.id === id ? { ...s, docs: s.docs.filter((_, i) => i !== idx) } : s)));
 
   const activos = servicios.filter((s) => s.active).length;
+  // Temas ya usados (servicios + packs) → datalist compartida: el gestor reutiliza
+  // sus temas escribiendo dos letras, sin obligarle a un desplegable cerrado.
+  const temas = temasUsados(servicios, packs);
+  const campoTema = (valor: string | undefined, onChange: (v: string) => void) => (
+    <label className="block">
+      <span className="mb-1 block text-xs text-slate-500">{t("Tema (agrupa en el portal)")}</span>
+      <input
+        list="aproba-temas"
+        value={valor ?? ""}
+        placeholder={t("p. ej. Empresa, Nacionalidad…")}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+      />
+    </label>
+  );
 
   // Trámites del catálogo (claves fijas, p.ej. residencia_ue/brexit/modificacion) que aún
   // no están en la lista. Añadirlos así conserva la clave → el modelo EX correcto se mapea.
@@ -224,6 +239,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
 
   return (
     <div>
+      <datalist id="aproba-temas">{temas.map((x) => <option key={x} value={x} />)}</datalist>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos} {t("activos")}</span> {t("de")} {servicios.length}</p>
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
@@ -290,6 +306,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   : `${s.anticipo + s.resto > 0 ? `${s.anticipo + s.resto} €` : t("Gratis")}${s.porcentaje ? ` + ${fmtPct(s.porcentaje)} %` : ""}`}
                 {" · "}{s.docs.length} {t("docs")}
                 {(s.suplidos ?? []).length > 0 ? ` · ${(s.suplidos ?? []).length} ${t("tasas")}` : ""}
+                {s.categoria?.trim() ? ` · ${s.categoria.trim()}` : ""}
               </button>
             )}
 
@@ -376,6 +393,8 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">{t("El cliente no verá importes de este servicio en su portal ni se le pedirá pago online. La hoja de encargo sí incluye el precio pactado.")}</span>
                 </span>
               </label>
+
+              <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }))}</div>
             </div>
 
             {/* Tasas y suplidos del trámite (SIN IVA, fuera de los honorarios) */}
@@ -601,6 +620,8 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <span className="pb-2 text-xs text-slate-400">{t("El cliente verá")} «{t("desde")} {eur(p.precioDesde)}»</span>
                 )}
               </div>
+
+              <div className="mt-3">{campoTema(p.categoria, (v) => updatePack(p.id, { categoria: v }))}</div>
             </div>
           ))}
         </div>

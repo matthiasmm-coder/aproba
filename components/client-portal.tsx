@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
-import { DEFAULT_SERVICIOS, fmtPct, loadServicios, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, type Servicio } from "@/lib/servicios";
+import { TemaPlegable } from "@/components/tema-plegable";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
@@ -603,7 +604,12 @@ export function ClientPortal({
                   {t("s0.sinServicios")}
                 </p>
               )}
-              {servicios.map((tr) => (
+              {/* Temas: si el despacho agrupó su catálogo, cada tema es un desplegable
+                  PLEGADO (se abre el del trámite ya elegido). Sin temas → lista plana. */}
+              {(() => {
+                const grupos = agruparPorTema(servicios);
+                const conTema = grupos.some((g) => g.clave);
+                const tarjeta = (tr: Servicio) => (
                 <button
                   key={tr.id}
                   onClick={() => setTramiteId(tr.id)}
@@ -660,7 +666,19 @@ export function ClientPortal({
                     {tramiteId === tr.id && <Check className="h-3 w-3" />}
                   </span>
                 </button>
-              ))}
+                );
+                if (!conTema) return servicios.map((tr) => tarjeta(tr));
+                return grupos.map((g) => (
+                  <TemaPlegable
+                    key={g.clave || "__otros__"}
+                    titulo={g.titulo || t("tema.otros")}
+                    resumen={g.items.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: g.items.length })}
+                    abiertoInicial={g.items.some((x) => x.id === tramiteId)}
+                  >
+                    {g.items.map((tr) => tarjeta(tr))}
+                  </TemaPlegable>
+                ));
+              })()}
             </div>
             <button
               disabled={!tramiteId}
