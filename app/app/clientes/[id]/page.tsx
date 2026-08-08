@@ -7,6 +7,8 @@ import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/fac
 import { formulariosDisponibles } from "@/lib/ex-forms";
 import { ClienteFormularios } from "@/components/cliente-formularios";
 import { CrearFamiliaCliente } from "@/components/crear-familia-cliente";
+import { FamiliaDelCliente, type MiembroFamilia, type IndividualDisponible } from "@/components/familia-del-cliente";
+import { ordenParentesco } from "@/lib/familia";
 import { DocumentosCliente, type DocSuelto } from "@/components/documentos-cliente";
 import { CaducidadTie } from "@/components/caducidad-tie";
 import { EditarCliente } from "@/components/editar-cliente";
@@ -45,6 +47,29 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   {
     const { data: fam, error: eFam } = await supabase.from("Cliente").select("familiaId").eq("id", id).maybeSingle();
     if (!eFam) familiaId = (fam as { familiaId?: string | null } | null)?.familiaId ?? null;
+  }
+
+  // Sección Familia del pie: miembros + individuales disponibles (si pertenece a una)
+  // o familias existentes a las que unirse (si es individual). Todo bajo RLS.
+  let familiaNombre = "";
+  let miembrosFamilia: MiembroFamilia[] = [];
+  let individualesDisponibles: IndividualDisponible[] = [];
+  let familiasDisponibles: { id: string; nombre: string }[] = [];
+  let expFamiliares = 0;
+  if (familiaId) {
+    const [{ data: fam }, { data: mies }, { data: inds }, { count: nExp }] = await Promise.all([
+      supabase.from("Familia").select("nombre").eq("id", familiaId).maybeSingle(),
+      supabase.from("Cliente").select("id, nombre, apellidos, parentesco").eq("familiaId", familiaId),
+      supabase.from("Cliente").select("id, nombre, apellidos").is("familiaId", null).order("nombre").limit(300),
+      supabase.from("Expediente").select("id", { count: "exact", head: true }).eq("familiaId", familiaId),
+    ]);
+    familiaNombre = (fam as { nombre?: string } | null)?.nombre ?? "Familia";
+    miembrosFamilia = ((mies ?? []) as MiembroFamilia[]).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
+    individualesDisponibles = (inds ?? []) as IndividualDisponible[];
+    expFamiliares = nExp ?? 0;
+  } else {
+    const { data: fams } = await supabase.from("Familia").select("id, nombre").order("nombre").limit(300);
+    familiasDisponibles = ((fams ?? []) as { id: string; nombre: string }[]);
   }
 
   const { data: expRows } = await supabase.from("Expediente").select("id, referencia, tipo, estado, createdAt").eq("clienteId", id).order("createdAt", { ascending: false });
@@ -221,8 +246,19 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
       {/* Formularios officiels autorrellenés depuis la ficha du cliente (sans expediente) */}
       <ClienteFormularios clienteId={cliente.id} formularios={formulariosDisponibles()} />
 
-      {/* Cliente individual → crear una familia a partir de él (pasa a ser el titular) */}
-      {!familiaId && <CrearFamiliaCliente clienteId={cliente.id} nombreCompleto={nombre} apellidos={cliente.apellidos ?? ""} />}
+      {/* Familia: crear una / unirse a una (individual) o gestionarla (miembro) */}
+      {familiaId ? (
+        <FamiliaDelCliente
+          clienteId={cliente.id}
+          familiaId={familiaId}
+          familiaNombre={familiaNombre}
+          miembros={miembrosFamilia}
+          individuales={individualesDisponibles}
+          expFamiliares={expFamiliares}
+        />
+      ) : (
+        <CrearFamiliaCliente clienteId={cliente.id} nombreCompleto={nombre} apellidos={cliente.apellidos ?? ""} familias={familiasDisponibles} />
+      )}
     </div>
   );
 }
