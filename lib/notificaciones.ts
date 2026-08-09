@@ -81,10 +81,17 @@ function emailLayout(opts: {
   cuerpoHtml: string;
   cta?: { url: string; label: string } | null;
   footerNota?: string;
+  avatarUrl?: string | null; // foto del gestor a cargo; sin ella, las iniciales
   preheader?: string;
 }): string {
-  const { gestoria, titulo, cuerpoHtml, cta, footerNota, preheader } = opts;
+  const { gestoria, titulo, cuerpoHtml, cta, footerNota, preheader, avatarUrl } = opts;
   const ini = inicialesDe(gestoria);
+  // Foto del gestor que lleva el expediente (bucket público `avatares`), con las
+  // iniciales del despacho de repli. Sin border-radius en Outlook: se verá cuadrada,
+  // no rota — preferible a no enseñarla.
+  const marca = avatarUrl
+    ? `<td width="42" height="42" align="center" valign="middle" style="width:42px;height:42px"><img src="${avatarUrl}" width="42" height="42" alt="" style="width:42px;height:42px;border-radius:11px;display:block;object-fit:cover;border:0" /></td>`
+    : `<td width="42" height="42" align="center" valign="middle" bgcolor="#ECFDF5" style="width:42px;height:42px;border-radius:11px;font-family:${FUENTE};font-size:15px;font-weight:700;color:#0D6E4D">${ini}</td>`;
   const boton = cta
     ? `<tr><td align="center" style="padding-top:24px;text-align:center"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${cta.url}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${cta.label}</a></td></tr></table></td></tr>`
     : "";
@@ -96,7 +103,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:al
     <tr><td height="4" style="height:4px;background:#0E8C5F;line-height:4px;font-size:0">&nbsp;</td></tr>
     <tr><td align="center" style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0;text-align:center">
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr>
-        <td width="42" height="42" align="center" valign="middle" bgcolor="#ECFDF5" style="width:42px;height:42px;border-radius:11px;font-family:${FUENTE};font-size:15px;font-weight:700;color:#0D6E4D">${ini}</td>
+        ${marca}
         <td style="width:12px">&nbsp;</td>
         <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>
       </tr></table>
@@ -157,6 +164,7 @@ export async function dispararAviso(
 
     // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
     const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
+    const foto = await fotoDelExpediente(admin, opts.expedienteId);
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -169,6 +177,7 @@ export async function dispararAviso(
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
           from, to: destino, subject: aviso.evento,
           html: emailLayout({
+            avatarUrl: foto,
             gestoria, titulo: aviso.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
             cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
             footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
@@ -281,6 +290,7 @@ export async function enviarSeguimiento(
         estadoEmail = "SIN_CONTACTO";
       } else if (resendDisponible() && link) {
         const html = emailLayout({
+          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
           gestoria,
           titulo,
           cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
@@ -317,6 +327,19 @@ export async function enviarSeguimiento(
   } catch (e) {
     console.error("[enviarSeguimiento]", e instanceof Error ? e.message : e);
   }
+}
+
+// Foto del gestor que lleva el expediente (Expediente.asignadoAId → User.avatarUrl).
+// Best-effort: si la columna no existe, el usuario no tiene foto o falla la consulta,
+// se devuelve null y el email enseña las iniciales del despacho, como siempre.
+export async function fotoDelExpediente(admin: SupabaseClient, expedienteId: string): Promise<string | null> {
+  try {
+    const { data: exp } = await admin.from("Expediente").select("asignadoAId").eq("id", expedienteId).maybeSingle();
+    const uid = (exp as { asignadoAId?: string | null } | null)?.asignadoAId;
+    if (!uid) return null;
+    const { data: u } = await admin.from("User").select("avatarUrl").eq("id", uid).maybeSingle();
+    return (u as { avatarUrl?: string | null } | null)?.avatarUrl ?? null;
+  } catch { return null; }
 }
 
 // Demande de paiement par VIREMENT : envoie au client un email avec le montant, le
@@ -377,6 +400,7 @@ export async function enviarSolicitudPago(
       ${botonTarjeta}`;
 
     const html = emailLayout({
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: "Tu factura está lista",
       cuerpoHtml,
@@ -460,6 +484,7 @@ export async function enviarConfirmacionPago(
     const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
       <p style="margin:0">hemos recibido tu pago ${via} de la factura <strong>${opts.numero}</strong> (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.</p>`;
     const html = emailLayout({
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: "Pago recibido ✓",
       cuerpoHtml,
@@ -541,6 +566,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
   nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
   actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
   videoProveedor?: "meet" | "teams" | "otro" | null; videoEnlace?: string | null; citaId?: string | null;
+  avatarUrl?: string | null; // foto del gestor que creó la cita
   // Cobro de la cita (opt-in del gestor): el email deja de ser solo informativo y
   // explica CÓMO pagar — IBAN y/o botón de tarjeta. Mismo bloque visual que el
   // email de factura, para que el cliente reconozca el circuito.
@@ -606,6 +632,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>
       ${botonVideo}${bloquePago}`;
     const html = emailLayout({
+      avatarUrl: opts.avatarUrl ?? null,
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
@@ -711,6 +738,7 @@ export async function enviarRecordatorioDocs(
           <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td style="text-align:left"><ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul></td></tr></table>
           <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
         const html = emailLayout({
+          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
           gestoria,
           titulo: t("notif.recDocs.titulo"),
           cuerpoHtml,
@@ -793,6 +821,7 @@ export async function enviarAvisoRenovacion(
       : t("notif.renov.bodySinFecha", { nombre, tipo, gestoria });
 
     const html = emailLayout({
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: t("notif.renov.titulo"),
       cuerpoHtml: `<p style="margin:0">${body}</p>`,

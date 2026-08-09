@@ -90,6 +90,19 @@ describe("email de cita con cobro", () => {
     expect(enviados[0].html).not.toContain("Importe a pagar");
   });
 
+  it("con foto del gestor, la cabecera enseña la foto; sin ella, las iniciales", async () => {
+    enviados.length = 0;
+    const { enviarConfirmacionCitaPrevia } = await import("./notificaciones");
+    await enviarConfirmacionCitaPrevia({ ...base, avatarUrl: "https://cdn.example.com/avatares/u1.jpg?v=2" });
+    expect(enviados[0].html).toContain('src="https://cdn.example.com/avatares/u1.jpg?v=2"');
+    expect(enviados[0].html).not.toContain(">GV<");
+
+    enviados.length = 0;
+    await enviarConfirmacionCitaPrevia({ ...base, avatarUrl: null });
+    expect(enviados[0].html).toContain(">GV<"); // iniciales de «Gestoría Vallès»
+    expect(enviados[0].html).not.toContain("<img src=");
+  });
+
   it("transferencia sin cuenta bancaria: no inventa un IBAN", async () => {
     const { msg } = await enviar({ ...cobroBase, cuenta: null, transferencia: true, tarjeta: false });
     expect(msg.html).toContain("Tu gestoría te facilitará los datos");

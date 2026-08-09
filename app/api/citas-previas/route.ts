@@ -82,6 +82,15 @@ async function emitirFacturaCita(
   return { facturaId, numero, total };
 }
 
+// Foto del gestor que lleva la cita (la creó o la edita): el cliente reconoce a su
+// persona de contacto en vez de unas iniciales. Best-effort: sin foto, iniciales.
+async function fotoDeUsuario(admin: ReturnType<typeof createSupabaseAdmin>, userId: string): Promise<string | null> {
+  try {
+    const { data } = await admin.from("User").select("avatarUrl").eq("id", userId).maybeSingle();
+    return (data as { avatarUrl?: string | null } | null)?.avatarUrl ?? null;
+  } catch { return null; }
+}
+
 // Medios de pago REALES del despacho: nunca se anuncia al cliente un botón de
 // tarjeta sin clave Stripe, ni un IBAN que no existe.
 async function datosCobro(
@@ -233,7 +242,8 @@ export async function POST(req: Request) {
 
   let avisado = false;
   if (body.notificar && fila.email) {
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro });
+    const avatarUrl = await fotoDeUsuario(createSupabaseAdmin(), user.id);
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro, avatarUrl });
   }
   return NextResponse.json({ ok: true, id: fila.id, avisado, facturaEmitida: Boolean(cobro) });
 }
@@ -400,7 +410,12 @@ export async function PUT(req: Request) {
   // Aviso opt-in al cliente con los DATOS NUEVOS (best-effort; nunca rompe el guardado).
   let avisado = false;
   if (body.notificar && patch.email) {
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id, cobro });
+    // La foto es la del gestor ASIGNADO (quien creó la cita), no la de quien edita:
+    // el cliente sigue viendo a su persona de contacto.
+    const { data: asg } = await supabase.from("CitaPrevia").select("asignadoAId").eq("id", id).maybeSingle();
+    const dueno = (asg as { asignadoAId?: string | null } | null)?.asignadoAId ?? user.id;
+    const avatarUrl = await fotoDeUsuario(admin, dueno);
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id, cobro, avatarUrl });
   }
   return NextResponse.json({ ok: true, avisado, facturaEmitida: Boolean(cobro) });
 }
