@@ -31,21 +31,38 @@ export type Servicio = {
   categoria?: string;
 };
 
-// Pack: agrupación de servicios con precio «desde…». Persistido en
-// Workspace.packs (JSONB) — NO en ServicioConfig, para no contaminar a los
-// consumidores directos de esa tabla (ver supabase/servicios-pro.sql).
+// Pack: agrupación de servicios. Su precio NO se teclea: es la suma de los
+// servicios incluidos menos un descuento en % — así el importe del pack y lo
+// que se factura no pueden divergir. Persistido en Workspace.packs (JSONB) —
+// NO en ServicioConfig, para no contaminar a los consumidores de esa tabla.
 export type Pack = {
   id: string;
   nombre: string;
   desc: string;
   servicioIds: string[];
-  precioDesde: number; // 0 = sin precio indicado
+  precioDesde: number; // LEGADO: importe «desde…» tecleado a mano. Ya no se usa ni se edita.
+  descuentoPct?: number; // 0-100 sobre la suma de los servicios
   precioOculto?: boolean;
   categoria?: string; // mismo tema libre que los servicios
 };
 
 export function newPack(): Pack {
   return { id: "pack_" + Math.random().toString(36).slice(2, 9), nombre: "", desc: "", servicioIds: [], precioDesde: 0 };
+}
+
+// Descuento del pack, saneado (nunca > 100 ni negativo: un total negativo
+// pasaría a la factura).
+export const packPct = (pk: Pack): number => Math.min(100, Math.max(0, Number(pk.descuentoPct) || 0));
+
+// Aplica el descuento del pack a un importe BRUTO. El llamante decide qué es
+// bruto según su superficie: con IVA en el portal, sin IVA en Ajustes y /c.
+export const packRebajado = (bruto: number, pk: Pack): number =>
+  Math.round(bruto * (1 - packPct(pk) / 100) * 100) / 100;
+
+// Suma (sin IVA) de los servicios VIVOS del pack + total con el descuento.
+export function packPrecio(pk: Pack, servicios: { id: string; precio: number }[]): { suma: number; total: number; pct: number } {
+  const suma = Math.round(pk.servicioIds.reduce((a, id) => a + (servicios.find((s) => s.id === id)?.precio ?? 0), 0) * 100) / 100;
+  return { suma, total: packRebajado(suma, pk), pct: packPct(pk) };
 }
 
 // «1,5 %» sin decimales de ruido (1.5 → "1,5", 2 → "2").

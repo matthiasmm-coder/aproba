@@ -61,7 +61,8 @@ export async function POST(req: Request) {
         nombre: String(x.nombre ?? "").trim().slice(0, 120),
         desc: String(x.desc ?? "").trim().slice(0, 500),
         servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s).slice(0, 60)).filter(Boolean).slice(0, 20) : [],
-        precioDesde: Math.max(0, Math.min(999999, Number(x.precioDesde) || 0)),
+        precioDesde: Math.max(0, Math.min(999999, Number(x.precioDesde) || 0)), // legado
+        descuentoPct: Math.max(0, Math.min(100, Number(x.descuentoPct) || 0)),
         precioOculto: Boolean(x.precioOculto),
         categoria: String(x.categoria ?? "").trim().slice(0, 60),
       }))

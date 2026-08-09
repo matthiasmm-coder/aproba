@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fmtPct, newPack, newServicio, temasUsados, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
+import { fmtPct, newPack, newServicio, packPrecio, temasUsados, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { guardarPacks, guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
@@ -600,15 +600,22 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 {p.servicioIds.length === 0 && <p className="mt-1.5 text-xs font-medium text-amber-600">⚠️ {t("Elige al menos un servicio para que el pack aparezca en el portal.")}</p>}
               </div>
 
+              {/* El precio del pack NO se teclea: suma de los servicios incluidos −
+                  descuento. Así el importe anunciado y el facturado no divergen
+                  (antes se tecleaba un «desde» que nadie volvía a tocar). */}
               <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2 border-t border-aproba-100 pt-3">
+                <div className="pb-1">
+                  <span className="mb-1 block text-xs text-slate-500">{t("Suma de los servicios")}</span>
+                  <span className="block text-sm font-semibold tabular-nums text-slate-700">{eur(packPrecio(p, servicios).suma)}</span>
+                </div>
                 <label className="block">
-                  <span className="mb-1 block text-xs text-slate-500">{t("Precio «desde» (sin IVA)")}</span>
+                  <span className="mb-1 block text-xs text-slate-500">{t("Descuento del pack")}</span>
                   <div className="relative">
-                    <input type="number" min={0} step={10} value={p.precioDesde || ""} placeholder="0" onFocus={(e) => e.target.select()}
+                    <input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       disabled={Boolean(p.precioOculto)}
-                      onChange={(e) => updatePack(p.id, { precioDesde: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-28 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
-                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
+                      onChange={(e) => updatePack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })}
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
                   </div>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2 pb-1.5">
@@ -616,16 +623,14 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                     className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                   <span className="text-xs font-medium text-slate-600">{t("Precio a consultar")}</span>
                 </label>
-                {!p.precioOculto && p.precioDesde > 0 && (() => {
-                  // El «desde» es un reclamo: al elegir el pack, el cliente paga la SUMA
-                  // de los servicios incluidos. Si no coinciden lo avisamos aquí — si no,
-                  // el cliente ve «desde 900 €» y la pantalla de pago le pide 1.210 €.
-                  const suma = p.servicioIds.reduce((a, id) => a + (servicios.find((x) => x.id === id)?.precio ?? 0), 0);
-                  const desalineado = suma > 0 && Math.abs(suma - p.precioDesde) >= 1;
+                {!p.precioOculto && (() => {
+                  const { suma, total, pct } = packPrecio(p, servicios);
+                  if (suma <= 0) return null;
                   return (
-                    <span className={`pb-2 text-xs ${desalineado ? "font-medium text-amber-600" : "text-slate-400"}`}>
-                      {t("El cliente verá")} «{t("desde")} {eur(p.precioDesde)}»
-                      {desalineado && <> · {t("pagará")} {eur(suma)} ({t("suma de los servicios, sin IVA")})</>}
+                    <span className="pb-1.5 text-xs text-slate-500">
+                      {t("El cliente verá")} <b className="tabular-nums text-slate-800">{eur(total)}</b>
+                      {pct > 0 && <> ({t("descuento aplicado")} −{eur(suma - total)}) · {t("se descuenta también en su factura")}</>}
+                      {" · "}{t("sin IVA")}
                     </span>
                   );
                 })()}

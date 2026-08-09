@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { PLAN_IDS, PLANES, TIPOS, ROLES, ROLES_ASIGNABLES, puedeAsignarRol, plyMax, type PlanId, type RolId } from "@/lib/planes";
-import { DEFAULT_SERVICIOS, newPack, newServicio, temasUsados, type Pack, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, newPack, newServicio, packPrecio, temasUsados, type Pack, type Servicio } from "@/lib/servicios";
 import { guardarServicios, guardarAvisos, guardarPacks } from "@/lib/config-browser";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { parseClientesCsv, filaACliente, PLANTILLA_CSV, COLUMNAS_CSV_LABEL, type FilaCsv } from "@/lib/csv-clientes";
@@ -432,7 +432,12 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                     })}
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <label className="text-xs text-slate-500">{t("Precio «desde» (€ sin IVA)")}<input type="number" min={0} step={10} value={p.precioDesde || ""} placeholder="0" disabled={Boolean(p.precioOculto)} onFocus={(e) => e.target.select()} onChange={(e) => patchPack(p.id, { precioDesde: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 disabled:bg-slate-50 disabled:text-slate-400" /></label>
+                    {/* El precio del pack es la suma de sus servicios menos el descuento
+                        (misma regla que Ajustes): no hay importe que teclear. */}
+                    <label className="text-xs text-slate-500">{t("Descuento del pack (%)")}<input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" disabled={Boolean(p.precioOculto)} onFocus={(e) => e.target.select()} onChange={(e) => patchPack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 disabled:bg-slate-50 disabled:text-slate-400" /></label>
+                    {!p.precioOculto && packPrecio(p, servicios).suma > 0 && (
+                      <span className="pb-2 text-xs text-slate-500">{t("El cliente verá")} <b className="tabular-nums text-slate-800">{packPrecio(p, servicios).total} €</b> {t("sin IVA")}</span>
+                    )}
                     <label className="flex cursor-pointer items-center gap-2 pt-4">
                       <input type="checkbox" checked={Boolean(p.precioOculto)} onChange={(e) => patchPack(p.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       <span className="text-xs text-slate-500">{t("Precio a consultar")}</span>

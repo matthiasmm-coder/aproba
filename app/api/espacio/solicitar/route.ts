@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
+import { packPct } from "@/lib/servicios";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { cobrarOverageSiProcede } from "@/lib/overage";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -27,7 +28,7 @@ const VENTANA = 10 * 60 * 1000; // por 10 minutos
 const TERMINALES = new Set(["FINALIZADO", "RECHAZADO"]);
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { token?: string; servicios?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { token?: string; servicios?: unknown; pack?: unknown };
   const token = String(body.token ?? "").trim();
   const pedidos = Array.isArray(body.servicios) ? body.servicios.filter((s): s is string => typeof s === "string").slice(0, 4) : [];
   if (!token || token.length < 8) return fail("Enlace no válido.", 404);
@@ -69,6 +70,19 @@ export async function POST(req: Request) {
     return fail("Ya tienes un trámite de este servicio en curso.", 409, { codigo: "ya_en_curso", servicio: principal, servicioLabel: activos.get(principal)?.label ?? principal });
   }
 
+  // Descuento del PACK: el cliente manda el ID, el % se lee del catálogo del
+  // despacho (nunca del cuerpo). Se aplica al pedido entero — es exactamente lo
+  // que el espacio le enseñó antes de pulsar.
+  let descuentoPack: Record<string, unknown> | null = null;
+  if (typeof body.pack === "string" && body.pack) {
+    try {
+      const { data: ws } = await admin.from("Workspace").select("packs").eq("id", workspaceId).maybeSingle();
+      const pk = parsePacks((ws as { packs?: unknown } | null)?.packs).find((x) => x.id === body.pack);
+      const pct = pk ? packPct(pk) : 0;
+      if (pct > 0) descuentoPack = { tipo: "PORCENTAJE", valor: pct, motivo: pk!.nombre };
+    } catch { /* sin catálogo legible → sin descuento, nunca se cobra de más */ }
+  }
+
   // ── Creación del expediente (mismo patrón que POST /api/expedientes) ──
   const year = new Date().getFullYear();
   const expedienteId = uuid();
@@ -83,11 +97,14 @@ export async function POST(req: Request) {
       tipo: SERVICIO_A_TIPO[principal] ?? "OTRO", servicioClave: principal,
       estado: "BORRADOR", updatedAt: new Date().toISOString(),
       ...(extras.length ? { serviciosExtra: extras } : {}),
+      ...(descuentoPack ? { descuento: descuentoPack } : {}),
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
-    // Repli si la columna serviciosExtra no existe aún (migración multi-servicio).
-    if (eExp && extras.length && /serviciosExtra|column|schema cache|does not exist/i.test(eExp.message)) {
+    // Repli si falta alguna columna (migraciones multi-servicio / descuento): el
+    // trámite se crea igual, sin el extra que la base no conoce.
+    if (eExp && (extras.length || descuentoPack) && /serviciosExtra|descuento|column|schema cache|does not exist/i.test(eExp.message)) {
       delete fila.serviciosExtra;
+      delete fila.descuento;
       ({ error: eExp } = await admin.from("Expediente").insert(fila));
     }
     if (!eExp) break;

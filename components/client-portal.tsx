@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
-import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, normTema, type Pack, type Servicio } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, normTema, packPct, type Pack, type Servicio } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
@@ -214,46 +214,60 @@ export function ClientPortal({
   // Pack elegido por el cliente: se traduce a principal (1er servicio del pack que
   // existe en el catálogo) + extras (el resto). Elegir un servicio suelto lo borra
   // y devuelve los extras del gestor — el carrito nunca mezcla pack y suelto.
+  const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
+  const packDe = (id: string | null) => packs.find((pk) => pk.id === id) ?? null;
   const [packId, setPackId] = useState<string | null>(() => {
-    // Reanudación: si lo ya guardado (principal + extras) contiene un pack entero,
-    // la tarjeta del pack vuelve marcada — si no, el cliente vería su elección perdida.
+    // Reanudación: si lo ya guardado contiene un pack entero, vuelve marcado —
+    // si no, el cliente vería su elección perdida.
     if (!servicioInicial) return null;
     const sel = new Set([servicioInicial, ...(serviciosExtraClaves ?? [])]);
     return packs.find((pk) => (pk.servicioIds ?? []).length > 0 && (pk.servicioIds ?? []).every((id) => sel.has(id)))?.id ?? null;
   });
-  const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
-  // El cliente puede elegir VARIOS servicios (pedido de Matthias). Un único carrito:
-  // principal = el primero en el orden del catálogo, extras = el resto. Guardarlo así
-  // (y no como un Set aparte) mantiene intactos precio, documentos y confirmación,
-  // que ya sabían tratar principal + extras desde el multi-servicio del gestor.
-  const seleccion = tramiteId ? [tramiteId, ...extrasClaves.filter((c) => c !== tramiteId)] : [];
-  function aplicarSeleccion(ids: string[]) {
-    const orden = servicios.filter((sv) => ids.includes(sv.id)).map((sv) => sv.id);
+  // Elegir un pack NO marca sus servicios (pedido de Matthias): el pack es UNA
+  // elección, no un atajo que rellena casillas. Por eso hay dos estados —
+  // `packId` (0 o 1 pack) y `sueltos` (servicios elegidos uno a uno) — y el
+  // carrito real es la unión de ambos, que es lo que se paga y se envía.
+  const [sueltos, setSueltos] = useState<string[]>(() => {
+    if (!servicioInicial) return [];
+    const guardados = [servicioInicial, ...(serviciosExtraClaves ?? [])];
+    const dePack = new Set(packs.flatMap((pk) => (pk.servicioIds ?? []).every((id) => guardados.includes(id)) && pk.servicioIds.length ? pk.servicioIds : []));
+    return guardados.filter((id) => !dePack.has(id));
+  });
+  const enPack = (id: string) => svDe(packDe(packId)?.servicioIds ?? []).includes(id);
+  // Carrito = servicios del pack + sueltos, sin duplicados y en orden de catálogo.
+  // Se guarda como principal + extras porque precio, documentos y confirmación ya
+  // sabían tratarlo así desde el multi-servicio del gestor.
+  function recomputar(nuevoPack: string | null, nuevosSueltos: string[]) {
+    const dePack = svDe(packDe(nuevoPack)?.servicioIds ?? []);
+    const todos = new Set([...dePack, ...nuevosSueltos]);
+    const orden = servicios.filter((sv) => todos.has(sv.id)).map((sv) => sv.id);
     setTramiteId(orden[0] ?? null);
     setExtrasClaves(orden.slice(1));
-    return orden;
   }
-  // Packs: UNO a la vez (dos packs se solaparían y cobrarían el mismo servicio dos
-  // veces). Volver a pulsarlo lo quita, con sus servicios.
+  // Packs: UNO a la vez (dos se solaparían y cobrarían el mismo servicio dos veces).
+  // Volver a pulsarlo lo quita — sin tocar los servicios elegidos aparte.
   function togglePack(pk: Pack) {
-    const ids = svDe(pk.servicioIds ?? []);
-    if (!ids.length) return;
-    if (packId === pk.id) {
-      aplicarSeleccion(seleccion.filter((c) => !ids.includes(c)));
-      setPackId(null);
-      return;
-    }
-    const delAnterior = svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []);
-    aplicarSeleccion([...seleccion.filter((c) => !delAnterior.includes(c)), ...ids]);
-    setPackId(pk.id);
+    if (!svDe(pk.servicioIds ?? []).length) return;
+    const nuevo = packId === pk.id ? null : pk.id;
+    setPackId(nuevo);
+    recomputar(nuevo, sueltos);
   }
-  // Un servicio se marca y se desmarca pulsándolo. Si se quita uno que venía de un
-  // pack, el pack deja de estar completo → se desmarca, pero los demás se quedan.
+  // Un servicio se marca y se desmarca pulsándolo. Los que ya vienen en el pack no
+  // son pulsables: marcarlos no cambiaría nada (ya están en el carrito) y el precio
+  // no se movería — se enseñan como «incluido en el pack».
   function toggleServicio(id: string) {
-    const dentro = seleccion.includes(id);
-    aplicarSeleccion(dentro ? seleccion.filter((c) => c !== id) : [...seleccion, id]);
-    if (dentro && packId && svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []).includes(id)) setPackId(null);
+    if (enPack(id)) return;
+    const nuevos = sueltos.includes(id) ? sueltos.filter((c) => c !== id) : [...sueltos, id];
+    setSueltos(nuevos);
+    recomputar(packId, nuevos);
   }
+  // Carrito resuelto: lo que se paga y se envía (pack + sueltos, sin duplicados).
+  const carrito = tramiteId ? [tramiteId, ...extrasClaves.filter((c) => c !== tramiteId)] : [];
+  // Descuento efectivo: el del gestor manda; si no hay, el del pack elegido.
+  // Misma regla que el servidor (iniciar no pisa un descuento ya puesto).
+  const packSel = packs.find((pk) => pk.id === packId) ?? null;
+  const descuentoVivo: Descuento | null | undefined = descuento
+    ?? (packSel && packPct(packSel) > 0 ? { tipo: "PORCENTAJE", valor: packPct(packSel), motivo: packSel.nombre } : null);
   const extrasServicios = extrasClaves
     .filter((c) => c !== tramiteId)
     .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
@@ -422,8 +436,11 @@ export function ClientPortal({
       // Selección múltiple (pack o servicios sueltos): los extras viajan SIEMPRE con
       // el principal, también vacíos — así, si el cliente vuelve atrás y quita
       // servicios, el servidor los borra en vez de seguir cobrándolos.
+      // `pack` viaja como ID, nunca el descuento: el servidor lo busca en el
+      // catálogo del despacho. Un cliente no puede regalarse un 90 %.
       const ok = await postSeguro("/api/portal/iniciar", {
         token, clave: tramiteId, extras: extrasClaves.filter((c) => c !== tramiteId),
+        ...(packId ? { pack: packId } : {}),
       });
       setGuardandoDatos(false);
       if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
@@ -671,13 +688,28 @@ export function ClientPortal({
               {(() => {
                 const grupos = agruparPorTema(servicios);
                 const conTema = grupos.some((g) => g.clave);
-                const marcado = (id: string) => seleccion.includes(id);
-                const tarjeta = (tr: Servicio) => (
+                const marcado = (id: string) => sueltos.includes(id);
+                // Importe de una tarjeta: los dos pagos reales (cada uno con su IVA
+                // redondeado — totalDe(a+r) se desvía un céntimo) + tasas. El mismo
+                // cálculo para un servicio y para un pack, para que no puedan divergir.
+                const importeDe = (svs: Servicio[], desc: Descuento | null | undefined) => {
+                  const reb = aplicarDescuento(tarifaAsignada(svs, asig, nMiembros), 1, desc);
+                  const tasas = suplidosUnitTotal ?? svs.reduce((a, sv) => a + suplidosUnit(sv), 0);
+                  return { total: r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + tasas * nMiembros, reb };
+                };
+                const tarjeta = (tr: Servicio) => {
+                // Servicio que ya viene DENTRO del pack elegido: no se puede marcar
+                // (ya está en el carrito y el precio no se movería). Se enseña como
+                // incluido en vez de dejar una casilla que no hace nada.
+                const incluido = enPack(tr.id);
+                return (
                 <button
                   key={tr.id}
                   onClick={() => toggleServicio(tr.id)}
+                  aria-disabled={incluido || undefined}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
-                    marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    incluido ? "cursor-default border-slate-200 bg-slate-50"
+                      : marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -690,13 +722,10 @@ export function ClientPortal({
                         ? <p className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
                         : <p className="ml-auto shrink-0 text-right text-sm font-bold tabular-nums text-slate-700">
                         {(() => {
-                          const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasTarjeta], asig, nMiembros), 1, descuento);
-                          // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
-                          // totalDe(a+r) puede desviarse 1 céntimo de lo que el cliente paga.
-                          const precio = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? (suplidosUnit(tr) + extrasTarjeta.reduce((a, sv) => a + suplidosUnit(sv), 0))) * nMiembros;
+                          const { total, reb } = importeDe([tr, ...extrasTarjeta], descuento);
                           return (
                             <>
-                              {eur(precio)}
+                              {eur(total)}
                               {reb.rebaja > 0 && <span dir="ltr" className="ml-1.5 rounded-full bg-aproba-100 px-1.5 py-0.5 text-[10px] font-semibold text-aproba-700">{etiquetaDescuento(descuento)}</span>}
                             </>
                           );
@@ -727,11 +756,14 @@ export function ClientPortal({
                   </div>
                   {/* Casilla CUADRADA: se pueden elegir varios servicios. El redondel
                       del pack (abajo) sigue redondo porque solo cabe uno. */}
-                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
-                    {marcado(tr.id) && <Check className="h-3 w-3" />}
-                  </span>
+                  {incluido
+                    ? <span className="ml-3 shrink-0 rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span>
+                    : <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
+                        {marcado(tr.id) && <Check className="h-3 w-3" />}
+                      </span>}
                 </button>
                 );
+                };
                 // Packs del despacho: elegir uno = principal + extras (un solo trámite
                 // para el cliente). Se ocultan los que ya no tienen ningún servicio vivo.
                 const packsVivos = packs.filter((pk) => svDe(pk.servicioIds ?? []).length > 0);
@@ -752,9 +784,25 @@ export function ClientPortal({
                         <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                           <p className="min-w-0 font-semibold text-slate-900">{pk.nombre}</p>
-                          {pk.precioOculto
-                            ? <p className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
-                            : pk.precioDesde > 0 && <p className="ml-auto shrink-0 text-right text-sm font-bold tabular-nums text-aproba-700">{t("precio.desde", { p: eur(pk.precioDesde) })}</p>}
+                          {/* El precio del pack NO se teclea: es la suma de sus servicios
+                              menos su descuento, con el MISMO cálculo que las tarjetas de
+                              servicio — lo tachado es lo que costarían por separado. */}
+                          {(() => {
+                            const svs = ids.map((id) => servicios.find((x) => x.id === id)).filter((x): x is Servicio => Boolean(x));
+                            if (pk.precioOculto || svs.some((sv) => sv.precioOculto)) {
+                              return <p className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>;
+                            }
+                            const pct = packPct(pk);
+                            const bruto = importeDe(svs, null).total;
+                            const neto = importeDe(svs, pct > 0 ? { tipo: "PORCENTAJE", valor: pct } : null).total;
+                            if (bruto <= 0) return null;
+                            return (
+                              <p className="ml-auto shrink-0 text-right text-sm font-bold tabular-nums text-aproba-700">
+                                {pct > 0 && <span className="mr-1.5 font-normal text-slate-400 line-through">{eur(bruto)}</span>}
+                                {eur(neto)}
+                              </p>
+                            );
+                          })()}
                         </div>
                         {pk.desc && <p className="text-sm text-slate-500">{pk.desc}</p>}
                         <p className="mt-1 text-xs text-slate-400">
@@ -810,13 +858,13 @@ export function ClientPortal({
             </div>
             {/* Con varios servicios elegidos, el total ya no cabe en ninguna tarjeta:
                 va aquí, y es el mismo importe que verá en el paso de pago. */}
-            {seleccion.length > 1 && (
+            {carrito.length > 1 && (
               <p className="mt-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                <span className="font-medium text-slate-600">{t("sel.nServicios", { n: seleccion.length })}</span>
+                <span className="font-medium text-slate-600">{t("sel.nServicios", { n: carrito.length })}</span>
                 {carritoOculto
                   ? <span className="font-semibold text-slate-500">{t("precio.consultar")}</span>
                   : (() => {
-                      const reb = aplicarDescuento(tarifaAsignada([...(tramite ? [tramite] : []), ...extrasServicios], asig, nMiembros), 1, descuento);
+                      const reb = aplicarDescuento(tarifaAsignada([...(tramite ? [tramite] : []), ...extrasServicios], asig, nMiembros), 1, descuentoVivo);
                       const total = r2(totalDe(reb.anticipo) + totalDe(reb.resto))
                         + (suplidosUnitTotal ?? [...(tramite ? [tramite] : []), ...extrasServicios].reduce((a, sv) => a + suplidosUnit(sv), 0)) * nMiembros;
                       return <span className="font-bold text-slate-900">{t("sel.total", { p: eur(total) })}</span>;

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
-import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
+import { packPct } from "@/lib/servicios";
 import { asignacionValida } from "@/lib/multi-servicio";
 
 // Le client (portail /j/[token]) confirme son trámite :
@@ -9,7 +10,7 @@ import { asignacionValida } from "@/lib/multi-servicio";
 // Authentifié par le token du portail (pas de session : c'est le client final).
 
 export async function POST(req: Request) {
-  let body: { token?: string; clave?: string; asignacion?: unknown; extras?: unknown[] };
+  let body: { token?: string; clave?: string; asignacion?: unknown; extras?: unknown[]; pack?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -25,9 +26,12 @@ export async function POST(req: Request) {
   // desconfiguró asignación y descuento).
   let res1 = await admin
     .from("Expediente")
-    .select("id, estado, workspaceId, familiaId, servicioClave, serviciosAsignacion")
+    .select("id, estado, workspaceId, familiaId, servicioClave, serviciosAsignacion, descuento")
     .eq("portalToken", token)
     .maybeSingle();
+  // ¿Pudimos LEER el descuento? Si caemos a un select más corto no lo sabemos, y
+  // entonces no se toca: mejor no aplicar el del pack que pisar el del gestor.
+  const leyoDescuento = !res1.error;
   if (res1.error) res1 = await admin
     .from("Expediente")
     .select("id, estado, workspaceId, familiaId, servicioClave")
@@ -38,7 +42,7 @@ export async function POST(req: Request) {
     .select("id, estado, workspaceId, familiaId")
     .eq("portalToken", token)
     .maybeSingle() as typeof res1;
-  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosAsignacion?: unknown } | null;
+  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosAsignacion?: unknown; descuento?: unknown } | null;
   if (res1.error) return NextResponse.json({ error: res1.error.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
@@ -105,6 +109,18 @@ export async function POST(req: Request) {
       ? body.extras.map((x) => String(x)).filter((x) => x !== clave && catalogo.some((sv) => sv.id === x))
       : [];
     extraCols = { ...extraCols, serviciosExtra: [...new Set(validos)].slice(0, 10) };
+  }
+
+  // Descuento del PACK elegido por el cliente. El cliente manda el ID; el % se lee
+  // del catálogo del despacho (nunca del cuerpo de la petición). No pisa nunca un
+  // descuento ya puesto por el gestor: primero-escribe-gana, como el resto.
+  if (typeof body.pack === "string" && body.pack && leyoDescuento && !exp.descuento) {
+    try {
+      const { data: ws } = await admin.from("Workspace").select("packs").eq("id", exp.workspaceId as string).maybeSingle();
+      const pk = parsePacks((ws as { packs?: unknown } | null)?.packs).find((x) => x.id === body.pack);
+      const pct = pk ? packPct(pk) : 0;
+      if (pct > 0) extraCols = { ...extraCols, descuento: { tipo: "PORCENTAJE", valor: pct, motivo: pk!.nombre } };
+    } catch { /* sin catálogo legible → se factura sin descuento, nunca de más */ }
   }
 
   const tipo = SERVICIO_A_TIPO[clave] ?? "OTRO";

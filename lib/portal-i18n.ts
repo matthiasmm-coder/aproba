@@ -114,6 +114,10 @@ export const UI: Record<string, Tr> = {
     es: "Pack", en: "Bundle", fr: "Pack", it: "Pacchetto",
     de: "Paket", ar: "\u0628\u0627\u0642\u0629", ro: "Pachet", zh: "\u5957\u9910",
   },
+  "sel.enPack": {
+    es: "Incluido en el pack", en: "Included in the bundle", fr: "Compris dans le pack", it: "Incluso nel pacchetto",
+    de: "Im Paket enthalten", ar: "\u0645\u062f\u0631\u062c \u0641\u064a \u0627\u0644\u0628\u0627\u0642\u0629", ro: "Inclus \u00een pachet", zh: "\u5df2\u5305\u542b\u5728\u5957\u9910\u4e2d",
+  },
   "sel.total": {
     es: "Total {p}", en: "Total {p}", fr: "Total {p}", it: "Totale {p}",
     de: "Gesamt {p}", ar: "\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a {p}", ro: "Total {p}", zh: "\u5408\u8ba1 {p}",

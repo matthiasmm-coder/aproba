@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparPorTema, fmtPct, temasUsados } from "./servicios";
+import { agruparPorTema, fmtPct, packPct, packPrecio, temasUsados, type Pack } from "./servicios";
 import { parsePacks } from "./data/config";
 
 describe("fmtPct", () => {
@@ -70,5 +70,39 @@ describe("temasUsados", () => {
 
   it("ignora los vacíos", () => {
     expect(temasUsados([{ categoria: "" }, { categoria: undefined }, {}])).toEqual([]);
+  });
+});
+
+describe("precio de un pack (suma de sus servicios − descuento)", () => {
+  const cat = [
+    { id: "a", precio: 500 },
+    { id: "b", precio: 420 },
+    { id: "c", precio: 600 },
+  ];
+  const pk = (extra: Partial<Pack> = {}): Pack =>
+    ({ id: "p", nombre: "P", desc: "", servicioIds: ["a", "b"], precioDesde: 0, ...extra }) as Pack;
+
+  it("sin descuento el total es la suma", () => {
+    expect(packPrecio(pk(), cat)).toEqual({ suma: 920, total: 920, pct: 0 });
+  });
+
+  it("aplica el porcentaje y redondea a céntimos", () => {
+    expect(packPrecio(pk({ descuentoPct: 15 }), cat)).toEqual({ suma: 920, total: 782, pct: 15 });
+    expect(packPrecio(pk({ descuentoPct: 33 }), cat).total).toBe(616.4);
+  });
+
+  it("ignora los servicios que ya no existen en el catálogo", () => {
+    expect(packPrecio(pk({ servicioIds: ["a", "borrado"] }), cat).suma).toBe(500);
+  });
+
+  it("satura el porcentaje: nada por debajo de 0 ni por encima de 100", () => {
+    expect(packPct(pk({ descuentoPct: -20 }))).toBe(0);
+    expect(packPct(pk({ descuentoPct: 250 }))).toBe(100);
+    expect(packPrecio(pk({ descuentoPct: 250 }), cat).total).toBe(0); // nunca negativo
+  });
+
+  it("parsePacks lee el descuento y descarta lo inválido", () => {
+    expect(parsePacks([{ id: "p1", nombre: "P", servicioIds: [], descuentoPct: 20 }])[0].descuentoPct).toBe(20);
+    expect(parsePacks([{ id: "p2", nombre: "P", servicioIds: [], descuentoPct: "abc" }])[0].descuentoPct).toBeUndefined();
   });
 });

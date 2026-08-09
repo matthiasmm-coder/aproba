@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
-import { agruparPorTema, fmtPct, normTema } from "@/lib/servicios";
+import { agruparPorTema, fmtPct, normTema, packPct, packRebajado } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
 
 // ESPACIO PERSISTENTE DEL CLIENTE — la cara visible de /c/[token]: sus trámites en curso
@@ -21,7 +21,7 @@ export type EspacioExp = {
   fecha: string;        // dd/mm/aaaa
 };
 export type EspacioServicio = { id: string; label: string; precio: number; precioOculto?: boolean; porcentaje?: number; porcentajeSobre?: string; categoria?: string };
-export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; precioOculto?: boolean; categoria?: string };
+export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; descuentoPct?: number; precioOculto?: boolean; categoria?: string };
 
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
@@ -55,28 +55,31 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
   const nombreServicio = (id: string | null, original: string) => (id ? servicioLabel(id, original, lang) : original);
   // Un pack puede citar servicios que el despacho borró después: solo cuentan los vivos.
   const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
+  const packSel = packs.find((pk) => pk.id === packId) ?? null;
+  const enPack = (id: string) => svDe(packSel?.servicioIds ?? []).includes(id);
+  // Lo que se pide: servicios del pack + los marcados aparte, en orden de catálogo.
+  const pedido = servicios.filter((s) => enPack(s.id) || sel.has(s.id)).map((s) => s.id);
 
   function toggle(id: string) {
+    if (enPack(id)) return; // ya viene en el pack: marcarlo no cambiaría nada
     setSel((s) => {
       const n = new Set(s);
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
-    // Quitar a mano un servicio del pack elegido lo deja incompleto: se desmarca
-    // el pack, pero los demás servicios se quedan (misma regla que el portal /j).
-    if (sel.has(id) && packId && svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []).includes(id)) setPackId(null);
     setError(null);
   }
 
   async function solicitar() {
-    if (!sel.size || estado !== "idle") return;
+    if (!pedido.length || estado !== "idle") return;
     setEstado("enviando");
     setError(null);
     try {
       const res = await fetch("/api/espacio/solicitar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, servicios: [...sel] }),
+        // `pack` va como ID: el % lo lee el servidor del catálogo del despacho.
+        body: JSON.stringify({ token, servicios: pedido, ...(packId ? { pack: packId } : {}) }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -91,28 +94,23 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
     }
   }
 
-  const seleccion = servicios.filter((s) => sel.has(s.id));
+  // Carrito = servicios del pack + los marcados aparte, sin duplicados y en orden
+  // de catálogo (el primero será el principal del expediente).
+  const seleccion = servicios.filter((s) => pedido.includes(s.id));
   // Si algún servicio elegido es «precio a consultar», un total parcial mentiría.
   const totalOculto = seleccion.some((s) => s.precioOculto);
-  const total = totalOculto ? 0 : seleccion.reduce((sum, s) => sum + s.precio, 0);
+  // El descuento del pack se aplica al PEDIDO entero: es lo que el servidor guarda
+  // en el expediente, así que pantalla y factura no pueden divergir.
+  const bruto = seleccion.reduce((sum, s) => sum + s.precio, 0);
+  const total = totalOculto ? 0 : (packSel ? packRebajado(bruto, packSel) : bruto);
 
-  // Un pack elegido = sus servicios seleccionados (la solicitud ya admite varios),
-  // pero UNO a la vez: dos packs se solaparían y el cliente no sabría qué ha pedido.
-  // Se guarda cuál está elegido en vez de deducirlo de los servicios marcados —
-  // así marcarlos a mano no «inventa» un pack. Misma regla que el portal /j.
+  // Elegir un pack NO marca sus servicios (pedido de Matthias): es UNA elección,
+  // no un atajo que rellena casillas. UNO a la vez — dos packs se solaparían.
+  // Lo que se pide = servicios del pack + los marcados aparte.
   const packDentro = (pk: EspacioPack) => packId === pk.id;
   function togglePack(pk: EspacioPack) {
-    const ids = svDe(pk.servicioIds);
-    if (!ids.length) return;
-    const quitar = packId === pk.id;
-    const delAnterior = quitar ? [] : svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []);
-    setSel((prev) => {
-      const n = new Set(prev);
-      if (quitar) ids.forEach((id) => n.delete(id));
-      else { delAnterior.forEach((id) => n.delete(id)); ids.forEach((id) => n.add(id)); }
-      return n;
-    });
-    setPackId(quitar ? null : pk.id);
+    if (!svDe(pk.servicioIds).length) return;
+    setPackId(packId === pk.id ? null : pk.id);
     setError(null);
   }
 
@@ -209,18 +207,36 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                       <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <span className="min-w-0 text-sm font-bold text-slate-900">{pk.nombre}</span>
-                        {pk.precioOculto
-                          ? <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
-                          : pk.precioDesde > 0 && <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-aproba-700">{t("precio.desde", { p: fmtEur(pk.precioDesde) })}</span>}
+                        {/* Precio calculado: suma de los servicios incluidos menos el
+                            descuento del pack. Nada que teclear, nada que divergir. */}
+                        {(() => {
+                          const svs = svDe(pk.servicioIds).map((id) => servicios.find((x) => x.id === id)).filter((x): x is EspacioServicio => Boolean(x));
+                          if (pk.precioOculto || svs.some((sv) => sv.precioOculto)) {
+                            return <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>;
+                          }
+                          const brutoPk = svs.reduce((a, sv) => a + sv.precio, 0);
+                          if (brutoPk <= 0) return null;
+                          const pct = packPct(pk);
+                          return (
+                            <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-aproba-700">
+                              {pct > 0 && <span className="mr-1.5 font-normal text-slate-400 line-through">{fmtEur(brutoPk)}</span>}
+                              {fmtEur(packRebajado(brutoPk, pk))}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {pk.desc && <p className="mt-0.5 text-xs text-slate-500">{pk.desc}</p>}
                       <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: svDe(pk.servicioIds).map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
                     </button>
                   );
               };
-              const filaServicio = (s: EspacioServicio) => (
-                <label key={s.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${sel.has(s.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 hover:border-slate-300"}`}>
-                  <input type="checkbox" checked={sel.has(s.id)} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600" />
+              const filaServicio = (s: EspacioServicio) => {
+                // Ya incluido en el pack elegido: casilla marcada pero inerte — pulsarla
+                // no cambiaría ni el pedido ni el precio.
+                const incluido = enPack(s.id);
+                return (
+                <label key={s.id} className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition ${incluido ? "border-slate-200 bg-slate-50" : `cursor-pointer ${sel.has(s.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 hover:border-slate-300"}`}`}>
+                  <input type="checkbox" checked={sel.has(s.id)} disabled={incluido} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600 disabled:opacity-40" />
                   <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">
                     {servicioLabel(s.id, s.label, lang)}
                     {Boolean(s.porcentaje) && !s.precioOculto && (
@@ -229,11 +245,13 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                       </span>
                     )}
                   </span>
+                  {incluido && <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span>}
                   {s.precioOculto
-                    ? <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
-                    : s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
+                    ? <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
+                    : s.precio > 0 && <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-slate-600">{fmtEur(s.precio)}</span>}
                 </label>
               );
+              };
               // Pack sin ningún servicio vivo = tarjeta que no se puede pedir: fuera.
               const packsVivos = packs.filter((pk) => svDe(pk.servicioIds).length > 0);
               const gruposSrv = agruparPorTema(servicios);
@@ -285,7 +303,7 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
               <button
                 type="button"
                 onClick={solicitar}
-                disabled={!sel.size || estado !== "idle"}
+                disabled={!pedido.length || estado !== "idle"}
                 className="mt-4 w-full rounded-xl bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
               >
                 {estado === "enviando" ? t("esp.enviando") : `${t("esp.solicitar")}${total > 0 ? ` · ${fmtEur(total)}` : ""}`}
