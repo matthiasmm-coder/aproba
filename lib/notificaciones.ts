@@ -594,15 +594,25 @@ export async function enviarConfirmacionCitaPrevia(opts: {
           ${ibanBox}${botonTarjeta}
         </td></tr></table>`
       : "";
+    // Con cobro, el botón de la videollamada NO puede quedar debajo del recuadro de
+    // pago (el layout pone su CTA al final): unirse a la reunión es la acción del día,
+    // pagar puede esperar. Se pinta aquí, justo ENCIMA del bloque verde, y el layout
+    // se queda sin CTA para no duplicarlo. Sin cobro, todo sigue igual.
+    const etiquetaVideo = provLabel ? `Unirse a la videollamada (${provLabel})` : "Unirse a la videollamada";
+    const botonVideo = esVideo && opts.videoEnlace && c
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:20px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.videoEnlace}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${etiquetaVideo}</a></td></tr></table></td></tr></table>`
+      : "";
     const cuerpoHtml = `<p style="margin:0 0 12px">${intro}</p>
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>
-      ${bloquePago}`;
+      ${botonVideo}${bloquePago}`;
     const html = emailLayout({
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
       // Videollamada → botón para unirse; la invitación .ics va adjunta.
-      cta: esVideo && opts.videoEnlace ? { url: opts.videoEnlace, label: provLabel ? `Unirse a la videollamada (${provLabel})` : "Unirse a la videollamada" } : null,
+      // Sin cobro: el botón va donde siempre (al final, vía el layout). Con cobro ya
+      // está pintado encima del bloque de pago — no repetirlo.
+      cta: esVideo && opts.videoEnlace && !c ? { url: opts.videoEnlace, label: etiquetaVideo } : null,
       footerNota: `Mensaje de ${opts.gestoria}. Por favor, no respondas a este correo.`,
       preheader: mod ? `Cita modificada: ${cuando}` : `Cita: ${cuando}`,
     });

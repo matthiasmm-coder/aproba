@@ -64,6 +64,32 @@ describe("email de cita con cobro", () => {
     expect(msg.html).toContain("/api/pagos/checkout?f=fac-123");
   });
 
+  it("videollamada + cobro: el botón de unirse va ENCIMA del bloque de pago, y una sola vez", async () => {
+    enviados.length = 0;
+    const { enviarConfirmacionCitaPrevia } = await import("./notificaciones");
+    await enviarConfirmacionCitaPrevia({
+      ...base, videoProveedor: "meet", videoEnlace: "https://meet.google.com/abc-defg-hij",
+      cobro: { ...cobroBase, transferencia: true, tarjeta: true },
+    });
+    const html = enviados[0].html;
+    const unirse = html.indexOf("Unirse a la videollamada");
+    const pago = html.indexOf("Importe a pagar");
+    expect(unirse).toBeGreaterThan(-1);
+    expect(pago).toBeGreaterThan(-1);
+    expect(unirse).toBeLessThan(pago); // el botón, primero
+    expect(html.split("meet.google.com/abc-defg-hij").length - 1).toBe(1); // un solo botón
+  });
+
+  it("videollamada SIN cobro: el botón sigue al final, como siempre", async () => {
+    enviados.length = 0;
+    const { enviarConfirmacionCitaPrevia } = await import("./notificaciones");
+    await enviarConfirmacionCitaPrevia({
+      ...base, videoProveedor: "meet", videoEnlace: "https://meet.google.com/abc-defg-hij", cobro: null,
+    });
+    expect(enviados[0].html).toContain("Unirse a la videollamada (Google Meet)");
+    expect(enviados[0].html).not.toContain("Importe a pagar");
+  });
+
   it("transferencia sin cuenta bancaria: no inventa un IBAN", async () => {
     const { msg } = await enviar({ ...cobroBase, cuenta: null, transferencia: true, tarjeta: false });
     expect(msg.html).toContain("Tu gestoría te facilitará los datos");
