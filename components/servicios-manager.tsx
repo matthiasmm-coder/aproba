@@ -120,6 +120,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
   // Tarjetas plegadas por defecto: la lista se escanea (nombre · precio · docs) y solo
   // se despliega el servicio que se está editando — antes eran ~8 pantallas de campos.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
+  const [packsAbiertos, setPacksAbiertos] = useState<Record<string, boolean>>({});
   const [nuevoDoc, setNuevoDoc] = useState<Record<string, string>>({});
   const removed = useRef<Set<string>>(new Set());
   const mounted = useRef(false);
@@ -558,6 +559,15 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   label={p.nombre || t("Pack")}
                   {...dndPacks.asa(p.id)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setPacksAbiertos((a) => ({ ...a, [p.id]: !a[p.id] }))}
+                  aria-expanded={Boolean(packsAbiertos[p.id])}
+                  aria-label={t("Mostrar u ocultar los detalles del pack")}
+                  className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                >
+                  <svg className={`h-4 w-4 transition-transform ${packsAbiertos[p.id] ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                </button>
                 <input
                   value={p.nombre}
                   placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")}
@@ -572,6 +582,26 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                 </button>
               </div>
+              {/* Plegado: una línea que dice lo esencial (lo que verá el cliente,
+                  cuántos servicios lleva y su tema). Pulsarla abre la tarjeta. */}
+              {!packsAbiertos[p.id] && (() => {
+                const { total, pct } = packPrecio(p, servicios);
+                const n = p.servicioIds.length;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setPacksAbiertos((a) => ({ ...a, [p.id]: true }))}
+                    className="mt-1 block w-full pl-14 text-left text-xs text-slate-400 transition hover:text-slate-600"
+                  >
+                    {p.precioOculto ? t("Precio a consultar") : total > 0 ? eur(total) : t("Sin precio")}
+                    {!p.precioOculto && pct > 0 ? ` · −${fmtPct(pct)} %` : ""}
+                    {" · "}{n === 1 ? t("1 servicio") : `${n} ${t("servicios")}`}
+                    {p.categoria?.trim() ? ` · ${p.categoria.trim()}` : ""}
+                  </button>
+                );
+              })()}
+
+              <div hidden={!packsAbiertos[p.id]}>
               <input
                 value={p.desc}
                 placeholder={t("Descripción breve (la verá el cliente)")}
@@ -637,12 +667,17 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
               </div>
 
               <div className="mt-3">{campoTema(p.categoria, (v) => updatePack(p.id, { categoria: v }))}</div>
+              </div>
             </div>
           ))}
         </div>
 
         <button
-          onClick={() => setPacks((list) => [...list, newPack()])}
+          onClick={() => {
+            const nuevo = newPack();
+            setPacks((list) => [...list, nuevo]);
+            setPacksAbiertos((a) => ({ ...a, [nuevo.id]: true })); // recién creado → abierto para configurarlo
+          }}
           className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-aproba-400 hover:text-aproba-700"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
