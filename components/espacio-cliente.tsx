@@ -32,6 +32,7 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [packId, setPackId] = useState<string | null>(null);
   const [estado, setEstado] = useState<"idle" | "enviando" | "ok">("idle");
   const [error, setError] = useState<string | null>(null);
   const t = makeT(lang);
@@ -52,6 +53,8 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
   }
 
   const nombreServicio = (id: string | null, original: string) => (id ? servicioLabel(id, original, lang) : original);
+  // Un pack puede citar servicios que el despacho borró después: solo cuentan los vivos.
+  const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
 
   function toggle(id: string) {
     setSel((s) => {
@@ -59,6 +62,9 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
+    // Quitar a mano un servicio del pack elegido lo deja incompleto: se desmarca
+    // el pack, pero los demás servicios se quedan (misma regla que el portal /j).
+    if (sel.has(id) && packId && svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []).includes(id)) setPackId(null);
     setError(null);
   }
 
@@ -90,15 +96,23 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
   const totalOculto = seleccion.some((s) => s.precioOculto);
   const total = totalOculto ? 0 : seleccion.reduce((sum, s) => sum + s.precio, 0);
 
-  // Un pack se «elige» seleccionando todos sus servicios (la solicitud ya admite varios).
-  const packDentro = (pk: EspacioPack) => pk.servicioIds.length > 0 && pk.servicioIds.every((id) => sel.has(id));
+  // Un pack elegido = sus servicios seleccionados (la solicitud ya admite varios),
+  // pero UNO a la vez: dos packs se solaparían y el cliente no sabría qué ha pedido.
+  // Se guarda cuál está elegido en vez de deducirlo de los servicios marcados —
+  // así marcarlos a mano no «inventa» un pack. Misma regla que el portal /j.
+  const packDentro = (pk: EspacioPack) => packId === pk.id;
   function togglePack(pk: EspacioPack) {
+    const ids = svDe(pk.servicioIds);
+    if (!ids.length) return;
+    const quitar = packId === pk.id;
+    const delAnterior = quitar ? [] : svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []);
     setSel((prev) => {
       const n = new Set(prev);
-      if (packDentro(pk)) pk.servicioIds.forEach((id) => n.delete(id));
-      else pk.servicioIds.forEach((id) => n.add(id));
+      if (quitar) ids.forEach((id) => n.delete(id));
+      else { delAnterior.forEach((id) => n.delete(id)); ids.forEach((id) => n.add(id)); }
       return n;
     });
+    setPackId(quitar ? null : pk.id);
     setError(null);
   }
 
@@ -188,16 +202,19 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                       type="button"
                       aria-pressed={dentro}
                       onClick={() => togglePack(pk)}
-                      className={`w-full rounded-xl border-2 px-4 py-3 text-left transition ${dentro ? "border-aproba-600 bg-aproba-50" : "border-aproba-200 bg-aproba-50/40 hover:border-aproba-400"}`}
+                      className={`w-full rounded-xl border-2 px-4 py-3 text-left transition ${dentro ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}
                     >
-                      <div className="flex items-baseline justify-between gap-3">
+                      {/* Mismo lenguaje que el portal /j: el verde solo para lo elegido,
+                          y un distintivo gris para distinguir un pack de un servicio. */}
+                      <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <span className="min-w-0 text-sm font-bold text-slate-900">{pk.nombre}</span>
                         {pk.precioOculto
-                          ? <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
-                          : pk.precioDesde > 0 && <span className="shrink-0 text-sm font-semibold text-aproba-700">{t("precio.desde", { p: fmtEur(pk.precioDesde) })}</span>}
+                          ? <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
+                          : pk.precioDesde > 0 && <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-aproba-700">{t("precio.desde", { p: fmtEur(pk.precioDesde) })}</span>}
                       </div>
                       {pk.desc && <p className="mt-0.5 text-xs text-slate-500">{pk.desc}</p>}
-                      <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: pk.servicioIds.map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
+                      <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: svDe(pk.servicioIds).map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
                     </button>
                   );
               };
@@ -217,13 +234,15 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                     : s.precio > 0 && <span className="shrink-0 text-sm font-semibold text-slate-600">{fmtEur(s.precio)}</span>}
                 </label>
               );
+              // Pack sin ningún servicio vivo = tarjeta que no se puede pedir: fuera.
+              const packsVivos = packs.filter((pk) => svDe(pk.servicioIds).length > 0);
               const gruposSrv = agruparPorTema(servicios);
-              const gruposPack = agruparPorTema(packs);
+              const gruposPack = agruparPorTema(packsVivos);
               const conTema = [...gruposSrv, ...gruposPack].some((g) => g.clave);
               if (!conTema) {
                 return (
                   <>
-                    {packs.length > 0 && <div className="mt-3 space-y-2">{packs.map(tarjetaPack)}</div>}
+                    {packsVivos.length > 0 && <div className="mt-3 space-y-2">{packsVivos.map(tarjetaPack)}</div>}
                     <div className="mt-3 space-y-2">{servicios.map(filaServicio)}</div>
                   </>
                 );
@@ -233,11 +252,11 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
               const claves: string[] = [];
               for (const g of [...gruposSrv, ...gruposPack]) if (g.clave && !claves.includes(g.clave)) claves.push(g.clave);
               const tituloDe = (c: string) => [...gruposSrv, ...gruposPack].find((g) => g.clave === c)?.titulo || "";
-              const sueltos = { packs: packs.filter((p) => !normTema(p.categoria)), servicios: servicios.filter((x) => !normTema(x.categoria)) };
+              const sueltos = { packs: packsVivos.filter((p) => !normTema(p.categoria)), servicios: servicios.filter((x) => !normTema(x.categoria)) };
               return (
                 <div className="mt-3 space-y-2">
                   {claves.map((c) => {
-                    const ps = packs.filter((p) => normTema(p.categoria) === c);
+                    const ps = packsVivos.filter((p) => normTema(p.categoria) === c);
                     const ss = servicios.filter((x) => normTema(x.categoria) === c);
                     const n = ps.length + ss.length;
                     return (
