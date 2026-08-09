@@ -94,14 +94,17 @@ export async function POST(req: Request) {
     }
   }
 
-  // Pack elegido por el CLIENTE en el portal: los demás servicios del pack viajan como
-  // extras. Se validan contra el catálogo del workspace (nunca se escribe una clave que
-  // el cliente haya podido inventar) y se excluye el principal para no duplicarlo.
-  if (!extraCols.serviciosExtra && Array.isArray(body.extras) && body.extras.length) {
+  // Selección múltiple del CLIENTE (pack o servicios sueltos): los demás servicios
+  // viajan como extras. Se validan contra el catálogo del workspace (nunca se escribe
+  // una clave inventada) y se excluye el principal para no duplicarlo.
+  // La lista es AUTORITATIVA: si el cliente vuelve atrás y quita servicios, manda un
+  // array vacío y hay que BORRAR los extras — si no, la factura seguiría cobrando
+  // servicios que ya no están en pantalla.
+  if (!extraCols.serviciosExtra && Array.isArray(body.extras)) {
     const validos = catalogo.length
       ? body.extras.map((x) => String(x)).filter((x) => x !== clave && catalogo.some((sv) => sv.id === x))
       : [];
-    if (validos.length) extraCols = { ...extraCols, serviciosExtra: [...new Set(validos)].slice(0, 10) };
+    extraCols = { ...extraCols, serviciosExtra: [...new Set(validos)].slice(0, 10) };
   }
 
   const tipo = SERVICIO_A_TIPO[clave] ?? "OTRO";

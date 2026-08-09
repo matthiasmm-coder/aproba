@@ -110,6 +110,18 @@ export const UI: Record<string, Tr> = {
     es: "desde {p}", en: "from {p}", fr: "\u00e0 partir de {p}", it: "da {p}",
     de: "ab {p}", ar: "\u0627\u0628\u062a\u062f\u0627\u0621\u064b \u0645\u0646 {p}", ro: "de la {p}", zh: "{p} \u8d77",
   },
+  "tema.pack": {
+    es: "Pack", en: "Bundle", fr: "Pack", it: "Pacchetto",
+    de: "Paket", ar: "\u0628\u0627\u0642\u0629", ro: "Pachet", zh: "\u5957\u9910",
+  },
+  "sel.total": {
+    es: "Total {p}", en: "Total {p}", fr: "Total {p}", it: "Totale {p}",
+    de: "Gesamt {p}", ar: "\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a {p}", ro: "Total {p}", zh: "\u5408\u8ba1 {p}",
+  },
+  "sel.nServicios": {
+    es: "{n} servicios elegidos", en: "{n} services selected", fr: "{n} services choisis", it: "{n} servizi scelti",
+    de: "{n} Leistungen gew\u00e4hlt", ar: "\u062a\u0645 \u0627\u062e\u062a\u064a\u0627\u0631 {n} \u062e\u062f\u0645\u0627\u062a", ro: "{n} servicii alese", zh: "\u5df2\u9009 {n} \u9879\u670d\u52a1",
+  },
   "esp.packIncluye": {
     es: "Incluye: {lista}", en: "Includes: {lista}", fr: "Comprend\u00a0: {lista}", it: "Include: {lista}",
     de: "Enth\u00e4lt: {lista}", ar: "\u064a\u0634\u0645\u0644: {lista}", ro: "Include: {lista}", zh: "\u5305\u542b\uff1a{lista}",

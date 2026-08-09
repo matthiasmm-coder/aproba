@@ -222,29 +222,45 @@ export function ClientPortal({
     return packs.find((pk) => (pk.servicioIds ?? []).length > 0 && (pk.servicioIds ?? []).every((id) => sel.has(id)))?.id ?? null;
   });
   const svDe = (ids: string[]) => ids.filter((id) => servicios.some((sv) => sv.id === id));
-  function elegirPack(pk: Pack) {
+  // El cliente puede elegir VARIOS servicios (pedido de Matthias). Un único carrito:
+  // principal = el primero en el orden del catálogo, extras = el resto. Guardarlo así
+  // (y no como un Set aparte) mantiene intactos precio, documentos y confirmación,
+  // que ya sabían tratar principal + extras desde el multi-servicio del gestor.
+  const seleccion = tramiteId ? [tramiteId, ...extrasClaves.filter((c) => c !== tramiteId)] : [];
+  function aplicarSeleccion(ids: string[]) {
+    const orden = servicios.filter((sv) => ids.includes(sv.id)).map((sv) => sv.id);
+    setTramiteId(orden[0] ?? null);
+    setExtrasClaves(orden.slice(1));
+    return orden;
+  }
+  // Packs: UNO a la vez (dos packs se solaparían y cobrarían el mismo servicio dos
+  // veces). Volver a pulsarlo lo quita, con sus servicios.
+  function togglePack(pk: Pack) {
     const ids = svDe(pk.servicioIds ?? []);
     if (!ids.length) return;
+    if (packId === pk.id) {
+      aplicarSeleccion(seleccion.filter((c) => !ids.includes(c)));
+      setPackId(null);
+      return;
+    }
+    const delAnterior = svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []);
+    aplicarSeleccion([...seleccion.filter((c) => !delAnterior.includes(c)), ...ids]);
     setPackId(pk.id);
-    setTramiteId(ids[0]);
-    setExtrasClaves(ids.slice(1));
   }
-  function elegirServicio(id: string) {
-    setPackId(null);
-    setTramiteId(id);
-    setExtrasClaves(serviciosExtraClaves ?? []);
+  // Un servicio se marca y se desmarca pulsándolo. Si se quita uno que venía de un
+  // pack, el pack deja de estar completo → se desmarca, pero los demás se quedan.
+  function toggleServicio(id: string) {
+    const dentro = seleccion.includes(id);
+    aplicarSeleccion(dentro ? seleccion.filter((c) => c !== id) : [...seleccion, id]);
+    if (dentro && packId && svDe(packs.find((x) => x.id === packId)?.servicioIds ?? []).includes(id)) setPackId(null);
   }
   const extrasServicios = extrasClaves
     .filter((c) => c !== tramiteId)
     .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
     .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv));
-  // Precio mostrado en una tarjeta de servicio SUELTO: lo que costaría al pulsarla,
-  // o sea con los extras del gestor (pulsarla borra el pack), nunca con los del pack.
-  const extrasTarjeta = packId
-    ? (serviciosExtraClaves ?? [])
-        .map((c) => (serviciosProp ?? DEFAULT_SERVICIOS).find((sv) => sv.id === c))
-        .filter((sv): sv is NonNullable<typeof sv> => Boolean(sv))
-    : extrasServicios;
+  // Cada tarjeta enseña SU precio: con selección múltiple, sumar los demás en cada
+  // tarjeta sería ilegible y cambiaría a cada clic. El total va en el botón Continuar.
+  const extrasTarjeta: Servicio[] = [];
   const docsBase = [...(tramite?.docs ?? [])];
   for (const sv of extrasServicios) for (const d of sv.docs ?? []) if (!docsBase.includes(d)) docsBase.push(d);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
@@ -403,10 +419,12 @@ export function ClientPortal({
     setErrorPaso(null);
     if (token && tramiteId) {
       setGuardandoDatos(true);
-      // Pack: el servidor recibe también los extras (los valida contra el catálogo).
-      const ok = await postSeguro("/api/portal/iniciar", packId
-        ? { token, clave: tramiteId, extras: extrasClaves }
-        : { token, clave: tramiteId });
+      // Selección múltiple (pack o servicios sueltos): los extras viajan SIEMPRE con
+      // el principal, también vacíos — así, si el cliente vuelve atrás y quita
+      // servicios, el servidor los borra en vez de seguir cobrándolos.
+      const ok = await postSeguro("/api/portal/iniciar", {
+        token, clave: tramiteId, extras: extrasClaves.filter((c) => c !== tramiteId),
+      });
       setGuardandoDatos(false);
       if (!ok) { setErrorPaso(t("common.errorGuardar")); return; }
     }
@@ -610,13 +628,22 @@ export function ClientPortal({
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s0.hola", { nombre: nombreCliente })}</h1>
             <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
-            {/* Servicios adicionales puestos por la gestoría: el precio de las tarjetas
-                subiría «sin explicación» en el pago — se anuncian ANTES de elegir. */}
-            {extrasServicios.length > 0 && (
-              <div className="mt-4 rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3 text-sm text-aproba-800">
-                {t("s0.extras", { lista: extrasServicios.map((sv) => servicioLabel(sv.id, sv.label, lang)).join(" + ") })}
-              </div>
-            )}
+            {/* Servicios adicionales puestos por LA GESTORÍA: el precio de las tarjetas
+                subiría «sin explicación» en el pago — se anuncian ANTES de elegir.
+                Solo los del gestor: desde que el cliente elige varios servicios, los
+                suyos también viven en extras y este aviso mentiría («tu gestoría ha
+                añadido» lo que acaba de marcar él). */}
+            {(() => {
+              const delGestor = (serviciosExtraClaves ?? [])
+                .map((c) => servicios.find((sv) => sv.id === c))
+                .filter((sv): sv is Servicio => Boolean(sv));
+              if (!delGestor.length) return null;
+              return (
+                <div className="mt-4 rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3 text-sm text-aproba-800">
+                  {t("s0.extras", { lista: delGestor.map((sv) => servicioLabel(sv.id, sv.label, lang)).join(" + ") })}
+                </div>
+              );
+            })()}
             {familia && token ? (
               /* ── Página 1 (familia): DATOS de cada miembro + casilla «el trámite es para
                     esta persona»; los servicios se eligen en la página siguiente. ── */
@@ -644,19 +671,17 @@ export function ClientPortal({
               {(() => {
                 const grupos = agruparPorTema(servicios);
                 const conTema = grupos.some((g) => g.clave);
-                // Con un pack elegido, su principal NO se marca: dos tarjetas marcadas
-                // a la vez (el pack y un servicio suelto) se leerían como «elijo varios».
-                const marcado = (id: string) => !packId && tramiteId === id;
+                const marcado = (id: string) => seleccion.includes(id);
                 const tarjeta = (tr: Servicio) => (
                 <button
                   key={tr.id}
-                  onClick={() => elegirServicio(tr.id)}
+                  onClick={() => toggleServicio(tr.id)}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
                     marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <div className="min-w-0">
-                    <div className="flex items-baseline justify-between gap-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
                           + tasas — el mismo importe que verá al pagar (nada sube «después»).
@@ -700,7 +725,9 @@ export function ClientPortal({
                       {nMiembros > 1 && !asig && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
                     </p>}
                   </div>
-                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
+                  {/* Casilla CUADRADA: se pueden elegir varios servicios. El redondel
+                      del pack (abajo) sigue redondo porque solo cabe uno. */}
+                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
                     {marcado(tr.id) && <Check className="h-3 w-3" />}
                   </span>
                 </button>
@@ -716,14 +743,15 @@ export function ClientPortal({
                       key={pk.id}
                       type="button"
                       aria-pressed={dentro}
-                      onClick={() => elegirPack(pk)}
+                      onClick={() => togglePack(pk)}
                       className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
-                        dentro ? "border-aproba-600 bg-aproba-50" : "border-aproba-200 bg-aproba-50/40 hover:border-aproba-400"
+                        dentro ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <p className="font-semibold text-slate-900">{pk.nombre}</p>
+                        <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                          <p className="min-w-0 font-semibold text-slate-900">{pk.nombre}</p>
                           {pk.precioOculto
                             ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
                             : pk.precioDesde > 0 && <p className="shrink-0 text-right text-sm font-bold text-aproba-700">{t("precio.desde", { p: eur(pk.precioDesde) })}</p>}
@@ -759,7 +787,7 @@ export function ClientPortal({
                           key={c}
                           titulo={tituloDe(c)}
                           resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}
-                          abiertoInicial={ss.some((x) => x.id === tramiteId) || ps.some((pk) => pk.id === packId)}
+                          abiertoInicial={ss.some((x) => marcado(x.id)) || ps.some((pk) => pk.id === packId)}
                         >
                           {ps.map(tarjetaPack)}
                           {ss.map((tr) => tarjeta(tr))}
@@ -770,7 +798,7 @@ export function ClientPortal({
                       <TemaPlegable
                         titulo={t("tema.otros")}
                         resumen={sinTema.packs.length + sinTema.servicios.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: sinTema.packs.length + sinTema.servicios.length })}
-                        abiertoInicial={sinTema.servicios.some((x) => x.id === tramiteId) || sinTema.packs.some((pk) => pk.id === packId)}
+                        abiertoInicial={sinTema.servicios.some((x) => marcado(x.id)) || sinTema.packs.some((pk) => pk.id === packId)}
                       >
                         {sinTema.packs.map(tarjetaPack)}
                         {sinTema.servicios.map((tr) => tarjeta(tr))}
@@ -780,10 +808,25 @@ export function ClientPortal({
                 );
               })()}
             </div>
+            {/* Con varios servicios elegidos, el total ya no cabe en ninguna tarjeta:
+                va aquí, y es el mismo importe que verá en el paso de pago. */}
+            {seleccion.length > 1 && (
+              <p className="mt-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-xl bg-slate-50 px-4 py-3 text-sm">
+                <span className="font-medium text-slate-600">{t("sel.nServicios", { n: seleccion.length })}</span>
+                {carritoOculto
+                  ? <span className="font-semibold text-slate-500">{t("precio.consultar")}</span>
+                  : (() => {
+                      const reb = aplicarDescuento(tarifaAsignada([...(tramite ? [tramite] : []), ...extrasServicios], asig, nMiembros), 1, descuento);
+                      const total = r2(totalDe(reb.anticipo) + totalDe(reb.resto))
+                        + (suplidosUnitTotal ?? [...(tramite ? [tramite] : []), ...extrasServicios].reduce((a, sv) => a + suplidosUnit(sv), 0)) * nMiembros;
+                      return <span className="font-bold text-slate-900">{t("sel.total", { p: eur(total) })}</span>;
+                    })()}
+              </p>
+            )}
             <button
               disabled={!tramiteId}
               onClick={confirmarTramite}
-              className="mt-7 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              className="mt-4 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
             >
               {t("common.continuar")}
             </button>
