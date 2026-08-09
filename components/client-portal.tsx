@@ -733,6 +733,7 @@ export function ClientPortal({
                       </p>}
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
+                    {incluido && <p className="mt-1"><span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span></p>}
                     {Boolean(tr.porcentaje) && !tr.precioOculto && (
                       <p className="mt-1 text-xs font-medium text-slate-500">
                         {tr.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(tr.porcentaje ?? 0), sobre: tr.porcentajeSobre.trim() }) : `+ ${fmtPct(tr.porcentaje ?? 0)} %`}
@@ -756,11 +757,12 @@ export function ClientPortal({
                   </div>
                   {/* Casilla CUADRADA: se pueden elegir varios servicios. El redondel
                       del pack (abajo) sigue redondo porque solo cabe uno. */}
-                  {incluido
-                    ? <span className="ml-3 shrink-0 rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span>
-                    : <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>
-                        {marcado(tr.id) && <Check className="h-3 w-3" />}
-                      </span>}
+                  <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                    incluido ? "border-slate-300 bg-slate-300 text-white"
+                      : marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"
+                  }`}>
+                    {(incluido || marcado(tr.id)) && <Check className="h-3 w-3" />}
+                  </span>
                 </button>
                 );
                 };
@@ -781,7 +783,12 @@ export function ClientPortal({
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                        <span className="mb-1 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                          {packPct(pk) > 0 && !pk.precioOculto && (
+                            <span dir="ltr" className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-bold text-aproba-700">−{fmtPct(packPct(pk))} %</span>
+                          )}
+                        </span>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                           <p className="min-w-0 font-semibold text-slate-900">{pk.nombre}</p>
                           {/* El precio del pack NO se teclea: es la suma de sus servicios

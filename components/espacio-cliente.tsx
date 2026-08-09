@@ -204,7 +204,12 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                     >
                       {/* Mismo lenguaje que el portal /j: el verde solo para lo elegido,
                           y un distintivo gris para distinguir un pack de un servicio. */}
-                      <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                      <span className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
+                        {packPct(pk) > 0 && !pk.precioOculto && (
+                          <span dir="ltr" className="rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-bold text-aproba-700">−{fmtPct(packPct(pk))} %</span>
+                        )}
+                      </span>
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <span className="min-w-0 text-sm font-bold text-slate-900">{pk.nombre}</span>
                         {/* Precio calculado: suma de los servicios incluidos menos el
@@ -239,13 +244,14 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                   <input type="checkbox" checked={sel.has(s.id)} disabled={incluido} onChange={() => toggle(s.id)} className="h-4 w-4 accent-aproba-600 disabled:opacity-40" />
                   <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">
                     {servicioLabel(s.id, s.label, lang)}
+                    {/* En su PROPIA línea: en línea con el nombre se parte en dos a 375 px. */}
+                    {incluido && <span className="mt-1 block"><span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span></span>}
                     {Boolean(s.porcentaje) && !s.precioOculto && (
                       <span className="mt-0.5 block text-xs font-normal text-slate-400">
                         {s.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(s.porcentaje ?? 0), sobre: s.porcentajeSobre.trim() }) : `+ ${fmtPct(s.porcentaje ?? 0)} %`}
                       </span>
                     )}
                   </span>
-                  {incluido && <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span>}
                   {s.precioOculto
                     ? <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{t("precio.consultar")}</span>
                     : s.precio > 0 && <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-slate-600">{fmtEur(s.precio)}</span>}

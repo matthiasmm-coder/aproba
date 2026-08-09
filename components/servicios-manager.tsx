@@ -326,7 +326,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
               <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("Al firmar")}</span>
-                  <div className="relative">
+                  <div className="relative inline-block">
                     <input type="number" min={0} step={10} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { anticipo: v, precio: v + s.resto }); }}
                       className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
@@ -336,7 +336,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 <span className="pb-2.5 text-slate-300">+</span>
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("Al finalizar")}</span>
-                  <div className="relative">
+                  <div className="relative inline-block">
                     <input type="number" min={0} step={10} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { resto: v, precio: s.anticipo + v }); }}
                       className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
@@ -363,7 +363,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
               <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2">
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("+ Porcentaje (opcional)")}</span>
-                  <div className="relative">
+                  <div className="relative inline-block">
                     <input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); update(s.id, { porcentaje: v || undefined }); }}
                       className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
@@ -409,7 +409,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                       onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, concepto: e.target.value } : x) })}
                       className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
                     />
-                    <div className="relative">
+                    <div className="relative inline-block">
                       <input type="number" min={0} step={0.01} value={sup.importe || ""} placeholder="0" onFocus={(e) => e.target.select()}
                         onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, importe: Math.max(0, Number(e.target.value) || 0) } : x) })}
                         className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
@@ -610,7 +610,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 </div>
                 <label className="block">
                   <span className="mb-1 block text-xs text-slate-500">{t("Descuento del pack")}</span>
-                  <div className="relative">
+                  <div className="relative inline-block">
                     <input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       disabled={Boolean(p.precioOculto)}
                       onChange={(e) => updatePack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })}

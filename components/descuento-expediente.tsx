@@ -65,7 +65,7 @@ export function DescuentoExpediente({ expedienteId, inicial, tarifa, nMiembros }
             </button>
           ))}
         </div>
-        <div className="relative">
+        <div className="relative inline-block">
           <input
             type="number" min={0} max={tipo === "PORCENTAJE" ? 100 : undefined} step={tipo === "PORCENTAJE" ? 1 : 5}
             value={valor || ""} placeholder="0" aria-label={t("Valor del descuento")} onFocus={(e) => e.target.select()}
