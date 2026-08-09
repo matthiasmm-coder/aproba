@@ -32,3 +32,24 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, url });
 }
+
+// Quitar la foto: se borra el objeto del bucket y se limpia User.avatarUrl (se vuelve
+// a las iniciales). La ruta del fichero se deduce de la URL guardada — el nombre es
+// siempre `<userId>.<ext>`, pero la extensión depende de lo que subió.
+export async function DELETE() {
+  const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const admin = createSupabaseAdmin();
+  const { data: fila } = await admin.from("User").select("avatarUrl").eq("id", user.id).maybeSingle();
+  const url = (fila as { avatarUrl?: string | null } | null)?.avatarUrl ?? "";
+  const m = /\/avatares\/([^?]+)/.exec(url);
+  if (m) {
+    // Best-effort: si el borrado en Storage falla, la ficha queda igualmente sin foto.
+    try { await admin.storage.from("avatares").remove([decodeURIComponent(m[1])]); } catch { /* nada */ }
+  }
+  const { error } = await admin.from("User").update({ avatarUrl: null }).eq("id", user.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

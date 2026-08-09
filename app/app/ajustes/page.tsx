@@ -11,6 +11,7 @@ import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
+import { FotoPerfil } from "@/components/foto-perfil";
 import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
@@ -194,6 +195,9 @@ export default async function Ajustes() {
                 <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Email")}</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
               </div>
+              {/* Foto de perfil: aquí es visible y usable también en el móvil, donde
+                  el avatar de la barra lateral ni se ve ni tiene hover. */}
+              <FotoPerfil nombre={yo?.nombre ?? ""} avatarUrl={yo?.avatarUrl} />
             </div>
           </div>
 
