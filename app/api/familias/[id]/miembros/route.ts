@@ -18,12 +18,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let body: { nombre?: string; apellidos?: string; email?: string; telefono?: string; parentesco?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
-  const nombre = (body.nombre ?? "").trim();
-  if (!nombre) return NextResponse.json({ error: "Indica al menos el nombre." }, { status: 400 });
-
+  // Autenticar ANTES de validar el cuerpo: un anónimo no debe distinguir «falta el
+  // nombre» de «no autenticado» — y menos aún llegar a tocar la base.
   const supa = await createSupabaseServer();
   const { data: { user } } = await supa.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+
+  const nombre = (body.nombre ?? "").trim();
+  if (!nombre) return NextResponse.json({ error: "Indica al menos el nombre." }, { status: 400 });
 
   const { data: fam } = await supa.from("Familia").select("id, workspaceId, nombre").eq("id", id).maybeSingle();
   if (!fam) return NextResponse.json({ error: "Familia no encontrada." }, { status: 404 });
