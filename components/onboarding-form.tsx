@@ -46,6 +46,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fotoSubiendo, setFotoSubiendo] = useState(false);
+  const [fotoError, setFotoError] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ email: string; password: string }[] | null>(null);
   // Essai TESTEUR (bouton violet de la landing) : 30 jours, sans carte (cookie aproba.modo=prueba).
   const [esPrueba, setEsPrueba] = useState(false);
@@ -133,14 +134,21 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    // Se avisa ANTES de gastar datos móviles subiendo algo que el servidor rechazará.
+    if (file.size > 2 * 1024 * 1024) { setFotoError(t("La imagen supera los 2 MB.")); return; }
     setFotoSubiendo(true);
+    setFotoError(null);
     try {
       const fd = new FormData(); fd.append("file", file);
       const res = await fetch("/api/perfil/avatar", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
+      // Nada de vista previa local cuando la subida falla: el resumen final llegaba a
+      // decir «✓ Foto de perfil» con la foto solo en la memoria del navegador.
       if (res.ok && data.url) setAvatarUrl(data.url as string);
-      else setAvatarUrl(URL.createObjectURL(file)); // aperçu local si la route ne renvoie pas d'URL
-    } catch { /* ignore */ } finally { setFotoSubiendo(false); }
+      else setFotoError((data as { error?: string }).error ?? t("No se pudo subir la foto."));
+    } catch {
+      setFotoError(t("No se pudo subir la foto."));
+    } finally { setFotoSubiendo(false); }
   }
 
   function addInvitado() {
@@ -293,15 +301,18 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
         <div className="space-y-6">
           {/* Foto / avatar (repliée ici depuis l'ancienne étape « foto ») */}
           <div className="flex items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-aproba-100 text-xl font-bold text-aproba-700">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-aproba-100 text-xl font-bold text-aproba-700">
               {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : (nombre.slice(0, 2).toUpperCase() || "AB")}
             </span>
-            <div>
-              <label className="cursor-pointer text-sm font-semibold text-aproba-700 hover:underline">
+            <div className="min-w-0">
+              <label className="inline-block cursor-pointer rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
                 {fotoSubiendo ? t("Subiendo…") : avatarUrl ? t("Cambiar foto") : t("Añadir foto (opcional)")}
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={subirFoto} />
+                {/* image/* para que el móvil ofrezca cámara Y galería; el formato real
+                    lo valida el servidor (JPG, PNG o WebP). */}
+                <input type="file" accept="image/*" className="hidden" onChange={subirFoto} />
               </label>
-              <p className="text-xs text-slate-400">{t("Aparecerá en tu cuenta.")}</p>
+              <p className="mt-1.5 text-xs text-slate-400">{t("Tus clientes la verán en la cabecera de tus emails. JPG, PNG o WebP · máx. 2 MB.")}</p>
+              {fotoError && <p role="alert" className="mt-1 text-xs text-red-600">{fotoError}</p>}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
