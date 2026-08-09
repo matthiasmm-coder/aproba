@@ -680,15 +680,15 @@ export function ClientPortal({
                     marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                       <p className="font-semibold text-slate-900">{servicioLabel(tr.id, tr.label, lang)}</p>
                       {/* Precio TOTAL si elige esta tarjeta: servicio + extras del gestor
                           + tasas — el mismo importe que verá al pagar (nada sube «después»).
                           «Precio a consultar» (por servicio) sustituye al importe. */}
                       {(tr.precioOculto || extrasTarjeta.some((sv) => sv.precioOculto))
-                        ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
-                        : <p className="shrink-0 text-right text-sm font-bold text-slate-700">
+                        ? <p className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
+                        : <p className="ml-auto shrink-0 text-right text-sm font-bold tabular-nums text-slate-700">
                         {(() => {
                           const reb = aplicarDescuento(tarifaAsignada([tr, ...extrasTarjeta], asig, nMiembros), 1, descuento);
                           // Suma de los DOS pagos reales (cada uno con su IVA redondeado):
@@ -748,13 +748,13 @@ export function ClientPortal({
                         dentro ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{t("tema.pack")}</span>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                           <p className="min-w-0 font-semibold text-slate-900">{pk.nombre}</p>
                           {pk.precioOculto
-                            ? <p className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
-                            : pk.precioDesde > 0 && <p className="shrink-0 text-right text-sm font-bold text-aproba-700">{t("precio.desde", { p: eur(pk.precioDesde) })}</p>}
+                            ? <p className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-right text-xs font-semibold text-slate-500">{t("precio.consultar")}</p>
+                            : pk.precioDesde > 0 && <p className="ml-auto shrink-0 text-right text-sm font-bold tabular-nums text-aproba-700">{t("precio.desde", { p: eur(pk.precioDesde) })}</p>}
                         </div>
                         {pk.desc && <p className="text-sm text-slate-500">{pk.desc}</p>}
                         <p className="mt-1 text-xs text-slate-400">
