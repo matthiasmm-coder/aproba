@@ -40,9 +40,12 @@ export function CaducidadTie({ clienteId, fechaActual }: { clienteId: string; fe
 
   return (
     <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Título a la izquierda; texto y controles CENTRADOS (pedido de Matthias).
+          La fila de controles va debajo y centrada: en esta columna nunca cabía
+          al lado del texto, así que «derecha» solo producía un salto de línea. */}
+      <div className="text-center">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Caducidad de la TIE")}</h2>
+          <h2 className="text-left text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Caducidad de la TIE")}</h2>
           {fechaActual && dias !== null ? (
             <p className="mt-1 text-sm">
               <span className={`font-semibold ${dias < 0 ? "text-red-600" : dias <= 60 ? "text-amber-600" : "text-slate-800"}`}>
@@ -54,7 +57,7 @@ export function CaducidadTie({ clienteId, fechaActual }: { clienteId: string; fe
             <p className="mt-1 text-sm text-slate-500">{t("Registra la caducidad y Vigía te avisará cuando toque renovar — sin esperar a un expediente.")}</p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <input
             type="date"
             value={fecha}

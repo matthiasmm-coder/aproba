@@ -59,7 +59,10 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
   return (
     <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Documentos")} ({docs.length})</h2>
-      <p className="mt-1 text-sm text-slate-500">{t("Sube documentos del cliente (pasaporte, TIE…) sin necesidad de crear un expediente.")}</p>
+      {/* Texto y controles centrados; el título se queda a la izquierda. La LISTA
+          de documentos no se toca: sus filas necesitan nombre a la izquierda y
+          acciones a la derecha para poder leerlas de un vistazo. */}
+      <p className="mt-1 text-center text-sm text-slate-500">{t("Sube documentos del cliente (pasaporte, TIE…) sin necesidad de crear un expediente.")}</p>
 
       {docs.length > 0 && (
         <ul className="mt-4 divide-y divide-slate-100">
@@ -85,7 +88,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
         </ul>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600">
           {TIPOS.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
         </select>
@@ -95,7 +98,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
         </button>
         <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); }} />
       </div>
-      {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-center text-xs text-red-600">{error}</p>}
     </div>
   );
 }
