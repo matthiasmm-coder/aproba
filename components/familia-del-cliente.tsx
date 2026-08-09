@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { PARENTESCOS, parentescoLabel } from "@/lib/familia";
+import { TelefonoInput } from "@/components/telefono-input";
 
 // Pie de la ficha de un cliente que YA pertenece a una familia: ver los miembros,
-// añadir un cliente individual EXISTENTE, quitar a un miembro (vuelve a ser individual)
-// y eliminar (disolver) la familia. Las personas nunca se borran desde aquí.
+// añadir un cliente individual EXISTENTE o crear uno NUEVO dentro de la familia,
+// quitar a un miembro (vuelve a ser individual) y eliminar (disolver) la familia.
+// Las personas nunca se borran desde aquí.
 
 export type MiembroFamilia = { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null };
 export type IndividualDisponible = { id: string; nombre: string | null; apellidos: string | null };
@@ -28,6 +30,10 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
   const [error, setError] = useState<string | null>(null);
   const [addId, setAddId] = useState("");
   const [addParentesco, setAddParentesco] = useState("CONYUGE");
+  // Alta de un miembro que AÚN no es cliente: lo esencial aquí, el resto de la ficha
+  // se completa después desde su propia página (no se pide un formulario entero).
+  const [nuevo, setNuevo] = useState({ nombre: "", apellidos: "", email: "", telefono: "", parentesco: "HIJO" });
+  const setN = (p: Partial<typeof nuevo>) => setNuevo((n) => ({ ...n, ...p }));
 
   const nombreDe = (m: { nombre: string | null; apellidos: string | null }) => `${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || t("Sin nombre");
 
@@ -47,6 +53,27 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo añadir."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function crearMiembro() {
+    if (!nuevo.nombre.trim()) return;
+    setBusy("nuevo");
+    setError(null);
+    try {
+      const res = await fetch(`/api/familias/${familiaId}/miembros`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nuevo),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el cliente."));
+      setNuevo({ nombre: "", apellidos: "", email: "", telefono: "", parentesco: "HIJO" });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo crear el cliente."));
     } finally {
       setBusy(null);
     }
@@ -155,6 +182,61 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
           </div>
         </div>
       )}
+
+      {/* Crear un cliente NUEVO dentro de la familia (no hace falta darlo de alta
+          aparte y volver). Solo lo esencial: su ficha se completa desde su página. */}
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Añadir un cliente nuevo")}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            value={nuevo.nombre}
+            onChange={(e) => setN({ nombre: e.target.value })}
+            placeholder={t("Nombre *")}
+            aria-label={t("Nombre del nuevo miembro")}
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+          />
+          <input
+            value={nuevo.apellidos}
+            onChange={(e) => setN({ apellidos: e.target.value })}
+            placeholder={t("Apellidos")}
+            aria-label={t("Apellidos del nuevo miembro")}
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+          />
+          <input
+            type="email"
+            value={nuevo.email}
+            onChange={(e) => setN({ email: e.target.value })}
+            placeholder={t("Email (opcional)")}
+            aria-label={t("Email del nuevo miembro")}
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+          />
+          <TelefonoInput
+            value={nuevo.telefono}
+            onChange={(v) => setN({ telefono: v })}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+            labelPrefijo={t("Prefijo de país")}
+            labelSinPrefijo={t("— Sin prefijo")}
+          />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select
+            value={nuevo.parentesco}
+            onChange={(e) => setN({ parentesco: e.target.value })}
+            aria-label={t("Parentesco del nuevo miembro")}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600"
+          >
+            {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
+          </select>
+          <button
+            type="button"
+            onClick={crearMiembro}
+            disabled={!nuevo.nombre.trim() || busy !== null}
+            className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+          >
+            {busy === "nuevo" ? t("Creando…") : t("Crear y añadir")}
+          </button>
+        </div>
+      </div>
 
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
