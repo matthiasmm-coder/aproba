@@ -90,8 +90,8 @@ function emailLayout(opts: {
   // iniciales del despacho de repli. Sin border-radius en Outlook: se verá cuadrada,
   // no rota — preferible a no enseñarla.
   const marca = avatarUrl
-    ? `<td width="42" height="42" align="center" valign="middle" style="width:42px;height:42px"><img src="${avatarUrl}" width="42" height="42" alt="" style="width:42px;height:42px;border-radius:11px;display:block;object-fit:cover;border:0" /></td>`
-    : `<td width="42" height="42" align="center" valign="middle" bgcolor="#ECFDF5" style="width:42px;height:42px;border-radius:11px;font-family:${FUENTE};font-size:15px;font-weight:700;color:#0D6E4D">${ini}</td>`;
+    ? `<td width="52" height="52" align="center" valign="middle" style="width:52px;height:52px"><img src="${avatarUrl}" width="52" height="52" alt="" style="width:52px;height:52px;border-radius:14px;display:block;object-fit:cover;border:0" /></td>`
+    : `<td width="52" height="52" align="center" valign="middle" bgcolor="#ECFDF5" style="width:52px;height:52px;border-radius:14px;font-family:${FUENTE};font-size:18px;font-weight:700;color:#0D6E4D">${ini}</td>`;
   const boton = cta
     ? `<tr><td align="center" style="padding-top:24px;text-align:center"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${cta.url}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${cta.label}</a></td></tr></table></td></tr>`
     : "";
