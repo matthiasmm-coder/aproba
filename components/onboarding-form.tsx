@@ -442,6 +442,11 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                       <input type="checkbox" checked={Boolean(p.precioOculto)} onChange={(e) => patchPack(p.id, { precioOculto: e.target.checked || undefined })} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                       <span className="text-xs text-slate-500">{t("Precio a consultar")}</span>
                     </label>
+                    {/* Honorarios variables del pack: misma pareja que en un servicio. */}
+                    <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={p.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchPack(p.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    {Boolean(p.porcentaje) && (
+                      <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={p.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchPack(p.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    )}
                     <label className="min-w-[160px] flex-1 text-xs text-slate-500">{t("Tema")}
                       <input list="aproba-temas-onb" value={p.categoria ?? ""} placeholder={t("p. ej. Empresa")} onChange={(e) => patchPack(p.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
                     </label>

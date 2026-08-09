@@ -21,7 +21,7 @@ export type EspacioExp = {
   fecha: string;        // dd/mm/aaaa
 };
 export type EspacioServicio = { id: string; label: string; precio: number; precioOculto?: boolean; porcentaje?: number; porcentajeSobre?: string; categoria?: string };
-export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; descuentoPct?: number; precioOculto?: boolean; categoria?: string };
+export type EspacioPack = { id: string; nombre: string; desc: string; servicioIds: string[]; precioDesde: number; descuentoPct?: number; porcentaje?: number; porcentajeSobre?: string; precioOculto?: boolean; categoria?: string };
 
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
@@ -231,6 +231,11 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                         })()}
                       </div>
                       {pk.desc && <p className="mt-0.5 text-xs text-slate-500">{pk.desc}</p>}
+                      {Boolean(pk.porcentaje) && !pk.precioOculto && (
+                        <p className="mt-0.5 text-xs font-medium text-slate-500">
+                          {pk.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(pk.porcentaje ?? 0), sobre: pk.porcentajeSobre.trim() }) : `+ ${fmtPct(pk.porcentaje ?? 0)} %`}
+                        </p>
+                      )}
                       <p className="mt-1 text-xs text-slate-400">{t("esp.packIncluye", { lista: svDe(pk.servicioIds).map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}</p>
                     </button>
                   );

@@ -63,6 +63,8 @@ export async function POST(req: Request) {
         servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s).slice(0, 60)).filter(Boolean).slice(0, 20) : [],
         precioDesde: Math.max(0, Math.min(999999, Number(x.precioDesde) || 0)), // legado
         descuentoPct: Math.max(0, Math.min(100, Number(x.descuentoPct) || 0)),
+        porcentaje: Math.max(0, Math.min(100, Number(x.porcentaje) || 0)),
+        porcentajeSobre: String(x.porcentajeSobre ?? "").trim().slice(0, 120),
         precioOculto: Boolean(x.precioOculto),
         categoria: String(x.categoria ?? "").trim().slice(0, 60),
       }))

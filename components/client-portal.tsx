@@ -812,6 +812,12 @@ export function ClientPortal({
                           })()}
                         </div>
                         {pk.desc && <p className="text-sm text-slate-500">{pk.desc}</p>}
+                        {/* Honorarios variables del pack: misma línea que en un servicio. */}
+                        {Boolean(pk.porcentaje) && !pk.precioOculto && (
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            {pk.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(pk.porcentaje ?? 0), sobre: pk.porcentajeSobre.trim() }) : `+ ${fmtPct(pk.porcentaje ?? 0)} %`}
+                          </p>
+                        )}
                         <p className="mt-1 text-xs text-slate-400">
                           {t("esp.packIncluye", { lista: ids.map((id) => { const sv = servicios.find((x) => x.id === id); return sv ? servicioLabel(sv.id, sv.label, lang) : null; }).filter(Boolean).join(" · ") })}
                         </p>

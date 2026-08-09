@@ -595,6 +595,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   >
                     {p.precioOculto ? t("Precio a consultar") : total > 0 ? eur(total) : t("Sin precio")}
                     {!p.precioOculto && pct > 0 ? ` · −${fmtPct(pct)} %` : ""}
+                    {p.porcentaje ? ` · + ${fmtPct(p.porcentaje)} %` : ""}
                     {" · "}{n === 1 ? t("1 servicio") : `${n} ${t("servicios")}`}
                     {p.categoria?.trim() ? ` · ${p.categoria.trim()}` : ""}
                   </button>
@@ -664,6 +665,27 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                     </span>
                   );
                 })()}
+              </div>
+
+              {/* Honorarios variables del pack: MISMA pareja que en un servicio
+                  (% + sobre qué se aplica). Informativo para el cliente. */}
+              <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-slate-500">{t("+ Porcentaje (opcional)")}</span>
+                  <div className="relative inline-block">
+                    <input type="number" min={0} max={100} step={0.1} value={p.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()}
+                      onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); updatePack(p.id, { porcentaje: v || undefined }); }}
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
+                  </div>
+                </label>
+                <label className="block grow basis-[200px]">
+                  <span className="mb-1 block text-xs text-slate-500">{t("Sobre qué se aplica")}</span>
+                  <input value={p.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")}
+                    onChange={(e) => updatePack(p.id, { porcentajeSobre: e.target.value })}
+                    disabled={!p.porcentaje}
+                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                </label>
               </div>
 
               <div className="mt-3">{campoTema(p.categoria, (v) => updatePack(p.id, { categoria: v }))}</div>

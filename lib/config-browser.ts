@@ -77,6 +77,8 @@ export async function guardarPacks(packs: Pack[]): Promise<void> {
       servicioIds: p.servicioIds.filter(Boolean),
       precioDesde: Math.max(0, Number(p.precioDesde) || 0), // legado, ya no se edita
       descuentoPct: Math.max(0, Math.min(100, Number(p.descuentoPct) || 0)),
+      porcentaje: Math.max(0, Math.min(100, Number(p.porcentaje) || 0)),
+      porcentajeSobre: (p.porcentajeSobre ?? "").trim(),
       precioOculto: Boolean(p.precioOculto),
       categoria: p.categoria?.trim() || "",
     }))

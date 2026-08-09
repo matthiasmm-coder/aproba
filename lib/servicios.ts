@@ -42,6 +42,10 @@ export type Pack = {
   servicioIds: string[];
   precioDesde: number; // LEGADO: importe «desde…» tecleado a mano. Ya no se usa ni se edita.
   descuentoPct?: number; // 0-100 sobre la suma de los servicios
+  // Honorarios variables del pack, misma pareja que en un servicio: informativo de
+  // cara al cliente (la facturación automática solo usa los importes fijos).
+  porcentaje?: number;
+  porcentajeSobre?: string;
   precioOculto?: boolean;
   categoria?: string; // mismo tema libre que los servicios
 };

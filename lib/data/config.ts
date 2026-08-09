@@ -65,6 +65,8 @@ export function parsePacks(raw: unknown): Pack[] {
       servicioIds: Array.isArray(x.servicioIds) ? x.servicioIds.map((s) => String(s)).filter(Boolean) : [],
       precioDesde: Math.max(0, Number(x.precioDesde) || 0),
       descuentoPct: Math.min(100, Math.max(0, Number(x.descuentoPct) || 0)) || undefined,
+      porcentaje: Math.min(100, Math.max(0, Number(x.porcentaje) || 0)) || undefined,
+      porcentajeSobre: String(x.porcentajeSobre ?? "").trim() || undefined,
       precioOculto: Boolean(x.precioOculto) || undefined,
       categoria: String(x.categoria ?? "").trim() || undefined,
     }))

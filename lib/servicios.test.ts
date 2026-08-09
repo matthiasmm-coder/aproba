@@ -105,4 +105,15 @@ describe("precio de un pack (suma de sus servicios − descuento)", () => {
     expect(parsePacks([{ id: "p1", nombre: "P", servicioIds: [], descuentoPct: 20 }])[0].descuentoPct).toBe(20);
     expect(parsePacks([{ id: "p2", nombre: "P", servicioIds: [], descuentoPct: "abc" }])[0].descuentoPct).toBeUndefined();
   });
+
+  it("parsePacks lee los honorarios variables (% + sobre qué)", () => {
+    const [a] = parsePacks([{ id: "p1", nombre: "P", servicioIds: [], porcentaje: 1.5, porcentajeSobre: "  el precio de la compraventa  " }]);
+    expect(a.porcentaje).toBe(1.5);
+    expect(a.porcentajeSobre).toBe("el precio de la compraventa");
+    // Sin % no se inventa nada; un % fuera de rango se satura como el descuento.
+    const [b] = parsePacks([{ id: "p2", nombre: "P", servicioIds: [] }]);
+    expect(b.porcentaje).toBeUndefined();
+    expect(b.porcentajeSobre).toBeUndefined();
+    expect(parsePacks([{ id: "p3", nombre: "P", servicioIds: [], porcentaje: 250 }])[0].porcentaje).toBe(100);
+  });
 });
