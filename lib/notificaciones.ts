@@ -75,7 +75,7 @@ const FUENTE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ari
 // discret en pied), corps CENTRADO (título, texto, pie — los bloques <table> internos
 // necesitan su propio align="center") et compatible (table-based, styles inline) pour
 // Gmail/Outlook/Apple.
-function emailLayout(opts: {
+export function emailLayout(opts: {
   gestoria: string;
   titulo: string;
   cuerpoHtml: string;
@@ -332,13 +332,27 @@ export async function enviarSeguimiento(
 // Foto del gestor que lleva el expediente (Expediente.asignadoAId → User.avatarUrl).
 // Best-effort: si la columna no existe, el usuario no tiene foto o falla la consulta,
 // se devuelve null y el email enseña las iniciales del despacho, como siempre.
+export async function fotoDeUsuario(admin: SupabaseClient, userId: string | null | undefined): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const { data } = await admin.from("User").select("avatarUrl").eq("id", userId).maybeSingle();
+    return (data as { avatarUrl?: string | null } | null)?.avatarUrl ?? null;
+  } catch { return null; }
+}
+
+// Foto del OWNER del despacho: la que lleva la cabecera de los emails dirigidos AL
+// GESTOR (aviso de trámite pedido desde el espacio, digest de vencimientos).
+export async function fotoDelOwner(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
+  try {
+    const { data } = await admin.from("Membership").select("userId").eq("workspaceId", workspaceId).eq("role", "OWNER").limit(1).maybeSingle();
+    return await fotoDeUsuario(admin, (data as { userId?: string | null } | null)?.userId);
+  } catch { return null; }
+}
+
 export async function fotoDelExpediente(admin: SupabaseClient, expedienteId: string): Promise<string | null> {
   try {
     const { data: exp } = await admin.from("Expediente").select("asignadoAId").eq("id", expedienteId).maybeSingle();
-    const uid = (exp as { asignadoAId?: string | null } | null)?.asignadoAId;
-    if (!uid) return null;
-    const { data: u } = await admin.from("User").select("avatarUrl").eq("id", uid).maybeSingle();
-    return (u as { avatarUrl?: string | null } | null)?.avatarUrl ?? null;
+    return await fotoDeUsuario(admin, (exp as { asignadoAId?: string | null } | null)?.asignadoAId);
   } catch { return null; }
 }
 

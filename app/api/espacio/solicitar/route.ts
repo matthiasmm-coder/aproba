@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
+import { emailLayout, fotoDelOwner } from "@/lib/notificaciones";
 import { packPct } from "@/lib/servicios";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { cobrarOverageSiProcede } from "@/lib/overage";
@@ -128,12 +129,27 @@ export async function POST(req: Request) {
       const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim() || "Un cliente";
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? baseUrlFromRequest(req)).replace(/\/$/, "");
       const cuerpo = `${nombre} ha solicitado un trámite desde su espacio:\n\n• ${etiquetas.join("\n• ")}\n\nEl expediente ${referencia} ya está en tu tablero (fase Recepción). El cliente está subiendo sus documentos.\n\nÁbrelo aquí:\n${appUrl}/app/expedientes/${expedienteId}`;
+      // Misma cabecera que los emails al cliente: foto del despacho (OWNER) o sus
+      // iniciales. Antes era un <pre> pelado — el gestor recibe ahora el mismo diseño.
+      const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
+      const gestoria = (ws as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
+      const html = emailLayout({
+        avatarUrl: await fotoDelOwner(admin, workspaceId),
+        gestoria,
+        titulo: "Nuevo trámite solicitado",
+        cuerpoHtml: `<p style="margin:0 0 10px"><strong>${nombre}</strong> ha solicitado un trámite desde su espacio:</p>
+          <p style="margin:0 0 10px">• ${etiquetas.join("<br>• ")}</p>
+          <p style="margin:0">El expediente <strong>${referencia}</strong> ya está en tu tablero (fase Recepción). El cliente está subiendo sus documentos.</p>`,
+        cta: { url: `${appUrl}/app/expedientes/${expedienteId}`, label: "Abrir el expediente" },
+        footerNota: `Aviso de Aproba para ${gestoria}.`,
+        preheader: `${nombre}: ${etiquetas.join(" + ")}`,
+      });
       await new Resend(process.env.RESEND_API_KEY).emails.send({
         from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
         to: email,
         subject: `🆕 ${nombre} solicita: ${etiquetas.join(" + ")} (${referencia})`,
         text: cuerpo,
-        html: `<pre style="font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap">${cuerpo.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`,
+        html,
       });
     }
   } catch (e) {

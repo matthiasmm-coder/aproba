@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emailLayout, fotoDeUsuario } from "@/lib/notificaciones";
 
 // VIGÍA — motor de vencimientos/renovaciones (ver supabase/vigia.sql).
 // Un vencimiento = "a este cliente le caduca X el día D". Se siembra en dos momentos:
@@ -181,12 +182,24 @@ export async function escanearVencimientos(admin: SupabaseClient): Promise<{ avi
         const from = `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
         const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://aproba-software.com").replace(/\/$/, "");
         const cuerpo = `${lineas.join("\n")}\n\nInicia las renovaciones desde Aproba → Vencimientos:\n${appUrl}/app/vencimientos`;
+        // Misma cabecera que el resto de emails: foto del despacho (OWNER) o iniciales.
+        const { data: wsRow } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
+        const gestoria = (wsRow as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
+        const html = emailLayout({
+          avatarUrl: await fotoDeUsuario(admin, owner?.userId as string | undefined),
+          gestoria,
+          titulo: `${lista.length} ${lista.length === 1 ? "vencimiento próximo" : "vencimientos próximos"}`,
+          cuerpoHtml: `<p style="margin:0 0 10px">${lineas.map((l) => l.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br>")}</p>`,
+          cta: { url: `${appUrl}/app/vencimientos`, label: "Iniciar las renovaciones" },
+          footerNota: `Aviso diario de Aproba para ${gestoria}.`,
+          preheader: `${lista.length} ${lista.length === 1 ? "vencimiento" : "vencimientos"} por renovar`,
+        });
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
           from,
           to: email,
           subject: `⏰ ${lista.length} ${lista.length === 1 ? "vencimiento próximo" : "vencimientos próximos"} — inicia la renovación`,
           text: cuerpo,
-          html: `<pre style="font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap">${cuerpo.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`,
+          html,
         });
         if (error) { console.error("[vigia digest]", error.message ?? error); envioFallido = true; }
       }
