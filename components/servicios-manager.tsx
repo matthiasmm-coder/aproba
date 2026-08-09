@@ -544,7 +544,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
             {packsSave === "error" && t("Error al guardar — reintenta")}
           </span>
         </div>
-        <p className="mb-4 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre y un precio «desde…». El cliente lo ve como una oferta única en su portal.")}</p>
+        <p className="mb-4 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre. El precio es la suma de los servicios incluidos menos el descuento que indiques; el cliente lo ve como una oferta única en su portal.")}</p>
         {packsSave === "error" && packsError && (
           <p role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">{packsError}</p>
         )}

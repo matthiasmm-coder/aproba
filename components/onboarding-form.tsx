@@ -410,7 +410,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           {/* Packs (opcional): agrupar servicios bajo un precio «desde…» */}
           <div className="border-t border-slate-100 pt-5">
             <p className="text-sm font-semibold text-slate-800">{t("Packs de servicios")} <span className="font-normal text-slate-400">{t("(opcional)")}</span></p>
-            <p className="mt-0.5 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre y un precio «desde…» — p. ej. un Pack Compraventa.")}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{t("Agrupa varios servicios bajo un nombre — p. ej. un Pack Compraventa. El precio sale de la suma menos el descuento.")}</p>
             <div className="mt-3 space-y-3">
               {packs.map((p) => (
                 <div key={p.id} ref={dndPack.registrar(p.id)} className={`rounded-xl border border-aproba-100 bg-aproba-50/40 p-4 ${dndPack.dragId === p.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
