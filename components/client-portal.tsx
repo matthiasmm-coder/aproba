@@ -4,15 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, normTema, packPct, type Pack, type Servicio } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
+import { FechaInput } from "@/components/fecha-input";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
-import { labelADocTipo } from "@/lib/tramites";
+import { dedupDocs, labelADocTipo } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
-  servicioLabel, servicioDesc, docLabel, docHelp, type Lang, esRTL,
+  servicioLabel, servicioDesc, temaLabel, docLabel, docHelp, type Lang, esRTL,
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
@@ -142,12 +143,12 @@ export function ClientPortal({
     // Iterar sobre la MISMA lista que el render (unión de docs del principal + extras
     // + firma) para que los índices coincidan — si no, al reanudar con extras los
     // estados se pintarían en los slots equivocados.
-    const base = [...(svc?.docs ?? [])];
-    for (const c of serviciosExtraClaves ?? []) {
-      if (c === servicioInicial) continue;
-      const sv = catalogo.find((x) => x.id === c);
-      for (const d of sv?.docs ?? []) if (!base.includes(d)) base.push(d);
-    }
+    const base = dedupDocs([
+      ...(svc?.docs ?? []),
+      ...(serviciosExtraClaves ?? [])
+        .filter((c) => c !== servicioInicial)
+        .flatMap((c) => catalogo.find((x) => x.id === c)?.docs ?? []),
+    ]);
     const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
     labels.forEach((label, i) => {
       const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
@@ -275,8 +276,10 @@ export function ClientPortal({
   // Cada tarjeta enseña SU precio: con selección múltiple, sumar los demás en cada
   // tarjeta sería ilegible y cambiaría a cada clic. El total va en el botón Continuar.
   const extrasTarjeta: Servicio[] = [];
-  const docsBase = [...(tramite?.docs ?? [])];
-  for (const sv of extrasServicios) for (const d of sv.docs ?? []) if (!docsBase.includes(d)) docsBase.push(d);
+  // Dedup por TIPO de documento, no por etiqueta exacta: dos servicios del mismo pack
+  // piden «Pasaporte» y «Copia del pasaporte» → UNA casilla. Con el `includes` anterior
+  // el cliente veía el pasaporte tres veces al elegir un pack (reportado por Matthias).
+  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? [])]);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
   // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
@@ -846,7 +849,7 @@ export function ClientPortal({
                       return (
                         <TemaPlegable
                           key={c}
-                          titulo={tituloDe(c)}
+                          titulo={temaLabel(tituloDe(c), lang)}
                           resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}
                           abiertoInicial={ss.some((x) => marcado(x.id)) || ps.some((pk) => pk.id === packId)}
                         >
@@ -1000,10 +1003,22 @@ export function ClientPortal({
                                 <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>
                               ))}
                             </select>
+                          ) : f.tipo === "date" ? (
+                            /* Fecha TECLEADA (barras automáticas): el calendario nativo
+                               del móvil obliga a retroceder décadas para un nacimiento. */
+                            <FechaInput
+                              id={`ficha-${f.k}`}
+                              value={ficha[f.k] ?? ""}
+                              onChange={(iso) => setFicha((d) => ({ ...d, [f.k]: iso }))}
+                              autoComplete={f.ac}
+                              className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 ${
+                                validacionActiva && req && vacio ? "border-amber-300 bg-amber-50/40" : "border-slate-300"
+                              }`}
+                            />
                           ) : (
                             <input
                               id={`ficha-${f.k}`}
-                              type={f.tipo === "date" ? "date" : f.type ?? "text"}
+                              type={f.type ?? "text"}
                               inputMode={f.inputMode}
                               autoComplete={f.ac}
                               value={ficha[f.k] ?? ""}

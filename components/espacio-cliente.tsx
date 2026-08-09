@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
-import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
+import { LANGS, makeT, detectarLang, servicioLabel, temaLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
 import { agruparPorTema, fmtPct, normTema, packPct, packRebajado } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
 
@@ -289,7 +289,7 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
                     const ss = servicios.filter((x) => normTema(x.categoria) === c);
                     const n = ps.length + ss.length;
                     return (
-                      <TemaPlegable key={c} titulo={tituloDe(c)} resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}>
+                      <TemaPlegable key={c} titulo={temaLabel(tituloDe(c), lang)} resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}>
                         {ps.map(tarjetaPack)}
                         {ss.map(filaServicio)}
                       </TemaPlegable>

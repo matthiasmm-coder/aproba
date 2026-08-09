@@ -621,6 +621,41 @@ export const sexoLabel = (v: string, lang: Lang) => pick(SEXO_LABELS[v], lang, v
 export const estadoCivilLabel = (v: string, lang: Lang) => pick(ESTADO_CIVIL_LABELS[v], lang, v, `estadoCivil:${v}`);
 
 // Service : traduit le label/desc des services par défaut, sinon garde l'original du gestor.
+// ── Temas del catálogo ──────────────────────────────────────────────────────
+// El tema lo escribe el gestor a mano («Nacionalidad», «Empresa»…), así que no hay
+// clave estable que traducir. Se traducen los temas HABITUALES de extranjería
+// reconociéndolos por su forma normalizada (sin acentos, sin mayúsculas, singular o
+// plural); cualquier otro se enseña tal cual lo escribió el gestor — mejor su
+// palabra que una traducción inventada.
+const TEMA_I18N: Record<string, { es: string } & Partial<Record<Lang, string>>> = {
+  nacionalidad: { es: "Nacionalidad", en: "Citizenship", fr: "Nationalité", it: "Cittadinanza", de: "Staatsangehörigkeit", ar: "الجنسية", ro: "Cetățenie", zh: "国籍" },
+  residencia: { es: "Residencia", en: "Residence", fr: "Séjour", it: "Residenza", de: "Aufenthalt", ar: "الإقامة", ro: "Rezidență", zh: "居留" },
+  empresa: { es: "Empresa", en: "Business", fr: "Entreprise", it: "Impresa", de: "Unternehmen", ar: "الشركات", ro: "Firmă", zh: "企业" },
+  familia: { es: "Familia", en: "Family", fr: "Famille", it: "Famiglia", de: "Familie", ar: "الأسرة", ro: "Familie", zh: "家庭" },
+  trabajo: { es: "Trabajo", en: "Work", fr: "Travail", it: "Lavoro", de: "Arbeit", ar: "العمل", ro: "Muncă", zh: "工作" },
+  estudios: { es: "Estudios", en: "Studies", fr: "Études", it: "Studi", de: "Studium", ar: "الدراسة", ro: "Studii", zh: "学业" },
+  arraigo: { es: "Arraigo", en: "Arraigo (roots)", fr: "Arraigo (ancrage)", it: "Arraigo (radicamento)", de: "Arraigo (Verwurzelung)", ar: "الجذور (Arraigo)", ro: "Arraigo (înrădăcinare)", zh: "扎根居留 (Arraigo)" },
+  renovaciones: { es: "Renovaciones", en: "Renewals", fr: "Renouvellements", it: "Rinnovi", de: "Verlängerungen", ar: "التجديدات", ro: "Reînnoiri", zh: "续签" },
+  visados: { es: "Visados", en: "Visas", fr: "Visas", it: "Visti", de: "Visa", ar: "التأشيرات", ro: "Vize", zh: "签证" },
+  documentacion: { es: "Documentación", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente", ar: "الوثائق", ro: "Documente", zh: "文件" },
+  otros: { es: "Otros", en: "Other", fr: "Autres", it: "Altri", de: "Sonstige", ar: "أخرى", ro: "Altele", zh: "其他" },
+};
+// «Renovación», «Renovaciones», «renovacion» → misma entrada.
+const TEMA_ALIAS: Record<string, string> = {
+  renovacion: "renovaciones", renovacions: "renovaciones",
+  visado: "visados", visa: "visados", visas: "visados",
+  estudio: "estudios", empresas: "empresa", familias: "familia",
+  residencias: "residencia", ciudadania: "nacionalidad", nacionalidades: "nacionalidad",
+  documentos: "documentacion", otro: "otros",
+};
+export const temaLabel = (tema: string, lang: Lang): string => {
+  const bruto = (tema ?? "").trim();
+  if (!bruto) return bruto;
+  const norm = bruto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const clave = TEMA_I18N[norm] ? norm : TEMA_ALIAS[norm];
+  return clave && TEMA_I18N[clave] ? pick(TEMA_I18N[clave], lang, bruto, `tema:${clave}`) : bruto;
+};
+
 export const servicioLabel = (id: string, original: string, lang: Lang) =>
   SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].label, lang, original, `servicio:${id}.label`) : original;
 export const servicioDesc = (id: string, original: string, lang: Lang) =>

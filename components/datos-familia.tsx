@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
+import { FechaInput } from "@/components/fecha-input";
 import { PARENTESCOS } from "@/lib/familia";
 import { makeT, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 
@@ -214,7 +215,11 @@ export function DatosFamilia({
                                   {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v]) => <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>)}
                                 </select>
                               ) : (
-                                <input type={f.tipo === "date" ? "date" : "text"} value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600" />
+                                f.tipo === "date" ? (
+                                  <FechaInput value={m.ficha[f.k] ?? ""} onChange={(iso: string) => setFicha(m.id, f.k, iso)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600" />
+                                ) : (
+                                  <input type="text" value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600" />
+                                )
                               )}
                             </div>
                           ))}
