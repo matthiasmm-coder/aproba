@@ -541,6 +541,14 @@ export async function enviarConfirmacionCitaPrevia(opts: {
   nombre: string; email: string; gestoria: string; fecha: string; hora?: string | null; duracion?: number | null; precio?: number | null; lugar?: string | null; motivo?: string | null;
   actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
   videoProveedor?: "meet" | "teams" | "otro" | null; videoEnlace?: string | null; citaId?: string | null;
+  // Cobro de la cita (opt-in del gestor): el email deja de ser solo informativo y
+  // explica CÓMO pagar — IBAN y/o botón de tarjeta. Mismo bloque visual que el
+  // email de factura, para que el cliente reconozca el circuito.
+  cobro?: {
+    facturaId: string; numero: string; total: number; baseUrl: string;
+    transferencia: boolean; tarjeta: boolean;
+    cuenta?: { titular?: string | null; iban?: string | null; banco?: string | null } | null;
+  } | null;
 }): Promise<boolean> {
   try {
     if (!opts.email || !resendDisponible()) return false;
@@ -562,8 +570,33 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const intro = mod
       ? `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> ha sido modificada. Estos son los nuevos datos:`
       : `Hola ${primerNombre(opts.nombre)}, tu cita con <strong>${opts.gestoria}</strong> está confirmada:`;
+    // Bloque de pago (solo si el gestor marcó cobrar): datos de transferencia y/o
+    // botón de tarjeta. El importe mostrado es el de la FACTURA (con IVA), no el
+    // precio suelto de la cita — es lo que el cliente va a pagar de verdad.
+    const c = opts.cobro ?? null;
+    const ibanBox = c && c.transferencia
+      ? (c.cuenta?.iban
+        ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagar por <strong>transferencia bancaria</strong> a esta cuenta:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">
+            ${c.cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Titular</td><td style="font-weight:600;text-align:left">${c.cuenta.titular}</td></tr>` : ""}
+            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em;text-align:left">${c.cuenta.iban}</td></tr>
+            ${c.cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Banco</td><td style="font-weight:600;text-align:left">${c.cuenta.banco}</td></tr>` : ""}
+            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Concepto</td><td style="font-weight:600;text-align:left">${c.numero}</td></tr>
+          </table>`
+        : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`)
+      : "";
+    const botonTarjeta = c && c.tarjeta
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:${ibanBox ? "16px" : "4px"}"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${c.baseUrl}/api/pagos/checkout?f=${c.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(c.total)} con tarjeta</a></td></tr></table></td></tr></table>`
+      : "";
+    const bloquePago = c
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
+          <p style="margin:0 0 10px;font-family:${FUENTE};font-size:14px;color:#0f172a"><strong>Importe a pagar: ${fmtEur(c.total)}</strong> · factura ${c.numero}</p>
+          ${ibanBox}${botonTarjeta}
+        </td></tr></table>`
+      : "";
     const cuerpoHtml = `<p style="margin:0 0 12px">${intro}</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>`;
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">${detalle}</table>
+      ${bloquePago}`;
     const html = emailLayout({
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
@@ -593,9 +626,14 @@ export async function enviarConfirmacionCitaPrevia(opts: {
     const from = `"${String(opts.gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from, to: opts.email, subject: mod ? `Cita modificada · ${opts.gestoria}` : `Cita confirmada · ${opts.gestoria}`, html,
-      text: mod
-        ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`
-        : `Tu cita con ${opts.gestoria}: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+      text: [
+        mod
+          ? `Tu cita con ${opts.gestoria} ha sido modificada: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`
+          : `Tu cita con ${opts.gestoria}: ${cuando}${esVideo ? ` · ${lugarVideo}: ${opts.videoEnlace}` : opts.lugar ? ` · ${opts.lugar}` : ""}.`,
+        ...(c ? [`Importe: ${fmtEur(c.total)} (factura ${c.numero}).`] : []),
+        ...(c && c.transferencia && c.cuenta?.iban ? [`Transferencia — IBAN: ${c.cuenta.iban} · Concepto: ${c.numero}`] : []),
+        ...(c && c.tarjeta ? [`Pagar con tarjeta: ${c.baseUrl}/api/pagos/checkout?f=${c.facturaId}`] : []),
+      ].join("\n"),
       attachments: adjuntos,
     });
     return !error;

@@ -4,6 +4,9 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { enviarConfirmacionCitaPrevia } from "@/lib/notificaciones";
 import { crearReunionMeet, actualizarReunionMeet, borrarReunionMeet } from "@/lib/google-calendar";
+import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
+import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
+import { baseUrlFromRequest } from "@/lib/base-url";
 
 // Citas previas (consulta): el gestor crea una cita con un cliente (existente o nombre
 // libre). Todo bajo RLS (sesión): solo su workspace. Si la tabla no está migrada, el
@@ -19,7 +22,84 @@ const ESTADOS = ["pendiente", "confirmada", "realizada", "cancelada"];
 //                del host para etiquetar el email.
 // En ambos: email del cliente, hora y duración OBLIGATORIOS (la invitación que
 // recibe el cliente debe poder abrirse). El lugar se fuerza a «Videollamada».
-type CuerpoCita = { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string };
+type CuerpoCita = { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string; cobrar?: boolean; cobroTransferencia?: boolean; cobroTarjeta?: boolean };
+
+// ─── Cobro de la cita ────────────────────────────────────────────────────────
+// Marcar «cobrar» emite una FACTURA de verdad (numeración del año, IVA, listado de
+// Facturas, cobro con tarjeta y conciliación ya existentes) en vez de inventar un
+// circuito de pago paralelo para las citas. El importe tecleado por el gestor es lo
+// que paga el cliente: IVA INCLUIDO — es el que ya se le enseñaba en el email.
+type Cobro = NonNullable<Parameters<typeof enviarConfirmacionCitaPrevia>[0]["cobro"]>;
+
+async function emitirFacturaCita(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null },
+): Promise<{ facturaId: string; numero: string; total: number } | null> {
+  const total = r2(o.precio);
+  if (!(total > 0)) return null;
+  const base = r2(total / (1 + IVA));
+  const iva = r2(total - base);
+  const year = new Date().getFullYear();
+  // Máximo NUMÉRICO del año (no lexicográfico: "2026-9999" < "2026-10000").
+  const { data: nums } = await admin.from("Factura").select("numero").eq("workspaceId", o.workspaceId).like("numero", `${year}-%`);
+  const maxN = (nums ?? []).reduce((m: number, r: { numero: string }) => { const n = Number(String(r.numero).split("-")[1]); return Number.isFinite(n) && n > m ? n : m; }, 0);
+  const numero = `${year}-${String(maxN + 1).padStart(4, "0")}`;
+
+  const [a, m, d] = o.fecha.split("-");
+  const concepto = `Cita previa — ${d}/${m}/${a}${o.motivo ? ` · ${o.motivo}` : ""}`.slice(0, 200);
+
+  let clienteDatos: ReturnType<typeof datosFiscalesDeCliente> = null;
+  if (o.clienteId) {
+    const { data: cli } = await admin.from("Cliente")
+      .select("numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia")
+      .eq("id", o.clienteId).maybeSingle();
+    clienteDatos = datosFiscalesDeCliente(cli as Parameters<typeof datosFiscalesDeCliente>[0]);
+  }
+
+  const facturaId = crypto.randomUUID();
+  const ahora = new Date();
+  const fila: Record<string, unknown> = {
+    id: facturaId, workspaceId: o.workspaceId, expedienteId: null,
+    ...(o.clienteId ? { clienteId: o.clienteId } : {}),
+    numero, clienteNombre: o.nombre, concepto,
+    baseImponible: base, iva, total,
+    estado: "EMITIDA", origen: "MANUAL", momento: null, metodoPago: "TRANSFERENCIA",
+    fechaEmision: ahora.toISOString(), fechaVencimiento: new Date(ahora.getTime() + 14 * 864e5).toISOString(),
+    lineas: [{ concepto, base }], suplidos: [],
+    ...(clienteDatos ? { clienteDatos } : {}),
+  };
+  // Replis por migración ausente, uno a uno (nunca se pierde la factura entera).
+  let { error } = await admin.from("Factura").insert(fila);
+  if (error && fila.clienteDatos && /clienteDatos/i.test(error.message)) {
+    delete fila.clienteDatos;
+    ({ error } = await admin.from("Factura").insert(fila));
+  }
+  if (error && fila.clienteId && /clienteId/i.test(error.message)) {
+    delete fila.clienteId;
+    ({ error } = await admin.from("Factura").insert(fila));
+  }
+  if (error) { console.error("[citas/factura]", error.message); return null; }
+  return { facturaId, numero, total };
+}
+
+// Medios de pago REALES del despacho: nunca se anuncia al cliente un botón de
+// tarjeta sin clave Stripe, ni un IBAN que no existe.
+async function datosCobro(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  workspaceId: string,
+  quiere: { transferencia: boolean; tarjeta: boolean },
+): Promise<{ transferencia: boolean; tarjeta: boolean; cuenta: Cobro["cuenta"] }> {
+  let cuenta: Cobro["cuenta"] = null;
+  if (quiere.transferencia) {
+    const { data } = await admin.from("CuentaBancaria").select("titular, iban, banco").eq("workspaceId", workspaceId).eq("activa", true).limit(1);
+    cuenta = ((data ?? [])[0] as Cobro["cuenta"]) ?? null;
+  }
+  let tarjeta = false;
+  if (quiere.tarjeta) {
+    try { tarjeta = Boolean(await fetchStripeKeyDeWorkspace(admin, workspaceId)); } catch { tarjeta = false; }
+  }
+  return { transferencia: quiere.transferencia, tarjeta, cuenta };
+}
 
 const proveedorDeEnlace = (u: string): "meet" | "teams" | "otro" => {
   try {
@@ -130,11 +210,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/cita-previa.sql." : error.message }, { status: 500 });
   }
 
+  // Cobro opt-in: factura real + instrucciones de pago en el email. Sin email del
+  // cliente no se emite nada (no habría dónde mandarle la factura).
+  let cobro: Cobro | null = null;
+  if (body.cobrar && fila.email && fila.precio && fila.precio > 0) {
+    const admin = createSupabaseAdmin();
+    const emitida = await emitirFacturaCita(admin, {
+      workspaceId: mem.workspaceId as string, clienteId: fila.clienteId, nombre,
+      precio: fila.precio, fecha, motivo: fila.motivo,
+    });
+    if (emitida) {
+      const medios = await datosCobro(admin, mem.workspaceId as string, {
+        transferencia: body.cobroTransferencia !== false,
+        tarjeta: Boolean(body.cobroTarjeta),
+      });
+      cobro = { ...emitida, baseUrl: baseUrlFromRequest(req), ...medios };
+      // Vínculo cita → factura: al editar la cita no se emite una segunda.
+      const { error: eLink } = await supabase.from("CitaPrevia").update({ facturaId: emitida.facturaId }).eq("id", fila.id);
+      if (eLink) console.error("[citas/facturaId]", eLink.message); // falta cita-cobro.sql: la factura ya existe igualmente
+    }
+  }
+
   let avisado = false;
   if (body.notificar && fila.email) {
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id });
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro });
   }
-  return NextResponse.json({ ok: true, id: fila.id, avisado });
+  return NextResponse.json({ ok: true, id: fila.id, avisado, facturaEmitida: Boolean(cobro) });
 }
 
 export async function PATCH(req: Request) {
@@ -255,12 +356,53 @@ export async function PUT(req: Request) {
   if (error && faltaColumnaVideo(error.message)) ({ error } = await supabase.from("CitaPrevia").update(sinVideo(patch)).eq("id", id));
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Cobro al editar: NUNCA se emite una segunda factura. Si ya había una se
+  // reutiliza (y se actualiza el importe si cambió y sigue pendiente de cobro);
+  // una factura PAGADA no se toca ni se vuelve a reclamar.
+  let cobro: Cobro | null = null;
+  if (body.cobrar && patch.email && patch.precio && patch.precio > 0) {
+    const { data: prevFac, error: eFac } = await supabase.from("CitaPrevia").select("facturaId").eq("id", id).maybeSingle();
+    const facturaId = (prevFac as { facturaId?: string | null } | null)?.facturaId ?? null;
+    let emitida: { facturaId: string; numero: string; total: number } | null = null;
+    // Sin la columna (falta cita-cobro.sql) no se puede saber si ya hay factura:
+    // se prefiere NO cobrar a emitir un duplicado con número real en cada edición.
+    if (eFac) console.error("[citas/facturaId]", eFac.message);
+    else if (facturaId) {
+      const { data: f } = await admin.from("Factura").select("id, numero, total, estado").eq("id", facturaId).maybeSingle();
+      const fac = f as { id: string; numero: string; total: number; estado: string } | null;
+      if (fac && fac.estado !== "PAGADA" && fac.estado !== "ANULADA") {
+        const total = Math.round(Number(patch.precio) * 100) / 100;
+        if (Math.abs(Number(fac.total) - total) >= 0.01) {
+          const base = Math.round((total / (1 + IVA)) * 100) / 100;
+          await admin.from("Factura").update({ baseImponible: base, iva: Math.round((total - base) * 100) / 100, total }).eq("id", fac.id);
+        }
+        emitida = { facturaId: fac.id, numero: fac.numero, total };
+      }
+    } else if (!eFac) {
+      emitida = await emitirFacturaCita(admin, {
+        workspaceId: wsId, clienteId: patch.clienteId, nombre,
+        precio: patch.precio, fecha, motivo: patch.motivo,
+      });
+      if (emitida) {
+        const { error: eLink } = await supabase.from("CitaPrevia").update({ facturaId: emitida.facturaId }).eq("id", id);
+        if (eLink) console.error("[citas/facturaId]", eLink.message);
+      }
+    }
+    if (emitida) {
+      const medios = await datosCobro(admin, wsId, {
+        transferencia: body.cobroTransferencia !== false,
+        tarjeta: Boolean(body.cobroTarjeta),
+      });
+      cobro = { ...emitida, baseUrl: baseUrlFromRequest(req), ...medios };
+    }
+  }
+
   // Aviso opt-in al cliente con los DATOS NUEVOS (best-effort; nunca rompe el guardado).
   let avisado = false;
   if (body.notificar && patch.email) {
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id });
+    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id, cobro });
   }
-  return NextResponse.json({ ok: true, avisado });
+  return NextResponse.json({ ok: true, avisado, facturaEmitida: Boolean(cobro) });
 }
 
 // Eliminar una cita.

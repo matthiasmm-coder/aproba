@@ -78,6 +78,15 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const [motivo, setMotivo] = useState("");
   const [notas, setNotas] = useState("");
   const [notificar, setNotificar] = useState(!citaId); // crear: marcado; editar: opt-in (sin parpadeo)
+  // Cobro de la cita: al marcarlo se emite una FACTURA real (numeración del año,
+  // IVA, listado de Facturas, conciliación) y el email explica cómo pagarla.
+  // El gestor elige qué medios enseñar; la tarjeta solo si la configuró en Ajustes.
+  const [cobrar, setCobrar] = useState(false);
+  const [porTransferencia, setPorTransferencia] = useState(true);
+  const [porTarjeta, setPorTarjeta] = useState(true);
+  const [medios, setMedios] = useState<{ tarjeta: boolean; cuenta: boolean } | null>(null);
+  const importe = Number(precio);
+  const conImporte = precio.trim() !== "" && Number.isFinite(importe) && importe > 0;
   const [foco, setFoco] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +163,20 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const enlaceOk = ENLACE_HTTPS.test(videoEnlace.trim());
   const faltaVideo = esVideo && (!email.trim() || !hora || (modo === "manual" && !enlaceVacio && !enlaceOk));
 
+  useEffect(() => {
+    if (!cobrar || medios) return;
+    fetch("/api/citas-previas/cobro")
+      .then((r) => (r.ok ? r.json() : { tarjeta: false, cuenta: false }))
+      .then((d) => setMedios({ tarjeta: Boolean(d.tarjeta), cuenta: Boolean(d.cuenta) }))
+      .catch(() => setMedios({ tarjeta: false, cuenta: false }));
+  }, [cobrar, medios]);
+
+  // Sin tarjeta configurada no se puede prometer el botón de pago.
+  const tarjetaOk = porTarjeta && Boolean(medios?.tarjeta);
+  // Cobrar exige email (el cliente recibe la factura ahí) y al menos un medio.
+  const cobroActivo = cobrar && conImporte;
+  const faltaCobro = cobroActivo && (!email.trim() || !(porTransferencia || tarjetaOk));
+
   async function crear() {
     setBusy(true); setError(null);
     try {
@@ -165,6 +188,9 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         motivo, notas,
         videoModo: esVideo ? modo : null,
         videoEnlace: esVideo && modo === "manual" ? videoEnlace.trim() : null,
+        cobrar: cobroActivo,
+        cobroTransferencia: cobroActivo && porTransferencia,
+        cobroTarjeta: cobroActivo && tarjetaOk,
       };
       const res = await fetch("/api/citas-previas", {
         method: edicion ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
@@ -270,6 +296,44 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Precio (€)")}</label>
             <input type="number" min={0} step={5} value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder={t("Opcional")} className={fld} />
           </div>
+
+          {/* ── Cobro de la cita: solo tiene sentido con importe ── */}
+          {conImporte && (
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={cobrar} onChange={(e) => setCobrar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                {t("Cobrar esta cita al cliente")}
+              </label>
+              {cobrar && (
+                <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">{t("Se emite una factura por el importe indicado (IVA incluido) y el email de confirmación explica cómo pagarla.")}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input type="checkbox" checked={porTransferencia} onChange={(e) => setPorTransferencia(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                      {t("Transferencia bancaria")}
+                    </label>
+                    <label className={`flex items-center gap-2 text-sm ${medios && !medios.tarjeta ? "text-slate-400" : "text-slate-700"}`}>
+                      <input type="checkbox" checked={tarjetaOk} disabled={medios ? !medios.tarjeta : false} onChange={(e) => setPorTarjeta(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500 disabled:opacity-50" />
+                      {t("Tarjeta")}
+                    </label>
+                  </div>
+                  {/* Avisos concretos: nada de prometer al cliente un medio que no existe. */}
+                  {medios && !medios.tarjeta && (
+                    <p className="mt-2 text-xs text-slate-400">{t("Para cobrar con tarjeta, actívalo en Ajustes › Facturación y métodos de pago.")}</p>
+                  )}
+                  {medios && porTransferencia && !medios.cuenta && (
+                    <p className="mt-1 text-xs text-amber-600">{t("No tienes ninguna cuenta bancaria activa: el email pedirá al cliente que te contacte para los datos.")}</p>
+                  )}
+                  {!email.trim() && (
+                    <p className="mt-1 text-xs text-amber-600">{t("Añade el email del cliente: la factura y las instrucciones de pago se envían por correo.")}</p>
+                  )}
+                  {!(porTransferencia || tarjetaOk) && (
+                    <p className="mt-1 text-xs text-amber-600">{t("Elige al menos una forma de pago.")}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="sm:col-span-2">
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Lugar")}</label>
@@ -382,7 +446,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">{t("Cancelar")}</button>
-          <button onClick={crear} disabled={busy || !nombre.trim() || !fecha || faltaVideo} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+          <button onClick={crear} disabled={busy || !nombre.trim() || !fecha || faltaVideo || faltaCobro} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
             {busy ? t("Guardando…") : edicion ? t("Guardar cambios") : t("Crear cita")}
           </button>
         </div>
