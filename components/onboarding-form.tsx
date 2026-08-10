@@ -281,7 +281,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
     );
   }
 
-  const inputCls = "w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  const inputCls = "w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
 
   return (
     <div>
@@ -377,7 +377,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
               <div key={s.id} ref={dndSrv.registrar(s.id)} className={`rounded-xl border p-4 ${s.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/60"} ${dndSrv.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
                 <div className="flex items-center gap-2.5">
                   <AsaArrastre arrastrando={dndSrv.dragId === s.id} onMover={(d) => moverSrv(s.id, d)} label={s.label || t("Servicio")} {...dndSrv.asa(s.id)} />
-                  <input value={s.label} onChange={(e) => patchSrv(s.id, { label: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
+                  <input value={s.label} onChange={(e) => patchSrv(s.id, { label: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-sm font-semibold text-slate-800 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
                   <button type="button" role="switch" aria-checked={s.active} onClick={() => patchSrv(s.id, { active: !s.active })} className={`relative h-6 w-11 shrink-0 rounded-full transition ${s.active ? "bg-aproba-600" : "bg-slate-300"}`}>
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${s.active ? "left-[22px]" : "left-0.5"}`} />
                   </button>
@@ -395,11 +395,11 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                 {s.active && (
                   <>
                     <div className="mt-3 flex flex-wrap gap-4">
-                      <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                      <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
-                      <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchSrv(s.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="text-xs text-slate-500">{t("Al empezar (€)")}<input type="number" min={0} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { anticipo: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="text-xs text-slate-500">{t("Al finalizar (€)")}<input type="number" min={0} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => patchSrv(s.id, { resto: Math.max(0, parseInt(e.target.value || "0", 10)) })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchSrv(s.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
                       {Boolean(s.porcentaje) && (
-                        <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={s.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchSrv(s.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                        <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={s.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchSrv(s.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
                       )}
                     </div>
                     <label className="mt-2.5 flex cursor-pointer items-center gap-2">
@@ -407,7 +407,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                       <span className="text-xs text-slate-500">{t("Precio a consultar")} <span className="text-slate-400">— {t("el cliente no verá importes de este servicio")}</span></span>
                     </label>
                     <label className="mt-2.5 block text-xs text-slate-500">{t("Tema (agrupa en el portal)")}
-                      <input list="aproba-temas-onb" value={s.categoria ?? ""} placeholder={t("p. ej. Empresa, Nacionalidad…")} onChange={(e) => patchSrv(s.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
+                      <input list="aproba-temas-onb" value={s.categoria ?? ""} placeholder={t("p. ej. Empresa, Nacionalidad…")} onChange={(e) => patchSrv(s.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
                     </label>
                   </>
                 )}
@@ -427,7 +427,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                 <div key={p.id} ref={dndPack.registrar(p.id)} className={`rounded-xl border border-aproba-100 bg-aproba-50/40 p-4 ${dndPack.dragId === p.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
                   <div className="flex items-center gap-2.5">
                     <AsaArrastre arrastrando={dndPack.dragId === p.id} onMover={(d) => moverPack(p.id, d)} label={p.nombre || t("Pack")} {...dndPack.asa(p.id)} />
-                    <input value={p.nombre} placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")} onChange={(e) => patchPack(p.id, { nombre: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
+                    <input value={p.nombre} placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")} onChange={(e) => patchPack(p.id, { nombre: e.target.value })} className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-400 focus:bg-white" />
                     <button type="button" onClick={() => setPacks((l) => l.filter((x) => x.id !== p.id))} aria-label={`${t("Eliminar")} ${p.nombre || t("pack")}`} className="shrink-0 rounded-md p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                     </button>
@@ -445,7 +445,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                   <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
                     {/* El precio del pack es la suma de sus servicios menos el descuento
                         (misma regla que Ajustes): no hay importe que teclear. */}
-                    <label className="text-xs text-slate-500">{t("Descuento del pack (%)")}<input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" disabled={Boolean(p.precioOculto)} onFocus={(e) => e.target.select()} onChange={(e) => patchPack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 disabled:bg-slate-50 disabled:text-slate-400" /></label>
+                    <label className="text-xs text-slate-500">{t("Descuento del pack (%)")}<input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" disabled={Boolean(p.precioOculto)} onFocus={(e) => e.target.select()} onChange={(e) => patchPack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })} className="mt-1 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 disabled:bg-slate-50 disabled:text-slate-400" /></label>
                     {!p.precioOculto && packPrecio(p, servicios).suma > 0 && (
                       <span className="pb-2 text-xs text-slate-500">{t("El cliente verá")} <b className="tabular-nums text-slate-800">{packPrecio(p, servicios).total} €</b> {t("sin IVA")}</span>
                     )}
@@ -454,12 +454,12 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
                       <span className="text-xs text-slate-500">{t("Precio a consultar")}</span>
                     </label>
                     {/* Honorarios variables del pack: misma pareja que en un servicio. */}
-                    <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={p.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchPack(p.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                    <label className="text-xs text-slate-500">{t("+ % (opcional)")}<input type="number" min={0} max={100} step={0.1} value={p.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); patchPack(p.id, { porcentaje: v || undefined }); }} className="mt-1 block w-24 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
                     {Boolean(p.porcentaje) && (
-                      <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={p.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchPack(p.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" /></label>
+                      <label className="grow basis-[180px] text-xs text-slate-500">{t("Sobre qué se aplica el %")}<input value={p.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")} onChange={(e) => patchPack(p.id, { porcentajeSobre: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" /></label>
                     )}
                     <label className="min-w-[160px] flex-1 text-xs text-slate-500">{t("Tema")}
-                      <input list="aproba-temas-onb" value={p.categoria ?? ""} placeholder={t("p. ej. Empresa")} onChange={(e) => patchPack(p.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
+                      <input list="aproba-temas-onb" value={p.categoria ?? ""} placeholder={t("p. ej. Empresa")} onChange={(e) => patchPack(p.id, { categoria: e.target.value })} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
                     </label>
                   </div>
                 </div>
@@ -602,9 +602,9 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
           <div className="space-y-2">
             {invitados.map((v, i) => (
               <div key={i} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto]">
-                <input value={v.email} onChange={(e) => setInvitado(i, { email: e.target.value })} placeholder="email@despacho.es" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
-                <input value={v.nombre} onChange={(e) => setInvitado(i, { nombre: e.target.value })} placeholder={t("Nombre")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
-                <select value={v.role} onChange={(e) => setInvitado(i, { role: e.target.value as RolId })} className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-aproba-600">
+                <input value={v.email} onChange={(e) => setInvitado(i, { email: e.target.value })} placeholder="email@despacho.es" className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
+                <input value={v.nombre} onChange={(e) => setInvitado(i, { nombre: e.target.value })} placeholder={t("Nombre")} className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
+                <select value={v.role} onChange={(e) => setInvitado(i, { role: e.target.value as RolId })} className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
                   {rolesAsignables.map((r) => <option key={r} value={r}>{t(ROLES[r].label)}</option>)}
                 </select>
               </div>

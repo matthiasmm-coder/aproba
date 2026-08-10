@@ -116,7 +116,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           ))}
           {seleccion.length === 0 && <span className="text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector de abajo.")}</span>}
           {porAñadir.length > 0 && (
-            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 outline-none focus:border-aproba-600">
+            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
               <option value="">{t("+ Añadir formulario…")}</option>
               {porAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
             </select>
@@ -133,7 +133,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                 <select
                   value={p2Sel[tipo] ?? ""}
                   onChange={(e) => elegirP2(tipo, e.target.value)}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-aproba-600"
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-700 outline-none focus:border-aproba-600"
                 >
                   <option value="">{t("Automático (según el trámite)")}</option>
                   {p2Opciones[tipo].map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
@@ -162,7 +162,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                     </span>
                   ))}
                   {paraAñadir.length > 0 && (
-                    <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-xs text-slate-500 outline-none focus:border-aproba-600">
+                    <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600">
                       <option value="">{t("+ Añadir formulario…")}</option>
                       {paraAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
                     </select>

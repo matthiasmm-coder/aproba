@@ -70,7 +70,7 @@ export function DescuentoExpediente({ expedienteId, inicial, tarifa, nMiembros }
             type="number" min={0} max={tipo === "PORCENTAJE" ? 100 : undefined} step={tipo === "PORCENTAJE" ? 1 : 5}
             value={valor || ""} placeholder="0" aria-label={t("Valor del descuento")} onFocus={(e) => e.target.select()}
             onChange={(e) => setValor(Math.max(0, Number(e.target.value) || 0))}
-            className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+            className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
           />
           <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">{tipo === "PORCENTAJE" ? "%" : "€"}</span>
         </div>
@@ -79,7 +79,7 @@ export function DescuentoExpediente({ expedienteId, inicial, tarifa, nMiembros }
           placeholder={t("Motivo (p. ej. pack familiar) — opcional")}
           aria-label={t("Motivo del descuento")}
           onChange={(e) => setMotivo(e.target.value)}
-          className="min-w-0 flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+          className="min-w-0 flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
         />
       </div>
       {valor > 0 && previa.rebaja > 0 && (

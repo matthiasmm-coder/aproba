@@ -66,7 +66,7 @@ export function SignupForm() {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Marta Ribas"
-          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
         />
       </div>
       <div>
@@ -79,7 +79,7 @@ export function SignupForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="tu@gestoria.es"
-          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
         />
       </div>
       <div>
@@ -92,7 +92,7 @@ export function SignupForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mínimo 8 caracteres"
-          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
         />
       </div>
 

@@ -74,7 +74,7 @@ export function ResetPasswordForm() {
           id="pw" type="password" required autoComplete="new-password" minLength={8}
           value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres"
           disabled={estado !== "listo"}
-          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50"
         />
       </div>
       <div>
@@ -83,7 +83,7 @@ export function ResetPasswordForm() {
           id="pw2" type="password" required autoComplete="new-password"
           value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="••••••••"
           disabled={estado !== "listo"}
-          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50"
         />
       </div>
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

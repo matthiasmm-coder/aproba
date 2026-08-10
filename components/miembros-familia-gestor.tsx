@@ -91,11 +91,11 @@ export function MiembrosFamiliaGestor({ familiaId, titularId, miembros }: {
       {abrirAlta ? (
         <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-cream-50/40 p-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <input value={nuevo.nombre} onChange={(e) => setNuevo((n) => ({ ...n, nombre: e.target.value }))} placeholder={t("Nombre")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
-            <input value={nuevo.apellidos} onChange={(e) => setNuevo((n) => ({ ...n, apellidos: e.target.value }))} placeholder={t("Apellidos")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600" />
+            <input value={nuevo.nombre} onChange={(e) => setNuevo((n) => ({ ...n, nombre: e.target.value }))} placeholder={t("Nombre")} className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
+            <input value={nuevo.apellidos} onChange={(e) => setNuevo((n) => ({ ...n, apellidos: e.target.value }))} placeholder={t("Apellidos")} className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <select value={nuevo.parentesco} onChange={(e) => setNuevo((n) => ({ ...n, parentesco: e.target.value }))} aria-label={t("Parentesco")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm outline-none focus:border-aproba-600">
+            <select value={nuevo.parentesco} onChange={(e) => setNuevo((n) => ({ ...n, parentesco: e.target.value }))} aria-label={t("Parentesco")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
               {PARENTESCOS.filter(([k]) => k !== "TITULAR").map(([k]) => <option key={k} value={k}>{t(parentescoLabel(k))}</option>)}
             </select>
             <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">

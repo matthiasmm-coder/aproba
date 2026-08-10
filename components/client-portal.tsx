@@ -588,7 +588,7 @@ export function ClientPortal({
                 value={lang}
                 onChange={(e) => elegirLang(e.target.value as Lang)}
                 aria-label={t("lang.selectLabel")}
-                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 outline-none focus:border-aproba-600"
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[16px] sm:text-xs text-slate-600 outline-none focus:border-aproba-600"
               >
                 {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
               </select>
@@ -638,7 +638,7 @@ export function ClientPortal({
                 id="portal-lang"
                 value={lang}
                 onChange={(e) => elegirLang(e.target.value as Lang)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[16px] sm:text-sm text-slate-800 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
               >
                 {LANGS.map((l) => (
                   <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
@@ -997,7 +997,7 @@ export function ClientPortal({
                               id={`ficha-${f.k}`}
                               value={ficha[f.k] ?? ""}
                               onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
-                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
                             >
                               {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v]) => (
                                 <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>
@@ -1023,7 +1023,7 @@ export function ClientPortal({
                               autoComplete={f.ac}
                               value={ficha[f.k] ?? ""}
                               onChange={(e) => setFicha((d) => ({ ...d, [f.k]: e.target.value }))}
-                              className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 ${
+                              className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 ${
                                 validacionActiva && req && vacio ? "border-amber-300 bg-amber-50/40" : "border-slate-300"
                               }`}
                             />

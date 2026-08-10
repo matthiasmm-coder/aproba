@@ -161,7 +161,7 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
             value={lang}
             onChange={(e) => elegirLang(e.target.value as Lang)}
             aria-label={t("lang.selectLabel")}
-            className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+            className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
           >
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
           </select>

@@ -189,13 +189,13 @@ export function CobrosPanel({ ocultarTitulo = false,
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="text-xs text-slate-500">
                     {t("Cuotas")}
-                    <select value={nCuotas} onChange={(e) => setNCuotas(Number(e.target.value))} className="ml-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600">
+                    <select value={nCuotas} onChange={(e) => setNCuotas(Number(e.target.value))} className="ml-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
                       {[2, 3, 4, 5, 6].map((k) => <option key={k} value={k}>{k}</option>)}
                     </select>
                   </label>
                   <label className="text-xs text-slate-500">
                     {t("Importe (sin IVA)")}
-                    <input type="number" min={1} value={fracBase || ""} onFocus={(e) => e.target.select()} onChange={(e) => setFracBase(Math.max(0, Number(e.target.value)))} className="ml-1.5 w-24 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-aproba-600" />
+                    <input type="number" min={1} value={fracBase || ""} onFocus={(e) => e.target.select()} onChange={(e) => setFracBase(Math.max(0, Number(e.target.value)))} className="ml-1.5 w-24 rounded-md border border-slate-300 px-2 py-1 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
                   </label>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">

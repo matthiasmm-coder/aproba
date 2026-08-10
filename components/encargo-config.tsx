@@ -59,7 +59,7 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
     }
   }
 
-  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none transition focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
   const lbl = "mb-1 block text-xs font-semibold text-slate-600";
 
   return (

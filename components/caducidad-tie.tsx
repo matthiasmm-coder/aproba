@@ -62,7 +62,7 @@ export function CaducidadTie({ clienteId, fechaActual }: { clienteId: string; fe
             type="date"
             value={fecha}
             onChange={(e) => { setFecha(e.target.value); setGuardado(false); }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
             aria-label={t("Caducidad de la TIE")}
           />
           <button

@@ -89,7 +89,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600">
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600">
           {TIPOS.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
         </select>
         <button onClick={() => fileRef.current?.click()} disabled={subiendo} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">

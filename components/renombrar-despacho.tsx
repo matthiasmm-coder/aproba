@@ -71,7 +71,7 @@ export function RenombrarDespacho({ nombre, puedeEditar }: { nombre: string; pue
           maxLength={80}
           autoFocus
           disabled={busy}
-          className="w-full min-w-0 rounded-lg border border-slate-300 px-2 py-1 text-sm font-medium text-slate-800 outline-none focus:border-aproba-600"
+          className="w-full min-w-0 rounded-lg border border-slate-300 px-2 py-1 text-[16px] sm:text-sm font-medium text-slate-800 outline-none focus:border-aproba-600"
         />
         <button onClick={guardar} disabled={busy} className="shrink-0 rounded-lg bg-aproba-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
           {busy ? "…" : t("Guardar")}

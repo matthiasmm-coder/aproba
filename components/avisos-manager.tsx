@@ -88,7 +88,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: {
                 value={a.template}
                 onChange={(e) => update(a.id, { template: e.target.value })}
                 rows={2}
-                className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+                className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
               />
             </div>
           ))}

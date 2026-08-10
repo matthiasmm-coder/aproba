@@ -223,7 +223,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
         value={valor ?? ""}
         placeholder={t("p. ej. Empresa, Nacionalidad…")}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+        className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
       />
     </label>
   );
@@ -275,7 +275,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 value={s.label}
                 placeholder={t("Nombre del servicio")}
                 onChange={(e) => update(s.id, { label: e.target.value })}
-                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
               />
               <button
                 onClick={() => update(s.id, { active: !s.active })}
@@ -316,7 +316,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
               value={s.desc}
               placeholder={t("Descripción breve (la verá el cliente)")}
               onChange={(e) => update(s.id, { desc: e.target.value })}
-              className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+              className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
             />
 
             <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }))}</div>
@@ -330,7 +330,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <div className="relative inline-block">
                     <input type="number" min={0} step={10} value={s.anticipo || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { anticipo: v, precio: v + s.resto }); }}
-                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
                   </div>
                 </label>
@@ -340,7 +340,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <div className="relative inline-block">
                     <input type="number" min={0} step={10} value={s.resto || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); update(s.id, { resto: v, precio: s.anticipo + v }); }}
-                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">€</span>
                   </div>
                 </label>
@@ -367,7 +367,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <div className="relative inline-block">
                     <input type="number" min={0} max={100} step={0.1} value={s.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); update(s.id, { porcentaje: v || undefined }); }}
-                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
                   </div>
                 </label>
@@ -378,7 +378,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <input value={s.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")}
                     onChange={(e) => update(s.id, { porcentajeSobre: e.target.value })}
                     disabled={!s.porcentaje}
-                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
                 </label>
               </div>
               {Boolean(s.porcentaje) && (
@@ -408,12 +408,12 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                       value={sup.concepto}
                       placeholder={t("Concepto (p. ej. Tasa 790-012)")}
                       onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, concepto: e.target.value } : x) })}
-                      className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+                      className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
                     />
                     <div className="relative inline-block">
                       <input type="number" min={0} step={0.01} value={sup.importe || ""} placeholder="0" onFocus={(e) => e.target.select()}
                         onChange={(e) => update(s.id, { suplidos: (s.suplidos ?? []).map((x, j) => j === i ? { ...x, importe: Math.max(0, Number(e.target.value) || 0) } : x) })}
-                        className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                        className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                       <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">€</span>
                     </div>
                     <button onClick={() => update(s.id, { suplidos: (s.suplidos ?? []).filter((_, j) => j !== i) })} aria-label={`${t("Quitar")} ${sup.concepto || t("suplido")}`} className="rounded p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500">
@@ -454,7 +454,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   onChange={(e) => setNuevoDoc((m) => ({ ...m, [s.id]: e.target.value }))}
                   onKeyDown={(e) => { if (e.key === "Enter") addDoc(s.id); }}
                   placeholder={t("Añadir documento…")}
-                  className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+                  className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
                 />
                 <button onClick={() => addDoc(s.id)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400">{t("Añadir")}</button>
               </div>
@@ -469,7 +469,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 rows={2}
                 maxLength={1500}
                 placeholder={t("P. ej.: recursos administrativos o judiciales, trámites de otros organismos, desplazamientos…")}
-                className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-xs leading-relaxed outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+                className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-xs leading-relaxed outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
               />
               <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en el apartado «Servicios no incluidos» de la hoja de encargo de este servicio.")}</p>
             </div>
@@ -519,7 +519,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
             onChange={(e) => { addDelCatalogo(e.target.value); }}
             // min-w-0 + w-full: sin ellos el ancho intrínseco del select (su opción más
             // larga) desborda la tarjeta en móvil y ensancha TODA la sección.
-            className="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-aproba-400 focus:border-aproba-500 sm:w-auto sm:flex-1"
+            className="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-3 text-[16px] sm:text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-aproba-400 focus:border-aproba-500 sm:w-auto sm:flex-1"
           >
             <option value="" disabled>{t("Añadir trámite del catálogo…")}</option>
             {enCatalogo.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
@@ -572,7 +572,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   value={p.nombre}
                   placeholder={t("Nombre del pack (p. ej. Pack Compraventa)")}
                   onChange={(e) => updatePack(p.id, { nombre: e.target.value })}
-                  className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+                  className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-sm font-semibold text-slate-900 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
                 />
                 <button
                   onClick={() => setPacks((list) => list.filter((x) => x.id !== p.id))}
@@ -607,7 +607,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                 value={p.desc}
                 placeholder={t("Descripción breve (la verá el cliente)")}
                 onChange={(e) => updatePack(p.id, { desc: e.target.value })}
-                className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
+                className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
               />
 
               <div className="mt-3 border-t border-aproba-100 pt-3">
@@ -645,7 +645,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                     <input type="number" min={0} max={100} step={5} value={p.descuentoPct || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       disabled={Boolean(p.precioOculto)}
                       onChange={(e) => updatePack(p.id, { descuentoPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) || undefined })}
-                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
                   </div>
                 </label>
@@ -675,7 +675,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <div className="relative inline-block">
                     <input type="number" min={0} max={100} step={0.1} value={p.porcentaje || ""} placeholder="0" onFocus={(e) => e.target.select()}
                       onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); updatePack(p.id, { porcentaje: v || undefined }); }}
-                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                      className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-sm tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
                     <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
                   </div>
                 </label>
@@ -684,7 +684,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
                   <input value={p.porcentajeSobre ?? ""} placeholder={t("p. ej. el precio de la compraventa")}
                     onChange={(e) => updatePack(p.id, { porcentajeSobre: e.target.value })}
                     disabled={!p.porcentaje}
-                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
+                    className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100 disabled:bg-slate-50 disabled:text-slate-400" />
                 </label>
               </div>
 

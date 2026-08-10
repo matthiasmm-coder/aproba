@@ -52,7 +52,7 @@ export const nuevoMiembro = (parentesco: Parentesco): Miembro => ({
   nombre: "", apellidos: "", fechaNacimiento: "", numeroDocumento: "", pasaporte: "", email: "", telefono: "",
 });
 
-const INPUT_CLS = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+const INPUT_CLS = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
 
 // Tarjeta de un miembro (badge Titular fijo o select de parentesco + papelera).
 export function TarjetaMiembro({ m, titular, onPatch, onQuitar }: {
@@ -72,7 +72,7 @@ export function TarjetaMiembro({ m, titular, onPatch, onQuitar }: {
             value={m.parentesco}
             onChange={(e) => onPatch({ parentesco: e.target.value as Parentesco })}
             aria-label={t("Parentesco del miembro")}
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-aproba-600"
+            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[16px] sm:text-xs font-medium text-slate-700 outline-none focus:border-aproba-600"
           >
             {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
           </select>
@@ -225,7 +225,7 @@ export function NuevoCliente() {
     }
   }
 
-  const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
 
   const set = (k: keyof ClienteFicha | "idioma", v: string) => setCampos((c) => ({ ...c, [k]: v }));
 

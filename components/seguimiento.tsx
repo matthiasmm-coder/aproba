@@ -177,7 +177,7 @@ export function Seguimiento({
             value={lang}
             onChange={(e) => elegirLang(e.target.value as Lang)}
             aria-label={t("lang.selectLabel")}
-            className="min-h-[40px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-600 outline-none focus:border-aproba-600"
+            className="min-h-[40px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600"
           >
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
           </select>

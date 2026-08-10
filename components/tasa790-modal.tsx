@@ -135,7 +135,7 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
                   ))}
                   <div className="sm:col-span-6">
                     <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Trámite (tasa)")}<span className="text-amber-500"> *</span></label>
-                    <select className={`w-full rounded-md border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-aproba-100 ${tramite ? "border-slate-300 focus:border-aproba-600" : "border-amber-400 bg-amber-50/40 text-slate-500"}`} value={tramite} onChange={(e) => setTramite(e.target.value)}>
+                    <select className={`w-full rounded-md border px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:ring-2 focus:ring-aproba-100 ${tramite ? "border-slate-300 focus:border-aproba-600" : "border-amber-400 bg-amber-50/40 text-slate-500"}`} value={tramite} onChange={(e) => setTramite(e.target.value)}>
                       <option value="" disabled>{t("— Elige la línea de tasa para este trámite —")}</option>
                       {datos.tramites.map((t) => (
                         <option key={t.value} value={t.value}>{t.importe ? `${t.importe} € — ` : ""}{t.label}</option>

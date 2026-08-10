@@ -50,7 +50,7 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
     }
   }
 
-  const inp = "mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  const inp = "mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
 
   return (
     <div className="mt-6 rounded-xl border border-slate-200 bg-cream-50/60 p-5">

@@ -173,7 +173,7 @@ export function DatosFamilia({
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-[13px] font-medium text-slate-600">{t("fam.parentesco")}</label>
-                      <select value={m.parentesco} onChange={(e) => setParentesco(m.id, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600">
+                      <select value={m.parentesco} onChange={(e) => setParentesco(m.id, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
                         {PARENTESCOS.map(([v]) => <option key={v} value={v}>{parentescoI18n(v, lang)}</option>)}
                       </select>
                     </div>
@@ -211,14 +211,14 @@ export function DatosFamilia({
                                   />
                                 </div>
                               ) : f.tipo === "sexo" || f.tipo === "estadoCivil" ? (
-                                <select value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-aproba-600">
+                                <select value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
                                   {(f.tipo === "sexo" ? SEXOS : ESTADOS_CIVILES).map(([v]) => <option key={v} value={v}>{f.tipo === "sexo" ? sexoLabel(v, lang) : estadoCivilLabel(v, lang)}</option>)}
                                 </select>
                               ) : (
                                 f.tipo === "date" ? (
                                   <FechaInput value={m.ficha[f.k] ?? ""} onChange={(iso: string) => setFicha(m.id, f.k, iso)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600" />
                                 ) : (
-                                  <input type="text" value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600" />
+                                  <input type="text" value={m.ficha[f.k] ?? ""} onChange={(e) => setFicha(m.id, f.k, e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600" />
                                 )
                               )}
                             </div>

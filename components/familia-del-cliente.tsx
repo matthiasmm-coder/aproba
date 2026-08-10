@@ -158,7 +158,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
               value={addId}
               onChange={(e) => setAddId(e.target.value)}
               aria-label={t("Cliente a añadir")}
-              className="min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600 sm:w-auto sm:flex-1"
+              className="min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:w-auto sm:flex-1"
             >
               <option value="">{t("Elige un cliente…")}</option>
               {individuales.map((c) => <option key={c.id} value={c.id}>{nombreDe(c)}</option>)}
@@ -167,7 +167,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
               value={addParentesco}
               onChange={(e) => setAddParentesco(e.target.value)}
               aria-label={t("Parentesco")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
             >
               {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
             </select>
@@ -193,14 +193,14 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
             onChange={(e) => setN({ nombre: e.target.value })}
             placeholder={t("Nombre *")}
             aria-label={t("Nombre del nuevo miembro")}
-            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
           />
           <input
             value={nuevo.apellidos}
             onChange={(e) => setN({ apellidos: e.target.value })}
             placeholder={t("Apellidos")}
             aria-label={t("Apellidos del nuevo miembro")}
-            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
           />
           <input
             type="email"
@@ -208,7 +208,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
             onChange={(e) => setN({ email: e.target.value })}
             placeholder={t("Email (opcional)")}
             aria-label={t("Email del nuevo miembro")}
-            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
           />
           <TelefonoInput
             value={nuevo.telefono}
@@ -223,7 +223,7 @@ export function FamiliaDelCliente({ clienteId, familiaId, familiaNombre, miembro
             value={nuevo.parentesco}
             onChange={(e) => setN({ parentesco: e.target.value })}
             aria-label={t("Parentesco del nuevo miembro")}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
           >
             {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
           </select>

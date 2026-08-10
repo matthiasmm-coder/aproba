@@ -70,12 +70,12 @@ export function SuplidosExpediente({ expedienteId, inicial, esOverride }: {
               aria-label={t("Concepto (p. ej. Tasa 790-012)")}
               placeholder={t("Concepto (p. ej. Tasa 790-012)")}
               onChange={(e) => setFilas((xs) => xs.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))}
-              className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+              className="flex-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-xs outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
             />
             <div className="relative inline-block">
               <input type="number" min={0} step={0.01} value={f.importe || ""} placeholder="0" aria-label={t("Importe (€)")} onFocus={(e) => e.target.select()}
                 onChange={(e) => setFilas((xs) => xs.map((x, j) => j === i ? { ...x, importe: Math.max(0, Number(e.target.value) || 0) } : x))}
-                className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
+                className="w-24 rounded-md border border-slate-200 py-1.5 pl-2.5 pr-7 text-[16px] sm:text-xs tabular-nums outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100" />
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">€</span>
             </div>
             <button onClick={() => setFilas((xs) => xs.filter((_, j) => j !== i))} aria-label={`${t("Quitar")} ${f.concepto || t("suplido")}`} className="rounded p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-500">

@@ -191,10 +191,10 @@ export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
       {añadiendo && (
         <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <input value={titular} onChange={(e) => setTitular(e.target.value)} placeholder={t("Titular (ej. Gestoría Vallès SL)")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
-            <input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder={t("Banco (opcional)")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
+            <input value={titular} onChange={(e) => setTitular(e.target.value)} placeholder={t("Titular (ej. Gestoría Vallès SL)")} className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
+            <input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder={t("Banco (opcional)")} className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
           </div>
-          <input value={iban} onChange={(e) => setIban(e.target.value)} placeholder={t("IBAN — ES76 2100 0418 4502 0005 1332")} className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
+          <input value={iban} onChange={(e) => setIban(e.target.value)} placeholder={t("IBAN — ES76 2100 0418 4502 0005 1332")} className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
           <div className="flex gap-2">
             <button onClick={añadir} disabled={busy} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">{busy ? t("Guardando…") : t("Guardar cuenta")}</button>
             <button onClick={() => { setAñadiendo(false); setError(null); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Cancelar")}</button>

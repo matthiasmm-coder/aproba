@@ -162,7 +162,7 @@ export function AsistenteWidget() {
                     rows={1}
                     maxLength={2000}
                     placeholder="Escribe tu pregunta…"
-                    className="max-h-24 min-h-[40px] flex-1 resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+                    className="max-h-24 min-h-[40px] flex-1 resize-y rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                   />
                   <button
                     type="button"
@@ -199,7 +199,7 @@ export function AsistenteWidget() {
                 maxLength={4000}
                 autoFocus
                 placeholder="Cuéntanos qué necesitas y te respondemos…"
-                className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600"
+                className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
               />
               {mensajes.length > 0 && <p className="mt-1 text-[11px] text-slate-400">Adjuntamos la conversación con el asistente para no hacerte repetir.</p>}
               {error && <p role="alert" className="mt-1 text-xs text-red-600">{error}</p>}

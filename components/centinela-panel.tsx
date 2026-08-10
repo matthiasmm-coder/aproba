@@ -182,7 +182,7 @@ export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }:
                 onChange={(e) => setReqTexto(e.target.value)}
                 rows={5}
                 placeholder={t("Pega aquí el texto del requerimiento recibido…")}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
               />
               <div className="mt-2 flex gap-2">
                 <button

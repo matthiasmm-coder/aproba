@@ -207,7 +207,7 @@ export function NuevoExpediente() {
     }
   }
 
-  const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  const input = "mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
 
   return (
     <div className="mx-auto max-w-xl">
@@ -255,7 +255,7 @@ export function NuevoExpediente() {
             <div className="mt-4">
               <div className="relative">
                 <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente o familia…")} className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente o familia…")} className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
               </div>
               <div className="mt-3 max-h-72 space-y-1.5 overflow-y-auto pr-1">
                 {/* Familias (seleccionar la familia = expediente familiar) */}
@@ -395,7 +395,7 @@ export function NuevoExpediente() {
                 value={portalUrl}
                 onFocus={(e) => e.currentTarget.select()}
                 aria-label={t("Enlace para tu cliente")}
-                className="min-w-0 flex-1 bg-transparent font-mono text-sm text-slate-700 outline-none"
+                className="min-w-0 flex-1 bg-transparent font-mono text-[16px] sm:text-sm text-slate-700 outline-none"
               />
               <button onClick={copiar} className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400">
                 {copied ? t("¡Copiado!") : t("Copiar")}

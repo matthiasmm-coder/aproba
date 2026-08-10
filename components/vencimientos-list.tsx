@@ -116,7 +116,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={t("Buscar cliente…")}
-        className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-aproba-600"
+        className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
       />
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {creado && (

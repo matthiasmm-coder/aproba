@@ -380,7 +380,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                           maxLength={80}
                           autoFocus
                           disabled={filaBusy === m.membershipId}
-                          className="w-full min-w-0 max-w-[240px] rounded-lg border border-slate-300 px-2 py-1 text-sm font-medium text-slate-800 outline-none focus:border-aproba-600"
+                          className="w-full min-w-0 max-w-[240px] rounded-lg border border-slate-300 px-2 py-1 text-[16px] sm:text-sm font-medium text-slate-800 outline-none focus:border-aproba-600"
                         />
                         <button type="button" onClick={() => renombrar(m)} disabled={filaBusy === m.membershipId} className="shrink-0 rounded-lg bg-aproba-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
                           {filaBusy === m.membershipId ? "…" : t("Guardar")}
@@ -414,7 +414,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                       value={m.role}
                       disabled={filaBusy === m.membershipId}
                       onChange={(e) => cambiarRol(m, e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600 sm:flex-none"
+                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:flex-none"
                     >
                       {rolesQuePuedoAsignar.map((r) => (
                         <option key={r} value={r}>{t(ROLES[r].label)}</option>
@@ -456,19 +456,19 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                 <input
                   type="email" required value={invEmail} onChange={(e) => setInvEmail(e.target.value)}
                   placeholder="email@despacho.es"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
                 />
                 <input
                   type="text" value={invNombre} onChange={(e) => setInvNombre(e.target.value)}
                   placeholder={t("Nombre y apellidos")}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="text-sm text-slate-500">{t("Rol")}</label>
                 <select
                   value={invRole} onChange={(e) => setInvRole(e.target.value as RolId)}
-                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm outline-none focus:border-aproba-600"
+                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                 >
                   {rolesQuePuedoAsignar.map((r) => (
                     <option key={r} value={r}>{t(ROLES[r].label)} — {t(ROLES[r].desc)}</option>

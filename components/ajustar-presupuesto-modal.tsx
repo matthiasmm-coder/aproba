@@ -158,7 +158,7 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
                     </span>
                   ))}
                   {disponibles.length > 0 && (
-                    <select value="" disabled={busy} aria-label={t("Añadir servicio adicional")} onChange={(e) => { if (e.target.value) setExtras((xs) => [...xs, e.target.value]); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-xs text-slate-500 outline-none focus:border-aproba-600 disabled:opacity-50">
+                    <select value="" disabled={busy} aria-label={t("Añadir servicio adicional")} onChange={(e) => { if (e.target.value) setExtras((xs) => [...xs, e.target.value]); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600 disabled:opacity-50">
                       <option value="">{t("+ Añadir servicio…")}</option>
                       {disponibles.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>

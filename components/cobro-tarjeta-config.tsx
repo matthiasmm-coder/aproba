@@ -86,7 +86,7 @@ export function CobroTarjetaConfig() {
             value={clave}
             onChange={(e) => setClave(e.target.value)}
             placeholder="sk_live_… o rk_live_…"
-            className="w-full rounded-md border border-slate-300 px-2.5 py-2 font-mono text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+            className="w-full rounded-md border border-slate-300 px-2.5 py-2 font-mono text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
           />
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
             {t("Recomendado: una clave RESTRINGIDA (Stripe › Desarrolladores › Claves API) con permiso de escritura solo en «Checkout» y «PaymentIntents». La clave se guarda cifrada y nunca se muestra.")}

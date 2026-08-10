@@ -122,7 +122,7 @@ export function CrearFamiliaCliente({ clienteId, nombreCompleto, apellidos, fami
               value={unirId}
               onChange={(e) => setUnirId(e.target.value)}
               aria-label={t("Familia de destino")}
-              className="min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600 sm:w-auto sm:flex-1"
+              className="min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:w-auto sm:flex-1"
             >
               <option value="">{t("Elige una familia…")}</option>
               {familias.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
@@ -131,7 +131,7 @@ export function CrearFamiliaCliente({ clienteId, nombreCompleto, apellidos, fami
               value={unirParentesco}
               onChange={(e) => setUnirParentesco(e.target.value)}
               aria-label={t("Parentesco")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-aproba-600"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
             >
               {PARENTESCOS.filter(([v]) => v !== "TITULAR").map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
             </select>
@@ -165,7 +165,7 @@ export function CrearFamiliaCliente({ clienteId, nombreCompleto, apellidos, fami
                 value={nombreFamilia}
                 onChange={(e) => setNombreFamilia(e.target.value)}
                 placeholder={apellidos.trim() ? `${t("Familia")} ${apellidos.trim()}` : t("Familia García")}
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
               />
               <p className="mt-1 text-xs text-slate-400">{t("Si lo dejas vacío, se usan los apellidos del titular.")}</p>
             </div>

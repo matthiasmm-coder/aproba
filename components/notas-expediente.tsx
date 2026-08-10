@@ -54,7 +54,7 @@ function NotaItem({ nota, t, onDone }: { nota: NotaExpediente; t: Traducir; onDo
           rows={2}
           maxLength={4000}
           autoFocus
-          className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+          className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
         />
         {error && <p role="alert" className="mt-1 text-xs text-red-600">{error}</p>}
         <div className="mt-2 flex items-center justify-end gap-2">
@@ -123,7 +123,7 @@ export function NotasExpediente({ expedienteId, inicial }: { expedienteId: strin
           rows={2}
           maxLength={4000}
           placeholder={t("Añade una anotación (p. ej. «cita solicitada»)…")}
-          className="min-w-0 flex-1 resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
+          className="min-w-0 flex-1 resize-y rounded-lg border border-slate-200 px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
         />
         <button onClick={anadir} disabled={busy || !texto.trim()} className="shrink-0 rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
           {busy ? "…" : t("Añadir")}

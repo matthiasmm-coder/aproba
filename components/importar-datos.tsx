@@ -171,7 +171,7 @@ export function ImportarDatos() {
               onChange={(e) => setTexto(e.target.value)}
               rows={8}
               placeholder={t("Pega aquí las filas copiadas de tu Excel o programa…")}
-              className="mt-3 w-full rounded-xl border border-slate-300 p-3 font-mono text-xs outline-none focus:border-aproba-600"
+              className="mt-3 w-full rounded-xl border border-slate-300 p-3 font-mono text-[16px] sm:text-xs outline-none focus:border-aproba-600"
             />
           )}
 
@@ -201,7 +201,7 @@ export function ImportarDatos() {
           {analisis.hojas.length > 1 && (
             <div className="mb-4 flex items-center gap-2 text-sm">
               <span className="text-slate-500">{t("Hoja:")}</span>
-              <select value={analisis.hoja} onChange={(e) => analizar(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600">
+              <select value={analisis.hoja} onChange={(e) => analizar(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
                 {analisis.hojas.map((h) => <option key={h.nombre} value={h.nombre}>{h.nombre} ({h.filas})</option>)}
               </select>
               {analizando && <span className="text-xs text-slate-400">{t("Analizando…")}</span>}
@@ -227,7 +227,7 @@ export function ImportarDatos() {
                     <select
                       value={mapeo.tramites[v] ?? ""}
                       onChange={(e) => setMapeo({ ...mapeo, tramites: { ...mapeo.tramites, [v]: e.target.value || null } })}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                     >
                       <option value="">{t("— Sin servicio del catálogo —")}</option>
                       {analisis.catalogo.map((s) => <option key={s.clave} value={s.clave}>{s.nombre}</option>)}
@@ -236,7 +236,7 @@ export function ImportarDatos() {
                     <select
                       value={mapeo.validezMeses?.[v] == null ? "" : String(mapeo.validezMeses[v])}
                       onChange={(e) => setMapeo({ ...mapeo, validezMeses: { ...mapeo.validezMeses, [v]: e.target.value ? Number(e.target.value) : null } })}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                     >
                       <option value="">{t("No caduca")}</option>
                       {[...VALIDEZ_OPCIONES, ...(mapeo.validezMeses?.[v] && !VALIDEZ_OPCIONES.some(([m]) => m === mapeo.validezMeses[v]) ? [[mapeo.validezMeses[v] as number, `${mapeo.validezMeses[v]} ${t("meses")}`] as [number, string]] : [])]
@@ -298,7 +298,7 @@ export function ImportarDatos() {
                           <select
                             value={mapeo.estados[v] ?? ""}
                             onChange={(e) => setMapeo({ ...mapeo, estados: { ...mapeo.estados, [v]: e.target.value } })}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none focus:border-aproba-600"
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                           >
                             <option value="">FINALIZADO</option>
                             {ESTADOS_EXPEDIENTE.map((e2) => <option key={e2} value={e2}>{e2}</option>)}
@@ -346,13 +346,13 @@ export function ImportarDatos() {
                         value={f.ficha.nombre ?? ""}
                         onChange={(e) => setOv(i, { nombre: e.target.value })}
                         placeholder={t("Nombre")}
-                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
                       />
                       <input
                         value={f.ficha.apellidos ?? ""}
                         onChange={(e) => setOv(i, { apellidos: e.target.value })}
                         placeholder={t("Apellidos")}
-                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm font-semibold text-slate-800 outline-none focus:border-aproba-600"
                       />
                     </div>
                     <button
@@ -386,7 +386,7 @@ export function ImportarDatos() {
                       onChange={(e) => setOv(i, { email: e.target.value })}
                       placeholder={t("Email")}
                       inputMode="email"
-                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
                     />
                   </div>
 
@@ -407,7 +407,7 @@ export function ImportarDatos() {
                           type="date"
                           value={cad}
                           onChange={(e) => setOv(i, { caducidad: e.target.value })}
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 outline-none focus:border-aproba-600"
+                          className="rounded-lg border border-slate-200 px-2 py-1 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
                         />
                         {fuente && <span className="text-xs text-slate-400">{fuente}</span>}
                       </div>
@@ -499,7 +499,7 @@ function MapeoColumnas({ columnas, cabeceras, ejemplos, t, onChange }: {
         <select
           value={c.campo ?? ""}
           onChange={(e) => onChange(c.indice, (e.target.value || null) as CampoImport | null)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-aproba-600"
+          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
         >
           <option value="">{t("— Ignorar —")}</option>
           {GRUPOS.map((g) => (

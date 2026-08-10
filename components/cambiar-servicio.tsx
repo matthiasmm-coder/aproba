@@ -52,7 +52,7 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
   return (
     <div className="mt-2 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label={t("Servicio del expediente")} value={clave} onChange={(e) => { const v = e.target.value; setClave(v); setExtras((xs) => xs.filter((x) => x !== v)); }} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
+        <select aria-label={t("Servicio del expediente")} value={clave} onChange={(e) => { const v = e.target.value; setClave(v); setExtras((xs) => xs.filter((x) => x !== v)); }} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
           <option value="" disabled>{t("Elige un servicio…")}</option>
           {servicios.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
@@ -70,7 +70,7 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
           </span>
         ))}
         {disponibles.length > 0 && (
-          <select value="" disabled={busy} aria-label={t("Añadir servicio adicional")} onChange={(e) => { if (e.target.value) setExtras((xs) => [...xs, e.target.value]); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-xs text-slate-500 outline-none focus:border-aproba-600 disabled:opacity-50">
+          <select value="" disabled={busy} aria-label={t("Añadir servicio adicional")} onChange={(e) => { if (e.target.value) setExtras((xs) => [...xs, e.target.value]); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600 disabled:opacity-50">
             <option value="">{t("+ Añadir servicio…")}</option>
             {disponibles.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>

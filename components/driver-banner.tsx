@@ -156,7 +156,7 @@ export function DriverBanner({
     else if (prim.kind === "ancla") abrirYScroll(prim.target === "centinela" ? "centinela" : "documentos", prim.target);
   }
 
-  const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-aproba-600";
+  const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";
 
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${actionable ? "border-aproba-200 bg-aproba-50" : "border-slate-200 bg-slate-50"}`}>
@@ -204,7 +204,7 @@ export function DriverBanner({
             value={enlaceEnClaro}
             onFocus={(e) => e.currentTarget.select()}
             aria-label={t("Enlace del cliente")}
-            className="mt-1 w-full bg-transparent font-mono text-xs text-slate-700 outline-none"
+            className="mt-1 w-full bg-transparent font-mono text-[16px] sm:text-xs text-slate-700 outline-none"
           />
         </div>
       )}
