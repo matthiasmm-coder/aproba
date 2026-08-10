@@ -38,9 +38,14 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
   }
 
   // Foco dentro del diálogo al abrir, trampa de Tab, Escape, y restauración del foco al cerrar.
+  // Y bloqueo del scroll de fondo: sin él, en el móvil el dedo (o el teclado al abrirse
+  // sobre un campo) mueve la página de debajo mientras el diálogo se queda clavado en el
+  // viewport — de ahí la sensación de ventana «descolocada».
   useEffect(() => {
     if (!abierto) return;
     const panel = panelRef.current;
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const focusables = () => panel ? [...panel.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')] : [];
     focusables()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -54,7 +59,7 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); prevFocus.current?.focus?.(); };
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflowPrevio; prevFocus.current?.focus?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto]);
 
@@ -74,7 +79,9 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
     } finally { setGuardando(false); }
   }
 
-  const inp = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  // 16 px en el móvil (`sm:text-sm` a partir de tableta): por debajo de 16, Safari de iOS
+  // hace ZOOM al enfocar el campo — y entonces el diálogo se ve enorme y descolocado.
+  const inp = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   return (
     <>
@@ -84,22 +91,29 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
       </button>
 
       {abierto && (
-        <div role="dialog" aria-modal="true" aria-label={t("Editar cliente")} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-6" onClick={(e) => { if (e.target === e.currentTarget) intentarCerrar(); }}>
-          <div ref={panelRef} className="my-8 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
+        // En el móvil, hoja a lo ancho anclada abajo (sin márgenes laterales que
+        // desencuadren) y con el scroll DENTRO del panel: la cabecera y los botones
+        // quedan siempre a la vista, y el teclado ya no arrastra el diálogo.
+        // A partir de sm, la misma tarjeta centrada de siempre.
+        <div role="dialog" aria-modal="true" aria-label={t("Editar cliente")} className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-start sm:p-6" onClick={(e) => { if (e.target === e.currentTarget) intentarCerrar(); }}>
+          <div ref={panelRef} className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:my-8 sm:max-h-[85dvh] sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-6 sm:py-4">
               <h2 className="text-lg font-bold text-slate-900">{t("Editar cliente")}</h2>
-              <button onClick={cerrar} aria-label={t("Cerrar")} className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+              <button onClick={cerrar} aria-label={t("Cerrar")} className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="mt-5 space-y-5">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
               {GRUPOS.map((g) => (
                 <div key={g}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t(g)}</h3>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
                     {FICHA_CAMPOS.filter((c) => c.grupo === g).map((c) => (
-                      <div key={c.k} className={c.w === "full" ? "sm:col-span-2" : ""}>
+                      // `min-w-0`: una casilla de rejilla mide por defecto su contenido
+                      // mínimo, y un <input> lo fija en ~20 caracteres — sin esto, la
+                      // rejilla se ensancha más que el panel en pantallas estrechas.
+                      <div key={c.k} className={`min-w-0 ${c.w === "full" ? "sm:col-span-2" : ""}`}>
                         <label className="text-xs text-slate-500">{t(c.label)}</label>
                         {c.tipo === "tel" ? (
                           <TelefonoInput
@@ -131,7 +145,8 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
               {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            {/* pb con la franja segura: en el iPhone, la barra de gestos se comería los botones. */}
+            <div className="flex justify-end gap-3 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
               <button onClick={cerrar} disabled={guardando} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{t("Cancelar")}</button>
               <button onClick={guardar} disabled={guardando} className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">{guardando ? t("Guardando…") : t("Guardar cambios")}</button>
             </div>
