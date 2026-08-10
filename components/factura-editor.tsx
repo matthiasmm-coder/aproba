@@ -106,7 +106,9 @@ export function FacturaEditor({
     }
   }
 
-  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  // 16 px en el móvil (`sm:text-sm` a partir de tableta): por debajo de 16, Safari de
+  // iOS hace zoom al enfocar el campo y el diálogo se ve enorme y descolocado.
+  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   return (
     <div>

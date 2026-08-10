@@ -7,6 +7,7 @@ import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { facturacionAvanzada } from "@/lib/planes";
 import { FacturaEditor, type ServicioTarifa, type FacturaEditorInicial, type FacturaPayload } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // Popup de cobro del expediente. Dos modos:
 //  • "crear": solicitar el pago final → POST /api/pagos con la factura editada → se emite y
@@ -32,6 +33,7 @@ export function CobroFacturaModal({
 }) {
   const t = useT();
   const router = useRouter();
+  useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const [plan, setPlan] = useState<string>("STARTER");
   const [servicios, setServicios] = useState<ServicioTarifa[]>([]);
   const [inicial, setInicial] = useState<FacturaEditorInicial | null>(null);
@@ -105,8 +107,10 @@ export function CobroFacturaModal({
   const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}` : momento === "ANTICIPO" ? t("Solicitar anticipo") : t("Solicitar pago final");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !busy && onClose()}>
-      <div className="my-8 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
+    // de sm en adelante, la misma tarjeta centrada de siempre.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !busy && onClose()}>
+      <div className="mt-4 w-full max-w-2xl rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:my-8 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 flex items-start justify-between">
           <h2 className="text-lg font-bold text-slate-900">{titulo}</h2>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Cerrar")}>

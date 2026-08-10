@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useT } from "@/components/lang-provider";
 import { TelefonoInput } from "@/components/telefono-input";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // Génération de la tasa 790-012 officielle (proxy Sede Policía Nacional) :
 // données pré-remplies + éditables, champs obligatoires validés, le gestor lit le
@@ -38,6 +39,7 @@ const W: Record<string, string> = { half: "sm:col-span-3", third: "sm:col-span-2
 export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expedienteId: string; clienteId?: string; etiqueta?: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useScrollBloqueado(open); // este diálogo se monta siempre (el botón vive aquí)
   const [cargando, setCargando] = useState(false);
   const [datos, setDatos] = useState<Datos | null>(null);
   const [campos, setCampos] = useState<Prefill>({});
@@ -84,8 +86,10 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
   }
 
   const set = (k: string, v: string) => setCampos((c) => ({ ...c, [k]: v }));
+  // 16 px en el móvil: por debajo, Safari de iOS hace zoom al enfocar el campo y el
+  // diálogo entero se ve enorme y descolocado. `sm:text-sm` deja el escritorio igual.
   const inp = (k: string, req?: boolean) =>
-    `w-full rounded-md border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-aproba-100 ${req && !(campos[k] ?? "").trim() ? "border-amber-400 bg-amber-50/40" : "border-slate-300 focus:border-aproba-600"}`;
+    `w-full rounded-md border px-2.5 py-1.5 text-[16px] outline-none focus:ring-2 focus:ring-aproba-100 sm:text-sm ${req && !(campos[k] ?? "").trim() ? "border-amber-400 bg-amber-50/40" : "border-slate-300 focus:border-aproba-600"}`;
 
   return (
     <>
@@ -95,8 +99,10 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !enviando && setOpen(false)}>
-          <div className="mt-6 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
+        // de sm en adelante, la misma tarjeta centrada de siempre.
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !enviando && setOpen(false)}>
+          <div className="mt-4 w-full max-w-2xl rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:mt-6 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 flex items-start justify-between">
               <h2 className="text-lg font-bold text-slate-900">{t("Tasa 790-012 oficial")}</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Cerrar")}>

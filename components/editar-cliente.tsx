@@ -6,6 +6,7 @@ import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from 
 import { TelefonoInput } from "@/components/telefono-input";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // El gestor edita los datos personales del cliente desde su ficha. Reutiliza el modelo
 // declarativo de campos (lib/ficha.ts) — los mismos que rellena el cliente en el portal —
@@ -37,15 +38,12 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
     setDatos(ficha); setError(null); setAbierto(true);
   }
 
+  useScrollBloqueado(abierto);
+
   // Foco dentro del diálogo al abrir, trampa de Tab, Escape, y restauración del foco al cerrar.
-  // Y bloqueo del scroll de fondo: sin él, en el móvil el dedo (o el teclado al abrirse
-  // sobre un campo) mueve la página de debajo mientras el diálogo se queda clavado en el
-  // viewport — de ahí la sensación de ventana «descolocada».
   useEffect(() => {
     if (!abierto) return;
     const panel = panelRef.current;
-    const overflowPrevio = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const focusables = () => panel ? [...panel.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')] : [];
     focusables()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -59,7 +57,7 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflowPrevio; prevFocus.current?.focus?.(); };
+    return () => { window.removeEventListener("keydown", onKey); prevFocus.current?.focus?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto]);
 

@@ -5,6 +5,7 @@ import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, descuentoValido, type Descuento } from "@/lib/multi-servicio";
 import { useT } from "@/components/lang-provider";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // Cerrar el precio ANTES de enviar el enlace (pedido de Juan: packs familiares, varios
 // servicios juntos). Mismo gesto que en la ficha pero sin salir del alta: elegir los
@@ -23,6 +24,7 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
   onClose: (guardado?: boolean) => void;
 }) {
   const t = useT();
+  useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const [servicios, setServicios] = useState<Svc[] | null>(null);
   const [clave, setClave] = useState("");
   const [extras, setExtras] = useState<string[]>([]);
@@ -109,11 +111,15 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
     } finally { setBusy(false); }
   }
 
-  const inp = "rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  // 16 px en el móvil: por debajo, Safari de iOS hace zoom al enfocar el campo y el
+  // diálogo entero se ve enorme y descolocado. `sm:text-sm` deja el escritorio igual.
+  const inp = "rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !busy && onClose()}>
-      <div className="my-8 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-xl" onClick={(e) => e.stopPropagation()}>
+    // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
+    // de sm en adelante, la misma tarjeta centrada de siempre.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !busy && onClose()}>
+      <div className="mt-4 w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-xl sm:my-8 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 flex items-start justify-between gap-3">
           <h2 className="text-lg font-bold text-slate-900">{t("Ajustar servicio y descuento")}</h2>
           <button onClick={() => onClose()} disabled={busy} className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100" aria-label={t("Cerrar")}>

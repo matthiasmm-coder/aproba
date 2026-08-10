@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { TelefonoInput } from "@/components/telefono-input";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 import type { ClienteMin } from "@/lib/data/citas";
 
 const PRESETS_DURACION = [15, 30, 45, 60, 90, 120]; // minutos ofrecidos en el selector
@@ -57,6 +58,7 @@ function LogoTeams({ className = "h-5 w-5" }: { className?: string }) {
 export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: ClienteMin[]; onClose: () => void; citaId?: string }) {
   const t = useT();
   const router = useRouter();
+  useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const edicion = Boolean(citaId);
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
@@ -205,11 +207,15 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
     } finally { setBusy(false); }
   }
 
-  const fld = "w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  // 16 px en el móvil: por debajo, Safari de iOS hace zoom al enfocar el campo y el
+  // diálogo entero se ve enorme y descolocado. `sm:text-sm` deja el escritorio igual.
+  const fld = "w-full rounded-md border border-slate-300 px-2.5 py-2 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !busy && onClose()}>
-      <div className="mt-8 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
+    // de sm en adelante, la misma tarjeta centrada de siempre.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !busy && onClose()}>
+      <div className="mt-4 w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:mt-8 sm:rounded-2xl sm:p-6 sm:pb-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <h2 className="text-lg font-bold text-slate-900">{edicion ? t("Editar cita") : t("Nueva cita")}</h2>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Cerrar")}>

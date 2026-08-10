@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { TelefonoInput } from "@/components/telefono-input";
+import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // UN solo servicio de implantación (decidido 2026-07-17): un choix binaire fait décider,
 // un menu à deux lignes fait hésiter. Config + migración son fijas, la formación escala
@@ -55,6 +56,7 @@ export function ServiciosImplantacion() {
 }
 
 function PresupuestoModal({ onClose }: { onClose: () => void }) {
+  useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -86,11 +88,15 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
   }
 
   const label = "mb-1 block text-sm font-medium text-slate-700";
-  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100";
+  // 16 px en el móvil: por debajo, Safari de iOS hace zoom al enfocar el campo y el
+  // diálogo entero se ve enorme y descolocado. `sm:text-sm` deja el escritorio igual.
+  const inp = "w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] outline-none transition focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !enviando && onClose()}>
-      <div className="my-6 w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-7" onClick={(e) => e.stopPropagation()}>
+    // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
+    // de sm en adelante, la misma tarjeta centrada de siempre.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !enviando && onClose()}>
+      <div className="mt-4 w-full max-w-xl rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:my-6 sm:rounded-2xl sm:p-7" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold tracking-tightest text-slate-900">Solicitar presupuesto</h3>
