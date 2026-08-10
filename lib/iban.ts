@@ -8,6 +8,16 @@ export function fmtIban(iban: string): string {
   return iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 }
 
+// IBAN enmascarado: país + dígitos de control y las 4 últimas cifras a la vista, el
+// resto en puntos. Basta para reconocer la cuenta de un vistazo sin dejarla legible
+// en pantalla (demos, pantalla compartida, alguien detrás). Los datos completos se
+// enseñan bajo petición explícita — «Ver datos» en Ajustes.
+export function ibanOculto(iban: string): string {
+  const limpio = (iban ?? "").replace(/\s+/g, "").toUpperCase();
+  if (limpio.length < 12) return fmtIban(limpio); // demasiado corto: ocultarlo no aporta nada
+  return fmtIban(limpio.slice(0, 4) + "•".repeat(limpio.length - 8) + limpio.slice(-4));
+}
+
 export function ibanValido(input: string): boolean {
   const iban = (input ?? "").replace(/\s+/g, "").toUpperCase();
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
