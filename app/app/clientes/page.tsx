@@ -3,6 +3,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import { ClientesList, type Cli } from "@/components/clientes-list";
+import { BorrarTodosClientes } from "@/components/borrar-todos-clientes";
+import { puedeGestionarEquipo } from "@/lib/planes";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Clientes" };
@@ -81,6 +83,15 @@ export default async function Clientes() {
 
   const lista: Cli[] = [...individuales, ...entradasFamilia].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+  // Vaciado en masa: mismas reglas que el borrado unitario — solo administradores, y solo
+  // fichas sin expedientes y fuera de una familia. Se cuentan aquí porque la página ya tiene
+  // los expedientes de cada cliente: ni una consulta de más.
+  const { data: miMem } = await supabase.from("Membership").select("role").limit(1).maybeSingle();
+  const esAdmin = puedeGestionarEquipo((miMem as { role?: string } | null)?.role);
+  const conExpedientes = rows.filter((c) => (c.expedientes?.length ?? 0) > 0).length;
+  const enFamilia = rows.filter((c) => c.familiaId && (c.expedientes?.length ?? 0) === 0).length;
+  const borrables = rows.length - conExpedientes - enFamilia;
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-end justify-between">
@@ -103,7 +114,10 @@ export default async function Clientes() {
           {t("Error al cargar los clientes")}: {error.message}
         </p>
       ) : (
-        <ClientesList lista={lista} />
+        <>
+          <ClientesList lista={lista} />
+          {esAdmin && <BorrarTodosClientes borrables={borrables} conExpedientes={conExpedientes} enFamilia={enFamilia} />}
+        </>
       )}
     </div>
   );
