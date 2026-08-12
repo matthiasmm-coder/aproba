@@ -181,26 +181,42 @@ export async function POST(req: Request) {
       // Índices por referencia y por (cliente+servicio+fecha) → id + importe: sirven para
       // dedup Y para RELLENAR huecos al reimportar (p. ej. añadir el importe a un servicio
       // ya migrado sin él). El reimport enriquece, no duplica.
-      type Rec = { id: string; importe: number | null };
+      type Rec = { id: string; importe: number | null; sinFecha?: boolean };
       const porRef = new Map<string, Rec>();
       const porCombo = new Map<string, Rec>();
+      // Índice extra SIN fecha: un servicio ya migrado al que solo le falta la fecha.
+      // Caso real (Gesadmbcn, 12/08): primero se importó la columna de trámite sin fecha
+      // y después se añadió la fecha al Excel. Sin este índice, la fecha nueva cambia la
+      // clave de dedup y el reimport DUPLICARÍA el historial en vez de completarlo.
+      const porClienteServicio = new Map<string, Rec>();
       for (const e of (histExist ?? []) as { id: string; clienteId: string; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null }[]) {
-        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null };
+        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha };
         if (e.referencia) porRef.set(e.referencia, rec);
         porCombo.set(`${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
+        if (!e.fecha) porClienteServicio.set(`${e.clienteId}|${e.servicioClave ?? ""}`, rec);
       }
       const lote: Record<string, unknown>[] = [];
       const rellenos: { id: string; importe: number }[] = [];
+      const fechasRellenadas: { id: string; fecha: string }[] = [];
       for (let i = 0; i < filas.length; i++) {
         const f = filas[i];
         const clienteId = clienteDe.get(i);
         if (!clienteId || !f.servicio) continue;
         const fechaSrv = f.fechaResolucion || ""; // fecha en que se realizó/resolvió
         const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
-        const existente = (f.referencia ? porRef.get(f.referencia) : undefined) ?? porCombo.get(combo);
+        // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
+        const existente = (f.referencia ? porRef.get(f.referencia) : undefined)
+          ?? porCombo.get(combo)
+          ?? (fechaSrv ? porClienteServicio.get(`${clienteId}|${f.servicio}`) : undefined);
         if (existente) {
           r.serviciosOmitidos++;
           if (existente.importe == null && f.importe != null) { existente.importe = f.importe; rellenos.push({ id: existente.id, importe: f.importe }); }
+          if (existente.sinFecha && fechaSrv) {
+            existente.sinFecha = false;
+            porClienteServicio.delete(`${clienteId}|${f.servicio}`);
+            porCombo.set(combo, existente);            // ya tiene fecha: la próxima fila igual sí es un duplicado
+            fechasRellenadas.push({ id: existente.id, fecha: fechaSrv });
+          }
           continue;
         }
         const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
@@ -225,8 +241,10 @@ export async function POST(req: Request) {
         if (error) throw error;
       }
       for (const rl of rellenos) await admin.from("ServicioHistorico").update({ importe: rl.importe, updatedAt: ahora() }).eq("id", rl.id);
+      for (const fr of fechasRellenadas) await admin.from("ServicioHistorico").update({ fecha: `${fr.fecha}T00:00:00.000Z`, updatedAt: ahora() }).eq("id", fr.id);
       r.serviciosCreados = lote.length;
       if (rellenos.length) avisosExtra.push(`${rellenos.length} importes añadidos a servicios ya migrados.`);
+      if (fechasRellenadas.length) avisosExtra.push(`${fechasRellenadas.length} fechas añadidas a servicios ya migrados (no se han duplicado).`);
     } catch (e) {
       // Repli propre: si falta la migración servicio-historico.sql, el resto del import no se cae.
       avisosExtra.push(`Historial de servicios no registrado (¿falta ejecutar servicio-historico.sql?): ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`);
