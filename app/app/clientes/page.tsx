@@ -22,6 +22,10 @@ type Row = {
   familiaId?: string | null;
   familia?: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
   expedientes: { tipo: string; createdAt: string }[];
+  // Trámites del PASADO traídos por la migración: no son expedientes, pero son lo único
+  // que tiene una cartera recién importada. Sin ellos la columna «Último trámite» sale
+  // vacía para todo el mundo justo después de migrar (caso Gesadmbcn, 12/08).
+  historial?: { etiqueta: string | null; tipo: string | null; fecha: string | null; createdAt: string }[] | null;
 };
 
 const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
@@ -29,26 +33,30 @@ const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 export default async function Clientes() {
   const t = await getT();
   const supabase = await createSupabaseServer();
-  // Avec la famille ; repli sans elle si la migration n'est pas appliquée.
-  const conFam = await supabase
-    .from("Cliente")
-    .select("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt)")
-    .order("nombre");
-  const res = conFam.error
-    ? await supabase.from("Cliente").select("id, nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)").order("nombre")
-    : conFam;
+  // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
+  // Chaque cran ne retire QUE le morceau le plus récent (mêmes règles que fetchDespacho).
+  const q = (cols: string) => supabase.from("Cliente").select(cols).order("nombre");
+  let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt)");
+  if (res.error) res = await q("id, nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)");
   const { data, error } = res;
 
   const rows = ((data ?? []) as unknown[]) as Row[];
+  const dia = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-ES"); };
   const aCli = (c: Row) => {
     const exps = [...(c.expedientes ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    // Sin expediente en curso, el último trámite es el que trae el historial migrado:
+    // se ordena por la fecha REAL del trámite (la del Excel), no por la de importación.
+    const hist = [...(c.historial ?? [])].sort((a, b) => (b.fecha ?? b.createdAt).localeCompare(a.fecha ?? a.createdAt));
+    const h = hist[0];
+    const ultimoHist = h ? `${h.etiqueta || TIPO_LABEL[h.tipo ?? ""] || "—"}${h.fecha ? ` · ${dia(h.fecha)}` : ""}` : "—";
     return {
       id: c.id,
       nombre: `${c.nombre} ${c.apellidos ?? ""}`.trim() || "—",
       nacionalidad: c.nacionalidad ?? "—",
       expedientes: exps.length,
-      ultimo: exps[0] ? TIPO_LABEL[exps[0].tipo] ?? exps[0].tipo : "—",
-      _ultimoAt: exps[0]?.createdAt ?? "",
+      ultimo: exps[0] ? TIPO_LABEL[exps[0].tipo] ?? exps[0].tipo : ultimoHist,
+      _ultimoAt: exps[0]?.createdAt ?? h?.fecha ?? h?.createdAt ?? "",
     };
   };
 
