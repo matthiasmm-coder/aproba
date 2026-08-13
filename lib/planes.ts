@@ -35,7 +35,10 @@ export const PLANES: Record<PlanId, {
     // cobro de overage (lib/overage) no aplica jamás a BUSINESS, sin tocar su código.
     maxExpedientes: Infinity,
     para: "Multi-oficina · expedientes ilimitados",
-    features: ["Expedientes ilimitados", "Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "Multi-oficina", "Onboarding dedicado"],
+    // Mismo texto que la landing (app/page.tsx): el número de sedes incluidas y el
+    // precio de la siguiente se dicen aquí también — un cliente que compara el
+    // plan desde Ajustes no debe leer algo distinto de lo que vio en la web.
+    features: ["Expedientes ilimitados", "Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Onboarding dedicado"],
   },
 };
 
