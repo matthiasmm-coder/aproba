@@ -59,6 +59,7 @@ export interface Expediente {
   clienteTelefono?: string;
   clienteFicha?: import("@/lib/ficha").ClienteFicha;
   asignadoA: string;
+  asignadoAId?: string | null; // id brut: le sélecteur d'affectation a besoin de l'id, pas du nom
   creado: string;
   fechaLimite?: string;
   documentos: Documento[];

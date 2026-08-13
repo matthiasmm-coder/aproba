@@ -202,6 +202,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 const DETALLE_SELECT =
   `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
    cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
+   asignadoAId,
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
@@ -250,6 +251,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     clienteTelefono: e.cliente?.telefono ?? "",
     clienteFicha: fichaDeCliente(e.cliente),
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
+    asignadoAId: (e as unknown as { asignadoAId?: string | null }).asignadoAId ?? null,
     creado: fmtFechaCorta(e.createdAt) ?? "",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
     documentos,

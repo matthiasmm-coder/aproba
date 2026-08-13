@@ -11,6 +11,7 @@ import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
+import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ESTADO_META } from "@/lib/types";
@@ -60,6 +61,19 @@ export default async function ExpedienteDetail({
   if (!e) notFound();
 
   const despachoEncargo = await encargoActivado();
+
+  // Équipe + mon rôle, pour le sélecteur « Asignado a ». Un ASISTENTE ne réassigne
+  // pas : il ne verrait de toute façon que ses propres expedientes.
+  const supaRol = await createSupabaseServer();
+  const { data: { user: yo } } = await supaRol.auth.getUser();
+  const { data: memsRaw } = await supaRol.from("Membership").select("userId, role, User(nombre, email)");
+  type MemRow = { userId: string; role: string; User: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null };
+  const mems = (memsRaw ?? []) as MemRow[];
+  const miembrosEquipo = mems.map((m) => {
+    const u = Array.isArray(m.User) ? m.User[0] : m.User;
+    return { userId: m.userId, nombre: u?.nombre || u?.email || "Usuario" };
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const puedeAsignar = mems.find((m) => m.userId === yo?.id)?.role !== "ASISTENTE";
 
   // Expediente FAMILIAR (Expediente.familiaId): miembros + facturación familiar en la ficha.
   const [familia, famPrefill, famFacturas] = e.familiaId
@@ -153,7 +167,15 @@ export default async function ExpedienteDetail({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">{t("Asignado a")}</span>
+            <AsignarExpediente
+              expedienteId={e.id}
+              miembros={miembrosEquipo}
+              inicial={e.asignadoAId ?? null}
+              puedeAsignar={puedeAsignar}
+            />
+          </div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
           {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
         </div>

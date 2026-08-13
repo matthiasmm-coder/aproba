@@ -85,8 +85,10 @@ export type RolId = "OWNER" | "ADMIN" | "GESTOR" | "ASISTENTE";
 export const ROLES: Record<RolId, { label: string; desc: string; pill: string }> = {
   OWNER: { label: "Administrador", desc: "Jefe del despacho: plan, facturación y equipo", pill: "bg-aproba-100 text-aproba-700" },
   ADMIN: { label: "Administrador", desc: "Jefe del despacho: plan, facturación y equipo", pill: "bg-aproba-100 text-aproba-700" },
-  GESTOR: { label: "Gestor", desc: "Trabaja en expedientes, clientes y facturas", pill: "bg-slate-100 text-slate-600" },
-  ASISTENTE: { label: "Asistente", desc: "Acceso de apoyo, sin ajustes", pill: "bg-slate-100 text-slate-500" },
+  // El rol dice sobre todo QUÉ SE VE — es lo que se pregunta al invitar a alguien.
+  // El reparto lo impone la base (supabase/roles-asistente.sql), no solo la interfaz.
+  GESTOR: { label: "Gestor", desc: "Ve y trabaja todos los expedientes del despacho; no puede eliminar", pill: "bg-slate-100 text-slate-600" },
+  ASISTENTE: { label: "Asistente", desc: "Solo los expedientes que le asignes", pill: "bg-slate-100 text-slate-500" },
 };
 
 // Rôles assignables (invitation / changement) : Administrador (= ADMIN), Gestor, Asistente.
