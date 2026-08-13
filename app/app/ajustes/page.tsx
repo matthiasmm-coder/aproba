@@ -177,30 +177,40 @@ export default async function Ajustes() {
           <AjustesSection
             id="plan"
             title={t("Plan y equipo")}
-            subtitle={`${despachoPlan} · ${equipo.miembros.length} ${equipo.miembros.length === 1 ? t("usuario") : t("usuarios")}`}
+            subtitle={`${despachoPlan} · ${equipo.miembros.length} ${equipo.miembros.length === 1 ? t("usuario") : t("usuarios")}`
+              + (oficinas.length > 0 ? ` · ${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")}` : "")}
             icon={IconEquipo}
           >
             <EquipoManager inicial={equipo} />
-          </AjustesSection>
-        )}
 
-        {/* Multi-oficina : visible dès qu'on peut administrer (upsell si pas Business)
-            ou dès qu'il existe des oficinas (les gestores voient la répartition). */}
-        {equipo && (puedeEditar || oficinas.length > 0) && (
-          <AjustesSection
-            id="oficinas"
-            title={t("Oficinas")}
-            subtitle={oficinas.length > 0
-              ? `${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")} · ${t("reparto del equipo y de los clientes")}`
-              : t("Varias sedes en un mismo despacho")}
-            icon={IconOficinas}
-          >
-            <OficinasManager
-              inicial={oficinas}
-              miembros={equipo.miembros}
-              plan={equipo.plan}
-              puedeEditar={puedeEditar}
-            />
+            {/* Multi-oficina : au pied de « Plan y equipo », pas dans une section à part.
+                Répartir l'équipe entre les sedes est la suite naturelle de la gérer —
+                et la fonctionnalité dépend du plan affiché juste au-dessus.
+                Visible dès qu'on peut administrer (upsell si pas Business) ou dès qu'il
+                existe des oficinas (les gestores y lisent la répartition). */}
+            {(puedeEditar || oficinas.length > 0) && (
+              <div className="mt-8 border-t border-slate-200 pt-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-aproba-50 text-aproba-700">
+                    {IconOficinas}
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">{t("Oficinas")}</h3>
+                    <p className="text-sm text-slate-500">
+                      {oficinas.length > 0
+                        ? `${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")} · ${t("reparto del equipo y de los clientes")}`
+                        : t("Varias sedes en un mismo despacho")}
+                    </p>
+                  </div>
+                </div>
+                <OficinasManager
+                  inicial={oficinas}
+                  miembros={equipo.miembros}
+                  plan={equipo.plan}
+                  puedeEditar={puedeEditar}
+                />
+              </div>
+            )}
           </AjustesSection>
         )}
 
