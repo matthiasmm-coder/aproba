@@ -57,7 +57,7 @@ const fmtFecha = (iso: string) => {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 };
 
-export function ImportarDatos() {
+export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nombre: string }[] }) {
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -68,6 +68,9 @@ export function ImportarDatos() {
   const [mapeo, setMapeo] = useState<(Mapeo & { primeraFilaEsCabecera: boolean }) | null>(null);
   const [overrides, setOverrides] = useState<Record<number, OverrideFila>>({});
   const [paso, setPaso] = useState(1);
+  // Multi-oficina : une sede pour tout le fichier. Chaque bureau exporte SA cartera —
+  // demander une colonne « oficina » par ligne obligerait à deviner des noms mal saisis.
+  const [oficinaDestino, setOficinaDestino] = useState("");
   const [ejecutando, setEjecutando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +104,7 @@ export function ImportarDatos() {
     try {
       const res = await fetch("/api/importar/ejecutar", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filas: analisis.filas, mapeo, primeraFilaEsCabecera: mapeo.primeraFilaEsCabecera, overrides }),
+        body: JSON.stringify({ filas: analisis.filas, mapeo, primeraFilaEsCabecera: mapeo.primeraFilaEsCabecera, overrides, ...(oficinas.length ? { oficinaId: oficinaDestino || null } : {}) }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? t("No se pudo importar."));
@@ -426,6 +429,22 @@ export function ImportarDatos() {
             <button onClick={() => setVisibles((v) => v + 20)} className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400">
               {t("Mostrar más")} ({previa.filas.length - visibles})
             </button>
+          )}
+
+          {oficinas.length > 0 && (
+            <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+              <label className="block text-sm font-semibold text-slate-800" htmlFor="oficina-import">{t("Oficina de estos clientes")}</label>
+              <p className="mt-0.5 text-xs text-slate-500">{t("Se aplica a todo el archivo. Puedes cambiarlo después desde Clientes.")}</p>
+              <select
+                id="oficina-import"
+                value={oficinaDestino}
+                onChange={(e) => setOficinaDestino(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100"
+              >
+                <option value="">{t("Sin oficina")}</option>
+                {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+              </select>
+            </div>
           )}
 
           <p className="mt-4 text-xs text-slate-400">{t("Reimportar el mismo archivo no crea duplicados, y los servicios migrados no consumen tu cuota mensual.")}</p>

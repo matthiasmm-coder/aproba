@@ -32,13 +32,20 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
   // Ficha completa (para el editor) — todos los campos personales. fechaCaducidad (Vigía):
   // select defensivo, repli sin la columna si falta la migración.
   const FICHA_SELECT = ["id", ...FICHA_KEYS].join(", ");
-  let resCliente = await supabase.from("Cliente").select(`${FICHA_SELECT}, fechaCaducidad`).eq("id", id).maybeSingle();
+  // Repli à 3 étages : chaque repli retire UNIQUEMENT la colonne du dernier chantier.
+  let resCliente = await supabase.from("Cliente").select(`${FICHA_SELECT}, fechaCaducidad, oficinaId`).eq("id", id).maybeSingle();
+  if (resCliente.error) resCliente = await supabase.from("Cliente").select(`${FICHA_SELECT}, fechaCaducidad`).eq("id", id).maybeSingle();
   if (resCliente.error) resCliente = await supabase.from("Cliente").select(FICHA_SELECT).eq("id", id).maybeSingle();
-  const cliente = resCliente.data as (ClienteFicha & { id: string; fechaCaducidad?: string | null }) | null;
+  const cliente = resCliente.data as (ClienteFicha & { id: string; fechaCaducidad?: string | null; oficinaId?: string | null }) | null;
   if (!cliente) notFound();
 
   // Objeto ficha (solo las claves conocidas) para el editor.
   const ficha = Object.fromEntries(FICHA_KEYS.map((k) => [k, (cliente as Record<string, unknown>)[k] ?? ""])) as ClienteFicha;
+
+  // Sedes del despacho (multi-oficina). Vide = despacho mono-oficina → le sélecteur
+  // n'apparaît pas du tout dans l'éditeur.
+  const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");
+  const oficinas = (ofis ?? []) as { id: string; nombre: string }[];
 
   const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim();
 
@@ -161,7 +168,7 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
         <div className="flex flex-col gap-3 sm:items-end">
           <div className="flex items-center gap-3">
             <EliminarClienteButton clienteId={cliente.id} nombre={nombre} />
-            <EditarCliente clienteId={cliente.id} ficha={ficha} />
+            <EditarCliente clienteId={cliente.id} ficha={ficha} oficinas={oficinas} oficinaId={cliente.oficinaId ?? null} />
           </div>
           <div className="hidden gap-6 text-center sm:flex">
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{servicios.length}</p><p className="text-xs text-slate-400">{t("servicios")}</p></div>

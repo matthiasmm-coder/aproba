@@ -3,13 +3,14 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { moverClienteDeOficina, oficinaValida } from "@/lib/oficinas-server";
 
 // El GESTOR edita los datos personales de un cliente desde su ficha (/app/clientes/[id]).
 // Autorización: sesión + el cliente se resuelve BAJO RLS (anti-IDOR) antes de tocar nada
 // con service_role — un id ajeno al workspace simplemente no existe.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { ficha?: ClienteFicha };
+  let body: { ficha?: ClienteFicha; oficinaId?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
   const supa = await createSupabaseServer();
@@ -28,12 +29,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (typeof v === "string") patch[k] = v.trim();
   }
   if ("nombre" in patch && !patch.nombre) return NextResponse.json({ error: "El nombre es obligatorio." }, { status: 400 });
-  if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
+
+  // MULTI-OFICINA: la sede NO forma parte de la ficha (no la rellena el cliente en el
+  // portal, la decide el despacho) → clave aparte, con su propia validación.
+  // `undefined` = no se toca; `null` o "" = quitar la sede.
+  const tocaOficina = "oficinaId" in body;
+  const admin = createSupabaseAdmin();
+  let oficinaId: string | null = null;
+  if (tocaOficina) {
+    const bruto = body.oficinaId;
+    if (bruto !== null && bruto !== undefined && String(bruto) !== "") {
+      oficinaId = String(bruto);
+      if (!(await oficinaValida(admin, oficinaId, actual.workspaceId as string))) {
+        return NextResponse.json({ error: "Oficina no encontrada." }, { status: 404 });
+      }
+    }
+  }
+
+  if (Object.keys(patch).length === 0 && !tocaOficina) return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
   patch.updatedAt = new Date().toISOString();
 
-  const admin = createSupabaseAdmin();
   const { error } = await admin.from("Cliente").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Mover de sede re-estampa TAMBIÉN sus expedientes: si no, el board del otro
+  // despacho seguiría mostrando sus trámites bajo la sede antigua.
+  if (tocaOficina) await moverClienteDeOficina(admin, id, actual.workspaceId as string, oficinaId);
 
   // La Factura está denormalizada por clienteNombre (sin FK clienteId). Si el nombre cambia,
   // resincronizamos SOLO las facturas de ESTE cliente, vía sus expedientes — NUNCA por nombre,

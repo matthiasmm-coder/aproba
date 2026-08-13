@@ -11,18 +11,28 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 // El gestor edita los datos personales del cliente desde su ficha. Reutiliza el modelo
 // declarativo de campos (lib/ficha.ts) — los mismos que rellena el cliente en el portal —
 // y guarda vía PATCH /api/clientes/[id].
-export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: ClienteFicha }) {
+export function EditarCliente({
+  clienteId, ficha, oficinas = [], oficinaId = null,
+}: {
+  clienteId: string;
+  ficha: ClienteFicha;
+  // Multi-oficina : la sede n'est PAS un champ de ficha (le client ne la remplit
+  // jamais dans le portail) — elle voyage à part, et n'apparaît que s'il y en a.
+  oficinas?: { id: string; nombre: string }[];
+  oficinaId?: string | null;
+}) {
   const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [datos, setDatos] = useState<ClienteFicha>(ficha);
+  const [oficina, setOficina] = useState<string>(oficinaId ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const prevFocus = useRef<HTMLElement | null>(null);
 
   const set = (k: keyof ClienteFicha, v: string) => setDatos((d) => ({ ...d, [k]: v }));
-  const sucio = () => JSON.stringify(datos) !== JSON.stringify(ficha);
+  const sucio = () => JSON.stringify(datos) !== JSON.stringify(ficha) || oficina !== (oficinaId ?? "");
 
   // Cierra sin guardar; si hay cambios, confirma (evita perder 17 campos por un clic fuera).
   async function intentarCerrar() {
@@ -35,7 +45,7 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
 
   function abrir() {
     prevFocus.current = (document.activeElement as HTMLElement) ?? null;
-    setDatos(ficha); setError(null); setAbierto(true);
+    setDatos(ficha); setOficina(oficinaId ?? ""); setError(null); setAbierto(true);
   }
 
   useScrollBloqueado(abierto);
@@ -66,7 +76,8 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
     setGuardando(true); setError(null);
     try {
       const res = await fetch(`/api/clientes/${clienteId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ficha: datos }),
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ficha: datos, ...(oficinas.length ? { oficinaId: oficina || null } : {}) }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
@@ -103,6 +114,25 @@ export function EditarCliente({ clienteId, ficha }: { clienteId: string; ficha: 
             </div>
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+              {/* Sede (multi-oficina). En tête : c'est une donnée d'organisation, pas
+                  un champ de la ficha — et changer la sede déplace aussi ses trámites. */}
+              {oficinas.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Oficina")}</h3>
+                  <select
+                    value={oficina}
+                    onChange={(e) => setOficina(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm"
+                  >
+                    <option value="">{t("Sin oficina")}</option>
+                    {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                  </select>
+                  {oficina !== (oficinaId ?? "") && (
+                    <p className="mt-1.5 text-xs text-slate-500">{t("Sus expedientes se moverán también a esta oficina.")}</p>
+                  )}
+                </div>
+              )}
+
               {GRUPOS.map((g) => (
                 <div key={g}>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t(g)}</h3>

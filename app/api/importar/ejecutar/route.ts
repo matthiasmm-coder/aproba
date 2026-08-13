@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (!mem?.workspaceId) return NextResponse.json({ error: "Sin despacho." }, { status: 403 });
   const workspaceId = mem.workspaceId as string;
 
-  let body: { filas?: unknown; mapeo?: Mapeo; primeraFilaEsCabecera?: boolean; overrides?: Record<number, OverrideFila> };
+  let body: { filas?: unknown; mapeo?: Mapeo; primeraFilaEsCabecera?: boolean; overrides?: Record<number, OverrideFila>; oficinaId?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const brutas = Array.isArray(body.filas) ? (body.filas as string[][]).slice(0, MAX_FILAS + 1) : [];
   const mapeo = body.mapeo;
@@ -46,6 +46,16 @@ export async function POST(req: Request) {
 
   // Defensa: claves de servicio y estados validados contra la realidad, no el cliente.
   const admin = createSupabaseAdmin();
+
+  // MULTI-OFICINA: una sede para TODO el fichero. Es como llega el trabajo real —
+  // cada oficina exporta SU cartera. Una columna «oficina» por fila obligaría a
+  // adivinar nombres mal escritos; aquí el gestor la elige una vez y no hay ambigüedad.
+  let oficinaImport: string | null = null;
+  if (body.oficinaId) {
+    const { data: ofi } = await admin.from("Oficina").select("id").eq("id", String(body.oficinaId)).eq("workspaceId", workspaceId).maybeSingle();
+    if (!ofi) return NextResponse.json({ error: "Oficina no encontrada." }, { status: 404 });
+    oficinaImport = String(body.oficinaId);
+  }
   const serviciosWs = await fetchServiciosDeWorkspace(admin, workspaceId);
   const catalogo = new Set(serviciosWs.map((s) => s.id));
   const catalogoLabel = new Map(serviciosWs.map((s) => [s.id, s.label] as const));
@@ -162,11 +172,17 @@ export async function POST(req: Request) {
         ...(f.idioma ? { idioma: f.idioma } : {}),
         ...(familiaId ? { familiaId, parentesco: parentesco || "OTRO", esSolicitante: false } : { esSolicitante: false }),
         ...((f.fechaCaducidad || f.caducidadDerivada) ? { fechaCaducidad: f.fechaCaducidad || f.caducidadDerivada, tipoVencimiento: "TIE" } : {}),
+        ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
       });
     }
   }
   for (let i = 0; i < nuevos.length; i += 100) {
-    const { error } = await admin.from("Cliente").insert(nuevos.slice(i, i + 100));
+    const lote = nuevos.slice(i, i + 100);
+    let { error } = await admin.from("Cliente").insert(lote);
+    // Repli si oficinaId no está migrada: la cartera entra igual, sin sede.
+    if (error && oficinaImport && /oficinaId|column|schema cache|does not exist/i.test(error.message)) {
+      ({ error } = await admin.from("Cliente").insert(lote.map(({ oficinaId: _o, ...rest }) => rest)));
+    }
     if (error) return NextResponse.json({ error: `Clientes: ${error.message}`, parcial: r }, { status: 500 });
   }
   r.clientesCreados = nuevos.length;

@@ -20,6 +20,7 @@ type Row = {
   nacionalidad: string | null;
   parentesco?: string | null;
   familiaId?: string | null;
+  oficinaId?: string | null; // multi-oficina (ausente si la migración no está aplicada)
   familia?: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
   expedientes: { tipo: string; createdAt: string }[];
   // Trámites del PASADO traídos por la migración: no son expedientes, pero son lo único
@@ -36,7 +37,8 @@ export default async function Clientes() {
   // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
   // Chaque cran ne retire QUE le morceau le plus récent (mêmes règles que fetchDespacho).
   const q = (cols: string) => supabase.from("Cliente").select(cols).order("nombre");
-  let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)");
   const { data, error } = res;
@@ -56,6 +58,7 @@ export default async function Clientes() {
       nacionalidad: c.nacionalidad ?? "—",
       expedientes: exps.length,
       ultimo: exps[0] ? TIPO_LABEL[exps[0].tipo] ?? exps[0].tipo : ultimoHist,
+      oficinaId: c.oficinaId ?? null,
       _ultimoAt: exps[0]?.createdAt ?? h?.fecha ?? h?.createdAt ?? "",
     };
   };
@@ -96,6 +99,9 @@ export default async function Clientes() {
   // los expedientes de cada cliente: ni una consulta de más.
   const { data: miMem } = await supabase.from("Membership").select("role").limit(1).maybeSingle();
   const esAdmin = puedeGestionarEquipo((miMem as { role?: string } | null)?.role);
+  // Sedes du despacho : vide = mono-oficina → ni cases à cocher ni barre de réaffectation.
+  const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");
+  const oficinas = (ofis ?? []) as { id: string; nombre: string }[];
   const conExpedientes = rows.filter((c) => (c.expedientes?.length ?? 0) > 0).length;
   const enFamilia = rows.filter((c) => c.familiaId && (c.expedientes?.length ?? 0) === 0).length;
   const borrables = rows.length - conExpedientes - enFamilia;
@@ -123,7 +129,7 @@ export default async function Clientes() {
         </p>
       ) : (
         <>
-          <ClientesList lista={lista} />
+          <ClientesList lista={lista} oficinas={oficinas} />
           {esAdmin && <BorrarTodosClientes borrables={borrables} conExpedientes={conExpedientes} enFamilia={enFamilia} />}
         </>
       )}

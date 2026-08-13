@@ -7,6 +7,7 @@ import { packPct } from "@/lib/servicios";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { cobrarOverageSiProcede } from "@/lib/overage";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { oficinaDelCliente } from "@/lib/oficinas-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
   }
 
   // ── Creación del expediente (mismo patrón que POST /api/expedientes) ──
+  const oficinaId = await oficinaDelCliente(admin, cliente.id); // multi-oficina
   const year = new Date().getFullYear();
   const expedienteId = uuid();
   const portalToken = uuid().replace(/-/g, "");
@@ -99,13 +101,15 @@ export async function POST(req: Request) {
       estado: "BORRADOR", updatedAt: new Date().toISOString(),
       ...(extras.length ? { serviciosExtra: extras } : {}),
       ...(descuentoPack ? { descuento: descuentoPack } : {}),
+      ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
-    // Repli si falta alguna columna (migraciones multi-servicio / descuento): el
-    // trámite se crea igual, sin el extra que la base no conoce.
-    if (eExp && (extras.length || descuentoPack) && /serviciosExtra|descuento|column|schema cache|does not exist/i.test(eExp.message)) {
+    // Repli si falta alguna columna (migraciones multi-servicio / descuento / oficina):
+    // el trámite se crea igual, sin el extra que la base no conoce.
+    if (eExp && (extras.length || descuentoPack || oficinaId) && /serviciosExtra|descuento|oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {
       delete fila.serviciosExtra;
       delete fila.descuento;
+      delete fila.oficinaId;
       ({ error: eExp } = await admin.from("Expediente").insert(fila));
     }
     if (!eExp) break;

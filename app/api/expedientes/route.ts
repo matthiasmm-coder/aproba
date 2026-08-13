@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { cobrarOverageSiProcede } from "@/lib/overage";
+import { oficinaDelCliente } from "@/lib/oficinas-server";
 
 // Creación de un expediente DESDE EL SERVIDOR (antes era client-side). Se hace aquí para
 // poder decidir, de forma autoritativa y no falsificable, el cobro del excedente: si el
@@ -96,6 +97,9 @@ export async function POST(req: Request) {
     }
   }
 
+  // El expediente hereda la oficina de su cliente (multi-oficina).
+  const oficinaId = await oficinaDelCliente(admin, clienteId);
+
   // Referencia secuencial del año + inserción, con reintento ante colisión (dos creaciones
   // simultáneas calculan el mismo nº → violación de unicidad → recomputa en vez de 500 crudo).
   const year = new Date().getFullYear();
@@ -112,11 +116,14 @@ export async function POST(req: Request) {
       id: expedienteId, workspaceId, clienteId, referencia, portalToken,
       tipo: "OTRO", estado: "BORRADOR", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(expedienteFamiliaId ? { familiaId: expedienteFamiliaId } : {}),
+      ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
-    // Repli si la columna Expediente.familiaId no existe aún (migración no aplicada).
-    if (eExp && expedienteFamiliaId && /familiaId|column|schema cache|does not exist/i.test(eExp.message)) {
+    // Repli si falta alguna columna (familiaId u oficinaId sin migrar): el expediente
+    // se crea igual, sin el extra que la base no conoce.
+    if (eExp && (expedienteFamiliaId || oficinaId) && /familiaId|oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {
       delete fila.familiaId;
+      delete fila.oficinaId;
       ({ error: eExp } = await admin.from("Expediente").insert(fila));
     }
     if (!eExp) break;

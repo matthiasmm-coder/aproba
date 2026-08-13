@@ -3,6 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { cobrarOverageSiProcede } from "@/lib/overage";
+import { oficinaDelCliente } from "@/lib/oficinas-server";
 import { enviarAvisoRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -42,6 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const workspaceId = String(venc.workspaceId);
   const clienteId = String(venc.clienteId);
+  const oficinaId = await oficinaDelCliente(admin, clienteId); // multi-oficina
   const expedienteId = uuid();
 
   // Servicio «Renovación de TIE» del workspace (si está activo) → tarifa/docs correctos
@@ -73,8 +75,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       id: expedienteId, workspaceId, clienteId, referencia, portalToken,
       tipo: "RENOVACION", estado: "BORRADOR", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(servicioClave ? { servicioClave } : {}),
+      ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };
-    const { error: eExp } = await admin.from("Expediente").insert(fila);
+    let { error: eExp } = await admin.from("Expediente").insert(fila);
+    // Repli si oficinaId no está migrada: la renovación se crea igual.
+    if (eExp && oficinaId && /oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {
+      delete fila.oficinaId;
+      ({ error: eExp } = await admin.from("Expediente").insert(fila));
+    }
     if (!eExp) break;
     if (/duplicate|unique/i.test(eExp.message) && intento < 4) continue; // referencia en carrera → recalcula
     return NextResponse.json({ error: eExp.message }, { status: 500 }); // vencimiento intacto
