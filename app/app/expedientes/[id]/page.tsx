@@ -374,7 +374,8 @@ export default async function ExpedienteDetail({
         <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Asignado a")}</h3>
           <p className="mt-1 text-sm text-slate-500">{t("Quién lleva este expediente. Puedes traspasarlo a cualquier persona del equipo.")}</p>
-          <div className="mt-3">
+          {/* Conteneur centreur : le <select> garde sa largeur de contenu. */}
+          <div className="mt-3 flex justify-center">
             <AsignarExpediente expedienteId={e.id} miembros={miembrosEquipo} inicial={e.asignadoAId ?? null} />
           </div>
         </div>
