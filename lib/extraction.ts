@@ -143,32 +143,61 @@ function respuestaIlegible(raw: string, inputTokens: number, outputTokens: numbe
   };
 }
 
+// Una foto de móvil llega a 12-16k tokens de imagen (el 70 % del coste IA medido el
+// 13/08). Por encima de ~1568 px de lado la API reduce igualmente la imagen: mandarla
+// entera solo paga tokens de más. Se reencuadra aquí (EXIF incluido) y se recomprime.
+// Fail-soft: si sharp falla con un fichero raro, se manda el original — nunca se pierde
+// un upload por optimizar. Los PDF no se tocan.
+async function prepararImagen(buffer: Buffer, mimeType: string): Promise<{ buffer: Buffer; mimeType: string }> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const out = await sharp(buffer)
+      .rotate() // aplica la orientación EXIF (las fotos de móvil vienen giradas)
+      .resize({ width: 1568, height: 1568, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+    // Si la "optimización" engorda el fichero (imagen ya pequeña y muy comprimida), gana el original.
+    return out.length < buffer.length ? { buffer: out, mimeType: "image/jpeg" } : { buffer, mimeType };
+  } catch (e) {
+    console.warn("[extraction] prepararImagen falló, se envía el original:", e instanceof Error ? e.message : e);
+    return { buffer, mimeType };
+  }
+}
+
 export async function extraerDocumento(buffer: Buffer, mimeType: string): Promise<ResultadoExtraccion> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Falta ANTHROPIC_API_KEY en .env.local — la validación IA no está configurada.");
   }
-  const client = new Anthropic();
-  const b64 = buffer.toString("base64");
-
-  const docBlock =
-    mimeType === "application/pdf"
-      ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: b64 } }
-      : { type: "image" as const, source: { type: "base64" as const, media_type: mimeType as "image/jpeg" | "image/png" | "image/webp", data: b64 } };
-
   if (mimeType !== "application/pdf" && !MEDIA_IMAGEN.has(mimeType)) {
     throw new Error(`Formato no soportado: ${mimeType}`);
   }
+  const client = new Anthropic();
 
+  const esPdf = mimeType === "application/pdf";
+  const img = esPdf ? { buffer, mimeType } : await prepararImagen(buffer, mimeType);
+  const b64 = img.buffer.toString("base64");
+
+  const docBlock = esPdf
+    ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: b64 } }
+    : { type: "image" as const, source: { type: "base64" as const, media_type: img.mimeType as "image/jpeg" | "image/png" | "image/webp", data: b64 } };
+
+  // Prompt caching: el texto fijo va ANTES del documento para que el prefijo estable
+  // (SYSTEM + instrucción + plantilla) sea idéntico en TODAS las extracciones y se
+  // sirva de la caché (~10 % del precio). La imagen, única por documento, va al final.
   const res = await client.messages.create({
     model: MODELO_EXTRACTION,
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [
       {
         role: "user",
         content: [
+          {
+            type: "text",
+            text: `Extrae los datos del documento adjunto a continuación y rellena EXACTAMENTE esta estructura JSON (usa null donde no aplique o no se lea, fechas en AAAA-MM-DD). Devuelve SOLO el JSON, sin markdown ni explicaciones:\n\n${PLANTILLA_JSON}`,
+            cache_control: { type: "ephemeral" },
+          },
           docBlock,
-          { type: "text", text: `Extrae los datos de este documento y rellena EXACTAMENTE esta estructura JSON (usa null donde no aplique o no se lea, fechas en AAAA-MM-DD). Devuelve SOLO el JSON, sin markdown ni explicaciones:\n\n${PLANTILLA_JSON}` },
         ],
       },
     ],
