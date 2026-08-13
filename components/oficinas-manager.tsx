@@ -201,10 +201,14 @@ export function OficinasManager({
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={40}
               placeholder={t("Teléfono (opcional)")} className={inp} />
           </div>
-          <button type="submit" disabled={creando}
-            className="mt-3 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
-            {creando ? t("Añadiendo…") : t("Añadir oficina")}
-          </button>
+          {/* Conteneur centreur, pas `block mx-auto` sur le bouton : un <button> en
+              display:block prend toute la largeur disponible au lieu de rester à sa taille. */}
+          <div className="mt-3 flex justify-center">
+            <button type="submit" disabled={creando}
+              className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+              {creando ? t("Añadiendo…") : t("Añadir oficina")}
+            </button>
+          </div>
         </form>
       )}
 
