@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { PLAN_IDS, plyMax, puedeGestionarEquipo, puedeAsignarRol, ROLES_ASIGNABLES, type PlanId } from "@/lib/planes";
+import { PLAN_IDS, plyMax, puedeGestionarEquipo, puedeAsignarRol, ROLES_ASIGNABLES, ROLES, type PlanId, type RolId } from "@/lib/planes";
+import { enviarInvitacion } from "@/lib/invitacion-email";
+import { baseUrlFromRequest } from "@/lib/base-url";
 import { getStripe, precioDePlan, stripeDisponible } from "@/lib/billing";
 
 const fail = (msg: string, status = 400, code?: string) => NextResponse.json({ error: msg, code }, { status });
@@ -96,10 +98,27 @@ export async function POST(req: Request) {
     });
     if (memError) return fail(memError.message);
 
+    // Correo con las credenciales. Solo cuando la cuenta se ACABA de crear: si la
+    // persona ya existía, su contraseña es suya y nadie la conoce (ni nosotros).
+    // Fail-soft: si no sale, la invitación se mantiene y Ajustes sigue enseñando
+    // las credenciales — pero la interfaz dirá que hay que pasarlas a mano.
+    let emailEnviado = false;
+    if (tempPassword) {
+      const { data: wsRow } = await admin.from("Workspace").select("nombre").eq("id", ws).maybeSingle();
+      emailEnviado = await enviarInvitacion({
+        admin, workspaceId: ws,
+        gestoria: (wsRow as { nombre?: string } | null)?.nombre || "Tu despacho",
+        email: email_final, nombre: nombreFinal, password: tempPassword,
+        rolLabel: ROLES[role as RolId]?.label ?? role,
+        baseUrl: baseUrlFromRequest(req),
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       miembro: { membershipId, userId, nombre: nombreFinal, email: email_final, avatarUrl, role },
       tempPassword,
+      emailEnviado,
     });
   }
 

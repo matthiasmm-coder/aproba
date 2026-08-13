@@ -60,7 +60,10 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
   const [invRole, setInvRole] = useState<RolId>(rolesQuePuedoAsignar.includes("GESTOR") ? "GESTOR" : (rolesQuePuedoAsignar[0] ?? "GESTOR"));
   const [invBusy, setInvBusy] = useState(false);
   const [invError, setInvError] = useState<string | null>(null);
-  const [credenciales, setCredenciales] = useState<{ email: string; password: string } | null>(null);
+  // `enviado` distingue « ya lo tiene en su correo » de « pásaselas tú » : sin eso,
+  // el administrador no sabe si copiar la contraseña o no (y si no copia y el envío
+  // falló, la persona se queda fuera — pasó con el equipo de Gesnet).
+  const [credenciales, setCredenciales] = useState<{ email: string; password: string; enviado: boolean } | null>(null);
 
   // Plan
   const [planPendiente, setPlanPendiente] = useState<string | null>(null);
@@ -131,7 +134,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
       return;
     }
     setMiembros((prev) => [...prev, data.miembro as Miembro]);
-    if (data.tempPassword) setCredenciales({ email: (data.miembro as Miembro).email, password: String(data.tempPassword) });
+    if (data.tempPassword) setCredenciales({ email: (data.miembro as Miembro).email, password: String(data.tempPassword), enviado: Boolean(data.emailEnviado) });
     setInvEmail("");
     setInvNombre("");
   }
@@ -487,9 +490,18 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
 
           {/* Credenciales d'un nouvel utilisateur (pas d'envoi email pour l'instant) */}
           {credenciales && (
-            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm">
-              <p className="font-semibold text-green-800">{t("Usuario añadido ✓ — comparte estas credenciales")}</p>
-              <p className="mt-1 text-green-700">{t("La persona podrá entrar en Aproba y cambiar su contraseña después.")}</p>
+            <div className={`mt-4 rounded-lg border p-4 text-sm ${credenciales.enviado ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+              {credenciales.enviado ? (
+                <>
+                  <p className="font-semibold text-green-800">{t("Usuario añadido ✓ — le hemos enviado sus datos por email")}</p>
+                  <p className="mt-1 text-green-700">{t("Ya puede entrar en Aproba y cambiar su contraseña. Te los dejamos aquí también, por si acaso.")}</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-amber-800">{t("Usuario añadido ✓ — pero el email no ha salido")}</p>
+                  <p className="mt-1 text-amber-700">{t("Cópialas ahora y pásaselas tú: al cerrar esta ventana no se vuelven a ver.")}</p>
+                </>
+              )}
               <div className="mt-2 space-y-1 font-mono text-xs text-slate-700">
                 <p>{t("Email:")} <strong>{credenciales.email}</strong></p>
                 <p>{t("Contraseña temporal:")} <strong>{credenciales.password}</strong></p>
@@ -497,7 +509,7 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
               <button
                 type="button"
                 onClick={() => navigator.clipboard?.writeText(`${t("Email:")} ${credenciales.email}\n${t("Contraseña:")} ${credenciales.password}\n${t("Entra en")} https://aproba-software.com/login`)}
-                className="mt-3 rounded-md border border-green-300 bg-white px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"
+                className={`mt-3 rounded-md border bg-white px-3 py-1.5 text-xs font-semibold ${credenciales.enviado ? "border-green-300 text-green-700 hover:bg-green-100" : "border-amber-300 text-amber-800 hover:bg-amber-100"}`}
               >
                 {t("Copiar credenciales")}
               </button>
