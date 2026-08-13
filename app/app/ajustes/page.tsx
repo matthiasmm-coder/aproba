@@ -56,13 +56,6 @@ const IconEncargo = (
   </svg>
 );
 
-const IconOficinas = (
-  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 21h18M5 21V7l7-4 7 4v14" />
-    <path d="M9 21v-6h6v6M9 11h.01M15 11h.01" />
-  </svg>
-);
-
 const IconFacturacion = (
   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -190,19 +183,9 @@ export default async function Ajustes() {
                 existe des oficinas (les gestores y lisent la répartition). */}
             {(puedeEditar || oficinas.length > 0) && (
               <div className="mt-8 border-t border-slate-200 pt-6">
-                <div className="mb-4 flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-aproba-50 text-aproba-700">
-                    {IconOficinas}
-                  </span>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{t("Oficinas")}</h3>
-                    <p className="text-sm text-slate-500">
-                      {oficinas.length > 0
-                        ? `${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")} · ${t("reparto del equipo y de los clientes")}`
-                        : t("Varias sedes en un mismo despacho")}
-                    </p>
-                  </div>
-                </div>
+                {/* Même en-tête que « Miembros del equipo » juste au-dessus : dans une
+                    section dépliée, deux blocs frères doivent se ressembler. */}
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Oficinas")}</h3>
                 <OficinasManager
                   inicial={oficinas}
                   miembros={equipo.miembros}
