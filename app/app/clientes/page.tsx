@@ -3,6 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import { ClientesList, type Cli } from "@/components/clientes-list";
+import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { BorrarTodosClientes } from "@/components/borrar-todos-clientes";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { getT } from "@/lib/app-lang";
@@ -36,7 +37,12 @@ export default async function Clientes() {
   const supabase = await createSupabaseServer();
   // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
   // Chaque cran ne retire QUE le morceau le plus récent (mêmes règles que fetchDespacho).
-  const q = (cols: string) => supabase.from("Cliente").select(cols).order("nombre");
+  // Sede regardée (multi-oficina) : le filtre part dans la requête, pas après coup.
+  const { activa } = await resolverOficina().catch(() => ({ activa: null }));
+  const q = (cols: string) => {
+    const base = supabase.from("Cliente").select(cols).order("nombre");
+    return activa ? base.eq("oficinaId", activa) : base;
+  };
   let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt)");

@@ -6,6 +6,11 @@
 // automatiser une ligne de facturation récurrente pour zéro client serait du code
 // de paiement risqué sans contrepartie. L'app se contente de prévenir.
 
+// Cookie du sélecteur de sede. Elle vit ICI, et pas dans lib/data/oficina-filtro.ts :
+// ce module-là importe `next/headers` (serveur uniquement), et le sélecteur est un
+// composant client — l'importer de là casse le build.
+export const COOKIE_OFICINA = "aproba_oficina";
+
 export const OFICINAS_INCLUIDAS = 2;
 export const PRECIO_OFICINA_EXTRA = 50; // €/mois, hors IVA
 

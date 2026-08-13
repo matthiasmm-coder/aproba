@@ -17,15 +17,18 @@ export type VencimientoRow = {
 
 const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
-export async function fetchVencimientos(): Promise<VencimientoRow[]> {
+// `oficinaId` = sede regardée (multi-oficina). Le vencimiento n'a pas de sede à lui :
+// il suit celle de SON client, via un join interne (clienteId est NOT NULL, donc
+// passer en `!inner` ne fait disparaître aucune ligne légitime).
+export async function fetchVencimientos(oficinaId?: string | null): Promise<VencimientoRow[]> {
   const supabase = await createSupabaseServer();
   try {
-    const { data, error } = await supabase
-      .from("Vencimiento")
-      .select("id, clienteId, tipo, fecha, estado, cliente:Cliente(nombre, apellidos), renovacion:Expediente!Vencimiento_expedienteRenovacionId_fkey(id, referencia)")
-      .neq("estado", "HECHO")
-      .order("fecha", { ascending: true })
-      .limit(300);
+    const sel = oficinaId
+      ? "id, clienteId, tipo, fecha, estado, cliente:Cliente!inner(nombre, apellidos, oficinaId), renovacion:Expediente!Vencimiento_expedienteRenovacionId_fkey(id, referencia)"
+      : "id, clienteId, tipo, fecha, estado, cliente:Cliente(nombre, apellidos), renovacion:Expediente!Vencimiento_expedienteRenovacionId_fkey(id, referencia)";
+    let q = supabase.from("Vencimiento").select(sel).neq("estado", "HECHO");
+    if (oficinaId) q = q.eq("cliente.oficinaId", oficinaId);
+    const { data, error } = await q.order("fecha", { ascending: true }).limit(300);
     if (error) throw error;
     const ahora = Date.now();
     return ((data ?? []) as unknown as {

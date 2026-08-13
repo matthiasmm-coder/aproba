@@ -1,4 +1,5 @@
 import { fetchExpedientesResumen } from "@/lib/data/expedientes";
+import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
@@ -39,14 +40,18 @@ async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabase
 export default async function Dashboard() {
   const t = await getT();
   const supabase = await createSupabaseServer();
+  // Sede regardée : filtre les KPI et le travail du jour. La checklist d'onboarding
+  // reste au niveau du DESPACHO — « crea tu primer expediente » ne doit pas se
+  // décocher parce qu'on regarde une sede qui vient d'ouvrir.
+  const { activa } = await resolverOficina().catch(() => ({ activa: null }));
   const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos] = await Promise.all([
     supabase.auth.getUser(),
-    fetchExpedientesResumen(),
+    fetchExpedientesResumen(activa),
     fetchChecklist(supabase, t),
     // Agenda semanal: 90 días hacia atrás para poder navegar a semanas pasadas.
     fetchProximasCitas({ desdeDias: 90, max: 300 }),
     fetchClientesMin(),
-    fetchVencimientos(), // KPI «Caducan pronto» (Vigía visible desde Inicio)
+    fetchVencimientos(activa), // KPI «Caducan pronto» (Vigía visible desde Inicio)
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
   const items: DashItem[] = expedientes.map((e) => ({

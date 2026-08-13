@@ -45,14 +45,21 @@ type ResumenRow = {
   documentos: { estado: string }[];
 };
 
-export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
+// `oficinaId` = sede regardée (multi-oficina). null → tout le despacho, comme avant.
+export async function fetchExpedientesResumen(oficinaId?: string | null): Promise<ExpedienteResumen[]> {
   const supabase = await createSupabaseServer();
+  // Le filtre s'applique à CHAQUE cran de la chaîne de replis — sans ça, un repli
+  // (migration absente) ramènerait silencieusement tout le despacho.
+  // `any` assumé : les 4 selects diffèrent en colonnes, donc en type de builder ;
+  // les typer génériquement fait exploser l'inférence de supabase-js (TS2589).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conFiltro = <T,>(q: T): T => (oficinaId ? (q as any).eq("oficinaId", oficinaId) : q);
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
   const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false }),
+    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false }),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label"),
@@ -61,17 +68,17 @@ export async function fetchExpedientesResumen(): Promise<ExpedienteResumen[]> {
   let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
   let error = conTodo.error;
   if (error) {
-    const r1b = await supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`).order("createdAt", { ascending: false });
+    const r1b = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false });
     data = (r1b.data ?? null) as unknown[] | null;
     error = r1b.error;
   }
   if (error) {
-    const r2 = await supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`).order("createdAt", { ascending: false });
+    const r2 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`)).order("createdAt", { ascending: false });
     data = (r2.data ?? null) as unknown[] | null;
     error = r2.error;
   }
   if (error) {
-    const r3 = await supabase.from("Expediente").select(SEL_BASE).order("createdAt", { ascending: false });
+    const r3 = await conFiltro(supabase.from("Expediente").select(SEL_BASE)).order("createdAt", { ascending: false });
     data = (r3.data ?? null) as unknown[] | null;
     error = r3.error;
   }
