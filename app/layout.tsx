@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { CookieNotice } from "@/components/cookie-notice";
 import { PwaRegister } from "@/components/pwa-register";
+import { DomResiliente } from "@/components/dom-resiliente";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://aproba-software.com"),
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <CookieNotice />
         <PwaRegister />
+        <DomResiliente />
       </body>
     </html>
   );

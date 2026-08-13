@@ -8,5 +8,15 @@ if (dsn) {
     dsn,
     tracesSampleRate: 0.1,
     sendDefaultPii: false, // jamais de PII (le portail manie passeports/NIE)
+    // Bruit des extensions de navigateur des usagers : leurs scripts injectés plantent
+    // SUR notre page et Sentry nous le facture comme si c'était nous (cas réel 13/08 :
+    // «executors/200.js» → TypeError M_ID chez un cliente). On écarte les frames dont
+    // l'URL n'est pas la nôtre — jamais nos propres erreurs.
+    denyUrls: [
+      /^chrome-extension:\/\//i,
+      /^moz-extension:\/\//i,
+      /^safari(-web)?-extension:\/\//i,
+      /app:\/\/\/executors\//i, // script injecté vu en prod (aucun fichier de ce nom chez nous)
+    ],
   });
 }
