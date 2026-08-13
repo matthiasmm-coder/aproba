@@ -6,26 +6,22 @@ import { useT } from "@/components/lang-provider";
 
 // Quién lleva este expediente. No es un adorno: un ASISTENTE solo ve los suyos
 // (supabase/roles-asistente.sql), así que asignar ES la forma de encargarle trabajo.
-// El ASISTENTE no ve este selector — reparte quien dirige.
+//
+// Traspasar puede CUALQUIERA del equipo, incluido el asistente: el que tiene el
+// expediente en la mano es quien sabe a quién le toca seguir. Consecuencia asumida:
+// un asistente que lo traspasa deja de verlo — es lo que significa traspasarlo.
 export function AsignarExpediente({
-  expedienteId, miembros, inicial, puedeAsignar,
+  expedienteId, miembros, inicial,
 }: {
   expedienteId: string;
   miembros: { userId: string; nombre: string }[];
   inicial: string | null;
-  puedeAsignar: boolean;
 }) {
   const t = useT();
   const router = useRouter();
   const [valor, setValor] = useState(inicial ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const nombreDe = (id: string) => miembros.find((m) => m.userId === id)?.nombre ?? t("Sin asignar");
-
-  if (!puedeAsignar) {
-    return <span className="font-medium text-slate-700">{nombreDe(valor)}</span>;
-  }
 
   async function asignar(userId: string) {
     const previo = valor;

@@ -8,12 +8,13 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 // modo que un ASISTENTE (que solo ve lo suyo, ver supabase/roles-asistente.sql)
 // únicamente vería lo que él mismo hubiera creado, y nadie podría encargarle nada.
 //
-// Quién puede asignar: cualquiera menos el ASISTENTE. Si pudiera reasignar, podría
-// quitarse de encima un expediente y perderlo de vista, o dárselo a otro sin que
-// nadie lo decida. Reparte quien dirige el trabajo.
+// Traspasar puede CUALQUIER miembro del despacho, incluido el ASISTENTE: quien tiene
+// el expediente en la mano es quien sabe a quién le toca seguir. Consecuencia asumida:
+// un asistente que lo traspasa deja de verlo — es exactamente lo que significa.
 //
-// Anti-IDOR: el expediente se resuelve BAJO RLS (un id ajeno no existe) y el
-// destinatario se comprueba miembro del MISMO workspace antes de escribir.
+// Anti-IDOR: el expediente se resuelve BAJO RLS (un id ajeno no existe, y a un
+// asistente le esconde los que no lleva) y el destinatario se comprueba miembro del
+// MISMO workspace antes de escribir.
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,9 +31,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const admin = createSupabaseAdmin();
   const { data: yo } = await admin.from("Membership").select("role").eq("userId", user.id).eq("workspaceId", ws).maybeSingle();
-  const miRol = (yo as { role?: string } | null)?.role;
-  if (!miRol) return NextResponse.json({ error: "No perteneces a este despacho." }, { status: 403 });
-  if (miRol === "ASISTENTE") return NextResponse.json({ error: "No puedes reasignar expedientes." }, { status: 403 });
+  if (!yo) return NextResponse.json({ error: "No perteneces a este despacho." }, { status: 403 });
 
   // null / "" = quitar la asignación (vuelve a «Sin asignar»).
   let userId: string | null = null;

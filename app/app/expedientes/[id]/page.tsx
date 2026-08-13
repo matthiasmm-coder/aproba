@@ -62,18 +62,15 @@ export default async function ExpedienteDetail({
 
   const despachoEncargo = await encargoActivado();
 
-  // Équipe + mon rôle, pour le sélecteur « Asignado a ». Un ASISTENTE ne réassigne
-  // pas : il ne verrait de toute façon que ses propres expedientes.
+  // Équipe, pour le sélecteur « Asignado a » du pied de fiche. Traspasar peut
+  // n'importe quel membre — y compris l'asistente (voir components/asignar-expediente).
   const supaRol = await createSupabaseServer();
-  const { data: { user: yo } } = await supaRol.auth.getUser();
-  const { data: memsRaw } = await supaRol.from("Membership").select("userId, role, User(nombre, email)");
-  type MemRow = { userId: string; role: string; User: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null };
-  const mems = (memsRaw ?? []) as MemRow[];
-  const miembrosEquipo = mems.map((m) => {
+  const { data: memsRaw } = await supaRol.from("Membership").select("userId, User(nombre, email)");
+  type MemRow = { userId: string; User: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null };
+  const miembrosEquipo = ((memsRaw ?? []) as MemRow[]).map((m) => {
     const u = Array.isArray(m.User) ? m.User[0] : m.User;
     return { userId: m.userId, nombre: u?.nombre || u?.email || "Usuario" };
   }).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  const puedeAsignar = mems.find((m) => m.userId === yo?.id)?.role !== "ASISTENTE";
 
   // Expediente FAMILIAR (Expediente.familiaId): miembros + facturación familiar en la ficha.
   const [familia, famPrefill, famFacturas] = e.familiaId
@@ -167,15 +164,7 @@ export default async function ExpedienteDetail({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400">{t("Asignado a")}</span>
-            <AsignarExpediente
-              expedienteId={e.id}
-              miembros={miembrosEquipo}
-              inicial={e.asignadoAId ?? null}
-              puedeAsignar={puedeAsignar}
-            />
-          </div>
+          <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
           {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
         </div>
@@ -379,6 +368,16 @@ export default async function ExpedienteDetail({
             </ol>
           </div>
         </SeccionPlegable>
+
+        {/* Traspasar el expediente — al final de la ficha: es lo último que se hace
+            con un trámite, cuando ya lo has mirado y decides que lo lleve otro. */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Asignado a")}</h3>
+          <p className="mt-1 text-sm text-slate-500">{t("Quién lleva este expediente. Puedes traspasarlo a cualquier persona del equipo.")}</p>
+          <div className="mt-3">
+            <AsignarExpediente expedienteId={e.id} miembros={miembrosEquipo} inicial={e.asignadoAId ?? null} />
+          </div>
+        </div>
       </div>
     </div>
   );
