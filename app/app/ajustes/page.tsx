@@ -1,5 +1,6 @@
 import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig } from "@/lib/data/config";
 import { fetchEquipo } from "@/lib/data/equipo";
+import { fetchOficinas } from "@/lib/data/oficinas";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
 import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
@@ -9,6 +10,7 @@ import { GoogleCalendarConfig } from "@/components/google-calendar-config";
 import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
+import { OficinasManager } from "@/components/oficinas-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { FotoPerfil } from "@/components/foto-perfil";
@@ -54,6 +56,13 @@ const IconEncargo = (
   </svg>
 );
 
+const IconOficinas = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18M5 21V7l7-4 7 4v14" />
+    <path d="M9 21v-6h6v6M9 11h.01M15 11h.01" />
+  </svg>
+);
+
 const IconFacturacion = (
   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -63,13 +72,14 @@ const IconFacturacion = (
 
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
-  const [{ servicios }, { avisos }, cuentas, equipo, despacho, packs] = await Promise.all([
+  const [{ servicios }, { avisos }, cuentas, equipo, despacho, packs, oficinas] = await Promise.all([
     fetchServiciosConfig(),
     fetchAvisosConfig(),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
     fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
     fetchPacksConfig().catch(() => []),
+    fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
   ]);
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
@@ -171,6 +181,26 @@ export default async function Ajustes() {
             icon={IconEquipo}
           >
             <EquipoManager inicial={equipo} />
+          </AjustesSection>
+        )}
+
+        {/* Multi-oficina : visible dès qu'on peut administrer (upsell si pas Business)
+            ou dès qu'il existe des oficinas (les gestores voient la répartition). */}
+        {equipo && (puedeEditar || oficinas.length > 0) && (
+          <AjustesSection
+            id="oficinas"
+            title={t("Oficinas")}
+            subtitle={oficinas.length > 0
+              ? `${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")} · ${t("reparto del equipo y de los clientes")}`
+              : t("Varias sedes en un mismo despacho")}
+            icon={IconOficinas}
+          >
+            <OficinasManager
+              inicial={oficinas}
+              miembros={equipo.miembros}
+              plan={equipo.plan}
+              puedeEditar={puedeEditar}
+            />
           </AjustesSection>
         )}
 

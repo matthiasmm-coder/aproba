@@ -11,6 +11,7 @@ export type Miembro = {
   avatarUrl: string | null;
   role: RolId;
   esYo: boolean;
+  oficinaId: string | null; // multi-oficina : sede du membre (null = toutes)
 };
 
 export type Equipo = {
@@ -48,13 +49,18 @@ export async function fetchEquipo(): Promise<Equipo | null> {
   if (!myMem) return null;
   const ws = (myMem as { workspaceId: string }).workspaceId;
 
-  const [{ data: wsRow }, { data: sub }, { data: mems }] = await Promise.all([
+  // `oficinaId` n'existe qu'après supabase/oficinas.sql : repli sur le select
+  // historique tant que la migration n'est pas passée (même patron que partout).
+  const miembrosQ = (cols: string) => supabase.from("Membership").select(cols).eq("workspaceId", ws);
+  const [{ data: wsRow }, { data: sub }, memsRes] = await Promise.all([
     supabase.from("Workspace").select("nombre, tipo").eq("id", ws).maybeSingle(),
     supabase.from("Subscription").select("*").eq("workspaceId", ws).maybeSingle(),
-    supabase.from("Membership").select("id, role, userId, User(nombre, email, avatarUrl)").eq("workspaceId", ws),
+    miembrosQ("id, role, userId, oficinaId, User(nombre, email, avatarUrl)")
+      .then((r) => (r.error ? miembrosQ("id, role, userId, User(nombre, email, avatarUrl)") : r)),
   ]);
+  const mems = memsRes.data;
 
-  type Row = { id: string; role: string; userId: string; User: { nombre: string | null; email: string | null; avatarUrl: string | null } | { nombre: string | null; email: string | null; avatarUrl: string | null }[] | null };
+  type Row = { id: string; role: string; userId: string; oficinaId?: string | null; User: { nombre: string | null; email: string | null; avatarUrl: string | null } | { nombre: string | null; email: string | null; avatarUrl: string | null }[] | null };
   const miembros: Miembro[] = ((mems as Row[] | null) ?? []).map((m) => {
     const u = Array.isArray(m.User) ? m.User[0] : m.User; // PostgREST one-to-one parfois en tableau
     return {
@@ -65,6 +71,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
       avatarUrl: u?.avatarUrl ?? null,
       role: m.role as RolId,
       esYo: m.userId === user.id,
+      oficinaId: m.oficinaId ?? null,
     };
   });
   miembros.sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.nombre.localeCompare(b.nombre));

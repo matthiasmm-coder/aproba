@@ -147,6 +147,7 @@ model Workspace {
   facturas     Factura[]
   features     WorkspaceFeature[]
   subscription Subscription?
+  oficinas     Oficina[]
   servicios    ServicioConfig[]
   avisos       AvisoConfig[]
   cuentas      CuentaBancaria[]
@@ -241,11 +242,34 @@ model Membership {
   userId      String
   workspaceId String
   role        Role      @default(GESTOR)
+  oficinaId   String? // multi-oficina: sede del usuario (NULL = todas)
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  oficina     Oficina?  @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
 
   @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+// Multi-oficina (Business): sedes de un mismo despacho (supabase/oficinas.sql).
+// Dimensión del workspace — suscripción, cuota y servicios siguen compartidos.
+// oficinaId NULL en Membership/Cliente/Expediente = «todas» / mono-oficina.
+model Oficina {
+  id          String   @id @default(cuid())
+  workspaceId String
+  nombre      String
+  direccion   String?
+  telefono    String?
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  miembros    Membership[]
+  clientes    Cliente[]
+  expedientes Expediente[]
+
   @@index([workspaceId])
 }
 
@@ -308,11 +332,13 @@ model Cliente {
   // Espacio del cliente (/c/[token]): token estable por PERSONA — lista sus trámites y
   // permite solicitar nuevos. Índice único parcial en SQL (cliente-espacio.sql).
   espacioToken    String?
+  oficinaId       String? // multi-oficina: sede a la que pertenece el cliente (NULL = sin afectar)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   familia      Familia?     @relation(fields: [familiaId], references: [id], onDelete: SetNull)
+  oficina      Oficina?     @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
   expedientes  Expediente[]
   documentos   Documento[]
   docsSueltos  DocumentoCliente[]
@@ -322,6 +348,7 @@ model Cliente {
 
   @@index([workspaceId])
   @@index([familiaId])
+  @@index([oficinaId])
 }
 
 // VIGÍA — un vencimiento = "a este cliente le caduca X el día D". Sembrado al validar
@@ -469,6 +496,7 @@ model Expediente {
   tipo              TipoTramite
   estado            ExpedienteEstado @default(BORRADOR)
   asignadoAId       String?
+  oficinaId         String? // multi-oficina: estampada desde el cliente al crearse (denormalizado)
   notas             String?
   fechaPresentacion DateTime?
   fechaLimite       DateTime? // plazo (utile aussi pour le module legal V2)
@@ -479,6 +507,7 @@ model Expediente {
   workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   familia     Familia?           @relation(fields: [familiaId], references: [id], onDelete: SetNull)
+  oficina     Oficina?           @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
   asignadoA   User?              @relation("Asignado", fields: [asignadoAId], references: [id])
   documentos  Documento[]
   formularios Formulario[]
@@ -492,6 +521,7 @@ model Expediente {
   @@index([workspaceId, estado])
   @@index([clienteId])
   @@index([familiaId])
+  @@index([oficinaId])
 }
 
 model Documento {
