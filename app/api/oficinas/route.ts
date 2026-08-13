@@ -11,6 +11,54 @@ import { OFICINAS_INCLUIDAS, precioOficinaExtra } from "@/lib/oficinas";
 
 const fail = (msg: string, status = 400, code?: string) => NextResponse.json({ error: msg, code }, { status });
 
+// Une oficina au-delà du forfait = 50 €/mois à ajouter À LA MAIN dans Stripe.
+// Automatiser une ligne de facturation récurrente pour un volume nul serait du code
+// de paiement risqué sans contrepartie ; un email suffit, et il part TOUJOURS, même
+// si l'envoi échoue l'oficina reste créée (fail-soft : jamais bloquant pour le client).
+async function avisarOficinaExtra(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any, workspaceId: string, nombreOficina: string, total: number, euros: number,
+) {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
+    const despacho = (ws as { nombre?: string } | null)?.nombre ?? workspaceId;
+    const { Resend } = await import("resend");
+    await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
+      to: process.env.VEILLE_ALERT_EMAIL || "matthias.merlemounier@gmail.com",
+      subject: `🏢 ${despacho}: ${total}ª oficina — +${euros} €/mes por añadir en Stripe`,
+      text: `«${despacho}» acaba de crear la oficina «${nombreOficina}».\n\n`
+        + `Ahora tiene ${total} oficinas: ${OFICINAS_INCLUIDAS} incluidas en Business y `
+        + `${total - OFICINAS_INCLUIDAS} ${total - OFICINAS_INCLUIDAS === 1 ? "adicional" : "adicionales"}.\n`
+        + `→ Añade +${euros} €/mes (sin IVA) a su suscripción en Stripe. La app NO lo cobra sola.\n\n`
+        + `El despacho ya ha visto el aviso del importe en Ajustes → Oficinas.`,
+    });
+  } catch (e) {
+    console.error("[oficinas] aviso de oficina extra no enviado", e instanceof Error ? e.message : e);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function avisarBajaOficina(admin: any, workspaceId: string, nombreOficina: string, quedan: number) {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
+    const despacho = (ws as { nombre?: string } | null)?.nombre ?? workspaceId;
+    const { Resend } = await import("resend");
+    await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
+      to: process.env.VEILLE_ALERT_EMAIL || "matthias.merlemounier@gmail.com",
+      subject: `🏢 ${despacho}: baja de oficina — revisa el suplemento en Stripe`,
+      text: `«${despacho}» ha eliminado la oficina «${nombreOficina}».\n\n`
+        + `${quedan === 1 ? "Le queda 1 oficina" : `Le quedan ${quedan} oficinas`}, dentro de las ${OFICINAS_INCLUIDAS} incluidas en Business.\n`
+        + `→ QUITA el suplemento de oficinas de su suscripción en Stripe si lo tenía.`,
+    });
+  } catch (e) {
+    console.error("[oficinas] aviso de baja no enviado", e instanceof Error ? e.message : e);
+  }
+}
+
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -65,10 +113,14 @@ export async function POST(req: Request) {
     // renvoyer null en dur ferait mentir la ligne (« Sin dirección » sur une oficina
     // qui en a une) jusqu'au prochain refresh.
     const total = filas.length + 1;
+    // Au-delà du forfait : l'app prévient (ici et dans Ajustes), elle ne prélève rien.
+    const extra = total > OFICINAS_INCLUIDAS ? precioOficinaExtra(total) : null;
+    if (extra) await avisarOficinaExtra(admin, ws, nombre, total, extra.euros);
+
     return NextResponse.json({
       ok: true,
       oficina: { id, nombre, direccion, telefono, orden: filas.length, clientes: 0, miembros: 0 },
-      extra: total > OFICINAS_INCLUIDAS ? precioOficinaExtra(total) : null,
+      extra,
     });
   }
 
@@ -100,7 +152,14 @@ export async function POST(req: Request) {
     }
     const { error } = await admin.from("Oficina").delete().eq("id", o.id);
     if (error) return fail("No se pudo eliminar.", 500);
-    return NextResponse.json({ ok: true });
+
+    // Symétrique de la création : si le despacho repasse dans le forfait, il faut
+    // RETIRER la ligne Stripe. Sans cet avis, on continuerait à facturer 50 €/mois
+    // une oficina qui n'existe plus — l'erreur qu'un client remarque.
+    const { count: nOficinas } = await admin.from("Oficina").select("id", { count: "exact", head: true }).eq("workspaceId", ws);
+    const quedan = nOficinas ?? 0;
+    if (quedan <= OFICINAS_INCLUIDAS) await avisarBajaOficina(admin, ws, o.nombre, quedan);
+    return NextResponse.json({ ok: true, oficinas: quedan });
   }
 
   // ── Asignar un miembro del equipo a una oficina (null = todas) ────────────────
