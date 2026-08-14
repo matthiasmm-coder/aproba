@@ -103,7 +103,11 @@ export default async function Clientes() {
   // Vaciado en masa: mismas reglas que el borrado unitario — solo administradores, y solo
   // fichas sin expedientes y fuera de una familia. Se cuentan aquí porque la página ya tiene
   // los expedientes de cada cliente: ni una consulta de más.
-  const { data: miMem } = await supabase.from("Membership").select("role").limit(1).maybeSingle();
+  // ⚠️ `role` es POR MIEMBRO y RLS deja ver TODAS las membresías del despacho (la pantalla
+  // Equipo las necesita): sin `.eq("userId")`, `.limit(1)` devolvía una fila cualquiera —
+  // la de un compañero. Un gestor podía ver el botón de vaciado, y un admin no verlo.
+  const { data: { user: yo } } = await supabase.auth.getUser();
+  const { data: miMem } = await supabase.from("Membership").select("role").eq("userId", yo?.id ?? "").limit(1).maybeSingle();
   const esAdmin = puedeGestionarEquipo((miMem as { role?: string } | null)?.role);
   // Sedes du despacho : vide = mono-oficina → ni cases à cocher ni barre de réaffectation.
   const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");

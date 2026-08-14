@@ -146,13 +146,20 @@ export function NuevoCliente() {
   // Devuelve también la SEDE del miembro, para estamparla en los clientes que crea.
   // Sin ella el cliente nace «sin sede» y — por diseño, para no ocultar nunca un dato —
   // lo vería todo el despacho, incluida la otra oficina. Miembro en «Todas» → sin sede.
+  //
+  // ⚠️ `.eq("userId")` es OBLIGATORIO: RLS deja ver TODAS las membresías del despacho
+  // (la pantalla Equipo las necesita), así que un `.limit(1)` suelto devuelve una fila
+  // cualquiera. Daba igual mientras solo se leía `workspaceId` —idéntico en todas— pero
+  // `oficinaId` es POR MIEMBRO: sin el filtro, el cliente nacía en la sede de un compañero.
   async function contexto() {
     const supabase = createSupabaseBrowser();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error(t("No se encontró tu despacho."));
     let mem: { workspaceId?: string; oficinaId?: string | null } | null = null;
     let msg = "";
-    const conSede = await supabase.from("Membership").select("workspaceId, oficinaId").limit(1).maybeSingle();
+    const conSede = await supabase.from("Membership").select("workspaceId, oficinaId").eq("userId", user.id).limit(1).maybeSingle();
     if (conSede.error) {
-      const sin = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle(); // migración sin pasar
+      const sin = await supabase.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle(); // migración multi-oficina sin pasar
       mem = sin.data; msg = sin.error?.message ?? "";
     } else mem = conSede.data;
     if (!mem?.workspaceId) throw new Error(msg || t("No se encontró tu despacho."));
