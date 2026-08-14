@@ -33,6 +33,15 @@ export async function resolverOficina(): Promise<FiltroOficina> {
   const mem = await supabase.from("Membership").select("oficinaId").eq("userId", user.id).limit(1).maybeSingle();
   if (!mem.error) miOficina = (mem.data as { oficinaId?: string | null } | null)?.oficinaId ?? null;
 
+  // Vistas estancas (supabase/oficinas-estanco.sql) : un membre affecté à une sede
+  // ne voit QUE la sienne, en base. Lui proposer les autres dans le sélecteur
+  // n'ouvrirait que des écrans vides — on ne lui offre donc que la sienne, et le
+  // sélecteur s'efface tout seul (il se cache en dessous de 2 options).
+  if (miOficina) {
+    const mia = oficinas.filter((o) => o.id === miOficina);
+    return { activa: miOficina, oficinas: mia, miOficina };
+  }
+
   const bruto = (await cookies()).get(COOKIE_OFICINA)?.value ?? null;
   let activa: string | null;
   if (bruto === "todas") {
