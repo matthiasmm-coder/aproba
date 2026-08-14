@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { cobrarOverageSiProcede } from "@/lib/overage";
-import { oficinaDelCliente } from "@/lib/oficinas-server";
+import { oficinaDelCliente, oficinaDelUsuario, oficinaDeFamilia } from "@/lib/oficinas-server";
 
 // Creación de un expediente DESDE EL SERVIDOR (antes era client-side). Se hace aquí para
 // poder decidir, de forma autoritativa y no falsificable, el cobro del excedente: si el
@@ -32,6 +32,10 @@ export async function POST(req: Request) {
 
   const admin = createSupabaseAdmin();
 
+  // Sede del creador: todo cliente que nazca aquí la hereda. Sin esto el cliente (y con él
+  // su expediente, que se estampa más abajo) sería visible para TODAS las oficinas.
+  const miSede = await oficinaDelUsuario(admin, user.id, workspaceId);
+
   let clienteId = "";
   let expedienteFamiliaId: string | null = null; // si != null → expediente FAMILIAR
 
@@ -50,6 +54,7 @@ export async function POST(req: Request) {
       telefono: tit.telefono?.trim() || null,
       familiaId: famId, parentesco: "TITULAR",
       updatedAt: new Date().toISOString(),
+      ...(miSede ? { oficinaId: miSede } : {}),
     });
     if (eCli) return NextResponse.json({ error: eCli.message }, { status: 500 });
     expedienteFamiliaId = famId;
@@ -64,7 +69,10 @@ export async function POST(req: Request) {
       clienteId = titular.id as string;
     } else {
       clienteId = uuid();
-      await admin.from("Cliente").insert({ id: clienteId, workspaceId, nombre: "Titular", familiaId: famId, parentesco: "TITULAR", updatedAt: new Date().toISOString() });
+      // Familia ya existente pero sin miembros: el titular de relleno hereda la sede de la
+      // familia (si alguno la tuviera) y, en su defecto, la del creador.
+      const sedeFam = (await oficinaDeFamilia(admin, famId)) ?? miSede;
+      await admin.from("Cliente").insert({ id: clienteId, workspaceId, nombre: "Titular", familiaId: famId, parentesco: "TITULAR", updatedAt: new Date().toISOString(), ...(sedeFam ? { oficinaId: sedeFam } : {}) });
     }
     expedienteFamiliaId = famId;
   } else {
@@ -88,6 +96,7 @@ export async function POST(req: Request) {
         telefono: body.nuevo?.telefono?.trim() || null,
         updatedAt: new Date().toISOString(),
         ...familia,
+        ...(miSede ? { oficinaId: miSede } : {}),
       });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     } else {

@@ -3,6 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { camposVacios, filaACliente } from "@/lib/csv-clientes";
 import { PARENTESCOS } from "@/lib/familia";
+import { oficinaDeFamilia } from "@/lib/oficinas-server";
 
 // Crear un cliente NUEVO directamente dentro de una familia (desde la ficha de
 // cualquiera de sus miembros). Antes solo se podía añadir a alguien que ya existía
@@ -46,7 +47,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   };
 
   const admin = createSupabaseAdmin();
-  const fila: Record<string, unknown> = { ...filaACliente(campos, workspaceId), familiaId: id, parentesco };
+  // La sede se hereda de la FAMILIA, no de quien añade: un admin que completa una familia
+  // de Gran Via desde su vista global no debe crear un miembro visible en todas partes.
+  const sede = await oficinaDeFamilia(admin, id);
+  const fila: Record<string, unknown> = { ...filaACliente(campos, workspaceId, sede), familiaId: id, parentesco };
   const { error } = await admin.from("Cliente").insert(fila);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

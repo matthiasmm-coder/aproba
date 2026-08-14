@@ -12,8 +12,11 @@ const uuid = () => crypto.randomUUID();
 // a ESA familia (anti-IDOR). No hay sesión.
 async function resolverExpediente(token: string) {
   const admin = createSupabaseAdmin();
-  const { data } = await admin.from("Expediente").select("id, familiaId, workspaceId, clienteId").eq("portalToken", token).maybeSingle();
-  return { admin, exp: data as { id: string; familiaId: string | null; workspaceId: string; clienteId: string } | null };
+  // `oficinaId` viaja en el expediente (estampado desde su cliente): es la sede que
+  // heredarán los miembros añadidos desde el portal, donde no hay sesión de la que sacarla.
+  let { data } = await admin.from("Expediente").select("id, familiaId, workspaceId, clienteId, oficinaId").eq("portalToken", token).maybeSingle();
+  if (!data) ({ data } = await admin.from("Expediente").select("id, familiaId, workspaceId, clienteId").eq("portalToken", token).maybeSingle()); // sin multi-oficina
+  return { admin, exp: data as { id: string; familiaId: string | null; workspaceId: string; clienteId: string; oficinaId?: string | null } | null };
 }
 
 // POST → añade un miembro (Cliente vacío) a la familia. Devuelve su id.
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
     id, workspaceId: exp.workspaceId, familiaId: exp.familiaId,
     nombre: "", parentesco: (body.parentesco ?? "OTRO").trim() || "OTRO",
     updatedAt: new Date().toISOString(),
+    ...(exp.oficinaId ? { oficinaId: exp.oficinaId } : {}),
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, id });

@@ -144,8 +144,12 @@ export function parseClientesCsv(text: string, existentesLlaves: Set<string> = n
 
 // Ligne Cliente (colonnes plates) depuis la fiche CSV ou le formulaire manuel. nombre
 // obligatoire, reste null si vide. Écrit les MÊMES colonnes que le portail.
-export function filaACliente(f: ClienteCsvCampos, workspaceId: string): Record<string, unknown> {
+// `oficinaId` = sede a la que nace el cliente (multi-oficina). Solo se escribe si viene:
+// un valor no nulo solo puede venir de una fila YA leída de la base, así que la columna
+// existe con seguridad — por eso no hace falta repli por migración ausente.
+export function filaACliente(f: ClienteCsvCampos, workspaceId: string, oficinaId?: string | null): Record<string, unknown> {
   const row: Record<string, unknown> = { id: crypto.randomUUID(), workspaceId, idioma: f.idioma || "es", updatedAt: new Date().toISOString() };
+  if (oficinaId) row.oficinaId = oficinaId;
   for (const k of FICHA_KEYS) { const v = (f[k] ?? "").trim(); row[k] = k === "nombre" ? v : (v || null); }
   // Vigía: caducidad de la TIE (ya normalizada a ISO por parseClientesCsv).
   if (f.fechaCaducidad) { row.fechaCaducidad = f.fechaCaducidad; row.tipoVencimiento = "TIE"; }

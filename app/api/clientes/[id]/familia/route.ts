@@ -32,8 +32,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Pertenencia al workspace bajo RLS; repli si la columna familiaId aún no existe.
-  type Row = { id: string; workspaceId: string; apellidos: string | null; idioma: string | null; familiaId?: string | null };
-  let res = await supa.from("Cliente").select("id, workspaceId, apellidos, idioma, familiaId").eq("id", id).maybeSingle();
+  type Row = { id: string; workspaceId: string; apellidos: string | null; idioma: string | null; familiaId?: string | null; oficinaId?: string | null };
+  let res = await supa.from("Cliente").select("id, workspaceId, apellidos, idioma, familiaId, oficinaId").eq("id", id).maybeSingle();
+  if (res.error) res = await supa.from("Cliente").select("id, workspaceId, apellidos, idioma, familiaId").eq("id", id).maybeSingle() as typeof res; // sin multi-oficina
   if (res.error) {
     res = await supa.from("Cliente").select("id, workspaceId, apellidos, idioma").eq("id", id).maybeSingle() as typeof res;
     if (res.error) return NextResponse.json({ error: "Falta la migración: ejecuta supabase/familia.sql en Supabase." }, { status: 500 });
@@ -83,7 +84,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       email: (m.email ?? "").trim(), telefono: (m.telefono ?? "").trim(),
     };
     const parentesco = PARENTESCOS_VALIDOS.has((m.parentesco ?? "").toUpperCase()) ? (m.parentesco ?? "").toUpperCase() : "OTRO";
-    const { error: eM } = await admin.from("Cliente").insert({ ...filaACliente(campos, cliente.workspaceId), familiaId: famId, parentesco });
+    // Los miembros nacen en la sede del titular: la familia entera vive en la misma oficina.
+    const { error: eM } = await admin.from("Cliente").insert({ ...filaACliente(campos, cliente.workspaceId, cliente.oficinaId ?? null), familiaId: famId, parentesco });
     if (eM) fallos.push(`${nombre}: ${eM.message}`);
     else insertados++;
   }

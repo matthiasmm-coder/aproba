@@ -143,11 +143,20 @@ export function NuevoCliente() {
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Devuelve también la SEDE del miembro, para estamparla en los clientes que crea.
+  // Sin ella el cliente nace «sin sede» y — por diseño, para no ocultar nunca un dato —
+  // lo vería todo el despacho, incluida la otra oficina. Miembro en «Todas» → sin sede.
   async function contexto() {
     const supabase = createSupabaseBrowser();
-    const { data: mem, error: e } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
-    if (e || !mem) throw new Error(e?.message ?? t("No se encontró tu despacho."));
-    return { supabase, ws: mem.workspaceId as string };
+    let mem: { workspaceId?: string; oficinaId?: string | null } | null = null;
+    let msg = "";
+    const conSede = await supabase.from("Membership").select("workspaceId, oficinaId").limit(1).maybeSingle();
+    if (conSede.error) {
+      const sin = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle(); // migración sin pasar
+      mem = sin.data; msg = sin.error?.message ?? "";
+    } else mem = conSede.data;
+    if (!mem?.workspaceId) throw new Error(msg || t("No se encontró tu despacho."));
+    return { supabase, ws: mem.workspaceId, oficinaId: mem.oficinaId ?? null };
   }
 
   async function guardar(otro: boolean) {
@@ -155,9 +164,9 @@ export function NuevoCliente() {
     setGuardando(true);
     setError(null);
     try {
-      const { supabase, ws } = await contexto();
+      const { supabase, ws, oficinaId } = await contexto();
       const nombreGuardado = campos.nombre.trim();
-      const { error: e } = await supabase.from("Cliente").insert(filaACliente(campos, ws));
+      const { error: e } = await supabase.from("Cliente").insert(filaACliente(campos, ws, oficinaId));
       if (e) throw new Error(e.message);
       if (otro) {
         setCampos(VACIO);
@@ -187,7 +196,7 @@ export function NuevoCliente() {
     setGuardando(true);
     setError(null);
     try {
-      const { supabase, ws } = await contexto();
+      const { supabase, ws, oficinaId } = await contexto();
       const famId = crypto.randomUUID();
       const { error: eF } = await supabase.from("Familia").insert({ id: famId, workspaceId: ws, nombre: nombreFam, updatedAt: new Date().toISOString() });
       if (eF) throw new Error(eF.message);
@@ -199,7 +208,7 @@ export function NuevoCliente() {
           nombre: m.nombre, apellidos: m.apellidos, fechaNacimiento: m.fechaNacimiento,
           numeroDocumento: m.numeroDocumento, pasaporte: m.pasaporte, email: m.email, telefono: m.telefono,
         };
-        const { error: eM } = await supabase.from("Cliente").insert({ ...filaACliente(c, ws), familiaId: famId, parentesco: m.parentesco });
+        const { error: eM } = await supabase.from("Cliente").insert({ ...filaACliente(c, ws, oficinaId), familiaId: famId, parentesco: m.parentesco });
         if (eM) fallos.push(`${m.nombre.trim()}: ${eM.message}`);
         else insertados++;
       }
