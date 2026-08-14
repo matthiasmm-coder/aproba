@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Oficina } from "@/lib/data/oficinas";
-import type { Miembro } from "@/lib/data/equipo";
 import { OFICINAS_INCLUIDAS, PRECIO_OFICINA_EXTRA, precioOficinaExtra } from "@/lib/oficinas";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
@@ -26,18 +26,16 @@ async function callOficinas(payload: Record<string, unknown>) {
 
 export function OficinasManager({
   inicial,
-  miembros: miembrosIniciales,
   plan,
   puedeEditar,
 }: {
   inicial: Oficina[];
-  miembros: Miembro[];
   plan: string;
   puedeEditar: boolean;
 }) {
   const t = useT();
+  const router = useRouter();
   const [oficinas, setOficinas] = useState<Oficina[]>(inicial);
-  const [miembros, setMiembros] = useState<Miembro[]>(miembrosIniciales);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -64,6 +62,7 @@ export function OficinasManager({
     if (!ok) { setError(String(data.error ?? t("No se pudo crear la oficina."))); return; }
     setOficinas((prev) => [...prev, data.oficina as Oficina]);
     setNombre(""); setDireccion(""); setTelefono("");
+    router.refresh(); // 1→2 oficinas: el selector de sede aparece en la lista del equipo, arriba
   }
 
   async function guardar(o: Oficina) {
@@ -92,21 +91,7 @@ export function OficinasManager({
     setBusy(null);
     if (!ok) { setError(String(data.error ?? t("No se pudo eliminar."))); return; }
     setOficinas((prev) => prev.filter((x) => x.id !== o.id));
-    setMiembros((prev) => prev.map((m) => (m.oficinaId === o.id ? { ...m, oficinaId: null } : m)));
-  }
-
-  async function asignar(m: Miembro, oficinaId: string) {
-    setError(null);
-    setBusy(m.membershipId);
-    const { ok, data } = await callOficinas({ action: "asignar", membershipId: m.membershipId, oficinaId: oficinaId || null });
-    setBusy(null);
-    if (!ok) { setError(String(data.error ?? t("No se pudo asignar."))); return; }
-    const nuevo = (data.oficinaId as string | null) ?? null;
-    setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, oficinaId: nuevo } : x)));
-    setOficinas((prev) => prev.map((o) => ({
-      ...o,
-      miembros: o.id === nuevo ? o.miembros + 1 : o.id === m.oficinaId ? Math.max(0, o.miembros - 1) : o.miembros,
-    })));
+    router.refresh(); // los miembros que estaban en esa sede vuelven a «Todas» en la lista de arriba
   }
 
   return (
@@ -233,35 +218,6 @@ export function OficinasManager({
             </button>
           </div>
         </form>
-      )}
-
-      {/* ── Répartition de l'équipe ───────────────────────────────────── */}
-      {oficinas.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Equipo por oficina")}</h4>
-          <p className="mt-1 text-xs text-slate-400">
-            {t("«Todas» = ve el trabajo de todas las oficinas. Recomendado para los administradores.")}
-          </p>
-          <ul className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
-            {miembros.map((m) => (
-              <li key={m.membershipId} className="flex flex-wrap items-center gap-3 bg-white px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-800">{m.nombre}</p>
-                  <p className="truncate text-xs text-slate-400">{m.email}</p>
-                </div>
-                <select
-                  value={m.oficinaId ?? ""}
-                  disabled={!puedeEditar || busy === m.membershipId}
-                  onChange={(e) => asignar(m, e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 disabled:opacity-60"
-                >
-                  <option value="">{t("Todas")}</option>
-                  {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                </select>
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}

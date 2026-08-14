@@ -41,7 +41,11 @@ const fmtFecha = (iso: string) => {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 };
 
-export function EquipoManager({ inicial }: { inicial: Equipo }) {
+// `oficinas` (multi-oficina, Business) : la sede se elige EN LA FILA del miembro, junto a
+// su rol — es el mismo gesto, sobre la misma persona. Un bloque aparte repetía la lista
+// entera del equipo para una sola columna. Solo aparece a partir de DOS oficinas: con una
+// sola, elegir entre «Todas» y la única sede no cambia absolutamente nada de lo que ve.
+export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; oficinas?: { id: string; nombre: string }[] }) {
   const t = useT();
   const router = useRouter();
   const [miembros, setMiembros] = useState<Miembro[]>(inicial.miembros);
@@ -164,6 +168,19 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
     setFilaBusy(null);
     if (!ok) { setFilaError(String(data.error ?? t("No se pudo cambiar el rol."))); return; }
     setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, role: role as RolId } : x)));
+  }
+
+  async function asignarOficina(m: Miembro, oficinaId: string) {
+    setFilaError(null);
+    setFilaBusy(m.membershipId);
+    const res = await fetch("/api/oficinas", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "asignar", membershipId: m.membershipId, oficinaId: oficinaId || null }) });
+    const data = await res.json().catch(() => ({}));
+    setFilaBusy(null);
+    if (!res.ok) { setFilaError(String(data.error ?? t("No se pudo asignar la oficina."))); return; }
+    const nuevo = (data.oficinaId as string | null) ?? null;
+    setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, oficinaId: nuevo } : x)));
+    router.refresh(); // los contadores «N usuarios» de la lista de oficinas, justo debajo
   }
 
   async function quitar(m: Miembro) {
@@ -411,33 +428,50 @@ export function EquipoManager({ inicial }: { inicial: Equipo }) {
                   </div>
                 </div>
 
-                {gestionable ? (
-                  <div className="flex items-center gap-2 pl-12 sm:pl-0">
+                <div className="flex items-center gap-2 pl-12 sm:pl-0">
+                  {/* Sede: la puede cambiar un administrador sobre CUALQUIERA —incluido él
+                      mismo y el propietario—, al revés que el rol, que nadie se cambia a sí
+                      mismo. Los demás la ven en gris: saber quién está dónde no es un secreto. */}
+                  {oficinas.length > 1 && (
                     <select
-                      value={m.role}
-                      disabled={filaBusy === m.membershipId}
-                      onChange={(e) => cambiarRol(m, e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:flex-none"
+                      value={m.oficinaId ?? ""}
+                      disabled={!puedeGestionar || filaBusy === m.membershipId}
+                      onChange={(e) => asignarOficina(m, e.target.value)}
+                      title={t("Oficina del miembro. «Todas» ve el trabajo de todas las oficinas.")}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 disabled:opacity-60 sm:flex-none"
                     >
-                      {rolesQuePuedoAsignar.map((r) => (
-                        <option key={r} value={r}>{t(ROLES[r].label)}</option>
-                      ))}
+                      <option value="">{t("Todas las oficinas")}</option>
+                      {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => quitar(m)}
-                      disabled={filaBusy === m.membershipId}
-                      title={t("Quitar del equipo")}
-                      className="flex-none rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
-                    </button>
-                  </div>
-                ) : (
-                  <span className={`ml-12 self-start rounded-full px-2.5 py-1 text-xs font-semibold sm:ml-0 sm:self-auto ${ROLES[m.role].pill}`} title={t(ROLES[m.role].desc)}>
-                    {t(ROLES[m.role].label)}
-                  </span>
-                )}
+                  )}
+                  {gestionable ? (
+                    <>
+                      <select
+                        value={m.role}
+                        disabled={filaBusy === m.membershipId}
+                        onChange={(e) => cambiarRol(m, e.target.value)}
+                        className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:flex-none"
+                      >
+                        {rolesQuePuedoAsignar.map((r) => (
+                          <option key={r} value={r}>{t(ROLES[r].label)}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => quitar(m)}
+                        disabled={filaBusy === m.membershipId}
+                        title={t("Quitar del equipo")}
+                        className="flex-none rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                      </button>
+                    </>
+                  ) : (
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${ROLES[m.role].pill}`} title={t(ROLES[m.role].desc)}>
+                      {t(ROLES[m.role].label)}
+                    </span>
+                  )}
+                </div>
               </li>
             );
           })}

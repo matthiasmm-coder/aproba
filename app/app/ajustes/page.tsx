@@ -174,7 +174,7 @@ export default async function Ajustes() {
               + (oficinas.length > 0 ? ` · ${oficinas.length} ${oficinas.length === 1 ? t("oficina") : t("oficinas")}` : "")}
             icon={IconEquipo}
           >
-            <EquipoManager inicial={equipo} />
+            <EquipoManager inicial={equipo} oficinas={oficinas} />
 
             {/* Multi-oficina : au pied de « Plan y equipo », pas dans une section à part.
                 Répartir l'équipe entre les sedes est la suite naturelle de la gérer —
@@ -188,7 +188,6 @@ export default async function Ajustes() {
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Oficinas")}</h3>
                 <OficinasManager
                   inicial={oficinas}
-                  miembros={equipo.miembros}
                   plan={equipo.plan}
                   puedeEditar={puedeEditar}
                 />
