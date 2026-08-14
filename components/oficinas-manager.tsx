@@ -123,6 +123,23 @@ export function OficinasManager({
         </div>
       )}
 
+      {/* Estado inicial: un despacho Business con 0 oficinas solo veía el formulario
+          desnudo — nada decía que ESTO es el multi-oficina, ni cuántas entran en el plan.
+          El cupo (2 incluidas, +50 €/mes después) solo aparecía como reclamo a los que NO
+          son Business o como aviso al pasar de 2: justo el administrador que va a crearlas
+          no lo veía nunca. */}
+      {esBusiness && oficinas.length === 0 && (
+        <div className="rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3.5 text-sm text-slate-600">
+          <p className="font-semibold text-slate-800">{t("Aún no has creado ninguna oficina")}</p>
+          <p className="mt-1">
+            {t("Crea una por cada sede. Después asigna a cada persona la suya: verá solo el trabajo de su oficina, y quien esté en «Todas» las verá todas.")}
+          </p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            {t("Tu plan Business incluye")} {OFICINAS_INCLUIDAS} {t("oficinas")} · +{PRECIO_OFICINA_EXTRA} {t("€/mes por oficina adicional")}
+          </p>
+        </div>
+      )}
+
       {/* ── Liste des oficinas ────────────────────────────────────────── */}
       {oficinas.length > 0 && (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
@@ -180,6 +197,12 @@ export function OficinasManager({
             </li>
           ))}
         </ul>
+      )}
+
+      {esBusiness && oficinas.length > 0 && !extra && (
+        <p className="text-xs text-slate-400">
+          {oficinas.length} {t("de")} {OFICINAS_INCLUIDAS} {t("oficinas incluidas en tu plan Business")} · +{PRECIO_OFICINA_EXTRA} {t("€/mes a partir de la siguiente")}
+        </p>
       )}
 
       {extra && (
