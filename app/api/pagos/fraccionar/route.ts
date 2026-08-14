@@ -5,6 +5,7 @@ import { r2, ivaDe, datosFiscalesDeCliente } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { siguienteSerie } from "@/lib/factura-numero";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -66,16 +67,15 @@ export async function POST(req: Request) {
   if (bases[n - 1] <= 0) return NextResponse.json({ error: "Importe demasiado pequeño para tantas cuotas." }, { status: 400 });
 
   const admin = createSupabaseAdmin();
-  // Numeración: máximo NUMÉRICO del año una sola vez, luego correlativo.
+  // Numeración: N correlativos de una sola lectura (el contador no se relee entre cuotas).
   const year = new Date().getFullYear();
-  const { data: nums } = await admin.from("Factura").select("numero").eq("workspaceId", exp.workspaceId).like("numero", `${year}-%`);
-  const maxN = (nums ?? []).reduce((m, r) => { const x = Number(String(r.numero).split("-")[1]); return Number.isFinite(x) && x > m ? x : m; }, 0);
+  const numeros = await siguienteSerie(admin, exp.workspaceId, n, year);
 
   const ahora = new Date();
   const filas: Record<string, unknown>[] = [];
   const emitidas: { facturaId: string; numero: string; total: number; vence: string }[] = [];
   for (let i = 0; i < n; i++) {
-    const numero = `${year}-${String(maxN + 1 + i).padStart(4, "0")}`;
+    const numero = numeros[i];
     // Cuota 1 vence en 14 días; las siguientes, un mes más cada una.
     const vence = new Date(ahora.getTime() + 14 * 864e5);
     vence.setUTCMonth(vence.getUTCMonth() + i);

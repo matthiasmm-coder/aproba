@@ -68,8 +68,10 @@ export function CobroFacturaModal({
           setInicial({ cliente: fc.clienteNombre ?? "", numero: fc.numero ?? "", lineas, suplidos: Array.isArray(fc.suplidos) ? fc.suplidos : [], notas: fc.notas ?? "", concepto: fc.concepto ?? "", base: Number(fc.baseImponible) || 0 });
         } catch (e) { setError(e instanceof Error ? e.message : t("No se pudo cargar la factura.")); }
       } else {
+        // Vista previa del número: la da el servidor (lib/factura-numero), único punto
+        // de verdad. Si falla, se deja vacío — al crear, el servidor numera igualmente.
         let numero = "";
-        try { const year = new Date().getFullYear(); const { data: last } = await sb.from("Factura").select("numero").like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle(); numero = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`; } catch { /* el server numera */ }
+        try { const r = await fetch("/api/facturas/numero"); if (r.ok) numero = String((await r.json()).numero ?? ""); } catch { /* el server numera */ }
         setNumeroFactura(numero);
         const base = baseFinal ?? 0;
         // Suplidos del servicio: entran en el prefill y fuerzan el editor rico aunque el

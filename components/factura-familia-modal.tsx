@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { eur, totalesFactura, IVA, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { TASA_790 } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
@@ -32,12 +31,10 @@ export function FacturaFamiliaModal({ familiaId, prefill, onClose }: { familiaId
 
   useEffect(() => {
     (async () => {
+      // Vista previa del número: la da el servidor (lib/factura-numero), único punto de verdad.
       try {
-        const sb = createSupabaseBrowser();
-        const year = new Date().getFullYear();
-        const { data: nums } = await sb.from("Factura").select("numero").like("numero", `${year}-%`);
-        const maxN = (nums ?? []).reduce((m, r) => { const n = Number(String(r.numero).split("-")[1]); return Number.isFinite(n) && n > m ? n : m; }, 0);
-        setNumero(`${year}-${String(maxN + 1).padStart(4, "0")}`);
+        const r = await fetch("/api/facturas/numero");
+        if (r.ok) setNumero(String((await r.json()).numero ?? ""));
       } catch { /* el servidor numera */ }
     })();
   }, []);

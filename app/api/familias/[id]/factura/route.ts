@@ -6,6 +6,7 @@ import { facturacionAvanzada } from "@/lib/planes";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { ordenParentesco } from "@/lib/familia";
+import { siguienteNumero } from "@/lib/factura-numero";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -71,12 +72,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const year = new Date().getFullYear();
   let numero = body.numero?.trim() || "";
-  if (!numero) {
-    // Máximo NUMÉRICO del año (no orden lexicográfico: "2026-9999" &lt; "2026-10000").
-    const { data: nums } = await admin.from("Factura").select("numero").eq("workspaceId", fam.workspaceId).like("numero", `${year}-%`);
-    const maxN = (nums ?? []).reduce((m, r) => { const n = Number(String(r.numero).split("-")[1]); return Number.isFinite(n) && n > m ? n : m; }, 0);
-    numero = `${year}-${String(maxN + 1).padStart(4, "0")}`;
-  }
+  if (!numero) numero = await siguienteNumero(admin, fam.workspaceId, year);
 
   const ahora = new Date();
   const vencimiento = new Date(ahora.getTime() + 14 * 864e5);

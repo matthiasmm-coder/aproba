@@ -7,6 +7,7 @@ import { serviciosDeExpediente, labelServicios, aplicarDescuento, asignacionVali
 import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { siguienteNumero } from "@/lib/factura-numero";
 
 // Paiement du client (portail) → factura générée automatiquement.
 //  • momento ANTICIPO : à l'onboarding, après l'envoi des documents.
@@ -217,11 +218,7 @@ export async function POST(req: Request) {
   // Numérotation séquentielle de l'année (salvo nº personalizado del popup).
   const year = new Date().getFullYear();
   let numero = fac?.numero?.trim() || "";
-  if (!numero) {
-    const { data: last, error: e3 } = await admin.from("Factura").select("numero").eq("workspaceId", exp.workspaceId).like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle();
-    if (e3) return NextResponse.json({ error: e3.message }, { status: 500 });
-    numero = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`;
-  }
+  if (!numero) numero = await siguienteNumero(admin, exp.workspaceId, year);
 
   const cliente = exp.cliente as { nombre?: string; apellidos?: string } | null;
   const clienteAuto = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim() || "Cliente";

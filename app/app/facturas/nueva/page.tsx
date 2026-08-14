@@ -50,12 +50,11 @@ export default function NuevaFactura() {
       if (!activos.length) activos = DEFAULT_SERVICIOS.filter((s) => s.active).map((s) => ({ id: s.id, label: s.label, precio: s.precio }));
       setServicios(activos);
 
-      // Próximo número de la serie anual (editable en modo avanzado).
+      // Próximo número de la serie anual (editable en modo avanzado). Lo da el
+      // servidor: la numeración tiene un único punto de verdad (lib/factura-numero).
       try {
-        const year = new Date().getFullYear();
-        const { data: last } = await sb.from("Factura").select("numero").like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle();
-        const lastN = last ? Number(last.numero.split("-")[1]) : 0;
-        setNumero(`${year}-${String(lastN + 1).padStart(4, "0")}`);
+        const r = await fetch("/api/facturas/numero");
+        if (r.ok) setNumero(String((await r.json()).numero ?? ""));
       } catch { /* el número se genera al crear */ }
 
       setCargando(false);
@@ -77,9 +76,9 @@ export default function NuevaFactura() {
       // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
       let num = p.numero?.trim() ?? "";
       if (!num) {
-        const { data: last, error: e2 } = await sb.from("Factura").select("numero").like("numero", `${year}-%`).order("numero", { ascending: false }).limit(1).maybeSingle();
-        if (e2) throw new Error(e2.message);
-        num = `${year}-${String((last ? Number(last.numero.split("-")[1]) : 0) + 1).padStart(4, "0")}`;
+        const r = await fetch("/api/facturas/numero");
+        if (!r.ok) throw new Error(t("No se pudo calcular el número de factura."));
+        num = String((await r.json()).numero ?? "");
       }
 
       const row: Record<string, unknown> = {

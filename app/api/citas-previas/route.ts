@@ -7,6 +7,7 @@ import { crearReunionMeet, actualizarReunionMeet, borrarReunionMeet } from "@/li
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { siguienteNumero } from "@/lib/factura-numero";
 
 // Citas previas (consulta): el gestor crea una cita con un cliente (existente o nombre
 // libre). Todo bajo RLS (sesión): solo su workspace. Si la tabla no está migrada, el
@@ -40,10 +41,7 @@ async function emitirFacturaCita(
   const base = r2(total / (1 + IVA));
   const iva = r2(total - base);
   const year = new Date().getFullYear();
-  // Máximo NUMÉRICO del año (no lexicográfico: "2026-9999" < "2026-10000").
-  const { data: nums } = await admin.from("Factura").select("numero").eq("workspaceId", o.workspaceId).like("numero", `${year}-%`);
-  const maxN = (nums ?? []).reduce((m: number, r: { numero: string }) => { const n = Number(String(r.numero).split("-")[1]); return Number.isFinite(n) && n > m ? n : m; }, 0);
-  const numero = `${year}-${String(maxN + 1).padStart(4, "0")}`;
+  const numero = await siguienteNumero(admin, o.workspaceId, year);
 
   const [a, m, d] = o.fecha.split("-");
   const concepto = `Cita previa — ${d}/${m}/${a}${o.motivo ? ` · ${o.motivo}` : ""}`.slice(0, 200);
