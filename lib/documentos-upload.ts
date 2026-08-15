@@ -10,6 +10,7 @@ type Admin = ReturnType<typeof createSupabaseAdmin>;
 
 export type ExpParaSubida = {
   id: string; workspaceId: string; clienteId: string | null; tipo: string; estado: string; familiaId: string | null;
+  oficinaId?: string | null; // multi-oficina: catálogo (docs por servicio) de SU sede
 };
 
 type Resultado = { ok: true; estado: string; campos?: unknown; alertas: string[]; confianza?: number };

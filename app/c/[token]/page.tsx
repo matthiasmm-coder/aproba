@@ -27,15 +27,17 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
   const admin = createSupabaseAdmin();
 
   // Cliente por token de espacio (defensivo: sin la migración → 404, nunca 500).
-  type ClienteRow = { id: string; nombre: string | null; idioma: string | null; workspaceId: string };
+  type ClienteRow = { id: string; nombre: string | null; idioma: string | null; workspaceId: string; oficinaId?: string | null };
   let cliente: ClienteRow | null = null;
   try {
-    const { data, error } = await admin
-      .from("Cliente")
+    // oficinaId : le catálogo (et ses prix) que voit ce cliente est celui de SA sede.
+    let res = await admin.from("Cliente")
+      .select("id, nombre, idioma, workspaceId, oficinaId")
+      .eq("espacioToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Cliente")
       .select("id, nombre, idioma, workspaceId")
-      .eq("espacioToken", token)
-      .maybeSingle();
-    if (!error) cliente = data as ClienteRow | null;
+      .eq("espacioToken", token).maybeSingle();
+    if (!res.error) cliente = res.data as ClienteRow | null;
   } catch { /* columna ausente */ }
   if (!cliente) notFound();
 

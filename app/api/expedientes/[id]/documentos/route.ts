@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Pertenencia al workspace bajo RLS (anti-IDOR): un id ajeno simplemente no existe.
-  const { data: exp } = await supa.from("Expediente").select("id, workspaceId, clienteId, tipo, estado, familiaId").eq("id", id).maybeSingle();
+  const { data: exp } = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId").eq("id", id).maybeSingle();
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const admin = createSupabaseAdmin();

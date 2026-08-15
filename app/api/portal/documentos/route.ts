@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   // Expediente authentifié par le token du portail.
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, workspaceId, clienteId, tipo, estado, referencia, familiaId")
+    .select("id, workspaceId, oficinaId, clienteId, tipo, estado, referencia, familiaId")
     .eq("portalToken", token)
     .maybeSingle();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });

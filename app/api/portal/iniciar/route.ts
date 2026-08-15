@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   // desconfiguró asignación y descuento).
   let res1 = await admin
     .from("Expediente")
-    .select("id, estado, workspaceId, familiaId, servicioClave, serviciosAsignacion, descuento")
+    .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento")
     .eq("portalToken", token)
     .maybeSingle();
   // ¿Pudimos LEER el descuento? Si caemos a un select más corto no lo sabemos, y

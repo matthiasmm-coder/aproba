@@ -95,7 +95,7 @@ async function contextoExpediente(admin: SupabaseClient, expedienteId: string) {
   // serviciosExtra puede no existir aún (migración pendiente) → repli sin la columna.
   let resExp = await admin
     .from("Expediente")
-    .select("id, workspaceId, clienteId, familiaId, referencia, tipo, servicioClave, serviciosExtra, estado")
+    .select("id, workspaceId, oficinaId, clienteId, familiaId, referencia, tipo, servicioClave, serviciosExtra, estado")
     .eq("id", expedienteId)
     .maybeSingle();
   if (resExp.error) {
