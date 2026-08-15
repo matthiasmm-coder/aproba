@@ -32,7 +32,7 @@ export function FacturacionPorOficina({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
         {oficinas.map((o) => (
           <button
             key={o.id}
