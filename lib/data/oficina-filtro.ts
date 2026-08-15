@@ -16,17 +16,23 @@ export type FiltroOficina = {
   activa: string | null;                       // sede regardée (null = todas)
   oficinas: { id: string; nombre: string }[];  // sedes du despacho (vide = mono-oficina)
   miOficina: string | null;                    // sede du membre connecté
+  autoId: string | null;                       // la fila de la gestoría (orden -1)
+  // La pastille de la gestoría doit montrer AUSSI les données SANS sede : sous le
+  // modèle « la gestoría est une oficina », l'historique non estampillé est à elle.
+  incluirSinSede: boolean;                     // true quand activa === autoId
 };
 
 export async function resolverOficina(): Promise<FiltroOficina> {
-  const vacio: FiltroOficina = { activa: null, oficinas: [], miOficina: null };
+  const vacio: FiltroOficina = { activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false };
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return vacio;
 
   // Sedes du despacho (RLS) — si la migration n'est pas passée, `error` → mono-oficina.
-  const { data: ofis, error } = await supabase.from("Oficina").select("id, nombre").order("orden");
-  const oficinas = (error ? [] : (ofis ?? [])) as { id: string; nombre: string }[];
+  const { data: ofis, error } = await supabase.from("Oficina").select("id, nombre, orden").order("orden");
+  const filas = (error ? [] : (ofis ?? [])) as { id: string; nombre: string; orden: number }[];
+  const oficinas = filas.map(({ id, nombre }) => ({ id, nombre }));
+  const autoId = filas.find((o) => o.orden === -1)?.id ?? null;
   if (oficinas.length === 0) return vacio;
 
   let miOficina: string | null = null;
@@ -39,7 +45,7 @@ export async function resolverOficina(): Promise<FiltroOficina> {
   // sélecteur s'efface tout seul (il se cache en dessous de 2 options).
   if (miOficina) {
     const mia = oficinas.filter((o) => o.id === miOficina);
-    return { activa: miOficina, oficinas: mia, miOficina };
+    return { activa: miOficina, oficinas: mia, miOficina, autoId, incluirSinSede: miOficina === autoId };
   }
 
   const bruto = (await cookies()).get(COOKIE_OFICINA)?.value ?? null;
@@ -52,5 +58,5 @@ export async function resolverOficina(): Promise<FiltroOficina> {
     activa = miOficina;                                       // par défaut : sa propre sede
   }
 
-  return { activa, oficinas, miOficina };
+  return { activa, oficinas, miOficina, autoId, incluirSinSede: activa !== null && activa === autoId };
 }

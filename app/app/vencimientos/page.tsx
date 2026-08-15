@@ -1,5 +1,6 @@
 import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
+import { PastillasOficina } from "@/components/pastillas-oficina";
 import { VencimientosList } from "@/components/vencimientos-list";
 import { getT } from "@/lib/app-lang";
 
@@ -10,12 +11,13 @@ export const dynamic = "force-dynamic";
 // «Iniciar renovación» que convierte cada caducidad en un expediente nuevo.
 export default async function VencimientosPage() {
   const t = await getT();
-  const { activa } = await resolverOficina();
-  const vencimientos = await fetchVencimientos(activa);
+  const filtroSede = await resolverOficina();
+  const vencimientos = await fetchVencimientos(filtroSede.activa, filtroSede.incluirSinSede);
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Vencimientos")}</h1>
       <p className="mt-1 text-slate-500">{t("Las tarjetas de tus clientes que caducan pronto. Inicia la renovación con un clic: se crea el expediente y se avisa al cliente en su idioma.")}</p>
+      <div className="mt-4"><PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} /></div>
       <VencimientosList vencimientos={vencimientos} />
     </div>
   );

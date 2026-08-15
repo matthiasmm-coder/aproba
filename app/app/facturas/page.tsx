@@ -3,6 +3,8 @@ import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { FacturasClient } from "@/components/facturas-client";
+import { resolverOficina } from "@/lib/data/oficina-filtro";
+import { PastillasOficina } from "@/components/pastillas-oficina";
 
 export const metadata = { title: "Facturas" };
 
@@ -19,6 +21,20 @@ async function esAdminActual(): Promise<boolean> {
 
 // Facturación branchée sur Supabase (RLS).
 export default async function Facturas() {
-  const [facturas, cobros, despacho, esAdmin] = await Promise.all([fetchFacturas(), fetchCobrosPendientes(), fetchDespacho(), esAdminActual()]);
-  return <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} />;
+  // multi-oficina : les facturas estampillées suivent leur sede ; les non estampillées
+  // (manuelles, antérieures à la fase 6) comptent pour la gestoría — jamais masquées
+  // en vue « Todas ». Le tampon existe depuis la fase 6, le filtre devient possible.
+  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false }));
+  const [facturas, cobros, despacho, esAdmin] = await Promise.all([
+    fetchFacturas(filtroSede.activa, filtroSede.incluirSinSede),
+    fetchCobrosPendientes(filtroSede.activa, filtroSede.incluirSinSede),
+    fetchDespacho(),
+    esAdminActual(),
+  ]);
+  return (
+    <div>
+      <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
+      <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} />
+    </div>
+  );
 }

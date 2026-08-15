@@ -20,14 +20,19 @@ const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 // `oficinaId` = sede regardée (multi-oficina). Le vencimiento n'a pas de sede à lui :
 // il suit celle de SON client, via un join interne (clienteId est NOT NULL, donc
 // passer en `!inner` ne fait disparaître aucune ligne légitime).
-export async function fetchVencimientos(oficinaId?: string | null): Promise<VencimientoRow[]> {
+export async function fetchVencimientos(oficinaId?: string | null, incluirSinSede = false): Promise<VencimientoRow[]> {
   const supabase = await createSupabaseServer();
   try {
     const sel = oficinaId
       ? "id, clienteId, tipo, fecha, estado, cliente:Cliente!inner(nombre, apellidos, oficinaId), renovacion:Expediente!Vencimiento_expedienteRenovacionId_fkey(id, referencia)"
       : "id, clienteId, tipo, fecha, estado, cliente:Cliente(nombre, apellidos), renovacion:Expediente!Vencimiento_expedienteRenovacionId_fkey(id, referencia)";
     let q = supabase.from("Vencimiento").select(sel).neq("estado", "HECHO");
-    if (oficinaId) q = q.eq("cliente.oficinaId", oficinaId);
+    if (oficinaId) {
+      q = incluirSinSede
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (q as any).or(`oficinaId.eq.${oficinaId},oficinaId.is.null`, { referencedTable: "cliente" })
+        : q.eq("cliente.oficinaId", oficinaId);
+    }
     const { data, error } = await q.order("fecha", { ascending: true }).limit(300);
     if (error) throw error;
     const ahora = Date.now();

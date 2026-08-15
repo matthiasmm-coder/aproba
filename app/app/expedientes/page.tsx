@@ -1,5 +1,6 @@
 import { fetchExpedientesResumen } from "@/lib/data/expedientes";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
+import { PastillasOficina } from "@/components/pastillas-oficina";
 import { BoardClient, type BoardItem } from "@/components/board-client";
 
 export const metadata = { title: "Expedientes" };
@@ -7,8 +8,8 @@ export const metadata = { title: "Expedientes" };
 // Board branché sur Supabase (RLS) : chaque gestor ne voit que son workspace.
 export default async function Board({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
   const { filtro } = await searchParams;
-  const { activa } = await resolverOficina();
-  const expedientes = await fetchExpedientesResumen(activa);
+  const filtroSede = await resolverOficina();
+  const expedientes = await fetchExpedientesResumen(filtroSede.activa, filtroSede.incluirSinSede);
 
   const items: BoardItem[] = expedientes.map((e) => ({
     id: e.id,
@@ -28,6 +29,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
 
   return (
     <div>
+      <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} />
     </div>
   );

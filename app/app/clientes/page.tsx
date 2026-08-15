@@ -4,6 +4,7 @@ import { TIPO_LABEL } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import { ClientesList, type Cli } from "@/components/clientes-list";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
+import { PastillasOficina } from "@/components/pastillas-oficina";
 import { BorrarTodosClientes } from "@/components/borrar-todos-clientes";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { getT } from "@/lib/app-lang";
@@ -38,10 +39,13 @@ export default async function Clientes() {
   // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
   // Chaque cran ne retire QUE le morceau le plus récent (mêmes règles que fetchDespacho).
   // Sede regardée (multi-oficina) : le filtre part dans la requête, pas après coup.
-  const { activa } = await resolverOficina().catch(() => ({ activa: null }));
+  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false }));
+  const { activa, incluirSinSede } = filtroSede;
   const q = (cols: string) => {
     const base = supabase.from("Cliente").select(cols).order("nombre");
-    return activa ? base.eq("oficinaId", activa) : base;
+    if (!activa) return base;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return incluirSinSede ? (base as any).or(`oficinaId.eq.${activa},oficinaId.is.null`) : base.eq("oficinaId", activa);
   };
   let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
@@ -118,6 +122,7 @@ export default async function Clientes() {
 
   return (
     <div className="mx-auto max-w-4xl">
+      <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Clientes")}</h1>
