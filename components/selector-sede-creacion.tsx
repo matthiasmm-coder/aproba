@@ -59,10 +59,10 @@ export function SelectorSedeCreacion({
 
   return (
     <div className={`mb-4 rounded-xl border px-4 py-3 ${sede ? "border-slate-200 bg-cream-50/60" : "border-amber-300 bg-amber-50"}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide ${sede ? "text-slate-400" : "text-amber-700"}`}>
+      <p className={`text-center text-xs font-semibold uppercase tracking-wide ${sede ? "text-slate-400" : "text-amber-700"}`}>
         {sede ? t("Creando en") : t("¿En qué oficina? — «Todas» es solo una vista de lectura")}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {oficinas.map((o) => (
           <button
             key={o.id}
