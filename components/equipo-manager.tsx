@@ -385,7 +385,7 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
       {/* ── Miembros ──────────────────────────────────────────────────── */}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Miembros del equipo")}</h3>
-        <ul className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+        <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200 [&>li:first-child]:rounded-t-[11px] [&>li:last-child]:rounded-b-[11px]">
           {miembros.map((m) => {
             const gestionable = puedeGestionar && !m.esYo && m.role !== "OWNER" && puedeAsignarRol(miRol, m.role);
             return (
