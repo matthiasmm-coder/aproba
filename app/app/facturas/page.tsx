@@ -1,4 +1,4 @@
-import { fetchFacturas, fetchCobrosPendientes } from "@/lib/data/facturas";
+import { fetchFacturas, fetchCobrosPendientes, TOPE_FACTURAS } from "@/lib/data/facturas";
 import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
@@ -26,7 +26,7 @@ export default async function Facturas() {
   // en vue « Todas ». Le tampon existe depuis la fase 6, le filtre devient possible.
   const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const [facturas, cobros, despacho, esAdmin] = await Promise.all([
-    fetchFacturas(filtroSede.sedes, filtroSede.incluirSinSede),
+    fetchFacturas(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_FACTURAS),
     fetchCobrosPendientes(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchDespacho(),
     esAdminActual(),
@@ -34,6 +34,9 @@ export default async function Facturas() {
   return (
     <div>
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
+      {facturas.length >= TOPE_FACTURAS && (
+        <p className="mb-3 text-center text-xs text-slate-400">Mostrando las {TOPE_FACTURAS} facturas más recientes. El export ZIP incluye SIEMPRE todas.</p>
+      )}
       <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} />
     </div>
   );

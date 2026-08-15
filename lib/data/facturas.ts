@@ -76,7 +76,8 @@ function mapRow(f: Row): Factura {
 // `oficinaId` (pastillas multi-oficina) : facturas estampillées de cette sede ;
 // `incluirSinSede` (pastille de la gestoría) ajoute les non estampillées — les
 // manuelles et les antérieures à la fase 6 sont comptablement les siennes.
-export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = false): Promise<Factura[]> {
+export const TOPE_FACTURAS = 600;
+export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = false, tope?: number): Promise<Factura[]> {
   const supabase = await createSupabaseServer();
   const filtro = <T,>(q: T): T => {
     if (!sedes?.length) return q;
@@ -85,11 +86,11 @@ export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = fa
     return (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
   };
   try {
-    const data = await selectFacturas((cols) => filtro(supabase.from("Factura").select(cols)).order("numero", { ascending: false }));
+    const data = await selectFacturas((cols) => filtro(supabase.from("Factura").select(cols)).order("numero", { ascending: false }).limit(tope ?? 100000));
     return ((data ?? []) as unknown as Row[]).map(mapRow);
   } catch (e) {
     if (sedes?.length && e instanceof Error && /oficinaId/i.test(e.message)) {
-      const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }));
+      const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }).limit(tope ?? 100000));
       return ((data ?? []) as unknown as Row[]).map(mapRow);
     }
     throw e;

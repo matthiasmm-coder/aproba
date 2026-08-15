@@ -1,4 +1,4 @@
-import { fetchExpedientesResumen } from "@/lib/data/expedientes";
+import { fetchExpedientesResumen, TOPE_EXPEDIENTES } from "@/lib/data/expedientes";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 import { BoardClient, type BoardItem } from "@/components/board-client";
@@ -9,7 +9,7 @@ export const metadata = { title: "Expedientes" };
 export default async function Board({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
   const { filtro } = await searchParams;
   const filtroSede = await resolverOficina();
-  const expedientes = await fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede);
+  const expedientes = await fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES);
 
   const items: BoardItem[] = expedientes.map((e) => ({
     id: e.id,
@@ -30,6 +30,9 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   return (
     <div>
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
+      {expedientes.length >= TOPE_EXPEDIENTES && (
+        <p className="mb-3 text-center text-xs text-slate-400">Mostrando los {TOPE_EXPEDIENTES} expedientes más recientes. Usa el buscador para encontrar los demás.</p>
+      )}
       <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} />
     </div>
   );

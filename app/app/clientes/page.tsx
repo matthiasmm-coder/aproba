@@ -9,6 +9,8 @@ import { BorrarTodosClientes } from "@/components/borrar-todos-clientes";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { getT } from "@/lib/app-lang";
 
+const TOPE_CLIENTES = 1000;
+
 export const metadata = { title: "Clientes" };
 
 // Première page branchée sur la vraie base (Supabase + RLS) :
@@ -42,7 +44,10 @@ export default async function Clientes() {
   const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const { incluirSinSede } = filtroSede;
   const q = (cols: string) => {
-    const base = supabase.from("Cliente").select(cols).order("nombre");
+    // TOPE 1000 : on récupère les plus RÉCENTS (couper une liste alphabétique
+    // mentirait — « il manque tout après la lettre M ») puis on retrie par nom
+    // pour l'affichage. Aviso visible quand le tope est atteint.
+    const base = supabase.from("Cliente").select(cols).order("createdAt", { ascending: false }).limit(TOPE_CLIENTES);
     const sedes = filtroSede.sedes;
     if (!sedes?.length) return base;
     const dentro = `oficinaId.in.(${sedes.join(",")})`;
@@ -56,6 +61,7 @@ export default async function Clientes() {
   const { data, error } = res;
 
   const rows = ((data ?? []) as unknown[]) as Row[];
+  rows.sort((a, b) => `${(a as { nombre?: string }).nombre ?? ""} ${(a as { apellidos?: string }).apellidos ?? ""}`.localeCompare(`${(b as { nombre?: string }).nombre ?? ""} ${(b as { apellidos?: string }).apellidos ?? ""}`, "es"));
   const dia = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-ES"); };
   const aCli = (c: Row) => {
     const exps = [...(c.expedientes ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -125,6 +131,9 @@ export default async function Clientes() {
   return (
     <div className="mx-auto max-w-4xl">
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
+      {rows.length >= TOPE_CLIENTES && (
+        <p className="mb-3 text-center text-xs text-slate-400">{t("Mostrando los")} {TOPE_CLIENTES} {t("clientes más recientes. Usa el buscador para encontrar los demás.")}</p>
+      )}
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Clientes")}</h1>

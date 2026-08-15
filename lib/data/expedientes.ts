@@ -46,7 +46,11 @@ type ResumenRow = {
 };
 
 // `oficinaId` = sede regardée (multi-oficina). null → tout le despacho, comme avant.
-export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSinSede = false): Promise<ExpedienteResumen[]> {
+// TOPE (opcional): protege el servidor en despachos con años de historial. Los
+// CONSUMIDORES que muestran listas lo pasan y ENSEÑAN un aviso si se alcanza
+// (regla «no silent caps»); los flujos de export/analítica NO lo pasan (todo).
+export const TOPE_EXPEDIENTES = 800;
+export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSinSede = false, tope?: number): Promise<ExpedienteResumen[]> {
   const supabase = await createSupabaseServer();
   // Le filtre s'applique à CHAQUE cran de la chaîne de replis — sans ça, un repli
   // (migration absente) ramènerait silencieusement tout le despacho.
@@ -65,7 +69,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false }),
+    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label"),
@@ -74,12 +78,12 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
   let error = conTodo.error;
   if (error) {
-    const r1b = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false });
+    const r1b = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r1b.data ?? null) as unknown[] | null;
     error = r1b.error;
   }
   if (error) {
-    const r2 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`)).order("createdAt", { ascending: false });
+    const r2 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r2.data ?? null) as unknown[] | null;
     error = r2.error;
   }
