@@ -11,6 +11,7 @@ import { FacturaView, type Emisor } from "@/components/factura-view";
 import { FacturaEditor, GENERICOS, type ServicioTarifa, type FacturaPayload } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
+import { contextoDeTrabajoBrowser, leerCookieSede } from "@/lib/oficinas-browser";
 
 export default function NuevaFactura() {
   const t = useT();
@@ -57,8 +58,8 @@ export default function NuevaFactura() {
       // Próximo número de la serie anual (editable en modo avanzado). Lo da el
       // servidor: la numeración tiene un único punto de verdad (lib/factura-numero).
       try {
-        const ck = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-        const r = await fetch(`/api/facturas/numero${ck && ck !== "todas" ? `?oficina=${encodeURIComponent(ck)}` : ""}`);
+        const ck = leerCookieSede();
+        const r = await fetch(`/api/facturas/numero${ck ? `?oficina=${encodeURIComponent(ck)}` : ""}`);
         if (r.ok) setNumero(String((await r.json()).numero ?? ""));
       } catch { /* el número se genera al crear */ }
 
@@ -99,13 +100,7 @@ export default function NuevaFactura() {
         throw new Error(t("Estás en «Todas» (solo lectura). Elige arriba la oficina que factura."));
       }
       let sedeTrabajo: string | null = sedeCreacion.requerida ? sedeCreacion.sede : null;
-      if (!sedeTrabajo) {
-        const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-        if (cookieSede && cookieSede !== "todas") {
-          const { data: ofi } = await sb.from("Oficina").select("id").eq("id", cookieSede).maybeSingle();
-          if (ofi) sedeTrabajo = cookieSede;
-        }
-      }
+      if (!sedeTrabajo) sedeTrabajo = (await contextoDeTrabajoBrowser()).activa; // pastille validée (source unique)
 
       let num = p.numero?.trim() ?? "";
       if (!num) {

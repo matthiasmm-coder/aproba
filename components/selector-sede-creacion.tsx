@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 import { useT } from "@/components/lang-provider";
 
 // «Creando en: …» — la sede à laquelle appartiendra CE qui va être créé.
@@ -27,29 +27,15 @@ export function SelectorSedeCreacion({
   useEffect(() => {
     (async () => {
       try {
-        const supabase = createSupabaseBrowser();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        let mem = await supabase.from("Membership").select("role, oficinaId, oficinaIds").eq("userId", user.id).limit(1).maybeSingle();
-        if (mem.error) mem = await supabase.from("Membership").select("role, oficinaId").eq("userId", user.id).limit(1).maybeSingle() as typeof mem;
-        const m = mem.data as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null } | null;
-        const esAdmin = m?.role === "OWNER" || m?.role === "ADMIN";
-        const misSedes = m?.oficinaIds?.length ? m.oficinaIds : m?.oficinaId ? [m.oficinaId] : [];
-
-        const { data: ofis } = await supabase.from("Oficina").select("id, nombre, orden").order("orden");
-        const todas = (ofis ?? []) as { id: string; nombre: string; orden: number }[];
-        // choix offerts : l'admin voit tout ; le gestor, SES sedes
-        const elegibles = esAdmin ? todas : todas.filter((o) => misSedes.includes(o.id));
-        if (todas.length < 2 || elegibles.length === 0) { setListo(true); onEstado({ sede: null, requerida: false }); return; }
-        if (elegibles.length === 1) { setListo(true); onEstado({ sede: elegibles[0].id, requerida: false }); return; }
-
-        const cookie = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-        const activa = cookie && cookie !== "todas" && elegibles.some((o) => o.id === cookie) ? cookie : null;
-        setOficinas(elegibles.map(({ id, nombre }) => ({ id, nombre })));
-        setSede(activa);
+        // Règle du contexte de travail : UNE source côté navigateur (oficinas-browser).
+        const ctx = await contextoDeTrabajoBrowser();
+        if (!ctx.multi || ctx.elegibles.length === 0) { setListo(true); onEstado({ sede: null, requerida: false }); return; }
+        if (ctx.elegibles.length === 1) { setListo(true); onEstado({ sede: ctx.elegibles[0].id, requerida: false }); return; }
+        setOficinas(ctx.elegibles);
+        setSede(ctx.activa);
         setRequerida(true);
         setListo(true);
-        onEstado({ sede: activa, requerida: true });
+        onEstado({ sede: ctx.activa, requerida: true });
       } catch { setListo(true); onEstado({ sede: null, requerida: false }); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

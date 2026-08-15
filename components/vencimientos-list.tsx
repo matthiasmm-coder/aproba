@@ -7,7 +7,7 @@ import type { VencimientoRow } from "@/lib/data/vencimientos";
 import { fmtFechaCorta } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
-import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 
 // VIGÍA — lista agrupada de vencimientos + acción «Iniciar renovación».
 // Al iniciar: (1) POST /api/vencimientos/[id]/renovar → expediente nuevo + aviso al
@@ -30,13 +30,9 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   useEffect(() => {
     (async () => {
       try {
-        const supabase = createSupabaseBrowser();
-        const { data: ofis } = await supabase.from("Oficina").select("id, nombre");
-        const todas = (ofis ?? []) as { id: string; nombre: string }[];
-        if (todas.length < 2) return;
-        const cookie = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-        const activa = cookie && cookie !== "todas" && todas.some((o) => o.id === cookie) ? cookie : null;
-        setSedeCtx({ multi: true, activa, nombreActiva: todas.find((o) => o.id === activa)?.nombre ?? null });
+        const ctx = await contextoDeTrabajoBrowser(); // source unique de la règle pastille
+        if (!ctx.multi) return;
+        setSedeCtx({ multi: true, activa: ctx.activa, nombreActiva: ctx.nombreActiva });
       } catch { /* mono-oficina o sin migrar */ }
     })();
   }, []);

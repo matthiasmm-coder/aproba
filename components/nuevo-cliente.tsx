@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
@@ -170,21 +171,10 @@ export function NuevoCliente() {
     if (!mem?.workspaceId) throw new Error(msg || t("No se encontró tu despacho."));
 
     // LA PASTILLE ACTIVE = le contexte de création (même règle que le serveur).
-    // Validée sous RLS : seule une oficina de MON despacho (et de MES sedes pour
-    // un gestor) est acceptée — un cookie forgé retombe sur le défaut.
-    const esAdmin = mem.role === "OWNER" || mem.role === "ADMIN";
-    const misSedes = mem.oficinaIds?.length ? mem.oficinaIds : mem.oficinaId ? [mem.oficinaId] : [];
-    const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-    let oficinaId: string | null = null;
-    if (cookieSede && cookieSede !== "todas") {
-      if (esAdmin) {
-        const { data: ofi } = await supabase.from("Oficina").select("id").eq("id", cookieSede).maybeSingle(); // RLS = mon despacho
-        if (ofi) oficinaId = cookieSede;
-      } else if (misSedes.includes(cookieSede)) {
-        oficinaId = cookieSede;
-      }
-    }
-    if (!oficinaId && !esAdmin) oficinaId = misSedes[0] ?? null;
+    // La validation du cookie vit en UN seul point : lib/oficinas-browser.
+    const ctx = await contextoDeTrabajoBrowser();
+    let oficinaId: string | null = ctx.activa;
+    if (!oficinaId && !ctx.esAdmin) oficinaId = ctx.misSedes[0] ?? null; // gestor : sa primaire
     return { supabase, ws: mem.workspaceId, oficinaId };
   }
 

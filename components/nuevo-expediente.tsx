@@ -10,6 +10,7 @@ import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
+import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 import { TelefonoInput } from "@/components/telefono-input";
 
 // Nuevo expediente — RÉEL : choisir un client existant (individu OU famille) ou en créer un
@@ -84,8 +85,7 @@ export function NuevoExpediente() {
       if (ws?.nombre) setGestoriaNombre(ws.nombre as string);
 
       try {
-        const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");
-        setOficinas((ofis ?? []) as { id: string; nombre: string }[]);
+        setOficinas((await contextoDeTrabajoBrowser()).oficinas); // source unique
       } catch { /* mono-oficina o sin migrar */ }
 
       // Familias del workspace (repli propre si la table n'existe pas encore).
