@@ -71,7 +71,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "")).eq("portalToken", token).maybeSingle();
@@ -158,12 +158,9 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
           .limit(1);
         const fac = facs?.[0] as { id: string; numero: string; total: number } | undefined;
         if (fac) {
-          const { data: cuentas } = await admin
-            .from("CuentaBancaria")
-            .select("titular, iban, banco")
-            .eq("workspaceId", exp.workspace.id)
-            .eq("activa", true)
-            .limit(1);
+          const { cuentaParaOficina } = await import("@/lib/facturacion-oficina");
+          const cuentaSede = await cuentaParaOficina(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+          const cuentas = cuentaSede ? [cuentaSede] : [];
           pagoPendiente = {
             numero: String(fac.numero),
             total: Number(fac.total),

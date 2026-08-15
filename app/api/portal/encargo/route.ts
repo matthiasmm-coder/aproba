@@ -7,7 +7,7 @@ import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo"
 // Autorización: el portalToken (mismo nivel de acceso que /j). Solo si la
 // gestoría tiene la función activada en Ajustes.
 
-const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, cliente:Cliente(*)";
+const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, oficinaId, cliente:Cliente(*)";
 const SELECT_SIN_ASIG = SELECT.replace(", serviciosAsignacion", "");
 const SELECT_SIN_DESC = SELECT_SIN_ASIG.replace(", descuento", "");
 const SELECT_SIN_SUP = SELECT_SIN_DESC.replace(", suplidosOverride", "");

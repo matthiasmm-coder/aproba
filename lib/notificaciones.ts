@@ -368,18 +368,19 @@ export async function enviarSolicitudPago(
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("workspaceId, portalToken, Cliente(nombre, email, telefono), Workspace(nombre)")
+      .select("workspaceId, oficinaId, portalToken, Cliente(nombre, email, telefono), Workspace(nombre)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
-    const exp = expRaw as { workspaceId: string; portalToken: string | null; Cliente: { nombre: string | null; email: string | null; telefono: string | null } | { nombre: string | null; email: string | null; telefono: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    const exp = expRaw as { workspaceId: string; oficinaId?: string | null; portalToken: string | null; Cliente: { nombre: string | null; email: string | null; telefono: string | null } | { nombre: string | null; email: string | null; telefono: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
     if (!exp) return;
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
 
-    // Compte bancaire actif du despacho (pour le virement).
-    const { data: cuentas } = await admin.from("CuentaBancaria").select("titular, iban, banco").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
-    const cuenta = (cuentas ?? [])[0] as { titular?: string | null; iban?: string | null; banco?: string | null } | undefined;
+    // Cuenta activa DE LA SEDE del expediente (cascada a la común): el cliente de
+    // Diagonal debe transferir a la cuenta de Diagonal, no a la de Gran Via.
+    const { cuentaParaOficina } = await import("./facturacion-oficina");
+    const cuenta = await cuentaParaOficina(admin, exp.workspaceId, exp.oficinaId ?? null) ?? undefined;
 
     const bancoBox = cuenta?.iban
       ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagar por <strong>transferencia bancaria</strong> a esta cuenta:</p>
@@ -392,7 +393,7 @@ export async function enviarSolicitudPago(
       : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
 
     // Cobro con tarjeta: activo solo si la gestoría configuró su clave Stripe (opt-in).
-    const tarjetaOn = Boolean(opts.facturaId) && Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspaceId));
+    const tarjetaOn = Boolean(opts.facturaId) && Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null));
     const fraseFinal = "En cuanto recibamos el pago, te lo confirmaremos. ¡Gracias!";
     const indicaLine = tarjetaOn
       ? `Si pagas por transferencia, indica el número de factura (<strong>${opts.numero}</strong>) en el concepto. También puedes pagarla con tarjeta:`

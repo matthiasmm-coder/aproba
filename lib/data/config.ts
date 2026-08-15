@@ -126,6 +126,7 @@ export async function fetchPacksConfig(): Promise<Pack[]> {
 }
 
 export type CuentaBancaria = {
+  oficinaId?: string | null; // fase 6 — null/ausente = cuenta común del despacho
   id: string;
   titular: string;
   iban: string;
@@ -183,12 +184,10 @@ export async function fetchDespacho(): Promise<Despacho> {
 // Comptes bancaires du workspace (réception des paiements clients).
 export async function fetchCuentasBancarias(): Promise<CuentaBancaria[]> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
-    .from("CuentaBancaria")
-    .select("id, titular, iban, banco, activa")
-    .order("createdAt");
-  if (error) throw new Error(`CuentaBancaria: ${error.message}`);
-  return (data ?? []) as CuentaBancaria[];
+  let res = await supabase.from("CuentaBancaria").select("id, titular, iban, banco, activa, oficinaId").order("createdAt");
+  if (res.error) res = await supabase.from("CuentaBancaria").select("id, titular, iban, banco, activa").order("createdAt") as typeof res; // fase 6 sin migrar
+  if (res.error) throw new Error(`CuentaBancaria: ${res.error.message}`);
+  return (res.data ?? []) as CuentaBancaria[];
 }
 
 type AvisoRow = {

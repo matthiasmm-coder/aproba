@@ -6,6 +6,7 @@ import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteSerie } from "@/lib/factura-numero";
+import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdmin();
   // Numeración: N correlativos de una sola lectura (el contador no se relee entre cuotas).
   const year = new Date().getFullYear();
-  const numeros = await siguienteSerie(admin, exp.workspaceId, n, year);
+  const numeros = await siguienteSerie(admin, exp.workspaceId, n, year, await prefijoDeExpediente(admin, exp.id));
 
   const ahora = new Date();
   const filas: Record<string, unknown>[] = [];
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
     const facturaId = uuid();
     filas.push({
       id: facturaId, workspaceId: exp.workspaceId, expedienteId: exp.id,
+      ...((exp as { oficinaId?: string | null }).oficinaId ? { oficinaId: (exp as { oficinaId?: string | null }).oficinaId } : {}),
       // FK real hacia el cliente (fix homónimos 06/08).
       ...(exp.clienteId ? { clienteId: exp.clienteId } : {}),
       numero, clienteNombre,
@@ -106,6 +108,9 @@ export async function POST(req: Request) {
   // Repli: columna clienteDatos sin migrar → reintenta sin el snapshot (el plan no puede perderse).
   if (error && clienteDatos && /clienteDatos/i.test(error.message)) {
     error = (await admin.from("Factura").insert(filas.map(({ clienteId: _ci, clienteDatos: _cd, ...resto }) => resto))).error;
+  }
+  if (error && /oficinaId/i.test(error.message)) {
+    error = (await admin.from("Factura").insert(filas.map(({ oficinaId: _o, ...resto }) => resto))).error;
   }
   if (error) {
     const dup = /duplicate|unique/i.test(error.message);

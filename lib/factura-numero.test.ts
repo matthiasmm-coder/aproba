@@ -39,3 +39,22 @@ describe("serie de N correlativos (fraccionar)", () => {
     expect(calcularSerie([], 2026, 2)).toEqual(["2026-0001", "2026-0002"]);
   });
 });
+
+describe("series por oficina (prefijo)", () => {
+  it("la serie prefijada arranca en 0001: emitidos() filtra por patrón y una serie nueva recibe lista vacía", () => {
+    // calcularSerie es pura: continúa el máximo DE LA LISTA QUE RECIBE. La separación
+    // de series vive en emitidos() (like «DG-2026-%» vs «2026-%»), no aquí.
+    expect(calcularSerie([], 2026, 1, "DG")).toEqual(["DG-2026-0001"]);
+  });
+  it("la serie común ignora los números prefijados", () => {
+    // emitidos() ya filtra por patrón; calcularSerie con la lista común no ve DG-…
+    expect(calcularSerie(["2026-0002", "2026-0001"], 2026, 1)).toEqual(["2026-0003"]);
+  });
+  it("la serie prefijada continúa su propio máximo", () => {
+    expect(calcularSerie(["DG-2026-0007", "DG-2026-0002"], 2026, 2, "DG")).toEqual(["DG-2026-0008", "DG-2026-0009"]);
+  });
+  it("prefijo con año nuevo → reinicia en 0001", () => {
+    expect(calcularSerie([], 2027, 1, "DG")).toEqual(["DG-2027-0001"]);
+  });
+});
+

@@ -46,6 +46,8 @@ export type Factura = {
   notas?: string | null;
   archivado?: boolean; // fuera de la lista de trabajo y de los cobros pendientes (sin borrar)
   clienteDatos?: ClienteDatosFactura | null; // snapshot al emitir (documento + dirección)
+  expedienteId?: string | null; // para resolver la sede de facturas antiguas sin estampar
+  oficinaId?: string | null;    // sede emisora (fase 6 multi-oficina)
 };
 
 export const IVA = 0.21;

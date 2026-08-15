@@ -35,13 +35,28 @@ type Cobro = NonNullable<Parameters<typeof enviarConfirmacionCitaPrevia>[0]["cob
 async function emitirFacturaCita(
   admin: ReturnType<typeof createSupabaseAdmin>,
   o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null },
-): Promise<{ facturaId: string; numero: string; total: number } | null> {
+): Promise<{ facturaId: string; numero: string; total: number; oficinaId: string | null } | null> {
   const total = r2(o.precio);
   if (!(total > 0)) return null;
   const base = r2(total / (1 + IVA));
   const iva = r2(total - base);
   const year = new Date().getFullYear();
-  const numero = await siguienteNumero(admin, o.workspaceId, year);
+  // multi-oficina: la cita de un cliente con sede factura en la serie de su sede.
+  let oficinaCita: string | null = null;
+  if (o.clienteId) {
+    try {
+      const { data: cli } = await admin.from("Cliente").select("oficinaId").eq("id", o.clienteId).maybeSingle();
+      oficinaCita = ((cli as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+    } catch { oficinaCita = null; }
+  }
+  let prefijoCita = "";
+  if (oficinaCita) {
+    try {
+      const { data: ofi } = await admin.from("Oficina").select("prefijoSerie").eq("id", oficinaCita).maybeSingle();
+      prefijoCita = (((ofi as { prefijoSerie?: string | null } | null)?.prefijoSerie) ?? "").trim();
+    } catch { prefijoCita = ""; }
+  }
+  const numero = await siguienteNumero(admin, o.workspaceId, year, prefijoCita);
 
   const [a, m, d] = o.fecha.split("-");
   const concepto = `Cita previa — ${d}/${m}/${a}${o.motivo ? ` · ${o.motivo}` : ""}`.slice(0, 200);
@@ -59,6 +74,7 @@ async function emitirFacturaCita(
   const fila: Record<string, unknown> = {
     id: facturaId, workspaceId: o.workspaceId, expedienteId: null,
     ...(o.clienteId ? { clienteId: o.clienteId } : {}),
+    ...(oficinaCita ? { oficinaId: oficinaCita } : {}),
     numero, clienteNombre: o.nombre, concepto,
     baseImponible: base, iva, total,
     estado: "EMITIDA", origen: "MANUAL", momento: null, metodoPago: "TRANSFERENCIA",
@@ -72,12 +88,16 @@ async function emitirFacturaCita(
     delete fila.clienteDatos;
     ({ error } = await admin.from("Factura").insert(fila));
   }
+  if (error && fila.oficinaId && /oficinaId/i.test(error.message)) {
+    delete fila.oficinaId;
+    ({ error } = await admin.from("Factura").insert(fila));
+  }
   if (error && fila.clienteId && /clienteId/i.test(error.message)) {
     delete fila.clienteId;
     ({ error } = await admin.from("Factura").insert(fila));
   }
   if (error) { console.error("[citas/factura]", error.message); return null; }
-  return { facturaId, numero, total };
+  return { facturaId, numero, total, oficinaId: oficinaCita };
 }
 
 // Foto del gestor que lleva la cita (la creó o la edita): el cliente reconoce a su
@@ -95,15 +115,16 @@ async function datosCobro(
   admin: ReturnType<typeof createSupabaseAdmin>,
   workspaceId: string,
   quiere: { transferencia: boolean; tarjeta: boolean },
+  oficinaId: string | null = null, // sede del cliente de la cita → SU cuenta y SU tarjeta
 ): Promise<{ transferencia: boolean; tarjeta: boolean; cuenta: Cobro["cuenta"] }> {
   let cuenta: Cobro["cuenta"] = null;
   if (quiere.transferencia) {
-    const { data } = await admin.from("CuentaBancaria").select("titular, iban, banco").eq("workspaceId", workspaceId).eq("activa", true).limit(1);
-    cuenta = ((data ?? [])[0] as Cobro["cuenta"]) ?? null;
+    const { cuentaParaOficina } = await import("@/lib/facturacion-oficina");
+    cuenta = (await cuentaParaOficina(admin, workspaceId, oficinaId)) as Cobro["cuenta"];
   }
   let tarjeta = false;
   if (quiere.tarjeta) {
-    try { tarjeta = Boolean(await fetchStripeKeyDeWorkspace(admin, workspaceId)); } catch { tarjeta = false; }
+    try { tarjeta = Boolean(await fetchStripeKeyDeWorkspace(admin, workspaceId, oficinaId)); } catch { tarjeta = false; }
   }
   return { transferencia: quiere.transferencia, tarjeta, cuenta };
 }
@@ -230,8 +251,8 @@ export async function POST(req: Request) {
       const medios = await datosCobro(admin, mem.workspaceId as string, {
         transferencia: body.cobroTransferencia !== false,
         tarjeta: Boolean(body.cobroTarjeta),
-      });
-      cobro = { ...emitida, baseUrl: baseUrlFromRequest(req), ...medios };
+      }, emitida.oficinaId ?? null);
+      cobro = { facturaId: emitida.facturaId, numero: emitida.numero, total: emitida.total, baseUrl: baseUrlFromRequest(req), ...medios };
       // Vínculo cita → factura: al editar la cita no se emite una segunda.
       const { error: eLink } = await supabase.from("CitaPrevia").update({ facturaId: emitida.facturaId }).eq("id", fila.id);
       if (eLink) console.error("[citas/facturaId]", eLink.message); // falta cita-cobro.sql: la factura ya existe igualmente
@@ -371,12 +392,14 @@ export async function PUT(req: Request) {
   if (body.cobrar && patch.email && patch.precio && patch.precio > 0) {
     const { data: prevFac, error: eFac } = await supabase.from("CitaPrevia").select("facturaId").eq("id", id).maybeSingle();
     const facturaId = (prevFac as { facturaId?: string | null } | null)?.facturaId ?? null;
-    let emitida: { facturaId: string; numero: string; total: number } | null = null;
+    let emitida: { facturaId: string; numero: string; total: number; oficinaId?: string | null } | null = null;
     // Sin la columna (falta cita-cobro.sql) no se puede saber si ya hay factura:
     // se prefiere NO cobrar a emitir un duplicado con número real en cada edición.
     if (eFac) console.error("[citas/facturaId]", eFac.message);
     else if (facturaId) {
-      const { data: f } = await admin.from("Factura").select("id, numero, total, estado").eq("id", facturaId).maybeSingle();
+      let fRes = await admin.from("Factura").select("id, numero, total, estado, oficinaId").eq("id", facturaId).maybeSingle();
+      if (fRes.error) fRes = await admin.from("Factura").select("id, numero, total, estado").eq("id", facturaId).maybeSingle();
+      const f = fRes.data;
       const fac = f as { id: string; numero: string; total: number; estado: string } | null;
       if (fac && fac.estado !== "PAGADA" && fac.estado !== "ANULADA") {
         const total = Math.round(Number(patch.precio) * 100) / 100;
@@ -384,7 +407,7 @@ export async function PUT(req: Request) {
           const base = Math.round((total / (1 + IVA)) * 100) / 100;
           await admin.from("Factura").update({ baseImponible: base, iva: Math.round((total - base) * 100) / 100, total }).eq("id", fac.id);
         }
-        emitida = { facturaId: fac.id, numero: fac.numero, total };
+        emitida = { facturaId: fac.id, numero: fac.numero, total, oficinaId: (f as { oficinaId?: string | null }).oficinaId ?? null };
       }
     } else if (!eFac) {
       emitida = await emitirFacturaCita(admin, {
@@ -400,8 +423,8 @@ export async function PUT(req: Request) {
       const medios = await datosCobro(admin, wsId, {
         transferencia: body.cobroTransferencia !== false,
         tarjeta: Boolean(body.cobroTarjeta),
-      });
-      cobro = { ...emitida, baseUrl: baseUrlFromRequest(req), ...medios };
+      }, emitida.oficinaId ?? null);
+      cobro = { facturaId: emitida.facturaId, numero: emitida.numero, total: emitida.total, baseUrl: baseUrlFromRequest(req), ...medios };
     }
   }
 

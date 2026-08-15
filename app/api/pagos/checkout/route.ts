@@ -17,18 +17,28 @@ export async function GET(req: Request) {
   if (!facturaId) return aviso("falta");
 
   const admin = createSupabaseAdmin();
-  const { data: f } = await admin
-    .from("Factura")
+  // oficinaId puede no estar migrada (supabase/oficinas-facturacion.sql) → repli.
+  let fRes = await admin.from("Factura")
+    .select("id, workspaceId, numero, concepto, total, estado, expedienteId, oficinaId")
+    .eq("id", facturaId).maybeSingle();
+  if (fRes.error) fRes = await admin.from("Factura")
+    .select("id, workspaceId, numero, concepto, total, estado, expedienteId")
+    .eq("id", facturaId).maybeSingle();
+  if (fRes.error) fRes = await admin.from("Factura")
     .select("id, workspaceId, numero, concepto, total, estado")
-    .eq("id", facturaId)
-    .maybeSingle();
+    .eq("id", facturaId).maybeSingle();
+  const f = fRes.data;
   if (!f) return aviso("nofactura");
   if (f.estado === "PAGADA") return NextResponse.redirect(`${origin}/pagar/exito?f=${facturaId}`, 303);
   // Una factura anulada no debe poder cobrarse desde un enlace antiguo que siga en el
   // correo del cliente (auditoría 06/08 — guarda lista ANTES de que exista «anular»).
   if (f.estado === "ANULADA") return aviso("anulada");
 
-  const key = await fetchStripeKeyDeWorkspace(admin, f.workspaceId as string);
+  // multi-oficina: el dinero debe entrar en la cuenta Stripe de la EMPRESA que emitió
+  // la factura. Se resuelve por su sede (estampada o vía expediente), con cascada a la común.
+  const { oficinaDeFacturaFila } = await import("@/lib/facturacion-oficina");
+  const sedeF = await oficinaDeFacturaFila(admin, f as { oficinaId?: string | null; expedienteId?: string | null });
+  const key = await fetchStripeKeyDeWorkspace(admin, f.workspaceId as string, sedeF);
   if (!key) return aviso("sintarjeta"); // la gestoría no tiene el cobro con tarjeta activado
 
   try {

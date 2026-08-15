@@ -71,7 +71,7 @@ export function CobroFacturaModal({
         // Vista previa del número: la da el servidor (lib/factura-numero), único punto
         // de verdad. Si falla, se deja vacío — al crear, el servidor numera igualmente.
         let numero = "";
-        try { const r = await fetch("/api/facturas/numero"); if (r.ok) numero = String((await r.json()).numero ?? ""); } catch { /* el server numera */ }
+        try { const r = await fetch(`/api/facturas/numero${expedienteId ? `?expediente=${encodeURIComponent(expedienteId)}` : ""}`); if (r.ok) numero = String((await r.json()).numero ?? ""); } catch { /* el server numera */ }
         setNumeroFactura(numero);
         const base = baseFinal ?? 0;
         // Suplidos del servicio: entran en el prefill y fuerzan el editor rico aunque el

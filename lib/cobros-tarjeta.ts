@@ -44,33 +44,51 @@ export function descifrarClave(enc: string): string | null {
   }
 }
 
-// Clave Stripe (descifrada y válida) del workspace, o null si no hay / tabla sin migrar.
-export async function fetchStripeKeyDeWorkspace(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
+// Fila StripeCuenta de un ámbito (oficina concreta, o la común del despacho).
+// Tres generaciones de esquema conviven: (ws, oficinaId) tras la migración fase 6,
+// (ws) con columna oficinaId pero fila única, y la tabla vieja sin columna. El
+// maybeSingle() de antes PETARÍA con dos filas (común + oficina) → limit(1) ordenado.
+async function filaStripe(admin: SupabaseClient, workspaceId: string, oficinaId: string | null): Promise<{ secretKeyEnc?: string; activa?: boolean } | null> {
   try {
-    const { data } = await admin.from("StripeCuenta").select("secretKeyEnc, activa").eq("workspaceId", workspaceId).maybeSingle();
-    if (!data?.activa || !data?.secretKeyEnc) return null;
-    const key = descifrarClave(data.secretKeyEnc as string);
-    return key && /^(sk|rk)_/.test(key) ? key : null;
+    let q = admin.from("StripeCuenta").select("secretKeyEnc, activa, oficinaId").eq("workspaceId", workspaceId);
+    q = oficinaId ? q.eq("oficinaId", oficinaId) : q.is("oficinaId", null);
+    const { data, error } = await q.limit(1);
+    if (error) throw error;
+    return ((data ?? [])[0] as { secretKeyEnc?: string; activa?: boolean } | undefined) ?? null;
   } catch {
-    return null; // tabla aún no migrada → cobro con tarjeta desactivado, sin romper nada
+    if (oficinaId) return null; // columna sin migrar → no existen claves por oficina
+    try {
+      const { data } = await admin.from("StripeCuenta").select("secretKeyEnc, activa").eq("workspaceId", workspaceId).limit(1);
+      return ((data ?? [])[0] as { secretKeyEnc?: string; activa?: boolean } | undefined) ?? null;
+    } catch { return null; }
   }
 }
 
+// Clave Stripe (descifrada y válida) del ámbito: la de la oficina si existe, si no
+// la común del despacho. Sin oficina → común, exactamente el comportamiento de siempre.
+export async function fetchStripeKeyDeWorkspace(admin: SupabaseClient, workspaceId: string, oficinaId: string | null = null): Promise<string | null> {
+  const leer = async (sede: string | null) => {
+    const fila = await filaStripe(admin, workspaceId, sede);
+    if (!fila?.activa || !fila?.secretKeyEnc) return null;
+    const key = descifrarClave(fila.secretKeyEnc as string);
+    return key && /^(sk|rk)_/.test(key) ? key : null;
+  };
+  return (oficinaId ? await leer(oficinaId) : null) ?? await leer(null);
+}
+
 // Estado para la UI de Ajustes: configurado / activo / modo / cola (sin exponer la clave).
+// Con oficinaId, el estado es EL DE ESA SEDE (sin cascada: la UI muestra lo que hay).
 export async function fetchEstadoCobroTarjeta(
   admin: SupabaseClient,
   workspaceId: string,
+  oficinaId: string | null = null,
 ): Promise<{ configurado: boolean; activa: boolean; modo: "live" | "test" | null; cola: string | null }> {
   const vacio = { configurado: false, activa: false, modo: null, cola: null } as const;
-  try {
-    const { data } = await admin.from("StripeCuenta").select("secretKeyEnc, activa").eq("workspaceId", workspaceId).maybeSingle();
-    if (!data?.secretKeyEnc) return vacio;
-    const key = descifrarClave(data.secretKeyEnc as string) ?? "";
-    const modo = /_live_/.test(key) ? "live" : /_test_/.test(key) ? "test" : null;
-    return { configurado: true, activa: Boolean(data.activa), modo, cola: key ? key.slice(-4) : null };
-  } catch {
-    return vacio;
-  }
+  const fila = await filaStripe(admin, workspaceId, oficinaId);
+  if (!fila?.secretKeyEnc) return vacio;
+  const key = descifrarClave(fila.secretKeyEnc as string) ?? "";
+  const modo = /_live_/.test(key) ? "live" : /_test_/.test(key) ? "test" : null;
+  return { configurado: true, activa: Boolean(fila.activa), modo, cola: key ? key.slice(-4) : null };
 }
 
 // Cliente Stripe para una clave concreta (la de la gestoría), cacheado por clave.

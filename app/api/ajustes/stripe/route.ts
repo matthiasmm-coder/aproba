@@ -20,10 +20,20 @@ async function adminYWorkspace() {
   return { admin, workspaceId: mem.workspaceId as string };
 }
 
-export async function GET() {
+// ¿La oficina pedida es de MI despacho? (anti-IDOR; null = ámbito común)
+async function oficinaValidada(admin: ReturnType<typeof createSupabaseAdmin>, ws: string, bruto: string | null): Promise<{ oficinaId: string | null } | { error: string }> {
+  const oficinaId = (bruto ?? "").trim() || null;
+  if (!oficinaId) return { oficinaId: null };
+  const { data } = await admin.from("Oficina").select("id").eq("id", oficinaId).eq("workspaceId", ws).maybeSingle();
+  return data ? { oficinaId } : { error: "Oficina no encontrada." };
+}
+
+export async function GET(req: Request) {
   const r = await adminYWorkspace();
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
-  return NextResponse.json(await fetchEstadoCobroTarjeta(r.admin, r.workspaceId));
+  const v = await oficinaValidada(r.admin, r.workspaceId, new URL(req.url).searchParams.get("oficina"));
+  if ("error" in v) return NextResponse.json({ error: v.error }, { status: 404 });
+  return NextResponse.json(await fetchEstadoCobroTarjeta(r.admin, r.workspaceId, v.oficinaId));
 }
 
 export async function POST(req: Request) {
@@ -42,20 +52,49 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "No se pudo cifrar la clave." }, { status: 500 });
   }
 
-  const { error } = await r.admin
-    .from("StripeCuenta")
-    .upsert({ workspaceId: r.workspaceId, secretKeyEnc, activa: true, updatedAt: new Date().toISOString() }, { onConflict: "workspaceId" });
+  const v = await oficinaValidada(r.admin, r.workspaceId, (body as { oficinaId?: string | null }).oficinaId ?? null);
+  if ("error" in v) return NextResponse.json({ error: v.error }, { status: 404 });
+
+  // select-then-write, NUNCA upsert: la unicidad por ámbito vive en índices parciales
+  // (WHERE oficinaId IS [NOT] NULL) y ON CONFLICT no puede inferirlos.
+  const patch = { secretKeyEnc, activa: true, updatedAt: new Date().toISOString() };
+  let q = r.admin.from("StripeCuenta").select("id").eq("workspaceId", r.workspaceId);
+  q = v.oficinaId ? q.eq("oficinaId", v.oficinaId) : q.is("oficinaId", null);
+  let error: { message: string } | null = null;
+  try {
+    const { data: filas, error: eSel } = await q.limit(1);
+    if (eSel) throw eSel;
+    if ((filas ?? []).length) {
+      ({ error } = await r.admin.from("StripeCuenta").update(patch).eq("id", (filas as { id: string }[])[0].id));
+    } else {
+      ({ error } = await r.admin.from("StripeCuenta").insert({ id: crypto.randomUUID(), workspaceId: r.workspaceId, ...(v.oficinaId ? { oficinaId: v.oficinaId } : {}), ...patch }));
+    }
+  } catch {
+    if (v.oficinaId) return NextResponse.json({ error: "Falta la migración: ejecuta supabase/oficinas-facturacion.sql para claves por oficina." }, { status: 500 });
+    // esquema viejo (PK workspaceId, sin columnas id/oficinaId) → upsert de siempre
+    ({ error } = await r.admin.from("StripeCuenta")
+      .upsert({ workspaceId: r.workspaceId, ...patch }, { onConflict: "workspaceId" }));
+  }
   if (error) {
-    // Tabla sin migrar todavía → mensaje claro para el operador.
     return NextResponse.json({ error: `No se pudo guardar (¿falta la migración StripeCuenta?): ${error.message}` }, { status: 500 });
   }
-  return NextResponse.json(await fetchEstadoCobroTarjeta(r.admin, r.workspaceId));
+  return NextResponse.json(await fetchEstadoCobroTarjeta(r.admin, r.workspaceId, v.oficinaId));
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   const r = await adminYWorkspace();
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
-  const { error } = await r.admin.from("StripeCuenta").delete().eq("workspaceId", r.workspaceId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const v = await oficinaValidada(r.admin, r.workspaceId, new URL(req.url).searchParams.get("oficina"));
+  if ("error" in v) return NextResponse.json({ error: v.error }, { status: 404 });
+  let q = r.admin.from("StripeCuenta").delete().eq("workspaceId", r.workspaceId);
+  try {
+    q = v.oficinaId ? q.eq("oficinaId", v.oficinaId) : q.is("oficinaId", null);
+    const { error } = await q;
+    if (error) throw error;
+  } catch {
+    if (v.oficinaId) return NextResponse.json({ error: "Falta la migración fase 6." }, { status: 500 });
+    const { error } = await r.admin.from("StripeCuenta").delete().eq("workspaceId", r.workspaceId); // esquema viejo
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ configurado: false, activa: false, modo: null, cola: null });
 }

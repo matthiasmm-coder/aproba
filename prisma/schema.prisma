@@ -168,7 +168,8 @@ model CuentaBancaria {
   titular     String
   iban        String
   banco       String?
-  activa      Boolean  @default(false)
+  activa      Boolean  @default(false) // activa POR ÁMBITO (común / cada oficina)
+  oficinaId   String? // null = cuenta común del despacho
   createdAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -178,7 +179,9 @@ model CuentaBancaria {
 // Cobro con tarjeta: clave secreta Stripe de la gestoría, CIFRADA (AES-256-GCM).
 // RLS deny-all → solo service_role la lee/escribe; nunca llega al navegador.
 model StripeCuenta {
-  workspaceId  String    @id
+  id           String    @id @default(cuid())
+  workspaceId  String
+  oficinaId    String? // null = clave común del despacho
   secretKeyEnc String
   activa       Boolean   @default(true)
   createdAt    DateTime  @default(now())
@@ -262,6 +265,13 @@ model Oficina {
   direccion   String?
   telefono    String?
   orden       Int      @default(0)
+  // Facturación por sede (fase 6): si la oficina tiene razonSocial o nif propios,
+  // sus facturas y hoja de encargo salen con ESTOS datos; si no, con los del despacho.
+  razonSocial      String?
+  nif              String?
+  domicilio        String?
+  emailFacturacion String?
+  prefijoSerie     String? // «DG» → serie DG-2026-0001 (vacío = serie común)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

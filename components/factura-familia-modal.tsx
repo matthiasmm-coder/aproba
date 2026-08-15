@@ -33,7 +33,7 @@ export function FacturaFamiliaModal({ familiaId, prefill, onClose }: { familiaId
     (async () => {
       // Vista previa del número: la da el servidor (lib/factura-numero), único punto de verdad.
       try {
-        const r = await fetch("/api/facturas/numero");
+        const r = await fetch(`/api/facturas/numero?familia=${encodeURIComponent(familiaId)}`);
         if (r.ok) setNumero(String((await r.json()).numero ?? ""));
       } catch { /* el servidor numera */ }
     })();

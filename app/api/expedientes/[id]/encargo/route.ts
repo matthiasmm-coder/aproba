@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   let res = await supabase
     .from("Expediente")
-    .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, cliente:Cliente(*)")
+    .select("id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, oficinaId, cliente:Cliente(*)")
     .eq("id", id)
     .maybeSingle();
   if (res.error) res = await supabase

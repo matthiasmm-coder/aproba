@@ -32,17 +32,22 @@ export function calcularSerie(numeros: string[], year: number, cuantos = 1, pref
 export const calcularSiguiente = (numeros: string[], year: number, prefijo = ""): string =>
   calcularSerie(numeros, year, 1, prefijo)[0];
 
-async function emitidos(admin: Admin, workspaceId: string, year: number): Promise<string[]> {
-  const { data } = await admin.from("Factura").select("numero").eq("workspaceId", workspaceId).like("numero", `${year}-%`);
+// Numéros déjà émis DE CETTE SÉRIE. Le préfixe sépare les séries par construction :
+// « DG-2026-% » ne matche que Diagonal, « 2026-% » ne matche pas « DG-2026-0001 »
+// (le like ancre le début). Deux sociétés d'un même despacho ne se marchent donc
+// jamais dessus, et la série commune continue exactement comme avant.
+async function emitidos(admin: Admin, workspaceId: string, year: number, prefijo = ""): Promise<string[]> {
+  const patron = prefijo ? `${prefijo}-${year}-%` : `${year}-%`;
+  const { data } = await admin.from("Factura").select("numero").eq("workspaceId", workspaceId).like("numero", patron);
   return ((data ?? []) as { numero: string }[]).map((r) => r.numero);
 }
 
-// Prochain numéro libre du workspace pour l'année en cours.
-export async function siguienteNumero(admin: Admin, workspaceId: string, year = new Date().getFullYear()): Promise<string> {
-  return calcularSerie(await emitidos(admin, workspaceId, year), year, 1)[0];
+// Prochain numéro libre de la série (préfixe d'oficina, ou série commune).
+export async function siguienteNumero(admin: Admin, workspaceId: string, year = new Date().getFullYear(), prefijo = ""): Promise<string> {
+  return calcularSerie(await emitidos(admin, workspaceId, year, prefijo), year, 1, prefijo)[0];
 }
 
-// N numéros consécutifs (facturation fractionnée).
-export async function siguienteSerie(admin: Admin, workspaceId: string, cuantos: number, year = new Date().getFullYear()): Promise<string[]> {
-  return calcularSerie(await emitidos(admin, workspaceId, year), year, cuantos);
+// N numéros consécutifs (facturation fractionnée), même série.
+export async function siguienteSerie(admin: Admin, workspaceId: string, cuantos: number, year = new Date().getFullYear(), prefijo = ""): Promise<string[]> {
+  return calcularSerie(await emitidos(admin, workspaceId, year, prefijo), year, cuantos, prefijo);
 }

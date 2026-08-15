@@ -172,7 +172,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     for (const f of facturas) if (!f.clienteDatos && mDatos.has(f.id)) f.clienteDatos = mDatos.get(f.id)!;
     if (facturas.length) {
       const d = await fetchDespacho();
-      const emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };
+      let emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };
+      try {
+        // fase 6: todas las facturas del ZIP son de ESTE expediente → una sola sede.
+        const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
+        const sede = await oficinaDeFacturaFila(supabase, { expedienteId: id });
+        if (sede) {
+          const em = emisorDesdeFiscal(emisor, await fiscalDeOficina(supabase, sede));
+          if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email };
+        }
+      } catch { /* sin migrar */ }
       for (const f of facturas) {
         try { add(`facturas/factura_${nombreSeguro(f.numero)}.pdf`, await facturaToPdf(f, emisor)); }
         catch (e) { console.error("[exportar] factura", f.numero, e instanceof Error ? e.message : e); }

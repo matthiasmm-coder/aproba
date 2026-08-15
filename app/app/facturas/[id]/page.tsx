@@ -27,8 +27,18 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   }
   if (!f) notFound();
 
-  // Émetteur = le vrai despacho de l'utilisateur (nom, NIF, domicilio, email de facturación).
-  const emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
+  // Émetteur : la SEDE de la factura si elle a une identité fiscale propre (fase 6),
+  // sinon le despacho. La sede vient du tampon, ou de l'expediente pour les anciennes.
+  let emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
+  try {
+    const supa = await createSupabaseServer();
+    const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
+    const sede = await oficinaDeFacturaFila(supa, { oficinaId: f.oficinaId ?? null, expedienteId: f.expedienteId ?? null });
+    if (sede) {
+      const em = emisorDesdeFiscal({ nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion }, await fiscalDeOficina(supa, sede));
+      if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo: d.logoUrl };
+    }
+  } catch { /* migración fase 6 ausente → emisor del despacho */ }
 
   return <FacturaView f={f} emisor={emisor} editable esAdmin={esAdmin} />;
 }

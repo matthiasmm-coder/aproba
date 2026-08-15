@@ -12,6 +12,12 @@ export type Oficina = {
   orden: number;
   clientes: number; // nº de clientes afectados (para avisar antes de borrar)
   miembros: number;
+  // fase 6 — identidad fiscal de la sede (null/"" = factura con los datos del despacho)
+  razonSocial: string | null;
+  nif: string | null;
+  domicilio: string | null;
+  emailFacturacion: string | null;
+  prefijoSerie: string | null;
 };
 
 // Oficinas del workspace courant, avec le décompte de ce qui y est rattaché.
@@ -27,14 +33,13 @@ export async function fetchOficinas(): Promise<Oficina[]> {
   if (!myMem) return [];
   const ws = (myMem as { workspaceId: string }).workspaceId;
 
-  const { data, error } = await supabase
-    .from("Oficina")
-    .select("id, nombre, direccion, telefono, orden")
-    .eq("workspaceId", ws)
-    .order("orden", { ascending: true });
-  if (error || !data) return [];
+  const q = (cols: string) => supabase.from("Oficina").select(cols).eq("workspaceId", ws).order("orden", { ascending: true });
+  let res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, emailFacturacion, prefijoSerie");
+  if (res.error) res = await q("id, nombre, direccion, telefono, orden") as typeof res; // fase 6 sin migrar
+  if (res.error || !res.data) return [];
 
-  const filas = data as { id: string; nombre: string; direccion: string | null; telefono: string | null; orden: number }[];
+  type Fila = { id: string; nombre: string; direccion: string | null; telefono: string | null; orden: number; razonSocial?: string | null; nif?: string | null; domicilio?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null };
+  const filas = res.data as unknown as Fila[];
   if (!filas.length) return [];
 
   // Décomptes en une passe (les listes sont courtes : 2-4 oficinas par despacho).
@@ -47,6 +52,11 @@ export async function fetchOficinas(): Promise<Oficina[]> {
 
   return filas.map((o) => ({
     ...o,
+    razonSocial: o.razonSocial ?? null,
+    nif: o.nif ?? null,
+    domicilio: o.domicilio ?? null,
+    emailFacturacion: o.emailFacturacion ?? null,
+    prefijoSerie: o.prefijoSerie ?? null,
     clientes: cuenta(cls as { oficinaId: string | null }[] | null, o.id),
     miembros: cuenta(mms as { oficinaId: string | null }[] | null, o.id),
   }));

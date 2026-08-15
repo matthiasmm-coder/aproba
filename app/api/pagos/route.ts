@@ -8,6 +8,7 @@ import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura,
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
+import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
 
 // Paiement du client (portail) → factura générée automatiquement.
 //  • momento ANTICIPO : à l'onboarding, après l'envoi des documents.
@@ -26,8 +27,8 @@ const uuid = () => crypto.randomUUID();
 // alguna columna de la ficha faltara en una base antigua.
 const JOIN_CLI = "cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia)";
 const JOIN_CLI_MIN = "cliente:Cliente(nombre, apellidos)";
-const SELECT_EXP = `id, workspaceId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, referencia, familiaId, ${JOIN_CLI}`;
-type ExpRow = { id: string; workspaceId: string; clienteId?: string | null; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
+const SELECT_EXP = `id, workspaceId, clienteId, oficinaId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, referencia, familiaId, ${JOIN_CLI}`;
+type ExpRow = { id: string; workspaceId: string; clienteId?: string | null; oficinaId?: string | null; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; referencia: string; familiaId?: string | null; cliente: { nombre?: string; apellidos?: string } | null };
 
 export async function POST(req: Request) {
   let body: {
@@ -218,7 +219,7 @@ export async function POST(req: Request) {
   // Numérotation séquentielle de l'année (salvo nº personalizado del popup).
   const year = new Date().getFullYear();
   let numero = fac?.numero?.trim() || "";
-  if (!numero) numero = await siguienteNumero(admin, exp.workspaceId, year);
+  if (!numero) numero = await siguienteNumero(admin, exp.workspaceId, year, await prefijoDeExpediente(admin, exp.id));
 
   const cliente = exp.cliente as { nombre?: string; apellidos?: string } | null;
   const clienteAuto = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim() || "Cliente";
@@ -247,6 +248,8 @@ export async function POST(req: Request) {
     fechaEmision: ahora.toISOString(),
     fechaVencimiento: vencimiento.toISOString(),
     ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
+    // multi-oficina: la factura hereda la sede de su expediente (emisor/cuenta correctos)
+    ...((exp as { oficinaId?: string | null }).oficinaId ? { oficinaId: (exp as { oficinaId?: string | null }).oficinaId } : {}),
   };
   let { error: e4 } = await admin.from("Factura").insert({
     ...payloadBase,
@@ -275,6 +278,12 @@ export async function POST(req: Request) {
   // familiaId ausente), reintenta sin el vínculo — la factura no puede perderse.
   if (e4 && exp.familiaId && /familiaId/i.test(e4.message)) {
     const retry = await admin.from("Factura").insert(payloadBase);
+    e4 = retry.error;
+  }
+  // Repli: columna oficinaId sin migrar (supabase/oficinas-facturacion.sql).
+  if (e4 && (payloadBase as { oficinaId?: string }).oficinaId && /oficinaId/i.test(e4.message)) {
+    const { oficinaId: _o, ...sinOficina } = payloadBase as Record<string, unknown>;
+    const retry = await admin.from("Factura").insert(sinOficina);
     e4 = retry.error;
   }
   if (e4) {

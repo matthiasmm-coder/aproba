@@ -11,7 +11,10 @@ import { confirmar } from "@/components/confirm-dialog";
 
 type Estado = { configurado: boolean; activa: boolean; modo: "live" | "test" | null; cola: string | null };
 
-export function CobroTarjetaConfig() {
+// `oficinaId` (fase 6): clave Stripe de UNA sede (empresa distinta → cuenta Stripe
+// distinta). Sin prop = la clave común del despacho, como siempre.
+export function CobroTarjetaConfig({ oficinaId = null }: { oficinaId?: string | null } = {}) {
+  const sufijo = oficinaId ? `?oficina=${encodeURIComponent(oficinaId)}` : "";
   const t = useT();
   const [estado, setEstado] = useState<Estado | null>(null);
   const [editando, setEditando] = useState(false);
@@ -20,13 +23,13 @@ export function CobroTarjetaConfig() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/ajustes/stripe").then((r) => r.json()).then((d) => setEstado(d.error ? { configurado: false, activa: false, modo: null, cola: null } : d)).catch(() => setEstado({ configurado: false, activa: false, modo: null, cola: null }));
-  }, []);
+    fetch(`/api/ajustes/stripe${sufijo}`).then((r) => r.json()).then((d) => setEstado(d.error ? { configurado: false, activa: false, modo: null, cola: null } : d)).catch(() => setEstado({ configurado: false, activa: false, modo: null, cola: null }));
+  }, [sufijo]);
 
   async function guardar() {
     setBusy(true); setError(null);
     try {
-      const r = await fetch("/api/ajustes/stripe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretKey: clave.trim() }) });
+      const r = await fetch(`/api/ajustes/stripe${sufijo}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretKey: clave.trim(), oficinaId }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? t("No se pudo guardar."));
       setEstado(d); setEditando(false); setClave("");
@@ -39,7 +42,7 @@ export function CobroTarjetaConfig() {
     if (!(await confirmar(t("¿Desactivar el cobro con tarjeta? El email volverá a ofrecer solo transferencia.")))) return;
     setBusy(true); setError(null);
     try {
-      const r = await fetch("/api/ajustes/stripe", { method: "DELETE" });
+      const r = await fetch(`/api/ajustes/stripe${sufijo}`, { method: "DELETE" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? t("No se pudo desactivar."));
       setEstado(d); setEditando(false); setClave("");

@@ -27,12 +27,26 @@ export async function GET() {
     return NextResponse.json({ error: "No hay facturas emitidas o pagadas para exportar." }, { status: 404 });
   }
 
-  const emisor = { nombre: despacho.nombre, nif: despacho.nif, domicilio: despacho.domicilio, email: despacho.emailFacturacion };
+  const emisorBase = { nombre: despacho.nombre, nif: despacho.nif, domicilio: despacho.domicilio, email: despacho.emailFacturacion };
+  // fase 6: cada factura sale con el emisor de SU sede. Memo por oficina — un ZIP puede
+  // llevar decenas de facturas y solo hay 2-3 sedes.
+  const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
+  const supa = await createSupabaseServer();
+  const memoFiscal = new Map<string, Awaited<ReturnType<typeof fiscalDeOficina>>>();
+  const emisorDe = async (f: { oficinaId?: string | null; expedienteId?: string | null }) => {
+    try {
+      const sede = await oficinaDeFacturaFila(supa, f);
+      if (!sede) return emisorBase;
+      if (!memoFiscal.has(sede)) memoFiscal.set(sede, await fiscalDeOficina(supa, sede));
+      const em = emisorDesdeFiscal(emisorBase, memoFiscal.get(sede) ?? null);
+      return em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email } : emisorBase;
+    } catch { return emisorBase; }
+  };
   const entries: ZipEntry[] = [];
   const fallidas: string[] = [];
   for (const f of exportables) {
     try {
-      entries.push({ name: `factura_${nombreSeguro(f.numero)}.pdf`, data: await facturaToPdf(f, emisor) });
+      entries.push({ name: `factura_${nombreSeguro(f.numero)}.pdf`, data: await facturaToPdf(f, await emisorDe(f)) });
     } catch (e) {
       fallidas.push(f.numero);
       console.error("[facturas:export] factura", f.numero, e instanceof Error ? e.message : e);

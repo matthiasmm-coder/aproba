@@ -7,6 +7,7 @@ import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { ordenParentesco } from "@/lib/familia";
 import { siguienteNumero } from "@/lib/factura-numero";
+import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -72,13 +73,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const year = new Date().getFullYear();
   let numero = body.numero?.trim() || "";
-  if (!numero) numero = await siguienteNumero(admin, fam.workspaceId, year);
+  const prefijoFam = anchorExpedienteId ? await prefijoDeExpediente(admin, anchorExpedienteId) : "";
+  if (!numero) numero = await siguienteNumero(admin, fam.workspaceId, year, prefijoFam);
 
   const ahora = new Date();
   const vencimiento = new Date(ahora.getTime() + 14 * 864e5);
   const facturaId = uuid();
   const fila: Record<string, unknown> = {
     id: facturaId, workspaceId: fam.workspaceId, familiaId: fam.id, expedienteId: anchorExpedienteId,
+    // multi-oficina : la sede llega vía el expediente ancla (resolución en lectura la usa)
     // FK real hacia el titular (fix homónimos 06/08): la factura familiar se emite a su
     // nombre, mismo criterio que el snapshot fiscal clienteDatos.
     ...(titular?.id ? { clienteId: titular.id } : {}),

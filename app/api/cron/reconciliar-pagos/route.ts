@@ -94,6 +94,9 @@ export async function GET(req: Request) {
     );
     if (!pendientes.size) continue;
 
+    // ⚠️ multi-oficina: esto reconcilia la clave COMÚN del despacho. Las claves por
+    // oficina (fase 6) tienen su propio checkout con la clave correcta; su reconciliación
+    // itera las filas de StripeCuenta del workspace más abajo.
     const key = await fetchStripeKeyDeWorkspace(admin, workspaceId);
     if (!key) continue;
 

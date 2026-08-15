@@ -63,7 +63,7 @@ const o = (v: unknown, ancho = 24) => limpiar(s(v)).trim() || "_".repeat(ancho);
 type ExpRow = {
   id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
   suplidosOverride?: { concepto: string; importe: number }[] | null; descuento?: unknown; serviciosAsignacion?: unknown; familiaId?: string | null;
-  workspaceId: string;
+  workspaceId: string; oficinaId?: string | null;
   cliente: Record<string, string | null> | null;
 };
 
@@ -102,13 +102,13 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   // las suyas: mezclar ambas duplicaría la transferencia con dos redacciones.
   if (!formasPropias.length) {
     try {
-      const { data: cuentas } = await admin.from("CuentaBancaria").select("iban, titular").eq("workspaceId", exp.workspaceId).eq("activa", true).limit(1);
-      const c = cuentas?.[0] as { iban?: string; titular?: string } | undefined;
+      const { cuentaParaOficina } = await import("./facturacion-oficina");
+      const c = await cuentaParaOficina(admin, exp.workspaceId, exp.oficinaId ?? null);
       if (c?.iban) medios.push(`Transferencia bancaria a la cuenta ${c.iban} (titular: ${c.titular ?? s(ws.nombre)})`);
     } catch { /* tabla sin migrar */ }
     try {
       const { fetchStripeKeyDeWorkspace } = await import("./cobros-tarjeta");
-      if (await fetchStripeKeyDeWorkspace(admin, exp.workspaceId)) medios.push("Pago con tarjeta (enlace de pago seguro online)");
+      if (await fetchStripeKeyDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null)) medios.push("Pago con tarjeta (enlace de pago seguro online)");
     } catch { /* sin tarjeta */ }
   }
   if (!medios.length) medios.push("Transferencia bancaria (datos facilitados en la factura)");
@@ -127,11 +127,22 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
     } catch { /* sin nombres: se muestra el conteo */ }
   }
 
+  // multi-oficina: si la sede del expediente es otra EMPRESA (razón social/NIF propios),
+  // la hoja de encargo debe emitirse a su nombre — el contrato lo firma la empresa real.
+  let despachoDoc = { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilio), email: s(ws.emailFacturacion) };
+  if (exp.oficinaId) {
+    try {
+      const { emisorParaOficina } = await import("./facturacion-oficina");
+      const em = await emisorParaOficina(admin, exp.workspaceId, exp.oficinaId);
+      if (em.deOficina) despachoDoc = { nombre: em.nombre, nif: s(em.nif), domicilio: s(em.domicilio), email: s(em.email) };
+    } catch { /* migración fase 6 ausente → datos del despacho */ }
+  }
+
   const c = exp.cliente ?? {};
   return {
     referencia: exp.referencia,
     fecha: new Date(),
-    despacho: { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilio), email: s(ws.emailFacturacion) },
+    despacho: despachoDoc,
     mandatario: {
       nombre: s(ws.mandatarioNombre), dni: s(ws.mandatarioDni),
       colegiado: s(ws.mandatarioColegiado), colegio: s(ws.mandatarioColegio),

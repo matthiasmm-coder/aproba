@@ -16,7 +16,9 @@ import { copiarTexto } from "@/lib/copiar";
 // en démo et en partage d'écran. « Ver datos » ouvre le détail complet — un seul
 // compte ouvert à la fois, et l'ouverture ne survit pas au rechargement.
 
-export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
+// `oficinaId` (fase 6): null = cuentas comunes del despacho; con id = las de ESA sede.
+// La casilla «activa» es POR ÁMBITO: cada sede tiene su cuenta activa, y la común la suya.
+export function CuentasBancarias({ inicial, oficinaId = null }: { inicial: CuentaBancaria[]; oficinaId?: string | null }) {
   const t = useT();
   const router = useRouter();
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>(inicial);
@@ -61,7 +63,13 @@ export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
       const supabase = createSupabaseBrowser();
       const ws = await workspaceId(supabase);
       // Désactiver l'actuel PUIS activer le nouveau (l'index partiel interdit deux actifs).
-      const { error: e1 } = await supabase.from("CuentaBancaria").update({ activa: false }).eq("workspaceId", ws).eq("activa", true);
+      let clear = supabase.from("CuentaBancaria").update({ activa: false }).eq("workspaceId", ws).eq("activa", true);
+      // solo el MISMO ámbito: activar la cuenta de Diagonal no debe apagar la común ni la de Gran Via
+      clear = oficinaId ? clear.eq("oficinaId", oficinaId) : clear.is("oficinaId", null);
+      let { error: e1 } = await clear;
+      if (e1 && /oficinaId/i.test(e1.message)) {
+        ({ error: e1 } = await supabase.from("CuentaBancaria").update({ activa: false }).eq("workspaceId", ws).eq("activa", true)); // sin migrar
+      }
       if (e1) throw new Error(e1.message);
       const { error: e2 } = await supabase.from("CuentaBancaria").update({ activa: true }).eq("id", id);
       if (e2) throw new Error(e2.message);
@@ -91,9 +99,13 @@ export function CuentasBancarias({ inicial }: { inicial: CuentaBancaria[] }) {
         titular: titular.trim(),
         iban: ibanLimpio,
         banco: banco.trim() || null,
-        activa: cuentas.length === 0, // la première devient active d'office
+        activa: cuentas.length === 0, // la première devient active d'office (dans SON ámbito)
       };
-      const { error } = await supabase.from("CuentaBancaria").insert(nueva);
+      const fila: Record<string, unknown> = oficinaId ? { ...nueva, oficinaId } : { ...nueva };
+      let { error } = await supabase.from("CuentaBancaria").insert(fila);
+      if (error && oficinaId && /oficinaId/i.test(error.message)) {
+        ({ error } = await supabase.from("CuentaBancaria").insert(nueva)); // migración fase 6 ausente
+      }
       if (error) throw new Error(error.message);
       setCuentas((l) => [...l, { id: nueva.id, titular: nueva.titular, iban: nueva.iban, banco: nueva.banco, activa: nueva.activa }]);
       setTitular(""); setIban(""); setBanco(""); setAñadiendo(false);

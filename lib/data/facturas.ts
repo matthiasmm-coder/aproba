@@ -25,10 +25,11 @@ type Row = {
 // lineas/suplidos/notas (Pro/Business) y archivadoAt son columnas nuevas. Se piden en el
 // SELECT; si la migración aún no se aplicó, se reintenta sin ellas, en cascada (repli propre):
 // completo → sin archivadoAt → base. Cada grupo de columnas tiene su propia migración.
-const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento";
+const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento, expedienteId";
 const SELECT_LIN: string = `${COLS_BASE}, lineas, suplidos, notas`;
 const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
 const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
+const SELECT_OFI: string = `${SELECT_CLI}, oficinaId`; // fase 6 (repli si sin migrar)
 
 // Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
 // caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
@@ -41,7 +42,8 @@ async function selectFacturas<T>(
   run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
   contexto = "Facturas",
 ): Promise<T> {
-  let res = await run(SELECT_CLI);
+  let res = await run(SELECT_OFI);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_CLI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_FULL);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_LIN);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(COLS_BASE);
@@ -66,6 +68,8 @@ function mapRow(f: Row): Factura {
     notas: f.notas ?? null,
     archivado: Boolean(f.archivadoAt),
     clienteDatos: f.clienteDatos && typeof f.clienteDatos === "object" ? (f.clienteDatos as ClienteDatosFactura) : null,
+    expedienteId: (f as { expedienteId?: string | null }).expedienteId ?? null,
+    oficinaId: (f as { oficinaId?: string | null }).oficinaId ?? null,
   };
 }
 

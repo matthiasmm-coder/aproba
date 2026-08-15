@@ -180,5 +180,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, oficinaId });
   }
 
+  // ── Datos de facturación de una sede (fase 6): identidad fiscal + prefijo de serie ──
+  if (action === "facturacion") {
+    const o = await mia(String(body.oficinaId ?? ""));
+    if (!o) return fail("Oficina no encontrada.", 404);
+    const limpio = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max) || null;
+    const prefijo = String(body.prefijoSerie ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || null;
+    // El prefijo debe ser único en el despacho: dos sedes con «DG» compartirían serie sin querer.
+    if (prefijo) {
+      const { data: chocan } = await admin.from("Oficina").select("id")
+        .eq("workspaceId", ws).eq("prefijoSerie", prefijo).neq("id", o.id).limit(1);
+      if ((chocan ?? []).length) return fail("Ese prefijo de serie ya lo usa otra oficina.", 409);
+    }
+    const { error } = await admin.from("Oficina").update({
+      razonSocial: limpio(body.razonSocial, 160),
+      nif: limpio(body.nif, 20),
+      domicilio: limpio(body.domicilio, 200),
+      emailFacturacion: limpio(body.emailFacturacion, 120),
+      prefijoSerie: prefijo,
+      updatedAt: new Date().toISOString(),
+    }).eq("id", o.id);
+    if (error) {
+      return fail(/razonSocial|prefijoSerie|column|schema cache|does not exist/i.test(error.message)
+        ? "Falta la migración: ejecuta supabase/oficinas-facturacion.sql en Supabase." : error.message, 500);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   return fail("Acción desconocida.");
 }
