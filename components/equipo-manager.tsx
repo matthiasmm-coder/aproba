@@ -438,39 +438,49 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
                       disabled={!puedeGestionar || filaBusy === m.membershipId}
                       onChange={(e) => asignarOficina(m, e.target.value)}
                       title={t("Oficina del miembro. «Todas» ve el trabajo de todas las oficinas.")}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 disabled:opacity-60 sm:flex-none"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:w-44 sm:flex-none sm:text-sm outline-none focus:border-aproba-600 disabled:opacity-60"
                     >
                       <option value="">{t("Todas las oficinas")}</option>
                       {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
                     </select>
                   )}
-                  {gestionable ? (
-                    <>
+                  {/* Columna de ROL de ancho fijo: la pastilla «Administrador» es más
+                      estrecha que el selector, y sin ancho fijo cada fila empujaba su
+                      selector de oficina a una posición distinta. */}
+                  <div className="flex min-w-0 flex-1 items-center sm:w-40 sm:flex-none">
+                    {gestionable ? (
                       <select
                         value={m.role}
                         disabled={filaBusy === m.membershipId}
                         onChange={(e) => cambiarRol(m, e.target.value)}
-                        className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600 sm:flex-none"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] outline-none focus:border-aproba-600 sm:text-sm"
                       >
                         {rolesQuePuedoAsignar.map((r) => (
                           <option key={r} value={r}>{t(ROLES[r].label)}</option>
                         ))}
                       </select>
+                    ) : (
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${ROLES[m.role].pill}`} title={t(ROLES[m.role].desc)}>
+                        {t(ROLES[m.role].label)}
+                      </span>
+                    )}
+                  </div>
+                  {/* Hueco de la papelera SIEMPRE reservado: las filas sin botón
+                      (uno mismo, el propietario) desalineaban toda la rejilla. */}
+                  <div className="w-7 flex-none">
+                    {gestionable && (
                       <button
                         type="button"
                         onClick={() => quitar(m)}
                         disabled={filaBusy === m.membershipId}
                         title={t("Quitar del equipo")}
-                        className="flex-none rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                        aria-label={t("Quitar del equipo")}
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
                       </button>
-                    </>
-                  ) : (
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${ROLES[m.role].pill}`} title={t(ROLES[m.role].desc)}>
-                      {t(ROLES[m.role].label)}
-                    </span>
-                  )}
+                    )}
+                  </div>
                 </div>
               </li>
             );
