@@ -34,6 +34,16 @@ export async function GET(req: Request) {
     if (exp) prefijo = await prefijoDeExpediente(admin, expedienteId);
   }
 
+  // ?oficina= → série de CETTE sede (factura manuelle créée depuis sa pastille).
+  // Validée contre MON despacho — jamais l'id nu du client.
+  if (!prefijo) {
+    const oficinaParam = new URL(req.url).searchParams.get("oficina")?.trim() ?? "";
+    if (oficinaParam) {
+      const { data: ofi } = await admin.from("Oficina").select("prefijoSerie").eq("id", oficinaParam).eq("workspaceId", workspaceId).maybeSingle();
+      prefijo = (((ofi as { prefijoSerie?: string | null } | null)?.prefijoSerie) ?? "").trim();
+    }
+  }
+
   // ?familia= → même règle que /api/familias/[id]/factura : la sede de l'expediente
   // ancre (titular, sinon premier membre avec expediente). Sans ça, l'aperçu du modal
   // montrerait la série commune alors que l'émission utilisera la préfixée.

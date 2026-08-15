@@ -53,7 +53,8 @@ export default function NuevaFactura() {
       // Próximo número de la serie anual (editable en modo avanzado). Lo da el
       // servidor: la numeración tiene un único punto de verdad (lib/factura-numero).
       try {
-        const r = await fetch("/api/facturas/numero");
+        const ck = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
+        const r = await fetch(`/api/facturas/numero${ck && ck !== "todas" ? `?oficina=${encodeURIComponent(ck)}` : ""}`);
         if (r.ok) setNumero(String((await r.json()).numero ?? ""));
       } catch { /* el número se genera al crear */ }
 
@@ -74,22 +75,36 @@ export default function NuevaFactura() {
       const year = hoy.getFullYear();
 
       // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
+      // Sede de trabajo = la pastilla activa (cookie), validada bajo RLS: la factura
+      // manual de un admin en «Oficina Barcelona» nace en Barcelona (serie incluida).
+      let sedeTrabajo: string | null = null;
+      const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
+      if (cookieSede && cookieSede !== "todas") {
+        const { data: ofi } = await sb.from("Oficina").select("id").eq("id", cookieSede).maybeSingle();
+        if (ofi) sedeTrabajo = cookieSede;
+      }
+
       let num = p.numero?.trim() ?? "";
       if (!num) {
-        const r = await fetch("/api/facturas/numero");
+        const r = await fetch(`/api/facturas/numero${sedeTrabajo ? `?oficina=${encodeURIComponent(sedeTrabajo)}` : ""}`);
         if (!r.ok) throw new Error(t("No se pudo calcular el número de factura."));
         num = String((await r.json()).numero ?? "");
       }
 
       const row: Record<string, unknown> = {
         id: crypto.randomUUID(), workspaceId: mem.workspaceId, numero: num,
+        ...(sedeTrabajo ? { oficinaId: sedeTrabajo } : {}),
         clienteNombre: p.cliente, concepto: p.concepto,
         baseImponible: p.baseImponible, iva: p.iva, total: p.total, estado: "EMITIDA",
         fechaEmision: hoy.toISOString(), fechaVencimiento: vence.toISOString(),
         ...(p.avanzada ? { lineas: p.lineas, suplidos: p.suplidos, notas: p.notas } : {}),
       };
 
-      const { error: e3 } = await sb.from("Factura").insert(row);
+      let { error: e3 } = await sb.from("Factura").insert(row);
+      if (e3 && row.oficinaId && /oficinaId/i.test(e3.message)) {
+        const { oficinaId: _o, ...sinSede } = row;
+        ({ error: e3 } = await sb.from("Factura").insert(sinSede));
+      }
       if (e3) throw new Error(
         /duplicate|unique/i.test(e3.message) ? t("Ese número de factura ya existe. Cámbialo.")
         : /lineas|suplidos|schema cache|column/i.test(e3.message) ? t("Falta la migración de facturas avanzadas: ejecuta supabase/factura-lineas.sql.")

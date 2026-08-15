@@ -34,7 +34,7 @@ type Cobro = NonNullable<Parameters<typeof enviarConfirmacionCitaPrevia>[0]["cob
 
 async function emitirFacturaCita(
   admin: ReturnType<typeof createSupabaseAdmin>,
-  o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null },
+  o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null; creadorId?: string | null },
 ): Promise<{ facturaId: string; numero: string; total: number; oficinaId: string | null } | null> {
   const total = r2(o.precio);
   if (!(total > 0)) return null;
@@ -48,6 +48,13 @@ async function emitirFacturaCita(
       const { data: cli } = await admin.from("Cliente").select("oficinaId").eq("id", o.clienteId).maybeSingle();
       oficinaCita = ((cli as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
     } catch { oficinaCita = null; }
+  }
+  // cita sin cliente (nombre libre) o cliente sin sede → sede de trabajo del creador
+  if (!oficinaCita && o.creadorId) {
+    try {
+      const { oficinaDelUsuario } = await import("@/lib/oficinas-server");
+      oficinaCita = await oficinaDelUsuario(admin, o.creadorId, o.workspaceId);
+    } catch { /* sin contexto */ }
   }
   let prefijoCita = "";
   if (oficinaCita) {
@@ -245,7 +252,7 @@ export async function POST(req: Request) {
     const admin = createSupabaseAdmin();
     const emitida = await emitirFacturaCita(admin, {
       workspaceId: mem.workspaceId as string, clienteId: fila.clienteId, nombre,
-      precio: fila.precio, fecha, motivo: fila.motivo,
+      precio: fila.precio, fecha, motivo: fila.motivo, creadorId: user.id,
     });
     if (emitida) {
       const medios = await datosCobro(admin, mem.workspaceId as string, {
@@ -412,7 +419,7 @@ export async function PUT(req: Request) {
     } else if (!eFac) {
       emitida = await emitirFacturaCita(admin, {
         workspaceId: wsId, clienteId: patch.clienteId, nombre,
-        precio: patch.precio, fecha, motivo: patch.motivo,
+        precio: patch.precio, fecha, motivo: patch.motivo, creadorId: user.id,
       });
       if (emitida) {
         const { error: eLink } = await supabase.from("CitaPrevia").update({ facturaId: emitida.facturaId }).eq("id", id);

@@ -155,15 +155,33 @@ export function NuevoCliente() {
     const supabase = createSupabaseBrowser();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error(t("No se encontró tu despacho."));
-    let mem: { workspaceId?: string; oficinaId?: string | null } | null = null;
+    let mem: { workspaceId?: string; role?: string; oficinaId?: string | null; oficinaIds?: string[] | null } | null = null;
     let msg = "";
-    const conSede = await supabase.from("Membership").select("workspaceId, oficinaId").eq("userId", user.id).limit(1).maybeSingle();
-    if (conSede.error) {
-      const sin = await supabase.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle(); // migración multi-oficina sin pasar
+    let res = await supabase.from("Membership").select("workspaceId, role, oficinaId, oficinaIds").eq("userId", user.id).limit(1).maybeSingle();
+    if (res.error) res = await supabase.from("Membership").select("workspaceId, role, oficinaId").eq("userId", user.id).limit(1).maybeSingle() as typeof res;
+    if (res.error) {
+      const sin = await supabase.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle(); // migraciones sin pasar
       mem = sin.data; msg = sin.error?.message ?? "";
-    } else mem = conSede.data;
+    } else mem = res.data;
     if (!mem?.workspaceId) throw new Error(msg || t("No se encontró tu despacho."));
-    return { supabase, ws: mem.workspaceId, oficinaId: mem.oficinaId ?? null };
+
+    // LA PASTILLE ACTIVE = le contexte de création (même règle que le serveur).
+    // Validée sous RLS : seule une oficina de MON despacho (et de MES sedes pour
+    // un gestor) est acceptée — un cookie forgé retombe sur le défaut.
+    const esAdmin = mem.role === "OWNER" || mem.role === "ADMIN";
+    const misSedes = mem.oficinaIds?.length ? mem.oficinaIds : mem.oficinaId ? [mem.oficinaId] : [];
+    const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
+    let oficinaId: string | null = null;
+    if (cookieSede && cookieSede !== "todas") {
+      if (esAdmin) {
+        const { data: ofi } = await supabase.from("Oficina").select("id").eq("id", cookieSede).maybeSingle(); // RLS = mon despacho
+        if (ofi) oficinaId = cookieSede;
+      } else if (misSedes.includes(cookieSede)) {
+        oficinaId = cookieSede;
+      }
+    }
+    if (!oficinaId && !esAdmin) oficinaId = misSedes[0] ?? null;
+    return { supabase, ws: mem.workspaceId, oficinaId };
   }
 
   async function guardar(otro: boolean) {

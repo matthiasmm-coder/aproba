@@ -49,6 +49,11 @@ export async function oficinaValida(admin: Admin, oficinaId: string, workspaceId
 // le voyait. L'expediente héritant du client, le trámite fuyait avec lui.
 //
 // Un membre sur « Todas » crée SANS sede, à dessein : il voit tout, il répartira.
+// LA PASTILLE ACTIVE EST LE CONTEXTE DE TRAVAIL. Un admin sur « Oficina Barcelona »
+// crée DANS Barcelona ; sur « Todas », il crée sans sede (choix explicite). Un gestor
+// multi-sedes suit la même règle : sa pastille active prime, sinon sa PRIMAIRE.
+// Le cookie n'est jamais cru sur parole : l'id doit être une oficina de CE despacho
+// (et, pour un gestor, une de SES sedes).
 export async function oficinaDelUsuario(admin: Admin, userId: string, workspaceId: string): Promise<string | null> {
   try {
     let res = await admin.from("Membership").select("role, oficinaId, oficinaIds")
@@ -56,9 +61,27 @@ export async function oficinaDelUsuario(admin: Admin, userId: string, workspaceI
     if (res.error) res = await admin.from("Membership").select("role, oficinaId")
       .eq("userId", userId).eq("workspaceId", workspaceId).maybeSingle();
     const m = res.data as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null } | null;
-    if (!m || m.role === "OWNER" || m.role === "ADMIN") return null; // admin: jamais ancré
-    // multi-sedes → la PRIMAIRE (première du array) estampille ses créations
-    return (m.oficinaIds?.[0] ?? m.oficinaId ?? null) || null;
+    if (!m) return null;
+    const esAdmin = m.role === "OWNER" || m.role === "ADMIN";
+    const misSedes = m.oficinaIds?.length ? m.oficinaIds : m.oficinaId ? [m.oficinaId] : [];
+
+    // pastille active (cookie) — disponible dans les route handlers
+    let cookieSede: string | null = null;
+    try {
+      const { cookies } = await import("next/headers");
+      const bruto = (await cookies()).get("aproba_oficina")?.value ?? null;
+      if (bruto && bruto !== "todas") cookieSede = bruto;
+    } catch { cookieSede = null; /* hors requête (cron) → pas de contexte */ }
+
+    if (cookieSede) {
+      if (esAdmin) {
+        if (await oficinaValida(admin, cookieSede, workspaceId)) return cookieSede;
+      } else if (misSedes.includes(cookieSede)) {
+        return cookieSede;
+      }
+    }
+    if (esAdmin) return null;           // admin sur « Todas » : sans sede, explicite
+    return misSedes[0] ?? null;         // gestor/asistente : sa primaire
   } catch { return null; }
 }
 
