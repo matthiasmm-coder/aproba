@@ -10,6 +10,7 @@ import { fmtFechaCorta } from "@/lib/tramites";
 import { FacturaView, type Emisor } from "@/components/factura-view";
 import { FacturaEditor, GENERICOS, type ServicioTarifa, type FacturaPayload } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
+import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 
 export default function NuevaFactura() {
   const t = useT();
@@ -23,6 +24,9 @@ export default function NuevaFactura() {
 
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // «Todas» es vista de LECTURA: la factura manual necesita una oficina concreta
+  // (su serie depende de ella). Pastilla activa → prerrellena; en «Todas» → obliga.
+  const [sedeCreacion, setSedeCreacion] = useState<{ sede: string | null; requerida: boolean }>({ sede: null, requerida: false });
   const [factura, setFactura] = useState<Factura | null>(null);
   const [emisor, setEmisor] = useState<Emisor>({ nombre: "Mi despacho", nif: null });
 
@@ -62,6 +66,19 @@ export default function NuevaFactura() {
     })();
   }, []);
 
+  // Al elegir sede en el selector, el número propuesto se recalcula con SU serie.
+  function onSedeCreacion(estado: { sede: string | null; requerida: boolean }) {
+    setSedeCreacion((prev) => {
+      if (estado.requerida && estado.sede && estado.sede !== prev.sede) {
+        fetch(`/api/facturas/numero?oficina=${encodeURIComponent(estado.sede)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => { if (d?.numero) setNumero(String(d.numero)); })
+          .catch(() => {});
+      }
+      return estado;
+    });
+  }
+
   async function handleSubmit(p: FacturaPayload) {
     setCreando(true);
     setError(null);
@@ -75,13 +92,19 @@ export default function NuevaFactura() {
       const year = hoy.getFullYear();
 
       // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
-      // Sede de trabajo = la pastilla activa (cookie), validada bajo RLS: la factura
-      // manual de un admin en «Oficina Barcelona» nace en Barcelona (serie incluida).
-      let sedeTrabajo: string | null = null;
-      const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
-      if (cookieSede && cookieSede !== "todas") {
-        const { data: ofi } = await sb.from("Oficina").select("id").eq("id", cookieSede).maybeSingle();
-        if (ofi) sedeTrabajo = cookieSede;
+      // Sede de trabajo = el selector «Creando en» si aplica (en «Todas» OBLIGA a
+      // elegir: nada nace sin sede por accidente); si no, la pastilla activa (cookie),
+      // validada bajo RLS.
+      if (sedeCreacion.requerida && !sedeCreacion.sede) {
+        throw new Error(t("Estás en «Todas» (solo lectura). Elige arriba la oficina que factura."));
+      }
+      let sedeTrabajo: string | null = sedeCreacion.requerida ? sedeCreacion.sede : null;
+      if (!sedeTrabajo) {
+        const cookieSede = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
+        if (cookieSede && cookieSede !== "todas") {
+          const { data: ofi } = await sb.from("Oficina").select("id").eq("id", cookieSede).maybeSingle();
+          if (ofi) sedeTrabajo = cookieSede;
+        }
       }
 
       let num = p.numero?.trim() ?? "";
@@ -147,14 +170,18 @@ export default function NuevaFactura() {
           : t("Elige el servicio y la tarifa se rellena sola. El IVA y el total se calculan solos.")}
       </p>
 
+      <div className="mt-6">
+        <SelectorSedeCreacion onEstado={onSedeCreacion} />
+      </div>
+
       {cargando ? (
-        <div className="mt-6 space-y-3">
+        <div className="space-y-3">
           <div className="h-11 animate-pulse rounded-lg bg-slate-100" />
           <div className="h-11 animate-pulse rounded-lg bg-slate-100" />
           <div className="h-24 animate-pulse rounded-xl bg-slate-100" />
         </div>
       ) : (
-        <div className="mt-6">
+        <div>
           <FacturaEditor
             avanzada={avanzada}
             servicios={servicios}

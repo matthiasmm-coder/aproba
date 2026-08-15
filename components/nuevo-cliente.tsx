@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { useT } from "@/components/lang-provider";
+import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { filaACliente, camposVacios, type ClienteCsvCampos } from "@/lib/csv-clientes";
 import { PARENTESCOS, type Parentesco } from "@/lib/familia";
@@ -142,6 +143,9 @@ export function NuevoCliente() {
   const [guardando, setGuardando] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // «Todas» es una vista de LECTURA: para crear hace falta una oficina concreta.
+  // El selector la pre-rellena con la pastilla activa; en «Todas» obliga a elegir.
+  const [sedeCreacion, setSedeCreacion] = useState<{ sede: string | null; requerida: boolean }>({ sede: null, requerida: false });
 
   // Devuelve también la SEDE del miembro, para estamparla en los clientes que crea.
   // Sin ella el cliente nace «sin sede» y — por diseño, para no ocultar nunca un dato —
@@ -186,12 +190,14 @@ export function NuevoCliente() {
 
   async function guardar(otro: boolean) {
     if (!campos.nombre.trim()) return setError(t("El nombre es obligatorio."));
+    if (sedeCreacion.requerida && !sedeCreacion.sede) return setError(t("Estás en «Todas» (solo lectura). Elige arriba la oficina en la que trabajas."));
     setGuardando(true);
     setError(null);
     try {
       const { supabase, ws, oficinaId } = await contexto();
+      const sede = sedeCreacion.requerida ? sedeCreacion.sede : oficinaId;
       const nombreGuardado = campos.nombre.trim();
-      const { error: e } = await supabase.from("Cliente").insert(filaACliente(campos, ws, oficinaId));
+      const { error: e } = await supabase.from("Cliente").insert(filaACliente(campos, ws, sede));
       if (e) throw new Error(e.message);
       if (otro) {
         setCampos(VACIO);
@@ -218,10 +224,12 @@ export function NuevoCliente() {
     const nombreFam = nombreFamilia.trim()
       || (titular.apellidos.trim() ? `${t("Familia")} ${titular.apellidos.trim()}` : "");
     if (!nombreFam) return setError(t("Indica el nombre de la familia (o los apellidos del titular)."));
+    if (sedeCreacion.requerida && !sedeCreacion.sede) return setError(t("Estás en «Todas» (solo lectura). Elige arriba la oficina en la que trabajas."));
     setGuardando(true);
     setError(null);
     try {
       const { supabase, ws, oficinaId } = await contexto();
+      const sede = sedeCreacion.requerida ? sedeCreacion.sede : oficinaId;
       const famId = crypto.randomUUID();
       const { error: eF } = await supabase.from("Familia").insert({ id: famId, workspaceId: ws, nombre: nombreFam, updatedAt: new Date().toISOString() });
       if (eF) throw new Error(eF.message);
@@ -233,7 +241,7 @@ export function NuevoCliente() {
           nombre: m.nombre, apellidos: m.apellidos, fechaNacimiento: m.fechaNacimiento,
           numeroDocumento: m.numeroDocumento, pasaporte: m.pasaporte, email: m.email, telefono: m.telefono,
         };
-        const { error: eM } = await supabase.from("Cliente").insert({ ...filaACliente(c, ws, oficinaId), familiaId: famId, parentesco: m.parentesco });
+        const { error: eM } = await supabase.from("Cliente").insert({ ...filaACliente(c, ws, sede), familiaId: famId, parentesco: m.parentesco });
         if (eM) fallos.push(`${m.nombre.trim()}: ${eM.message}`);
         else insertados++;
       }
@@ -302,8 +310,12 @@ export function NuevoCliente() {
         <Link href="/app/importar" className="font-medium text-aproba-700 hover:underline">{t("¿Muchos de golpe? Importar datos →")}</Link>
       </p>
 
+      <div className="mt-6">
+        <SelectorSedeCreacion onEstado={setSedeCreacion} />
+      </div>
+
       {/* Individual ↔ Familia */}
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           aria-pressed={!esFamilia}

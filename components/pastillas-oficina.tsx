@@ -35,6 +35,7 @@ export function PastillasOficina({
       type="button"
       disabled={pendiente}
       onClick={() => elegir(id)}
+      title={id === null ? t("Vista de lectura: para crear, elige una oficina concreta") : undefined}
       className={`inline-flex items-center rounded-full border px-4 py-1.5 text-sm font-semibold transition disabled:opacity-60 ${
         (activa ?? null) === id
           ? "border-aproba-600 bg-aproba-600 text-white shadow-sm"

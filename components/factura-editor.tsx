@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { eur, ivaDe, totalDe, totalesFactura, IVA, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 
@@ -71,6 +71,9 @@ export function FacturaEditor({
 
   // Avanzada (Pro/Business)
   const [numero, setNumero] = useState(inicial?.numero ?? "");
+  // Si el consumidor repropone un número (p. ej. al elegir otra oficina en «Creando
+  // en», cuya serie es distinta), el campo se realinea: la serie DEBE ser la de la sede.
+  useEffect(() => { if (inicial?.numero !== undefined) setNumero(inicial.numero); }, [inicial?.numero]);
   const [lineas, setLineas] = useState<LineaFactura[]>(inicial?.lineas?.length ? inicial.lineas : [{ concepto: inicial?.concepto || servicios[0]?.label || "", base: inicial?.base ?? servicios[0]?.precio ?? 0 }]);
   const [suplidos, setSuplidos] = useState<Suplido[]>(inicial?.suplidos ?? []);
   const [notas, setNotas] = useState(inicial?.notas ?? "");

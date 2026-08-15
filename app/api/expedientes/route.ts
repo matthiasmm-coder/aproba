@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { cobrarOverageSiProcede } from "@/lib/overage";
-import { oficinaDelCliente, oficinaDelUsuario, oficinaDeFamilia } from "@/lib/oficinas-server";
+import { oficinaDelCliente, oficinaDeFamilia, contextoDeCreacion, sedeElegible } from "@/lib/oficinas-server";
 
 // Creación de un expediente DESDE EL SERVIDOR (antes era client-side). Se hace aquí para
 // poder decidir, de forma autoritativa y no falsificable, el cobro del excedente: si el
@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     // Expediente FAMILIAR: crea/usa una Familia y un titular; un solo expediente la cubre.
     familiaNueva?: { nombre?: string; titular?: { nombre?: string; apellidos?: string; telefono?: string } };
     familiaExistenteId?: string;
+    oficinaId?: string;
   };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
@@ -32,9 +33,23 @@ export async function POST(req: Request) {
 
   const admin = createSupabaseAdmin();
 
-  // Sede del creador: todo cliente que nazca aquí la hereda. Sin esto el cliente (y con él
-  // su expediente, que se estampa más abajo) sería visible para TODAS las oficinas.
-  const miSede = await oficinaDelUsuario(admin, user.id, workspaceId);
+  // Sede del creador: todo cliente que nazca aquí la hereda. «Todas» es una vista de
+  // LECTURA: si el creador está en «Todas» con ≥2 oficinas, el modal manda `oficinaId`
+  // explícito (validado SIEMPRE: admin → del despacho, gestor → de SUS sedes) y sin él
+  // la creación de un cliente nuevo se rechaza — nada nace «sin sede» por accidente.
+  const ctx = await contextoDeCreacion(admin, user.id, workspaceId);
+  let miSede = ctx.sede;
+  const sedeExplicita = typeof body.oficinaId === "string" && body.oficinaId.trim() ? body.oficinaId.trim() : null;
+  if (sedeExplicita) {
+    if (!(await sedeElegible(admin, user.id, sedeExplicita, workspaceId))) {
+      return NextResponse.json({ error: "Esa oficina no es válida para tu usuario." }, { status: 400 });
+    }
+    miSede = sedeExplicita;
+  }
+  const creaCliente = Boolean(body.familiaNueva?.nombre?.trim() || (!body.clienteId?.trim() && !body.familiaExistenteId?.trim()));
+  if (creaCliente && ctx.requerida && !miSede) {
+    return NextResponse.json({ error: "Estás en «Todas» (solo lectura). Elige la oficina en la que trabajas." }, { status: 400 });
+  }
 
   let clienteId = "";
   let expedienteFamiliaId: string | null = null; // si != null → expediente FAMILIAR

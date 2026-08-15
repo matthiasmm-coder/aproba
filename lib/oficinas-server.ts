@@ -85,6 +85,57 @@ export async function oficinaDelUsuario(admin: Admin, userId: string, workspaceI
   } catch { return null; }
 }
 
+// Contexto de CREACIÓN — como oficinaDelUsuario, pero distingue el «null legítimo»
+// (despacho mono-oficina, gestor sin sedes) del «null porque estás en Todas».
+//
+// « Todas » es una vista de LECTURA: con ≥2 oficinas, crear desde «Todas» exige
+// elegir una oficina concreta (requerida=true → la ruta rechaza con 400 y la UI
+// muestra el selector). Un gestor mono-sede nunca es requerido: su sede es unívoca.
+export async function contextoDeCreacion(
+  admin: Admin, userId: string, workspaceId: string,
+): Promise<{ sede: string | null; requerida: boolean }> {
+  try {
+    const { data: m } = await admin.from("Membership")
+      .select("role, oficinaId, oficinaIds").eq("userId", userId).eq("workspaceId", workspaceId).limit(1).maybeSingle();
+    if (!m) return { sede: null, requerida: false };
+    const esAdmin = m.role === "OWNER" || m.role === "ADMIN";
+    const misSedes: string[] = (m.oficinaIds as string[] | null)?.length ? (m.oficinaIds as string[]) : m.oficinaId ? [m.oficinaId as string] : [];
+
+    let cookieSede: string | null = null;
+    try {
+      const { cookies } = await import("next/headers");
+      const bruto = (await cookies()).get("aproba_oficina")?.value ?? null;
+      if (bruto && bruto !== "todas") cookieSede = bruto;
+    } catch { cookieSede = null; }
+    if (cookieSede) {
+      if (esAdmin) { if (await oficinaValida(admin, cookieSede, workspaceId)) return { sede: cookieSede, requerida: false }; }
+      else if (misSedes.includes(cookieSede)) return { sede: cookieSede, requerida: false };
+    }
+
+    if (!esAdmin && misSedes.length === 1) return { sede: misSedes[0], requerida: false };
+    if (!esAdmin && misSedes.length === 0) return { sede: null, requerida: false }; // gestor sin anclar: no hay nada que elegir
+
+    const { data: ofis } = await admin.from("Oficina").select("id").eq("workspaceId", workspaceId).limit(2);
+    const varias = (ofis ?? []).length >= 2;
+    if (!varias) return { sede: null, requerida: false }; // despacho mono-oficina: como siempre
+    return { sede: null, requerida: true };               // «Todas» con ≥2: hay que elegir
+  } catch { return { sede: null, requerida: false }; }
+}
+
+// ¿Puede ESTE usuario estampar ESTA oficina? Admin: cualquiera del despacho;
+// gestor/asistente: solo una de SUS sedes. Para validar el oficinaId explícito del body.
+export async function sedeElegible(admin: Admin, userId: string, oficinaId: string, workspaceId: string): Promise<boolean> {
+  try {
+    const { data: m } = await admin.from("Membership")
+      .select("role, oficinaId, oficinaIds").eq("userId", userId).eq("workspaceId", workspaceId).limit(1).maybeSingle();
+    if (!m) return false;
+    if (m.role === "OWNER" || m.role === "ADMIN") return oficinaValida(admin, oficinaId, workspaceId);
+    const mis: string[] = (m.oficinaIds as string[] | null)?.length ? (m.oficinaIds as string[]) : m.oficinaId ? [m.oficinaId as string] : [];
+    return mis.includes(oficinaId) && (await oficinaValida(admin, oficinaId, workspaceId));
+  } catch { return false; }
+}
+
+
 // Sede d'une familia, lue sur ses membres. Un proche ajouté à une familia rejoint
 // SA sede, pas celle de qui l'ajoute : un admin qui complète une familia de Gran Via
 // ne doit pas créer un membre orphelin visible partout.

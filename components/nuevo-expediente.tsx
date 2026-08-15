@@ -9,6 +9,7 @@ import { copiarTexto } from "@/lib/copiar";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
 import { useT } from "@/components/lang-provider";
+import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { TelefonoInput } from "@/components/telefono-input";
 
 // Nuevo expediente — RÉEL : choisir un client existant (individu OU famille) ou en créer un
@@ -43,6 +44,8 @@ export function NuevoExpediente() {
   const [modoNuevo, setModoNuevo] = useState(false);
   const [tipoNuevo, setTipoNuevo] = useState<"individual" | "familia">("individual");
   const [nuevo, setNuevo] = useState({ nombre: "", apellidos: "", telefono: "" });
+  // «Todas» = lectura: un cliente creado al vuelo necesita oficina concreta (uno existente ya tiene la suya).
+  const [sedeCreacion, setSedeCreacion] = useState<{ sede: string | null; requerida: boolean }>({ sede: null, requerida: false });
   const [nuevaFam, setNuevaFam] = useState({ nombre: "", titularNombre: "", titularApellidos: "", telefono: "" });
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +139,9 @@ export function NuevoExpediente() {
     setCreando(true);
     setError(null);
     try {
+      if (modoNuevo && sedeCreacion.requerida && !sedeCreacion.sede) {
+        throw new Error(t("Estás en «Todas» (solo lectura). Elige la oficina en la que trabajas."));
+      }
       let body: Record<string, unknown>;
       let nombre: string;
       let tel: string;
@@ -157,6 +163,7 @@ export function NuevoExpediente() {
         body = { clienteId: seleccionado!.id };
       }
 
+      if (modoNuevo && sedeCreacion.requerida && sedeCreacion.sede) body.oficinaId = sedeCreacion.sede;
       const res = await fetch("/api/expedientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el expediente. Vuelve a intentarlo."));
@@ -298,6 +305,7 @@ export function NuevoExpediente() {
             </div>
           ) : (
             <div className="mt-4">
+              <SelectorSedeCreacion onEstado={setSedeCreacion} />
               {/* Sous-bascule individual / familia */}
               <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
                 <button onClick={() => setTipoNuevo("individual")} className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${tipoNuevo === "individual" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Individual")}</button>
