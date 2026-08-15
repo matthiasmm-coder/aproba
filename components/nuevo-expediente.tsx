@@ -19,7 +19,7 @@ import { TelefonoInput } from "@/components/telefono-input";
 // chaque membre et téléverse les documents (les communs une seule fois).
 
 type ClienteRow = { id: string; nombre: string; apellidos: string | null; telefono: string | null; nacionalidad: string | null; oficinaId?: string | null };
-type FamiliaRow = { id: string; nombre: string; miembros: number; sinSede: boolean };
+type FamiliaRow = { id: string; nombre: string; miembros: number; oficinaId: string | null };
 
 const STEP_LABELS = ["Cliente", "Enlace"];
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -38,6 +38,7 @@ export function NuevoExpediente() {
   const [step, setStep] = useState(0);
   const [clientes, setClientes] = useState<ClienteRow[]>([]);
   const [familias, setFamilias] = useState<FamiliaRow[]>([]);
+  const [oficinas, setOficinas] = useState<{ id: string; nombre: string }[]>([]);
   const [q, setQ] = useState("");
   const [seleccionado, setSeleccionado] = useState<ClienteRow | null>(null);
   const [familiaSel, setFamiliaSel] = useState<FamiliaRow | null>(null);
@@ -82,14 +83,20 @@ export function NuevoExpediente() {
       const ws = mem ? (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace) : null;
       if (ws?.nombre) setGestoriaNombre(ws.nombre as string);
 
+      try {
+        const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");
+        setOficinas((ofis ?? []) as { id: string; nombre: string }[]);
+      } catch { /* mono-oficina o sin migrar */ }
+
       // Familias del workspace (repli propre si la table n'existe pas encore).
       try {
         let famRes = await supabase.from("Familia").select("id, nombre, clientes:Cliente(id, oficinaId)").order("nombre");
         if (famRes.error) famRes = await supabase.from("Familia").select("id, nombre, clientes:Cliente(id)").order("nombre") as typeof famRes;
         setFamilias(((famRes.data ?? []) as unknown as { id: string; nombre: string; clientes: { id: string; oficinaId?: string | null }[] | null }[]).map((f) => ({
           id: f.id, nombre: f.nombre, miembros: (f.clientes ?? []).length,
-          // familia «sin sede» = NINGÚN miembro anclado (el expediente hereda vía oficinaDeFamilia)
-          sinSede: !(f.clientes ?? []).some((c) => c.oficinaId),
+          // sede de la familia = la del primer miembro anclado (como oficinaDeFamilia);
+          // null = ningún miembro anclado → habrá que elegir (adopción).
+          oficinaId: (f.clientes ?? []).find((c) => c.oficinaId)?.oficinaId ?? null,
         })));
       } catch { /* sans familles */ }
 
@@ -134,7 +141,9 @@ export function NuevoExpediente() {
   // Nace algo sin oficina: cliente nuevo, o cliente/familia EXISTENTE sin sede — en ese
   // caso la sede elegida ADOPTA al cliente (el expediente hereda; el invariante
   // «expediente = sede del cliente» se mantiene).
-  const necesitaSede = modoNuevo || (!!seleccionado && !seleccionado.oficinaId) || (familiaSel?.sinSede ?? false);
+  const necesitaSede = modoNuevo || (!!seleccionado && !seleccionado.oficinaId) || (!!familiaSel && !familiaSel.oficinaId);
+  // Sede impuesta por la selección existente (cliente/familia ya anclados): se ENSEÑA, no se elige.
+  const sedeImpuesta = seleccionado?.oficinaId ?? familiaSel?.oficinaId ?? null;
 
   const canCrear = !creando && (
     modoNuevo
@@ -269,6 +278,23 @@ export function NuevoExpediente() {
 
           {!modoNuevo ? (
             <div className="mt-4">
+              {/* La oficina del expediente, visible DESDE EL PRINCIPIO (≥2 oficinas):
+                  cliente/familia ya anclados → su sede manda y se enseña bloqueada;
+                  sin selección o selección sin sede → selector (la elegida ADOPTA). */}
+              {oficinas.length >= 2 && (sedeImpuesta ? (
+                <div className="mb-3 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Creando en")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{oficinas.find((o) => o.id === sedeImpuesta)?.nombre ?? t("Oficina del cliente")}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{familiaSel ? t("La oficina de la familia manda: el expediente la hereda.") : t("La oficina del cliente manda: el expediente la hereda.")}</p>
+                </div>
+              ) : (
+                <div className="mb-1">
+                  {(seleccionado || familiaSel) && (
+                    <p className="mb-1 text-xs text-slate-500">{familiaSel ? t("Esta familia no tiene oficina asignada: se asignará a la que elijas.") : t("Este cliente no tiene oficina asignada: se asignará a la que elijas.")}</p>
+                  )}
+                  <SelectorSedeCreacion onEstado={setSedeCreacion} />
+                </div>
+              ))}
               <div className="relative">
                 <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente o familia…")} className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-[16px] sm:text-sm outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100" />
@@ -311,14 +337,6 @@ export function NuevoExpediente() {
                 })}
                 {filtrados.length === 0 && famFiltradas.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">{t("Sin resultados. ¿Es un")} <button onClick={() => setModoNuevo(true)} className="font-semibold text-aproba-700 hover:underline">{t("cliente nuevo")}</button>?</p>}
               </div>
-              {/* Cliente/familia existente SIN oficina: la sede elegida lo adopta (y el
-                  expediente la hereda). Con cliente ya anclado no se pregunta nada. */}
-              {necesitaSede && !modoNuevo && (
-                <div className="mt-3">
-                  <p className="mb-1 text-xs text-slate-500">{familiaSel ? t("Esta familia no tiene oficina asignada: se asignará a la que elijas.") : t("Este cliente no tiene oficina asignada: se asignará a la que elijas.")}</p>
-                  <SelectorSedeCreacion onEstado={setSedeCreacion} />
-                </div>
-              )}
             </div>
           ) : (
             <div className="mt-4">
