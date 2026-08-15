@@ -33,3 +33,12 @@ alter table "StripeCuenta" add primary key (id);
 -- select-then-write, nunca upsert).
 create unique index if not exists "StripeCuenta_ws_comun"   on "StripeCuenta"("workspaceId") where "oficinaId" is null;
 create unique index if not exists "StripeCuenta_ws_oficina" on "StripeCuenta"("workspaceId", "oficinaId") where "oficinaId" is not null;
+
+-- 5) La unicidad histórica «una sola cuenta activa por despacho» (índice
+--    CuentaBancaria_ws_activa_key) choca con el modelo por ámbito: la activa común
+--    y la activa de cada sede deben poder coexistir. Se sustituye por unicidad
+--    POR ÁMBITO — sigue siendo imposible tener dos activas en el mismo ámbito.
+drop index if exists "CuentaBancaria_ws_activa_key";
+alter table "CuentaBancaria" drop constraint if exists "CuentaBancaria_ws_activa_key";
+create unique index if not exists "CuentaBancaria_activa_comun"   on "CuentaBancaria"("workspaceId") where activa and "oficinaId" is null;
+create unique index if not exists "CuentaBancaria_activa_oficina" on "CuentaBancaria"("workspaceId", "oficinaId") where activa and "oficinaId" is not null;
