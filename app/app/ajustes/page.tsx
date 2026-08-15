@@ -159,6 +159,7 @@ export default async function Ajustes() {
               /* fase 6 — con 2+ oficinas, cada sede elige sus datos, su cuenta y su tarjeta.
                  Con 0-1 oficinas el conmutador se esfuma y esto ES la sección de siempre. */
               <FacturacionPorOficina
+                principalNombre={despachoNombre}
                 comun={<>
                   <DespachoFacturacion inicial={despacho} />
                   <CuentasBancarias inicial={cuentas.filter((c) => !c.oficinaId)} />
