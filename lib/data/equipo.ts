@@ -11,7 +11,8 @@ export type Miembro = {
   avatarUrl: string | null;
   role: RolId;
   esYo: boolean;
-  oficinaId: string | null; // multi-oficina : sede du membre (null = toutes)
+  oficinaId: string | null; // primaire (compat)
+  oficinaIds: string[]; // sedes du membre (vide = toutes ; admins TOUJOURS vide)
 };
 
 export type Equipo = {
@@ -55,12 +56,13 @@ export async function fetchEquipo(): Promise<Equipo | null> {
   const [{ data: wsRow }, { data: sub }, memsRes] = await Promise.all([
     supabase.from("Workspace").select("nombre, tipo").eq("id", ws).maybeSingle(),
     supabase.from("Subscription").select("*").eq("workspaceId", ws).maybeSingle(),
-    miembrosQ("id, role, userId, oficinaId, User(nombre, email, avatarUrl)")
+    miembrosQ("id, role, userId, oficinaId, oficinaIds, User(nombre, email, avatarUrl)")
+      .then((r) => (r.error ? miembrosQ("id, role, userId, oficinaId, User(nombre, email, avatarUrl)") : r))
       .then((r) => (r.error ? miembrosQ("id, role, userId, User(nombre, email, avatarUrl)") : r)),
   ]);
   const mems = memsRes.data;
 
-  type Row = { id: string; role: string; userId: string; oficinaId?: string | null; User: { nombre: string | null; email: string | null; avatarUrl: string | null } | { nombre: string | null; email: string | null; avatarUrl: string | null }[] | null };
+  type Row = { id: string; role: string; userId: string; oficinaId?: string | null; oficinaIds?: string[] | null; User: { nombre: string | null; email: string | null; avatarUrl: string | null } | { nombre: string | null; email: string | null; avatarUrl: string | null }[] | null };
   const miembros: Miembro[] = ((mems as Row[] | null) ?? []).map((m) => {
     const u = Array.isArray(m.User) ? m.User[0] : m.User; // PostgREST one-to-one parfois en tableau
     return {
@@ -72,6 +74,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
       role: m.role as RolId,
       esYo: m.userId === user.id,
       oficinaId: m.oficinaId ?? null,
+      oficinaIds: m.oficinaIds?.length ? m.oficinaIds : (m.oficinaId ? [m.oficinaId] : []),
     };
   });
   miembros.sort((a, b) => (RANK[a.role] - RANK[b.role]) || a.nombre.localeCompare(b.nombre));

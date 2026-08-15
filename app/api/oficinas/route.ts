@@ -159,25 +159,50 @@ export async function POST(req: Request) {
     const { count: nOficinas } = await admin.from("Oficina").select("id", { count: "exact", head: true }).eq("workspaceId", ws);
     const quedan = nOficinas ?? 0;
     if (quedan <= OFICINAS_INCLUIDAS) await avisarBajaOficina(admin, ws, o.nombre, quedan);
+    // los miembros multi-sede que la tenían la pierden del array (la FK de
+    // oficinaId ya hace set null; el array no tiene FK → limpieza manual)
+    try {
+      const { data: mms } = await admin.from("Membership").select("id, oficinaIds").eq("workspaceId", ws).contains("oficinaIds", [o.id]);
+      for (const m of (mms ?? []) as { id: string; oficinaIds: string[] }[]) {
+        const resto = (m.oficinaIds ?? []).filter((x) => x !== o.id);
+        await admin.from("Membership").update({ oficinaIds: resto, oficinaId: resto[0] ?? null }).eq("id", m.id);
+      }
+    } catch { /* columna sin migrar */ }
     return NextResponse.json({ ok: true, oficinas: quedan });
   }
 
-  // ── Asignar un miembro del equipo a una oficina (null = todas) ────────────────
+  // ── Asignar un miembro a una O VARIAS oficinas (vacío = todas) ────────────────
+  // Regla: los ADMINISTRADORES nunca se anclan — ver todo es el sentido de ser
+  // admin. Se escriben LAS DOS columnas: oficinaIds (verdad) y oficinaId (primaria,
+  // para el estampado de clientes nuevos y los contadores).
   if (action === "asignar") {
     const membershipId = String(body.membershipId ?? "");
-    const { data: mem } = await admin.from("Membership").select("id, workspaceId").eq("id", membershipId).maybeSingle();
+    const { data: mem } = await admin.from("Membership").select("id, workspaceId, role").eq("id", membershipId).maybeSingle();
     if (!mem || (mem as { workspaceId: string }).workspaceId !== ws) return fail("Miembro no encontrado.", 404);
 
-    const bruto = body.oficinaId;
-    let oficinaId: string | null = null;
-    if (bruto !== null && bruto !== undefined && String(bruto) !== "") {
-      const o = await mia(String(bruto));
-      if (!o) return fail("Oficina no encontrada.", 404);
-      oficinaId = o.id;
+    // entrada: oficinaIds (array) o oficinaId (compat, un solo valor)
+    const brutos: string[] = Array.isArray(body.oficinaIds)
+      ? body.oficinaIds.map(String).filter(Boolean)
+      : (body.oficinaId !== null && body.oficinaId !== undefined && String(body.oficinaId) !== "" ? [String(body.oficinaId)] : []);
+
+    if ((mem as { role?: string }).role === "OWNER" || (mem as { role?: string }).role === "ADMIN") {
+      if (brutos.length) return fail("Los administradores ven todas las oficinas: no se anclan a una sede.");
+      // vaciado explícito permitido (limpiar un estado anterior)
     }
-    const { error } = await admin.from("Membership").update({ oficinaId }).eq("id", membershipId);
+
+    const ids: string[] = [];
+    for (const b of [...new Set(brutos)]) {
+      const o = await mia(b);
+      if (!o) return fail("Oficina no encontrada.", 404);
+      ids.push(o.id);
+    }
+    let { error } = await admin.from("Membership")
+      .update({ oficinaIds: ids, oficinaId: ids[0] ?? null }).eq("id", membershipId);
+    if (error && /oficinaIds/i.test(error.message)) {
+      ({ error } = await admin.from("Membership").update({ oficinaId: ids[0] ?? null }).eq("id", membershipId)); // sin migrar
+    }
     if (error) return fail("No se pudo asignar.", 500);
-    return NextResponse.json({ ok: true, oficinaId });
+    return NextResponse.json({ ok: true, oficinaIds: ids, oficinaId: ids[0] ?? null });
   }
 
   // ── Datos de facturación de una sede (fase 6): identidad fiscal + prefijo de serie ──

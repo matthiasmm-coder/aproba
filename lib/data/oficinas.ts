@@ -57,10 +57,14 @@ export async function fetchOficinas(): Promise<Oficina[]> {
   // Décomptes en une passe (les listes sont courtes : 2-4 oficinas par despacho).
   const [{ data: cls }, { data: mms }] = await Promise.all([
     supabase.from("Cliente").select("oficinaId").eq("workspaceId", ws).not("oficinaId", "is", null),
-    supabase.from("Membership").select("oficinaId").eq("workspaceId", ws).not("oficinaId", "is", null),
+    supabase.from("Membership").select("oficinaId, oficinaIds").eq("workspaceId", ws)
+      .then((r) => (r.error ? supabase.from("Membership").select("oficinaId").eq("workspaceId", ws) : r)),
   ]);
   const cuenta = (rows: { oficinaId: string | null }[] | null, id: string) =>
     (rows ?? []).filter((r) => r.oficinaId === id).length;
+  // membres : l'array (multi-sedes) prime ; repli sur la primaire pour les filas viejas
+  const cuentaMiembros = (rows: { oficinaId?: string | null; oficinaIds?: string[] | null }[] | null, id: string) =>
+    (rows ?? []).filter((r) => (r.oficinaIds?.length ? r.oficinaIds.includes(id) : r.oficinaId === id)).length;
 
   return filas.map((o) => ({
     ...o,
@@ -79,6 +83,6 @@ export async function fetchOficinas(): Promise<Oficina[]> {
     avisosComoOficinaId: o.avisosComoOficinaId ?? null,
     encargoComoOficinaId: o.encargoComoOficinaId ?? null,
     clientes: cuenta(cls as { oficinaId: string | null }[] | null, o.id),
-    miembros: cuenta(mms as { oficinaId: string | null }[] | null, o.id),
+    miembros: cuentaMiembros(mms as { oficinaId?: string | null; oficinaIds?: string[] | null }[] | null, o.id),
   }));
 }

@@ -51,9 +51,14 @@ export async function oficinaValida(admin: Admin, oficinaId: string, workspaceId
 // Un membre sur « Todas » crée SANS sede, à dessein : il voit tout, il répartira.
 export async function oficinaDelUsuario(admin: Admin, userId: string, workspaceId: string): Promise<string | null> {
   try {
-    const { data } = await admin.from("Membership").select("oficinaId")
+    let res = await admin.from("Membership").select("role, oficinaId, oficinaIds")
       .eq("userId", userId).eq("workspaceId", workspaceId).maybeSingle();
-    return ((data as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+    if (res.error) res = await admin.from("Membership").select("role, oficinaId")
+      .eq("userId", userId).eq("workspaceId", workspaceId).maybeSingle();
+    const m = res.data as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null } | null;
+    if (!m || m.role === "OWNER" || m.role === "ADMIN") return null; // admin: jamais ancré
+    // multi-sedes → la PRIMAIRE (première du array) estampille ses créations
+    return (m.oficinaIds?.[0] ?? m.oficinaId ?? null) || null;
   } catch { return null; }
 }
 

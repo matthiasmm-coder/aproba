@@ -13,17 +13,19 @@ import { COOKIE_OFICINA } from "@/lib/oficinas";
 // n'est filtrée et rien ne change pour lui.
 
 export type FiltroOficina = {
-  activa: string | null;                       // sede regardée (null = todas)
-  oficinas: { id: string; nombre: string }[];  // sedes du despacho (vide = mono-oficina)
-  miOficina: string | null;                    // sede du membre connecté
+  activa: string | null;                       // pastille regardée (null = todas / toutes MES sedes)
+  oficinas: { id: string; nombre: string }[];  // pastilles proposées (admin: toutes; ancré: SES sedes)
+  miOficina: string | null;                    // compat: première sede du membre (null = libre)
   autoId: string | null;                       // la fila de la gestoría (orden -1)
-  // La pastille de la gestoría doit montrer AUSSI les données SANS sede : sous le
-  // modèle « la gestoría est une oficina », l'historique non estampillé est à elle.
-  incluirSinSede: boolean;                     // true quand activa === autoId
+  // Le filtre effectif des écrans. null = tout ; sinon la ou les sedes visées.
+  sedes: string[] | null;
+  // La pastille de la gestoría montre AUSSI les données SANS sede : sous le modèle
+  // « la gestoría est une oficina », l'historique non estampillé est à elle.
+  incluirSinSede: boolean;
 };
 
 export async function resolverOficina(): Promise<FiltroOficina> {
-  const vacio: FiltroOficina = { activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false };
+  const vacio: FiltroOficina = { activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false };
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return vacio;
@@ -35,17 +37,38 @@ export async function resolverOficina(): Promise<FiltroOficina> {
   const autoId = filas.find((o) => o.orden === -1)?.id ?? null;
   if (oficinas.length === 0) return vacio;
 
-  let miOficina: string | null = null;
-  const mem = await supabase.from("Membership").select("oficinaId").eq("userId", user.id).limit(1).maybeSingle();
-  if (!mem.error) miOficina = (mem.data as { oficinaId?: string | null } | null)?.oficinaId ?? null;
+  // Rôle + sedes du membre. RÈGLE : un admin (OWNER/ADMIN) n'est JAMAIS ancré —
+  // voir tout est le sens même d'être admin ; gestor/asistente peuvent l'être à
+  // une OU PLUSIEURS sedes (oficinaIds ; oficinaId = compat/primaire).
+  let misSedes: string[] = [];
+  let mem = await supabase.from("Membership").select("role, oficinaId, oficinaIds").eq("userId", user.id).limit(1).maybeSingle();
+  if (mem.error) mem = await supabase.from("Membership").select("role, oficinaId").eq("userId", user.id).limit(1).maybeSingle() as typeof mem;
+  const fila = mem.data as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null } | null;
+  const esAdmin = fila?.role === "OWNER" || fila?.role === "ADMIN";
+  if (!esAdmin) {
+    misSedes = (fila?.oficinaIds?.length ? fila.oficinaIds : fila?.oficinaId ? [fila.oficinaId] : [])
+      .filter((id) => oficinas.some((o) => o.id === id)); // sedes borradas: fuera
+  }
+  const miOficina = misSedes[0] ?? null;
 
   // Vistas estancas (supabase/oficinas-estanco.sql) : un membre affecté à une sede
   // ne voit QUE la sienne, en base. Lui proposer les autres dans le sélecteur
   // n'ouvrirait que des écrans vides — on ne lui offre donc que la sienne, et le
   // sélecteur s'efface tout seul (il se cache en dessous de 2 options).
-  if (miOficina) {
-    const mia = oficinas.filter((o) => o.id === miOficina);
-    return { activa: miOficina, oficinas: mia, miOficina, autoId, incluirSinSede: miOficina === autoId };
+  if (misSedes.length > 0) {
+    // Membre ancré : ses pastilles = SES sedes ; « Todas » = l'union de ses sedes.
+    const mias = oficinas.filter((o) => misSedes.includes(o.id));
+    const brutoAncla = (await cookies()).get(COOKIE_OFICINA)?.value ?? null;
+    const activaAncla = brutoAncla && misSedes.includes(brutoAncla) ? brutoAncla : null;
+    const sedes = activaAncla ? [activaAncla] : misSedes;
+    return {
+      activa: activaAncla,
+      oficinas: mias,
+      miOficina,
+      autoId,
+      sedes,
+      incluirSinSede: sedes.includes(autoId ?? "\u0000"),
+    };
   }
 
   const bruto = (await cookies()).get(COOKIE_OFICINA)?.value ?? null;
@@ -58,5 +81,5 @@ export async function resolverOficina(): Promise<FiltroOficina> {
     activa = miOficina;                                       // par défaut : sa propre sede
   }
 
-  return { activa, oficinas, miOficina, autoId, incluirSinSede: activa !== null && activa === autoId };
+  return { activa, oficinas, miOficina, autoId, sedes: activa ? [activa] : null, incluirSinSede: activa !== null && activa === autoId };
 }

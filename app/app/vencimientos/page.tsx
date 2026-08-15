@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function VencimientosPage() {
   const t = await getT();
   const filtroSede = await resolverOficina();
-  const vencimientos = await fetchVencimientos(filtroSede.activa, filtroSede.incluirSinSede);
+  const vencimientos = await fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede);
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Vencimientos")}</h1>

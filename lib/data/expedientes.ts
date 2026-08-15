@@ -46,20 +46,20 @@ type ResumenRow = {
 };
 
 // `oficinaId` = sede regardée (multi-oficina). null → tout le despacho, comme avant.
-export async function fetchExpedientesResumen(oficinaId?: string | null, incluirSinSede = false): Promise<ExpedienteResumen[]> {
+export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSinSede = false): Promise<ExpedienteResumen[]> {
   const supabase = await createSupabaseServer();
   // Le filtre s'applique à CHAQUE cran de la chaîne de replis — sans ça, un repli
   // (migration absente) ramènerait silencieusement tout le despacho.
   // `any` assumé : les 4 selects diffèrent en colonnes, donc en type de builder ;
   // les typer génériquement fait exploser l'inférence de supabase-js (TS2589).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // incluirSinSede (pastille de la gestoría) : l'historique jamais estampillé est à elle.
-  const conFiltro = <T,>(q: T): T =>
-    oficinaId
-      ? (incluirSinSede
-          ? (q as any).or(`oficinaId.eq.${oficinaId},oficinaId.is.null`)
-          : (q as any).eq("oficinaId", oficinaId))
-      : q;
+  // `sedes` = une ou plusieurs oficinas (membre multi-sedes) ; incluirSinSede
+  // (la gestoría en fait partie) ajoute l'historique jamais estampillé.
+  const conFiltro = <T,>(q: T): T => {
+    if (!sedes?.length) return q;
+    const dentro = `oficinaId.in.(${sedes.join(",")})`;
+    return incluirSinSede ? (q as any).or(`${dentro},oficinaId.is.null`) : (q as any).or(dentro);
+  };
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
   const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado)";

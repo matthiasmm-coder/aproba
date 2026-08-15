@@ -9,7 +9,7 @@ export const metadata = { title: "Expedientes" };
 export default async function Board({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
   const { filtro } = await searchParams;
   const filtroSede = await resolverOficina();
-  const expedientes = await fetchExpedientesResumen(filtroSede.activa, filtroSede.incluirSinSede);
+  const expedientes = await fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede);
 
   const items: BoardItem[] = expedientes.map((e) => ({
     id: e.id,

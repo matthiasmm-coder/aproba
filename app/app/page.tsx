@@ -44,16 +44,16 @@ export default async function Dashboard() {
   // Sede regardée : filtre les KPI et le travail du jour. La checklist d'onboarding
   // reste au niveau du DESPACHO — « crea tu primer expediente » ne doit pas se
   // décocher parce qu'on regarde une sede qui vient d'ouvrir.
-  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false }));
+  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const activa = filtroSede.activa;
   const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos] = await Promise.all([
     supabase.auth.getUser(),
-    fetchExpedientesResumen(activa, filtroSede.incluirSinSede),
+    fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchChecklist(supabase, t),
     // Agenda semanal: 90 días hacia atrás para poder navegar a semanas pasadas.
     fetchProximasCitas({ desdeDias: 90, max: 300 }),
     fetchClientesMin(),
-    fetchVencimientos(activa, filtroSede.incluirSinSede), // KPI «Caducan pronto» (Vigía visible desde Inicio)
+    fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede), // KPI «Caducan pronto» (Vigía visible desde Inicio)
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
   const items: DashItem[] = expedientes.map((e) => ({

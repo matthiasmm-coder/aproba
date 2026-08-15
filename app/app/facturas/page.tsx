@@ -24,10 +24,10 @@ export default async function Facturas() {
   // multi-oficina : les facturas estampillées suivent leur sede ; les non estampillées
   // (manuelles, antérieures à la fase 6) comptent pour la gestoría — jamais masquées
   // en vue « Todas ». Le tampon existe depuis la fase 6, le filtre devient possible.
-  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false }));
+  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const [facturas, cobros, despacho, esAdmin] = await Promise.all([
-    fetchFacturas(filtroSede.activa, filtroSede.incluirSinSede),
-    fetchCobrosPendientes(filtroSede.activa, filtroSede.incluirSinSede),
+    fetchFacturas(filtroSede.sedes, filtroSede.incluirSinSede),
+    fetchCobrosPendientes(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchDespacho(),
     esAdminActual(),
   ]);

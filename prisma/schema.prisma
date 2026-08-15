@@ -248,7 +248,8 @@ model Membership {
   userId      String
   workspaceId String
   role        Role      @default(GESTOR)
-  oficinaId   String? // multi-oficina: sede del usuario (NULL = todas)
+  oficinaId   String? // PRIMARIA (= oficinaIds[0]); los admins siempre null
+  oficinaIds  String[] @default([]) // varias sedes (gestor/asistente); vacío = todas // multi-oficina: sede del usuario (NULL = todas)
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -170,16 +170,18 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
     setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, role: role as RolId } : x)));
   }
 
-  async function asignarOficina(m: Miembro, oficinaId: string) {
+  // Multi-sedes : chaque case cochée/décochée renvoie le array COMPLET (la primaire
+  // = la première). Les administrateurs ne passent jamais ici (badge fixe « Todas »).
+  async function asignarOficinas(m: Miembro, oficinaIds: string[]) {
     setFilaError(null);
     setFilaBusy(m.membershipId);
     const res = await fetch("/api/oficinas", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "asignar", membershipId: m.membershipId, oficinaId: oficinaId || null }) });
+      body: JSON.stringify({ action: "asignar", membershipId: m.membershipId, oficinaIds }) });
     const data = await res.json().catch(() => ({}));
     setFilaBusy(null);
     if (!res.ok) { setFilaError(String(data.error ?? t("No se pudo asignar la oficina."))); return; }
-    const nuevo = (data.oficinaId as string | null) ?? null;
-    setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, oficinaId: nuevo } : x)));
+    const nuevos = (data.oficinaIds as string[] | undefined) ?? [];
+    setMiembros((prev) => prev.map((x) => (x.membershipId === m.membershipId ? { ...x, oficinaIds: nuevos, oficinaId: nuevos[0] ?? null } : x)));
     router.refresh(); // los contadores «N usuarios» de la lista de oficinas, justo debajo
   }
 
@@ -429,20 +431,47 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
                 </div>
 
                 <div className="flex items-center gap-2 pl-12 sm:pl-0">
-                  {/* Sede: la puede cambiar un administrador sobre CUALQUIERA —incluido él
-                      mismo y el propietario—, al revés que el rol, que nadie se cambia a sí
-                      mismo. Los demás la ven en gris: saber quién está dónde no es un secreto. */}
+                  {/* Sede — regla: los ADMINISTRADORES nunca se anclan (ver todo es el
+                      sentido de ser admin) → etiqueta fija. Gestores/asistentes: una o
+                      VARIAS oficinas, con casillas. Los no-admins lo ven en gris. */}
                   {oficinas.length > 1 && (
-                    <select
-                      value={m.oficinaId ?? ""}
-                      disabled={!puedeGestionar || filaBusy === m.membershipId}
-                      onChange={(e) => asignarOficina(m, e.target.value)}
-                      title={t("Oficina del miembro. «Todas» ve el trabajo de todas las oficinas.")}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:w-44 sm:flex-none sm:text-sm outline-none focus:border-aproba-600 disabled:opacity-60"
-                    >
-                      <option value="">{t("Todas las oficinas")}</option>
-                      {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                    </select>
+                    (m.role === "OWNER" || m.role === "ADMIN") ? (
+                      <span className="min-w-0 flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-[13px] font-medium text-slate-400 sm:w-44 sm:flex-none"
+                        title={t("Los administradores ven todas las oficinas.")}>
+                        {t("Todas las oficinas")}
+                      </span>
+                    ) : (
+                      <details className="relative min-w-0 flex-1 sm:w-44 sm:flex-none">
+                        <summary className={`flex cursor-pointer list-none items-center justify-between gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[16px] sm:text-sm ${filaBusy === m.membershipId ? "opacity-60" : ""} ${!puedeGestionar ? "pointer-events-none opacity-60" : ""}`}>
+                          <span className="truncate">
+                            {(m.oficinaIds?.length ?? 0) === 0
+                              ? t("Todas las oficinas")
+                              : oficinas.filter((o) => m.oficinaIds.includes(o.id)).map((o) => o.nombre).join(" · ")}
+                          </span>
+                          <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </summary>
+                        <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                          {oficinas.map((o) => (
+                            <label key={o.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={m.oficinaIds?.includes(o.id) ?? false}
+                                disabled={filaBusy === m.membershipId}
+                                onChange={(e) => {
+                                  const actual = m.oficinaIds ?? [];
+                                  asignarOficinas(m, e.target.checked ? [...actual, o.id] : actual.filter((x) => x !== o.id));
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 accent-aproba-600"
+                              />
+                              <span className="truncate">{o.nombre}</span>
+                            </label>
+                          ))}
+                          <p className="mt-1 border-t border-slate-100 px-2 pt-1.5 text-[11px] text-slate-400">
+                            {t("Sin marcar ninguna: ve todas las oficinas.")}
+                          </p>
+                        </div>
+                      </details>
+                    )
                   )}
                   {/* Columna de ROL de ancho fijo: la pastilla «Administrador» es más
                       estrecha que el selector, y sin ancho fijo cada fila empujaba su

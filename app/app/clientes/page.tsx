@@ -39,13 +39,15 @@ export default async function Clientes() {
   // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
   // Chaque cran ne retire QUE le morceau le plus récent (mêmes règles que fetchDespacho).
   // Sede regardée (multi-oficina) : le filtre part dans la requête, pas après coup.
-  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, incluirSinSede: false }));
-  const { activa, incluirSinSede } = filtroSede;
+  const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
+  const { incluirSinSede } = filtroSede;
   const q = (cols: string) => {
     const base = supabase.from("Cliente").select(cols).order("nombre");
-    if (!activa) return base;
+    const sedes = filtroSede.sedes;
+    if (!sedes?.length) return base;
+    const dentro = `oficinaId.in.(${sedes.join(",")})`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return incluirSinSede ? (base as any).or(`oficinaId.eq.${activa},oficinaId.is.null`) : base.eq("oficinaId", activa);
+    return (base as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
   };
   let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");

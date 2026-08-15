@@ -76,18 +76,19 @@ function mapRow(f: Row): Factura {
 // `oficinaId` (pastillas multi-oficina) : facturas estampillées de cette sede ;
 // `incluirSinSede` (pastille de la gestoría) ajoute les non estampillées — les
 // manuelles et les antérieures à la fase 6 sont comptablement les siennes.
-export async function fetchFacturas(oficinaId?: string | null, incluirSinSede = false): Promise<Factura[]> {
+export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = false): Promise<Factura[]> {
   const supabase = await createSupabaseServer();
-  const filtro = <T,>(q: T): T =>
-    oficinaId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (incluirSinSede ? (q as any).or(`oficinaId.eq.${oficinaId},oficinaId.is.null`) : (q as any).eq("oficinaId", oficinaId))
-      : q;
+  const filtro = <T,>(q: T): T => {
+    if (!sedes?.length) return q;
+    const dentro = `oficinaId.in.(${sedes.join(",")})`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
+  };
   try {
     const data = await selectFacturas((cols) => filtro(supabase.from("Factura").select(cols)).order("numero", { ascending: false }));
     return ((data ?? []) as unknown as Row[]).map(mapRow);
   } catch (e) {
-    if (oficinaId && e instanceof Error && /oficinaId/i.test(e.message)) {
+    if (sedes?.length && e instanceof Error && /oficinaId/i.test(e.message)) {
       const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }));
       return ((data ?? []) as unknown as Row[]).map(mapRow);
     }
@@ -126,15 +127,15 @@ export type CobroPendiente = {
   expedienteId: string | null; // para el recordatorio (null → factura manual sin expediente)
 };
 
-export async function fetchCobrosPendientes(oficinaId?: string | null, incluirSinSede = false): Promise<CobroPendiente[]> {
+export async function fetchCobrosPendientes(sedes?: string[] | null, incluirSinSede = false): Promise<CobroPendiente[]> {
   const supabase = await createSupabaseServer();
   const cols = "id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId";
   const base = () => {
     const q = supabase.from("Factura").select(cols).in("estado", ["EMITIDA", "VENCIDA"]);
-    return oficinaId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (incluirSinSede ? (q as any).or(`oficinaId.eq.${oficinaId},oficinaId.is.null`) : (q as any).eq("oficinaId", oficinaId))
-      : q;
+    if (!sedes?.length) return q;
+    const dentro = `oficinaId.in.(${sedes.join(",")})`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
   };
   // Una factura archivada ya no se persigue: se excluye de los cobros. Repli SOLO si falta la
   // columna archivadoAt (factura-archivado.sql sin aplicar); un error transitorio se re-lanza
