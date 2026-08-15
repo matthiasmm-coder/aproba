@@ -25,7 +25,7 @@ export type EmisorResuelto = {
   deOficina: boolean;           // true si el bloque salió de la oficina
 };
 
-export type FiscalOficina = { razonSocial?: string | null; nif?: string | null; domicilio?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null };
+export type FiscalOficina = { razonSocial?: string | null; nif?: string | null; domicilio?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null; logoUrl?: string | null };
 
 // ¿Tiene la oficina identidad fiscal PROPIA? (razón social o NIF → bloque completo suyo)
 export const oficinaConIdentidad = (f: FiscalOficina | null): boolean =>
@@ -49,11 +49,14 @@ export function emisorDesdeFiscal<B extends { nombre: string; nif: string | null
 
 export async function fiscalDeOficina(cli: Cli, oficinaId: string): Promise<FiscalOficina | null> {
   try {
-    const { data, error } = await cli.from("Oficina")
+    let res = await cli.from("Oficina")
+      .select("razonSocial, nif, domicilio, emailFacturacion, prefijoSerie, logoUrl")
+      .eq("id", oficinaId).maybeSingle();
+    if (res.error) res = await cli.from("Oficina")
       .select("razonSocial, nif, domicilio, emailFacturacion, prefijoSerie")
       .eq("id", oficinaId).maybeSingle();
-    if (error || !data) return null;
-    return data as FiscalOficina;
+    if (res.error || !res.data) return null;
+    return res.data as FiscalOficina;
   } catch { return null; }
 }
 
@@ -71,7 +74,9 @@ export async function emisorParaOficina(cli: Cli, workspaceId: string, oficinaId
   const base = await emisorDelDespacho(cli, workspaceId);
   const fiscal = oficinaId ? await fiscalDeOficina(cli, oficinaId) : null;
   const m = emisorDesdeFiscal({ nombre: base.nombre, nif: base.nif, domicilio: base.domicilio, email: base.email }, fiscal);
-  return { ...m, logo: base.logo, prefijoSerie: (fiscal?.prefijoSerie ?? "").trim() };
+  // El logo es independiente de la identidad fiscal: una sede puede tener su logo
+  // aunque facture con los datos del despacho.
+  return { ...m, logo: (fiscal?.logoUrl ?? "").trim() || base.logo, prefijoSerie: (fiscal?.prefijoSerie ?? "").trim() };
 }
 
 // Oficina efectiva de una factura: la estampada, y si no la de su expediente

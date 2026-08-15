@@ -35,8 +35,11 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
     const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
     const sede = await oficinaDeFacturaFila(supa, { oficinaId: f.oficinaId ?? null, expedienteId: f.expedienteId ?? null });
     if (sede) {
-      const em = emisorDesdeFiscal({ nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion }, await fiscalDeOficina(supa, sede));
-      if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo: d.logoUrl };
+      const fiscal = await fiscalDeOficina(supa, sede);
+      const em = emisorDesdeFiscal({ nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion }, fiscal);
+      const logoSede = (fiscal?.logoUrl ?? "").trim() || d.logoUrl;
+      if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo: logoSede };
+      else if (logoSede !== d.logoUrl) emisor = { ...emisor, logo: logoSede };
     }
   } catch { /* migración fase 6 ausente → emisor del despacho */ }
 

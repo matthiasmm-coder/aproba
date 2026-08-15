@@ -272,6 +272,7 @@ model Oficina {
   domicilio        String?
   emailFacturacion String?
   prefijoSerie     String? // «DG» → serie DG-2026-0001 (vacío = serie común)
+  logoUrl          String? // logo de facturación propio (null → logo del despacho)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

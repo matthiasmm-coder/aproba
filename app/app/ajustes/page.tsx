@@ -159,24 +159,38 @@ export default async function Ajustes() {
               /* fase 6 — con 2+ oficinas, cada sede elige sus datos, su cuenta y su tarjeta.
                  Con 0-1 oficinas el conmutador se esfuma y esto ES la sección de siempre. */
               <FacturacionPorOficina
-                principalNombre={despachoNombre}
                 comun={<>
                   <DespachoFacturacion inicial={despacho} />
                   <CuentasBancarias inicial={cuentas.filter((c) => !c.oficinaId)} />
                   <CobroTarjetaConfig />
                 </>}
-                oficinas={oficinas.map((o) => ({
-                  id: o.id,
-                  nombre: o.nombre,
-                  panel: <>
-                    <OficinaFacturacion oficinaId={o.id} nombre={o.nombre} inicial={{
-                      razonSocial: o.razonSocial ?? "", nif: o.nif ?? "", domicilio: o.domicilio ?? "",
-                      emailFacturacion: o.emailFacturacion ?? "", prefijoSerie: o.prefijoSerie ?? "",
-                    }} />
-                    <CuentasBancarias inicial={cuentas.filter((c) => c.oficinaId === o.id)} oficinaId={o.id} />
-                    <CobroTarjetaConfig oficinaId={o.id} />
-                  </>,
-                }))}
+                oficinas={oficinas.map((o) => o.orden === -1
+                  ? {
+                      /* La oficina de la gestoría (fila automática): edita los datos
+                         históricos del despacho — encabezado, cuentas y tarjeta de
+                         siempre — que además sirven de respaldo a las demás sedes. */
+                      id: o.id,
+                      nombre: o.nombre,
+                      nota: `${o.nombre}: ${t("los datos de la gestoría. Sirven de respaldo para cualquier otra oficina sin datos propios.")}`,
+                      panel: <>
+                        <DespachoFacturacion inicial={despacho} />
+                        <CuentasBancarias inicial={cuentas.filter((c) => !c.oficinaId)} />
+                        <CobroTarjetaConfig />
+                      </>,
+                    }
+                  : {
+                      id: o.id,
+                      nombre: o.nombre,
+                      nota: `${t("Configuración de")} ${o.nombre}: ${t("sus facturas, su hoja de encargo y los cobros de sus clientes usarán estos datos. Lo que dejes vacío cae en los datos de la gestoría.")}`,
+                      panel: <>
+                        <OficinaFacturacion oficinaId={o.id} nombre={o.nombre} logoInicial={o.logoUrl} inicial={{
+                          razonSocial: o.razonSocial ?? "", nif: o.nif ?? "", domicilio: o.domicilio ?? "",
+                          emailFacturacion: o.emailFacturacion ?? "", prefijoSerie: o.prefijoSerie ?? "",
+                        }} />
+                        <CuentasBancarias inicial={cuentas.filter((c) => c.oficinaId === o.id)} oficinaId={o.id} />
+                        <CobroTarjetaConfig oficinaId={o.id} />
+                      </>,
+                    })}
               />
             ) : (
               <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3 text-sm text-slate-500">
