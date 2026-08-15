@@ -23,7 +23,7 @@ const ESTADOS = ["pendiente", "confirmada", "realizada", "cancelada"];
 //                del host para etiquetar el email.
 // En ambos: email del cliente, hora y duración OBLIGATORIOS (la invitación que
 // recibe el cliente debe poder abrirse). El lugar se fuerza a «Videollamada».
-type CuerpoCita = { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string; cobrar?: boolean; cobroTransferencia?: boolean; cobroTarjeta?: boolean };
+type CuerpoCita = { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string; cobrar?: boolean; cobroTransferencia?: boolean; cobroTarjeta?: boolean; oficinaId?: string };
 
 // ─── Cobro de la cita ────────────────────────────────────────────────────────
 // Marcar «cobrar» emite una FACTURA de verdad (numeración del año, IVA, listado de
@@ -34,7 +34,7 @@ type Cobro = NonNullable<Parameters<typeof enviarConfirmacionCitaPrevia>[0]["cob
 
 async function emitirFacturaCita(
   admin: ReturnType<typeof createSupabaseAdmin>,
-  o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null; creadorId?: string | null },
+  o: { workspaceId: string; clienteId: string | null; nombre: string; precio: number; fecha: string; motivo: string | null; creadorId?: string | null; sedeExplicita?: string | null },
 ): Promise<{ facturaId: string; numero: string; total: number; oficinaId: string | null } | null> {
   const total = r2(o.precio);
   if (!(total > 0)) return null;
@@ -50,6 +50,8 @@ async function emitirFacturaCita(
     } catch { oficinaCita = null; }
   }
   // cita sin cliente (nombre libre) o cliente sin sede → sede de trabajo del creador
+  // Sede elegida en el selector del modal (cita sin cliente creada desde «Todas»).
+  if (!oficinaCita && o.sedeExplicita) oficinaCita = o.sedeExplicita;
   if (!oficinaCita && o.creadorId) {
     try {
       const { oficinaDelUsuario } = await import("@/lib/oficinas-server");
@@ -201,6 +203,23 @@ export async function POST(req: Request) {
   if (!mem) return NextResponse.json({ error: "No perteneces a ningún despacho." }, { status: 403 });
   const gestoria = (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace)?.nombre ?? "Tu gestoría";
 
+  // «Todas» es una vista de LECTURA también aquí: una cita SIN cliente creada desde
+  // «Todas» (≥2 oficinas) exige elegir sede en el modal — de ella dependen la serie,
+  // la cuenta y la tarjeta de su factura. Con cliente vinculado manda SU sede.
+  const sedeExplicita = typeof body.oficinaId === "string" && body.oficinaId.trim() ? body.oficinaId.trim() : null;
+  if (sedeExplicita) {
+    const { sedeElegible } = await import("@/lib/oficinas-server");
+    if (!(await sedeElegible(createSupabaseAdmin(), user.id, sedeExplicita, mem.workspaceId as string))) {
+      return NextResponse.json({ error: "Esa oficina no es válida para tu usuario." }, { status: 400 });
+    }
+  } else if (!body.clienteId?.trim()) {
+    const { contextoDeCreacion } = await import("@/lib/oficinas-server");
+    const ctx = await contextoDeCreacion(createSupabaseAdmin(), user.id, mem.workspaceId as string);
+    if (ctx.requerida) {
+      return NextResponse.json({ error: "Estás en «Todas» (solo lectura). Elige la oficina de la cita." }, { status: 400 });
+    }
+  }
+
   // Modo automático: crear la reunión de Meet ANTES del insert — si Google falla,
   // el gestor recibe un mensaje accionable y puede pasar al modo manual sin perder nada.
   let googleEventoId: string | null = null;
@@ -252,7 +271,7 @@ export async function POST(req: Request) {
     const admin = createSupabaseAdmin();
     const emitida = await emitirFacturaCita(admin, {
       workspaceId: mem.workspaceId as string, clienteId: fila.clienteId, nombre,
-      precio: fila.precio, fecha, motivo: fila.motivo, creadorId: user.id,
+      precio: fila.precio, fecha, motivo: fila.motivo, creadorId: user.id, sedeExplicita,
     });
     if (emitida) {
       const medios = await datosCobro(admin, mem.workspaceId as string, {

@@ -38,7 +38,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, caducanPronto = 0, caducadas = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; caducanPronto?: number; caducadas?: number; hoy: string }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; hoy: string }) {
   const t = useT();
   const router = useRouter();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
@@ -59,7 +59,16 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
   const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => ph.estados.includes(e.estado)).length }));
   const maxFase = Math.max(1, ...porFase.map((p) => p.count));
 
-  const carga = Object.entries(activos.reduce<Record<string, number>>((acc, e) => { acc[e.asignadoA] = (acc[e.asignadoA] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
+  // La carga depende de la sede mirada (los items YA vienen filtrados por la pastilla):
+  // en una sede concreta, filas = miembros DE esa sede (con su 0: sirve para repartir
+  // trabajo) + quien realmente lleve carga en la vista (un admin, o un compañero de
+  // otra sede con un expediente aquí — ocultarlo mentiría sobre quién lo lleva).
+  const cargaPorNombre = activos.reduce<Record<string, number>>((acc, e) => { acc[e.asignadoA] = (acc[e.asignadoA] ?? 0) + 1; return acc; }, {});
+  const miembrosVista = sedesVista
+    ? equipo.filter((m) => !m.esAdmin && m.sedes.some((s) => sedesVista.includes(s))).map((m) => m.nombre)
+    : []; // «Todas»: como siempre, solo quien lleva carga (sin 0s — la lista sería larga)
+  const nombresCarga = [...new Set([...miembrosVista, ...Object.keys(cargaPorNombre)])];
+  const carga = nombresCarga.map((n): [string, number] => [n, cargaPorNombre[n] ?? 0]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const maxCarga = Math.max(1, ...carga.map(([, n]) => n));
 
   // 4 KPI, todos CLICABLES (antes ninguno lo era). «Caducan pronto» expone Vigía desde
@@ -126,6 +135,7 @@ export function DashboardClient({ items, usuario, citas, clientes, caducanPronto
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Carga del equipo · activos")}</h2>
           <div className="space-y-2.5">
+            {carga.length === 0 && <p className="text-sm text-slate-400">{t("Esta oficina aún no tiene miembros asignados.")}</p>}
             {carga.map(([nombre, n]) => (
               <div key={nombre} className="flex items-center gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-semibold text-aproba-700">{initials(nombre)}</span>

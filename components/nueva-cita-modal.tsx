@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { TelefonoInput } from "@/components/telefono-input";
 import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 import type { ClienteMin } from "@/lib/data/citas";
@@ -62,6 +63,9 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   const edicion = Boolean(citaId);
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState<string | null>(null);
+  // «Todas» = lectura: una cita SIN cliente necesita sede (serie/cuenta/tarjeta de su
+  // factura). Con cliente vinculado manda la sede del cliente y el selector se oculta.
+  const [sedeCreacion, setSedeCreacion] = useState<{ sede: string | null; requerida: boolean }>({ sede: null, requerida: false });
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [fecha, setFecha] = useState("");
@@ -182,9 +186,13 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
   async function crear() {
     setBusy(true); setError(null);
     try {
+      if (!edicion && !clienteId && sedeCreacion.requerida && !sedeCreacion.sede) {
+        throw new Error(t("Estás en «Todas» (solo lectura). Elige la oficina de la cita."));
+      }
       const notif = notificar && Boolean(email.trim());
       const datos = {
         clienteId, nombre, email, telefono, fecha, hora, duracion,
+        oficinaId: !edicion && !clienteId && sedeCreacion.requerida ? sedeCreacion.sede : undefined,
         precio: precio.trim() ? Number(precio) : undefined,
         lugar: esVideo ? "Videollamada" : lugar,
         motivo, notas,
@@ -256,6 +264,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
               className={fld}
             />
             {clienteId && <span className="mt-1 inline-block text-[11px] font-medium text-aproba-700">✓ {t("Cliente vinculado")}</span>}
+            {!edicion && !clienteId && <div className="mt-2 [&>div]:mb-0"><SelectorSedeCreacion onEstado={setSedeCreacion} /></div>}
             {foco && matches.length > 0 && (
               <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
                 {matches.map((c) => (

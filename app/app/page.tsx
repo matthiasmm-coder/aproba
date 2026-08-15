@@ -56,6 +56,27 @@ export default async function Dashboard() {
     fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede), // KPI «Caducan pronto» (Vigía visible desde Inicio)
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
+
+  // Equipo para la «Carga del equipo»: la carga mostrada debe depender de la sede
+  // mirada — en «Oficina Barcelona» solo los miembros DE Barcelona (con su 0 si no
+  // llevan nada), no los de Zaragoza. Los admins no están anclados: aparecen solo
+  // si llevan carga en la vista. RLS enseña todas las membresías del despacho.
+  let equipo: { nombre: string; esAdmin: boolean; sedes: string[] }[] = [];
+  try {
+    let res = await supabase.from("Membership").select("role, oficinaId, oficinaIds, user:User(nombre)");
+    if (res.error) res = await supabase.from("Membership").select("role, oficinaId, user:User(nombre)") as typeof res;
+    equipo = (res.data ?? []).flatMap((m) => {
+      const fila = m as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null; user?: { nombre: string | null } | { nombre: string | null }[] | null };
+      const u = Array.isArray(fila.user) ? fila.user[0] : fila.user;
+      if (!u?.nombre) return [];
+      return [{
+        nombre: u.nombre,
+        esAdmin: fila.role === "OWNER" || fila.role === "ADMIN",
+        sedes: fila.oficinaIds?.length ? fila.oficinaIds : fila.oficinaId ? [fila.oficinaId] : [],
+      }];
+    });
+  } catch { equipo = []; }
+  const sedesVista = activa ? [activa] : filtroSede.sedes;
   const items: DashItem[] = expedientes.map((e) => ({
     id: e.id,
     clienteNombre: e.clienteNombre,
@@ -75,7 +96,7 @@ export default async function Dashboard() {
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} caducanPronto={caducanPronto} caducadas={caducadas} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} hoy={new Date().toISOString().slice(0, 10)} />
     </>
   );
 }
