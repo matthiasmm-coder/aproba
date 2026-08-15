@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ex": "vitest run lib/ex-forms.test.ts",
-    "audit:forms": "node --loader ./scripts/ts-loader.mjs scripts/audit-ex-forms.mjs"
+    "audit:forms": "node --loader ./scripts/ts-loader.mjs scripts/audit-ex-forms.mjs",
+    "e2e": "node scripts/e2e/run.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
