@@ -136,9 +136,8 @@ export default async function Ajustes() {
                           tabla="ServicioConfig"
                           propios={scopeServicios.get(o.id)?.propios ?? false}
                           comoOficinaId={null}
-                          conPuntero={false}
-                          otras={otrasDe(o.id).filter((x) => oficinas.find((y) => y.id === x.id)?.orden !== -1 ? (scopeServicios.get(x.id)?.propios ?? false) : true)}
-                          accionPersonalizar="duplicarServicios"
+                          conDuplicarServicios
+                          fuentesAvisos={sedes.filter((x) => x.id !== o.id && (scopeServicios.get(x.id)?.propios ?? false)).map((x) => ({ id: x.id, nombre: x.nombre, avisos: [] }))}
                           editor={<ServiciosManager inicial={scopeServicios.get(o.id)?.servicios ?? []} oficinaId={o.id} sinPacks />}
                         />
                       ),
@@ -172,10 +171,11 @@ export default async function Ajustes() {
                           tabla="AvisoConfig"
                           propios={scopeAvisos.get(o.id)?.propios ?? false}
                           comoOficinaId={o.avisosComoOficinaId}
-                          conPuntero
-                          otras={otrasDe(o.id)}
-                          accionPersonalizar={null}
-                          semillaAvisos={avisos}
+                          fuentesAvisos={[
+                            { id: null, nombre: t("la gestoría"), avisos },
+                            ...sedes.filter((x) => x.id !== o.id && (scopeAvisos.get(x.id)?.propios ?? false)).map((x) => ({ id: x.id, nombre: x.nombre, avisos: scopeAvisos.get(x.id)?.avisos ?? [] })),
+                            ...oficinas.filter((x) => x.orden === -1 && x.id !== o.id).map((x) => ({ id: x.id, nombre: x.nombre, avisos })),
+                          ]}
                           editor={<AvisosManager inicial={scopeAvisos.get(o.id)?.avisos ?? avisos} oficinaId={o.id} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} />}
                         />
                       ),
@@ -227,7 +227,31 @@ export default async function Ajustes() {
                             oficinaId={o.id}
                             nombre={o.nombre}
                             comoOficinaId={o.encargoComoOficinaId}
-                            otras={otrasDe(o.id)}
+                            fuentes={[
+                              /* la gestoría (bloc du despacho) + les sedes avec bloc propre */
+                              { id: null, nombre: t("la gestoría"), bloque: {
+                                hojaEncargoActiva: Boolean(despacho.hojaEncargoActiva),
+                                mandatarioNombre: despacho.mandatarioNombre ?? "", mandatarioDni: despacho.mandatarioDni ?? "",
+                                mandatarioColegiado: despacho.mandatarioColegiado ?? "", mandatarioColegio: despacho.mandatarioColegio ?? "",
+                                encargoFormasPago: despacho.encargoFormasPago ?? "",
+                              } },
+                              ...oficinas.filter((x) => x.id !== o.id && (x.orden === -1 || x.hojaEncargoActiva !== null)).map((x) => ({
+                                id: x.id, nombre: x.nombre,
+                                bloque: x.orden === -1
+                                  ? {
+                                      hojaEncargoActiva: Boolean(despacho.hojaEncargoActiva),
+                                      mandatarioNombre: despacho.mandatarioNombre ?? "", mandatarioDni: despacho.mandatarioDni ?? "",
+                                      mandatarioColegiado: despacho.mandatarioColegiado ?? "", mandatarioColegio: despacho.mandatarioColegio ?? "",
+                                      encargoFormasPago: despacho.encargoFormasPago ?? "",
+                                    }
+                                  : {
+                                      hojaEncargoActiva: Boolean(x.hojaEncargoActiva),
+                                      mandatarioNombre: x.mandatarioNombre ?? "", mandatarioDni: x.mandatarioDni ?? "",
+                                      mandatarioColegiado: x.mandatarioColegiado ?? "", mandatarioColegio: x.mandatarioColegio ?? "",
+                                      encargoFormasPago: x.encargoFormasPago ?? "",
+                                    },
+                              })),
+                            ]}
                             inicial={{
                               hojaEncargoActiva: o.hojaEncargoActiva,
                               mandatarioNombre: o.mandatarioNombre ?? "",
@@ -341,6 +365,11 @@ export default async function Ajustes() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Despacho")}</h3>
               <div className="mt-4 space-y-3 text-sm">
                 <RenombrarDespacho nombre={despachoNombre} puedeEditar={puedeEditar} />
+                {oficinas.length >= 2 && (
+                  <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                    {t("Independiente de los nombres de las oficinas: puede ser una holding, una entidad central o una de tus oficinas.")}
+                  </p>
+                )}
                 <div className="flex justify-between"><span className="text-slate-500">{t("Tipo")}</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Plan")}</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
               </div>
