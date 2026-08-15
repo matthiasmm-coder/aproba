@@ -18,8 +18,8 @@ import { TelefonoInput } from "@/components/telefono-input";
 // Famille : UN seul expediente couvre toute la famille ; le client remplit la ficha de
 // chaque membre et téléverse les documents (les communs une seule fois).
 
-type ClienteRow = { id: string; nombre: string; apellidos: string | null; telefono: string | null; nacionalidad: string | null };
-type FamiliaRow = { id: string; nombre: string; miembros: number };
+type ClienteRow = { id: string; nombre: string; apellidos: string | null; telefono: string | null; nacionalidad: string | null; oficinaId?: string | null };
+type FamiliaRow = { id: string; nombre: string; miembros: number; sinSede: boolean };
 
 const STEP_LABELS = ["Cliente", "Enlace"];
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -75,18 +75,22 @@ export function NuevoExpediente() {
   useEffect(() => {
     (async () => {
       const supabase = createSupabaseBrowser();
-      const [{ data: cli }, { data: mem }] = await Promise.all([
-        supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad").order("nombre"),
-        supabase.from("Membership").select("Workspace(nombre)").limit(1).maybeSingle(),
-      ]);
-      setClientes((cli ?? []) as ClienteRow[]);
+      let cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad, oficinaId").order("nombre");
+      if (cliRes.error) cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad").order("nombre") as typeof cliRes;
+      const { data: mem } = await supabase.from("Membership").select("Workspace(nombre)").limit(1).maybeSingle();
+      setClientes((cliRes.data ?? []) as ClienteRow[]);
       const ws = mem ? (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace) : null;
       if (ws?.nombre) setGestoriaNombre(ws.nombre as string);
 
       // Familias del workspace (repli propre si la table n'existe pas encore).
       try {
-        const { data: fams } = await supabase.from("Familia").select("id, nombre, clientes:Cliente(id)").order("nombre");
-        setFamilias(((fams ?? []) as unknown as { id: string; nombre: string; clientes: { id: string }[] | null }[]).map((f) => ({ id: f.id, nombre: f.nombre, miembros: (f.clientes ?? []).length })));
+        let famRes = await supabase.from("Familia").select("id, nombre, clientes:Cliente(id, oficinaId)").order("nombre");
+        if (famRes.error) famRes = await supabase.from("Familia").select("id, nombre, clientes:Cliente(id)").order("nombre") as typeof famRes;
+        setFamilias(((famRes.data ?? []) as unknown as { id: string; nombre: string; clientes: { id: string; oficinaId?: string | null }[] | null }[]).map((f) => ({
+          id: f.id, nombre: f.nombre, miembros: (f.clientes ?? []).length,
+          // familia «sin sede» = NINGÚN miembro anclado (el expediente hereda vía oficinaDeFamilia)
+          sinSede: !(f.clientes ?? []).some((c) => c.oficinaId),
+        })));
       } catch { /* sans familles */ }
 
       // La suscripción da el plan Y el día ancla del ciclo de facturación (la cuota se
@@ -127,6 +131,11 @@ export function NuevoExpediente() {
     return familias.filter((f) => norm(f.nombre).includes(nq));
   }, [q, familias]);
 
+  // Nace algo sin oficina: cliente nuevo, o cliente/familia EXISTENTE sin sede — en ese
+  // caso la sede elegida ADOPTA al cliente (el expediente hereda; el invariante
+  // «expediente = sede del cliente» se mantiene).
+  const necesitaSede = modoNuevo || (!!seleccionado && !seleccionado.oficinaId) || (familiaSel?.sinSede ?? false);
+
   const canCrear = !creando && (
     modoNuevo
       ? (tipoNuevo === "familia" ? nuevaFam.nombre.trim().length > 0 : nuevo.nombre.trim().length > 0)
@@ -139,7 +148,7 @@ export function NuevoExpediente() {
     setCreando(true);
     setError(null);
     try {
-      if (modoNuevo && sedeCreacion.requerida && !sedeCreacion.sede) {
+      if (necesitaSede && sedeCreacion.requerida && !sedeCreacion.sede) {
         throw new Error(t("Estás en «Todas» (solo lectura). Elige la oficina en la que trabajas."));
       }
       let body: Record<string, unknown>;
@@ -163,7 +172,7 @@ export function NuevoExpediente() {
         body = { clienteId: seleccionado!.id };
       }
 
-      if (modoNuevo && sedeCreacion.requerida && sedeCreacion.sede) body.oficinaId = sedeCreacion.sede;
+      if (necesitaSede && sedeCreacion.requerida && sedeCreacion.sede) body.oficinaId = sedeCreacion.sede;
       const res = await fetch("/api/expedientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el expediente. Vuelve a intentarlo."));
@@ -302,6 +311,14 @@ export function NuevoExpediente() {
                 })}
                 {filtrados.length === 0 && famFiltradas.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">{t("Sin resultados. ¿Es un")} <button onClick={() => setModoNuevo(true)} className="font-semibold text-aproba-700 hover:underline">{t("cliente nuevo")}</button>?</p>}
               </div>
+              {/* Cliente/familia existente SIN oficina: la sede elegida lo adopta (y el
+                  expediente la hereda). Con cliente ya anclado no se pregunta nada. */}
+              {necesitaSede && !modoNuevo && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs text-slate-500">{familiaSel ? t("Esta familia no tiene oficina asignada: se asignará a la que elijas.") : t("Este cliente no tiene oficina asignada: se asignará a la que elijas.")}</p>
+                  <SelectorSedeCreacion onEstado={setSedeCreacion} />
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-4">

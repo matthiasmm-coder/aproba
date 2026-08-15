@@ -12,6 +12,7 @@ export type VencimientoRow = {
   fecha: string; // ISO
   dias: number; // días hasta caducar (negativo = ya caducó)
   estado: string; // PENDIENTE | AVISADO | TRAMITANDO | HECHO
+  clienteSinSede: boolean; // «Iniciar renovación» debe pedir oficina (adopción del cliente)
   renovacion: { id: string; referencia: string } | null; // expediente de renovación en marcha
 };
 
@@ -37,7 +38,7 @@ export async function fetchVencimientos(sedes?: string[] | null, incluirSinSede 
     const ahora = Date.now();
     return ((data ?? []) as unknown as {
       id: string; clienteId: string; tipo: string; fecha: string; estado: string;
-      cliente: { nombre: string | null; apellidos: string | null } | { nombre: string | null; apellidos: string | null }[] | null;
+      cliente: { nombre: string | null; apellidos: string | null; oficinaId?: string | null } | { nombre: string | null; apellidos: string | null; oficinaId?: string | null }[] | null;
       renovacion: { id: string; referencia: string } | { id: string; referencia: string }[] | null;
     }[]).map((v) => {
       const c = uno(v.cliente);
@@ -52,6 +53,7 @@ export async function fetchVencimientos(sedes?: string[] | null, incluirSinSede 
         tipo: v.tipo,
         fecha: v.fecha,
         dias: Math.ceil((new Date(v.fecha).getTime() - ahora) / 864e5),
+        clienteSinSede: !c?.oficinaId,
         estado,
         renovacion,
       };

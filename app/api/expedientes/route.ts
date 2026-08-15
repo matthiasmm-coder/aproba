@@ -79,6 +79,17 @@ export async function POST(req: Request) {
     const { data: fam } = await admin.from("Familia").select("id").eq("id", famId).eq("workspaceId", workspaceId).maybeSingle();
     if (!fam) return NextResponse.json({ error: "Familia no encontrada." }, { status: 404 });
     const { data: miembros } = await admin.from("Cliente").select("id, parentesco").eq("familiaId", famId).eq("workspaceId", workspaceId);
+    // Familia SIN sede (ningún miembro anclado): la sede del contexto/selector la ADOPTA
+    // entera — el expediente hereda del titular y el invariante se mantiene. Desde
+    // «Todas» sin elegir, se rechaza: nada nace sin oficina por accidente.
+    if (!(await oficinaDeFamilia(admin, famId))) {
+      if (ctx.requerida && !miSede) {
+        return NextResponse.json({ error: "Esta familia no tiene oficina. Estás en «Todas» (solo lectura): elige la oficina que la llevará." }, { status: 400 });
+      }
+      if (miSede) {
+        try { await admin.from("Cliente").update({ oficinaId: miSede }).eq("familiaId", famId).eq("workspaceId", workspaceId).is("oficinaId", null); } catch { /* columna sin migrar */ }
+      }
+    }
     const titular = (miembros ?? []).find((m) => m.parentesco === "TITULAR") ?? (miembros ?? [])[0] ?? null;
     if (titular) {
       clienteId = titular.id as string;
@@ -115,8 +126,21 @@ export async function POST(req: Request) {
       });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     } else {
-      const { data: c } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
+      // ⚠️ el SELECT debe traer oficinaId — sin la columna, «sin sede» sería indistinguible.
+      let cRes = await admin.from("Cliente").select("id, oficinaId").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
+      if (cRes.error) cRes = await admin.from("Cliente").select("id").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle() as typeof cRes;
+      const c = cRes.data as { id: string; oficinaId?: string | null } | null;
       if (!c) return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
+      // Cliente existente SIN oficina: la sede del contexto/selector lo ADOPTA (el
+      // expediente hereda). Desde «Todas» sin elegir → 400, como el resto de creaciones.
+      if (!c.oficinaId && "oficinaId" in (c as object)) {
+        if (ctx.requerida && !miSede) {
+          return NextResponse.json({ error: "Este cliente no tiene oficina. Estás en «Todas» (solo lectura): elige la oficina que lo llevará." }, { status: 400 });
+        }
+        if (miSede) {
+          try { await admin.from("Cliente").update({ oficinaId: miSede }).eq("id", clienteId).eq("workspaceId", workspaceId); } catch { /* columna sin migrar */ }
+        }
+      }
       if (familiaId) await admin.from("Cliente").update(familia).eq("id", clienteId).eq("workspaceId", workspaceId);
     }
   }

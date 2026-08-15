@@ -3,7 +3,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { cobrarOverageSiProcede } from "@/lib/overage";
-import { oficinaDelCliente } from "@/lib/oficinas-server";
+import { oficinaDelCliente, contextoDeCreacion, sedeElegible } from "@/lib/oficinas-server";
 import { enviarAvisoRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -43,7 +43,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const workspaceId = String(venc.workspaceId);
   const clienteId = String(venc.clienteId);
-  const oficinaId = await oficinaDelCliente(admin, clienteId); // multi-oficina
+  let oficinaId = await oficinaDelCliente(admin, clienteId); // multi-oficina
+  // Cliente SIN oficina: la renovación lo ADOPTA en la sede elegida (body.oficinaId,
+  // mandado por la UI) o en la pastilla activa. Desde «Todas» con ≥2 oficinas → 400:
+  // el expediente y la factura de anticipo no deben nacer sin sede por accidente.
+  if (!oficinaId) {
+    let sedeExplicita: string | null = null;
+    try {
+      const body = await req.json().catch(() => ({}));
+      if (typeof body?.oficinaId === "string" && body.oficinaId.trim()) sedeExplicita = body.oficinaId.trim();
+    } catch { sedeExplicita = null; }
+    if (sedeExplicita && !(await sedeElegible(admin, user.id, sedeExplicita, workspaceId))) {
+      return NextResponse.json({ error: "Esa oficina no es válida para tu usuario." }, { status: 400 });
+    }
+    const ctx = await contextoDeCreacion(admin, user.id, workspaceId);
+    const sede = sedeExplicita ?? ctx.sede;
+    if (!sede && ctx.requerida) {
+      return NextResponse.json({ error: "Este cliente no tiene oficina. Estás en «Todas» (solo lectura): elige la pastilla de la oficina que llevará la renovación." }, { status: 400 });
+    }
+    if (sede) {
+      try { await admin.from("Cliente").update({ oficinaId: sede }).eq("id", clienteId).eq("workspaceId", workspaceId); } catch { /* columna sin migrar */ }
+      oficinaId = sede;
+    }
+  }
   const expedienteId = uuid();
 
   // Servicio «Renovación de TIE» del workspace (si está activo) → tarifa/docs correctos

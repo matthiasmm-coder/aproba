@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { VencimientoRow } from "@/lib/data/vencimientos";
 import { fmtFechaCorta } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 // VIGÍA — lista agrupada de vencimientos + acción «Iniciar renovación».
 // Al iniciar: (1) POST /api/vencimientos/[id]/renovar → expediente nuevo + aviso al
@@ -23,6 +24,22 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   const [borrando, setBorrando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creado, setCreado] = useState<{ vencId: string; expedienteId: string; referencia: string; factura: "enviada" | "sin_tarifa" | "fallo" } | null>(null);
+  // Cliente sin oficina + despacho multi-oficina: «Iniciar renovación» lo ADOPTA en la
+  // pastilla activa (anunciado en el confirm) — y desde «Todas» se pide elegir antes.
+  const [sedeCtx, setSedeCtx] = useState<{ multi: boolean; activa: string | null; nombreActiva: string | null }>({ multi: false, activa: null, nombreActiva: null });
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createSupabaseBrowser();
+        const { data: ofis } = await supabase.from("Oficina").select("id, nombre");
+        const todas = (ofis ?? []) as { id: string; nombre: string }[];
+        if (todas.length < 2) return;
+        const cookie = document.cookie.split("; ").find((c) => c.startsWith("aproba_oficina="))?.split("=")[1] ?? null;
+        const activa = cookie && cookie !== "todas" && todas.some((o) => o.id === cookie) ? cookie : null;
+        setSedeCtx({ multi: true, activa, nombreActiva: todas.find((o) => o.id === activa)?.nombre ?? null });
+      } catch { /* mono-oficina o sin migrar */ }
+    })();
+  }, []);
 
   const grupos = useMemo<Grupo[]>(() => {
     const filtro = q.trim().toLowerCase();
@@ -39,15 +56,30 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   }, [vencimientos, q, t]);
 
   async function iniciar(v: VencimientoRow) {
+    // Cliente sin oficina en un despacho multi-oficina: desde «Todas» hay que elegir
+    // pastilla primero; con pastilla activa, la renovación ADOPTA al cliente en ella.
+    if (v.clienteSinSede && sedeCtx.multi && !sedeCtx.activa) {
+      await confirmar({
+        titulo: t("Elige una oficina"),
+        mensaje: t("{nombre} no tiene oficina asignada y estás en «Todas» (vista de lectura). Elige arriba la pastilla de la oficina que llevará la renovación y vuelve a intentarlo.").replace("{nombre}", v.clienteNombre),
+        confirmarLabel: t("Entendido"),
+      });
+      return;
+    }
+    const adopta = v.clienteSinSede && sedeCtx.multi && sedeCtx.activa;
     // El clic dispara 3 efectos reales (expediente + aviso al cliente + anticipo):
     // se anuncian ANTES — un mis-tap en el móvil no debe notificar a un cliente.
     if (!(await confirmar(
-      t("Se creará el expediente de renovación, se avisará a {nombre} en su idioma y, si el servicio tiene tarifa, se emitirá la factura de anticipo. ¿Continuar?").replace("{nombre}", v.clienteNombre),
+      t("Se creará el expediente de renovación, se avisará a {nombre} en su idioma y, si el servicio tiene tarifa, se emitirá la factura de anticipo. ¿Continuar?").replace("{nombre}", v.clienteNombre)
+      + (adopta ? " " + t("El cliente no tiene oficina: se asignará a «{oficina}».").replace("{oficina}", sedeCtx.nombreActiva ?? "") : ""),
     ))) return;
     setLanzando(v.id);
     setError(null);
     try {
-      const res = await fetch(`/api/vencimientos/${v.id}/renovar`, { method: "POST" });
+      const res = await fetch(`/api/vencimientos/${v.id}/renovar`, {
+        method: "POST",
+        ...(adopta ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ oficinaId: sedeCtx.activa }) } : {}),
+      });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo iniciar la renovación."));
       // Anticipo: si el servicio tiene tarifa, emite la factura + email IBAN. El resultado
