@@ -39,23 +39,22 @@ export function FacturacionPorOficina({
           </button>
         ))}
       </div>
-      {activa === "comun" ? (
-        <>
-          <p className="mb-4 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2 text-xs text-slate-500">
-            {t("Datos y cuentas COMUNES: se usan para las facturas de clientes sin oficina y como respaldo cuando una oficina no tiene los suyos propios.")}
+      {/* TODOS los paneles montados, ocultos por CSS: cambiar de pestaña no pierde
+          lo tecleado en las otras (un NIF a medio escribir sobrevive al vistazo). */}
+      <div className={activa === "comun" ? "" : "hidden"}>
+        <p className="mb-4 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2 text-xs text-slate-500">
+          {t("Datos y cuentas COMUNES: se usan para las facturas de clientes sin oficina y como respaldo cuando una oficina no tiene los suyos propios.")}
+        </p>
+        {comun}
+      </div>
+      {oficinas.map((o) => (
+        <div key={o.id} className={activa === o.id ? "" : "hidden"}>
+          <p className="mb-4 rounded-lg border border-aproba-200 bg-aproba-50/60 px-3 py-2 text-xs text-aproba-800">
+            {t("Configuración de")} <strong>{o.nombre}</strong>: {t("sus facturas, su hoja de encargo y los cobros de sus clientes usarán estos datos. Lo que dejes vacío cae en lo común del despacho.")}
           </p>
-          {comun}
-        </>
-      ) : (
-        oficinas.map((o) => (
-          <div key={o.id} className={activa === o.id ? "" : "hidden"}>
-            <p className="mb-4 rounded-lg border border-aproba-200 bg-aproba-50/60 px-3 py-2 text-xs text-aproba-800">
-              {t("Configuración de")} <strong>{o.nombre}</strong>: {t("sus facturas, su hoja de encargo y los cobros de sus clientes usarán estos datos. Lo que dejes vacío cae en lo común del despacho.")}
-            </p>
-            {o.panel}
-          </div>
-        ))
-      )}
+          {o.panel}
+        </div>
+      ))}
     </div>
   );
 }
