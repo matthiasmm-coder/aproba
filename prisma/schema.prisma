@@ -203,11 +203,13 @@ model ServicioConfig {
   anticipo    Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al firmar
   resto       Decimal  @default(0) @db.Decimal(10, 2) // € sin IVA, al finalizar
   noIncluye   String? // «servicios no incluidos» de la hoja de encargo (por servicio)
+  oficinaId   String? // null = catálogo de la gestoría; con id = catálogo PROPIO de esa sede
   orden       Int      @default(0)
   updatedAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, clave])
+  // Unicidad por ámbito vía índices parciales (ver supabase/config-por-oficina.sql):
+  // (ws, clave) where oficinaId is null · (ws, oficinaId, clave) where not null.
   @@index([workspaceId])
 }
 
@@ -220,11 +222,12 @@ model AvisoConfig {
   template    String
   canal       String   @default("whatsapp") // whatsapp | email
   activo      Boolean  @default(true)
+  oficinaId   String? // null = avisos de la gestoría; con id = los PROPIOS de esa sede
   orden       Int      @default(0)
   updatedAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, clave])
+  // Unicidad por ámbito vía índices parciales (supabase/config-por-oficina.sql).
   @@index([workspaceId])
 }
 
@@ -273,6 +276,16 @@ model Oficina {
   emailFacturacion String?
   prefijoSerie     String? // «DG» → serie DG-2026-0001 (vacío = serie común)
   logoUrl          String? // logo de facturación propio (null → logo del despacho)
+  // Hoja de encargo/mandato por sede (hojaEncargoActiva null = heredar de la gestoría)
+  hojaEncargoActiva   Boolean?
+  mandatarioNombre    String?
+  mandatarioDni       String?
+  mandatarioColegiado String?
+  mandatarioColegio   String?
+  encargoFormasPago   String?
+  // «Usar los mismos que otra oficina» (un salto, sin cadenas)
+  avisosComoOficinaId  String?
+  encargoComoOficinaId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

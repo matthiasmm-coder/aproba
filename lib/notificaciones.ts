@@ -138,12 +138,43 @@ export async function dispararAviso(
   opts: { workspaceId: string; expedienteId: string; clave: string; vars?: Record<string, string>; baseUrl?: string },
 ): Promise<void> {
   try {
-    const { data: row } = await admin
-      .from("AvisoConfig")
-      .select("evento, template, canal, activo")
-      .eq("workspaceId", opts.workspaceId)
-      .eq("clave", opts.clave)
-      .maybeSingle();
+    // MULTI-OFICINA — résolution de l'aviso : (1) la sede de l'expediente, en suivant
+    // le pointeur « usar los mismos que X » (un salto), (2) sinon les avisos de la
+    // gestoría (filas null), (3) sinon le défaut. Fail-soft à chaque étage.
+    let sedeAviso: string | null = null;
+    if (opts.expedienteId) {
+      try {
+        const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", opts.expedienteId).maybeSingle();
+        sedeAviso = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+        if (sedeAviso) {
+          const { data: of } = await admin.from("Oficina").select("avisosComoOficinaId").eq("id", sedeAviso).maybeSingle();
+          const ref = ((of as { avisosComoOficinaId?: string | null } | null)?.avisosComoOficinaId ?? null) || null;
+          if (ref) sedeAviso = ref; // un seul salto, jamais de chaînes
+        }
+      } catch { sedeAviso = null; }
+    }
+    let row: { evento: string; template: string; canal: string; activo: boolean } | null = null;
+    if (sedeAviso) {
+      try {
+        const { data: propio } = await admin.from("AvisoConfig")
+          .select("evento, template, canal, activo")
+          .eq("workspaceId", opts.workspaceId).eq("oficinaId", sedeAviso).eq("clave", opts.clave)
+          .maybeSingle();
+        row = (propio as typeof row) ?? null;
+      } catch { row = null; }
+    }
+    if (!row) {
+      let base = await admin.from("AvisoConfig")
+        .select("evento, template, canal, activo")
+        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
+        .is("oficinaId", null)
+        .maybeSingle();
+      if (base.error) base = await admin.from("AvisoConfig")
+        .select("evento, template, canal, activo")
+        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
+        .maybeSingle(); // migración ausente
+      row = (base.data as typeof row) ?? null;
+    }
     // Repli sur le défaut si le workspace n'a pas (encore) personnalisé cet aviso →
     // les avisos fonctionnent out-of-the-box, sans config manuelle préalable.
     const def = DEFAULT_AVISOS.find((a) => a.id === opts.clave);
@@ -269,7 +300,13 @@ export async function enviarSeguimiento(
     let faltanDocs = false;
     try {
       if (ws?.id) {
-        const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+        const sedeNtf = await (async () => {
+        try {
+          const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", opts.expedienteId).maybeSingle();
+          return ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+        } catch { return null; }
+      })();
+      const servicios = await fetchServiciosDeWorkspace(admin, ws.id, sedeNtf);
         const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
         faltanDocs = docsFaltantes(requeridos, exp.documentos ?? []).length > 0;
       }
@@ -734,7 +771,13 @@ export async function enviarRecordatorioDocs(
 
     let faltantes: string[] = [];
     if (ws?.id) {
-      const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+      const sedeNtf = await (async () => {
+        try {
+          const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", opts.expedienteId).maybeSingle();
+          return ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+        } catch { return null; }
+      })();
+      const servicios = await fetchServiciosDeWorkspace(admin, ws.id, sedeNtf);
       const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
       faltantes = docsFaltantes(requeridos, exp.documentos ?? []);
     }

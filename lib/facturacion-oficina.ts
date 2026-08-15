@@ -123,3 +123,19 @@ export async function prefijoDeExpediente(cli: Cli, expedienteId: string): Promi
     return (fiscal?.prefijoSerie ?? "").trim();
   } catch { return ""; }
 }
+
+// Porte «hoja de encargo» EFFECTIVE d'un expediente : décision de sa sede si elle en a
+// une (pointeur «usar los mismos que X» compris, un salto), sinon celle du despacho.
+export async function hojaEncargoActivaEfectiva(cli: Cli, workspaceId: string, oficinaId: string | null, delDespacho: boolean): Promise<boolean> {
+  if (!oficinaId) return delDespacho;
+  try {
+    const { data: of } = await cli.from("Oficina").select("hojaEncargoActiva, encargoComoOficinaId").eq("id", oficinaId).maybeSingle();
+    let fila = of as { hojaEncargoActiva?: boolean | null; encargoComoOficinaId?: string | null } | null;
+    const ref = fila?.encargoComoOficinaId ?? null;
+    if (ref) {
+      const { data: dest } = await cli.from("Oficina").select("hojaEncargoActiva").eq("id", ref).maybeSingle();
+      if (dest) fila = dest as typeof fila;
+    }
+    return fila?.hojaEncargoActiva ?? delDespacho;
+  } catch { return delDespacho; }
+}

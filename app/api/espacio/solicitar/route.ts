@@ -56,7 +56,13 @@ export async function POST(req: Request) {
   const workspaceId = cliente.workspaceId;
 
   // Servicios pedidos → validados contra el catálogo ACTIVO del despacho.
-  const catalogo = await fetchServiciosDeWorkspace(admin, workspaceId);
+  // multi-oficina: el catálogo (y sus precios) es el de la sede del cliente.
+  let sedeCliente: string | null = null;
+  try {
+    const { data: cs } = await admin.from("Cliente").select("oficinaId").eq("id", cliente.id).maybeSingle();
+    sedeCliente = ((cs as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+  } catch { sedeCliente = null; }
+  const catalogo = await fetchServiciosDeWorkspace(admin, workspaceId, sedeCliente);
   const activos = new Map(catalogo.filter((s) => s.active).map((s) => [s.id, s] as const));
   const servicios = pedidos.filter((s) => activos.has(s));
   if (!servicios.length) return fail("Ese servicio ya no está disponible. Recarga la página.");

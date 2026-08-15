@@ -59,7 +59,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // asume el gestor, acude el gestor) — misma regla que la ficha, /s y la agenda.
     let quien: "cliente" | "gestor" = "cliente";
     if (ws) {
-      const servicios = await fetchServiciosDeWorkspace(admin, ws);
+      let sedeExp: string | null = null;
+      try {
+        const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", id).maybeSingle();
+        sedeExp = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+      } catch { sedeExp = null; }
+      const servicios = await fetchServiciosDeWorkspace(admin, ws, sedeExp);
       quien = citaDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipoEnum }, servicios)).citaQuien;
     }
 

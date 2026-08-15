@@ -11,8 +11,8 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 // El canal es ÚNICO en la plataforma: email. El selector Email/WhatsApp/Ambos se retiró
 // (2026-07-26, WhatsApp apagado por coste/complejidad — ver WHATSAPP_PLATAFORMA en
 // lib/whatsapp.ts); Workspace.canalAvisos sigue en base para el día que vuelva.
-export function AvisosManager({ inicial, envioEmailActivo = false }: {
-  inicial: Aviso[]; envioEmailActivo?: boolean; envioWhatsAppActivo?: boolean; canalInicial?: CanalAvisos;
+export function AvisosManager({ inicial, envioEmailActivo = false, oficinaId = null }: {
+  inicial: Aviso[]; envioEmailActivo?: boolean; envioWhatsAppActivo?: boolean; canalInicial?: CanalAvisos; oficinaId?: string | null;
 }) {
   const t = useT();
   // On force le canal (legacy per-aviso) email — le canal réel est global au workspace.
@@ -29,7 +29,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false }: {
     setSaveState("saving");
     const tm = window.setTimeout(async () => {
       try {
-        await guardarAvisos(avisos);
+        await guardarAvisos(avisos, oficinaId);
         setSaveState("saved");
         window.setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1500);
       } catch {

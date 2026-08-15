@@ -80,7 +80,35 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   const ws = (wsRes.data ?? {}) as Record<string, unknown>;
   if (!ws.nombre) return null;
 
-  const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
+  // MULTI-OFICINA — hoja de encargo/mandato de la SEDE : si la oficina del expediente
+  // (o la que apunta con «usar los mismos que X», un salto) tiene decisión propia
+  // (hojaEncargoActiva no null), SU bloque manda: activa + mandatario + formas de pago.
+  // Si no, el del despacho. El emisor fiscal ya se resuelve más abajo por su cuenta.
+  if (exp.oficinaId) {
+    try {
+      const { data: of } = await admin.from("Oficina")
+        .select("hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago, encargoComoOficinaId")
+        .eq("id", exp.oficinaId).maybeSingle();
+      let bloque = of as Record<string, unknown> | null;
+      const ref = (bloque?.encargoComoOficinaId as string | null) ?? null;
+      if (ref) {
+        const { data: dest } = await admin.from("Oficina")
+          .select("hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
+          .eq("id", ref).maybeSingle();
+        if (dest) bloque = dest as Record<string, unknown>;
+      }
+      if (bloque && bloque.hojaEncargoActiva !== null && bloque.hojaEncargoActiva !== undefined) {
+        ws.hojaEncargoActiva = bloque.hojaEncargoActiva;
+        ws.mandatarioNombre = bloque.mandatarioNombre ?? null;
+        ws.mandatarioDni = bloque.mandatarioDni ?? null;
+        ws.mandatarioColegiado = bloque.mandatarioColegiado ?? null;
+        ws.mandatarioColegio = bloque.mandatarioColegio ?? null;
+        ws.encargoFormasPago = bloque.encargoFormasPago ?? null;
+      }
+    } catch { /* migración config-por-oficina ausente → bloque del despacho */ }
+  }
+
+  const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null);
   // El PRINCIPAL debe resolver (si no → null → 409, como siempre); los extras que no
   // resuelvan (servicio borrado/desactivado) se omiten sin bloquear el contrato.
   const principal = catalogo.find((x) => x.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));

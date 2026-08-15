@@ -31,7 +31,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas
   // (la MÁS nueva se quita primero: serviciosAsignacion → serviciosExtra → …).
-  let res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(`oficinaId, ${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
@@ -55,7 +55,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   if (!exp || !ws) notFound();
 
   const cliente = uno(exp.cliente ?? null);
-  const servicios = await fetchServiciosDeWorkspace(admin, ws.id);
+  const servicios = await fetchServiciosDeWorkspace(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
   // Multi-servicio: principal + extras → unión de docs, cita fusionada (mismas reglas
   // que la ficha del gestor y la API — la timeline no debe prometer otra cosa).
   const serviciosExp = serviciosDeExpediente(exp, servicios);
@@ -66,7 +66,11 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   try {
     const { data: wsc } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", ws.id).maybeSingle();
     // Solo si el servicio resuelve (mismo criterio que datosEncargo) → sin dead link.
-    encargoActivo = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva) && Boolean(servicio);
+    {
+      const { hojaEncargoActivaEfectiva } = await import("@/lib/facturacion-oficina");
+      const delDespacho = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva);
+      encargoActivo = (await hojaEncargoActivaEfectiva(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null, delDespacho)) && Boolean(servicio)
+    };
   } catch { /* pre-migración */ }
   // Firma PRIMERO (mismo orden que /j y que las secciones de familia): el cliente
   // descarga en el bloque de arriba y sube en los primeros huecos de la lista.

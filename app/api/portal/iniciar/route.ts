@@ -70,7 +70,7 @@ export async function POST(req: Request) {
   // servicio suma tarifas de los servicios RESUELTOS). Mismo criterio que el gestor.
   let catalogo: { id: string }[] = [];
   try {
-    catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string);
+    catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string, ((exp as { oficinaId?: string | null }).oficinaId ?? null));
     if (catalogo.length && !catalogo.some((s) => s.id === clave)) {
       return NextResponse.json({ error: "Servicio no válido" }, { status: 400 });
     }

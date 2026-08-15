@@ -64,7 +64,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
     if (!eh) historicos = (hs ?? []) as typeof historicos;
   } catch { /* tabla aún no migrada */ }
 
-  const servicios = await fetchServiciosDeWorkspace(admin, cliente.workspaceId);
+  const servicios = await fetchServiciosDeWorkspace(admin, cliente.workspaceId, (cliente as { oficinaId?: string | null }).oficinaId ?? null);
   const labelDe = (clave: string | null, tipo: string) =>
     servicios.find((s) => s.id === (clave ?? TIPO_A_SERVICIO[tipo]))?.label ?? TIPO_LABEL[tipo] ?? tipo;
 

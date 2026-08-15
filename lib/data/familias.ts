@@ -130,7 +130,13 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
       id: string; nombre: string; workspaceId: string;
       clientes: { id: string; nombre: string | null; apellidos: string | null; parentesco: string | null; expedientes: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosAsignacion?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }[] | null }[] | null;
     };
-    const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId);
+    // multi-oficina: la familia vive en una sede (regla de creación) → su catálogo.
+    let sedeFam: string | null = null;
+    try {
+      const { data: cf } = await supabase.from("Cliente").select("oficinaId").eq("familiaId", familiaId).not("oficinaId", "is", null).limit(1).maybeSingle();
+      sedeFam = ((cf as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+    } catch { sedeFam = null; }
+    const servicios = await fetchServiciosDeWorkspace(supabase, fam.workspaceId, sedeFam);
     const miembros = (fam.clientes ?? []).slice().sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco));
     const nombreCortoDe = (m: { nombre: string | null; apellidos: string | null }) =>
       (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";

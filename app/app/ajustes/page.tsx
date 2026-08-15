@@ -1,6 +1,9 @@
 import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig } from "@/lib/data/config";
 import { fetchEquipo } from "@/lib/data/equipo";
 import { fetchOficinas } from "@/lib/data/oficinas";
+import { fetchServiciosDeScope, fetchAvisosDeScope } from "@/lib/data/config";
+import { ConfigDeOficina } from "@/components/config-de-oficina";
+import { OficinaEncargo } from "@/components/oficina-encargo";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
 import { ServiciosManager } from "@/components/servicios-manager";
 import { AvisosManager } from "@/components/avisos-manager";
@@ -76,6 +79,19 @@ export default async function Ajustes() {
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
   ]);
+  // MULTI-OFICINA — scopes des sedes NON-gestoría pour servicios/avisos (l'UI doit
+  // distinguer « propio » de « heredando ») ; la fila automática (orden -1) édite
+  // le scope común (null) de toujours.
+  const sedes = oficinas.filter((o) => o.orden !== -1);
+  const scopeServicios = new Map<string, Awaited<ReturnType<typeof fetchServiciosDeScope>>>();
+  const scopeAvisos = new Map<string, Awaited<ReturnType<typeof fetchAvisosDeScope>>>();
+  for (const o of sedes) {
+    scopeServicios.set(o.id, await fetchServiciosDeScope(o.id).catch(() => ({ servicios: [], propios: false })));
+    scopeAvisos.set(o.id, await fetchAvisosDeScope(o.id).catch(() => ({ avisos: [], propios: false })));
+  }
+  const otrasDe = (id: string) => oficinas.filter((x) => x.id !== id).map((x) => ({ id: x.id, nombre: x.nombre }));
+  const conPastillas = oficinas.length >= 2;
+
   const yo = equipo?.miembros.find((m) => m.esYo);
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
   const despachoTipo = equipo ? (TIPO_LABEL[equipo.workspace.tipo] ?? equipo.workspace.tipo) : "—";
@@ -105,7 +121,32 @@ export default async function Ajustes() {
           icon={IconServicios}
         >
           <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
-            <ServiciosManager inicial={servicios} packsInicial={packs} />
+            {conPastillas ? (
+              <FacturacionPorOficina
+                comun={<ServiciosManager inicial={servicios} packsInicial={packs} />}
+                oficinas={oficinas.map((o) => o.orden === -1
+                  ? { id: o.id, nombre: o.nombre, panel: <ServiciosManager inicial={servicios} packsInicial={packs} /> }
+                  : {
+                      id: o.id,
+                      nombre: o.nombre,
+                      panel: (
+                        <ConfigDeOficina
+                          oficinaId={o.id}
+                          nombre={o.nombre}
+                          tabla="ServicioConfig"
+                          propios={scopeServicios.get(o.id)?.propios ?? false}
+                          comoOficinaId={null}
+                          conPuntero={false}
+                          otras={otrasDe(o.id).filter((x) => oficinas.find((y) => y.id === x.id)?.orden !== -1 ? (scopeServicios.get(x.id)?.propios ?? false) : true)}
+                          accionPersonalizar="duplicarServicios"
+                          editor={<ServiciosManager inicial={scopeServicios.get(o.id)?.servicios ?? []} oficinaId={o.id} sinPacks />}
+                        />
+                      ),
+                    })}
+              />
+            ) : (
+              <ServiciosManager inicial={servicios} packsInicial={packs} />
+            )}
           </fieldset>
         </AjustesSection>
 
@@ -116,12 +157,38 @@ export default async function Ajustes() {
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
-            <AvisosManager
-              inicial={avisos}
-              envioEmailActivo={Boolean(process.env.RESEND_API_KEY)}
-              envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)}
-              canalInicial={despacho.canalAvisos}
-            />
+            {conPastillas ? (
+              <FacturacionPorOficina
+                comun={<AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)} canalInicial={despacho.canalAvisos} />}
+                oficinas={oficinas.map((o) => o.orden === -1
+                  ? { id: o.id, nombre: o.nombre, panel: <AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)} canalInicial={despacho.canalAvisos} /> }
+                  : {
+                      id: o.id,
+                      nombre: o.nombre,
+                      panel: (
+                        <ConfigDeOficina
+                          oficinaId={o.id}
+                          nombre={o.nombre}
+                          tabla="AvisoConfig"
+                          propios={scopeAvisos.get(o.id)?.propios ?? false}
+                          comoOficinaId={o.avisosComoOficinaId}
+                          conPuntero
+                          otras={otrasDe(o.id)}
+                          accionPersonalizar={null}
+                          semillaAvisos={avisos}
+                          editor={<AvisosManager inicial={scopeAvisos.get(o.id)?.avisos ?? avisos} oficinaId={o.id} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} />}
+                        />
+                      ),
+                    })}
+              />
+            ) : (
+              <AvisosManager
+                inicial={avisos}
+                envioEmailActivo={Boolean(process.env.RESEND_API_KEY)}
+                envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)}
+                canalInicial={despacho.canalAvisos}
+              />
+            )}
           </fieldset>
         </AjustesSection>
 
@@ -132,17 +199,49 @@ export default async function Ajustes() {
             subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
             icon={IconEncargo}
           >
-            <EncargoConfig
-              inicial={{
-                hojaEncargoActiva: despacho.hojaEncargoActiva,
-                mandatarioNombre: despacho.mandatarioNombre ?? "",
-                mandatarioDni: despacho.mandatarioDni ?? "",
-                mandatarioColegiado: despacho.mandatarioColegiado ?? "",
-                mandatarioColegio: despacho.mandatarioColegio ?? "",
-                encargoFormasPago: despacho.encargoFormasPago ?? "",
-                mandatoPropio: Boolean(despacho.mandatoPropioPath),
-              }}
-            />
+            {(() => {
+              const panelDespacho = (
+                <EncargoConfig
+                  inicial={{
+                    hojaEncargoActiva: despacho.hojaEncargoActiva,
+                    mandatarioNombre: despacho.mandatarioNombre ?? "",
+                    mandatarioDni: despacho.mandatarioDni ?? "",
+                    mandatarioColegiado: despacho.mandatarioColegiado ?? "",
+                    mandatarioColegio: despacho.mandatarioColegio ?? "",
+                    encargoFormasPago: despacho.encargoFormasPago ?? "",
+                    mandatoPropio: Boolean(despacho.mandatoPropioPath),
+                  }}
+                />
+              );
+              if (!conPastillas) return panelDespacho;
+              return (
+                <FacturacionPorOficina
+                  comun={panelDespacho}
+                  oficinas={oficinas.map((o) => o.orden === -1
+                    ? { id: o.id, nombre: o.nombre, panel: panelDespacho }
+                    : {
+                        id: o.id,
+                        nombre: o.nombre,
+                        panel: (
+                          <OficinaEncargo
+                            oficinaId={o.id}
+                            nombre={o.nombre}
+                            comoOficinaId={o.encargoComoOficinaId}
+                            otras={otrasDe(o.id)}
+                            inicial={{
+                              hojaEncargoActiva: o.hojaEncargoActiva,
+                              mandatarioNombre: o.mandatarioNombre ?? "",
+                              mandatarioDni: o.mandatarioDni ?? "",
+                              mandatarioColegiado: o.mandatarioColegiado ?? "",
+                              mandatarioColegio: o.mandatarioColegio ?? "",
+                              encargoFormasPago: o.encargoFormasPago ?? "",
+                            }}
+                          />
+                        ),
+                      })}
+                />
+              );
+            })()}
           </AjustesSection>
         )}
 

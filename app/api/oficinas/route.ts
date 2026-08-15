@@ -207,5 +207,76 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // ── Duplicar el catálogo de servicios de otra sede en ESTA (para no reescribirlo) ──
+  if (action === "duplicarServicios") {
+    const destino = await mia(String(body.oficinaId ?? ""));
+    if (!destino) return fail("Oficina no encontrada.", 404);
+    // origen: otra oficina del despacho, o null/"" = el catálogo de la gestoría
+    const brutoOrigen = String(body.desdeOficinaId ?? "").trim();
+    let origen: string | null = null;
+    if (brutoOrigen) {
+      const o = await mia(brutoOrigen);
+      if (!o) return fail("Oficina de origen no encontrada.", 404);
+      if (o.id === destino.id) return fail("No puedes duplicar una oficina sobre sí misma.");
+      origen = o.id;
+    }
+    let src = admin.from("ServicioConfig").select("*").eq("workspaceId", ws);
+    src = origen ? src.eq("oficinaId", origen) : src.is("oficinaId", null);
+    const { data: filas, error: eSrc } = await src.order("orden");
+    if (eSrc) return fail(/oficinaId/i.test(eSrc.message) ? "Falta la migración: ejecuta supabase/config-por-oficina.sql." : eSrc.message, 500);
+    if (!filas?.length) return fail("La oficina de origen no tiene servicios propios que copiar.");
+    // REEMPLAZO limpio: el catálogo propio anterior de la sede se retira primero.
+    await admin.from("ServicioConfig").delete().eq("workspaceId", ws).eq("oficinaId", destino.id);
+    const copias = (filas as Record<string, unknown>[]).map((f) => ({
+      ...f,
+      id: `svc_${ws}_${destino.id}_${f.clave}`,
+      oficinaId: destino.id,
+      updatedAt: new Date().toISOString(),
+    }));
+    const { error: eIns } = await admin.from("ServicioConfig").insert(copias);
+    if (eIns) return fail(eIns.message, 500);
+    return NextResponse.json({ ok: true, copiados: copias.length });
+  }
+
+  // ── «Usar los mismos que otra oficina» (avisos / hoja de encargo): puntero de un salto ──
+  if (action === "avisosComo" || action === "encargoComo") {
+    const o = await mia(String(body.oficinaId ?? ""));
+    if (!o) return fail("Oficina no encontrada.", 404);
+    const brutoRef = String(body.comoOficinaId ?? "").trim();
+    let ref: string | null = null;
+    if (brutoRef) {
+      const dest = await mia(brutoRef);
+      if (!dest) return fail("Oficina de referencia no encontrada.", 404);
+      if (dest.id === o.id) return fail("Una oficina no puede apuntarse a sí misma.");
+      ref = dest.id;
+    }
+    const columna = action === "avisosComo" ? "avisosComoOficinaId" : "encargoComoOficinaId";
+    const { error } = await admin.from("Oficina").update({ [columna]: ref, updatedAt: new Date().toISOString() }).eq("id", o.id);
+    if (error) return fail(/ComoOficinaId|column|schema cache/i.test(error.message)
+      ? "Falta la migración: ejecuta supabase/config-por-oficina.sql." : error.message, 500);
+    return NextResponse.json({ ok: true, comoOficinaId: ref });
+  }
+
+  // ── Hoja de encargo/mandato propios de una sede ──
+  if (action === "encargo") {
+    const o = await mia(String(body.oficinaId ?? ""));
+    if (!o) return fail("Oficina no encontrada.", 404);
+    const limpio = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max) || null;
+    const patch: Record<string, unknown> = {
+      // null = heredar de la gestoría; true/false = decisión propia de la sede
+      hojaEncargoActiva: body.hojaEncargoActiva === null || body.hojaEncargoActiva === undefined ? null : Boolean(body.hojaEncargoActiva),
+      mandatarioNombre: limpio(body.mandatarioNombre, 120),
+      mandatarioDni: limpio(body.mandatarioDni, 20),
+      mandatarioColegiado: limpio(body.mandatarioColegiado, 40),
+      mandatarioColegio: limpio(body.mandatarioColegio, 120),
+      encargoFormasPago: String(body.encargoFormasPago ?? "").split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 12).join("\n") || null,
+      updatedAt: new Date().toISOString(),
+    };
+    const { error } = await admin.from("Oficina").update(patch).eq("id", o.id);
+    if (error) return fail(/hojaEncargo|mandatario|column|schema cache/i.test(error.message)
+      ? "Falta la migración: ejecuta supabase/config-por-oficina.sql." : error.message, 500);
+    return NextResponse.json({ ok: true });
+  }
+
   return fail("Acción desconocida.");
 }

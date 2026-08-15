@@ -88,7 +88,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       gestoria = exp.workspace.nombre;
       portalToken = token;
       clienteIdioma = exp.cliente?.idioma ?? "es";
-      servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id);
+      servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
       // Packs del despacho: el cliente puede elegir uno en vez de un solo trámite.
       packs = await fetchPacksDeWorkspace(admin, exp.workspace.id);
 
@@ -133,7 +133,11 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       // botones de descarga darían 409 al cliente (dead link).
       const claveServicio = exp.servicioClave ?? (exp.tipo ? TIPO_A_SERVICIO[exp.tipo] : undefined);
       const servicioResuelve = Boolean(claveServicio) && servicios.some((sv) => sv.id === claveServicio);
-      encargoActivo = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva) && servicioResuelve;
+      {
+        const { hojaEncargoActivaEfectiva } = await import("@/lib/facturacion-oficina");
+        const delDespacho = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva);
+        encargoActivo = (await hojaEncargoActivaEfectiva(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null, delDespacho)) && servicioResuelve;
+      }
       // (Los precios ocultos son ahora POR SERVICIO — ServicioConfig.precioOculto —
       // y el portal los deriva de la propia lista de servicios.)
       // Parcours déjà terminé (notif de suivi envoyée) → le lien initial ne se rejoue plus.

@@ -96,16 +96,89 @@ export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; d
 
 // Variante avec un client fourni (admin/service_role) et un workspace explicite —
 // pour le portail client (lien token) et l'API de pagos.
-export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspaceId: string): Promise<Servicio[]> {
-  let res = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
-  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CATEGORIA).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
-  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
-  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
-  if (res.error) res = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof res;
+//
+// MULTI-OFICINA : `oficinaId` = la sede de l'entité concernée (expediente/cliente).
+// Si cette sede a un catalogue PROPRE (≥1 fila avec son id), c'est lui ; sinon le
+// catalogue de la gestoría (filas oficinaId null — les historiques). Cascade de
+// catalogue ENTIER, jamais de fusion service à service : mélanger deux tarifs
+// serait indémêlable. La fila automática (gestoría) n'a jamais de filas scopées,
+// donc passer son id retombe naturellement sur le catalogue commun.
+export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspaceId: string, oficinaId: string | null = null): Promise<Servicio[]> {
+  const listar = async (sede: string | null) => {
+    const q = (cols: string) => {
+      let b = client.from("ServicioConfig").select(cols).eq("workspaceId", workspaceId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (sede !== undefined) b = (sede ? b.eq("oficinaId", sede) : (b as any).is("oficinaId", null));
+      return b.order("orden");
+    };
+    let res = await q(SELECT_SERVICIOS);
+    if (res.error) res = (await q(SELECT_SERVICIOS_SIN_CATEGORIA)) as unknown as typeof res;
+    if (res.error) res = (await q(SELECT_SERVICIOS_SIN_PRO)) as unknown as typeof res;
+    if (res.error) res = (await q(SELECT_SERVICIOS_SIN_SUPLIDOS)) as unknown as typeof res;
+    if (res.error) res = (await q(SELECT_SERVICIOS_SIN_NOINCLUYE)) as unknown as typeof res;
+    return res;
+  };
+  let res = oficinaId ? await listar(oficinaId) : { data: null, error: { message: "skip" } };
+  if ((res.error || !res.data || (res.data as unknown[]).length === 0)) res = await listar(null);
+  if (res.error && /oficinaId|column|schema cache|does not exist/i.test(res.error.message)) {
+    // migración config-por-oficina ausente → catálogo plano de siempre
+    let plano = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
+    if (plano.error) plano = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof plano;
+    res = plano as unknown as typeof res;
+  }
   const { data, error } = res;
   if (error) throw new Error(`ServicioConfig(ws): ${error.message}`);
-  if (!data || data.length === 0) return DEFAULT_SERVICIOS;
-  return (data as ServicioRow[]).map(mapServicioRow);
+  if (!data || (data as unknown[]).length === 0) return DEFAULT_SERVICIOS;
+  return (data as unknown as ServicioRow[]).map(mapServicioRow);
+}
+
+// Listado ESTRICTO de un ámbito para Ajustes (sin cascada): la página necesita
+// distinguir «esta sede tiene catálogo propio» de «está heredando el de la gestoría».
+export async function fetchServiciosDeScope(oficinaId: string | null): Promise<{ servicios: Servicio[]; propios: boolean }> {
+  const supabase = await createSupabaseServer();
+  const q = (cols: string) => {
+    let b = supabase.from("ServicioConfig").select(cols);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    b = oficinaId ? b.eq("oficinaId", oficinaId) : ((b as any).is("oficinaId", null));
+    return b.order("orden");
+  };
+  let res = await q(SELECT_SERVICIOS);
+  if (res.error) res = (await q(SELECT_SERVICIOS_SIN_CATEGORIA)) as unknown as typeof res;
+  if (res.error) res = (await q(SELECT_SERVICIOS_SIN_NOINCLUYE)) as unknown as typeof res;
+  if (res.error) {
+    // migración ausente → tout est « gestoría »
+    if (oficinaId) return { servicios: [], propios: false };
+    const plano = await fetchServiciosConfig();
+    return { servicios: plano.servicios, propios: true };
+  }
+  const filas = (res.data ?? []) as unknown as ServicioRow[];
+  if (oficinaId && filas.length === 0) return { servicios: [], propios: false };
+  if (filas.length === 0) return { servicios: DEFAULT_SERVICIOS, propios: true };
+  return { servicios: filas.map(mapServicioRow), propios: true };
+}
+
+// Avisos de un ámbito (misma lógica estricta, para las pestañas de Ajustes).
+export async function fetchAvisosDeScope(oficinaId: string | null): Promise<{ avisos: Aviso[]; propios: boolean }> {
+  const supabase = await createSupabaseServer();
+  let b = supabase.from("AvisoConfig").select("clave, evento, template, canal, activo, orden");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  b = oficinaId ? b.eq("oficinaId", oficinaId) : ((b as any).is("oficinaId", null));
+  const { data, error } = await b.order("orden");
+  if (error) {
+    if (oficinaId) return { avisos: [], propios: false };
+    const base = await fetchAvisosConfig();
+    return { avisos: base.avisos, propios: true };
+  }
+  const filas = (data ?? []) as { clave: string; evento: string; template: string; canal: string; activo: boolean; orden: number }[];
+  if (oficinaId && filas.length === 0) return { avisos: [], propios: false };
+  if (filas.length === 0) return { avisos: DEFAULT_AVISOS, propios: true };
+  return {
+    avisos: DEFAULT_AVISOS.map((d) => {
+      const f = filas.find((x) => x.clave === d.id);
+      return f ? { ...d, template: f.template, canal: (f.canal as Aviso["canal"]) ?? d.canal, activo: f.activo } : d;
+    }),
+    propios: true,
+  };
 }
 
 // Packs del workspace (Workspace.packs JSONB) — [] pre-migración o sin packs.

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     if (!ofi) return NextResponse.json({ error: "Oficina no encontrada." }, { status: 404 });
     oficinaImport = String(body.oficinaId);
   }
-  const serviciosWs = await fetchServiciosDeWorkspace(admin, workspaceId);
+  const serviciosWs = await fetchServiciosDeWorkspace(admin, workspaceId, oficinaImport);
   const catalogo = new Set(serviciosWs.map((s) => s.id));
   const catalogoLabel = new Map(serviciosWs.map((s) => [s.id, s.label] as const));
   for (const [k, v] of Object.entries(mapeo.tramites ?? {})) if (v && !catalogo.has(v)) mapeo.tramites[k] = null;

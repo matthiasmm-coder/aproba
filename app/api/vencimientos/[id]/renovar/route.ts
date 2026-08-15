@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // desde el primer momento. Repli: tipo RENOVACION sin clave (el cliente elige en /j).
   let servicioClave: string | null = null;
   try {
-    const servicios = await fetchServiciosDeWorkspace(admin, workspaceId);
+    const servicios = await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId);
     if (servicios.some((s) => s.id === "renovacion_tie" && s.active)) servicioClave = "renovacion_tie";
   } catch { /* repli */ }
 

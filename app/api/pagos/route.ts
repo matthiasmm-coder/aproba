@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     // Tarifa — config real del workspace (ServicioConfig). Multi-servicio: cada servicio
     // × SUS miembros asignados (familia heterogénea, pedido de Juan); sin asignación,
     // todos los servicios ×N — el comportamiento clásico, garantizado por tarifaAsignada.
-    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
+    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null);
     const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo }, catalogo);
     const asignacion = asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion);
     const tarifa = tarifaAsignada(serviciosExp, asignacion, nMiembros);

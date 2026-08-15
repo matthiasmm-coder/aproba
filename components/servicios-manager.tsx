@@ -113,7 +113,9 @@ export function AsaArrastre({ arrastrando, onMover, label, ...handlers }: {
   );
 }
 
-export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[]; packsInicial?: Pack[] }) {
+// `oficinaId` (multi-oficina) : édite le catalogue PROPRE de cette sede. Les packs
+// restent du despacho (Workspace.packs) → masqués sur les sedes (`sinPacks`).
+export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinPacks = false }: { inicial: Servicio[]; packsInicial?: Pack[]; oficinaId?: string | null; sinPacks?: boolean }) {
   const t = useT();
   const [servicios, setServicios] = useState<Servicio[]>(inicial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -140,7 +142,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
     const t = window.setTimeout(async () => {
       try {
         const claves = [...removed.current];
-        await guardarServicios(servicios, claves);
+        await guardarServicios(servicios, claves, oficinaId);
         claves.forEach((c) => removed.current.delete(c));
         setSaveState("saved");
         window.setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1500);
@@ -534,6 +536,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
         </button>
       </div>
 
+      {!sinPacks && (<>
       {/* ── Packs de servicios ── */}
       <div className="mt-8 border-t border-slate-200 pt-6">
         <div className="mb-1 flex items-center justify-between">
@@ -706,6 +709,7 @@ export function ServiciosManager({ inicial, packsInicial }: { inicial: Servicio[
           {t("Crear pack")}
         </button>
       </div>
+      </>)}
     </div>
   );
 }

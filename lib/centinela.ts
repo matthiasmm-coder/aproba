@@ -115,7 +115,7 @@ async function contextoExpediente(admin: SupabaseClient, expedienteId: string) {
   let requeridos: string[] = [];
   let servicioLabel = TIPO_LABEL[exp.tipo as string] ?? String(exp.tipo);
   try {
-    const servicios = await fetchServiciosDeWorkspace(admin, String(exp.workspaceId));
+    const servicios = await fetchServiciosDeWorkspace(admin, String(exp.workspaceId), ((exp as { oficinaId?: string | null }).oficinaId ?? null));
     const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: (exp as { serviciosExtra?: string[] | null }).serviciosExtra, tipo: String(exp.tipo) }, servicios);
     requeridos = docsDeServicios(serviciosExp);
     servicioLabel = labelServicios(serviciosExp, servicioLabel);

@@ -12,17 +12,27 @@ async function workspaceId(): Promise<string> {
   return data.workspaceId;
 }
 
-export async function guardarServicios(servicios: Servicio[], removedClaves: string[]): Promise<void> {
+// `oficinaId` (multi-oficina) : null = catálogo de la gestoría (filas históricas,
+// ids `svc_<ws>_<clave>` intactos) ; con id = catálogo PROPIO de esa sede (ids
+// `svc_<ws>_<oficina>_<clave>`). El upsert va por PK: la unicidad por ámbito vive
+// en índices parciales que ON CONFLICT compuesto no puede inferir.
+export async function guardarServicios(servicios: Servicio[], removedClaves: string[], oficinaId: string | null = null): Promise<void> {
   const supabase = createSupabaseBrowser();
   const ws = await workspaceId();
 
   if (removedClaves.length) {
-    const { error } = await supabase.from("ServicioConfig").delete().eq("workspaceId", ws).in("clave", removedClaves);
+    let del = supabase.from("ServicioConfig").delete().eq("workspaceId", ws).in("clave", removedClaves);
+    del = oficinaId ? del.eq("oficinaId", oficinaId) : del.is("oficinaId", null);
+    let { error } = await del;
+    if (error && /oficinaId/i.test(error.message)) {
+      ({ error } = await supabase.from("ServicioConfig").delete().eq("workspaceId", ws).in("clave", removedClaves)); // sin migrar
+    }
     if (error) throw new Error(error.message);
   }
 
-  const rows = servicios.map((s, i) => ({
-    id: `svc_${ws}_${s.id}`, // déterministe : l'upsert ne réécrit pas la PK
+  const rows: Record<string, unknown>[] = servicios.map((s, i) => ({
+    id: oficinaId ? `svc_${ws}_${oficinaId}_${s.id}` : `svc_${ws}_${s.id}`, // déterministe par ámbito
+    ...(oficinaId ? { oficinaId } : {}),
     workspaceId: ws,
     clave: s.id,
     label: s.label,
@@ -43,23 +53,26 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
-  let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "workspaceId,clave" });
+  let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "id" });
+  if (error && oficinaId && /oficinaId/i.test(error.message)) {
+    throw new Error("Falta la migración: ejecuta supabase/config-por-oficina.sql en Supabase.");
+  }
   // Replis pre-migración: quitar SOLO el tramo más reciente cada vez, para que el resto
   // de la config del servicio nunca se pierda por una columna nueva.
   // Repli categoría (migración más reciente) ANTES del repli pro: cada tramo cae solo.
   if (error && /categoria|schema cache|column/i.test(error.message)) {
     const sinCat = rows.map(({ categoria: _c, ...r }) => r);
-    ({ error } = await supabase.from("ServicioConfig").upsert(sinCat, { onConflict: "workspaceId,clave" }));
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinCat, { onConflict: "id" }));
   }
   if (error && /porcentaje|precioOculto|schema cache|column/i.test(error.message)) {
     const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, categoria: _c, ...r }) => r);
-    ({ error } = await supabase.from("ServicioConfig").upsert(sinPro, { onConflict: "workspaceId,clave" }));
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinPro, { onConflict: "id" }));
     if (error && /suplidos|schema cache|column/i.test(error.message)) {
       const sinSuplidos = sinPro.map(({ suplidos: _s, ...r }) => r);
-      ({ error } = await supabase.from("ServicioConfig").upsert(sinSuplidos, { onConflict: "workspaceId,clave" }));
+      ({ error } = await supabase.from("ServicioConfig").upsert(sinSuplidos, { onConflict: "id" }));
       if (error && /noIncluye|schema cache|column/i.test(error.message)) {
         const sinNoIncluye = sinSuplidos.map(({ noIncluye: _ni, ...r }) => r);
-        ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "workspaceId,clave" }));
+        ({ error } = await supabase.from("ServicioConfig").upsert(sinNoIncluye, { onConflict: "id" }));
       }
     }
   }
@@ -91,11 +104,13 @@ export async function guardarPacks(packs: Pack[]): Promise<void> {
   if (!res.ok) throw new Error((j as { error?: string }).error || "No se pudieron guardar los packs.");
 }
 
-export async function guardarAvisos(avisos: Aviso[]): Promise<void> {
+// `oficinaId` : null = avisos de la gestoría ; con id = los PROPIOS de esa sede.
+export async function guardarAvisos(avisos: Aviso[], oficinaId: string | null = null): Promise<void> {
   const supabase = createSupabaseBrowser();
   const ws = await workspaceId();
-  const rows = avisos.map((a, i) => ({
-    id: `avi_${ws}_${a.id}`,
+  const rows: Record<string, unknown>[] = avisos.map((a, i) => ({
+    id: oficinaId ? `avi_${ws}_${oficinaId}_${a.id}` : `avi_${ws}_${a.id}`,
+    ...(oficinaId ? { oficinaId } : {}),
     workspaceId: ws,
     clave: a.id,
     evento: a.evento,
@@ -105,6 +120,15 @@ export async function guardarAvisos(avisos: Aviso[]): Promise<void> {
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
-  const { error } = await supabase.from("AvisoConfig").upsert(rows, { onConflict: "workspaceId,clave" });
+  const { error } = await supabase.from("AvisoConfig").upsert(rows, { onConflict: "id" });
+  if (error) throw new Error(oficinaId && /oficinaId/i.test(error.message)
+    ? "Falta la migración: ejecuta supabase/config-por-oficina.sql en Supabase." : error.message);
+}
+
+// Quita el catálogo/avisos PROPIOS de una sede → vuelve a heredar de la gestoría.
+export async function borrarScope(tabla: "ServicioConfig" | "AvisoConfig", oficinaId: string): Promise<void> {
+  const supabase = createSupabaseBrowser();
+  const ws = await workspaceId();
+  const { error } = await supabase.from(tabla).delete().eq("workspaceId", ws).eq("oficinaId", oficinaId);
   if (error) throw new Error(error.message);
 }

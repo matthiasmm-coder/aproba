@@ -171,7 +171,7 @@ export async function reconciliarProgresoDocs(admin: Admin, expedienteId: string
     if (!exp || exp.familiaId) return;
     if (exp.estado !== "DOCS_PENDIENTES" && exp.estado !== "DOCS_VALIDADOS") return;
 
-    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId);
+    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, (exp as { oficinaId?: string | null }).oficinaId ?? null);
     const requeridos = docsDeServicios(serviciosDeExpediente(exp, catalogo));
     const { data: todosRaw } = await admin.from("Documento").select("estado, tipo").eq("expedienteId", exp.id);
     const todos = (todosRaw ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
