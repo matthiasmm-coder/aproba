@@ -94,7 +94,7 @@ export function CrearFamiliaCliente({ clienteId, nombreCompleto, apellidos, fami
       </p>
 
       {abierto === null && (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <button
             type="button"
             onClick={() => setAbierto("crear")}
