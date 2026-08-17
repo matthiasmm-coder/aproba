@@ -11,8 +11,9 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {} }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [] }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
+  faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
@@ -94,6 +95,37 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Formularios oficiales")}</h1>
         <p className="text-sm text-slate-500">{exp.clienteNombre} · {exp.tipoLabel}</p>
       </div>
+
+      {/* Lo que el PDF va a dejar EN BLANCO. Antes se generaba incompleto sin decir
+          nada y el gestor lo tomaba por un fallo del formulario (caso real 17/08). */}
+      {faltanPorPersona.length > 0 && (
+        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">
+            {t("Faltan datos en la ficha: el formulario saldrá con esos huecos en blanco.")}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {faltanPorPersona.map((p) => (
+              <li key={p.id} className="text-sm text-amber-900">
+                {faltanPorPersona.length > 1 && <span className="font-medium">{p.nombre}: </span>}
+                <span className="text-amber-800">{p.campos.join(" · ")}</span>
+              </li>
+            ))}
+          </ul>
+          {faltanPorPersona.length === 1 && faltanPorPersona[0].id !== "titular" ? (
+            <Link href={`/app/clientes/${faltanPorPersona[0].id}`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950">
+              {t("Completar la ficha")} →
+            </Link>
+          ) : (
+            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm font-semibold text-amber-900">
+              {faltanPorPersona.filter((p) => p.id !== "titular").map((p) => (
+                <Link key={p.id} href={`/app/clientes/${p.id}`} className="underline underline-offset-2 hover:text-amber-950">
+                  {t("Completar")} {p.nombre} →
+                </Link>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <p className="text-sm font-semibold text-slate-800">{t("Modelos del Ministerio, rellenados con los datos del expediente")}</p>

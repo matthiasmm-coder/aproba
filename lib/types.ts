@@ -54,6 +54,7 @@ export interface Expediente {
   tipoLabel: string;
   estado: ExpedienteEstado;
   clienteNombre: string;
+  clienteId?: string | null;
   clienteNacionalidad: string;
   clienteEmail?: string;
   clienteTelefono?: string;

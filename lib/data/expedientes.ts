@@ -211,7 +211,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 
 const DETALLE_SELECT =
   `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
-   cliente:Cliente(nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
+   cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
@@ -256,6 +256,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     tipoLabel: TIPO_LABEL[e.tipo] ?? e.tipo,
     estado: e.estado as ExpedienteEstado,
     clienteNombre: `${e.cliente?.nombre ?? ""} ${e.cliente?.apellidos ?? ""}`.trim() || "—",
+    // id del titular: el aviso de «faltan datos» enlaza a SU ficha para corregirla
+    clienteId: (e.cliente as unknown as { id?: string } | null)?.id ?? null,
     clienteNacionalidad: e.cliente?.nacionalidad ?? "—",
     clienteEmail: e.cliente?.email ?? "",
     clienteTelefono: e.cliente?.telefono ?? "",

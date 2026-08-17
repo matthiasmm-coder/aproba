@@ -6,6 +6,7 @@ import { formulariosDelTramite, formulariosDisponibles, P2_OPCIONES } from "@/li
 import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { FormulariosView } from "@/components/formularios-view";
+import { camposQueFaltan, FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,5 +40,21 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     return [a.id, exp.formulariosPorMiembro?.[a.id] ?? (exp.formulariosCurados ? modelos.filter((m) => iniciales.includes(m)) : modelos)];
   }));
 
-  return <FormulariosView exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // AVISO de datos que faltan: el PDF oficial se generaba INCOMPLETO en silencio
+  // (17/08/2026 — «no marca el estado civil», con ese campo vacío en la ficha).
+  // Individual: la ficha del titular. Familia: la de cada solicitante.
+  let faltanPorPersona: { id: string; nombre: string; campos: string[] }[] = [];
+  if (applicants.length) {
+    const sb = await createSupabaseServer();
+    const { data: fichas } = await sb.from("Cliente").select(FICHA_KEYS.join(", ")).in("id", applicants.map((a) => a.id));
+    const porId = Object.fromEntries(((fichas ?? []) as unknown as (ClienteFicha & { id?: string })[]).map((f, i) => [applicants[i]?.id ?? String(i), f]));
+    faltanPorPersona = applicants
+      .map((a) => ({ id: a.id, nombre: a.nombre, campos: camposQueFaltan(porId[a.id]) }))
+      .filter((x) => x.campos.length);
+  } else {
+    const campos = camposQueFaltan(exp.clienteFicha);
+    if (campos.length) faltanPorPersona = [{ id: exp.clienteId ?? "titular", nombre: exp.clienteNombre, campos }];
+  }
+
+  return <FormulariosView faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

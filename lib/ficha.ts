@@ -62,3 +62,34 @@ export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Ident
 export const GRUPOS: ("Identidad" | "Domicilio" | "Contacto")[] = ["Identidad", "Domicilio", "Contacto"];
 
 export const fichaVacia = (): ClienteFicha => Object.fromEntries(FICHA_KEYS.map((k) => [k, ""])) as ClienteFicha;
+
+// ── Datos que el formulario oficial SABE rellenar ────────────────────────────
+// Los modelos EX marcan/escriben todos estos campos desde la ficha del cliente.
+// Si están vacíos, el PDF sale incompleto — y antes eso pasaba EN SILENCIO
+// (caso real 17/08/2026: «en el formulario EX no marca el estado civil», con
+// estadoCivil y sexo vacíos en la ficha). `piso` y `apellidos`(2º) quedan fuera
+// a propósito: faltan legítimamente en muchísimas fichas y avisar de ellos sería
+// ruido. `pasaporte`/`numeroDocumento` cuentan como UNO: basta con tener uno.
+const CAMPOS_DEL_FORMULARIO: (keyof ClienteFicha)[] = [
+  "nombre", "apellidos", "sexo", "estadoCivil", "fechaNacimiento", "nacionalidad",
+  "lugarNacimiento", "paisNacimiento", "nombrePadre", "nombreMadre",
+  "via", "numeroVia", "codigoPostal", "municipio", "provincia", "telefono", "email",
+];
+
+// Devuelve las ETIQUETAS de los datos que el formulario dejará en blanco.
+// Orden estable (el de la ficha) para que el aviso no baile entre renders.
+export function camposQueFaltan(ficha: Partial<ClienteFicha> | null | undefined): string[] {
+  const f = ficha ?? {};
+  const vacio = (k: keyof ClienteFicha) => !String(f[k] ?? "").trim();
+  const faltan: string[] = [];
+  for (const c of FICHA_CAMPOS) {
+    if (!CAMPOS_DEL_FORMULARIO.includes(c.k)) continue;
+    if (vacio(c.k)) faltan.push(c.label);
+  }
+  // Documento: el formulario pide NIE y/o pasaporte; con uno de los dos no se avisa.
+  if (vacio("numeroDocumento") && vacio("pasaporte")) faltan.push("NIE o pasaporte");
+  // Padre y madre no están en FICHA_CAMPOS (se rellenan en la ficha ampliada).
+  if (vacio("nombrePadre")) faltan.push("Nombre del padre");
+  if (vacio("nombreMadre")) faltan.push("Nombre de la madre");
+  return faltan;
+}
