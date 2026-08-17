@@ -4,7 +4,7 @@
 // mais n'écrit QUE dans le workspace de test (celui de demo@aproba-software.com,
 // « Gestoría Vallès »). Toute fixture porte le préfixe ZZE2E et est nettoyée en
 // finally — même quand un check échoue. Le compteur UsoMensual est MONOTONE :
-// on le redescend d'autant d'expedientes créés.
+// on le redescend d'autant d'expedientes créés (et on DIT ce qui s'est passé).
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -113,9 +113,23 @@ export function colector() {
       for (const cl of c.clientes) await admin.from("Cliente").delete().eq("id", cl);
       for (const fa of c.familias) await admin.from("Familia").delete().eq("id", fa);
       if (c.expedientes.length) {
-        const mes = new Date().toISOString().slice(0, 7);
-        const { data: uso } = await admin.from("UsoMensual").select("expedientes").eq("workspaceId", ws).eq("mes", mes).maybeSingle();
-        if (uso) await admin.from("UsoMensual").update({ expedientes: Math.max(0, uso.expedientes - c.expedientes.length) }).eq("workspaceId", ws).eq("mes", mes);
+        // Le compteur est MONOTONE par conception (il ne baisse pas quand on supprime) ;
+        // sur le ws de TEST on le remet à son niveau d'avant le run pour ne pas fausser
+        // les vérifications de cuota/paywall.
+        // ⚠️ Deux pièges (tombés dedans le 17/08) : la colonne est `expedientesCreados`
+        // (pas `expedientes`) et la clé `mes` est le PREMIER JOUR DU CYCLE de facturation
+        // (lib/cuota), pas le mois naturel — d'où la lecture de la ligne la plus récente.
+        const { data: fila } = await admin.from("UsoMensual")
+          .select("mes, expedientesCreados").eq("workspaceId", ws)
+          .order("mes", { ascending: false }).limit(1).maybeSingle();
+        if (!fila) console.log(`  ⚠️ UsoMensual: aucune ligne à ajuster (${c.expedientes.length} expedientes créés restent comptés)`);
+        else {
+          const nuevo = Math.max(0, fila.expedientesCreados - c.expedientes.length);
+          const { error } = await admin.from("UsoMensual").update({ expedientesCreados: nuevo }).eq("workspaceId", ws).eq("mes", fila.mes);
+          console.log(error
+            ? `  ⚠️ UsoMensual: ajuste FALLIDO (${error.message})`
+            : `  UsoMensual[${fila.mes}] ${fila.expedientesCreados} → ${nuevo}`);
+        }
       }
     },
   };
