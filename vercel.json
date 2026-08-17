@@ -1,8 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/veille-ex", "schedule": "0 6 * * 1" },
-    { "path": "/api/cron/reconciliar-pagos", "schedule": "0 7 * * *" },
-    { "path": "/api/cron/uso-ia", "schedule": "30 6 * * *" }
+    {
+      "path": "/api/cron/veille-ex",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/reconciliar-pagos",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/uso-ia",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/pipeline",
+      "schedule": "0 7 * * 1-5"
+    }
   ]
 }
