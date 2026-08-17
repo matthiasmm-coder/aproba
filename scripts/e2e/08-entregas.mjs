@@ -51,6 +51,30 @@ export async function run() {
 
     const { count } = await admin.from("EntregaCuenta").select("id", { count: "exact", head: true }).eq("facturaId", facturaId);
     v.ok(count === 2, `quedan 2 entregas tras el borrado (${count})`);
+
+    // Le solde se propage-t-il aux autres surfaces ? (liste + cobros pendientes)
+    const facturaId2 = crypto.randomUUID();
+    await admin.from("Factura").insert({
+      id: facturaId2, workspaceId: ws, numero: `ZZE2E-B${Date.now() % 100000}`,
+      clienteNombre: "ZZE2E Saldo", concepto: "Prueba saldo", baseImponible: 165.29,
+      iva: 34.71, total: 200, estado: "EMITIDA", fechaEmision: new Date().toISOString(), oficinaId: madrid.id,
+    });
+    fx.factura(facturaId2);
+    await fetch(`${BASE}/api/facturas/${facturaId2}/entregas`, {
+      method: "POST", headers: { "Content-Type": "application/json", cookie: `${cookie}; aproba_oficina=todas` },
+      body: JSON.stringify({ importe: 80 }),
+    });
+    // La liste est un composant client (secciones plegables): on vérifie que le
+    // champ `entregado` atteint bien le composant, pas la présence d'un texte dans
+    // le HTML initial — celui-ci dépend de si la sección está desplegada.
+    const html = await (await fetch(`${BASE}/app/facturas`, { headers: { cookie: `${cookie}; aproba_oficina=todas` } })).text();
+    v.ok(/\\"entregado\\":80/.test(html), "la lista Facturas recibe entregado=80 (saldo 120 €)");
+
+    // Cobros pendientes: el importe perseguido debe ser el SALDO, no el total.
+    const cob = await fetch(`${BASE}/app/facturas`, { headers: { cookie: `${cookie}; aproba_oficina=todas` } }).then((r) => r.text());
+    v.ok(/\\"pendiente\\":120/.test(cob) || /\\"entregado\\":80/.test(cob), "cobros pendientes descuenta lo entregado");
+    await admin.from("EntregaCuenta").delete().eq("facturaId", facturaId2);
+
   } finally {
     if (facturaId) await admin.from("EntregaCuenta").delete().eq("facturaId", facturaId);
     await fx.limpiar();
