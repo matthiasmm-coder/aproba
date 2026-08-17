@@ -9,13 +9,15 @@ import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { EntregasCuenta } from "@/components/entregas-cuenta";
+import type { Entrega } from "@/lib/entregas";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
 // `editable`: muestra el botón "Editar" (abre el popup de edición). Solo en la ficha de la
 // factura; en la vista previa de "Nueva factura" se deja en false. `esAdmin`: habilita el
 // borrado (archivar/eliminar); solo aplica en la ficha real.
-export function FacturaView({ f, emisor, editable = false, esAdmin = false }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean }) {
+export function FacturaView({ f, emisor, editable = false, esAdmin = false, entregas = [] }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean; entregas?: Entrega[] }) {
   const t = useT();
   const router = useRouter();
   const meta = FACTURA_ESTADO_META[f.estado];
@@ -160,6 +162,10 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false }: { 
           <span>{t("Forma de pago: transferencia")}</span>
         </div>
       </div>
+
+      {/* Entregas a cuenta: fuera del papel de la factura (print:hidden) — es el
+          registro de caja del despacho, no un dato del documento fiscal. */}
+      {editable && <EntregasCuenta facturaId={f.id} total={total} estado={f.estado} inicial={entregas} />}
 
       {editando && <CobroFacturaModal modo="editar" facturaId={f.id} onClose={() => setEditando(false)} />}
     </div>

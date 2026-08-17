@@ -5,6 +5,7 @@ import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { FacturaView, type Emisor } from "@/components/factura-view";
+import { fetchEntregasDeFacturas } from "@/lib/entregas";
 
 async function esAdminActual(): Promise<boolean> {
   const supa = await createSupabaseServer();
@@ -43,5 +44,9 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
     }
   } catch { /* migración fase 6 ausente → emisor del despacho */ }
 
-  return <FacturaView f={f} emisor={emisor} editable esAdmin={esAdmin} />;
+  // Entregas a cuenta (pagos parciales). Si la migración no está aplicada, viene
+  // vacío y el bloque no se pinta: el producto sigue funcionando como antes.
+  const entregas = (await fetchEntregasDeFacturas(await createSupabaseServer(), [f.id]))[f.id] ?? [];
+
+  return <FacturaView f={f} emisor={emisor} editable esAdmin={esAdmin} entregas={entregas} />;
 }
