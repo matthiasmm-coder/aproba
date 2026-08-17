@@ -97,7 +97,9 @@ export function OficinasManager({
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-500">
-        {t("Si tu despacho tiene varias sedes, cada cliente y cada expediente pertenece a una. Los servicios, la facturación y la suscripción siguen siendo comunes.")}
+        {esBusiness
+          ? t("Si tu despacho tiene varias sedes, cada cliente y cada expediente pertenece a una. Los servicios, la facturación y la suscripción siguen siendo comunes.")
+          : t("Para despachos con varias sedes: cada cliente y cada expediente pertenece a una oficina.")}
       </p>
 
       {!esBusiness && (
@@ -125,8 +127,15 @@ export function OficinasManager({
         </div>
       )}
 
-      {/* ── Liste des oficinas ────────────────────────────────────────── */}
-      {oficinas.length > 0 && (
+      {/* ── Liste des oficinas ────────────────────────────────────────────
+          Multi-oficina es EXCLUSIVO de Business: en Starter/Pro la noción no
+          existe para el usuario. Toda gestoría tiene sin embargo una oficina en
+          base (la propia gestoría, creada por el trigger inicial) — enseñarla
+          hacía aparecer una «lista de oficinas» a quien no tiene la función.
+          Excepción deliberada: si un despacho BAJÓ de plan conservando varias
+          sedes, se siguen enseñando (en lectura) — esconder dónde están sus
+          clientes sería peor que enseñar una función que ya no puede editar. */}
+      {(esBusiness || oficinas.length > 1) && oficinas.length > 0 && (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
           {oficinas.map((o) => (
             <li key={o.id} className="bg-white px-4 py-3">
