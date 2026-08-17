@@ -3,78 +3,170 @@
     {
       "slug": "/documents/d/migraciones/ex01-formulario-autorizacion-de-residencia-temporal-no-lucrativa-1",
       "sha256": "beb33238a72bb61d7454480da185dcb7abe43f4584e9914ec092e1e06ce400a4",
-      "bytes": 642848
+      "bytes": 642848,
+      "esPdf": true,
+      "semantica": "96b287a477e6b9fece6b03760665a396213925cd5975cd25350b734e9ae9368c",
+      "textos": 198,
+      "paginas": 3
     }
   ],
   "EX-02": [
     {
       "slug": "/documents/d/migraciones/ex02-formulario-autorizacion-de-residencia-temporal-por-reagrupacion-familiar.pdf",
       "sha256": "27a89807594acfeba6f741272c4e56fa043bc211b1ed1661b893ede90a2f7e7d",
-      "bytes": 249142
+      "bytes": 249142,
+      "esPdf": true,
+      "semantica": "b88540ee960e44c8f23b062da19ebcccac6ee3012db4c6e7efbf15bebbb023db",
+      "textos": 251,
+      "paginas": 3
     },
     {
       "slug": "/documents/d/migraciones/ex02.pdf",
       "sha256": "699977b07aefa1852b1a280f6adba7b550e2ddc2d3525b48cdd0cab8df323795",
-      "bytes": 186236
+      "bytes": 186236,
+      "esPdf": true,
+      "semantica": "b88540ee960e44c8f23b062da19ebcccac6ee3012db4c6e7efbf15bebbb023db",
+      "textos": 251,
+      "paginas": 3
     }
   ],
   "EX-03": [
     {
       "slug": "/documents/d/migraciones/ex03-formulario-autorizacion-de-residencia-temporal-y-trabajo-por-cuenta-ajena-o-autorizacion-de-trabajo-por-cuenta-ajena-1",
       "sha256": "1e80fa26cc43e764bc1febf633c0bd582b7f85c974249a3d572d35663c14bfd0",
-      "bytes": 151958
+      "bytes": 151958,
+      "esPdf": true,
+      "semantica": "d35bcb449c92b5634b890ef43fa6d55ef5e02bece810a26adf6436ef9c5500b2",
+      "textos": 299,
+      "paginas": 3
     }
   ],
   "EX-10": [
     {
       "slug": "/documents/d/migraciones/ex10-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-",
       "sha256": "7b5f2addd7da00fac6cd234a45d27fea23f174017bec650ff7541035f141ef17",
-      "bytes": 1563208
+      "bytes": 1563208,
+      "esPdf": true,
+      "semantica": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "textos": 0,
+      "paginas": 5
     },
     {
       "slug": "/documents/d/migraciones/ex10.pdf",
       "sha256": "b690598b328909bd8352e6e4fcb29df24779e3062d3c8d645b5376e909911550",
-      "bytes": 1665071
+      "bytes": 1665071,
+      "esPdf": true,
+      "semantica": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "textos": 0,
+      "paginas": 5
     }
   ],
   "EX-11": [
     {
       "slug": "/documents/d/migraciones/ex11-formulario-autorizacion-de-residencia-de-larga-duracion-o-de-larga-duracion-ue-1",
       "sha256": "8cd2f96a3bdce21cc5f5a3c676f62ac0d49c922dde88e34e4d8ee21678e5cb0b",
-      "bytes": 146993
+      "bytes": 146993,
+      "esPdf": true,
+      "semantica": "323e97b0872eb2023999c679de9f6d4d112fc99689bd32891cd33cebe0d35ef1",
+      "textos": 190,
+      "paginas": 3
     }
   ],
   "EX-13": [
     {
-      "slug": "/documents/d/migraciones/ex13-formulario-autorizacion-de-regreso",
+      "slug": "/documents/d/migraciones/ex13-formulario-autorizacion-de-regreso-1",
       "sha256": "9cbec61d2c037b8a8193f866cac41d38c4de1a58fd3a105ecd252df5ed2853e6",
-      "bytes": 145509
+      "bytes": 145509,
+      "esPdf": true,
+      "semantica": "5c257298d12530e6572ffd235dfa750afdc246754cf318a331169b74e12cd129",
+      "textos": 166,
+      "paginas": 3
     }
   ],
   "EX-15": [
     {
       "slug": "/documents/d/migraciones/ex15-formulario-solicitud-numero-de-identidad-de-extranjero-y-certificados",
       "sha256": "2defc88df4530464a4dd24e4cad394dff952f60764eb395db95af7fe29d35ed2",
-      "bytes": 145503
+      "bytes": 145503,
+      "esPdf": true,
+      "semantica": "1fe2a300a3dfb35accf1906e62fa53c7e6840af90ed9224a4ad798c7dd767b0a",
+      "textos": 202,
+      "paginas": 3
     }
   ],
   "EX-17": [
     {
       "slug": "/documents/d/migraciones/ex17-formulario-solicitud-tarjeta-de-identidad-de-extranjero",
       "sha256": "968e47b0429ae7c93bbba4a2cf6316704d623c4fae14d355efbb0288b327530a",
-      "bytes": 179128
+      "bytes": 179128,
+      "esPdf": true,
+      "semantica": "f9963f1272805e279f5641fe769a4e038d93e76af0fcf84fb6306d1f6ed32416",
+      "textos": 182,
+      "paginas": 3
+    }
+  ],
+  "EX-18": [
+    {
+      "slug": "/documents/d/migraciones/ex18-formulario-inscripcion-en-el-rce-residencia-ciudadano-de-la-ue-1",
+      "sha256": "c4825d1f1289039fb1f6fbdc7ec67d81066aaba758bb3274ce12e94b714776fb",
+      "bytes": 616900,
+      "esPdf": true,
+      "semantica": "6ea260ebed44e35199864f88e533f9ceee1bca25f3d9aaf54f795b5657ec7015",
+      "textos": 244,
+      "paginas": 3
+    }
+  ],
+  "EX-23": [
+    {
+      "slug": "/documents/d/migraciones/ex23-formulario-solicitud-de-tarjeta-art-18-4-del-acuerdo-de-retirada-",
+      "sha256": "68f75fc0eeaf8d95cc0e933df011e63fb18ec8fe1bb451956f5f08245a182ee5",
+      "bytes": 129488,
+      "esPdf": true,
+      "semantica": "32a758f431384e4e3d1e9efaf97637fb03cd4ab978ec302da0fc0fc648d800bf",
+      "textos": 184,
+      "paginas": 3
+    }
+  ],
+  "EX-26": [
+    {
+      "slug": "/documents/d/migraciones/ex26-formulario-de-solicitud-modificacion-de-autorizacion-de-residencia-o-estancia-1",
+      "sha256": "46d145beb886fc0a80ec28556f41c20b595c77bcc914f52cbcf3c71c09990f00",
+      "bytes": 587268,
+      "esPdf": true,
+      "semantica": "93c7616379be65f4b27178abb563ecc3613347f786b949998445fee3403159e4",
+      "textos": 224,
+      "paginas": 3
     }
   ],
   "EX-31": [
     {
       "slug": "/documents/d/migraciones/ex31-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-por-razon-de-arraigo-solicitantes-pi-da20-.pdf",
       "sha256": "4b112c0cb0a88bc9b9fc6e2744956f5dfbc5071d1c18b10746e06e4b4ef074f5",
-      "bytes": 917613
+      "bytes": 917613,
+      "esPdf": true,
+      "semantica": "6faa000550b71d9bf0357577c7ffc17d8c3f392305ee55f130f98fcb3a37e326",
+      "textos": 456,
+      "paginas": 6
     },
     {
       "slug": "/documents/d/migraciones/ex31-formulario-autorizacion-de-residencia-por-circunstancias-excepcionales-por-razon-de-arraigo.pdf",
-      "sha256": "2478be691e1b092904da8960b5543e3f867be60b41918c64094d9196c588a4ea",
-      "bytes": 778329
+      "sha256": "6f9d906b535c29570fe787439603bd987e7a97baf50613a9a192ed19d3f5fe80",
+      "bytes": 774811,
+      "esPdf": true,
+      "semantica": "6faa000550b71d9bf0357577c7ffc17d8c3f392305ee55f130f98fcb3a37e326",
+      "textos": 456,
+      "paginas": 6
+    }
+  ],
+  "EX-32": [
+    {
+      "slug": "/documents/d/migraciones/ex32-formulario-autorizacion-de-residencia-circunstancias-excepcionales-arraigo-extraordina-da21-",
+      "sha256": "163a42f459f6697189491f376ce9c6101df06770ad99f3135e145ec7a4d6c3e3",
+      "bytes": 390537,
+      "esPdf": true,
+      "semantica": "651df584303d584feeb3b1a723bee98f654cb656d207c386218879252c98bd63",
+      "textos": 521,
+      "paginas": 7
     }
   ]
 }
