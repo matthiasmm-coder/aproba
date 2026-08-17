@@ -73,13 +73,14 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
       .map(([cliente, items]) => ({
         cliente,
         items: items.slice().sort((a, b) => (a.venceISO ?? "").localeCompare(b.venceISO ?? "")),
-        total: items.reduce((s, c) => s + c.total, 0),
+        // pendiente, no total: lo ya entregado a cuenta ya está en caja
+        total: items.reduce((s, c) => s + (c.pendiente ?? c.total), 0),
         peorDia: Math.max(...items.map((c) => diasRetraso(c.venceISO) ?? -9999)),
       }))
       .sort((a, b) => b.peorDia - a.peorDia);
   }, [cobros]);
 
-  const totalPendiente = cobros.reduce((s, c) => s + c.total, 0);
+  const totalPendiente = cobros.reduce((s, c) => s + (c.pendiente ?? c.total), 0);
   const [abierto, setAbierto] = useState(false); // plegado por defecto (pedido de Matthias)
   const plegable = cobros.length > 0;
 
@@ -128,7 +129,10 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-[11px] text-slate-400">{c.numero}</span>
-                          <span className="font-semibold text-slate-800">{eur(c.total)}</span>
+                          <span className="font-semibold text-slate-800">{eur(c.pendiente ?? c.total)}</span>
+                          {c.entregado ? (
+                            <span className="ml-1.5 text-[11px] text-slate-400">{t("de")} {eur(c.total)}</span>
+                          ) : null}
                           {vencida ? (
                             <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
                               {dias !== null && dias > 0 ? t("Vencida hace {n} d.").replace("{n}", String(dias)) : t("Vencida")}

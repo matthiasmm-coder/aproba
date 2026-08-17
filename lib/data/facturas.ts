@@ -1,4 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { fetchEntregasDeFacturas, totalEntregado, saldoPendiente } from "@/lib/entregas";
 import { fmtFechaCorta } from "@/lib/tramites";
 import type { ClienteDatosFactura, Factura, FacturaEstado, LineaFactura, Suplido } from "@/lib/facturas";
 
@@ -85,13 +86,22 @@ export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = fa
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
   };
+  // Entregas a cuenta: se añade lo YA cobrado a cada factura para que la lista
+  // enseñe el saldo real y no el total (una factura a medias no se persigue entera).
+  const conEntregas = async (fs: Factura[]): Promise<Factura[]> => {
+    const vivas = fs.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").map((f) => f.id);
+    if (!vivas.length) return fs;
+    const mapa = await fetchEntregasDeFacturas(supabase, vivas);
+    if (!Object.keys(mapa).length) return fs;   // migración ausente → como siempre
+    return fs.map((f) => (mapa[f.id]?.length ? { ...f, entregado: totalEntregado(mapa[f.id]) } : f));
+  };
   try {
     const data = await selectFacturas((cols) => filtro(supabase.from("Factura").select(cols)).order("numero", { ascending: false }).limit(tope ?? 100000));
-    return ((data ?? []) as unknown as Row[]).map(mapRow);
+    return conEntregas(((data ?? []) as unknown as Row[]).map(mapRow));
   } catch (e) {
     if (sedes?.length && e instanceof Error && /oficinaId/i.test(e.message)) {
       const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }).limit(tope ?? 100000));
-      return ((data ?? []) as unknown as Row[]).map(mapRow);
+      return conEntregas(((data ?? []) as unknown as Row[]).map(mapRow));
     }
     throw e;
   }
@@ -121,6 +131,8 @@ export type CobroPendiente = {
   cliente: string;
   concepto: string;
   total: number;
+  entregado?: number;  // ya cobrado a cuenta
+  pendiente: number;   // lo que queda de verdad (= total - entregado)
   estado: "EMITIDA" | "VENCIDA";
   fecha: string | null; // emisión (corta)
   vence: string | null; // vencimiento (corta)
@@ -145,19 +157,31 @@ export async function fetchCobrosPendientes(sedes?: string[] | null, incluirSinS
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await base().order("fechaVencimiento", { ascending: true, nullsFirst: false });
   const { data, error } = res;
   if (error) throw new Error(`Cobros pendientes: ${error.message}`);
-  return ((data ?? []) as unknown as {
+  const filas = ((data ?? []) as unknown as {
     id: string; numero: string; clienteNombre: string; concepto: string; total: number | string;
     estado: string; fechaEmision: string | null; fechaVencimiento: string | null; expedienteId: string | null;
-  }[]).map((f) => ({
-    id: f.id,
-    numero: f.numero,
-    cliente: f.clienteNombre,
-    concepto: f.concepto,
-    total: Number(f.total),
-    estado: f.estado === "VENCIDA" ? "VENCIDA" : "EMITIDA",
-    fecha: fmtFechaCorta(f.fechaEmision) ?? null,
-    vence: fmtFechaCorta(f.fechaVencimiento) ?? null,
-    venceISO: f.fechaVencimiento,
-    expedienteId: f.expedienteId,
-  }));
+  }[]);
+
+  // Lo YA cobrado a cuenta se descuenta: perseguir el total de una factura pagada
+  // a medias es reclamar dinero que ya está en caja.
+  const entregas = await fetchEntregasDeFacturas(supabase, filas.map((f) => f.id));
+
+  return filas.map((f) => {
+    const suyas = entregas[f.id] ?? [];
+    const entregado = totalEntregado(suyas);
+    return {
+      id: f.id,
+      numero: f.numero,
+      cliente: f.clienteNombre,
+      concepto: f.concepto,
+      total: Number(f.total),
+      ...(entregado > 0 ? { entregado } : {}),
+      pendiente: saldoPendiente(Number(f.total), suyas),
+      estado: (f.estado === "VENCIDA" ? "VENCIDA" : "EMITIDA") as "EMITIDA" | "VENCIDA",
+      fecha: fmtFechaCorta(f.fechaEmision) ?? null,
+      vence: fmtFechaCorta(f.fechaVencimiento) ?? null,
+      venceISO: f.fechaVencimiento,
+      expedienteId: f.expedienteId,
+    };
+  });
 }

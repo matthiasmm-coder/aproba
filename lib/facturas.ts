@@ -48,6 +48,9 @@ export type Factura = {
   clienteDatos?: ClienteDatosFactura | null; // snapshot al emitir (documento + dirección)
   expedienteId?: string | null; // para resolver la sede de facturas antiguas sin estampar
   oficinaId?: string | null;    // sede emisora (fase 6 multi-oficina)
+  // Entregas a cuenta ya cobradas (pagos parciales). El SALDO no se guarda: se
+  // calcula total - entregado allí donde se pinta. undefined = migración ausente.
+  entregado?: number;
 };
 
 export const IVA = 0.21;

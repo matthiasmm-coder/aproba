@@ -42,7 +42,19 @@ function FilaFactura({ f, esAdmin, t }: { f: Factura; esAdmin: boolean; t: Tradu
         )}
       </td>
       <td className="hidden px-5 py-3 text-slate-500 sm:table-cell">{f.fecha}</td>
-      <td className="px-5 py-3 text-right font-semibold text-slate-800">{eur(totalDe(f.base))}</td>
+      <td className="px-5 py-3 text-right">
+        {/* Con entregas a cuenta se enseña el SALDO (lo que falta), con el total
+            tachado debajo: perseguir el importe entero de una factura pagada a
+            medias es reclamar dinero que ya está cobrado. */}
+        {f.entregado ? (
+          <>
+            <span className="font-semibold text-slate-800">{eur(Math.max(0, totalDe(f.base) - f.entregado))}</span>
+            <span className="block text-[11px] text-slate-400">{t("de")} {eur(totalDe(f.base))} · {t("cobrado")} {eur(f.entregado)}</span>
+          </>
+        ) : (
+          <span className="font-semibold text-slate-800">{eur(totalDe(f.base))}</span>
+        )}
+      </td>
       <td className="px-5 py-3 text-right"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span></td>
       <td className="px-2 py-2 text-right"><FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} /></td>
     </tr>

@@ -41,6 +41,14 @@ export async function GET(req: Request) {
   const key = await fetchStripeKeyDeWorkspace(admin, f.workspaceId as string, sedeF);
   if (!key) return aviso("sintarjeta"); // la gestoría no tiene el cobro con tarjeta activado
 
+  // ⚠️ Entregas a cuenta: si el cliente ya ha ido pagando (efectivo, transferencia),
+  // el enlace de tarjeta debe cobrar SOLO EL SALDO. Cobrarle el total sería cobrarle
+  // dos veces lo ya entregado. Si el saldo es 0, la factura está saldada de hecho.
+  const { fetchEntregasDeFacturas, saldoPendiente } = await import("@/lib/entregas");
+  const entregas = (await fetchEntregasDeFacturas(admin, [String(f.id)]))[String(f.id)] ?? [];
+  const aCobrar = entregas.length ? saldoPendiente(Number(f.total), entregas) : Number(f.total);
+  if (aCobrar <= 0) return NextResponse.redirect(`${origin}/pagar/exito?f=${facturaId}`, 303);
+
   try {
     const session = await stripeConClave(key).checkout.sessions.create({
       mode: "payment",
@@ -48,7 +56,7 @@ export async function GET(req: Request) {
         quantity: 1,
         price_data: {
           currency: "eur",
-          unit_amount: Math.round(Number(f.total) * 100),
+          unit_amount: Math.round(aCobrar * 100),
           product_data: { name: `Factura ${f.numero}`, description: String(f.concepto).slice(0, 250) },
         },
       }],
