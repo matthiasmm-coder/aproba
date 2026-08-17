@@ -431,7 +431,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
             </button>
           )}
 
-          {oficinas.length > 0 && (
+          {oficinas.length >= 2 && (
             <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
               <label className="block text-sm font-semibold text-slate-800" htmlFor="oficina-import">{t("Oficina de estos clientes")}</label>
               <p className="mt-0.5 text-xs text-slate-500">{t("Se aplica a todo el archivo. Puedes cambiarlo después desde Clientes.")}</p>

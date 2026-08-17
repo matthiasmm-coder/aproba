@@ -26,6 +26,10 @@ export function EditarCliente({
   const [abierto, setAbierto] = useState(false);
   const [datos, setDatos] = useState<ClienteFicha>(ficha);
   const [oficina, setOficina] = useState<string>(oficinaId ?? "");
+  // ⚠️ ≥ 2, pas > 0 : depuis que la gestoría es una oficina real, TODOS los
+  // despachos tienen al menos una — con `> 0` el selector salía siempre, pidiendo
+  // elegir entre «Sin oficina» y la única sede. Misma regla que las pastillas.
+  const multiOficina = oficinas.length >= 2;
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -77,7 +81,7 @@ export function EditarCliente({
     try {
       const res = await fetch(`/api/clientes/${clienteId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ficha: datos, ...(oficinas.length ? { oficinaId: oficina || null } : {}) }),
+        body: JSON.stringify({ ficha: datos, ...(multiOficina ? { oficinaId: oficina || null } : {}) }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
@@ -116,7 +120,7 @@ export function EditarCliente({
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
               {/* Sede (multi-oficina). En tête : c'est une donnée d'organisation, pas
                   un champ de la ficha — et changer la sede déplace aussi ses trámites. */}
-              {oficinas.length > 0 && (
+              {multiOficina && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Oficina")}</h3>
                   <select

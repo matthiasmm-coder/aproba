@@ -25,9 +25,10 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
   const [pestana, setPestana] = useState<"individuales" | "familias">("individuales");
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
-  // Multi-oficina : sélection multiple pour réaffecter en masse. N'existe que si le
-  // despacho a des sedes — un cabinet mono-oficina ne voit ni cases ni barre.
-  const multi = oficinas.length > 0;
+  // Multi-oficina : sélection multiple pour réaffecter en masse. N'existe qu'à partir
+  // de DEUX sedes — un cabinet mono-oficina ne voit ni cases ni barre (avec `> 0` il les
+  // voyait, puisque la gestoría elle-même compte comme oficina depuis la refonte).
+  const multi = oficinas.length >= 2;
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [destino, setDestino] = useState("");
   const [moviendo, setMoviendo] = useState(false);
