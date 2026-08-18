@@ -31,6 +31,31 @@ export const DIAS_AVISO = 60;
 //  - fuente ESTIMADA (hoy + validez legal, al finalizar) NUNCA pisa una fecha existente
 //    (que puede ser real); solo crea si no hay vencimiento activo.
 // Nunca lanza.
+
+// ── Qué documento siembra qué vencimiento ────────────────────────────────────
+// Medido el 18/08/2026: había 42 fechas de caducidad ya extraídas por la IA y
+// guardadas en Extraction —32 pasaportes, 7 TIE— y Vigía solo usaba las del TIE,
+// porque el sembrado se disparaba únicamente con tipoDetectado === "tarjeta_
+// residencia_tie". Los clientes suben sobre todo el PASAPORTE: la fecha estaba
+// delante y se tiraba.
+//
+// Un pasaporte caducado paraliza cualquier trámite de extranjería —no se presenta
+// nada sin él— así que avisar con meses de antelación es servicio real, no ruido.
+// Se limita a documentos de IDENTIDAD: la fecha de fin de un contrato de trabajo
+// o de un certificado bancario no es un vencimiento que el despacho deba vigilar.
+export const VENCIMIENTO_POR_DOCUMENTO: Record<string, string> = {
+  tarjeta_residencia_tie: "TIE",
+  pasaporte: "PASAPORTE",
+  certificado_nie: "NIE",
+};
+
+// El tipo se guarda tal cual y se enseña tal cual en la lista de Vencimientos.
+// Vencimientos de tipos distintos conviven para un mismo cliente (sembrarVencimiento
+// deduplica por cliente + tipo), que es justo lo que hace falta: el TIE y el
+// pasaporte caducan en fechas diferentes y ambos importan.
+export const tipoVencimientoDeDocumento = (tipoDetectado: string | null | undefined): string | null =>
+  VENCIMIENTO_POR_DOCUMENTO[String(tipoDetectado ?? "")] ?? null;
+
 export async function sembrarVencimiento(
   admin: SupabaseClient,
   opts: { workspaceId: string; clienteId: string; fecha: string; tipo?: string; expedienteId?: string | null; fuente?: "REAL" | "ESTIMADA" },

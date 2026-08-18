@@ -4,7 +4,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
 import { labelADocTipo, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
 import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
-import { sembrarVencimiento, fechaCaducidadISO } from "@/lib/vencimientos";
+import { sembrarVencimiento, fechaCaducidadISO, tipoVencimientoDeDocumento } from "@/lib/vencimientos";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -131,14 +131,21 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     descripcion: resultado.estado === "VALIDADO" ? `IA validó: ${docLabel} (${pct} %)` : `IA rechazó: ${docLabel} — ${alertas[0] ?? "ilegible"}`,
   });
 
-  // ── VIGÍA: TIE validado → persistir su caducidad + sembrar el vencimiento ──
-  if (resultado.estado === "VALIDADO" && resultado.tipoDetectado === "tarjeta_residencia_tie") {
+  // ── VIGÍA: documento de identidad validado → sembrar su vencimiento ──
+  // Antes solo el TIE. Los clientes suben sobre todo el pasaporte, cuya fecha la IA
+  // ya leía y nadie usaba (42 fechas desperdiciadas al 18/08/2026).
+  const tipoVenc = resultado.estado === "VALIDADO" ? tipoVencimientoDeDocumento(resultado.tipoDetectado) : null;
+  if (tipoVenc) {
     const fechaISO = fechaCaducidadISO(resultado.fechaCaducidad);
     const duenoId = clienteId || (exp.clienteId as string | null);
     if (fechaISO && duenoId) {
-      const { error: eCad } = await admin.from("Cliente").update({ fechaCaducidad: fechaISO.slice(0, 10), tipoVencimiento: "TIE" }).eq("id", duenoId);
-      if (eCad && !/column|does not exist|schema cache/i.test(eCad.message)) console.error("[vigia caducidad]", eCad.message);
-      await sembrarVencimiento(admin, { workspaceId: exp.workspaceId, clienteId: duenoId, fecha: fechaISO, tipo: "TIE", expedienteId: exp.id });
+      // Cliente.fechaCaducidad es el campo histórico de la ficha: sigue siendo el del
+      // TIE. Machacarlo con la del pasaporte cambiaría el sentido de la columna.
+      if (tipoVenc === "TIE") {
+        const { error: eCad } = await admin.from("Cliente").update({ fechaCaducidad: fechaISO.slice(0, 10), tipoVencimiento: "TIE" }).eq("id", duenoId);
+        if (eCad && !/column|does not exist|schema cache/i.test(eCad.message)) console.error("[vigia caducidad]", eCad.message);
+      }
+      await sembrarVencimiento(admin, { workspaceId: exp.workspaceId, clienteId: duenoId, fecha: fechaISO, tipo: tipoVenc, expedienteId: exp.id });
     }
   }
 
