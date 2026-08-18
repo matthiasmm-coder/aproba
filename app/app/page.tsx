@@ -5,35 +5,33 @@ import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
-import { OnboardingChecklist, type ChecklistItem } from "@/components/onboarding-checklist";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { construirChecklist, esperandoAlCliente, MARCA_ENLACE, MARCA_SUBIDA_CLIENTE, type ChecklistItem } from "@/lib/activacion";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Inicio" };
 
 // État d'avancement de la configuration du despacho (pour la checklist du dashboard).
-async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<ChecklistItem[]> {
+async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<{ items: ChecklistItem[]; esperando: boolean }> {
   try {
     const cnt = (tabla: string) => supabase.from(tabla).select("id", { count: "exact", head: true });
-    const [svc, cta, cli, mem, sub, exp, expEnviado] = await Promise.all([
+    // El diario lleva su propia RLS (evt_tenant): filtra por despacho sin pasarle ids.
+    const evento = (marca: string) =>
+      supabase.from("ExpedienteEvento").select("id", { count: "exact", head: true }).like("descripcion", `%${marca}%`);
+    const [svc, cta, cli, mem, sub, exp, enlaces, subidas] = await Promise.all([
       cnt("ServicioConfig"), cnt("CuentaBancaria"), cnt("Cliente"), cnt("Membership"),
       supabase.from("Subscription").select("plan").limit(1).maybeSingle(),
-      cnt("Expediente"),
-      // «enlace enviado» ≈ un expediente que ya salió de BORRADOR (el cliente entró al portal)
-      supabase.from("Expediente").select("id", { count: "exact", head: true }).neq("estado", "BORRADOR"),
+      cnt("Expediente"), evento(MARCA_ENLACE), evento(MARCA_SUBIDA_CLIENTE),
     ]);
-    const plan = (sub.data as { plan?: string } | null)?.plan ?? "STARTER";
-    const items: ChecklistItem[] = [
-      { key: "servicios", label: t("Configura tus servicios"), href: "/app/ajustes", done: (svc.count ?? 0) > 0 },
-      { key: "banco", label: t("Añade tu cuenta bancaria"), href: "/app/ajustes", done: (cta.count ?? 0) > 0 },
-      { key: "clientes", label: t("Importa tus clientes"), href: "/app/clientes/nuevo", done: (cli.count ?? 0) > 0 },
-      // El camino crítico hasta el primer valor real: expediente creado + cliente dentro.
-      { key: "expediente", label: t("Crea tu primer expediente"), href: "/app/expedientes/nuevo", done: (exp.count ?? 0) > 0 },
-      { key: "enlace", label: t("Envía el enlace a tu cliente"), href: "/app/expedientes", done: (expEnviado.count ?? 0) > 0 },
-    ];
-    if (plan !== "STARTER") items.push({ key: "equipo", label: t("Invita a tu equipo"), href: "/app/ajustes", done: (mem.count ?? 0) > 1 });
-    return items;
+    const datos = {
+      clientes: cli.count ?? 0, expedientes: exp.count ?? 0,
+      enlacesEnviados: enlaces.count ?? 0, subidasDeCliente: subidas.count ?? 0,
+      servicios: svc.count ?? 0, cuentas: cta.count ?? 0, miembros: mem.count ?? 0,
+      plan: (sub.data as { plan?: string } | null)?.plan ?? "STARTER",
+    };
+    return { items: construirChecklist(datos, t), esperando: esperandoAlCliente(datos) };
   } catch {
-    return [];
+    return { items: [], esperando: false };
   }
 }
 
@@ -94,7 +92,7 @@ export default async function Dashboard() {
     <>
       {/* La checklist n'est PAS filtrée par sede (piège connu) — les pastillas ne
           gouvernent que les KPI et listes en dessous. */}
-      <OnboardingChecklist items={checklist} />
+      <OnboardingChecklist items={checklist.items} esperandoAlCliente={checklist.esperando} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} hoy={new Date().toISOString().slice(0, 10)} />
     </>

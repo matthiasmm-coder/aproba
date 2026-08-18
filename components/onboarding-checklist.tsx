@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 
-export type ChecklistItem = { key: string; label: string; href: string; done: boolean };
+import type { ChecklistItem } from "@/lib/activacion";
+export type { ChecklistItem };
 
 const KEY = "aproba.checklist.dismissed";
 
 // Checklist « termina de configurar tu despacho » sur le dashboard — rappelle les
 // étapes d'onboarding sautées (dérivées des données). Dismissable.
-export function OnboardingChecklist({ items }: { items: ChecklistItem[] }) {
+export function OnboardingChecklist({ items, esperandoAlCliente = false }: { items: ChecklistItem[]; esperandoAlCliente?: boolean }) {
   const t = useT();
   const [dismissed, setDismissed] = useState(true); // évite le flash avant hydratation
   useEffect(() => { setDismissed(localStorage.getItem(KEY) === "1"); }, []);
@@ -30,6 +31,11 @@ export function OnboardingChecklist({ items }: { items: ChecklistItem[] }) {
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
       </div>
+      {esperandoAlCliente && (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {t("Le enviaste el enlace a tu cliente y todavía no ha subido nada. Un recordatorio suele bastar.")}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {pendientes.map((i) => (
           <Link key={i.key} href={i.href} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-aproba-300 hover:text-aproba-700">
