@@ -16,6 +16,13 @@ import { enviarRecordatorioDocs } from "@/lib/notificaciones";
 // tiene los papeles. Por eso, si el DESPACHO ha subido aunque sea un documento, este
 // expediente trabaja en modo despacho y al cliente NO se le molesta jamás.
 //
+// SOLO A QUIEN YA ES CLIENTE. Medido el 18/08 sobre los 66 expedientes de Juan: de
+// los 47 que no subieron NADA, cero tenían hoja de encargo firmada, cero un pago, y
+// solo el 28 % una factura emitida (frente al 79 % de los que sí subieron). No son
+// clientes que abandonan: son consultas de precio a las que se les mandó el enlace —
+// el portal también hace de escaparate. Reclamar documentos a alguien que solo pidió
+// presupuesto es la mejor forma de perderlo, así que se exige una señal de compromiso.
+//
 // ⚠️ Esto escribe a los clientes finales de nuestros clientes. Por defecto va en
 // SIMULACIÓN: calcula, informa a Matthias por email y no manda nada. Se activa con
 // RECORDATORIOS_ACTIVOS=1, y solo cuando él lo decida.
@@ -58,15 +65,31 @@ export async function GET(req: Request) {
 
   // Un solo barrido del diario para los expedientes en juego.
   const ids = vivos.map((e) => e.id as string);
-  type Estado = { cli: number; ges: number; enlace: string | null; recordatorios: string[] };
+
+  // Compromiso vía facturación: un BORRADOR de factura no cuenta (lo prepara el gestor,
+  // el cliente no lo ha visto); EMITIDA/PAGADA/VENCIDA sí — se le ha reclamado dinero.
+  const conFactura = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: fs } = await admin.from("Factura")
+      .select("expedienteId, estado").in("expedienteId", ids.slice(i, i + 100))
+      .in("estado", ["EMITIDA", "PAGADA", "VENCIDA"]);
+    for (const f of (fs ?? []) as { expedienteId: string | null }[]) if (f.expedienteId) conFactura.add(f.expedienteId);
+  }
+
+  type Estado = { cli: number; ges: number; enlace: string | null; recordatorios: string[]; firmo: boolean };
   const est = new Map<string, Estado>();
   for (let i = 0; i < ids.length; i += 100) {
     const { data: ev } = await admin.from("ExpedienteEvento")
       .select("expedienteId, descripcion, createdAt").in("expedienteId", ids.slice(i, i + 100));
     for (const x of (ev ?? []) as { expedienteId: string; descripcion: string | null; createdAt: string }[]) {
-      const s = est.get(x.expedienteId) ?? { cli: 0, ges: 0, enlace: null, recordatorios: [] };
+      const s = est.get(x.expedienteId) ?? { cli: 0, ges: 0, enlace: null, recordatorios: [], firmo: false };
       const d = x.descripcion ?? "";
-      if (/^El cliente subió/.test(d)) s.cli++;
+      if (/^El cliente subió/.test(d)) {
+        s.cli++;
+        // Compromiso vía documento: firmar el encargo/mandato o justificar el pago son
+        // gestos que un simple curioso no hace (0 de 47 en la medición).
+        if (/hoja de encargo|mandato|poder|justificante de \d|justificante de pago/i.test(d)) s.firmo = true;
+      }
       else if (/^El despacho subió/.test(d)) s.ges++;
       if (/nlace/.test(d) && (!s.enlace || x.createdAt < s.enlace)) s.enlace = x.createdAt;
       if (/recordat/i.test(d)) s.recordatorios.push(x.createdAt);
@@ -77,6 +100,7 @@ export async function GET(req: Request) {
   const candidatos = vivos.filter((e) => {
     const s = est.get(e.id as string);
     if (!s?.enlace) return false;                                  // nunca se le mandó el enlace
+    if (!conFactura.has(e.id as string) && !s.firmo) return false; // aún no es cliente: solo pidió precio
     // Medido el 18/08: de 27 expedientes con respuesta, 14 se quedaron en UN solo
     // documento y 24 de 27 lo hicieron todo en una única sesión de <2 h. El cliente
     // no vuelve por su cuenta. Recordar solo a los que están a cero dejaba fuera
@@ -116,7 +140,7 @@ export async function GET(req: Request) {
       text: (ACTIVO
         ? `Se han enviado ${enviados} recordatorios de ${hechos.length} candidatos.\n\n`
         : `MODO SIMULACIÓN: no se ha mandado nada. Estos ${hechos.length} expedientes tienen el enlace enviado hace más de ${ESPERA_DIAS} días, ninguna subida del cliente, ninguna del despacho, y menos de ${EDAD_MAX_DIAS} días de antigüedad.\n\nPara activarlo de verdad: RECORDATORIOS_ACTIVOS=1 en Vercel.\n\n`)
-        + `Por despacho:\n${lineas}\n\nNunca se avisa a un cliente cuyo expediente lleva documentos subidos por el despacho: ese expediente trabaja en modo despacho.`,
+        + `Por despacho:\n${lineas}\n\nSolo se avisa a quien YA es cliente (factura emitida, encargo firmado o pago justificado): a quien solo pidió presupuesto no se le reclama nada.\nY nunca a un expediente con documentos subidos por el despacho: ese trabaja en modo despacho.`,
     });
   }
 
