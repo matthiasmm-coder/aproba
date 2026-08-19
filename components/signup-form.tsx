@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { leerOrigen } from "@/lib/origen";
 
 export function SignupForm() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export function SignupForm() {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, email, password }),
+      body: JSON.stringify({ nombre, email, password, origen: leerOrigen() }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

@@ -47,10 +47,13 @@ export const viewport: Viewport = {
   themeColor: "#0E8C5F",
 };
 
+import { OrigenTracker } from "@/components/origen-tracker";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
+        <OrigenTracker />
         {children}
         <CookieNotice />
         <PwaRegister />

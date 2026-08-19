@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { resumirOrigen, type Origen } from "@/lib/origen";
 
 // Inscription d'un gestor / avocat.
 // On crée l'utilisateur DÉJÀ confirmé (service_role, email_confirm:true) pour un
@@ -8,7 +9,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 // puis l'onboarding (nom du despacho + plan). La vérification d'email pourra être
 // réactivée plus tard (envoi d'un lien de confirmation avant le premier accès).
 export async function POST(req: Request) {
-  let body: { nombre?: string; email?: string; password?: string };
+  let body: { nombre?: string; email?: string; password?: string; origen?: Origen };
   try {
     body = await req.json();
   } catch {
@@ -35,7 +36,8 @@ export async function POST(req: Request) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { nombre },
+    // El origen viaja con el usuario: sin migración, y disponible desde el minuto uno.
+    user_metadata: { nombre, origen: body.origen ?? null },
   });
   if (error) {
     const dup = /already.*(registered|exists)|duplicate/i.test(error.message);
@@ -55,7 +57,7 @@ export async function POST(req: Request) {
         from: `"Aproba" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
         to: destino,
         subject: `🆕 Nuevo registro en Aproba: ${nombre}`,
-        text: `${nombre} <${email}> acaba de crear su cuenta.\n\nSiguiente paso del playbook: mail de bienvenida (día 0) y, en 2-3 días, el empujón del import.\n\nPide a Claude «où en est ${nombre}» antes de escribirle.`,
+        text: `${nombre} <${email}> acaba de crear su cuenta.\n\nDe dónde viene: ${resumirOrigen(body.origen)}.\n\nSiguiente paso del playbook: mail de bienvenida (día 0) y, en 2-3 días, el empujón del import.\n\nPide a Claude «où en est ${nombre}» antes de escribirle.`,
       });
     } catch (e) {
       console.error("[signup aviso fundador]", e instanceof Error ? e.message : e);

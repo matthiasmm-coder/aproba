@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { resumirOrigen, type Origen } from "@/lib/origen";
 
 // SONDA DE PIPELINE — cron diario (vercel.json).
 //
@@ -52,7 +53,7 @@ function autorizado(req: Request): boolean {
 
 type Señal = { orden: number; etiqueta: string; detalle: string };
 type Ficha = {
-  nombre: string; correos: string[]; plan: string; estado: string;
+  nombre: string; correos: string[]; origen: string; plan: string; estado: string;
   clientes: number; expedientes: number; altaDias: number;
   quedan: number | null; inactivoDias: number | null; señales: Señal[];
 };
@@ -72,8 +73,12 @@ export async function GET(req: Request) {
   // Correos de contacto: se resuelven de una vez, no por workspace.
   const { data: authList } = await admin.auth.admin.listUsers();
   const correoDe = new Map((authList?.users ?? []).map((u) => [u.id, u.email ?? ""]));
+  // De dónde vino cada persona (se anota al registrarse desde el 19/08). Sirve para
+  // saber qué canal trae a los que llegan solos — el más productivo de agosto.
+  const origenDe = new Map((authList?.users ?? []).map((u) => [u.id, resumirOrigen((u.user_metadata as { origen?: Origen } | undefined)?.origen)]));
   const { data: mems } = await admin.from("Membership").select("workspaceId, userId, role");
   const miembros = new Map<string, string[]>();
+  const origenWs = new Map<string, string>();
   for (const m of (mems ?? []) as { workspaceId: string; userId: string; role: string }[]) {
     const c = correoDe.get(m.userId);
     if (!c) continue;
@@ -81,6 +86,10 @@ export async function GET(req: Request) {
     // El administrador primero: es a quien hay que llamar.
     m.role === "ADMIN" ? l.unshift(c) : l.push(c);
     miembros.set(m.workspaceId, l);
+    if (m.role === "ADMIN" || !origenWs.has(m.workspaceId)) {
+      const o = origenDe.get(m.userId);
+      if (o && o !== "origen desconocido") origenWs.set(m.workspaceId, o);
+    }
   }
 
   const fichas: Ficha[] = [];
@@ -129,7 +138,8 @@ export async function GET(req: Request) {
     if (!señales.length) continue;
 
     fichas.push({
-      nombre, correos: miembros.get(w.id) ?? [], plan: sub?.plan ?? "—", estado: sub?.estado ?? "—",
+      nombre, correos: miembros.get(w.id) ?? [], origen: origenWs.get(w.id) ?? "origen desconocido",
+      plan: sub?.plan ?? "—", estado: sub?.estado ?? "—",
       clientes: cli, expedientes: exp, altaDias, quedan, inactivoDias,
       señales: señales.sort((a, b) => a.orden - b.orden),
     });
@@ -143,7 +153,7 @@ export async function GET(req: Request) {
       const cab = f.señales.map((s) => s.etiqueta).join(" · ");
       const cifras = `${f.clientes} clientes · ${f.expedientes} expedientes` +
         (f.quedan !== null ? ` · prueba ${f.plan} ${f.quedan >= 0 ? `${f.quedan} días` : "vencida"}` : "");
-      return `▸ ${f.nombre} — ${cab}\n  ${f.señales.map((s) => s.detalle).join("\n  ")}\n  ${cifras}\n  ${f.correos.join(", ") || "(sin correo)"}`;
+      return `▸ ${f.nombre} — ${cab}\n  ${f.señales.map((s) => s.detalle).join("\n  ")}\n  ${cifras}\n  ${f.correos.join(", ") || "(sin correo)"}\n  vino de: ${f.origen}`;
     }).join("\n\n");
     const primera = fichas[0];
     const cuerpo =
@@ -162,7 +172,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true, avisado, despachos: fichas.length,
     pipeline: fichas.map((f) => ({
-      nombre: f.nombre, señales: f.señales.map((s) => s.etiqueta),
+      nombre: f.nombre, señales: f.señales.map((s) => s.etiqueta), origen: f.origen,
       clientes: f.clientes, expedientes: f.expedientes, quedanDias: f.quedan, correos: f.correos,
     })),
   });
