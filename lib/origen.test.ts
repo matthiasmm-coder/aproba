@@ -39,3 +39,13 @@ describe("origen de un registro", () => {
     expect(resumirOrigen(null)).toBe("origen desconocido");
   });
 });
+
+describe("consentimiento", () => {
+  it("no mide sin el aviso aceptado", async () => {
+    const { hayConsentimiento } = await import("./origen");
+    expect(hayConsentimiento("")).toBe(false);
+    expect(hayConsentimiento("otra=1; mas=2")).toBe(false);
+    expect(hayConsentimiento("aproba-cookie-aviso=1")).toBe(true);
+    expect(hayConsentimiento("x=0; aproba-cookie-aviso=1; y=2")).toBe(true);
+  });
+});

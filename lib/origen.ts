@@ -21,6 +21,15 @@ export type Origen = {
 const CLAVE = "aproba.origen.v1";
 const DIAS = 30;
 
+// CONSENTIMIENTO. La política de cookies publicada promete: «Si incorporamos cookies
+// analíticas o de terceros, solicitaremos tu consentimiento previo». La AEPD equipara
+// localStorage a una cookie (art. 22.2 LSSI-CE), y esto NO es medición agregada —el
+// origen acaba asociado a una persona al registrarse—, así que no cabe la excepción de
+// analítica propia. Sin el aviso aceptado no se guarda nada: cumplir vale más que medir.
+const COOKIE_AVISO = "aproba-cookie-aviso";
+export const hayConsentimiento = (cookies: string): boolean =>
+  cookies.split("; ").some((c) => c.startsWith(`${COOKIE_AVISO}=`));
+
 // Buscadores y redes reconocidos → etiqueta legible; el resto, el dominio a secas.
 const CONOCIDOS: [RegExp, string][] = [
   [/google\./i, "google"], [/bing\./i, "bing"], [/duckduckgo/i, "duckduckgo"],
@@ -67,6 +76,7 @@ export function deducirOrigen(href: string, referrer: string): Origen {
 // Google, lee el blog, se va y vuelve directo tres días después, vino de Google.
 export function recordarOrigen(href: string, referrer: string): void {
   try {
+    if (!hayConsentimiento(document.cookie)) return;
     const guardado = localStorage.getItem(CLAVE);
     if (guardado) {
       const o = JSON.parse(guardado) as Origen;
