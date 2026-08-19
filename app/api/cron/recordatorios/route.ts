@@ -31,7 +31,8 @@ const ESPERA_DIAS = 3;      // margen antes de insistir: el cliente puede estar 
 const EDAD_MAX_DIAS = 45;   // un expediente de hace tres meses está muerto: resucitarlo incomoda
 const REPETIR_DIAS = 7;     // nunca dos recordatorios en la misma semana
 const MAX_POR_EXPEDIENTE = 2;
-const MAX_POR_TANDA = 25;   // tope de seguridad: un fallo de lógica no manda 300 correos
+const MAX_POR_TANDA = 25;
+const MIN_DOCS_PARA_DEJAR_EN_PAZ = 4;  // por debajo, el expediente sigue parado   // tope de seguridad: un fallo de lógica no manda 300 correos
 
 const INTERNOS = [/vall[eè]s/i, /carmen/i, /ckna/i, /^gestoria m{1,2}$/i];
 const dias = (d: string) => (Date.now() - new Date(d).getTime()) / 86400000;
@@ -76,7 +77,11 @@ export async function GET(req: Request) {
   const candidatos = vivos.filter((e) => {
     const s = est.get(e.id as string);
     if (!s?.enlace) return false;                                  // nunca se le mandó el enlace
-    if (s.cli > 0) return false;                                   // ya respondió
+    // Medido el 18/08: de 27 expedientes con respuesta, 14 se quedaron en UN solo
+    // documento y 24 de 27 lo hicieron todo en una única sesión de <2 h. El cliente
+    // no vuelve por su cuenta. Recordar solo a los que están a cero dejaba fuera
+    // justo a los que empezaron y se quedaron a medias — que son la mayoría.
+    if (s.cli >= MIN_DOCS_PARA_DEJAR_EN_PAZ) return false;
     if (s.ges > 0) return false;                                   // modo DESPACHO: no molestar al cliente
     if (dias(s.enlace) < ESPERA_DIAS) return false;
     if (s.recordatorios.length >= MAX_POR_EXPEDIENTE) return false;
