@@ -159,7 +159,13 @@ export const CA: Record<string, string> = {
   "En iPhone/iPad: pulsa Compartir y luego «Añadir a la pantalla de inicio».": "A l'iPhone/iPad: prem Comparteix i després «Afegeix a la pantalla d'inici».",
 
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
-  // ESTADO_META (expediente)
+  // ESTADO5_META (expediente) — los 5 estados vivos
+  "En preparación": "En preparació",
+  "Resolución favorable": "Resolució favorable",
+  "Denegado": "Denegat",
+  "Finalizado": "Finalitzat",
+  // Etiquetas de los 9 estados antiguos: se conservan porque quedan textos sueltos
+  // (correos ya enviados, exportaciones) que aún las usan.
   "Borrador": "Esborrany",
   "Docs pendientes": "Docs pendents",
   "Docs validados": "Docs validats",

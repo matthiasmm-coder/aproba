@@ -1,7 +1,7 @@
+import { metaDeEstado } from "@/lib/progreso";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { ESTADO_META } from "@/lib/types";
 import { TIPO_LABEL, fmtFechaCorta } from "@/lib/tramites";
 import { FACTURA_ESTADO_META, eur, totalDe, type FacturaEstado } from "@/lib/facturas";
 import { formulariosDisponibles } from "@/lib/ex-forms";
@@ -22,7 +22,6 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 }
 
-const ESTADO_FALLBACK = { dot: "bg-slate-300", pill: "bg-slate-100 text-slate-600", label: "—" };
 
 export default async function ClienteDetail({ params }: { params: Promise<{ id: string }> }) {
   const t = await getT();
@@ -189,7 +188,7 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
           <div className="space-y-1">
             {servicios.map((s) => {
-              const meta = ESTADO_META[s.estado as keyof typeof ESTADO_META] ?? { ...ESTADO_FALLBACK, label: s.estado };
+              const meta = metaDeEstado(s.estado);
               const cuerpo = (
                 <>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />

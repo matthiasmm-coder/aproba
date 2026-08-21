@@ -55,6 +55,14 @@ export const ESTADO5_META: Record<Estado5, { label: string; dot: string; pill: s
   FINALIZADO: { label: "Finalizado", dot: "bg-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
 };
 
+// La píldora de estado de CUALQUIER pantalla pasa por aquí. Sin esto, el tablero
+// seguía pintando «Borrador», «Docs validados» o «Formularios listos» —los 9 estados
+// viejos— porque leía el valor BRUTO de la base contra el mapa antiguo: la reforma
+// estaba en las columnas y en la acción siguiente, pero no en lo que el gestor lee.
+export function metaDeEstado(v: string | null | undefined): { label: string; dot: string; pill: string } {
+  return ESTADO5_META[normalizarEstado(v)];
+}
+
 // ── Los hechos que alimentan el cálculo ──────────────────────────────────────
 export type Hechos = {
   estado: string;                 // valor bruto de la base (nuevo o legado)

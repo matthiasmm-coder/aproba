@@ -14,7 +14,6 @@ import { AsignarMiembros } from "@/components/asignar-miembros";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
-import { ESTADO_META } from "@/lib/types";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
 import { ExportarZipButton } from "@/components/exportar-zip-button";
@@ -33,7 +32,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { fetchUltimaRevision } from "@/lib/centinela";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
-import { calcularProgreso } from "@/lib/progreso";
+import { calcularProgreso, metaDeEstado } from "@/lib/progreso";
 
 export const metadata = { title: "Expediente" };
 
@@ -119,7 +118,7 @@ export default async function ExpedienteDetail({
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
   const docsPendientes = docsFaltantes(docsRequeridos, e.documentos);
 
-  const meta = ESTADO_META[e.estado];
+  const meta = metaDeEstado(e.estado);
 
   // Lectura del ciclo de vida (lib/progreso.ts): fase, «qué toca ahora» y documentos
   // que faltan, calculados desde los hechos de esta ficha — no desde una etapa validada.

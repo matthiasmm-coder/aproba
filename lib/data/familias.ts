@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
-import { ESTADO_META } from "@/lib/types";
+import { metaDeEstado } from "@/lib/progreso";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
@@ -89,7 +89,7 @@ export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | 
         referencia: e.referencia,
         tipoLabel: TIPO_LABEL[e.tipo] ?? e.tipo,
         estado: e.estado,
-        estadoLabel: (ESTADO_META as Record<string, { label: string }>)[e.estado]?.label ?? e.estado,
+        estadoLabel: metaDeEstado(e.estado).label,
         portalToken: e.portalToken ?? null,
       })),
       };

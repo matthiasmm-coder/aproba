@@ -2,12 +2,12 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BOARD_COLUMNS, BOARD_PHASES, ESTADO_META, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_COLUMNS, BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
-import type { Progreso } from "@/lib/progreso";
+import { metaDeEstado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -39,7 +39,7 @@ const esperandoCliente = (e: BoardItem): boolean =>
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const t = useT();
-  const meta = ESTADO_META[e.estado];
+  const meta = metaDeEstado(e.estado);
   const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
@@ -60,11 +60,14 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       <p className="mt-0.5 text-[13px] text-slate-500" title={e.extrasLabels?.length ? `+ ${e.extrasLabels.join(" + ")}` : undefined}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
       <div className="mt-2.5 flex items-center gap-2">
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
+        {/* whitespace-nowrap: «En preparación» y «Resolución favorable» son más largos
+            que los estados viejos («Borrador») y se partían en dos líneas dentro de la
+            tarjeta. La píldora no se parte; lo que cede es la barra de progreso. */}
+        <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
         </span>
         {e.total > 0 && (
-          <span className="flex items-center gap-1 text-[11px] text-slate-400">
+          <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
             <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
             {e.validados}/{e.total}
           </span>
@@ -231,7 +234,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         /* Vue archivés : liste */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {visibles.map((e) => {
-            const meta = ESTADO_META[e.estado];
+            const meta = metaDeEstado(e.estado);
             return (
               <div key={e.id} className="flex items-center gap-3 border-b border-slate-50 px-5 py-3 last:border-0 hover:bg-cream-50">
                 <a href={`/app/expedientes/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
