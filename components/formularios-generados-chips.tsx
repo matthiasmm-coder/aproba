@@ -75,7 +75,7 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
                 {!codes.length && !conTasa && <span className="ml-2 font-normal normal-case tracking-normal text-slate-300">· {t("Sin generar")}</span>}
               </p>
               {(codes.length > 0 || conTasa) && (
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap justify-center gap-3">
                   {codes.map((code) => (
                     <span key={code} className={chipCls}>
                       <a href={`/api/expedientes/${expedienteId}/formularios?tipo=${encodeURIComponent(code)}&modo=oficial&clienteId=${mb.id}`} className={bodyCls}>
@@ -109,7 +109,7 @@ export function FormulariosGeneradosChips({ expedienteId, formularios, esFamilia
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         {formularios.map((f) => (
           <span key={f.code} className={chipCls}>
             {esFamilia ? (
