@@ -148,7 +148,10 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           ))}
           {seleccion.length === 0 && <span className="text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector de abajo.")}</span>}
           {porAñadir.length > 0 && (
-            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
+            // Un <select> se dimensiona con su opción MÁS LARGA («EX-17 — Solicitud de
+            // autorización…»), así que sin tope se sale de la tarjeta y el móvil acaba
+            // con scroll horizontal. min-w-0 permite encogerlo dentro del flex.
+            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="min-w-0 max-w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
               <option value="">{t("+ Añadir formulario…")}</option>
               {porAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
             </select>
@@ -160,12 +163,14 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         {union.some((tipo) => p2Opciones[tipo]?.length) && (
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             {union.filter((tipo) => p2Opciones[tipo]?.length).map((tipo) => (
-              <label key={tipo} className="inline-flex items-center gap-2 text-xs text-slate-500">
+              // Sin flex-wrap la etiqueta no podía partirse: el texto se estrujaba en una
+              // columna de cuatro líneas y el desplegable se salía de la pantalla.
+              <label key={tipo} className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
                 <span className="font-semibold text-slate-600">{tipo}</span> {t("· casilla de la pág. 2:")}
                 <select
                   value={p2Sel[tipo] ?? ""}
                   onChange={(e) => elegirP2(tipo, e.target.value)}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-700 outline-none focus:border-aproba-600"
+                  className="min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-700 outline-none focus:border-aproba-600"
                 >
                   <option value="">{t("Automático (según el trámite)")}</option>
                   {p2Opciones[tipo].map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
@@ -194,7 +199,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                     </span>
                   ))}
                   {paraAñadir.length > 0 && (
-                    <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600">
+                    <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="min-w-0 max-w-full rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600">
                       <option value="">{t("+ Añadir formulario…")}</option>
                       {paraAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
                     </select>
