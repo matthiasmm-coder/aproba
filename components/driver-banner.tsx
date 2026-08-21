@@ -99,8 +99,15 @@ export function DriverBanner({
       // El flujo pasa POR la revisión «como Extranjería»: sin revisión, el siguiente
       // paso es revisarla (no presentar a ciegas); con ROJO, confirm reforzado.
       if (!revision) {
-        prim = { kind: "ancla", label: t("Revisar como Extranjería"), target: "centinela" };
-        secundaria = <button onClick={async () => { if (await confirmar(t("¿Marcar como presentado sin revisar? Se avisará al cliente."))) avanzar("presentar"); }} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white disabled:opacity-60">{t("Presentar sin revisar")}</button>;
+        // 21/08/2026: la revisión NO puede bloquear el cierre. Medido en el despacho que
+        // más trabaja (66 expedientes, 34 al mes): 16 listos para presentar, 0 revisados,
+        // y CERO marcados como presentados — porque cerrar exigía pulsar un botón
+        // secundario llamado «Presentar sin revisar», que suena a hacer mal el trabajo.
+        // Y sin cierre no se siembra el vencimiento: Vigía se quedaba vacío, es decir la
+        // única función que acumula valor con el tiempo. Revisar es una ayuda que se
+        // ofrece, no un peaje.
+        prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") };
+        secundaria = <button onClick={() => abrirYScroll("centinela", "centinela")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">{t("Revisar antes como Extranjería")}</button>;
       } else {
         prim = {
           kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
