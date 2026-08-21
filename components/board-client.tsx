@@ -7,7 +7,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
-import { metaDeEstado, type Progreso } from "@/lib/progreso";
+import { metaDeEstado, normalizarEstado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -40,6 +40,12 @@ const esperandoCliente = (e: BoardItem): boolean =>
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const t = useT();
   const meta = metaDeEstado(e.estado);
+  // La píldora solo se enseña donde DICE algo que la columna no dice ya. En Recepción y
+  // Preparación todas las tarjetas son EN_PREPARACION —cinco píldoras ámbar idénticas, y
+  // bajo el rótulo «1. Recepción» encima parecía una contradicción (lo señaló Matthias)—:
+  // ahí lo que distingue una tarjeta es su ACCIÓN. De Presentación en adelante sí separa
+  // (Presentado / Resolución favorable / Denegado / Finalizado), así que se queda.
+  const pildoraUtil = normalizarEstado(e.estado) !== "EN_PREPARACION";
   const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
@@ -60,12 +66,14 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       <p className="mt-0.5 text-[13px] text-slate-500" title={e.extrasLabels?.length ? `+ ${e.extrasLabels.join(" + ")}` : undefined}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
       <div className="mt-2.5 flex items-center gap-2">
-        {/* whitespace-nowrap: «En preparación» y «Resolución favorable» son más largos
-            que los estados viejos («Borrador») y se partían en dos líneas dentro de la
-            tarjeta. La píldora no se parte; lo que cede es la barra de progreso. */}
-        <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
-        </span>
+        {/* whitespace-nowrap: «Resolución favorable» es más largo que los estados viejos
+            y se partía en dos líneas dentro de la tarjeta. La píldora no se parte; lo
+            que cede es la barra de progreso. */}
+        {pildoraUtil && (
+          <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
+          </span>
+        )}
         {e.total > 0 && (
           <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
             <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
