@@ -121,7 +121,7 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
             {fallback && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-800">
                 <p>{error}</p>
-                <a href={fallback} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">{t("Abrir el generador oficial en una pestaña →")}</a>
+                <a href={fallback} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">{t("Comprobar la web oficial →")}</a>
                 {prefillManual && (
                   <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-left">
                     <div className="mb-2 flex items-center justify-between gap-2">

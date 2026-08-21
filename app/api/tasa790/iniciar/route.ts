@@ -79,8 +79,11 @@ export async function POST(req: Request) {
 
   // Los datos ya están calculados: si la Sede no responde, se devuelven igualmente
   // para que el gestor los copie en el generador oficial sin volver a teclearlos.
-  // 20/08/2026: la Sede filtra desde esta semana los clientes que no son un navegador
-  // (funcionó hasta el 16/08, 39 tasas generadas) — el navegador del gestor SÍ entra.
+  // 21/08/2026: el generador oficial está CAÍDO, no es que nos filtre. Comprobado en
+  // un navegador real pinchando el enlace oficial: ERR_CONNECTION_CLOSED y 504 en
+  // /Tasa790_012/ImpresoRellenar. Última tasa generada aquí: 16/08. Ningún despacho de
+  // España puede sacar tasas ahora mismo, con Aproba o sin ella — importa decirlo así:
+  // un gestor que cree que el fallo es nuestro deja de usar el producto.
   const dom0 = partirDomicilio(d.domicilio);
   const prefillManual = {
     nif: d.nie1 ? `${d.nie1}${d.nie2}${d.nie3}` : d.pasaporte,
@@ -97,9 +100,9 @@ export async function POST(req: Request) {
   try {
     res = await fetch(`${BASE}/ImpresoRellenar`, { headers: { "User-Agent": UA }, redirect: "follow" });
   } catch {
-    return noDisponible("La Sede no acepta ahora mismo la generación automática. Abajo tienes los datos del cliente listos para copiar en el generador oficial.");
+    return noDisponible("El generador oficial de la Policía Nacional está caído ahora mismo (no es Aproba: su web tampoco responde en el navegador). Abajo tienes los datos del cliente listos para cuando vuelva.");
   }
-  if (!res.ok) return noDisponible("La Sede de la Policía Nacional no responde ahora mismo. Abajo tienes los datos del cliente listos para copiar en el generador oficial.");
+  if (!res.ok) return noDisponible("El generador oficial de la Policía Nacional no responde ahora mismo (no es Aproba). Abajo tienes los datos del cliente listos para cuando vuelva.");
 
   const setCookies = res.headers.getSetCookie?.() ?? [];
   const cookie = setCookies.map((c) => c.split(";")[0]).join("; ");
