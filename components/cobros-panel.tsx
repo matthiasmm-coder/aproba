@@ -13,7 +13,7 @@ import { confirmar } from "@/components/confirm-dialog";
 // • "Solicitar pago final" ouvre un popup de facture éditable (→ /api/pagos → émise + envoyée).
 // • Chaque facture déjà générée (anticipo / final) se peut retoucher (→ /api/facturas/[id]).
 
-export function CobrosPanel({ ocultarTitulo = false,
+export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
   expedienteId,
   anticipo,
   resto,
@@ -24,6 +24,9 @@ export function CobrosPanel({ ocultarTitulo = false,
   suplidos = [],
 }: {
   ocultarTitulo?: boolean;
+  // La ficha de expediente la pinta ELLA, después de los ajustes (descuento, tasas):
+  // es la puerta de salida, tiene que cerrar el bloque, no partirlo por la mitad.
+  ocultarCobroFuera?: boolean;
   expedienteId: string;
   anticipo: number;
   resto: number;
@@ -219,9 +222,11 @@ export function CobrosPanel({ ocultarTitulo = false,
 
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
-        <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
-          {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>.
-        </p>
+        {!ocultarCobroFuera && (
+          <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
+            {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>.
+          </p>
+        )}
       </div>
 
       {crear && (

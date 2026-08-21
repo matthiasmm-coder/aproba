@@ -319,6 +319,7 @@ export default async function ExpedienteDetail({
         >
         <CobrosPanel
           ocultarTitulo
+          ocultarCobroFuera
           expedienteId={e.id}
           // Expediente familiar: el servicio es POR MIEMBRO — mismo multiplicador que
           // el portal y la factura automática; si no, el gestor sub-factura el pago final.
@@ -347,6 +348,13 @@ export default async function ExpedienteDetail({
             <SuplidosExpediente expedienteId={e.id} inicial={suplidosBase} esOverride={e.suplidosOverride !== null} />
           </div>
         )}
+        {/* Puerta de salida al final del bloque, después de los ajustes. */}
+        <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
+          {t("¿Cobro fuera de la plataforma?")}{" "}
+          <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">
+            {t("Crea la factura manualmente")}
+          </Link>.
+        </p>
         </SeccionPlegable>
 
         {/* Historial */}
