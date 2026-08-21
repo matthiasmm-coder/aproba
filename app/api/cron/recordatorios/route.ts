@@ -64,7 +64,7 @@ export async function GET(req: Request) {
   const interno = (id: string) => INTERNOS.some((r) => r.test(nombreWs.get(id) ?? ""));
 
   const { data: exps } = await admin.from("Expediente")
-    .select("id, workspaceId, estado, createdAt").in("estado", ESTADOS_PREPARACION);
+    .select("id, workspaceId, estado, createdAt, formulariosGenerados, tasaPath").in("estado", ESTADOS_PREPARACION);
   const vivos = (exps ?? []).filter((e) => !interno(e.workspaceId as string) && dias(e.createdAt as string) <= EDAD_MAX_DIAS);
   if (!vivos.length) return NextResponse.json({ ok: true, activo: ACTIVO, candidatos: 0 });
 
@@ -106,6 +106,11 @@ export async function GET(req: Request) {
     const s = est.get(e.id as string);
     if (!s?.enlace) return false;                                  // nunca se le mandó el enlace
     if (!conFactura.has(e.id as string) && !s.firmo) return false; // aún no es cliente: solo pidió precio
+    // El despacho ya avanzó SIN el cliente (formularios curados o tasa generada): pedirle
+    // documentos entonces es reclamar algo que ya no bloquea nada. Con el ciclo nuevo esto
+    // importa más que antes: «en preparación» incluye expedientes muy adelantados.
+    const f = (e as { formulariosGenerados?: string[] | null; tasaPath?: string | null });
+    if (Array.isArray(f.formulariosGenerados) || f.tasaPath) return false;
     // Medido el 18/08: de 27 expedientes con respuesta, 14 se quedaron en UN solo
     // documento y 24 de 27 lo hicieron todo en una única sesión de <2 h. El cliente
     // no vuelve por su cuenta. Recordar solo a los que están a cero dejaba fuera
