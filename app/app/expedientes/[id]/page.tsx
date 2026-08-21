@@ -33,6 +33,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { fetchUltimaRevision } from "@/lib/centinela";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
+import { calcularProgreso } from "@/lib/progreso";
 
 export const metadata = { title: "Expediente" };
 
@@ -120,6 +121,30 @@ export default async function ExpedienteDetail({
 
   const meta = ESTADO_META[e.estado];
 
+  // Lectura del ciclo de vida (lib/progreso.ts): fase, «qué toca ahora» y documentos
+  // que faltan, calculados desde los hechos de esta ficha — no desde una etapa validada.
+  const docsNoEncargo = e.documentos.filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
+  const progresoExp = calcularProgreso({
+    estado: e.estado,
+    serviciosResueltos: serviciosExp.length,
+    docsRequeridos: docsRequeridos,
+    tiposValidados: docsNoEncargo.filter((d) => d.estado === "VALIDADO").map((d) => String(d.tipo ?? "")),
+    docsTotales: docsNoEncargo.length,
+    docsValidados: docsNoEncargo.filter((d) => d.estado === "VALIDADO").length,
+    formulariosCurados: e.formulariosCurados,
+    tieneTasa: e.tieneTasa,
+    encargoFirmado: e.documentos.some((d) => (d.tipo === "HOJA_ENCARGO" || d.tipo === "MANDATO") && d.estado === "VALIDADO"),
+    encargoAplica: false,
+    anticipoPagado: false,
+    citaPresencial: cita.citaPresencial,
+    fechaCita: e.cita?.fecha ?? null,
+    arrancado: docsNoEncargo.length > 0,
+    // El estado legado ya afirmaba en publico «documentacion validada»: no puede
+    // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio
+    // valor mientras las filas antiguas existan: sin columna nueva ni UPDATE de remap.
+    docsDadosPorValidados: ["DOCS_VALIDADOS", "FORM_GENERADO"].includes(String(e.estado)),
+  });
+
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
@@ -160,7 +185,7 @@ export default async function ExpedienteDetail({
         </div>
 
         <div className="mt-5 border-t border-slate-100 pt-4">
-          <PhaseStepper activeEstado={e.estado} />
+          <PhaseStepper activeEstado={e.estado} activeFase={progresoExp.fase} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
@@ -174,6 +199,8 @@ export default async function ExpedienteDetail({
       <DriverBanner
         id={e.id}
         estado={e.estado}
+        progreso={progresoExp}
+        citaFecha={e.cita?.fecha ?? null}
         citaPresencial={cita.citaPresencial}
         citaQuien={cita.citaQuien}
         portalToken={e.portalToken}
@@ -298,7 +325,7 @@ export default async function ExpedienteDetail({
 
         {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
-        {["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO"].includes(e.estado) && (
+        {(progresoExp.hitos.formularios || progresoExp.hitos.presentado) && (
           <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
             <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
           </SeccionPlegable>

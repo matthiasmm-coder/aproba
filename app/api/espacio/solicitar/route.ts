@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     const fila: Record<string, unknown> = {
       id: expedienteId, workspaceId, clienteId: cliente.id, referencia, portalToken,
       tipo: SERVICIO_A_TIPO[principal] ?? "OTRO", servicioClave: principal,
-      estado: "BORRADOR", updatedAt: new Date().toISOString(),
+      estado: "EN_PREPARACION", updatedAt: new Date().toISOString(),
       ...(extras.length ? { serviciosExtra: extras } : {}),
       ...(descuentoPack ? { descuento: descuentoPack } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente

@@ -442,5 +442,9 @@ function progresoDeFila(
     citaPresencial: resueltos.some((c) => citaPorClave[c]),
     fechaCita: (e as { fechaCita?: string | null }).fechaCita ?? null,
     arrancado: docs.length > 0,
+    // El estado legado ya afirmaba en publico «documentacion validada»: no puede
+    // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio
+    // valor mientras las filas antiguas existan: sin columna nueva ni UPDATE de remap.
+    docsDadosPorValidados: ["DOCS_VALIDADOS", "FORM_GENERADO"].includes(String(e.estado)),
   });
 }

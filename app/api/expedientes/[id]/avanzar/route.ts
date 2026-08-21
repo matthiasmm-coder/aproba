@@ -19,13 +19,23 @@ import type { ExpedienteEstado } from "@/lib/types";
 type Accion = "presentar" | "resolver_favorable" | "resolver_desfavorable" | "cita" | "finalizar" | "forzar_validados";
 type EventoTipo = "PRESENTADO" | "ESTADO_CAMBIADO";
 
+// CICLO A 5 ESTADOS (ver lib/progreso.ts). Las puertas intermedias han desaparecido:
+// preparar un expediente ya no exige validar etapas. Solo quedan las 3 declaraciones que
+// el producto NO PUEDE deducir — presentar, resolver, cerrar.
+//
+// Cada «desde» acepta los DOS mundos: los valores legados siguen en las filas mientras
+// el remap no haya corrido, y un despliegue no puede dejar un expediente sin acción.
+const PREPARACION: ExpedienteEstado[] = ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS", "FORM_GENERADO"];
+const RESUELTO_O_CITA: ExpedienteEstado[] = ["RESUELTO", "CITA_HUELLAS"];
+
 const TRANSICIONES: Record<Exclude<Accion, "cita">, { desde: ExpedienteEstado[]; hacia: ExpedienteEstado; evento: EventoTipo; desc: string; aviso: string }> = {
-  // aviso vacío = no se notifica al cliente (es una decisión interna del gestor).
-  forzar_validados: { desde: ["DOCS_PENDIENTES"], hacia: "DOCS_VALIDADOS", evento: "ESTADO_CAMBIADO", desc: "El gestor continúa sin esperar todos los documentos (quedan documentos pendientes)", aviso: "" },
-  presentar: { desde: ["FORM_GENERADO"], hacia: "PRESENTADO", evento: "PRESENTADO", desc: "Expediente presentado en la Administración", aviso: "presentado" },
+  // Se conserva por compatibilidad (clientes con la pantalla antigua abierta): ya no
+  // hay nada que forzar, así que no mueve el estado ni avisa a nadie.
+  forzar_validados: { desde: PREPARACION, hacia: "EN_PREPARACION", evento: "ESTADO_CAMBIADO", desc: "El gestor continúa sin esperar todos los documentos", aviso: "" },
+  presentar: { desde: PREPARACION, hacia: "PRESENTADO", evento: "PRESENTADO", desc: "Expediente presentado en la Administración", aviso: "presentado" },
   resolver_favorable: { desde: ["PRESENTADO"], hacia: "RESUELTO", evento: "ESTADO_CAMBIADO", desc: "Resolución favorable", aviso: "resuelto_favorable" },
   resolver_desfavorable: { desde: ["PRESENTADO"], hacia: "RECHAZADO", evento: "ESTADO_CAMBIADO", desc: "Resolución desfavorable (denegado)", aviso: "denegado" },
-  finalizar: { desde: ["CITA_HUELLAS", "RESUELTO"], hacia: "FINALIZADO", evento: "ESTADO_CAMBIADO", desc: "Trámite completado", aviso: "tie_entregado" },
+  finalizar: { desde: RESUELTO_O_CITA, hacia: "FINALIZADO", evento: "ESTADO_CAMBIADO", desc: "Trámite completado", aviso: "tie_entregado" },
 };
 
 // AAAA-MM-JJ → JJ/MM/AAAA.
@@ -51,9 +61,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // ── CITA : transition spéciale (champs détaillés + aviso selon qui s'y rend) ──
   if (accion === "cita") {
-    if (exp.estado === "CITA_HUELLAS") return NextResponse.json({ ok: true, estado: "CITA_HUELLAS" });
-    if (exp.estado !== "RESUELTO") return NextResponse.json({ error: `Esta acción no es posible desde el estado actual (${exp.estado}).` }, { status: 409 });
+    if (!RESUELTO_O_CITA.includes(exp.estado)) return NextResponse.json({ error: `Esta acción no es posible desde el estado actual (${exp.estado}).` }, { status: 409 });
     if (!body.fecha) return NextResponse.json({ error: "Falta la fecha de la cita." }, { status: 400 });
+    // Idempotencia por CONTENIDO, no por existencia: si el gestor corrige una fecha
+    // equivocada hay que guardarla Y reavisar al cliente — tirar la corrección en
+    // silencio le dejaría presentándose el día que no es.
+    const igual = exp.cita?.fecha === body.fecha
+      && (exp.cita?.hora ?? null) === (body.hora ?? null)
+      && (exp.cita?.lugar ?? null) === (body.lugar ?? null);
+    if (igual) return NextResponse.json({ ok: true, estado: exp.estado, sinCambios: true });
 
     // Qui se rend à la cita ? Multi-servicio: fusión OR (si UN servicio con cita la
     // asume el gestor, acude el gestor) — misma regla que la ficha, /s y la agenda.
@@ -68,7 +84,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       quien = citaDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipoEnum }, servicios)).citaQuien;
     }
 
-    const patch = { estado: "CITA_HUELLAS", fechaCita: body.fecha, citaHora: body.hora ?? null, citaLugar: body.lugar ?? null, citaNotas: body.notas ?? null, updatedAt: new Date().toISOString() };
+    // NO se toca el estado: la cita es un hecho del expediente resuelto, no una etapa.
+    const patch = { fechaCita: body.fecha, citaHora: body.hora ?? null, citaLugar: body.lugar ?? null, citaNotas: body.notas ?? null, updatedAt: new Date().toISOString() };
     const { error: upErr } = await admin.from("Expediente").update(patch).eq("id", id);
     if (upErr) { console.error("[avanzar cita]", upErr.message); return NextResponse.json({ error: "No se pudo guardar la cita." }, { status: 500 }); }
 
@@ -84,7 +101,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     try {
       if (ws) await dispararAviso(admin, { workspaceId: ws, expedienteId: id, clave: quien === "gestor" ? "cita_gestor" : "cita_cliente", vars: { fecha: fechaTxt, notas: body.notas ?? "" }, baseUrl });
     } catch { /* un aviso ne casse jamais le flux */ }
-    return NextResponse.json({ ok: true, estado: "CITA_HUELLAS" });
+    return NextResponse.json({ ok: true, estado: exp.estado });
   }
 
   // ── Transitions simples ──

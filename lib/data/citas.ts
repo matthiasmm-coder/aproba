@@ -59,7 +59,10 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
     const selCitas = (cols: string) => supabase
       .from("Expediente")
       .select(cols)
-      .eq("estado", "CITA_HUELLAS")
+      // La cita dejó de ser un estado: es un HECHO (fechaCita) de un expediente resuelto.
+      // Se aceptan los dos mundos — con .eq() las citas reales desaparecerían de la
+      // agenda del gestor mientras el remap no hubiera corrido.
+      .in("estado", ["RESUELTO", "CITA_HUELLAS"])
       .gte("fechaCita", today)
       .order("fechaCita", { ascending: true })
       .limit(limite);

@@ -162,7 +162,7 @@ export async function POST(req: Request) {
     referencia = `EXP-${year}-${String(n).padStart(4, "0")}`;
     const fila: Record<string, unknown> = {
       id: expedienteId, workspaceId, clienteId, referencia, portalToken,
-      tipo: "OTRO", estado: "BORRADOR", asignadoAId: user.id, updatedAt: new Date().toISOString(),
+      tipo: "OTRO", estado: "EN_PREPARACION", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(expedienteFamiliaId ? { familiaId: expedienteFamiliaId } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };

@@ -169,42 +169,12 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
 // ("servicios" — añadir un servicio puede requerir docs nuevos y el estado no debe mentir).
 // El criterio compara por docTipo VALIDADO (tolerante a dos labels que mapean el mismo
 // tipo — un conteo validados>=N sería inalcanzable en ese caso). Nunca lanza.
-export async function reconciliarProgresoDocs(admin: Admin, expedienteId: string, contexto: "subida" | "servicios" = "subida"): Promise<void> {
-  const uuid = () => crypto.randomUUID();
-  try {
-    // Lectura defensiva: serviciosExtra puede no existir (migración pendiente).
-    let q = await admin.from("Expediente").select("id, workspaceId, familiaId, estado, tipo, servicioClave, serviciosExtra").eq("id", expedienteId).maybeSingle();
-    if (q.error) q = await admin.from("Expediente").select("id, workspaceId, familiaId, estado, tipo, servicioClave").eq("id", expedienteId).maybeSingle() as typeof q;
-    const exp = q.data as { id: string; workspaceId: string; familiaId: string | null; estado: string; tipo: string; servicioClave?: string | null; serviciosExtra?: string[] | null } | null;
-    if (!exp || exp.familiaId) return;
-    if (exp.estado !== "DOCS_PENDIENTES" && exp.estado !== "DOCS_VALIDADOS") return;
-
-    const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, (exp as { oficinaId?: string | null }).oficinaId ?? null);
-    const requeridos = docsDeServicios(serviciosDeExpediente(exp, catalogo));
-    const { data: todosRaw } = await admin.from("Documento").select("estado, tipo").eq("expedienteId", exp.id);
-    const todos = (todosRaw ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
-    const total = todos.length;
-    const validados = todos.filter((d) => d.estado === "VALIDADO").length;
-    const tiposValidados = new Set(todos.filter((d) => d.estado === "VALIDADO").map((d) => d.tipo));
-    const faltanValidados = requeridos.filter((label) => !tiposValidados.has(labelADocTipo(label)));
-    const listo = requeridos.length > 0 ? faltanValidados.length === 0 : total > 0 && validados === total;
-
-    if (listo && exp.estado === "DOCS_PENDIENTES") {
-      await admin.from("Expediente").update({ estado: "DOCS_VALIDADOS", updatedAt: new Date().toISOString() }).eq("id", exp.id);
-      await admin.from("ExpedienteEvento").insert({
-        id: uuid(), expedienteId: exp.id, tipo: "ESTADO_CAMBIADO",
-        descripcion: contexto === "subida"
-          ? `IA validó ${validados}/${requeridos.length || total} documentos — expediente listo para formularios`
-          : "Con los servicios actualizados, todos los documentos requeridos están validados — expediente listo para formularios",
-      });
-    } else if (!listo && exp.estado === "DOCS_VALIDADOS") {
-      await admin.from("Expediente").update({ estado: "DOCS_PENDIENTES", updatedAt: new Date().toISOString() }).eq("id", exp.id);
-      await admin.from("ExpedienteEvento").insert({
-        id: uuid(), expedienteId: exp.id, tipo: "ESTADO_CAMBIADO",
-        descripcion: contexto === "subida"
-          ? "Un documento requerido dejó de estar validado — el expediente vuelve a «documentos pendientes»"
-          : "Los servicios actualizados requieren documentos nuevos — el expediente vuelve a «documentos pendientes»",
-      });
-    }
-  } catch { /* la reconciliación no es bloqueante */ }
+export async function reconciliarProgresoDocs(_admin: Admin, _expedienteId: string, _contexto: "subida" | "servicios" = "subida"): Promise<void> {
+  // VACIADA a propósito (21/08/2026). Antes promovía DOCS_PENDIENTES↔DOCS_VALIDADOS tras
+  // cada subida — y excluía a las familias, que por eso se quedaban atascadas para
+  // siempre. Ahora esa lectura se calcula a la LECTURA en lib/progreso.ts, para todos
+  // por igual y sin escribir nada: un estado que se recalcula no puede mentir.
+  // Se conserva la firma porque tres rutas la llaman; se retirará cuando se limpien.
+  return;
 }
+

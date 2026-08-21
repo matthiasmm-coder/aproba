@@ -207,9 +207,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const tipos = seleccion.join(", ");
 
-  // Avance d'état seulement depuis DOCS_VALIDADOS (idempotent : ne régresse jamais).
-  if (exp.estado === "DOCS_VALIDADOS") {
-    await supabase.from("Expediente").update({ estado: "FORM_GENERADO", updatedAt: new Date().toISOString() }).eq("id", id);
+  // Ya no se avanza ningún estado: generar formularios es un HECHO que la progresión
+  // derivada lee sola (lib/progreso.ts). Lo que sí importa es el aviso al cliente, que
+  // antes solo salía si el expediente estaba EXACTAMENTE en DOCS_VALIDADOS — por eso no
+  // llegaba nunca en los expedientes familiares ni en los que el gestor había adelantado.
+  // Ahora se ancla al hecho: la PRIMERA vez que la selección pasa de vacía a no vacía.
+  const primeraCuracion = !exp.formulariosCurados && seleccion.length > 0;
+  if (primeraCuracion) {
     // Avise le client (selon Ajustes) que ses formulaires sont prêts — uniquement à la
     // transition, donc une seule fois. Ne casse jamais le flux.
     try {

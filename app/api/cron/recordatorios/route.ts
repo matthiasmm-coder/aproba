@@ -39,7 +39,12 @@ const EDAD_MAX_DIAS = 45;   // un expediente de hace tres meses está muerto: re
 const REPETIR_DIAS = 7;     // nunca dos recordatorios en la misma semana
 const MAX_POR_EXPEDIENTE = 2;
 const MAX_POR_TANDA = 25;
-const MIN_DOCS_PARA_DEJAR_EN_PAZ = 4;  // por debajo, el expediente sigue parado   // tope de seguridad: un fallo de lógica no manda 300 correos
+const MIN_DOCS_PARA_DEJAR_EN_PAZ = 4;
+// El expediente ya no tiene un estado «documentos pendientes»: hay UNO de preparación
+// (ver lib/progreso.ts) y el resto se deriva. Se filtran los dos mundos porque las filas
+// legadas siguen ahí mientras el remap no haya corrido — un .eq() habría devuelto 0
+// líneas TODOS los días sin error, matando las relances en silencio.
+const ESTADOS_PREPARACION = ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS", "FORM_GENERADO"];  // por debajo, el expediente sigue parado   // tope de seguridad: un fallo de lógica no manda 300 correos
 
 const INTERNOS = [/vall[eè]s/i, /carmen/i, /ckna/i, /^gestoria m{1,2}$/i];
 const dias = (d: string) => (Date.now() - new Date(d).getTime()) / 86400000;
@@ -59,7 +64,7 @@ export async function GET(req: Request) {
   const interno = (id: string) => INTERNOS.some((r) => r.test(nombreWs.get(id) ?? ""));
 
   const { data: exps } = await admin.from("Expediente")
-    .select("id, workspaceId, estado, createdAt").eq("estado", "DOCS_PENDIENTES");
+    .select("id, workspaceId, estado, createdAt").in("estado", ESTADOS_PREPARACION);
   const vivos = (exps ?? []).filter((e) => !interno(e.workspaceId as string) && dias(e.createdAt as string) <= EDAD_MAX_DIAS);
   if (!vivos.length) return NextResponse.json({ ok: true, activo: ACTIVO, candidatos: 0 });
 

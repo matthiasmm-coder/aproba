@@ -85,10 +85,8 @@ export async function DELETE(req: Request) {
     descripcion: `El cliente eliminó un documento: ${label}`,
   });
 
-  // Un document requis a été retiré → l'expediente n'est plus « validé ».
-  if (exp.estado === "DOCS_VALIDADOS") {
-    await admin.from("Expediente").update({ estado: "DOCS_PENDIENTES", updatedAt: new Date().toISOString() }).eq("id", exp.id);
-  }
+  // La «des-validación» ya no se escribe: la progresión derivada (lib/progreso.ts)
+  // vuelve sola a «faltan documentos» en cuanto el documento deja de estar validado.
 
   return NextResponse.json({ ok: true });
 }

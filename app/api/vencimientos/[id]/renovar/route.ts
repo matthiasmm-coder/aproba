@@ -95,7 +95,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     referencia = `EXP-${year}-${String(n).padStart(4, "0")}`;
     const fila: Record<string, unknown> = {
       id: expedienteId, workspaceId, clienteId, referencia, portalToken,
-      tipo: "RENOVACION", estado: "BORRADOR", asignadoAId: user.id, updatedAt: new Date().toISOString(),
+      tipo: "RENOVACION", estado: "EN_PREPARACION", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(servicioClave ? { servicioClave } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };

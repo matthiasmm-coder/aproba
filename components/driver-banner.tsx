@@ -7,6 +7,7 @@ import { confirmar } from "@/components/confirm-dialog";
 import { copiarTexto } from "@/lib/copiar";
 import { ArrowIcon } from "@/components/icons";
 import type { ExpedienteEstado } from "@/lib/types";
+import type { Progreso } from "@/lib/progreso";
 
 // El "siguiente paso" como acción de un clic: la flecha ES el botón. Según el estado,
 // avanza la máquina de estados (/api/expedientes/[id]/avanzar), navega a la herramienta
@@ -19,10 +20,14 @@ function abrirYScroll(seccion: string, target: string, block: ScrollLogicalPosit
 }
 
 export function DriverBanner({
-  id, estado, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref, revision,
+  id, estado, progreso, citaFecha = null, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref, revision,
 }: {
   id: string;
   estado: ExpedienteEstado;
+  // Lectura calculada del ciclo (lib/progreso.ts). Manda sobre `estado`: desde que los
+  // cuatro estados de preparación se fundieron en uno, solo los HECHOS dicen qué toca.
+  progreso?: Progreso;
+  citaFecha?: string | null;
   citaPresencial?: boolean;
   citaQuien?: "cliente" | "gestor";
   portalToken?: string | null;
@@ -77,11 +82,49 @@ export function DriverBanner({
     | { kind: "copiar"; label: string }
     | { kind: "ancla"; label: string; target: string };
 
-  let prim: Prim;
+  let prim: Prim = { kind: "espera", label: "" };
   let secundaria: React.ReactNode = null;
   const btnSec = "rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60";
 
-  switch (estado) {
+  // ── PREPARACIÓN: una sola rama para lo que antes eran cuatro estados ──
+  // La acción sale del progreso derivado (documentos que faltan, formularios curados…),
+  // no de una etapa que el gestor tuviera que validar.
+  const clave = progreso?.accion.clave;
+  const enPreparacion = Boolean(progreso && progreso.estado === "EN_PREPARACION");
+  const tieneCita = Boolean(progreso?.hitos.resuelto && citaFecha);
+  if (enPreparacion && progreso) {
+    if (clave === "elegir_servicio" || (clave === "esperando_docs" && !progreso.hitos.arrancado)) {
+      prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
+      if (permiteSubidaInterna) {
+        secundaria = (
+          <button onClick={() => abrirYScroll("documentos", "subir-interno", "center")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
+            {t("Trabajar internamente")}
+          </button>
+        );
+      }
+    } else if (clave === "esperando_docs" || clave === "generar_formularios") {
+      // Faltan papeles pero NADA impide preparar: el despacho rellena el EX en cuanto
+      // tiene la identidad. Antes esto exigía «forzar» un estado con un aviso culpable.
+      prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref };
+      if (progreso.docs.faltan.length > 0) {
+        secundaria = <span className="text-xs text-slate-400">{t("Faltan {n} documento(s) del cliente").replace("{n}", String(progreso.docs.faltan.length))}</span>;
+      }
+    } else {
+      // Formularios listos → presentar. La revisión se ofrece, no se impone.
+      const rojo = revision?.verdicto === "ROJO";
+      prim = {
+        kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
+        confirm: rojo
+          ? t("La revisión «como Extranjería» ha detectado {n} riesgo(s) ALTO(s) de requerimiento. ¿Presentar igualmente?").replace("{n}", String(revision?.rojos ?? 0))
+          : t("¿Marcar como presentado? Se avisará al cliente."),
+      };
+      secundaria = (
+        <button onClick={() => abrirYScroll("centinela", "centinela")} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${rojo ? "border-red-300 text-red-700 hover:bg-red-50" : revision?.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
+          {rojo ? `🔴 ${t("Ver los hallazgos")}` : revision?.verdicto === "AMBAR" ? `🟡 ${t("Ver los hallazgos")}` : revision ? `✓ ${t("Revisión sin hallazgos")}` : t("Revisar antes como Extranjería")}
+        </button>
+      );
+    }
+  } else switch (estado) {
     case "BORRADOR":
       prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
       // Alternativa al enlace: trabajar el expediente internamente (el gestor sube los docs).
@@ -127,7 +170,15 @@ export function DriverBanner({
       secundaria = <button onClick={async () => { if (await confirmar(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
       break;
     case "RESUELTO":
-      prim = citaPresencial ? { kind: "cita", label: t("Agendar cita") } : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
+      // Con cita presencial pendiente hay un paso más; ya agendada (o innecesaria), lo
+      // que queda es cerrar. Sin esta distinción, «Finalizar» era inalcanzable desde que
+      // CITA_HUELLAS dejó de ser un estado.
+      prim = citaPresencial && !progreso?.hitos.cerrado && !tieneCita
+        ? { kind: "cita", label: t("Agendar cita") }
+        : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
+      if (tieneCita && citaPresencial) {
+        secundaria = <button onClick={() => setCitaOpen(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white">{t("Editar la cita")}</button>;
+      }
       break;
     case "CITA_HUELLAS": prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") }; break;
     case "FINALIZADO":

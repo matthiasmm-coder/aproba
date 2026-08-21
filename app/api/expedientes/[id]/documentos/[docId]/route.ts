@@ -69,11 +69,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { error: eDel } = await admin.from("Documento").delete().eq("id", docId);
   if (eDel) return NextResponse.json({ error: eDel.message }, { status: 500 });
 
-  // Si el expediente ya estaba en DOCS_VALIDADOS, vuelve a DOCS_PENDIENTES:
-  // con un documento menos, la afirmación «todo validado» dejaría de ser cierta.
-  if (exp.estado === "DOCS_VALIDADOS") {
-    await admin.from("Expediente").update({ estado: "DOCS_PENDIENTES", updatedAt: new Date().toISOString() }).eq("id", exp.id);
-  }
+  // La «des-validación» ya no se escribe: la progresión derivada (lib/progreso.ts)
+  // vuelve sola a «faltan documentos» en cuanto el documento deja de estar validado.
 
   await admin.from("ExpedienteEvento").insert({
     id: crypto.randomUUID(),
@@ -82,5 +79,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     descripcion: `🗑 Documento «${DOC_LABEL[doc.tipo] ?? doc.tipo}» eliminado por el gestor · el cliente puede volver a subirlo desde su enlace`,
   });
 
-  return NextResponse.json({ ok: true, estado: exp.estado === "DOCS_VALIDADOS" ? "DOCS_PENDIENTES" : exp.estado });
+  return NextResponse.json({ ok: true, estado: exp.estado });
 }
