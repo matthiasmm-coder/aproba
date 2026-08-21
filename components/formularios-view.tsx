@@ -99,7 +99,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
       {/* Lo que el PDF va a dejar EN BLANCO. Antes se generaba incompleto sin decir
           nada y el gestor lo tomaba por un fallo del formulario (caso real 17/08). */}
       {faltanPorPersona.length > 0 && (
-        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center">
           <p className="text-sm font-semibold text-amber-900">
             {t("Faltan datos en la ficha: el formulario saldrá con esos huecos en blanco.")}
           </p>
@@ -116,7 +116,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               {t("Completar la ficha")} →
             </Link>
           ) : (
-            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm font-semibold text-amber-900">
+            <p className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm font-semibold text-amber-900">
               {faltanPorPersona.filter((p) => p.id !== "titular").map((p) => (
                 <Link key={p.id} href={`/app/clientes/${p.id}`} className="underline underline-offset-2 hover:text-amber-950">
                   {t("Completar")} {p.nombre} →
@@ -213,7 +213,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                 {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
               </div>
             )}
-            <div className="mt-4">
+            <div className="mt-4 flex justify-center">
               <Tasa790Modal expedienteId={exp.id} />
             </div>
           </>
