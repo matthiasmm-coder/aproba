@@ -9,6 +9,11 @@ import { useEffect, useRef, useState } from "react";
 
 type Mensaje = { rol: "user" | "assistant"; texto: string };
 
+// Compartido por los dos disparadores (pestaña en móvil, burbuja en escritorio).
+const ICONO_CHAT = (
+  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+);
+
 const SUGERENCIAS = [
   "¿Cómo doy de alta un expediente?",
   "El cliente no encuentra su enlace, ¿qué hago?",
@@ -88,17 +93,34 @@ export function AsistenteWidget() {
 
   return (
     <>
-      {/* Botón flotante — encima de la nav móvil, esquina inferior derecha en escritorio */}
+      {/* El disparador tiene DOS formas, y no es cosmético.
+          En el móvil, una burbuja de 48 px puesta a 16 px del borde ocupa la franja
+          16–64 px; el contenido de las tarjetas empieza a 32 px (p-4 de <main> + p-4 de
+          la tarjeta), así que se comía 27 px de columna y tapaba el último botón —
+          «Marcar como generados» quedaba cortado. Ninguna cantidad de padding lo
+          arregla: la tarjeta acaba a media página, no al final. La pestaña mide 30 px
+          y cabe ENTERA en el margen, por eso ya no puede solaparse con nada.
+          En escritorio sobra sitio: se queda la burbuja completa, con su etiqueta. */}
       {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Abrir el asistente de Aproba"
-          className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 md:bottom-6 md:right-6 print:hidden"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-          <span className="hidden sm:inline">Ayuda</span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir el asistente de Aproba"
+            className="fixed bottom-24 right-0 z-40 flex items-center rounded-l-full bg-slate-900 py-3.5 pl-2 pr-1.5 text-white shadow-lg transition hover:bg-slate-800 md:hidden print:hidden"
+          >
+            {ICONO_CHAT}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir el asistente de Aproba"
+            className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 md:flex print:hidden"
+          >
+            {ICONO_CHAT}
+            <span>Ayuda</span>
+          </button>
+        </>
       )}
 
       {open && (
