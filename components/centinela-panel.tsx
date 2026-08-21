@@ -172,7 +172,7 @@ export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }:
         {/* Requerimiento real recibido → borrador de contestación */}
         <div className="mt-4 border-t border-slate-100 pt-3">
           {!reqAbierto ? (
-            <button onClick={() => setReqAbierto(true)} className="-my-2 py-2 text-left text-xs font-medium text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline sm:my-0 sm:py-0">
+            <button onClick={() => setReqAbierto(true)} className="-my-2 block w-full py-2 text-center text-xs font-medium text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline sm:my-0 sm:py-0">
               {t("¿Has recibido un requerimiento? Pégalo aquí y redacto la contestación")}
             </button>
           ) : (
@@ -205,7 +205,7 @@ export function CentinelaPanel({ expedienteId, inicial, ocultarTitulo = false }:
             {t("Esta revisión no se ha guardado: falta ejecutar la migración supabase/centinela.sql. Seguirá funcionando, pero sin histórico.")}
           </p>
         )}
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-400">
           {t("La revisión es una ayuda, no una garantía: «nada detectado» significa que no se ha encontrado ningún problema en los datos disponibles, no que la resolución vaya a ser favorable. Revisa siempre el expediente antes de presentarlo.")}
         </p>
       </div>
