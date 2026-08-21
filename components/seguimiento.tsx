@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, parentescoI18n, type Lang, esLangSoportada, esRTL } from "@/lib/portal-i18n";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
+import { normalizarEstado } from "@/lib/progreso";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean; clienteId?: string; grupo?: string };
 
@@ -68,7 +69,31 @@ export function Seguimiento({
     try { window.localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ }
   }
 
-  const idx = ORDEN[estado] ?? 0;
+  // El avance público se DERIVA de los hechos, no del estado: desde que los cuatro
+  // estados de preparación se fundieron en uno, ORDEN[estado] devolvía 0 y la línea de
+  // tiempo se habría quedado vacía para la mayoría de los expedientes.
+  // MONÓTONA a propósito: un expediente presentado ha pasado por todo lo anterior, y un
+  // hito que el cliente ya vio marcado no puede apagarse.
+  const est5 = normalizarEstado(estado);
+  const docsReales = docs.filter((d) => !DOCS_FIRMA.includes(d.label));
+  const hayDocs = docsReales.length > 0;
+  const todosValidados = hayDocs && docsReales.every((d) => d.status === "ok");
+  const hayFormularios = formularios.length > 0 || tasaDisponible || (miembros ?? []).some((m) => m.tieneTasa || (m.formularios ?? []).length > 0);
+  const post = est5 === "PRESENTADO" || est5 === "RESUELTO" || est5 === "FINALIZADO" || est5 === "RECHAZADO";
+
+  // MONOTONÍA: el estado legado ya afirmaba en público estos hitos y el cliente los vio
+  // marcados. Aunque los documentos derivados estén incompletos (el gestor avanzó sin
+  // esperarlos), su seguimiento NO puede retroceder — sería mentirle al revés.
+  const yaAfirmadoDocs = estado === "DOCS_VALIDADOS" || estado === "FORM_GENERADO";
+  const yaAfirmadoForm = estado === "FORM_GENERADO";
+
+  let idx = 1; // el expediente existe: «solicitud recibida» siempre está marcada
+  if (todosValidados || yaAfirmadoDocs || post) idx = 2;
+  if (hayFormularios || yaAfirmadoForm || post) idx = 3;
+  if (post) idx = 4;
+  if (est5 === "RESUELTO" || est5 === "FINALIZADO") idx = 5;
+  if (cita?.fecha && citaPresencial && est5 !== "FINALIZADO") idx = 6;
+  if (est5 === "FINALIZADO") idx = 7;
   // Le jalon « cita » n'apparaît que si le service a une cita présentielle.
   const MILESTONES = [
     { key: "mil.recibido", at: 1 },
@@ -250,7 +275,7 @@ export function Seguimiento({
         </div>
 
         {/* Cita présentielle — détails complets (le client s'y rend) ou simple info de date (le gestor) */}
-        {estado === "CITA_HUELLAS" && cita?.fecha && (
+        {Boolean(cita?.fecha) && est5 !== "FINALIZADO" && cita?.fecha && (
           <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50 p-4">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600">

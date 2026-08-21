@@ -3,10 +3,6 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const ORDEN: Record<string, number> = {
-  BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3,
-  PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4,
-};
 
 // GET → el cliente descarga la tasa 790-012 que el gestor generó y guardó.
 // El portalToken ES la credencial; el archivo se sirve desde el bucket privado.
@@ -22,10 +18,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const { data, error } = await admin.from("Expediente").select("id, estado, tasaPath, familiaId").eq("portalToken", token).maybeSingle();
   if (error || !data) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
   const exp = data as { id: string; estado: string; tasaPath: string | null; familiaId: string | null };
-
-  if ((ORDEN[exp.estado] ?? 0) < ORDEN.FORM_GENERADO) {
-    return NextResponse.json({ error: "Aún no disponible." }, { status: 403 });
-  }
+  // Sin puerta de ESTADO. La resolución de más abajo ya es 100 % factual (si el
+  // formulario/la tasa no existe, devuelve 404), y la puerta anterior contradecía al
+  // propio portal: /s enseña los botones en cuanto el fichero existe, y esta ruta los
+  // rechazaba con un 403 mientras el estado no hubiera avanzado — 29 expedientes
+  // estaban exactamente en ese caso. Además tasaPath NUNCA se escribe en el flujo
+  // familiar (la tasa del miembro vive en el storage), así que una puerta sobre él
+  // habría roto la descarga de TODAS las familias.
 
   let path = exp.tasaPath;
   let nombre = "tasa-790-012.pdf";

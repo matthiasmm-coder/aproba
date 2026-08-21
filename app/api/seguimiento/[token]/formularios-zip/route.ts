@@ -11,10 +11,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60; // regenera varios PDFs + baja la tasa del storage
 
 const limpiar = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, "_");
-const ORDEN: Record<string, number> = {
-  BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3,
-  PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4,
-};
 
 // GET [?clienteId=<miembro>] → TODOS los formularios generados (de ese miembro en un
 // expediente familiar, o del expediente individual) + su tasa 790, en un único ZIP.
@@ -26,9 +22,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
 
   const exp = await fetchExpedienteDetallePorToken(token);
   if (!exp) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  if ((ORDEN[exp.estado] ?? 0) < ORDEN.FORM_GENERADO) {
-    return NextResponse.json({ error: "Los formularios aún no están listos." }, { status: 403 });
-  }
+  // Sin puerta de ESTADO. La resolución de más abajo ya es 100 % factual (si el
+  // formulario/la tasa no existe, devuelve 404), y la puerta anterior contradecía al
+  // propio portal: /s enseña los botones en cuanto el fichero existe, y esta ruta los
+  // rechazaba con un 403 mientras el estado no hubiera avanzado — 29 expedientes
+  // estaban exactamente en ese caso. Además tasaPath NUNCA se escribe en el flujo
+  // familiar (la tasa del miembro vive en el storage), así que una puerta sobre él
+  // habría roto la descarga de TODAS las familias.
 
   const admin = createSupabaseAdmin();
   // Selección generada por el gestor (por miembro si la migración existe; replis en cadena).

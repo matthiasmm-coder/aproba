@@ -59,13 +59,16 @@ const DOCS_POR_TIPO = {
   OTRO: ["PASAPORTE", "EMPADRONAMIENTO"],
 };
 
-// Combien de docs sont déjà validés selon l'état de l'expediente.
-function estadosDocs(estadoExp, nbDocs) {
-  if (estadoExp === "BORRADOR") return Array(nbDocs).fill("PENDIENTE");
-  if (estadoExp === "DOCS_PENDIENTES") {
+// Con 5 estados, «En preparación» cubre todo el trabajo previo: lo que distingue a un
+// expediente de otro ya NO es el estado sino su AVANCE REAL (documentos recibidos,
+// formularios generados). La demo tiene que enseñar justamente eso, así que el avance
+// viene del SPEC — «nada», «a medias», «todo» — y no se deduce del estado.
+function estadosDocs(avance, nbDocs) {
+  if (avance === "nada") return Array(nbDocs).fill("PENDIENTE");
+  if (avance === "medias") {
     return Array.from({ length: nbDocs }, (_, i) => (i < Math.ceil(nbDocs / 2) - 1 ? "VALIDADO" : i === Math.ceil(nbDocs / 2) - 1 ? "PROCESANDO" : "PENDIENTE"));
   }
-  return Array(nbDocs).fill("VALIDADO"); // DOCS_VALIDADOS, FORM_GENERADO, PRESENTADO, RESUELTO
+  return Array(nbDocs).fill("VALIDADO"); // "todo": listo para formularios / presentado
 }
 
 // Formulario EX (placeholder) par trámite + tasa.
@@ -135,23 +138,25 @@ async function main() {
   ));
 
   // ── Clientes + expedientes ────────────────────────────────────────────────
-  // [nombre, apellidos, nacionalidad, [[ref, tipo, estado, asignado, fechaLimite?, creadoDia]]]
+  // [nombre, apellidos, nacionalidad, [[ref, tipo, estado, asignado, fechaLimite?, creadoDia, avance]]]
+  // avance: "nada" | "medias" | "todo" — con 5 estados, es el AVANCE lo que distingue
+  // los expedientes en preparación, no el estado. La demo debe enseñarlo.
   const SPEC = [
-    ["Julia", "Mendoza", "Colombia", [["EXP-2026-0042", "ARRAIGO_SOCIAL", "DOCS_PENDIENTES", userId, "2026-06-28", 8]]],
-    ["Karim", "Benali", "Marruecos", [["EXP-2026-0041", "RENOVACION", "DOCS_VALIDADOS", diego, "2026-06-20", 6]]],
-    ["Liu", "Wei", "China", [["EXP-2026-0044", "REAGRUPACION", "DOCS_PENDIENTES", nuria, "2026-06-13", 9]]],
+    ["Julia", "Mendoza", "Colombia", [["EXP-2026-0042", "ARRAIGO_SOCIAL", "EN_PREPARACION", userId, "2026-06-28", 8, "medias"]]],
+    ["Karim", "Benali", "Marruecos", [["EXP-2026-0041", "RENOVACION", "EN_PREPARACION", diego, "2026-06-20", 6, "todo"]]],
+    ["Liu", "Wei", "China", [["EXP-2026-0044", "REAGRUPACION", "EN_PREPARACION", nuria, "2026-06-13", 9, "nada"]]],
     ["Aïcha", "Diallo", "Senegal", [["EXP-2026-0036", "ARRAIGO_LABORAL", "PRESENTADO", diego, null, 2]]],
     ["Oksana", "Koval", "Ucrania", [["EXP-2026-0031", "NACIONALIDAD", "PRESENTADO", userId, null, 1]]],
-    ["Samuel", "Okafor", "Nigeria", [["EXP-2026-0045", "NIE", "BORRADOR", nuria, null, 10]]],
+    ["Samuel", "Okafor", "Nigeria", [["EXP-2026-0045", "NIE", "EN_PREPARACION", nuria, null, 10, "nada"]]],
     ["Fatima", "El Amrani", "Marruecos", [["EXP-2026-0029", "RENOVACION", "RESUELTO", diego, null, 1]]],
     ["Andrés", "Patiño", "Colombia", [["EXP-2026-0027", "ARRAIGO_SOCIAL", "RESUELTO", userId, null, 1]]],
-    ["Ioana", "Popescu", "Rumanía", [["EXP-2026-0040", "OTRO", "DOCS_VALIDADOS", nuria, null, 5]]],
+    ["Ioana", "Popescu", "Rumanía", [["EXP-2026-0040", "OTRO", "EN_PREPARACION", nuria, null, 5, "medias"]]],
     ["Mohammed", "Khan", "Pakistán", [
-      ["EXP-2026-0038", "REAGRUPACION", "DOCS_PENDIENTES", userId, "2026-06-16", 4],
+      ["EXP-2026-0038", "REAGRUPACION", "EN_PREPARACION", userId, "2026-06-16", 4, "medias"],
       ["EXP-2026-0022", "NIE", "RESUELTO", diego, null, 1],
     ]],
-    ["Rosa", "Chávez", "Perú", [["EXP-2026-0035", "RENOVACION", "FORM_GENERADO", userId, "2026-06-09", 3]]],
-    ["María", "Fernández", "Argentina", [["EXP-2026-0030", "NACIONALIDAD", "DOCS_VALIDADOS", diego, null, 2]]],
+    ["Rosa", "Chávez", "Perú", [["EXP-2026-0035", "RENOVACION", "EN_PREPARACION", userId, "2026-06-09", 3, "todo"]]],
+    ["María", "Fernández", "Argentina", [["EXP-2026-0030", "NACIONALIDAD", "EN_PREPARACION", diego, null, 2, "nada"]]],
   ];
 
   const NOMBRE_POR_USER = { [userId]: "Marta R.", [diego]: "Diego F.", [nuria]: "Nuria C." };
@@ -172,7 +177,7 @@ async function main() {
     const extra = nombre === "Julia" ? FICHA_JULIA : {};
     await must(`Cliente(${nombre})`, admin.from("Cliente").insert({ id: cid, workspaceId: ws, nombre, apellidos, nacionalidad: nac, ...extra, updatedAt: now() }));
 
-    for (const [ref, tipo, estado, asignado, limite, creadoDia] of exps) {
+    for (const [ref, tipo, estado, asignado, limite, creadoDia, avance = "todo"] of exps) {
       const eid = id("e_");
       await must(`Exp(${ref})`, admin.from("Expediente").insert({
         id: eid, workspaceId: ws, clienteId: cid, referencia: ref, tipo, estado,
@@ -183,7 +188,7 @@ async function main() {
 
       // Documentos selon le type + l'état.
       const tipos = DOCS_POR_TIPO[tipo];
-      const estados = estadosDocs(estado, tipos.length);
+      const estados = estadosDocs(avance, tipos.length);
       const docIds = [];
       for (let i = 0; i < tipos.length; i++) {
         const did = id("d_");
@@ -224,10 +229,10 @@ async function main() {
       const eventos = [
         { tipo: "CREADO", descripcion: "Expediente creado", userId: asignado, createdAt: dia(creadoDia, 9, 5) },
       ];
-      if (estado !== "BORRADOR") eventos.push({ tipo: "NOTIFICACION_ENVIADA", descripcion: "Enlace enviado al cliente por WhatsApp", userId: asignado, createdAt: dia(creadoDia, 9, 30) });
+      if (estado !== "EN_PREPARACION") eventos.push({ tipo: "NOTIFICACION_ENVIADA", descripcion: "Enlace enviado al cliente por WhatsApp", userId: asignado, createdAt: dia(creadoDia, 9, 30) });
       const validados = estados.filter((s) => s === "VALIDADO").length;
       if (validados > 0) eventos.push({ tipo: "DOC_VALIDADO", descripcion: `IA validó ${validados}/${tipos.length} documentos`, userId: null, createdAt: dia(creadoDia, 14) });
-      if (estado === "FORM_GENERADO" || estado === "PRESENTADO" || estado === "RESUELTO") eventos.push({ tipo: "FORM_GENERADO", descripcion: "Formularios generados automáticamente", userId: null, createdAt: dia(creadoDia + 1, 9) });
+      if (estado === "EN_PREPARACION" || estado === "PRESENTADO" || estado === "RESUELTO") eventos.push({ tipo: "EN_PREPARACION", descripcion: "Formularios generados automáticamente", userId: null, createdAt: dia(creadoDia + 1, 9) });
       if (estado === "PRESENTADO" || estado === "RESUELTO") eventos.push({ tipo: "PRESENTADO", descripcion: "Presentado en sede electrónica", userId: asignado, createdAt: dia(creadoDia + 1, 12) });
       if (estado === "RESUELTO") eventos.push({ tipo: "ESTADO_CAMBIADO", descripcion: "Resolución favorable 🎉", userId: asignado, createdAt: dia(creadoDia + 3, 10) });
       for (const ev of eventos) {
@@ -236,7 +241,7 @@ async function main() {
       }
 
       // Formularios générés.
-      if (estado === "FORM_GENERADO" || estado === "PRESENTADO" || estado === "RESUELTO") {
+      if (estado === "EN_PREPARACION" || estado === "PRESENTADO" || estado === "RESUELTO") {
         for (const ftipo of [EX_POR_TIPO[tipo], "TASA_790_012"]) {
           await must(`Form(${ref}/${ftipo})`, admin.from("Formulario").insert({ id: id("f_"), expedienteId: eid, tipo: ftipo, datos: {}, generadoAt: dia(creadoDia + 1, 9) }));
           totalForms++;
@@ -262,7 +267,7 @@ async function main() {
     ["2026-0039", "Carlos Mendoza", "Tramitación arraigo social", 350, "PAGADA", "2026-05-22", null],
     ["2026-0038", "Rosa Chávez", "Renovación TIE", 180, "VENCIDA", "2026-04-28", "2026-05-28"],
     ["2026-0037", "María Fernández", "Solicitud de nacionalidad", 600, "PAGADA", "2026-05-20", null],
-    ["2026-0036", "Pedro Sousa", "Asesoramiento extranjería", 120, "BORRADOR", "2026-05-18", null],
+    ["2026-0036", "Pedro Sousa", "Asesoramiento extranjería", 120, "EN_PREPARACION", "2026-05-18", null],
     ["2026-0035", "Camila Restrepo", "Tramitación arraigo social", 350, "PAGADA", "2026-05-15", null],
   ];
   for (const [numero, cliente, concepto, base, estado, fecha, vence] of FACTURAS) {

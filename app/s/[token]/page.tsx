@@ -13,7 +13,10 @@ export const metadata = { robots: { index: false, follow: false } };
 
 
 // Estados en los que los formularios ya están generados (se exponen al cliente).
-const FORM_LISTOS = new Set(["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO"]);
+// Repli de PRE-MIGRACIÓN (columna formulariosGenerados ilegible): incluye los valores
+// legados Y los nuevos, para no dejar de enseñar los formularios a un cliente cuyo
+// expediente ya está presentado. Se apagará cuando ningún workspace quede sin la columna.
+const FORM_LISTOS = new Set(["FORM_GENERADO", "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO", "EN_PREPARACION"]);
 
 // Lien de SUIVI (distinct du lien d'onboarding /j) : page d'avancement par
 // milestone + documents soumis / à soumettre. Réutilise le même token sécurisé.
