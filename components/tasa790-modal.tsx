@@ -51,16 +51,19 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
   const [captcha, setCaptcha] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fallback, setFallback] = useState<string | null>(null);
+  // Datos del cliente devueltos con el error: la Sede filtra desde el 20/08/2026 la
+  // generación automática (no navegador), así que el plan B es copiarlos a mano.
+  const [prefillManual, setPrefillManual] = useState<Record<string, string> | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   // preservar=true : on garde les saisies du gestor, on ne rafraîchit que le captcha.
   async function iniciar(preservar = false) {
     if (!preservar) { setOpen(true); setDatos(null); }
-    setCargando(!preservar); setError(null); setFallback(null); setCaptcha("");
+    setCargando(!preservar); setError(null); setFallback(null); setPrefillManual(null); setCaptcha("");
     const r = await fetch("/api/tasa790/iniciar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, clienteId }) });
     const j = await r.json().catch(() => ({}));
     setCargando(false);
-    if (!r.ok) { setError(j.error ?? t("No se pudo abrir el generador oficial.")); setFallback(j.fallback ?? null); return; }
+    if (!r.ok) { setError(j.error ?? t("No se pudo abrir el generador oficial.")); setFallback(j.fallback ?? null); setPrefillManual(j.prefill ?? null); return; }
     setDatos(j);
     if (!preservar) setCampos({ ...j.prefill, localidad: j.prefill.municipio ?? "", fecha: hoy() });
   }
@@ -116,9 +119,38 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
             {cargando && <p className="py-10 text-center text-sm text-slate-500">{t("Abriendo el generador oficial…")}</p>}
 
             {fallback && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-800">
                 <p>{error}</p>
                 <a href={fallback} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">{t("Abrir el generador oficial en una pestaña →")}</a>
+                {prefillManual && (
+                  <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-left">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Datos del cliente para copiar")}</p>
+                      <button type="button"
+                        onClick={() => navigator.clipboard?.writeText(
+                          [["NIF/NIE", prefillManual.nif], ["Apellidos y nombre", prefillManual.nombre],
+                           ["Vía", `${prefillManual.calle ?? ""} ${prefillManual.via ?? ""} ${prefillManual.numero ?? ""} ${prefillManual.piso ?? ""}`.replace(/\s+/g, " ").trim()],
+                           ["Municipio", prefillManual.municipio], ["Provincia", prefillManual.provincia],
+                           ["C.P.", prefillManual.codigoPostal], ["Teléfono", prefillManual.telefono]]
+                            .filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join("\n"))}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:border-aproba-400 hover:text-aproba-700">
+                        {t("Copiar todo")}
+                      </button>
+                    </div>
+                    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+                      {([["NIF/NIE", prefillManual.nif], [t("Apellidos y nombre"), prefillManual.nombre],
+                         [t("Vía"), `${prefillManual.calle ?? ""} ${prefillManual.via ?? ""} ${prefillManual.numero ?? ""} ${prefillManual.piso ?? ""}`.replace(/\s+/g, " ").trim()],
+                         [t("Municipio"), prefillManual.municipio], [t("Provincia"), prefillManual.provincia],
+                         ["C.P.", prefillManual.codigoPostal], [t("Teléfono"), prefillManual.telefono]] as [string, string | undefined][])
+                        .filter(([, v]) => v).map(([k, v]) => (
+                          <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-0.5">
+                            <dt className="shrink-0 text-slate-400">{k}</dt>
+                            <dd className="truncate font-medium text-slate-800">{v}</dd>
+                          </div>
+                        ))}
+                    </dl>
+                  </div>
+                )}
               </div>
             )}
 

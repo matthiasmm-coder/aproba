@@ -77,18 +77,33 @@ export async function POST(req: Request) {
     d = miembro;
   }
 
+  // Los datos ya están calculados: si la Sede no responde, se devuelven igualmente
+  // para que el gestor los copie en el generador oficial sin volver a teclearlos.
+  // 20/08/2026: la Sede filtra desde esta semana los clientes que no son un navegador
+  // (funcionó hasta el 16/08, 39 tasas generadas) — el navegador del gestor SÍ entra.
+  const dom0 = partirDomicilio(d.domicilio);
+  const prefillManual = {
+    nif: d.nie1 ? `${d.nie1}${d.nie2}${d.nie3}` : d.pasaporte,
+    nombre: `${d.apellido1} ${d.apellido2} ${d.nombre}`.replace(/\s+/g, " ").trim(),
+    calle: dom0.tipoVia, via: dom0.via,
+    numero: d.numero || dom0.numero, piso: d.piso || dom0.piso,
+    municipio: d.localidad, provincia: d.provincia, codigoPostal: d.cp, telefono: d.telefono,
+  };
+  const noDisponible = (motivo: string) => NextResponse.json(
+    { error: motivo, fallback: `${BASE}/`, prefill: prefillManual }, { status: 502 });
+
   // 1) Ouvre le formulaire officiel → cookies de session + HTML.
   let res: Response;
   try {
     res = await fetch(`${BASE}/ImpresoRellenar`, { headers: { "User-Agent": UA }, redirect: "follow" });
   } catch {
-    return NextResponse.json({ error: "No se pudo contactar con la Sede de la Policía Nacional.", fallback: `${BASE}/` }, { status: 502 });
+    return noDisponible("La Sede no acepta ahora mismo la generación automática. Abajo tienes los datos del cliente listos para copiar en el generador oficial.");
   }
-  if (!res.ok) return NextResponse.json({ error: "La Sede de la Policía Nacional no responde ahora mismo.", fallback: `${BASE}/` }, { status: 502 });
+  if (!res.ok) return noDisponible("La Sede de la Policía Nacional no responde ahora mismo. Abajo tienes los datos del cliente listos para copiar en el generador oficial.");
 
   const setCookies = res.headers.getSetCookie?.() ?? [];
   const cookie = setCookies.map((c) => c.split(";")[0]).join("; ");
-  if (!/JSESSIONID/.test(cookie)) return NextResponse.json({ error: "Sesión no disponible (la web oficial ha cambiado).", fallback: `${BASE}/` }, { status: 502 });
+  if (!/JSESSIONID/.test(cookie)) return noDisponible("La web oficial ha cambiado y no admite el rellenado automático. Abajo tienes los datos del cliente para copiarlos a mano.");
   const html = await res.text();
   const tramites = parseTramites(html);
 
@@ -98,7 +113,7 @@ export async function POST(req: Request) {
     const cap = await fetch(`${BASE}/jcaptcha.jpg`, { headers: { "User-Agent": UA, Cookie: cookie } });
     if (cap.ok) captcha = `data:image/jpeg;base64,${Buffer.from(await cap.arrayBuffer()).toString("base64")}`;
   } catch { /* sin captcha → fallback abajo */ }
-  if (!captcha) return NextResponse.json({ error: "No se pudo cargar el código de seguridad.", fallback: `${BASE}/` }, { status: 502 });
+  if (!captcha) return noDisponible("No se pudo cargar el código de seguridad de la Sede. Abajo tienes los datos del cliente para el generador oficial.");
 
   const dom = partirDomicilio(d.domicilio);
   return NextResponse.json({
