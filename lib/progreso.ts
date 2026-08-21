@@ -170,6 +170,14 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
   // EN_PREPARACION: el orden importa. Sin servicio resuelto no hay documentos que pedir
   // — decir «esperando documentos» ahí sería mentir sobre quién bloquea.
   if (h.serviciosResueltos === 0) return { label: "Enviar enlace al cliente", espera: false, clave: "elegir_servicio" };
+  // Nada ha llegado todavía: la pelota está en el DESPACHO (mandar el enlace), no en el
+  // cliente. Decir «esperando documentos» de un expediente que nunca arrancó culpa al
+  // cliente de un silencio que nadie le ha pedido romper.
+  // Estrecho a propósito: NADA ha pasado (ni entrada del cliente, ni un solo documento
+  // subido, ni formularios/tasa). En cuanto hay cualquier avance, la lectura normal manda.
+  if (!h.arrancado && !hitoForm && h.docsTotales === 0 && docs.recibidos === 0) {
+    return { label: "Enviar enlace al cliente", espera: false, clave: "elegir_servicio" };
+  }
   if (docs.faltan.length > 0 && !hitoForm) return { label: "Esperando documentos", espera: true, clave: "esperando_docs" };
   if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
   return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };

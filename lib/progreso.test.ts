@@ -113,7 +113,7 @@ describe("acción siguiente — ninguna tarjeta muda", () => {
   });
 
   it("con documentos que faltan, la pelota está en el cliente", () => {
-    const p = calcularProgreso({ ...base, docsRequeridos: ["Pasaporte"], tiposValidados: [] });
+    const p = calcularProgreso({ ...base, docsRequeridos: ["Pasaporte"], tiposValidados: [], arrancado: true });
     expect(p.accion.clave).toBe("esperando_docs");
     expect(p.accion.espera).toBe(true);
   });
@@ -179,5 +179,22 @@ describe("score de orden intra-fase", () => {
     expect(vacio).toBeLessThan(medio);
     expect(medio).toBeLessThan(listo);
     expect(listo).toBeLessThan(calcularProgreso({ ...base, estado: "PRESENTADO" }).score);
+  });
+});
+
+describe("expediente que nunca arrancó", () => {
+  // La tarjeta decía «Esperando documentos» de un expediente recién creado al que nadie
+  // había mandado el enlace: culpaba al cliente de un silencio que no le habían pedido
+  // romper. La ficha ya lo decía bien; la tarjeta no.
+  it("sin nada recibido, la pelota está en el despacho", () => {
+    const p = calcularProgreso({ ...base, serviciosResueltos: 1, docsRequeridos: ["Pasaporte", "Nómina"], tiposValidados: [], arrancado: false });
+    expect(p.accion.clave).toBe("elegir_servicio");
+    expect(p.accion.espera).toBe(false);
+  });
+
+  it("en cuanto llega UN documento, sí se espera al cliente", () => {
+    const p = calcularProgreso({ ...base, serviciosResueltos: 1, docsRequeridos: ["Pasaporte", "Nómina"], tiposValidados: ["PASAPORTE"], arrancado: true });
+    expect(p.accion.clave).toBe("esperando_docs");
+    expect(p.accion.espera).toBe(true);
   });
 });
