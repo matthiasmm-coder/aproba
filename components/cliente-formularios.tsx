@@ -41,11 +41,15 @@ export function ClienteFormularios({ clienteId, formularios }: { clienteId: stri
       {/* La tasa 790-012 no es un EX: se genera contra la Sede de la Policía Nacional
           (captcha incluido), así que va en su propio botón y no en el desplegable.
           Pedido por Gesadmbcn el 20/08/2026. */}
-      <div className="mt-3 border-t border-slate-100 pt-3">
+      <div className="mt-3 border-t border-slate-100 pt-3 text-center">
         <p className="mb-2 text-xs text-slate-500">
           {t("La tasa 790-012 se genera en la Sede de la Policía Nacional, con los datos de este cliente ya rellenados.")}
         </p>
-        <Tasa790Modal clienteId={clienteId} etiqueta={t("Tasa 790-012")} />
+        {/* El modal trae su propio botón: se centra desde el contenedor (flex), no
+            tocando el componente, que se reutiliza en la vista de formularios. */}
+        <div className="flex justify-center">
+          <Tasa790Modal clienteId={clienteId} etiqueta={t("Tasa 790-012")} />
+        </div>
       </div>
     </div>
   );
