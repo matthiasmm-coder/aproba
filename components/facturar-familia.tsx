@@ -50,6 +50,7 @@ export function FacturarFamilia({ familiaId, prefill, facturas }: { familiaId: s
           </ul>
         )}
 
+        <div className="flex justify-center">
         {plan === null ? (
           <div className="h-9 w-40 animate-pulse rounded-lg bg-slate-100" />
         ) : avanzada ? (
@@ -58,8 +59,9 @@ export function FacturarFamilia({ familiaId, prefill, facturas }: { familiaId: s
             {t("Facturar a la familia")}
           </button>
         ) : (
-          <p className="text-xs text-slate-500">{t("La facturación familiar (varias líneas + descuento) está disponible en los planes Pro y Business.")}</p>
+          <p className="text-center text-xs text-slate-500">{t("La facturación familiar (varias líneas + descuento) está disponible en los planes Pro y Business.")}</p>
         )}
+        </div>
       </div>
 
       {abierto && prefill && <FacturaFamiliaModal familiaId={familiaId} prefill={prefill} onClose={() => setAbierto(false)} />}

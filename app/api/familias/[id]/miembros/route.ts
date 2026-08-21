@@ -56,3 +56,75 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   return NextResponse.json({ ok: true, id: String(fila.id), nombre });
 }
+
+// ── Modificar un miembro (parentesco, «es solicitante») ──────────────────────
+// El panel del gestor llamaba a PATCH y DELETE desde el primer día, pero esta ruta
+// solo exportaba POST: ambas recibían un 405 y la pantalla decía «No se pudo
+// guardar» (bug visto el 22/08/2026 al marcar «Solicitante»).
+//
+// Misma autorización que POST: sesión → familia BAJO RLS → comprobar que el cliente
+// pertenece A ESA familia → escribir con service_role. El workspace jamás sale del
+// cuerpo de la petición.
+async function familiaYMiembro(id: string, clienteId: string) {
+  const supa = await createSupabaseServer();
+  const { data: { user } } = await supa.auth.getUser();
+  if (!user) return { error: NextResponse.json({ error: "No autenticado." }, { status: 401 }) };
+  if (!clienteId) return { error: NextResponse.json({ error: "Falta el miembro." }, { status: 400 }) };
+
+  const { data: fam } = await supa.from("Familia").select("id").eq("id", id).maybeSingle();
+  if (!fam) return { error: NextResponse.json({ error: "Familia no encontrada." }, { status: 404 }) };
+
+  // El miembro se lee BAJO SESIÓN y filtrando por familiaId: si es de otro despacho
+  // —o de otra familia— sencillamente no existe.
+  const { data: m } = await supa.from("Cliente").select("id, parentesco").eq("id", clienteId).eq("familiaId", id).maybeSingle();
+  if (!m) return { error: NextResponse.json({ error: "Miembro no encontrado en esta familia." }, { status: 404 }) };
+  return { miembro: m as { id: string; parentesco: string | null } };
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  let body: { clienteId?: string; parentesco?: string; esSolicitante?: boolean };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
+
+  const c = await familiaYMiembro(id, (body.clienteId ?? "").trim());
+  if (c.error) return c.error;
+
+  const cambios: Record<string, unknown> = {};
+  if (typeof body.esSolicitante === "boolean") cambios.esSolicitante = body.esSolicitante;
+  if (typeof body.parentesco === "string") {
+    const p = body.parentesco.toUpperCase();
+    // TITULAR no se reparte a mano: hay uno y solo uno, y es el que sostiene la familia.
+    if (p === "TITULAR" || !PARENTESCOS_VALIDOS.has(p)) {
+      return NextResponse.json({ error: "Parentesco no válido." }, { status: 400 });
+    }
+    if (c.miembro!.parentesco === "TITULAR") {
+      return NextResponse.json({ error: "El titular no puede cambiar de parentesco." }, { status: 409 });
+    }
+    cambios.parentesco = p;
+  }
+  if (!Object.keys(cambios).length) return NextResponse.json({ error: "Nada que cambiar." }, { status: 400 });
+
+  const { error } = await createSupabaseAdmin().from("Cliente").update(cambios).eq("id", c.miembro!.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, ...cambios });
+}
+
+// ── Sacar a un miembro de la familia ─────────────────────────────────────────
+// NO borra al cliente: lo desvincula (familiaId = null). Sus expedientes, documentos
+// y facturas siguen siendo suyos; simplemente deja de facturarse en bloque.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  let body: { clienteId?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
+
+  const c = await familiaYMiembro(id, (body.clienteId ?? "").trim());
+  if (c.error) return c.error;
+  if (c.miembro!.parentesco === "TITULAR") {
+    return NextResponse.json({ error: "El titular no se puede sacar de su propia familia." }, { status: 409 });
+  }
+
+  const { error } = await createSupabaseAdmin()
+    .from("Cliente").update({ familiaId: null, parentesco: null, esSolicitante: false }).eq("id", c.miembro!.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
