@@ -7,6 +7,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
+import type { Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -21,6 +22,7 @@ export type BoardItem = {
   archivado?: boolean; // servidor — compartido por todo el equipo
   validados: number;
   total: number;
+  progreso?: Progreso; // calculado en el servidor (lib/progreso.ts): fase, acción, orden
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -28,6 +30,12 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
+
+// «Esperando al cliente» = el despacho no puede hacer nada mientras no lleguen papeles.
+// Antes era el estado DOCS_PENDIENTES; ahora es el hecho, porque ese estado ya no existe
+// y porque un expediente con formularios ya generados NO espera a nadie.
+const esperandoCliente = (e: BoardItem): boolean =>
+  e.progreso ? e.progreso.accion.clave === "esperando_docs" : e.estado === "DOCS_PENDIENTES";
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const t = useT();
@@ -65,9 +73,9 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       </div>
 
       <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-        <NextAction estado={e.estado} />
+        <NextAction estado={e.estado} accion={e.progreso?.accion} />
         {/* El gesto diario nº1: recordar los documentos al cliente sin abrir la ficha. */}
-        {e.estado === "DOCS_PENDIENTES" && <RecordarMini id={e.id} />}
+        {esperandoCliente(e) && <RecordarMini id={e.id} />}
       </div>
     </Link>
   );
@@ -126,7 +134,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
 
   const matchSearch = (e: BoardItem) => {
     const nq = norm(q.trim());
-    if (soloEsperando && e.estado !== "DOCS_PENDIENTES") return false;
+    if (soloEsperando && !esperandoCliente(e)) return false;
     if (asignado && e.asignadoA !== asignado) return false;
     if (!nq) return true;
     return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(e.tipoLabel).includes(nq) || norm(e.referencia).includes(nq)
@@ -192,9 +200,12 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
       {view === "activos" && visibles.length > 0 ? (
         <div className="no-scrollbar flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 sm:snap-none sm:gap-2 sm:overflow-visible">
           {BOARD_PHASES.map((ph, i) => {
+            // La fase viene del progreso calculado (lib/progreso.ts): la frontera
+            // Recepción/Preparación ya no es una pertenencia de estado sino el avance
+            // real. Repli sobre el groupage antiguo si la fila no trae progreso.
             const cards = visibles
-              .filter((e) => ph.estados.includes(e.estado))
-              .sort((a, b) => (ORDEN[a.estado] ?? 0) - (ORDEN[b.estado] ?? 0));
+              .filter((e) => (e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)))
+              .sort((a, b) => (a.progreso?.score ?? ORDEN[a.estado] ?? 0) - (b.progreso?.score ?? ORDEN[b.estado] ?? 0));
             return (
               <Fragment key={ph.key}>
                 <div className="flex w-[82vw] max-w-xs shrink-0 snap-start flex-col sm:w-auto sm:max-w-none sm:flex-1 sm:shrink">

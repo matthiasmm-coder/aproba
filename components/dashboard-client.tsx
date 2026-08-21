@@ -8,6 +8,7 @@ import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { AgendaCitas } from "@/components/agenda-citas";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
+import type { Progreso } from "@/lib/progreso";
 
 export type DashItem = {
   id: string;
@@ -18,6 +19,7 @@ export type DashItem = {
   fechaLimite?: string; // label dd/mm/aaaa
   fechaLimiteISO?: string; // para calcular días restantes REALES
   archivado?: boolean; // servidor — compartido por el equipo
+  progreso?: Progreso; // fase y acción calculadas en el servidor (lib/progreso.ts)
 };
 
 // Días hasta la fecha límite, con la fecha REAL de hoy (antes: TODAY=11 mockeado —
@@ -54,9 +56,10 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
     .sort((a, b) => diasHasta(a.fechaLimiteISO) - diasHasta(b.fechaLimiteISO));
   const vencenSemana = live.filter((e) => { const d = diasHasta(e.fechaLimiteISO); return d !== Infinity && d <= 7; });
   const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
-  const esperandoCliente = live.filter((e) => e.estado === "DOCS_PENDIENTES").length;
+  // Hecho, no estado: un expediente con formularios ya generados no espera a nadie.
+  const esperandoCliente = live.filter((e) => e.progreso ? e.progreso.accion.clave === "esperando_docs" : e.estado === "DOCS_PENDIENTES").length;
 
-  const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => ph.estados.includes(e.estado)).length }));
+  const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)).length }));
   const maxFase = Math.max(1, ...porFase.map((p) => p.count));
 
   // La carga depende de la sede mirada (los items YA vienen filtrados por la pastilla):

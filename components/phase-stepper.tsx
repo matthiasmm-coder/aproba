@@ -10,15 +10,22 @@ import { ChevronIcon, CheckIcon } from "@/components/icons";
 // y el dashboard (muestra recuentos y enlaza al tablero). Mismo lenguaje que el board.
 export function PhaseStepper({
   activeEstado,
+  activeFase,
   counts,
   linkHref,
 }: {
   activeEstado?: ExpedienteEstado;
+  // Fase ya calculada (lib/progreso.ts). Necesaria desde que los cuatro estados de
+  // trabajo se fundieron: EN_PREPARACION no pertenece a ninguna fase por sí solo, y sin
+  // esto el stepper se quedaba TODO en gris en la mayoría de las fichas.
+  activeFase?: string;
   counts?: Record<string, number>;
   linkHref?: string;
 }) {
   const t = useT();
-  const activeIdx = activeEstado ? BOARD_PHASES.findIndex((p) => p.estados.includes(activeEstado)) : -1;
+  const activeIdx = activeFase
+    ? BOARD_PHASES.findIndex((p) => p.key === activeFase)
+    : activeEstado ? BOARD_PHASES.findIndex((p) => p.estados.includes(activeEstado)) : -1;
 
   return (
     <div className="no-scrollbar flex items-stretch gap-1.5 overflow-x-auto pb-1 sm:gap-2 sm:overflow-visible sm:pb-0">

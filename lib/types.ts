@@ -1,7 +1,13 @@
 // Types du domaine pour l'app (mock). Miroir simplifié de prisma/schema.prisma —
 // l'app tourne sans base de données : on branchera Prisma + Supabase plus tard.
 
+// ⚠️ CICLO DE VIDA — ver lib/progreso.ts. El modelo vivo son 5 estados
+// (EN_PREPARACION, PRESENTADO, RESUELTO, RECHAZADO, FINALIZADO); los 4 antiguos de
+// trabajo y CITA_HUELLAS siguen aquí porque las filas anteriores al remap todavía los
+// llevan y el enum de Postgres no pierde valores. Todo lector normaliza con
+// normalizarEstado(); nada nuevo debe ESCRIBIRSE con un valor legado.
 export type ExpedienteEstado =
+  | "EN_PREPARACION"
   | "BORRADOR"
   | "DOCS_PENDIENTES"
   | "DOCS_VALIDADOS"
@@ -72,6 +78,7 @@ export const ESTADO_META: Record<
   ExpedienteEstado,
   { label: string; dot: string; pill: string }
 > = {
+  EN_PREPARACION: { label: "En preparación", dot: "bg-amber-500", pill: "bg-amber-100 text-amber-700" },
   BORRADOR: { label: "Borrador", dot: "bg-slate-400", pill: "bg-slate-100 text-slate-600" },
   DOCS_PENDIENTES: { label: "Docs pendientes", dot: "bg-amber-500", pill: "bg-amber-100 text-amber-700" },
   DOCS_VALIDADOS: { label: "Docs validados", dot: "bg-aproba-500", pill: "bg-aproba-100 text-aproba-700" },
@@ -98,6 +105,7 @@ export const DOC_ESTADO_META: Record<
 // Colonnes du board, dans l'ordre du workflow (RECHAZADO = sortie, hors board actif →
 // les dossiers denegados restent visibles dans la liste avec leur badge rouge).
 export const BOARD_COLUMNS: ExpedienteEstado[] = [
+  "EN_PREPARACION",
   "BORRADOR",
   "DOCS_PENDIENTES",
   "DOCS_VALIDADOS",
@@ -112,15 +120,16 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
 // quepa en pantalla y se lea como UN flujo (no 8 columnas sueltas). El estado fino sigue
 // visible en cada tarjeta. RECHAZADO queda fuera (igual que en BOARD_COLUMNS).
 export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEstado[] }[] = [
-  { key: "recepcion",    label: "Recepción",    estados: ["BORRADOR", "DOCS_PENDIENTES"] },
+  { key: "recepcion",    label: "Recepción",    estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
   { key: "preparacion",  label: "Preparación",  estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
-  { key: "presentacion", label: "Presentación", estados: ["PRESENTADO", "RESUELTO"] },
+  { key: "presentacion", label: "Presentación", estados: ["PRESENTADO", "RESUELTO", "RECHAZADO"] },
   { key: "cierre",       label: "Cierre",       estados: ["CITA_HUELLAS", "FINALIZADO"] },
 ];
 
 // Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice
 // qué toca hacer). `espera: true` = no depende del gestor (en gris), si no = su turno.
 export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: boolean }> = {
+  EN_PREPARACION:  { label: "En preparación" },
   BORRADOR:        { label: "Enviar enlace al cliente" },
   DOCS_PENDIENTES: { label: "Esperando documentos", espera: true },
   DOCS_VALIDADOS:  { label: "Generar formularios" },
