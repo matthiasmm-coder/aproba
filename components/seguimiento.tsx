@@ -87,22 +87,19 @@ export function Seguimiento({
   const yaAfirmadoDocs = estado === "DOCS_VALIDADOS" || estado === "FORM_GENERADO";
   const yaAfirmadoForm = estado === "FORM_GENERADO";
 
-  let idx = 1; // el expediente existe: «solicitud recibida» siempre está marcada
-  if (todosValidados || yaAfirmadoDocs || post) idx = 2;
-  if (hayFormularios || yaAfirmadoForm || post) idx = 3;
-  if (post) idx = 4;
-  if (est5 === "RESUELTO" || est5 === "FINALIZADO") idx = 5;
-  if (cita?.fecha && citaPresencial && est5 !== "FINALIZADO") idx = 6;
-  if (est5 === "FINALIZADO") idx = 7;
   // Le jalon « cita » n'apparaît que si le service a une cita présentielle.
+  // Cada hito responde por SI MISMO. Antes era una escalera (idx >= at): generar los
+  // formularios marcaba «documentacion validada» aunque faltaran documentos, mientras
+  // el propio portal decia arriba «sube los documentos que faltan». Al cliente se le
+  // dice la verdad de cada paso, no una escalera.
   const MILESTONES = [
-    { key: "mil.recibido", at: 1 },
-    { key: "mil.validado", at: 2 },
-    { key: "mil.formularios", at: 3 },
-    { key: "mil.presentado", at: 4 },
-    { key: "mil.resuelto", at: 5 },
-    ...(citaPresencial ? [{ key: "mil.cita", at: 6 }] : []),
-    { key: "mil.tie", at: 7 },
+    { key: "mil.recibido", at: 1, hecho: true },
+    { key: "mil.validado", at: 2, hecho: todosValidados || yaAfirmadoDocs || post },
+    { key: "mil.formularios", at: 3, hecho: hayFormularios || yaAfirmadoForm || post },
+    { key: "mil.presentado", at: 4, hecho: post },
+    { key: "mil.resuelto", at: 5, hecho: est5 === "RESUELTO" || est5 === "FINALIZADO" },
+    ...(citaPresencial ? [{ key: "mil.cita", at: 6, hecho: Boolean(cita?.fecha) }] : []),
+    { key: "mil.tie", at: 7, hecho: est5 === "FINALIZADO" },
   ];
   const inicial = gestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const faltan = docs.filter((d) => d.status === "pendiente" || d.status === "rechazado").length;
@@ -251,8 +248,9 @@ export function Seguimiento({
               desalinearía las pastillas y rompería el hilo vertical que las une. */}
           <ol className="mx-auto w-fit space-y-0 text-left">
             {MILESTONES.map((m, i) => {
-              const done = idx >= m.at;
-              const current = !done && (i === 0 || idx >= MILESTONES[i - 1].at);
+              const done = m.hecho;
+              // «En curso» = el primer paso no hecho cuyo anterior si lo esta.
+              const current = !done && (i === 0 || MILESTONES[i - 1].hecho);
               // Expediente denegado: el jalón de resolución se muestra en rojo con la
               // verdad («desfavorable»), y los siguientes desaparecen del camino.
               const denegadoAqui = estado === "RECHAZADO" && m.key === "mil.resuelto";
@@ -263,7 +261,7 @@ export function Seguimiento({
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-white transition-colors ${denegadoAqui ? "bg-red-500" : done ? "bg-aproba-600" : current ? "bg-amber-400" : "bg-slate-200"}`}>
                       {denegadoAqui ? <span className="text-[10px] font-bold">✕</span> : done ? <Check className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
-                    {i < MILESTONES.length - 1 && !(estado === "RECHAZADO" && m.at >= 5) && <span className={`my-0.5 w-px flex-1 ${idx > m.at ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
+                    {i < MILESTONES.length - 1 && !(estado === "RECHAZADO" && m.at >= 5) && <span className={`my-0.5 w-px flex-1 ${MILESTONES[i + 1]?.hecho ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
                   </div>
                   <div className="pb-4">
                     <p className={`text-sm ${denegadoAqui ? "font-medium text-red-700" : done ? "font-medium text-slate-800" : current ? "font-medium text-amber-700" : "text-slate-400"}`}>{t(denegadoAqui ? "mil.desfavorable" : m.key)}</p>
