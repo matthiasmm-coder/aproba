@@ -333,7 +333,7 @@ export default async function ExpedienteDetail({
         {/* Tasas y suplidos ajustables por expediente (pedido por Juan): alimentan hoja de
             encargo, primera factura y presupuesto. Solo cuando hay cobro o tasas que ajustar. */}
         {(tarifa.anticipo > 0 || tarifa.resto > 0 || suplidosBase.length > 0 || e.suplidosOverride !== null) && (
-          <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
+          <div className="mt-3 flex flex-wrap items-start justify-center gap-x-4 gap-y-1">
             {/* Familia heterogénea: asignar cada servicio a miembros concretos. */}
             {familia && serviciosExp.length > 0 && (
               <AsignarMiembros

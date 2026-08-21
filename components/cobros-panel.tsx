@@ -175,13 +175,13 @@ export function CobrosPanel({ ocultarTitulo = false,
             >
               {`${t("Solicitar pago final ·")} ${eur(totalDe(resto) + (suplidosEn === "FINAL" ? suplidosTotal : 0))}`}
             </button>
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-400">
               {t("Se abre la factura para que la revises y ajustes (tasas, líneas, importe…). Al validar, se envía automáticamente al cliente con los datos de pago.")}
             </p>
 
             {/* Alternativa: fraccionar el pago final en N cuotas mensuales. */}
             {!fracOpen ? (
-              <button onClick={() => { setFracBase(resto); setError(null); setFracOpen(true); }} className="-mb-2 mt-2 py-2 text-xs font-semibold text-aproba-700 hover:underline sm:mb-0 sm:py-0">
+              <button onClick={() => { setFracBase(resto); setError(null); setFracOpen(true); }} className="-mb-2 mt-2 block w-full py-2 text-center text-xs font-semibold text-aproba-700 hover:underline sm:mb-0 sm:py-0">
                 {t("O fraccionar en cuotas…")}
               </button>
             ) : (
@@ -219,7 +219,7 @@ export function CobrosPanel({ ocultarTitulo = false,
 
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
-        <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+        <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
           {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>.
         </p>
       </div>
