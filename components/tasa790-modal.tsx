@@ -36,7 +36,9 @@ const CAMPOS: { k: string; label: string; w: string; req?: boolean; tel?: boolea
 const W: Record<string, string> = { half: "sm:col-span-3", third: "sm:col-span-2", sixth: "sm:col-span-1" };
 
 // clienteId (expediente familiar): la tasa se prefill/guarda para ESE solicitante.
-export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expedienteId: string; clienteId?: string; etiqueta?: string }) {
+// expedienteId es OPCIONAL: desde la ficha de un cliente la tasa se genera sin
+// expediente (solo se descarga, no se archiva en ninguna parte).
+export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expedienteId?: string; clienteId?: string; etiqueta?: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   useScrollBloqueado(open); // este diálogo se monta siempre (el botón vive aquí)
@@ -74,7 +76,7 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
     if (r.headers.get("content-type")?.includes("pdf")) {
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = `tasa-790-012-${expedienteId}.pdf`; a.click();
+      const a = document.createElement("a"); a.href = url; a.download = `tasa-790-012-${expedienteId ?? clienteId ?? "cliente"}.pdf`; a.click();
       URL.revokeObjectURL(url);
       setEnviando(false); setOpen(false);
       return;

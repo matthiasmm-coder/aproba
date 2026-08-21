@@ -42,19 +42,39 @@ export async function POST(req: Request) {
   let body: { expedienteId?: string; clienteId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const exp = body.expedienteId ? await fetchExpedienteDetalle(body.expedienteId) : null; // RLS
-  if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
-
-  // Expediente FAMILIAR: la tasa es NOMINATIVA → prefill con los datos del solicitante
-  // indicado (clienteId), validando que pertenece a la familia del expediente.
-  let d = datosNormalizados(exp);
   const clienteId = body.clienteId?.trim() || "";
-  if (clienteId && exp.familiaId) {
-    const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
-    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+  // SIN expediente: la tasa se genera desde la ficha del cliente (pedido por Gesadmbcn,
+  // 20/08/2026 — «puedo generarle el EX-17 pero las tasas no»). Es la 790-012 de esa
+  // persona: no necesita un expediente para existir. Sin expediente no se archiva en
+  // ninguna parte (descargar/route.ts ya lo contempla: guarda solo si hay expedienteId).
+  if (!exp && !clienteId) return NextResponse.json({ error: "Indica un expediente o un cliente." }, { status: 400 });
+  if (body.expedienteId && !exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
+
+  // Prefill desde el cliente: es lo que hace falta cuando no hay expediente, y también
+  // en un expediente FAMILIAR, donde la tasa es NOMINATIVA (una por solicitante).
+  const cargarFicha = async (id: string, filtroFamilia?: string) => {
+    let q = supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", id);
+    if (filtroFamilia) q = q.eq("familiaId", filtroFamilia);
+    const { data: m } = await q.maybeSingle();   // RLS: si no es de su despacho, no existe
+    if (!m) return null;
     const row = m as unknown as Record<string, string | null>;
     const ficha: ClienteFicha = {};
     for (const k of FICHA_KEYS) { const v = row[k]; if (typeof v === "string" && v) (ficha as Record<string, string>)[k] = v; }
-    d = datosDeCliente(ficha, `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim(), row.telefono, row.email);
+    return datosDeCliente(ficha, `${row.nombre ?? ""} ${row.apellidos ?? ""}`.trim(), row.telefono, row.email);
+  };
+
+  let d;
+  if (!exp) {
+    const desdeCliente = await cargarFicha(clienteId);
+    if (!desdeCliente) return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
+    d = desdeCliente;
+  } else {
+    d = datosNormalizados(exp);
+  }
+  if (exp && clienteId && exp.familiaId) {
+    const miembro = await cargarFicha(clienteId, exp.familiaId);
+    if (!miembro) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    d = miembro;
   }
 
   // 1) Ouvre le formulaire officiel → cookies de session + HTML.

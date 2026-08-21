@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "@/components/lang-provider";
+import { Tasa790Modal } from "@/components/tasa790-modal";
 
 // Génère un formulaire officiel autorrellené avec les données de CE client,
 // indépendamment d'un expediente/service. Catalogue passé depuis le serveur.
@@ -36,6 +37,15 @@ export function ClienteFormularios({ clienteId, formularios }: { clienteId: stri
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
           {t("Descargar")}
         </button>
+      </div>
+      {/* La tasa 790-012 no es un EX: se genera contra la Sede de la Policía Nacional
+          (captcha incluido), así que va en su propio botón y no en el desplegable.
+          Pedido por Gesadmbcn el 20/08/2026. */}
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <p className="mb-2 text-xs text-slate-500">
+          {t("La tasa 790-012 se genera en la Sede de la Policía Nacional, con los datos de este cliente ya rellenados.")}
+        </p>
+        <Tasa790Modal clienteId={clienteId} etiqueta={t("Tasa 790-012")} />
       </div>
     </div>
   );
