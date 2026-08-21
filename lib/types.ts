@@ -74,21 +74,12 @@ export interface Expediente {
   eventos: Evento[];
 }
 
-export const ESTADO_META: Record<
-  ExpedienteEstado,
-  { label: string; dot: string; pill: string }
-> = {
-  EN_PREPARACION: { label: "En preparación", dot: "bg-amber-500", pill: "bg-amber-100 text-amber-700" },
-  BORRADOR: { label: "Borrador", dot: "bg-slate-400", pill: "bg-slate-100 text-slate-600" },
-  DOCS_PENDIENTES: { label: "Docs pendientes", dot: "bg-amber-500", pill: "bg-amber-100 text-amber-700" },
-  DOCS_VALIDADOS: { label: "Docs validados", dot: "bg-aproba-500", pill: "bg-aproba-100 text-aproba-700" },
-  FORM_GENERADO: { label: "Formularios listos", dot: "bg-blue-500", pill: "bg-blue-100 text-blue-700" },
-  PRESENTADO: { label: "Presentado", dot: "bg-indigo-500", pill: "bg-indigo-100 text-indigo-700" },
-  RESUELTO: { label: "Resolución favorable", dot: "bg-aproba-600", pill: "bg-aproba-100 text-aproba-700" },
-  CITA_HUELLAS: { label: "Cita", dot: "bg-purple-500", pill: "bg-purple-100 text-purple-700" },
-  FINALIZADO: { label: "Finalizado", dot: "bg-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
-  RECHAZADO: { label: "Denegado", dot: "bg-red-500", pill: "bg-red-100 text-red-700" },
-};
+// ESTADO_META (los 9 estados viejos) VIVIÓ AQUÍ hasta el 22/08/2026. Se retira porque
+// ya no la leía nadie y aun así causó el fallo que encontró Matthias: el tablero pintaba
+// «Borrador» / «Docs validados» / «Formularios listos» mucho después de la reforma,
+// porque quedaba a mano y parecía viva. La píldora de estado se pide a metaDeEstado()
+// (lib/progreso.ts), que normaliza y devuelve uno de los 5 estados. Una sola fuente.
+// ⚠️ FACTURA_ESTADO_META y DOC_ESTADO_META son OTRAS máquinas de estados: no se tocan.
 
 export const DOC_ESTADO_META: Record<
   DocumentoEstado,

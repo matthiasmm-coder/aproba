@@ -14,7 +14,6 @@ export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" 
 const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 const LANG_KEY = "aproba.portal.lang";
-const ORDEN: Record<string, number> = { BORRADOR: 0, DOCS_PENDIENTES: 1, DOCS_VALIDADOS: 2, FORM_GENERADO: 3, PRESENTADO: 4, RESUELTO: 5, CITA_HUELLAS: 6, FINALIZADO: 7, RECHAZADO: 4 };
 // AAAA-MM-JJ → JJ/MM/AAAA (date de cita stockée en ISO).
 const fmtCita = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
 

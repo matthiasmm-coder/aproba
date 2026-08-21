@@ -43,9 +43,12 @@ export type OverrideFila = {
   excluir?: boolean;    // no importar esta fila
 };
 
+// Los 5 estados VIVOS. Antes esta lista eran los 9 viejos —y ni siquiera incluía
+// EN_PREPARACION—, así que toda migración sembraba filas con el modelo antiguo: se leían
+// bien (normalizarEstado las traduce) pero resucitaban valores muertos en base.
+// Un servicio importado es historial: si la IA no lo sabe situar, cae en FINALIZADO.
 export const ESTADOS_EXPEDIENTE = [
-  "BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS", "FORM_GENERADO",
-  "PRESENTADO", "RESUELTO", "CITA_HUELLAS", "FINALIZADO", "RECHAZADO",
+  "EN_PREPARACION", "PRESENTADO", "RESUELTO", "RECHAZADO", "FINALIZADO",
 ] as const;
 
 // ── Normalisations déterministes ─────────────────────────────────────────────────────

@@ -6,7 +6,9 @@ import { packPct } from "@/lib/servicios";
 import { asignacionValida } from "@/lib/multi-servicio";
 
 // Le client (portail /j/[token]) confirme son trámite :
-// → tipo réel + estado DOCS_PENDIENTES + événement dans l'historial du gestor.
+// → tipo réel + événement dans l'historial du gestor. PAS de changement d'état :
+// depuis la refonte du cycle (21/08/2026) l'état ne bouge que sur les 3 clics du gestor,
+// et « le client a démarré » se DÉDUIT des faits (documents reçus), pas d'une promotion.
 // Authentifié par le token du portail (pas de session : c'est le client final).
 
 export async function POST(req: Request) {
@@ -49,8 +51,8 @@ export async function POST(req: Request) {
   // PRIMERO-ESCRIBE-GANA (familia): el gestor fijó el servicio antes de enviar el enlace
   // → el portal solo avanza el estado; tipo, servicios y asignación quedan intactos.
   if (Boolean(exp.familiaId) && Boolean(exp.servicioClave)) {
+    // Se marca el expediente como tocado y nada más: el estado lo lleva el gestor.
     const { error: eAv } = await admin.from("Expediente").update({
-      estado: exp.estado === "BORRADOR" ? "DOCS_PENDIENTES" : exp.estado,
       updatedAt: new Date().toISOString(),
     }).eq("id", exp.id);
     if (eAv) return NextResponse.json({ error: eAv.message }, { status: 500 });
@@ -129,8 +131,6 @@ export async function POST(req: Request) {
     .update({
       tipo,
       servicioClave: clave, // mémorise le service choisi (gère les services custom, sans équivalent enum)
-      // l'expediente démarre vraiment : on attend désormais ses documents
-      estado: exp.estado === "BORRADOR" ? "DOCS_PENDIENTES" : exp.estado,
       updatedAt: new Date().toISOString(),
       ...extraCols,
     })
@@ -139,7 +139,6 @@ export async function POST(req: Request) {
   if (e2 && Object.keys(extraCols).length && /serviciosAsignacion|column|schema cache/i.test(e2.message)) {
     e2 = (await admin.from("Expediente").update({
       tipo, servicioClave: clave,
-      estado: exp.estado === "BORRADOR" ? "DOCS_PENDIENTES" : exp.estado,
       updatedAt: new Date().toISOString(),
     }).eq("id", exp.id)).error;
   }

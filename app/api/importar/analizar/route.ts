@@ -59,7 +59,7 @@ Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
   "columnas": [{ "indice": 0, "campo": "<campo o null>" }, …] (una entrada POR COLUMNA, en orden),
   "tramites": { "<valor libre visto>": "<clave de servicio del catálogo o null>", … },
   "validezMeses": { "<valor libre visto>": <meses que dura la tarjeta que produce ESE trámite, o null si no caduca>, … },
-  "estados": { "<valor libre visto>": "<uno de: BORRADOR, DOCS_PENDIENTES, DOCS_VALIDADOS, FORM_GENERADO, PRESENTADO, RESUELTO, CITA_HUELLAS, FINALIZADO, RECHAZADO>", … },
+  "estados": { "<valor libre visto>": "<uno de: EN_PREPARACION, PRESENTADO, RESUELTO, RECHAZADO, FINALIZADO>", … },
   "crearHistorial": true|false (true si hay una columna de trámite/servicio con valores mapeables; se registrará en el HISTORIAL de servicios del cliente, NUNCA como expediente activo),
   "crearFamilias": true|false (true si hay agrupación familiar),
   "notas": ["observación breve para el gestor", …]

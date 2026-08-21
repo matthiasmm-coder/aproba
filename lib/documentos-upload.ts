@@ -24,7 +24,7 @@ type Resultado = { ok: true; estado: string; campos?: unknown; alertas: string[]
 //  - "cliente": eventos «El cliente subió…» + avisos al cliente (doc recibido/validado/rechazado).
 //  - "gestor" (modo interno): eventos «El despacho subió…» y SIN avisos al cliente (no está en el bucle).
 // Además, si el expediente sigue en BORRADOR (nadie lo ha iniciado por el portal), la primera
-// subida lo arranca (BORRADOR → DOCS_PENDIENTES), para que el gestor pueda trabajarlo internamente.
+// subida NO cambia el estado: que el trámite esté vivo se deriva de que haya documentos.
 export async function procesarSubidaDocumento(admin: Admin, opts: {
   exp: ExpParaSubida; label: string; clienteId: string | null; file: File; buffer: Buffer; ext: string; baseUrl: string; origen: "cliente" | "gestor";
 }): Promise<Resultado> {
@@ -32,7 +32,6 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
   const uuid = () => crypto.randomUUID();
   const notificar = origen === "cliente"; // en modo interno el cliente no recibe avisos
   const docTipo = labelADocTipo(label);
-  let estadoExp = exp.estado; // puede avanzar dentro de esta subida (auto-arranque + promoción)
 
   // Documento: reutilizar la fila del mismo tipo (por miembro) si existe (re-subida), sinon crear.
   const dq = admin.from("Documento").select("id").eq("expedienteId", exp.id).eq("tipo", docTipo);
@@ -64,18 +63,12 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     descripcion: origen === "cliente" ? `El cliente subió: ${label}` : `El despacho subió: ${label}`,
   });
 
-  // Auto-arranque — SOLO en modo interno del gestor: si nadie ha iniciado el expediente por
-  // el portal, la subida del gestor lo arranca. En el portal, el arranque sigue pasando SIEMPRE
-  // por /api/portal/iniciar (paso 0); no lo tocamos aquí para no cambiar el comportamiento del
-  // cliente (p. ej. una renovación de Vigía en modo reanudación sube docs en BORRADOR sin promover).
-  if (origen === "gestor" && estadoExp === "BORRADOR") {
-    await admin.from("Expediente").update({ estado: "DOCS_PENDIENTES", updatedAt: new Date().toISOString() }).eq("id", exp.id);
-    await admin.from("ExpedienteEvento").insert({
-      id: uuid(), expedienteId: exp.id, tipo: "ESTADO_CAMBIADO",
-      descripcion: "El despacho inició el expediente internamente (documentación aportada por el gestor)",
-    });
-    estadoExp = "DOCS_PENDIENTES";
-  }
+  // El auto-arranque VIVÍA AQUÍ: al subir el gestor un documento, promovía el expediente
+  // de BORRADOR a DOCS_PENDIENTES. Se retira (22/08/2026) por las dos razones de siempre:
+  // escribía un valor de enum ya muerto, y sobre todo el arranque YA NO hace falta
+  // declararlo — se deriva del hecho (hay documentos ⇒ el trámite vive, ver `arrancado`
+  // en lib/progreso.ts). Es el mismo motivo por el que reconciliarProgresoDocs quedó vacía.
+  // El evento DOC_SUBIDO de más arriba ya deja constancia de que el despacho aportó papeles.
 
   const docLabel = DOC_LABEL[docTipo] ?? label;
   if (notificar) await dispararAviso(admin, { workspaceId: exp.workspaceId, expedienteId: exp.id, clave: "doc_recibido", vars: { documento: docLabel }, baseUrl });
@@ -154,21 +147,14 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     clave: resultado.estado === "VALIDADO" ? "doc_validado" : "doc_rechazado", vars: { documento: docLabel }, baseUrl,
   });
 
-  // ── Progresión / reconciliación tras cada subida (mientras se recogen documentos) ──
-  if (!exp.familiaId && (estadoExp === "DOCS_PENDIENTES" || estadoExp === "DOCS_VALIDADOS")) {
-    await reconciliarProgresoDocs(admin, exp.id, "subida");
-  }
-
   return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal };
 }
 
-// ── Reconciliación de estado según los documentos requeridos ──
-// Promueve a DOCS_VALIDADOS cuando TODOS los requeridos (unión de los docs del servicio
-// principal + extras) están validados, y REVIERTE a DOCS_PENDIENTES si dejan de estarlo.
-// Se ejecuta tras cada subida ("subida") y cuando cambian los servicios del expediente
-// ("servicios" — añadir un servicio puede requerir docs nuevos y el estado no debe mentir).
-// El criterio compara por docTipo VALIDADO (tolerante a dos labels que mapean el mismo
-// tipo — un conteo validados>=N sería inalcanzable en ese caso). Nunca lanza.
+// ── Reconciliación de estado según los documentos requeridos: YA NO EXISTE ──
+// Se conserva la firma porque /api/expedientes/[id]/servicio todavía la llama, pero el
+// cuerpo está vacío a propósito. La regla que aplicaba (comparar docTipos validados
+// contra los requeridos) vive ahora en docsCompletos() de lib/progreso.ts y se evalúa
+// A LA LECTURA, sin escribir nada.
 export async function reconciliarProgresoDocs(_admin: Admin, _expedienteId: string, _contexto: "subida" | "servicios" = "subida"): Promise<void> {
   // VACIADA a propósito (21/08/2026). Antes promovía DOCS_PENDIENTES↔DOCS_VALIDADOS tras
   // cada subida — y excluía a las familias, que por eso se quedaban atascadas para
