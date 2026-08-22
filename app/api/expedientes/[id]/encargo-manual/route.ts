@@ -3,7 +3,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { serviciosDeExpediente } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, aplicarDescuento, asignacionValida, descuentoValido, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
+import { totalDe, r2 } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarEncargoManual } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -70,6 +71,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ? serviciosExp.map((s) => s.label)
     : [TIPO_LABEL[exp.tipo] ?? exp.tipo];
 
+  // PRECIO TOTAL del trámite (IVA incluido) — se calcula AQUÍ, no se acepta del cliente:
+  // honorarios de todos los servicios (ya ×miembros y con el descuento del expediente)
+  // más las tasas/suplidos, que van sin IVA. Sirve para que el correo distinga el pago
+  // inicial del precio entero. 0 = sin tarifa configurada → el correo no lo menciona.
+  let nMiembros = 1;
+  if (exp.familiaId) {
+    const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);
+    nMiembros = Math.max(1, count ?? 1);
+  }
+  const asignacion = asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion);
+  const tarifa = tarifaAsignada(serviciosExp, asignacion, nMiembros);
+  const conDescuento = aplicarDescuento(tarifa, 1, descuentoValido((exp as { descuento?: unknown }).descuento));
+  const suplidosTotal = suplidosAsignados(exp.suplidosOverride, serviciosExp, asignacion, nMiembros)
+    .reduce((a, x) => a + x.importe, 0);
+  const totalTramite = r2(totalDe(conDescuento.anticipo) + totalDe(conDescuento.resto) + suplidosTotal);
+
   // Factura inicial (emitida justo antes por /api/pagos con sinEmail): se verifica que
   // pertenece a ESTE expediente — un facturaId ajeno no puede colarse en el correo.
   let factura: { facturaId: string; numero: string; total: number } | null = null;
@@ -120,6 +137,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     factura,
     adjuntos: adjuntos.length ? adjuntos : undefined,
     baseUrl: baseUrlFromRequest(req),
+    totalTramite,
   });
   if (estado === "ERROR") {
     return NextResponse.json({ error: "No se pudo enviar el email al cliente. Vuelve a intentarlo." }, { status: 502 });

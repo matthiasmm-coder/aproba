@@ -521,12 +521,38 @@ export async function enviarSolicitudPago(
   }
 }
 
+// A DÓNDE responde el cliente. El remitente de los avisos es una dirección de la
+// plataforma (AVISOS_EMAIL_FROM), así que sin reply-to una respuesta se pierde — de ahí
+// el viejo «no respondas a este correo». En los correos donde SÍ esperamos respuesta
+// (encargo con documentos para firmar, finalización) se enruta al buzón del despacho:
+// el de facturación si lo configuró, si no el del propietario de la cuenta.
+async function emailDeRespuesta(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
+  try {
+    const { data: ws } = await admin.from("Workspace").select("emailFacturacion").eq("id", workspaceId).maybeSingle();
+    const fact = ((ws as { emailFacturacion?: string | null } | null)?.emailFacturacion ?? "").trim();
+    if (fact) return fact;
+  } catch { /* columna sin migrar → owner */ }
+  try {
+    const { data: mem } = await admin.from("Membership").select("User(email)").eq("workspaceId", workspaceId).eq("role", "OWNER").limit(1).maybeSingle();
+    const u = uno((mem as { User?: { email: string | null } | { email: string | null }[] | null } | null)?.User ?? null);
+    return (u?.email ?? "").trim() || null;
+  } catch { return null; }
+}
+
 // Bloque de pago de los correos combinados (alta manual, finalización): importe con
 // IVA, IBAN de la sede (cascada a la común) y botón de tarjeta si la gestoría lo activó.
 // Mismo lenguaje visual que la solicitud de pago.
 async function bloquePagoHtml(
   admin: SupabaseClient,
-  opts: { workspaceId: string; oficinaId: string | null; factura: { facturaId: string; numero: string; total: number }; baseUrl?: string },
+  opts: {
+    workspaceId: string; oficinaId: string | null;
+    factura: { facturaId: string; numero: string; total: number };
+    baseUrl?: string;
+    // Qué ES este importe («Pago inicial», «Liquidación final»…) y, debajo, el contexto
+    // que evita leerlo como el precio total del trámite.
+    etiqueta?: string;
+    nota?: string;
+  },
 ): Promise<string> {
   const { cuentaParaOficina } = await import("./facturacion-oficina");
   const cuenta = await cuentaParaOficina(admin, opts.workspaceId, opts.oficinaId) ?? undefined;
@@ -544,8 +570,10 @@ async function bloquePagoHtml(
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:16px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.baseUrl}/api/pagos/checkout?f=${opts.factura.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(opts.factura.total)} con tarjeta</a></td></tr></table></td></tr></table>`
     : "";
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
-    <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Factura ${opts.factura.numero} · IVA incluido</p>
+    <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">${opts.etiqueta ?? "Importe a pagar"} · IVA incluido</p>
     <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.factura.total)}</p>
+    <p style="margin:6px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b">Factura ${opts.factura.numero}</p>
+    ${opts.nota ? `<p style="margin:4px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b">${opts.nota}</p>` : ""}
   </td></tr></table>
   ${bancoBox}
   <p style="margin:14px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Si pagas por transferencia, indica el número de factura (<strong>${opts.factura.numero}</strong>) en el concepto.</p>
@@ -590,9 +618,10 @@ export async function enviarFinalizacion(
         .replace(/\{nombre\}/g, nombre).replace(/\{documento\}/g, "").replace(/\{fecha\}/g, "");
     }
 
+    const responder = await emailDeRespuesta(admin, exp.workspaceId);
     const pagoHtml = opts.factura
       ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Aquí tienes la liquidación final de tu expediente:</p>
-        ${await bloquePagoHtml(admin, { workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl })}`
+        ${await bloquePagoHtml(admin, { workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl, etiqueta: "Liquidación final" })}`
       : "";
 
     const html = emailLayout({
@@ -603,7 +632,11 @@ export async function enviarFinalizacion(
         <p style="margin:0">${mensaje}</p>
         ${pagoHtml}`,
       cta: null,
-      footerNota: `Mensaje de ${gestoria}. Por favor, no respondas a este correo.`,
+      // Cierre de trámite: el cliente puede tener dudas (o querer pagar) — su respuesta
+      // debe llegar al despacho, no al buzón de la plataforma.
+      footerNota: responder
+        ? `Mensaje de ${gestoria}. Puedes responder a este correo: tu respuesta llega directamente a tu gestoría.`
+        : `Mensaje de ${gestoria}.`,
       preheader: denegado ? `Expediente ${exp.referencia} cerrado` : `Trámite ${exp.referencia} finalizado${opts.factura ? ` · ${fmtEur(opts.factura.total)}` : ""}`,
     });
 
@@ -619,6 +652,7 @@ export async function enviarFinalizacion(
           `Hola ${nombre}, ${mensaje.replace(/<[^>]+>/g, "")}`,
           ...(opts.factura ? [`Liquidación final — factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`] : []),
         ].join("\n"),
+        ...(responder ? { replyTo: responder } : {}),
       });
       estado = error ? "ERROR" : "ENVIADO";
       if (error) console.error("[finalizacion email]", error.message ?? error);
@@ -653,6 +687,9 @@ export async function enviarEncargoManual(
     factura?: { facturaId: string; numero: string; total: number } | null;
     adjuntos?: { filename: string; content: string }[]; // hoja/mandato en base64
     baseUrl?: string;
+    // Precio TOTAL del trámite con IVA (honorarios + tasas), calculado en el servidor.
+    // Sin él, la factura del anticipo se leía como el precio entero — lo señaló Matthias.
+    totalTramite?: number | null;
   },
 ): Promise<Estado> {
   try {
@@ -671,12 +708,34 @@ export async function enviarEncargoManual(
       ${opts.serviciosLabels.map((l) => `<p style="margin:2px 0;font-family:${FUENTE};font-size:14px;font-weight:600;color:#1e293b">· ${l}</p>`).join("")}
     </td></tr></table>`;
 
-    const pagoHtml = opts.factura
-      ? await bloquePagoHtml(admin, { workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl })
-      : "";
+    // El importe de HOY frente al precio del trámite. Tres casos: pago inicial (queda
+    // resto), pago único (cubre el total) y sin cobro ahora (solo se anuncia el total).
+    const total = opts.totalTramite && opts.totalTramite > 0 ? opts.totalTramite : null;
+    const restoDespues = total && opts.factura ? Math.round((total - opts.factura.total) * 100) / 100 : 0;
+    const parcial = restoDespues > 0.01;
+    let pagoHtml = "";
+    if (opts.factura) {
+      pagoHtml = await bloquePagoHtml(admin, {
+        workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl,
+        etiqueta: parcial ? "Pago inicial" : "Importe a pagar",
+        nota: total
+          ? (parcial
+              ? `Total del trámite: ${fmtEur(total)} · resto al finalizar: ${fmtEur(restoDespues)}`
+              : "Es el importe total del trámite: no queda nada pendiente.")
+          : undefined,
+      });
+    } else if (total) {
+      // Sin cobro inicial: el cliente merece saber igualmente cuánto cuesta su trámite.
+      pagoHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#F8FAF7;border:1px solid #E2E8F0;border-radius:12px;padding:16px;text-align:center">
+        <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748b">Total del trámite · IVA incluido</p>
+        <p style="margin:5px 0 0;font-family:${FUENTE};font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(total)}</p>
+        <p style="margin:6px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b">Te enviaremos la factura más adelante.</p>
+      </td></tr></table>`;
+    }
 
+    const responder = await emailDeRespuesta(admin, exp.workspaceId);
     const firmaHtml = opts.adjuntos?.length
-      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos la <strong>hoja de encargo</strong> y el <strong>mandato de representación</strong>. Por favor, fírmalos y háznoslos llegar (en persona o respondiendo a tu gestoría) para que podamos actuar en tu nombre.</p>`
+      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos la <strong>hoja de encargo</strong> y el <strong>mandato de representación</strong>. Por favor, fírmalos y ${responder ? "envíanoslos respondiendo a este correo" : "háznoslos llegar"} para que podamos actuar en tu nombre.</p>`
       : "";
 
     const html = emailLayout({
@@ -689,14 +748,19 @@ export async function enviarEncargoManual(
         ${pagoHtml}
         ${firmaHtml}`,
       cta: null,
-      footerNota: `Mensaje de ${gestoria}. Por favor, no respondas a este correo.`,
+      // Aquí SÍ esperamos respuesta (los documentos firmados): el reply-to va al
+      // despacho, así que invitar a responder es honesto.
+      footerNota: responder
+        ? `Mensaje de ${gestoria}. Puedes responder a este correo: tu respuesta llega directamente a tu gestoría.`
+        : `Mensaje de ${gestoria}.`,
       preheader: `Tu trámite con ${gestoria}${opts.factura ? ` · ${fmtEur(opts.factura.total)}` : ""}`,
     });
 
     let estado: Estado = "SIMULADO";
+    let idMensaje: string | null = null; // id del proveedor: rastro para soporte
     if (resendDisponible()) {
       const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+      const { data: env, error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from,
         to: opts.destino,
         subject: `Tu trámite con ${gestoria} · ${exp.referencia}`,
@@ -704,15 +768,21 @@ export async function enviarEncargoManual(
         text: [
           `Hola ${nombre}, ${gestoria} ya está trabajando en tu trámite (${exp.referencia}).`,
           `Servicios: ${opts.serviciosLabels.join(" + ")}.`,
-          ...(opts.factura ? [`Factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`] : []),
+          ...(total ? [`Total del trámite: ${fmtEur(total)} (IVA incluido).`] : []),
+          ...(opts.factura
+            ? [`${parcial ? "Pago inicial" : "A pagar"} — factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`]
+            : []),
+          ...(parcial ? [`Resto al finalizar: ${fmtEur(restoDespues)}.`] : []),
           ...(opts.adjuntos?.length ? ["Adjuntamos la hoja de encargo y el mandato para firmar."] : []),
         ].join("\n"),
         attachments: opts.adjuntos?.length ? opts.adjuntos : undefined,
+        ...(responder ? { replyTo: responder } : {}),
       });
       estado = error ? "ERROR" : "ENVIADO";
       if (error) console.error("[encargoManual email]", error.message ?? error);
+      else idMensaje = env?.id ?? null;
     }
-    console.log(`[encargoManual ${estado}] email → ${opts.destino} | ${exp.referencia} | ${opts.serviciosLabels.join(" + ")}`);
+    console.log(`[encargoManual ${estado}${idMensaje ? ` id=${idMensaje}` : ""}] email → ${opts.destino} | ${exp.referencia} | ${opts.serviciosLabels.join(" + ")}`);
 
     const partes = [
       opts.serviciosLabels.join(" + "),
