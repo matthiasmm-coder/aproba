@@ -326,7 +326,7 @@ export default async function ExpedienteDetail({
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
         {(progresoExp.hitos.formularios || progresoExp.hitos.presentado) && (
           <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
-            <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
+            <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
           </SeccionPlegable>
         )}
 

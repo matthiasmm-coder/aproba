@@ -9,7 +9,7 @@ import type { MercurioCampo } from "@/lib/mercurio";
 // una página informativa.
 const MERCURIO_URL = "https://mercurio.delegaciondelgobierno.gob.es/mercurio/";
 
-export function RellenarMercurio({ campos, referencia, rellenos, total, ocultarTitulo = false }: { campos: MercurioCampo[]; referencia: string; rellenos: number; total: number; ocultarTitulo?: boolean }) {
+export function RellenarMercurio({ campos, referencia, expedienteId, rellenos, total, ocultarTitulo = false }: { campos: MercurioCampo[]; referencia: string; expedienteId?: string; rellenos: number; total: number; ocultarTitulo?: boolean }) {
   const t = useT();
   // null = comprobando, true/false = extensión detectada o no.
   const [ext, setExt] = useState<boolean | null>(null);
@@ -29,7 +29,10 @@ export function RellenarMercurio({ campos, referencia, rellenos, total, ocultarT
   function rellenar() {
     // Manda los datos a la extensión (su content script en esta página los recoge)
     // y abre Mercurio. La extensión rellena el formulario allí; el gestor firma.
-    window.postMessage({ source: "aproba-mercurio", type: "expediente", referencia, campos }, window.location.origin);
+    // expedienteId viaja con los datos: el panel de Mercurio lo necesita para poder
+    // marcar «presentado» de vuelta (la cola del relay lo aplica en la próxima página
+    // de Aproba, con la sesión del gestor — sin endpoints públicos ni CORS).
+    window.postMessage({ source: "aproba-mercurio", type: "expediente", referencia, expedienteId, campos }, window.location.origin);
     enviado.current = true;
     window.open(MERCURIO_URL, "_blank", "noopener");
   }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
+import { MercurioSync } from "@/components/mercurio-sync";
 import { LogoutButton } from "@/components/logout-button";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { AsistenteWidget } from "@/components/asistente-widget";
@@ -127,6 +128,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       {/* Bouton de feedback flottant (beta) */}
       <AsistenteWidget />
+      {/* Aplica las marcas «presentado en Mercurio» que la extensión dejó en cola */}
+      <MercurioSync />
       <ConfirmHost />
 
       {/* Nav mobile (bas) */}
