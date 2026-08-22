@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
+import { InformacionCliente } from "@/components/informacion-cliente";
+import { FICHA_CAMPOS, type ClienteFicha } from "@/lib/ficha";
 import { CitasPanel } from "@/components/citas-panel";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
@@ -63,6 +65,9 @@ export default async function ExpedienteDetail({
   // Équipe, pour le sélecteur « Asignado a » du pied de fiche. Traspasar peut
   // n'importe quel membre — y compris l'asistente (voir components/asignar-expediente).
   const supaRol = await createSupabaseServer();
+  // Sedes del despacho: el editor de la ficha del cliente las necesita (multi-oficina).
+  const { data: ofisRaw } = await supaRol.from("Oficina").select("id, nombre").order("orden");
+  const oficinasDespacho = (ofisRaw ?? []) as { id: string; nombre: string }[];
   const { data: memsRaw } = await supaRol.from("Membership").select("userId, User(nombre, email)");
   type MemRow = { userId: string; User: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null };
   const miembrosEquipo = ((memsRaw ?? []) as MemRow[]).map((m) => {
@@ -200,6 +205,7 @@ export default async function ExpedienteDetail({
         citaPresencial={cita.citaPresencial}
         portalToken={e.portalToken}
         permiteSubidaInterna={!familia && e.modoTrabajo !== "manual"}
+        modoManual={e.modoTrabajo === "manual"}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
       />
 
@@ -225,6 +231,29 @@ export default async function ExpedienteDetail({
         {/* Notas de trabajo del gestor («cita solicitada», «a la espera de apostillas»…) */}
         <SeccionPlegable id="notas" titulo={t("Notas")} resumen={notas.length > 0 ? `${notas.length}` : t("Sin notas")}>
           <NotasExpediente expedienteId={e.id} inicial={notas} />
+        </SeccionPlegable>
+
+        {/* Información del cliente: los MISMOS campos que pide el portal y que se ven en
+            «Clientes» (lib/ficha.ts, fuente única). El gestor los lee y corrige aquí,
+            sin salir del expediente que está preparando. */}
+        <SeccionPlegable
+          id="informacion"
+          titulo={t("Información")}
+          // El resumen cuenta EXACTAMENTE los campos que la sección enseña (FICHA_CAMPOS,
+          // los del portal y de «Clientes»). Con FICHA_KEYS decía «5/20» mientras se
+          // veían 18 filas: el mismo error de denominador que ya nos costó dos rondas.
+          resumen={(() => {
+            const f = (e.clienteFicha ?? {}) as Record<string, unknown>;
+            const total = FICHA_CAMPOS.length;
+            const rellenos = FICHA_CAMPOS.filter((c) => String(f[c.k] ?? "").trim()).length;
+            return rellenos === total ? t("Completa") : `${rellenos}/${total}`;
+          })()}
+        >
+          <InformacionCliente
+            ficha={(e.clienteFicha ?? {}) as ClienteFicha}
+            clienteId={e.clienteId ?? null}
+            oficinas={oficinasDespacho}
+          />
         </SeccionPlegable>
 
         {/* Familia (expediente familiar): miembros + facturación familiar */}

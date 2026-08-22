@@ -20,7 +20,7 @@ function abrirYScroll(seccion: string, target: string, block: ScrollLogicalPosit
 }
 
 export function DriverBanner({
-  id, estado, progreso, citaFecha = null, citaPresencial = false, portalToken, permiteSubidaInterna = false, formulariosHref,
+  id, estado, progreso, citaFecha = null, citaPresencial = false, portalToken, permiteSubidaInterna = false, modoManual = false, formulariosHref,
 }: {
   id: string;
   estado: ExpedienteEstado;
@@ -32,6 +32,8 @@ export function DriverBanner({
   portalToken?: string | null;
   // Expediente individual → el gestor puede trabajarlo internamente (subir docs él mismo).
   permiteSubidaInterna?: boolean;
+  // Modo manual: el despacho trabaja sin enlace → no se ofrece copiarlo.
+  modoManual?: boolean;
   formulariosHref: string;
 }) {
   const t = useT();
@@ -167,7 +169,11 @@ export function DriverBanner({
   // documento (el cliente o el propio gestor), el expediente pasaba a DOCS_PENDIENTES
   // y el enlace se volvía irrecuperable desde la ficha. Ahora está siempre a mano,
   // salvo cuando ya es la acción principal (no duplicar el mismo botón).
-  const enlaceSiempre = Boolean(portalToken) && prim.kind !== "copiar";
+  // En MODO MANUAL no se ofrece el enlace en ninguna parte — es toda la promesa del
+  // modo. El expediente TIENE portalToken (se genera siempre al crearlo), así que sin
+  // esta condición el botón seguía ahí contradiciendo «no se te pedirá enviar ningún
+  // enlace». Si el gestor cambia de idea, el enlace vive en la ficha del cliente.
+  const enlaceSiempre = Boolean(portalToken) && prim.kind !== "copiar" && !modoManual;
   async function onPrimary() {
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
