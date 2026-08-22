@@ -256,33 +256,48 @@ describe("completitud del expediente (Información + Documentos + Formularios)",
     expect(calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"] }).completitud.pct).toBe(33);
   });
 
-  it("ficha + documentos, sin formularios = 67 %", () => {
+  it("ficha + documentos, sin formularios = 67 % REAL (y 100 mostrado: ya está en «Listo»)", () => {
     const p = calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"] });
-    expect(p.completitud.pct).toBe(67);
+    expect(p.completitud.real).toBe(67);
     expect(p.completitud.formularios).toBe(0);
+    expect(p.fase).toBe("preparacion");
+    expect(p.completitud.pct).toBe(100);
   });
 
-  it("las tres partes = 100 %", () => {
-    expect(calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"], formulariosCurados: true }).completitud.pct).toBe(100);
+  it("las tres partes = 100 % — mostrado Y real (la ficha no avisa de nada)", () => {
+    const p = calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"], formulariosCurados: true });
+    expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.real).toBe(100); // real === pct ⇒ sin aviso de «falta en la plataforma»
   });
 
-  it("documentos a medias cuentan en proporción", () => {
+  it("documentos a medias cuentan en proporción (en el % REAL)", () => {
     const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["A", "B"], tiposValidados: [], formulariosCurados: true });
     // info 0,5 + docs 0 + forms 1 = 1,5/3 = 50 %
-    expect(p.completitud.pct).toBe(50);
+    expect(p.completitud.real).toBe(50);
   });
 
-  it("la validación manual NO toca el % — solo empuja a «Listo para presentar»", () => {
-    // Decisión de Matthias (22/08): el número sigue diciendo la verdad calculada.
+  it("en «Preparación» el % mostrado ES el calculado", () => {
+    const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["Pasaporte"] });
+    expect(p.fase).toBe("recepcion");
+    expect(p.completitud.pct).toBe(17);
+    expect(p.completitud.real).toBe(17);
+  });
+
+  it("la validación manual empuja a «Listo para presentar» Y enseña 100 %, guardando el real", () => {
+    // Regla del 22/08 (2ª vuelta, Matthias): estar en «Listo para presentar» ES decir
+    // que el expediente está listo → el anillo marca 100. El número honesto sigue en
+    // `real` (17 %) y la ficha avisa de que falta documentación en la plataforma.
     const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["Pasaporte"], validadoManual: true });
-    expect(p.completitud.pct).toBe(17); // (0,5 + 0 + 0) / 3
-    expect(p.completitud.manual).toBe(true);
     expect(p.fase).toBe("preparacion");
+    expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.real).toBe(17); // (0,5 + 0 + 0) / 3
+    expect(p.completitud.manual).toBe(true);
   });
 
   it("un expediente ya presentado está al 100 % sin necesitar validación", () => {
     const p = calcularProgreso({ ...b, estado: "PRESENTADO", fichaRellenos: 0 });
     expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.real).toBe(100);
     expect(p.completitud.manual).toBe(false);
   });
 });

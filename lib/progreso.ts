@@ -100,7 +100,9 @@ export type Progreso = {
   // antes de presentar: Información (campos de la ficha), Documentos (requeridos
   // validados) y Formularios (generados). `desglose` alimenta el tooltip: un número
   // global sin detalle no dice qué falta.
-  completitud: { pct: number; info: number; docs: number; formularios: number; manual: boolean };
+  // pct = el que se ENSEÑA (100 desde «Listo para presentar»); real = el calculado de
+  // verdad. La ficha compara los dos para avisar de que falta algo en la plataforma.
+  completitud: { pct: number; real: number; info: number; docs: number; formularios: number; manual: boolean };
 };
 
 export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
@@ -161,11 +163,12 @@ export function calcularProgreso(h: Hechos): Progreso {
     cerrado: estado === "FINALIZADO",
   };
 
-  const completitud = completitudDe(h, docs, hitoForm, post);
   // La validación manual también EMPUJA de fase: es su sentido — «esto ya está listo».
+  const fase = faseDe(estado, hitoDocs || Boolean(h.validadoManual), hitoForm);
+  const completitud = completitudDe(h, docs, hitoForm, post, fase !== "recepcion");
   return {
     estado,
-    fase: faseDe(estado, hitoDocs || Boolean(h.validadoManual), hitoForm),
+    fase,
     docs, hitos,
     accion: accionSiguiente(h, estado, docs, hitoForm),
     score: scoreDe(estado, docs, hitoForm, h),
@@ -241,7 +244,7 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
 // NO toca el número (decisión de Matthias, 22/08): empuja el expediente a «Listo para
 // presentar» pero el % sigue diciendo la verdad calculada — un dossier marcado listo
 // con la ficha a medias enseña su 28 %, no un 100 % de cortesía.
-function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean, post: boolean): Progreso["completitud"] {
+function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean, post: boolean, listo: boolean): Progreso["completitud"] {
   const manual = Boolean(h.validadoManual);
   const total = h.fichaTotal ?? 0;
   const info = total > 0 ? Math.min(1, (h.fichaRellenos ?? 0) / total) : 0;
@@ -249,8 +252,13 @@ function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoFo
     ? docs.recibidos / docs.requeridos
     : (docs.completo ? 1 : 0);
   const frm = hitoForm ? 1 : 0;
-  if (post) return { pct: 100, info: 1, docs: 1, formularios: 1, manual };
-  return { pct: Math.round(((info + dcs + frm) / 3) * 100), info, docs: dcs, formularios: frm, manual };
+  const real = Math.round(((info + dcs + frm) / 3) * 100);
+  if (post) return { pct: 100, real: 100, info: 1, docs: 1, formularios: 1, manual };
+  // «Listo para presentar» ⇒ 100 % (pedido de Matthias, 22/08): estar en esa columna
+  // ES la declaración de que el expediente está listo — sea porque los hechos lo dicen
+  // (docs completos o formularios generados) o porque el gestor lo marcó a mano. La
+  // verdad calculada NO se pierde: viaja en `real` y la ficha avisa si falta algo.
+  return { pct: listo ? 100 : real, real, info, docs: dcs, formularios: frm, manual };
 }
 
 // Orden dentro de una fase: sustituye al antiguo ORDEN por estado, que ya no discrimina.

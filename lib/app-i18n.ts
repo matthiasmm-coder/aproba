@@ -159,6 +159,8 @@ export const CA: Record<string, string> = {
   "Archivar el expediente": "Arxivar l'expedient",
   "Finalizar y archivar": "Finalitzar i arxivar",
   "Presentado el": "Presentat el",
+  "Parte de los documentos o datos necesarios para el expediente no está en la plataforma.": "Part dels documents o de les dades necessàries per a l'expedient no és a la plataforma.",
+  "Completado real": "Completat real",
   "Aceptado": "Acceptat",
   "Trámite finalizado y archivado": "Tràmit finalitzat i arxivat",
   "Sin email del cliente: no se envió ningún correo.": "Sense correu del client: no s'ha enviat cap missatge.",

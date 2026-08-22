@@ -137,6 +137,15 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
           {pieza("Información", completitud.info >= 1)}
           {pieza("Documentos", completitud.docs >= 1)}
           {pieza("Formularios", completitud.formularios >= 1)}
+          {/* El anillo marca 100 % desde «Listo para presentar», pero eso puede ser una
+              DECLARACIÓN del gestor (o venir de los formularios ya generados) y no que
+              todo esté subido. Sin esta línea, el 100 % al lado de tres círculos vacíos
+              se leería como un fallo del producto. Desaparece sola cuando todo llega. */}
+          {completitud.pct === 100 && completitud.real < 100 && (
+            <p className="w-full text-center text-xs text-amber-700">
+              {t("Parte de los documentos o datos necesarios para el expediente no está en la plataforma.")}
+            </p>
+          )}
         </>
       )}
       {acciones}
