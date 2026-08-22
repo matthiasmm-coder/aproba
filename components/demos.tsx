@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 // Animation synchronisée : à gauche ce que vit le client (téléphone),
 // à droite ce que voit le gestor (dashboard). Un seul `step` pilote les deux.
 // Les écrans reproduisent fidèlement le vrai portail (client-portal.tsx) et le
-// vrai détail expediente (app/app/expedientes/[id]/page.tsx).
+// vrai détail expediente (app/app/expedientes/[id]/page.tsx) — actualizado 22/08 tras
+// la reforma del ciclo: stepper de 4 fases + anillo de completitud, sin píldoras.
 // 0 WhatsApp · 1 idioma+trámite · 2 datos · 3-6 documents un par un · 7 todo listo.
 
 const STEPS = 8;
@@ -63,19 +64,16 @@ const HISTORIAL = [
   "IA validó 4/4 · EX-10 + 790-012 listos",
 ];
 
-// ESTADO_META (lib/types.ts) — réutilisé tel quel pour le badge d'état du dashboard.
-const ESTADO_META = {
-  BORRADOR: { label: "Borrador", pill: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
-  DOCS_PENDIENTES: { label: "Docs pendientes", pill: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
-  DOCS_VALIDADOS: { label: "Docs validados", pill: "bg-aproba-100 text-aproba-700", dot: "bg-aproba-500" },
-  FORM_GENERADO: { label: "Formularios listos", pill: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
-} as const;
-
-// État de l'expediente côté gestor, étape par étape (suit le workflow réel).
-const ESTADO_POR_STEP: (keyof typeof ESTADO_META)[] = [
-  "BORRADOR", "BORRADOR", "DOCS_PENDIENTES", "DOCS_PENDIENTES",
-  "DOCS_PENDIENTES", "DOCS_PENDIENTES", "DOCS_VALIDADOS", "FORM_GENERADO",
-];
+// Fases del ciclo real (BOARD_PHASES/FASES, reforma 22/08): el detalle ya no lleva
+// píldora de estado — lleva el stepper de 4 fases y la carta de completitud (anillo %
+// + Información/Documentos/Formularios), como la ficha de verdad.
+const FASES = ["Preparación", "Listo para presentar", "Presentado", "Resultado"];
+// Fase activa por paso: en preparación hasta validar los docs; con los 4 validados
+// (paso 6) el expediente salta a «Listo para presentar» — igual que faseDe() real.
+const FASE_POR_STEP = [0, 0, 0, 0, 0, 0, 1, 1];
+// Completitud por paso = media de 3 partes (lib/progreso.ts): Información (ficha
+// completa en el paso 2), Documentos (validados/4), Formularios (generados al final).
+const COMP_POR_STEP = [0, 0, 33, 33, 42, 50, 67, 100];
 
 function Check({ className = "" }: { className?: string }) {
   return (
@@ -450,7 +448,8 @@ function Documentos({ cur }: { cur: number }) {
 
 function Dashboard({ step }: { step: number }) {
   const docValidated = (i: number) => i < step - 3; // cascade : un doc validé par étape
-  const estado = ESTADO_META[ESTADO_POR_STEP[step]];
+  const fase = FASE_POR_STEP[step];
+  const comp = COMP_POR_STEP[step];
   const formsListos = step >= 7;
   const docsCount = DOCS.length;
   return (
@@ -464,20 +463,51 @@ function Dashboard({ step }: { step: number }) {
       </div>
 
       <div className="p-4">
-        {/* En-tête expediente : referencia mono + nom + badge d'état (ESTADO_META) */}
+        {/* En-tête expediente : referencia + nom + STEPPER de fases (la píldora de
+            estado ya no existe en el producto — reforma del 22/08). */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="font-mono text-[11px] text-slate-400">EXP-2026-0042</p>
-              <p className="mt-0.5 text-lg font-bold tracking-tightest text-slate-900">Julia Mendoza</p>
-              <p className="text-xs text-slate-500">Arraigo social · Colombia</p>
-            </div>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors duration-500 ${estado.pill}`}>{estado.label}</span>
+          <div>
+            <p className="font-mono text-[11px] text-slate-400">EXP-2026-0042</p>
+            <p className="mt-0.5 text-lg font-bold tracking-tightest text-slate-900">Julia Mendoza</p>
+            <p className="text-xs text-slate-500">Arraigo social · Colombia</p>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-slate-100 pt-2.5 text-[11px]">
+          <div className="mt-3 grid grid-cols-4 gap-1 border-t border-slate-100 pt-2.5">
+            {FASES.map((f, i) => (
+              <div key={f} className={`flex items-center justify-center gap-1 truncate rounded-md px-1 py-1 text-[8.5px] font-semibold transition-colors duration-500 ${i < fase ? "bg-aproba-50/60 text-aproba-700" : i === fase ? "border border-aproba-200 bg-aproba-50 text-aproba-800" : "bg-slate-50 text-slate-400"}`}>
+                {i < fase ? <Check className="h-2 w-2 shrink-0" /> : <span className="shrink-0">{i + 1}.</span>}
+                <span className="truncate">{f}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[11px]">
             <span><span className="text-slate-400">Asignado a </span><span className="font-medium text-slate-700">Marc R.</span></span>
             <span><span className="text-slate-400">Creado </span><span className="font-medium text-slate-700">11 jun 2026</span></span>
           </div>
+        </div>
+
+        {/* Carta de completitud (ValidarExpediente real): anillo con el % dentro, las
+            tres partes con su coca y el botón del momento. El % crece EN DIRECTO. */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5">
+          <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
+            <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90">
+              <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" className="stroke-slate-100" />
+              <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round" stroke="currentColor" className="text-aproba-500 transition-[stroke-dashoffset] duration-700" strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - comp / 100)} />
+            </svg>
+            <span className="absolute text-[8px] font-bold tabular-nums text-slate-600">{comp}%</span>
+          </span>
+          {[["Información", step >= 2], ["Documentos", step >= 6], ["Formularios", formsListos]].map(([l, on]) => (
+            <span key={l as string} className={`inline-flex items-center gap-1 text-[10px] transition-colors duration-500 ${on ? "font-medium text-aproba-700" : "text-slate-400"}`}>
+              {on ? (
+                <span className="flex h-3 w-3 items-center justify-center rounded-full bg-aproba-600 text-white"><Check className="h-2 w-2" /></span>
+              ) : (
+                <span className="h-3 w-3 rounded-full border-2 border-slate-200" />
+              )}
+              {l}
+            </span>
+          ))}
+          <span className={`rounded-md px-2 py-1 text-[9px] font-semibold transition-colors duration-500 ${formsListos ? "bg-aproba-600 text-white" : "border border-aproba-300 text-aproba-700"}`}>
+            {formsListos ? "Marcar como presentado" : "Marcar como listo para presentar"}
+          </span>
         </div>
 
         {/* Documentos — cartes avec bouton Descargar + datos extraídos por IA */}

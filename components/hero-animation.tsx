@@ -5,9 +5,10 @@ import { AprobaMark } from "./logo";
 
 // Animation héro — un iPad qui recorre la interfaz admin del gestor,
 // cambiando de pestaña automáticamente (Expedientes → Clientes → Facturas → Ajustes).
-// Les contenus reproduisent fidèlement les vrais écrans : board-client.tsx (colonnes +
-// pills ESTADO_META), la table clientes, lib/facturas.ts (états Pagada/Emitida/Vencida),
-// et ajustes/servicios-manager.tsx (toggles + anticipo/resto).
+// Les contenus reproduisent fidèlement les vrais écrans : board-client.tsx (4 fases
+// Preparación → Listo para presentar → Presentado → Resultado, anneau de complétude,
+// fecha de depósito, Aceptado/Denegado — actualizado 22/08 tras la reforma del ciclo),
+// la table clientes, lib/facturas.ts (Pagada/Emitida/Vencida) et servicios-manager.
 
 const TABS = [
   { label: "Expedientes", icon: "board" },
@@ -35,53 +36,68 @@ function Avatar({ txt }: { txt: string }) {
 
 // ── Contenu par onglet ──────────────────────────────────────────────
 
-// Expedientes : kanban fidèle à board-client.tsx — colonnes ESTADO_META + cartes
-// (referencia mono, nom, trámite · nacionalidad, X/Y docs validados, avatar).
+// Expedientes : kanban fidèle à board-client.tsx (reforma 22/08) — 4 fases, tarjetas
+// SIN píldoras: anillo de completitud en preparación, fecha de depósito en Presentado,
+// Aceptado/Denegado en Resultado. Todas las tarjetas miden lo mismo, como en el real.
+function MiniAnillo({ pct }: { pct: number }) {
+  const r = 5.5, c = 2 * Math.PI * r;
+  return (
+    <span className="relative inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center">
+      <svg width="15" height="15" viewBox="0 0 15 15" className="-rotate-90">
+        <circle cx="7.5" cy="7.5" r={r} fill="none" strokeWidth="1.6" className="stroke-slate-100" />
+        <circle cx="7.5" cy="7.5" r={r} fill="none" strokeWidth="1.6" strokeLinecap="round" stroke="currentColor" className="text-aproba-500" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} />
+      </svg>
+      <span className="absolute text-[4px] font-bold tabular-nums text-slate-600">{pct}%</span>
+    </span>
+  );
+}
+
 function Expedientes() {
-  const cols = [
+  type Tarjeta = { n: string; t: string; who: string; venc?: string; pct?: number; fecha?: string; res?: "ok" | "no" };
+  const cols: { label: string; cards: Tarjeta[] }[] = [
     {
-      label: "Docs pendientes", dot: "bg-amber-500",
+      label: "1. Preparación",
       cards: [
-        { ref: "EXP-2026-0051", n: "Karim Benali", t: "Renovación de TIE · Marruecos", docs: "1/3", who: "MR", venc: "18/06" },
-        { ref: "EXP-2026-0049", n: "Samuel Okafor", t: "Asignación de NIE · Nigeria", docs: "0/1", who: "LT" },
+        { n: "Karim Benali", t: "Renovación de TIE · Marruecos", pct: 61, who: "MR", venc: "18/06" },
+        { n: "Samuel Okafor", t: "Asignación de NIE · Nigeria", pct: 7, who: "LT" },
       ],
     },
     {
-      label: "Docs validados", dot: "bg-aproba-500",
-      cards: [
-        { ref: "EXP-2026-0042", n: "Julia Mendoza", t: "Arraigo social · Colombia", docs: "4/4", who: "MR", venc: "20/06" },
-      ],
+      label: "2. Listo para presentar",
+      cards: [{ n: "Julia Mendoza", t: "Arraigo social · Colombia", pct: 100, who: "MR", venc: "20/06" }],
     },
     {
-      label: "Formularios listos", dot: "bg-blue-500",
-      cards: [
-        { ref: "EXP-2026-0040", n: "Liu Wei", t: "Reagrupación familiar · China", docs: "4/4", who: "MR" },
-      ],
+      label: "3. Presentado",
+      cards: [{ n: "Liu Wei", t: "Reagrupación familiar · China", fecha: "03/06", who: "MR" }],
+    },
+    {
+      label: "4. Resultado",
+      cards: [{ n: "Oksana Koval", t: "Nacionalidad española · Ucrania", res: "ok", who: "MR" }],
     },
   ];
   return (
     <div>
-      <Head title="Expedientes" sub="3 activos" cta="+ Nuevo expediente" />
-      <div className="grid grid-cols-3 gap-2">
+      <Head title="Expedientes" sub="5 activos" cta="+ Nuevo expediente" />
+      <div className="grid grid-cols-4 gap-1.5">
         {cols.map((c) => (
-          <div key={c.label}>
-            <div className="mb-1.5 flex items-center gap-1">
-              <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-              <span className="text-[8px] font-semibold text-slate-700">{c.label}</span>
-              <span className="text-[7px] text-slate-400">{c.cards.length}</span>
+          <div key={c.label} className="min-w-0">
+            <div className="mb-1.5 flex items-center justify-center gap-1 rounded bg-aproba-50/70 px-1 py-0.5">
+              <span className="truncate text-[6px] font-semibold text-aproba-800">{c.label}</span>
+              <span className="text-[5.5px] text-slate-400">{c.cards.length}</span>
             </div>
             <div className="space-y-1.5">
               {c.cards.map((card) => (
-                <div key={card.ref} className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[7px] text-slate-400">{card.ref}</span>
-                    {card.venc && <span className="rounded bg-amber-50 px-1 py-0.5 text-[6.5px] font-medium text-amber-700">⏱ {card.venc}</span>}
+                <div key={card.n} className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-0.5">
+                    <p className="truncate text-[7.5px] font-semibold text-slate-900">{card.n}</p>
+                    {card.venc && <span className="shrink-0 rounded bg-amber-50 px-0.5 text-[5px] font-medium text-amber-700">⏱ {card.venc}</span>}
                   </div>
-                  <p className="mt-0.5 text-[9px] font-semibold text-slate-900">{card.n}</p>
-                  <p className="truncate text-[7.5px] text-slate-500">{card.t}</p>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-[7px] text-slate-500">{card.docs} docs validados</span>
-                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-aproba-100 text-[6.5px] font-semibold text-aproba-700">{card.who}</span>
+                  <p className="truncate text-[6px] text-slate-500">{card.t}</p>
+                  <div className="mt-1 flex min-h-[15px] items-center justify-between gap-0.5">
+                    {card.pct !== undefined && <MiniAnillo pct={card.pct} />}
+                    {card.fecha && <span className="truncate text-[5.5px] text-slate-500">Presentado el <span className="font-medium text-slate-700">{card.fecha}</span></span>}
+                    {card.res && <span className={`text-[6px] font-semibold ${card.res === "ok" ? "text-aproba-700" : "text-red-600"}`}>{card.res === "ok" ? "Aceptado" : "Denegado"}</span>}
+                    <span className="ml-auto flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[5.5px] font-semibold text-aproba-700">{card.who}</span>
                   </div>
                 </div>
               ))}
