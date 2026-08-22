@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import { ArchivarButton } from "@/components/archivar-button";
+import { FinalizarArchivar } from "@/components/finalizar-archivar";
 import { normalizarEstado, type Progreso } from "@/lib/progreso";
 
 // Carta de completitud Y del ciclo (rediseño 22/08 en dos tiempos, pedidos de Matthias):
@@ -15,15 +15,17 @@ import { normalizarEstado, type Progreso } from "@/lib/progreso";
 //                          toca el %, solo empuja de columna; reversible con «Retirar»)
 //   Listo para presentar → «Marcar como presentado»
 //   Presentado           → «Marcar como aceptado» / «Marcar como denegado» (rojo)
-//   Resultado            → «Archivar»
+//   Resultado            → «Finalizar y archivar» (popup: ¿facturar lo pendiente? + email de cierre)
 // Antes convivían dos juegos de botones (esta carta + AccionesCiclo en la cabecera) y
 // la carta seguía ofreciendo «listo para presentar» a un expediente que YA estaba en esa
 // columna — lo señaló Matthias. AccionesCiclo ya no existe: el ciclo entero vive aquí.
-export function ValidarExpediente({ id, estado, fase, completitud }: {
+export function ValidarExpediente({ id, estado, fase, completitud, finalizacion }: {
   id: string;
   estado: string;
   fase: string; // clave de faseDe() — ⚠️ la clave `recepcion` se ETIQUETA «Preparación»
   completitud: Progreso["completitud"];
+  // Para el popup de cierre (columna Resultado): qué queda por facturar y a quién avisar.
+  finalizacion: { resto: number; puedeFacturar: boolean; clienteEmail: string };
 }) {
   const t = useT();
   const router = useRouter();
@@ -95,8 +97,9 @@ export function ValidarExpediente({ id, estado, fase, completitud }: {
       </>
     );
   } else if (est !== "EN_PREPARACION") {
-    // RESUELTO / RECHAZADO / FINALIZADO: el ciclo terminó — solo queda archivar.
-    acciones = <ArchivarButton id={id} />;
+    // RESUELTO / RECHAZADO / FINALIZADO: cerrar en un gesto — facturar lo pendiente
+    // (si lo hay), email de finalización y archivo.
+    acciones = <FinalizarArchivar expedienteId={id} estado={estado} resto={finalizacion.resto} puedeFacturar={finalizacion.puedeFacturar} clienteEmail={finalizacion.clienteEmail} />;
   } else if (fase === "recepcion") {
     // Columna «1. Preparación» (clave recepcion): validación manual.
     acciones = (

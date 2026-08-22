@@ -133,52 +133,61 @@ const uno = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? nul
 
 // Déclenche l'aviso `clave` pour un expediente, si l'aviso existe et est activo.
 // `baseUrl` sert à construire le lien du portail dans l'email (origin de la requête).
+// MULTI-OFICINA — résolution d'une plantilla d'aviso : (1) la sede de l'expediente, en
+// suivant le pointeur « usar los mismos que X » (un salto), (2) sinon les avisos de la
+// gestoría (filas null), (3) sinon le défaut. Fail-soft à chaque étage. Partagée entre
+// dispararAviso et les correos combinados (finalización) qui respectent la plantilla
+// personnalisée du despacho sans passer par dispararAviso.
+async function plantillaDeAviso(
+  admin: SupabaseClient,
+  opts: { workspaceId: string; expedienteId: string; clave: string },
+): Promise<{ evento: string; template: string; canal: string; activo: boolean } | null> {
+  let sedeAviso: string | null = null;
+  if (opts.expedienteId) {
+    try {
+      const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", opts.expedienteId).maybeSingle();
+      sedeAviso = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+      if (sedeAviso) {
+        const { data: of } = await admin.from("Oficina").select("avisosComoOficinaId").eq("id", sedeAviso).maybeSingle();
+        const ref = ((of as { avisosComoOficinaId?: string | null } | null)?.avisosComoOficinaId ?? null) || null;
+        if (ref) sedeAviso = ref; // un seul salto, jamais de chaînes
+      }
+    } catch { sedeAviso = null; }
+  }
+  let row: { evento: string; template: string; canal: string; activo: boolean } | null = null;
+  if (sedeAviso) {
+    try {
+      const { data: propio } = await admin.from("AvisoConfig")
+        .select("evento, template, canal, activo")
+        .eq("workspaceId", opts.workspaceId).eq("oficinaId", sedeAviso).eq("clave", opts.clave)
+        .maybeSingle();
+      row = (propio as typeof row) ?? null;
+    } catch { row = null; }
+  }
+  if (!row) {
+    let base = await admin.from("AvisoConfig")
+      .select("evento, template, canal, activo")
+      .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
+      .is("oficinaId", null)
+      .maybeSingle();
+    if (base.error) base = await admin.from("AvisoConfig")
+      .select("evento, template, canal, activo")
+      .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
+      .maybeSingle(); // migración ausente
+    row = (base.data as typeof row) ?? null;
+  }
+  // Repli sur le défaut si le workspace n'a pas (encore) personnalisé cet aviso →
+  // les avisos fonctionnent out-of-the-box, sans config manuelle préalable.
+  const def = DEFAULT_AVISOS.find((a) => a.id === opts.clave);
+  return row ?? (def ? { evento: def.evento, template: def.template, canal: def.canal, activo: def.activo } : null);
+}
+
 export async function dispararAviso(
   admin: SupabaseClient,
   opts: { workspaceId: string; expedienteId: string; clave: string; vars?: Record<string, string>; baseUrl?: string },
 ): Promise<void> {
   try {
-    // MULTI-OFICINA — résolution de l'aviso : (1) la sede de l'expediente, en suivant
-    // le pointeur « usar los mismos que X » (un salto), (2) sinon les avisos de la
-    // gestoría (filas null), (3) sinon le défaut. Fail-soft à chaque étage.
-    let sedeAviso: string | null = null;
-    if (opts.expedienteId) {
-      try {
-        const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", opts.expedienteId).maybeSingle();
-        sedeAviso = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
-        if (sedeAviso) {
-          const { data: of } = await admin.from("Oficina").select("avisosComoOficinaId").eq("id", sedeAviso).maybeSingle();
-          const ref = ((of as { avisosComoOficinaId?: string | null } | null)?.avisosComoOficinaId ?? null) || null;
-          if (ref) sedeAviso = ref; // un seul salto, jamais de chaînes
-        }
-      } catch { sedeAviso = null; }
-    }
-    let row: { evento: string; template: string; canal: string; activo: boolean } | null = null;
-    if (sedeAviso) {
-      try {
-        const { data: propio } = await admin.from("AvisoConfig")
-          .select("evento, template, canal, activo")
-          .eq("workspaceId", opts.workspaceId).eq("oficinaId", sedeAviso).eq("clave", opts.clave)
-          .maybeSingle();
-        row = (propio as typeof row) ?? null;
-      } catch { row = null; }
-    }
-    if (!row) {
-      let base = await admin.from("AvisoConfig")
-        .select("evento, template, canal, activo")
-        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
-        .is("oficinaId", null)
-        .maybeSingle();
-      if (base.error) base = await admin.from("AvisoConfig")
-        .select("evento, template, canal, activo")
-        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
-        .maybeSingle(); // migración ausente
-      row = (base.data as typeof row) ?? null;
-    }
-    // Repli sur le défaut si le workspace n'a pas (encore) personnalisé cet aviso →
-    // les avisos fonctionnent out-of-the-box, sans config manuelle préalable.
-    const def = DEFAULT_AVISOS.find((a) => a.id === opts.clave);
-    const aviso = row ?? (def ? { evento: def.evento, template: def.template, canal: def.canal, activo: def.activo } : null);
+    const aviso = await plantillaDeAviso(admin, opts);
     if (!aviso || !aviso.activo) return; // inconnu/non configuré ou désactivé → rien
 
     const { data: expRaw } = await admin
@@ -512,6 +521,124 @@ export async function enviarSolicitudPago(
   }
 }
 
+// Bloque de pago de los correos combinados (alta manual, finalización): importe con
+// IVA, IBAN de la sede (cascada a la común) y botón de tarjeta si la gestoría lo activó.
+// Mismo lenguaje visual que la solicitud de pago.
+async function bloquePagoHtml(
+  admin: SupabaseClient,
+  opts: { workspaceId: string; oficinaId: string | null; factura: { facturaId: string; numero: string; total: number }; baseUrl?: string },
+): Promise<string> {
+  const { cuentaParaOficina } = await import("./facturacion-oficina");
+  const cuenta = await cuentaParaOficina(admin, opts.workspaceId, opts.oficinaId) ?? undefined;
+  const bancoBox = cuenta?.iban
+    ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagarla por <strong>transferencia bancaria</strong>:</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">
+        ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Titular</td><td style="font-weight:600;text-align:left">${cuenta.titular}</td></tr>` : ""}
+        <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em;text-align:left">${cuenta.iban}</td></tr>
+        ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Banco</td><td style="font-weight:600;text-align:left">${cuenta.banco}</td></tr>` : ""}
+        <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Concepto</td><td style="font-weight:600;text-align:left">${opts.factura.numero}</td></tr>
+      </table>`
+    : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
+  const tarjetaOn = Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, opts.workspaceId, opts.oficinaId));
+  const botonTarjeta = tarjetaOn
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:16px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.baseUrl}/api/pagos/checkout?f=${opts.factura.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(opts.factura.total)} con tarjeta</a></td></tr></table></td></tr></table>`
+    : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
+    <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Factura ${opts.factura.numero} · IVA incluido</p>
+    <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.factura.total)}</p>
+  </td></tr></table>
+  ${bancoBox}
+  <p style="margin:14px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Si pagas por transferencia, indica el número de factura (<strong>${opts.factura.numero}</strong>) en el concepto.</p>
+  ${botonTarjeta}`;
+}
+
+// Email de FINALIZACIÓN (flujo «Finalizar y archivar», 22/08, pedido de Matthias): UN
+// correo que cierra el trámite — y lleva dentro la liquidación final si el gestor
+// decidió facturarla en el popup. Favorable/finalizado: respeta la plantilla
+// «tie_entregado» del despacho (aunque esté desactivada como aviso automático: aquí el
+// gestor lo pide EXPLÍCITAMENTE con el botón). Denegado: texto neutro — el «¡Enhorabuena!»
+// de la plantilla sería una crueldad involuntaria.
+export async function enviarFinalizacion(
+  admin: SupabaseClient,
+  opts: {
+    expedienteId: string;
+    factura?: { facturaId: string; numero: string; total: number } | null;
+    baseUrl?: string;
+  },
+): Promise<Estado> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("workspaceId, oficinaId, referencia, estado, Cliente(nombre, email), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as { workspaceId: string; oficinaId?: string | null; referencia: string; estado: string; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    if (!exp) return "ERROR";
+    const cliente = uno(exp.Cliente);
+    const destino = (cliente?.email ?? "").trim();
+    if (!destino) return "SIN_CONTACTO"; // sin email: el flujo sigue (se archiva igual), sin evento de envío
+    const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
+    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+
+    const denegado = exp.estado === "RECHAZADO";
+    let mensaje: string;
+    if (denegado) {
+      mensaje = `Tu expediente <strong>${exp.referencia}</strong> ha quedado cerrado. Quedamos a tu disposición para valorar contigo los siguientes pasos.`;
+    } else {
+      const plantilla = await plantillaDeAviso(admin, { workspaceId: exp.workspaceId, expedienteId: opts.expedienteId, clave: "tie_entregado" });
+      mensaje = (plantilla?.template ?? "¡Enhorabuena, {nombre}! Tu trámite ha quedado completado.")
+        .replace(/\{nombre\}/g, nombre).replace(/\{documento\}/g, "").replace(/\{fecha\}/g, "");
+    }
+
+    const pagoHtml = opts.factura
+      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Aquí tienes la liquidación final de tu expediente:</p>
+        ${await bloquePagoHtml(admin, { workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl })}`
+      : "";
+
+    const html = emailLayout({
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      gestoria,
+      titulo: denegado ? "Tu expediente ha quedado cerrado" : "Tu trámite ha finalizado",
+      cuerpoHtml: `<p style="margin:0 0 2px">Hola ${nombre},</p>
+        <p style="margin:0">${mensaje}</p>
+        ${pagoHtml}`,
+      cta: null,
+      footerNota: `Mensaje de ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: denegado ? `Expediente ${exp.referencia} cerrado` : `Trámite ${exp.referencia} finalizado${opts.factura ? ` · ${fmtEur(opts.factura.total)}` : ""}`,
+    });
+
+    let estado: Estado = "SIMULADO";
+    if (resendDisponible()) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from,
+        to: destino,
+        subject: denegado ? `Expediente ${exp.referencia} · ${gestoria}` : `Tu trámite ha finalizado · ${gestoria}`,
+        html,
+        text: [
+          `Hola ${nombre}, ${mensaje.replace(/<[^>]+>/g, "")}`,
+          ...(opts.factura ? [`Liquidación final — factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`] : []),
+        ].join("\n"),
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[finalizacion email]", error.message ?? error);
+    }
+    console.log(`[finalizacion ${estado}] email → ${destino} | ${exp.referencia}${opts.factura ? ` | factura ${opts.factura.numero}` : ""}`);
+
+    const { sufijo } = iconoYSufijo(estado, null);
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `🏁 Email de finalización enviado al cliente${opts.factura ? ` (con factura ${opts.factura.numero}, ${fmtEur(opts.factura.total)})` : " (sin factura)"}${sufijo}`,
+    });
+    return estado;
+  } catch (e) {
+    console.error("[enviarFinalizacion]", e instanceof Error ? e.message : e);
+    return "ERROR";
+  }
+}
+
 // Email del ALTA EN MODO MANUAL (22/08, pedido de Matthias): UN solo correo con los
 // servicios contratados, la factura inicial si la hay (IBAN + tarjeta, como la solicitud
 // de pago) y la hoja de encargo + el mandato ADJUNTOS para firmar. El gestor lo valida
@@ -544,33 +671,9 @@ export async function enviarEncargoManual(
       ${opts.serviciosLabels.map((l) => `<p style="margin:2px 0;font-family:${FUENTE};font-size:14px;font-weight:600;color:#1e293b">· ${l}</p>`).join("")}
     </td></tr></table>`;
 
-    // Bloque de pago: mismo lenguaje que la solicitud de pago (importe, IBAN de la sede,
-    // tarjeta si la gestoría la activó). Sin factura inicial, el bloque no existe.
-    let pagoHtml = "";
-    if (opts.factura) {
-      const { cuentaParaOficina } = await import("./facturacion-oficina");
-      const cuenta = await cuentaParaOficina(admin, exp.workspaceId, exp.oficinaId ?? null) ?? undefined;
-      const bancoBox = cuenta?.iban
-        ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagarla por <strong>transferencia bancaria</strong>:</p>
-          <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">
-            ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Titular</td><td style="font-weight:600;text-align:left">${cuenta.titular}</td></tr>` : ""}
-            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em;text-align:left">${cuenta.iban}</td></tr>
-            ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Banco</td><td style="font-weight:600;text-align:left">${cuenta.banco}</td></tr>` : ""}
-            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Concepto</td><td style="font-weight:600;text-align:left">${opts.factura.numero}</td></tr>
-          </table>`
-        : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
-      const tarjetaOn = Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null));
-      const botonTarjeta = tarjetaOn
-        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:16px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.baseUrl}/api/pagos/checkout?f=${opts.factura.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(opts.factura.total)} con tarjeta</a></td></tr></table></td></tr></table>`
-        : "";
-      pagoHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
-        <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Factura ${opts.factura.numero} · IVA incluido</p>
-        <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.factura.total)}</p>
-      </td></tr></table>
-      ${bancoBox}
-      <p style="margin:14px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Si pagas por transferencia, indica el número de factura (<strong>${opts.factura.numero}</strong>) en el concepto.</p>
-      ${botonTarjeta}`;
-    }
+    const pagoHtml = opts.factura
+      ? await bloquePagoHtml(admin, { workspaceId: exp.workspaceId, oficinaId: exp.oficinaId ?? null, factura: opts.factura, baseUrl: opts.baseUrl })
+      : "";
 
     const firmaHtml = opts.adjuntos?.length
       ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos la <strong>hoja de encargo</strong> y el <strong>mandato de representación</strong>. Por favor, fírmalos y háznoslos llegar (en persona o respondiendo a tu gestoría) para que podamos actuar en tu nombre.</p>`

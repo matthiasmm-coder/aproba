@@ -43,7 +43,9 @@ const fmtFecha = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(is
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { accion?: Accion; fecha?: string; hora?: string; lugar?: string; notas?: string; quien?: string };
+  // sinAviso: el flujo «Finalizar y archivar» envía después UN email combinado
+  // (finalización + factura) — sin el flag, el cliente recibiría dos correos.
+  let body: { accion?: Accion; fecha?: string; hora?: string; lugar?: string; notas?: string; quien?: string; sinAviso?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const accion = body.accion as Accion;
 
@@ -135,7 +137,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await admin.from("ExpedienteEvento").insert({ id: crypto.randomUUID(), expedienteId: id, tipo: tr.evento, descripcion: tr.desc, userId: user.id });
 
   try {
-    if (ws) await dispararAviso(admin, { workspaceId: ws, expedienteId: id, clave: tr.aviso, baseUrl });
+    if (ws && body.sinAviso !== true) await dispararAviso(admin, { workspaceId: ws, expedienteId: id, clave: tr.aviso, baseUrl });
   } catch { /* ignore */ }
 
   // ── VIGÍA: renovación DENEGADA → el vencimiento vinculado vuelve a PENDIENTE ──

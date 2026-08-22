@@ -198,7 +198,22 @@ export default async function ExpedienteDetail({
           cambia con la columna (listo → presentado → aceptado/denegado → archivar), así
           que la carta acompaña al expediente hasta el final. */}
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-        <ValidarExpediente id={e.id} estado={e.estado} fase={progresoExp.fase} completitud={progresoExp.completitud} />
+        <ValidarExpediente
+          id={e.id}
+          estado={e.estado}
+          fase={progresoExp.fase}
+          completitud={progresoExp.completitud}
+          // Popup de cierre: mismo criterio que el botón de pago final del CobrosPanel
+          // (queda resto, sin factura final viva, sin plan de cuotas).
+          finalizacion={{
+            resto: tarifaExp.resto,
+            puedeFacturar:
+              tarifaExp.resto > 0
+              && !e.facturasPago.some((f) => f.momento === "FINAL" && f.estado !== "ANULADA")
+              && !e.facturasPago.some((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA"),
+            clienteEmail: e.clienteEmail ?? "",
+          }}
+        />
       </div>
 
       {/* Documentos del cliente pendientes — SOLO en la columna «1. Preparación»
