@@ -150,6 +150,8 @@ export const CA: Record<string, string> = {
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
   "Faltan": "Falten",
   "requeridos": "requerits",
+  "Preparación": "Preparació",
+  "Listo para presentar": "A punt per presentar",
   "Información": "Informació",
   "Completa": "Completa",
   "sin rellenar": "sense omplir",

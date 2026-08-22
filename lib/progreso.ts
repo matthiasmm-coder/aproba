@@ -105,11 +105,13 @@ export type AccionClave =
   | "elegir_servicio" | "subir_docs" | "generar_formularios" | "presentar"
   | "esperando_resolucion" | "finalizar" | "cerrado" | "denegado";
 
+// Mismas etiquetas que BOARD_PHASES (lib/types.ts) — si divergen, el tablero y esto
+// dirían nombres distintos de la misma fase. Ver allí el aviso del desfase clave/etiqueta.
 export const FASES: { key: FaseKey; label: string }[] = [
-  { key: "recepcion", label: "Recepción" },
-  { key: "preparacion", label: "Preparación" },
-  { key: "presentacion", label: "Presentación" },
-  { key: "cierre", label: "Cierre" },
+  { key: "recepcion", label: "Preparación" },
+  { key: "preparacion", label: "Listo para presentar" },
+  { key: "presentacion", label: "Presentado" },
+  { key: "cierre", label: "Validado" },
 ];
 
 // ── ¿Están los documentos completos? ─────────────────────────────────────────

@@ -110,11 +110,17 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
 // Fases del board : agrupan los 8 estados en 4 etapas del pipeline para que el tablero
 // quepa en pantalla y se lea como UN flujo (no 8 columnas sueltas). El estado fino sigue
 // visible en cada tarjeta. RECHAZADO queda fuera (igual que en BOARD_COLUMNS).
+// Nombres de las 4 fases (renombrados el 22/08/2026 a petición de Matthias).
+// ⚠️ LAS CLAVES NO CAMBIAN — son las que usa lib/progreso.ts (faseDe) y las que ya
+// están escritas en el código y en los tests. Por eso hay un DESFASE deliberado entre
+// clave y etiqueta: la clave "recepcion" se llama ahora «Preparación», y la clave
+// "preparacion" se llama «Listo para presentar». Al tocar esto, mirar la etiqueta,
+// nunca deducir del nombre de la clave.
 export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEstado[] }[] = [
-  { key: "recepcion",    label: "Recepción",    estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
-  { key: "preparacion",  label: "Preparación",  estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
-  { key: "presentacion", label: "Presentación", estados: ["PRESENTADO", "RESUELTO", "RECHAZADO"] },
-  { key: "cierre",       label: "Cierre",       estados: ["CITA_HUELLAS", "FINALIZADO"] },
+  { key: "recepcion",    label: "Preparación",          estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
+  { key: "preparacion",  label: "Listo para presentar", estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
+  { key: "presentacion", label: "Presentado",           estados: ["PRESENTADO", "RESUELTO", "RECHAZADO"] },
+  { key: "cierre",       label: "Validado",             estados: ["CITA_HUELLAS", "FINALIZADO"] },
 ];
 
 // Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice
