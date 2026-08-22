@@ -243,6 +243,7 @@ export default async function ExpedienteDetail({
             const rellenos = FICHA_CAMPOS.filter((c) => String(f[c.k] ?? "").trim()).length;
             return rellenos === total ? t("Completa") : `${rellenos}/${total}`;
           })()}
+          completa={FICHA_CAMPOS.every((c) => String(((e.clienteFicha ?? {}) as Record<string, unknown>)[c.k] ?? "").trim())}
         >
           <InformacionCliente
             ficha={(e.clienteFicha ?? {}) as ClienteFicha}
@@ -262,6 +263,7 @@ export default async function ExpedienteDetail({
         {/* Documentos */}
         <SeccionPlegable
           id="documentos"
+          completa={progresoExp.docs.completo}
           titulo={`${t("Documentos")} (${e.documentos.length})`}
           // UNA métrica, la misma que la tarjeta del tablero: recibidos/REQUERIDOS.
           // «3/3 validados» aquí contra «2/3» en la tarjeta era contar cosas distintas
@@ -301,6 +303,7 @@ export default async function ExpedienteDetail({
         {/* Formularios */}
         <SeccionPlegable
           id="formularios"
+          completa={e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0}
           titulo={t("Formularios")}
           resumen={e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? `${e.formularios.length + (e.tieneTasa ? 1 : 0) + tasaMiembrosIds.length} PDF` : t("Sin generar")}
           right={
@@ -342,7 +345,7 @@ export default async function ExpedienteDetail({
         {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
         {(progresoExp.hitos.formularios || progresoExp.hitos.presentado) && (
-          <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
+          <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} completa={camposMercurioList.length > 0 && rellenosMercurio === camposMercurioList.length} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
             <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
           </SeccionPlegable>
         )}
@@ -351,6 +354,7 @@ export default async function ExpedienteDetail({
             acude y notas — un hecho editable en cualquier punto del trámite. */}
         <SeccionPlegable
           id="citas"
+          completa={Boolean(e.cita.fecha)}
           titulo={t("Citas")}
           resumen={e.cita.fecha
             ? `${fmtFechaCorta(e.cita.fecha) ?? e.cita.fecha}${e.cita.hora ? ` · ${e.cita.hora}` : ""} · ${t(e.cita.quien === "gestor" ? "acude el gestor" : e.cita.quien === "ambos" ? "acuden ambos" : "acude el cliente")}`
@@ -362,6 +366,14 @@ export default async function ExpedienteDetail({
         {/* Cobro */}
         <SeccionPlegable
           id="cobro"
+          // Completo = COBRADO: hay algo pagado y nada pendiente. Un servicio sin tarifa
+          // tampoco lleva coca — una coca verde sobre una sección vacía se lee «pagado»,
+          // y eso sería mentira sobre dinero, que es donde menos se puede mentir.
+          completa={(() => {
+            const pendiente = e.facturasPago.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").length;
+            const pagado = e.facturasPago.filter((f) => f.estado === "PAGADA").length;
+            return pendiente === 0 && pagado > 0;
+          })()}
           titulo={t("Cobro del expediente")}
           resumen={(() => {
             const pendiente = e.facturasPago.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((a, f) => a + f.total, 0);

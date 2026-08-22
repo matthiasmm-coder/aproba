@@ -8,11 +8,15 @@ import { useEffect, useState } from "react";
 // no perder estados internos (popups de cobro, edición de notas…) ni las anclas.
 // El driver «siguiente paso» abre una sección disparando el evento `abrir-seccion`
 // con su id (p. ej. Cobro) antes de hacer scroll.
-export function SeccionPlegable({ id, titulo, resumen, right, children }: {
+export function SeccionPlegable({ id, titulo, resumen, right, completa = false, children }: {
   id: string;
   titulo: React.ReactNode;
   resumen?: React.ReactNode; // visible solo plegada
   right?: React.ReactNode; // acción de cabecera (p. ej. enlace Formularios) — siempre visible
+  // Nada pendiente en esta sección (pedido de Matthias, 22/08): una coma verde en la
+  // cabecera para escanear la ficha sin abrir nada. Solo se pone cuando de verdad no
+  // queda trabajo: una coca falsa sobre datos incompletos es peor que ninguna coca.
+  completa?: boolean;
   children: React.ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -34,6 +38,11 @@ export function SeccionPlegable({ id, titulo, resumen, right, children }: {
         >
           <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
           <span className="text-sm font-semibold text-slate-800">{titulo}</span>
+          {completa && (
+            <span aria-label="Completo" title="Completo" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-aproba-600 text-white">
+              <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
+          )}
           {!abierto && resumen && <span className="min-w-0 truncate text-xs text-slate-400">{resumen}</span>}
         </button>
         {right && <div className="shrink-0 pr-5">{right}</div>}
