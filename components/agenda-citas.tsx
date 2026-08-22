@@ -92,7 +92,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
     return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
   };
   const tooltip = (c: ItemAgenda) => (c.tipo === "administracion"
-    ? [t("Cita administración"), c.referencia, c.hora, c.lugar]
+    ? [t("Cita administración"), c.referencia, c.conCliente ? t("con el cliente") : t("acudes tú solo"), c.hora, c.lugar]
     : [c.clienteNombre, c.motivo || t("Consulta"), c.hora, c.lugar]
   ).filter(Boolean).join(" · ");
 
@@ -101,7 +101,9 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
   const Chip = ({ c }: { c: ItemAgenda }) => {
     const fin = horaFin(c);
     const sub = (c.tipo === "administracion"
-      ? [t("Administración"), c.referencia, c.lugar]
+      // Con quién: es LA distinción que importa al abrir la agenda (¿me espera el
+      // cliente allí?). Las citas del cliente solo ni siquiera entran en la agenda.
+      ? [t("Administración"), c.conCliente ? t("con el cliente") : t("tú solo"), c.referencia, c.lugar]
       : [c.motivo || t("Consulta"), c.lugar]
     ).filter(Boolean).join(", ");
     const inner = (

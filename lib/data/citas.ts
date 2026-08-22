@@ -4,9 +4,10 @@ import { fetchServiciosConfig } from "@/lib/data/config";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 
 // Agenda del despacho: citas PREVIAS (consulta, tabla CitaPrevia) + citas con la
-// ADMINISTRACIÓN a las que acude el gestor (Expediente en CITA_HUELLAS cuyo servicio
-// tiene citaQuien='gestor'). Todo con repli propre: si la tabla CitaPrevia aún no está
-// migrada, simplemente no hay previas.
+// ADMINISTRACIÓN a las que ACUDE EL GESTOR — solo o con el cliente (Expediente.citaQuien
+// 'gestor' | 'ambos'; el citaQuien del servicio queda de repli). Las citas a las que va
+// SOLO el cliente NO entran: la agenda es la del despacho, no la del expediente.
+// Todo con repli propre: si CitaPrevia aún no está migrada, simplemente no hay previas.
 
 export type ItemAgenda = {
   id: string;
@@ -22,6 +23,7 @@ export type ItemAgenda = {
   precio?: number | null; // previa — €
   expedienteId?: string; // administracion (link)
   referencia?: string; // administracion
+  conCliente?: boolean; // administracion: el gestor acude CON el cliente (citaQuien="ambos")
 };
 
 export type ClienteMin = { id: string; nombre: string; apellidos: string | null; email: string | null; telefono: string | null };
@@ -83,7 +85,7 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
         : claves.some((clave) => (quienPorClave[clave] ?? "cliente") === "gestor");
       if (!acudeGestor) continue;
       const cli = uno(e.cliente as { nombre: string | null; apellidos: string | null }[] | null);
-      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string });
+      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string, conCliente: quienCita === "ambos" });
     }
   } catch { /* sin citas de administración */ }
 
