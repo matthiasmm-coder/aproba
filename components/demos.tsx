@@ -471,7 +471,7 @@ function Dashboard({ step }: { step: number }) {
             <p className="mt-0.5 text-lg font-bold tracking-tightest text-slate-900">Julia Mendoza</p>
             <p className="text-xs text-slate-500">Arraigo social · Colombia</p>
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-1 border-t border-slate-100 pt-2.5">
+          <div className="mt-3 grid grid-cols-2 gap-1 border-t border-slate-100 pt-2.5 sm:grid-cols-4">
             {FASES.map((f, i) => (
               <div key={f} className={`flex items-center justify-center gap-1 truncate rounded-md px-1 py-1 text-[8.5px] font-semibold transition-colors duration-500 ${i < fase ? "bg-aproba-50/60 text-aproba-700" : i === fase ? "border border-aproba-200 bg-aproba-50 text-aproba-800" : "bg-slate-50 text-slate-400"}`}>
                 {i < fase ? <Check className="h-2 w-2 shrink-0" /> : <span className="shrink-0">{i + 1}.</span>}
