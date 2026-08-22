@@ -23,7 +23,7 @@ export function AnilloCompletitud({ pct, titulo, size = 34 }: { pct: number; tit
           strokeDashoffset={c * (1 - v / 100)}
         />
       </svg>
-      <span className="absolute text-[9px] font-bold tabular-nums text-slate-600">{v}</span>
+      <span className="absolute text-[8px] font-bold tabular-nums text-slate-600">{v}%</span>
     </span>
   );
 }

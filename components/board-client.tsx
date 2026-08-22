@@ -107,7 +107,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
           <AnilloCompletitud
             pct={comp.pct}
             titulo={[
-              comp.manual ? t("Validado a mano por el gestor") : null,
+              comp.manual ? t("Marcado como listo por el gestor") : null,
               `${t("Información")}: ${Math.round(comp.info * 100)}%`,
               `${t("Documentos")}: ${barra.total > 0 ? `${barra.hechos}/${barra.total}` : `${Math.round(comp.docs * 100)}%`}`,
               `${t("Formularios")}: ${comp.formularios === 1 ? t("sí") : t("no")}`,

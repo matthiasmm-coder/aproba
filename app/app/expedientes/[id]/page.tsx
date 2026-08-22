@@ -198,12 +198,6 @@ export default async function ExpedienteDetail({
             (generar formularios, subir documentos) ya viven en sus secciones. */}
         <AccionesCiclo id={e.id} estado={e.estado} progreso={progresoExp} />
 
-        {/* Completitud + el botón único de validación. Solo antes de presentar: después,
-            declarar «listo» ya no significa nada. */}
-        {!progresoExp.hitos.presentado && (
-          <ValidarExpediente id={e.id} completitud={progresoExp.completitud} />
-        )}
-
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
@@ -211,7 +205,15 @@ export default async function ExpedienteDetail({
         </div>
       </div>
 
-      {/* Driver : la flèche déclenche directement l'action suivante */}
+      {/* Completitud del expediente — CARTA PROPIA bajo la cabecera (pedido de
+          Matthias): anillo con el % dentro, las tres partes con su coca, y el botón
+          que empuja a «Listo para presentar» sin tocar el número. Solo antes de
+          presentar: después, declarar «listo» ya no significa nada. */}
+      {!progresoExp.hitos.presentado && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <ValidarExpediente id={e.id} completitud={progresoExp.completitud} />
+        </div>
+      )}
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
       {docsPendientes.length > 0 && (

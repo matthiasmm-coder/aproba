@@ -86,10 +86,10 @@ export type Hechos = {
   // hecho, un expediente sin portal se quedaba pidiendo «Enviar enlace al cliente»
   // para siempre, que es exactamente lo que NO hay que hacer en ese modo.
   modoManual?: boolean;
-  // Validación MANUAL del gestor (un botón en la ficha): declara que Información,
-  // Documentos y Formularios están OK. Sube la completitud a 100 % y mete el
-  // expediente en «Listo para presentar». Existe porque el producto NO puede saberlo
-  // todo: papeles que el cliente trajo en mano, campos que no aplican a ese trámite…
+  // Validación MANUAL del gestor (un botón en la ficha): empuja el expediente a
+  // «Listo para presentar» SIN tocar el % — el número sigue siendo el calculado.
+  // Existe porque el producto no puede saberlo todo (papeles en mano, campos que
+  // no aplican a ese trámite…).
   validadoManual?: boolean;
   // Denominador de «Información»: campos de la ficha del cliente rellenos / total.
   fichaRellenos?: number;
@@ -244,8 +244,10 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
 //  · Documentos   → requeridos validados / requeridos (sin requisitos: 1 si hay algo
 //                   subido y todo validado, si no 0 — nunca «completo por vacío»)
 //  · Formularios  → 1 si hay modelos o tasa generados, 0 si no
-// Presentado o validado a mano ⇒ 100 %: el trabajo previo ya está hecho, y seguir
-// enseñando «67 %» sobre un expediente depositado sería mentir al revés.
+// Presentado ⇒ 100 %: el trabajo previo ya está hecho. La validación MANUAL en cambio
+// NO toca el número (decisión de Matthias, 22/08): empuja el expediente a «Listo para
+// presentar» pero el % sigue diciendo la verdad calculada — un dossier marcado listo
+// con la ficha a medias enseña su 28 %, no un 100 % de cortesía.
 function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean, post: boolean): Progreso["completitud"] {
   const manual = Boolean(h.validadoManual);
   const total = h.fichaTotal ?? 0;
@@ -254,7 +256,7 @@ function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoFo
     ? docs.recibidos / docs.requeridos
     : (docs.completo ? 1 : 0);
   const frm = hitoForm ? 1 : 0;
-  if (manual || post) return { pct: 100, info: 1, docs: 1, formularios: 1, manual };
+  if (post) return { pct: 100, info: 1, docs: 1, formularios: 1, manual };
   return { pct: Math.round(((info + dcs + frm) / 3) * 100), info, docs: dcs, formularios: frm, manual };
 }
 

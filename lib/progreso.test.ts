@@ -269,9 +269,10 @@ describe("completitud del expediente (Información + Documentos + Formularios)",
     expect(p.completitud.pct).toBe(50);
   });
 
-  it("la validación MANUAL fuerza 100 % y empuja a «Listo para presentar»", () => {
-    const p = calcularProgreso({ ...b, fichaRellenos: 0, docsRequeridos: ["Pasaporte"], validadoManual: true });
-    expect(p.completitud.pct).toBe(100);
+  it("la validación manual NO toca el % — solo empuja a «Listo para presentar»", () => {
+    // Decisión de Matthias (22/08): el número sigue diciendo la verdad calculada.
+    const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["Pasaporte"], validadoManual: true });
+    expect(p.completitud.pct).toBe(17); // (0,5 + 0 + 0) / 3
     expect(p.completitud.manual).toBe(true);
     expect(p.fase).toBe("preparacion");
   });

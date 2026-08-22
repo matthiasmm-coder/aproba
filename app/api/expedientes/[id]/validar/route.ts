@@ -3,8 +3,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 // Validación MANUAL del expediente (22/08/2026, pedido de Matthias): con UN botón el
-// gestor declara que Información, Documentos y Formularios están OK. El expediente pasa
-// a 100 % de completitud y entra en «Listo para presentar».
+// gestor lo marca «listo para presentar». Empuja el expediente a esa columna del
+// kanban SIN tocar la completitud — el % sigue siendo el calculado.
 //
 // Por qué existe: el producto no puede saberlo todo. El cliente trae papeles en mano, un
 // campo de la ficha no aplica a ese trámite, el formulario se preparó fuera… Sin esta
@@ -43,8 +43,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await admin.from("ExpedienteEvento").insert({
     id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
     descripcion: validado
-      ? "✅ Expediente validado a mano: información, documentos y formularios OK — listo para presentar"
-      : "↩️ Validación retirada: el expediente vuelve a su completitud calculada",
+      ? "✅ Marcado como listo para presentar por el gestor (la completitud sigue siendo la calculada)"
+      : "↩️ Marca de «listo para presentar» retirada",
     userId: user.id,
   });
 
