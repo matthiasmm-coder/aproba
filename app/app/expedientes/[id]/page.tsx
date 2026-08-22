@@ -190,6 +190,7 @@ export default async function ExpedienteDetail({
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
+          {e.presentadoEl && <div><span className="text-slate-400">{t("Presentado")} </span><span className="font-medium text-slate-700">{e.presentadoEl}</span></div>}
           {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
         </div>
       </div>

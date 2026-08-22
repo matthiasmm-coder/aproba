@@ -68,6 +68,7 @@ export interface Expediente {
   asignadoA: string;
   asignadoAId?: string | null; // id brut: le sélecteur d'affectation a besoin de l'id, pas du nom
   creado: string;
+  presentadoEl?: string; // dd/mm/aaaa — cuándo se depositó en la Administración
   fechaLimite?: string;
   documentos: Documento[];
   formularios: Formulario[];

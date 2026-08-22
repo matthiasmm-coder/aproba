@@ -199,7 +199,7 @@ type DetalleRow = Omit<ResumenRow, "documentos"> & {
   descuento?: unknown; // descuento del expediente (jsonb {tipo, valor, motivo})
   serviciosAsignacion?: unknown; // jsonb {clave: clienteId[]}
   formulariosPorMiembro?: unknown;
-  eventos: { descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
+  eventos: { tipo?: string | null; descripcion: string; createdAt: string; user: { nombre: string | null } | null }[];
   facturas: { id: string; numero: string; total: number | string; baseImponible?: number | string | null; estado: string; origen: string | null; momento: string | null; metodoPago: string | null }[];
 };
 
@@ -231,6 +231,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   descuento: Descuento | null; // null = sin descuento
   serviciosAsignacion: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
   formulariosPorMiembro: Record<string, string[]> | null; // curación de formularios por miembro
+  fechaPresentacion?: string | null; // sellada al marcar «presentado»
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null; quien: string | null };
@@ -254,12 +255,12 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo, validadoAt,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo, validadoAt, fechaPresentacion,
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
    documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
-   eventos:ExpedienteEvento(descripcion, createdAt, user:User(nombre)),
+   eventos:ExpedienteEvento(tipo, descripcion, createdAt, user:User(nombre)),
    facturas:Factura(id, numero, total, baseImponible, estado, origen, momento, metodoPago)`;
 
 function mapearDetalle(data: unknown): ExpedienteDetalle {
@@ -309,6 +310,12 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     asignadoAId: (e as unknown as { asignadoAId?: string | null }).asignadoAId ?? null,
     creado: fmtFechaCorta(e.createdAt) ?? "",
+    // Fecha de depósito: la columna sellada; para los expedientes anteriores al sellado,
+    // el PRIMER evento PRESENTADO del historial (misma regla que las tarjetas).
+    presentadoEl: fmtFechaCorta(
+      e.fechaPresentacion
+      ?? (e.eventos ?? []).filter((ev) => ev.tipo === "PRESENTADO").map((ev) => ev.createdAt).sort()[0],
+    ),
     fechaLimite: fmtFechaCorta(e.fechaLimite),
     documentos,
     // Los formularios GENERADOS viven en Expediente.formulariosGenerados (la tabla
@@ -358,7 +365,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
   // citaQuien es columna nueva (supabase/cita-quien.sql): sin migrar, se reintenta sin ella.
   if (res.error && /citaQuien|modoTrabajo|validadoAt/i.test(res.error.message)) {
-    const sinNuevas = DETALLE_SELECT.replace(" citaQuien,", "").replace(" modoTrabajo,", "").replace(" validadoAt,", "");
+    const sinNuevas = DETALLE_SELECT.replace(" citaQuien,", "").replace(" modoTrabajo,", "").replace(" validadoAt,", "").replace(" fechaPresentacion,", "");
     res = await supabase.from("Expediente").select(sinNuevas).eq("id", id).maybeSingle() as typeof res;
   }
   // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
