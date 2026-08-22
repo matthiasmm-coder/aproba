@@ -150,6 +150,13 @@ export const CA: Record<string, string> = {
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
   "Faltan": "Falten",
   "requeridos": "requerits",
+  "Marcar como presentado": "Marcar com a presentat",
+  "¿Marcar como presentado? Se avisará al cliente.": "Marcar com a presentat? S'avisarà el client.",
+  "Marcar como aceptado": "Marcar com a acceptat",
+  "Marcar como denegado": "Marcar com a denegat",
+  "¿Marcar como denegado?": "Marcar com a denegat?",
+  "Devolver a Preparación": "Tornar a Preparació",
+  "Archivar el expediente": "Arxivar l'expedient",
   "Marcar como listo para presentar": "Marcar com a llest per presentar",
   "Marcado como listo para presentar": "Marcat com a llest per presentar",
   "Marcado como listo por el gestor": "Marcat com a llest pel gestor",

@@ -176,8 +176,11 @@ export function calcularProgreso(h: Hechos): Progreso {
 // La frontera Recepción/Preparación ya no puede ser una pertenencia de estado (los cuatro
 // estados antiguos se fusionaron): se deriva del avance real.
 export function faseDe(estado: Estado5, hitoDocs: boolean, hitoForm: boolean): FaseKey {
-  if (estado === "FINALIZADO") return "cierre";
-  if (estado === "PRESENTADO" || estado === "RESUELTO" || estado === "RECHAZADO") return "presentacion";
+  // «Resultado» = el desenlace ya se conoce (flujo del 22/08, Matthias): aceptado o
+  // denegado saltan a la 4ª columna en cuanto se marca la resolución; en «Presentado»
+  // solo queda lo que de verdad espera respuesta de la Administración.
+  if (estado === "RESUELTO" || estado === "RECHAZADO" || estado === "FINALIZADO") return "cierre";
+  if (estado === "PRESENTADO") return "presentacion";
   return hitoDocs || hitoForm ? "preparacion" : "recepcion";
 }
 
@@ -191,7 +194,7 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
     // más era una razón para no llegar al final). La única acción tras la resolución es
     // cerrar cuando la tarjeta está entregada; agendar/editar la cita queda a mano en la
     // ficha como gesto secundario.
-    return { label: "Finalizar trámite", espera: false, clave: "finalizar" };
+    return { label: "Archivar el expediente", espera: false, clave: "finalizar" };
   }
   if (estado === "PRESENTADO") return { label: "Esperando resolución", espera: true, clave: "esperando_resolucion" };
 

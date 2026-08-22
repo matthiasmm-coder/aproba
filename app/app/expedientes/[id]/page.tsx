@@ -25,7 +25,6 @@ import { CobrosPanel } from "@/components/cobros-panel";
 import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
-import { AccionesCiclo } from "@/components/acciones-ciclo";
 import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
@@ -188,12 +187,6 @@ export default async function ExpedienteDetail({
           <PhaseStepper activeEstado={e.estado} activeFase={progresoExp.fase} />
         </div>
 
-        {/* Los TRES clics del ciclo. El banner «Siguiente paso» se retiró (pedido de
-            Matthias, 22/08); estas decisiones no podían irse con él — sin ellas un
-            expediente no avanza nunca. Las navegaciones que el banner también ofrecía
-            (generar formularios, subir documentos) ya viven en sus secciones. */}
-        <AccionesCiclo id={e.id} estado={e.estado} progreso={progresoExp} />
-
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
@@ -201,15 +194,12 @@ export default async function ExpedienteDetail({
         </div>
       </div>
 
-      {/* Completitud del expediente — CARTA PROPIA bajo la cabecera (pedido de
-          Matthias): anillo con el % dentro, las tres partes con su coca, y el botón
-          que empuja a «Listo para presentar» sin tocar el número. Solo antes de
-          presentar: después, declarar «listo» ya no significa nada. */}
-      {!progresoExp.hitos.presentado && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <ValidarExpediente id={e.id} completitud={progresoExp.completitud} />
-        </div>
-      )}
+      {/* Completitud + ciclo — CARTA PROPIA bajo la cabecera, SIEMPRE visible: el botón
+          cambia con la columna (listo → presentado → aceptado/denegado → archivar), así
+          que la carta acompaña al expediente hasta el final. */}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <ValidarExpediente id={e.id} estado={e.estado} fase={progresoExp.fase} completitud={progresoExp.completitud} />
+      </div>
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
       {docsPendientes.length > 0 && (
@@ -222,7 +212,6 @@ export default async function ExpedienteDetail({
               {t("Faltan documentos del cliente")} ({docsPendientes.length})
             </p>
             <p className="mt-0.5">{docsPendientes.join(" · ")}</p>
-            <p className="mt-1 text-xs text-amber-700">{t("El cliente puede enviarlos desde su enlace en cualquier momento, aunque hayas avanzado de paso.")}</p>
             <div className="flex justify-center"><RecordarDocsButton expedienteId={e.id} /></div>
           </div>
         </div>
@@ -349,13 +338,12 @@ export default async function ExpedienteDetail({
         </SeccionPlegable>
 
 
-        {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
-            FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}
-        {(progresoExp.hitos.formularios || progresoExp.hitos.presentado) && (
-          <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} completa={camposMercurioList.length > 0 && rellenosMercurio === camposMercurioList.length} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
-            <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
-          </SeccionPlegable>
-        )}
+        {/* Presentar en Mercurio — SIEMPRE visible (pedido de Matthias, 22/08): antes
+            aparecía solo con formularios generados, y el gestor que trabaja fuera del
+            orden previsto no la encontraba. */}
+        <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} completa={camposMercurioList.length > 0 && rellenosMercurio === camposMercurioList.length} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
+          <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
+        </SeccionPlegable>
 
         {/* Citas del expediente (22/08, pedido de Matthias): fecha, hora, lugar, quién
             acude y notas — un hecho editable en cualquier punto del trámite. */}

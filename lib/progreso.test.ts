@@ -166,8 +166,11 @@ describe("fases del board — nadie desaparece del tablero", () => {
     expect(faseDe("EN_PREPARACION", false, true)).toBe("preparacion"); // formularios generados con docs incompletos
   });
 
-  it("los denegados van con la presentación, no al cierre", () => {
-    expect(faseDe("RECHAZADO", true, true)).toBe("presentacion");
+  it("aceptados y denegados van al Resultado; solo lo presentado espera en Presentado", () => {
+    // Flujo del 22/08: la resolución (favorable o no) ES el resultado — 4ª columna.
+    expect(faseDe("RECHAZADO", true, true)).toBe("cierre");
+    expect(faseDe("RESUELTO", false, false)).toBe("cierre");
+    expect(faseDe("PRESENTADO", false, false)).toBe("presentacion");
   });
 
   it("un valor legado cualquiera sigue teniendo fase", () => {

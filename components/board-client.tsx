@@ -8,7 +8,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import { normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
+import type { Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -32,21 +32,14 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
-// «Esperando al cliente» = HECHO, no acción: faltan documentos requeridos y los
-// formularios aún no están (con formularios generados ya no se persigue a nadie —
-// misma regla que el cron de recordatorios). Alimenta el botón «Recordar» y el KPI,
-// mientras la línea de acción sigue nombrando el siguiente gesto del gestor.
-// UNA regla: faltan piezas requeridas + el enlace ya salió + aún no presentado.
-// (Antes se escondía en cuanto había formularios — y Karim, con su justificante aún por
-// llegar para adjuntarlo en Mercurio, perdía el botón mientras Rosa lo tenía: asimetría
-// sin explicación visible. El cron automático sigue SIN perseguir tras los formularios;
-// el botón es el gesto MANUAL del gestor y esa es otra decisión.)
+// «Esperando al cliente» = HECHO: faltan documentos requeridos, el enlace ya salió y aún
+// no se presentó. Alimenta el filtro del KPI del dashboard (el botón «Recordar» de las
+// tarjetas se retiró el 22/08 — ese gesto vive ahora solo en la ficha).
 const esperandoCliente = (e: BoardItem): boolean =>
   e.progreso
     ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
-      // Si la acción aún es «Enviar enlace» no hay nada que recordar: el gesto ES el enlace.
       && e.progreso.accion.clave !== "elegir_servicio"
-      // Modo manual: el cliente no tiene enlace — recordarle algo sería absurdo.
+      // Modo manual: el cliente no tiene enlace — no se le espera.
       && e.progreso.accion.clave !== "subir_docs"
     : e.estado === "DOCS_PENDIENTES";
 
@@ -58,16 +51,14 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
   // pero el justificante de medios económicos que exige la renovación sin llegar).
   // Sin requisitos configurados (o sin progreso: repli), se queda el conteo de subidos.
   const conRequisitos = (e.progreso?.docs.requeridos ?? 0) > 0;
-  // Tras presentar, la barra de documentos se APAGA: lo depositado está depositado, y una
-  // barra ámbar «3/4» al lado de «Presentado» gritaba «incompleto» sobre un expediente
-  // que ya no espera nada del cliente (lo señaló Matthias con la tarjeta de Oksana).
-  const post = yaPresentado(normalizarEstado(e.estado));
   const barra = conRequisitos
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
   const comp = e.progreso?.completitud;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
+    // Todas las tarjetas MIDEN LO MISMO (pedido de Matthias): nombre y servicio en una
+    // sola línea (truncados, el completo en title) y la fila del anillo siempre presente.
     <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
       <button
         onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onArchive(e.id); }}
@@ -78,16 +69,16 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <ArchiveIcon className="h-3.5 w-3.5" />
       </button>
 
-      <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold leading-tight text-slate-900">{e.clienteNombre}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
         {e.fechaLimite && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
       </div>
-      <p className="mt-0.5 text-[13px] text-slate-500" title={e.extrasLabels?.length ? `+ ${e.extrasLabels.join(" + ")}` : undefined}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
+      <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
       <div className="mt-2.5 flex items-center gap-2">
         {/* Completitud del expediente (Información + Documentos + Formularios). Tras
-            presentar se apaga: lo depositado está depositado. */}
-        {comp && !post && (
+            presentar marca 100 % — la fila queda para que todas las tarjetas midan igual. */}
+        {comp && (
           <AnilloCompletitud
             pct={comp.pct}
             titulo={[
@@ -101,40 +92,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         )}
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
-
-      {/* Las líneas de acción («→ Generar formularios»…) se retiraron el 22/08 (pedido
-          de Matthias): columna + anillo ya dicen dónde está el expediente. Solo queda
-          «Recordar», el gesto diario nº1, cuando de verdad se espera al cliente. */}
-      {esperandoCliente(e) && (
-        <div className="mt-2 flex justify-end border-t border-slate-100 pt-2">
-          <RecordarMini id={e.id} />
-        </div>
-      )}
     </Link>
-  );
-}
-
-// Botón «Recordar» compacto para la tarjeta (reusa la API de recordatorio de la ficha).
-function RecordarMini({ id }: { id: string }) {
-  const t = useT();
-  const [estado, setEstado] = useState<"idle" | "enviando" | "ok" | "error">("idle");
-  async function enviar(ev: React.MouseEvent) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    if (estado === "enviando" || estado === "ok") return;
-    setEstado("enviando");
-    try {
-      const res = await fetch(`/api/expedientes/${id}/recordar-docs`, { method: "POST" });
-      const d = await res.json().catch(() => ({}));
-      setEstado(res.ok && d.enviado !== false ? "ok" : "error");
-    } catch {
-      setEstado("error");
-    }
-  }
-  return (
-    <button onClick={enviar} disabled={estado === "enviando" || estado === "ok"} className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${estado === "ok" ? "bg-aproba-50 text-aproba-700" : estado === "error" ? "bg-red-50 text-red-600" : "border border-amber-300 text-amber-700 hover:bg-amber-50"}`}>
-      {estado === "ok" ? t("Recordado ✓") : estado === "error" ? t("No enviado") : estado === "enviando" ? "…" : t("Recordar")}
-    </button>
   );
 }
 

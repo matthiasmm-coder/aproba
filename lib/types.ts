@@ -118,8 +118,8 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
 export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEstado[] }[] = [
   { key: "recepcion",    label: "Preparación",          estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
   { key: "preparacion",  label: "Listo para presentar", estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
-  { key: "presentacion", label: "Presentado",           estados: ["PRESENTADO", "RESUELTO", "RECHAZADO"] },
-  { key: "cierre",       label: "Resultado",            estados: ["CITA_HUELLAS", "FINALIZADO"] },
+  { key: "presentacion", label: "Presentado",           estados: ["PRESENTADO"] },
+  { key: "cierre",       label: "Resultado",            estados: ["RESUELTO", "RECHAZADO", "CITA_HUELLAS", "FINALIZADO"] },
 ];
 
 // Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice

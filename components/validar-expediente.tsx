@@ -3,21 +3,34 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { confirmar } from "@/components/confirm-dialog";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import type { Progreso } from "@/lib/progreso";
+import { ArchivarButton } from "@/components/archivar-button";
+import { normalizarEstado, type Progreso } from "@/lib/progreso";
 
-// Carta de completitud de la ficha (rediseñada el 22/08 sobre capturas de Matthias):
-// el anillo con el % DENTRO (y solo ahí — nada de repetirlo en texto), los tres
-// bloques con su coca verde cuando están listos, y el botón «Marcar como listo para
-// presentar». El botón NO toca el %: empuja el expediente a la columna «Listo para
-// presentar» del kanban y el número sigue diciendo la verdad calculada.
-export function ValidarExpediente({ id, completitud }: { id: string; completitud: Progreso["completitud"] }) {
+// Carta de completitud Y del ciclo (rediseño 22/08 en dos tiempos, pedidos de Matthias):
+// una sola línea — anillo con el % dentro, las tres partes con su coca verde, y EL botón
+// del momento. El botón sigue al expediente por el tablero:
+//   Preparación          → «Marcar como listo para presentar» (validación manual — NO
+//                          toca el %, solo empuja de columna; reversible con «Retirar»)
+//   Listo para presentar → «Marcar como presentado»
+//   Presentado           → «Marcar como aceptado» / «Marcar como denegado» (rojo)
+//   Resultado            → «Archivar»
+// Antes convivían dos juegos de botones (esta carta + AccionesCiclo en la cabecera) y
+// la carta seguía ofreciendo «listo para presentar» a un expediente que YA estaba en esa
+// columna — lo señaló Matthias. AccionesCiclo ya no existe: el ciclo entero vive aquí.
+export function ValidarExpediente({ id, estado, fase, completitud }: {
+  id: string;
+  estado: string;
+  fase: string; // clave de faseDe() — ⚠️ la clave `recepcion` se ETIQUETA «Preparación»
+  completitud: Progreso["completitud"];
+}) {
   const t = useT();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function toggle(validado: boolean) {
+  async function validar(validado: boolean) {
     if (loading) return;
     setLoading(true); setError(null);
     try {
@@ -29,6 +42,25 @@ export function ValidarExpediente({ id, completitud }: { id: string; completitud
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo validar el expediente."));
+    } finally { setLoading(false); }
+  }
+
+  async function avanzar(accion: string, confirmMsg?: string) {
+    if (loading) return;
+    if (confirmMsg && !(await confirmar(confirmMsg))) return;
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch(`/api/expedientes/${id}/avanzar`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion }),
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo completar la acción.")); }
+      // «La resolución paga»: aceptar encadena con el popup de la liquidación final.
+      // El listener (cobros-panel) solo lo abre si de verdad queda algo por cobrar.
+      if (accion === "resolver_favorable") window.dispatchEvent(new Event("abrir-pago-final"));
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo completar la acción."));
     } finally { setLoading(false); }
   }
 
@@ -46,30 +78,57 @@ export function ValidarExpediente({ id, completitud }: { id: string; completitud
     </span>
   );
 
+  const est = normalizarEstado(estado);
+  const primario = "rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60";
+  const borde = "rounded-lg border border-aproba-300 px-3.5 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60";
+
+  let acciones: React.ReactNode;
+  if (est === "PRESENTADO") {
+    acciones = (
+      <>
+        <button onClick={() => avanzar("resolver_favorable")} disabled={loading} className={primario}>
+          {loading ? "…" : t("Marcar como aceptado")}
+        </button>
+        <button onClick={() => avanzar("resolver_desfavorable", t("¿Marcar como denegado?"))} disabled={loading} className="rounded-lg border border-red-300 px-3.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60">
+          {loading ? "…" : t("Marcar como denegado")}
+        </button>
+      </>
+    );
+  } else if (est !== "EN_PREPARACION") {
+    // RESUELTO / RECHAZADO / FINALIZADO: el ciclo terminó — solo queda archivar.
+    acciones = <ArchivarButton id={id} />;
+  } else if (fase === "recepcion") {
+    // Columna «1. Preparación» (clave recepcion): validación manual.
+    acciones = (
+      <button onClick={() => validar(true)} disabled={loading} className={borde}>
+        {loading ? "…" : t("Marcar como listo para presentar")}
+      </button>
+    );
+  } else {
+    // Columna «2. Listo para presentar»: el siguiente paso es presentarlo de verdad.
+    acciones = (
+      <>
+        <button onClick={() => avanzar("presentar", t("¿Marcar como presentado? Se avisará al cliente."))} disabled={loading} className={primario}>
+          {loading ? "…" : t("Marcar como presentado")}
+        </button>
+        {completitud.manual && (
+          <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>
+            {t("Retirar")}
+          </button>
+        )}
+      </>
+    );
+  }
+
   return (
-    // TODO en una línea (anillo · partes · botón), pedido de Matthias — con flex-wrap
-    // para que el móvil pliegue sin desbordar.
+    // TODO en una línea (anillo · partes · botón del momento) — con flex-wrap para que
+    // el móvil pliegue sin desbordar.
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
       <AnilloCompletitud pct={completitud.pct} size={44} />
       {pieza("Información", completitud.info >= 1)}
       {pieza("Documentos", completitud.docs >= 1)}
       {pieza("Formularios", completitud.formularios >= 1)}
-
-      {completitud.manual ? (
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-aproba-700">
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-            {t("Marcado como listo para presentar")}
-          </span>
-          <button onClick={() => toggle(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">
-            {loading ? "…" : t("Retirar")}
-          </button>
-        </div>
-      ) : (
-        <button onClick={() => toggle(true)} disabled={loading} className="rounded-lg border border-aproba-300 px-3.5 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60">
-          {loading ? "…" : t("Marcar como listo para presentar")}
-        </button>
-      )}
+      {acciones}
       {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
     </div>
   );
