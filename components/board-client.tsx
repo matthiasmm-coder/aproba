@@ -47,7 +47,16 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
   // ahí lo que distingue una tarjeta es su ACCIÓN. De Presentación en adelante sí separa
   // (Presentado / Resolución favorable / Denegado / Finalizado), así que se queda.
   const pildoraUtil = normalizarEstado(e.estado) !== "EN_PREPARACION";
-  const pct = e.total > 0 ? Math.round((e.validados / e.total) * 100) : 0;
+  // La barra habla el MISMO idioma que la acción: documentos requeridos por el servicio,
+  // no documentos subidos. Con el denominador viejo la tarjeta se contradecía sola —
+  // «3/3» al lado de «Esperando documentos» (caso real: Rosa, 3 subidos y validados,
+  // pero el justificante de medios económicos que exige la renovación sin llegar).
+  // Sin requisitos configurados (o sin progreso: repli), se queda el conteo de subidos.
+  const conRequisitos = (e.progreso?.docs.requeridos ?? 0) > 0;
+  const barra = conRequisitos
+    ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
+    : { hechos: e.validados, total: e.total, faltan: [] as string[] };
+  const pct = barra.total > 0 ? Math.round((barra.hechos / barra.total) * 100) : 0;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
     <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
@@ -75,10 +84,10 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
             <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
           </span>
         )}
-        {e.total > 0 && (
-          <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
+        {barra.total > 0 && (
+          <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400" title={barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : undefined}>
             <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
-            {e.validados}/{e.total}
+            {barra.hechos}/{barra.total}
           </span>
         )}
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>

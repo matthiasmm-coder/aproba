@@ -27,5 +27,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const sinMigrar = /column|does not exist|schema cache/i.test(error.message);
     return NextResponse.json({ error: sinMigrar ? "Falta la migración supabase/archivado.sql." : error.message }, { status: sinMigrar ? 501 : 500 });
   }
+
+  // RASTRO EN EL HISTORIAL. El 22/08/2026 aparecieron 5 expedientes de la demo
+  // archivados en un lote de 2,3 s y fue IMPOSIBLE atribuirlo: esta ruta no dejaba
+  // ninguna huella (ni evento, ni updatedAt) y archivadoAt era el único registro.
+  // Un archivo/restauración ahora dice quién y cuándo — la próxima anomalía se
+  // resuelve con una consulta, no con una investigación.
+  await admin.from("ExpedienteEvento").insert({
+    id: crypto.randomUUID(), expedienteId: id, tipo: "COMENTARIO",
+    descripcion: body.archivado ? "🗄️ Expediente archivado" : "🗄️ Expediente restaurado del archivo",
+    userId: user.id,
+  });
   return NextResponse.json({ ok: true, archivado: Boolean(body.archivado) });
 }

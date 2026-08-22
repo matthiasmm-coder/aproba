@@ -159,6 +159,7 @@ export const CA: Record<string, string> = {
   "En iPhone/iPad: pulsa Compartir y luego «Añadir a la pantalla de inicio».": "A l'iPhone/iPad: prem Comparteix i després «Afegeix a la pantalla d'inici».",
 
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
+  "Faltan": "Falten",
   // Puesta al día en lote (tablero)
   "expedientes listos para presentar. ¿Algunos ya están presentados en Mercurio? Ponlos al día de golpe — sin avisos al cliente.": "expedients a punt per presentar. Alguns ja estan presentats a Mercurio? Posa'ls al dia de cop — sense avisos al client.",
   "Poner al día…": "Posar al dia…",
