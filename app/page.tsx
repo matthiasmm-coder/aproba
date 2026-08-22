@@ -124,7 +124,7 @@ export default function Landing() {
       </noscript>
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-cream-50/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <AprobaLogo />
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
             <a href="#como-funciona" className="hover:text-slate-900">Cómo funciona</a>
@@ -132,11 +132,12 @@ export default function Landing() {
             <a href="#precios" className="hover:text-slate-900">Precios</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-3 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
+            <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
               Entrar
             </Link>
-            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
-              <span className="sm:hidden">Prueba gratis</span>
+            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
+              <span className="min-[360px]:hidden">Prueba</span>
+              <span className="hidden min-[360px]:inline sm:hidden">Prueba gratis</span>
               <span className="hidden sm:inline">Prueba 1 mes gratis</span>
             </Link>
           </div>
