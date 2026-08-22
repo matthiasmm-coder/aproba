@@ -141,7 +141,7 @@ export function FinalizarArchivar({ expedienteId, estado, resto, puedeFacturar, 
 
           {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-          <div className="mt-5 flex items-center justify-end gap-3">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button onClick={() => setOpen(false)} disabled={busy} className="text-sm text-slate-500 transition hover:text-slate-800">{t("Cancelar")}</button>
             <button onClick={confirmar} disabled={busy} className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
               {busy ? (fase || "…") : t("Finalizar y archivar")}
