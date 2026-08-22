@@ -8,7 +8,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
-import { metaDeEstado, normalizarEstado, type Progreso } from "@/lib/progreso";
+import { metaDeEstado, normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -36,9 +36,14 @@ const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i
 // formularios aún no están (con formularios generados ya no se persigue a nadie —
 // misma regla que el cron de recordatorios). Alimenta el botón «Recordar» y el KPI,
 // mientras la línea de acción sigue nombrando el siguiente gesto del gestor.
+// UNA regla: faltan piezas requeridas + el enlace ya salió + aún no presentado.
+// (Antes se escondía en cuanto había formularios — y Karim, con su justificante aún por
+// llegar para adjuntarlo en Mercurio, perdía el botón mientras Rosa lo tenía: asimetría
+// sin explicación visible. El cron automático sigue SIN perseguir tras los formularios;
+// el botón es el gesto MANUAL del gestor y esa es otra decisión.)
 const esperandoCliente = (e: BoardItem): boolean =>
   e.progreso
-    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.formularios && !e.progreso.hitos.presentado
+    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
       // Si la acción aún es «Enviar enlace» no hay nada que recordar: el gesto ES el enlace.
       && e.progreso.accion.clave !== "elegir_servicio"
     : e.estado === "DOCS_PENDIENTES";
@@ -58,6 +63,10 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
   // pero el justificante de medios económicos que exige la renovación sin llegar).
   // Sin requisitos configurados (o sin progreso: repli), se queda el conteo de subidos.
   const conRequisitos = (e.progreso?.docs.requeridos ?? 0) > 0;
+  // Tras presentar, la barra de documentos se APAGA: lo depositado está depositado, y una
+  // barra ámbar «3/4» al lado de «Presentado» gritaba «incompleto» sobre un expediente
+  // que ya no espera nada del cliente (lo señaló Matthias con la tarjeta de Oksana).
+  const post = yaPresentado(normalizarEstado(e.estado));
   const barra = conRequisitos
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
@@ -89,7 +98,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
             <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
           </span>
         )}
-        {barra.total > 0 && (
+        {barra.total > 0 && !post && (
           <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400" title={barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : undefined}>
             <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
             {barra.hechos}/{barra.total}

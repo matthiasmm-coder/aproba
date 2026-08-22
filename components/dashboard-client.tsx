@@ -59,7 +59,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
   // Hecho, no estado: un expediente con formularios ya generados no espera a nadie.
   const esperandoCliente = live.filter((e) => e.progreso
-    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.formularios && !e.progreso.hitos.presentado
+    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
       && e.progreso.accion.clave !== "elegir_servicio" // sin enlace enviado no se «recuerda» nada
     : e.estado === "DOCS_PENDIENTES").length;
 
