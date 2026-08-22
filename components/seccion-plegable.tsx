@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 // de un vistazo sin abrir nada. El contenido queda SIEMPRE montado (hidden) para
 // no perder estados internos (popups de cobro, edición de notas…) ni las anclas.
 // El driver «siguiente paso» abre una sección disparando el evento `abrir-seccion`
-// con su id (p. ej. Centinela) antes de hacer scroll.
+// con su id (p. ej. Cobro) antes de hacer scroll.
 export function SeccionPlegable({ id, titulo, resumen, right, children }: {
   id: string;
   titulo: React.ReactNode;

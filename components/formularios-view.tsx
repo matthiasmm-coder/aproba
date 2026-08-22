@@ -233,8 +233,8 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 {t("Formularios generados")}
               </span>
-              <Link href={`/app/expedientes/${exp.id}#centinela`} className="text-sm font-semibold text-aproba-700 hover:underline">
-                {t("Siguiente: revisar como Extranjería y presentar")} →
+              <Link href={`/app/expedientes/${exp.id}`} className="text-sm font-semibold text-aproba-700 hover:underline">
+                {t("Siguiente: presentar en Mercurio")} →
               </Link>
             </div>
           ) : (

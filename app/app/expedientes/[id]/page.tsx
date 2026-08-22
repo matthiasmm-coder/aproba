@@ -27,9 +27,7 @@ import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
 import { camposMercurioFlat } from "@/lib/mercurio";
-import { CentinelaPanel } from "@/components/centinela-panel";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { fetchUltimaRevision } from "@/lib/centinela";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
 import { metaDeEstado } from "@/lib/progreso";
@@ -51,11 +49,10 @@ export default async function ExpedienteDetail({
 }) {
   const { id } = await params;
   // Las 4 fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
-  const [t, e, { servicios }, revision, notas] = await Promise.all([
+  const [t, e, { servicios }, notas] = await Promise.all([
     getT(),
     fetchExpedienteDetalle(id),
     fetchServiciosConfig(),
-    createSupabaseServer().then((sb) => fetchUltimaRevision(sb, id)),
     fetchNotasExpediente(id),
   ]);
   if (!e) notFound();
@@ -199,7 +196,6 @@ export default async function ExpedienteDetail({
         portalToken={e.portalToken}
         permiteSubidaInterna={!familia}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
-        revision={revision ? { verdicto: revision.verdicto, rojos: revision.hallazgos.filter((h) => h.severidad === "ROJO").length } : null}
       />
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
@@ -312,17 +308,6 @@ export default async function ExpedienteDetail({
           )}
         </SeccionPlegable>
 
-        {/* El Funcionario Fantasma: revisión «como Extranjería» — SU sitio es justo antes
-            de presentar (dossier completo → revisar → Mercurio). El driver abre y ancla aquí. */}
-        <SeccionPlegable
-          id="centinela"
-          titulo={t("Revisión «como Extranjería»")}
-          resumen={revision ? (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${revision.verdicto === "ROJO" ? "bg-red-100 text-red-700" : revision.verdicto === "AMBAR" ? "bg-amber-100 text-amber-700" : "bg-aproba-100 text-aproba-700"}`}>{revision.verdicto}</span>
-          ) : t("Sin revisar")}
-        >
-          <CentinelaPanel expedienteId={e.id} inicial={revision} ocultarTitulo />
-        </SeccionPlegable>
 
         {/* Presentar en Mercurio — solo cuando hay formularios que presentar (antes de
             FORM_GENERADO el encarte es prematuro y desvía del siguiente paso real). */}

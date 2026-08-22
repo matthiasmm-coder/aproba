@@ -3,10 +3,10 @@ import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 // Cron diario (vercel.json): suma el gasto de IA de las últimas 24 h POR WORKSPACE a
-// partir de los tokens ya journalizados (CentinelaRevision + Extraction) y avisa a
+// partir de los tokens ya journalizados (Extraction) y avisa a
 // Matthias por email si algún despacho pasa el umbral. El objetivo: que un uso intensivo
 // se descubra por un email del producto, no por la factura de Anthropic (caso Gesadmbcn,
-// 13/08: ~6 $ en 24 h de migración + 17 revisiones Centinela + 26 documentos).
+// 13/08: ~6 $ en 24 h de migración + 26 documentos).
 //
 // Lo que NO es: una factura. El coste es una ESTIMACIÓN a tarifa Opus sin distinguir
 // lecturas de caché (baratas), y el mapeo IA del import y el asistente no journalizan
@@ -27,27 +27,18 @@ function autorizado(req: Request): boolean {
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-type Uso = { in: number; out: number; centinela: number; docs: number };
+type Uso = { in: number; out: number; docs: number };
 
 export async function GET(req: Request) {
   if (!autorizado(req)) return NextResponse.json({ error: "no autorizado" }, { status: 401 });
   const admin = createSupabaseAdmin();
   const desde = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const porWs = new Map<string, Uso>();
-  const suma = (ws: string, inT: number, outT: number, k: "centinela" | "docs") => {
-    const u = porWs.get(ws) ?? { in: 0, out: 0, centinela: 0, docs: 0 };
+  const suma = (ws: string, inT: number, outT: number, k: "docs") => {
+    const u = porWs.get(ws) ?? { in: 0, out: 0, docs: 0 };
     u.in += inT; u.out += outT; u[k]++;
     porWs.set(ws, u);
   };
-
-  // Centinela: workspaceId directo.
-  try {
-    const { data } = await admin.from("CentinelaRevision")
-      .select("workspaceId, inputTokens, outputTokens").gte("createdAt", desde).limit(5000);
-    for (const r of (data ?? []) as { workspaceId: string; inputTokens: number | null; outputTokens: number | null }[]) {
-      suma(r.workspaceId, r.inputTokens ?? 0, r.outputTokens ?? 0, "centinela");
-    }
-  } catch { /* tabla sin migrar → solo Vision */ }
 
   // Vision: Extraction → Documento → Expediente → workspace (en lotes).
   try {
@@ -94,7 +85,7 @@ export async function GET(req: Request) {
   let avisado = false;
   if (alarma.length && process.env.RESEND_API_KEY) {
     const lineas = filas.filter((f) => f.usd >= 0.1).map((f) =>
-      `  · ${f.nombre}: ~$${f.usd.toFixed(2)} — ${f.u.docs} documentos, ${f.u.centinela} revisiones Centinela (${(f.u.in / 1000).toFixed(0)}k in / ${(f.u.out / 1000).toFixed(0)}k out)`).join("\n");
+      `  · ${f.nombre}: ~$${f.usd.toFixed(2)} — ${f.u.docs} documentos (${(f.u.in / 1000).toFixed(0)}k in / ${(f.u.out / 1000).toFixed(0)}k out)`).join("\n");
     const cuerpo = `Uso de IA en las últimas 24 h (estimación a tarifa Opus, umbral $${UMBRAL_USD}/workspace):\n\n${lineas}\n\n  TOTAL: ~$${total.toFixed(2)}\n\nNo es la factura: el import y el asistente no journalizan tokens, y las lecturas de caché cuestan ~10 %. Contrasta con el panel de Anthropic antes de sacar conclusiones.`;
     const from = `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
@@ -107,6 +98,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true, desde, umbralUsd: UMBRAL_USD, totalUsd: Number(total.toFixed(2)), avisado,
-    workspaces: filas.map((f) => ({ nombre: f.nombre, usd: Number(f.usd.toFixed(2)), documentos: f.u.docs, centinela: f.u.centinela })),
+    workspaces: filas.map((f) => ({ nombre: f.nombre, usd: Number(f.usd.toFixed(2)), documentos: f.u.docs })),
   });
 }

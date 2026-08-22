@@ -19,13 +19,12 @@ EXPEDIENTES (tablero): 4 fases — 1. Recepción · 2. Preparación · 3. Presen
 - Copiarlo tú: en la ficha del expediente, en el recuadro «Siguiente paso», el botón «Copiar enlace del cliente» copia el enlace para que lo pegues donde quieras (WhatsApp, email…). Está SIEMPRE disponible, en cualquier fase del expediente (cuando el expediente acaba de crearse el mismo botón se llama «Enviar enlace al cliente»). Si el navegador bloquea el portapapeles, el enlace aparece en claro justo debajo para seleccionarlo a mano.
 - Enlace de seguimiento (/s/…): la misma persona ve en qué punto está su trámite y puede subir lo que falte.
 - Familias (/f/…): un expediente familiar agrupa a varios miembros; los documentos comunes se suben una sola vez.
-- Dentro del expediente: avanzar de paso, documentos (la IA los valida al subirse), Formularios oficiales, notas, facturas, Centinela y «Archivar».
+- Dentro del expediente: avanzar de paso, documentos (la IA los valida al subirse), Formularios oficiales, notas, facturas y «Archivar».
 
 DOCUMENTOS: cuando el cliente sube un documento, la IA lo lee y extrae los datos (por ejemplo la caducidad de la TIE). Estados: PROCESANDO → VALIDADO (o rechazado si no se lee). Tú también puedes subir documentos sueltos desde la ficha del cliente, sin expediente.
 
 FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha (EX-01, EX-10, EX-11, EX-13, EX-15, EX-17, EX-18, EX-23, EX-26, tasa 790-012…). Desde la pestaña «Formularios» del expediente, o desde la ficha del cliente («Formularios oficiales» → elegir modelo → «Descargar»). En un expediente familiar se elige a qué miembro corresponde cada formulario.
 
-CENTINELA (revisión previa): revisa el expediente ANTES de presentarlo con el criterio de un funcionario y te dice qué te rechazarían; también redacta el escrito de subsanación si te piden documentación. Está en la ficha del expediente.
 
 VENCIMIENTOS (Vigía): el radar de caducidades y renovaciones. Se llena solo (al validar un TIE, al finalizar un trámite o al importar tu cartera). Agrupa en «Ya caducadas», «Caducan en menos de 60 días», «En los próximos 6 meses» y «Más adelante».
 - «Iniciar renovación»: crea el expediente de renovación, avisa al cliente en su idioma y, si el servicio tiene tarifa, emite la factura de anticipo.

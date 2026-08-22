@@ -20,7 +20,7 @@ function abrirYScroll(seccion: string, target: string, block: ScrollLogicalPosit
 }
 
 export function DriverBanner({
-  id, estado, progreso, citaFecha = null, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref, revision,
+  id, estado, progreso, citaFecha = null, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref,
 }: {
   id: string;
   estado: ExpedienteEstado;
@@ -34,9 +34,6 @@ export function DriverBanner({
   // Expediente individual → el gestor puede trabajarlo internamente (subir docs él mismo).
   permiteSubidaInterna?: boolean;
   formulariosHref: string;
-  // Última revisión «como Extranjería» (Centinela) — el driver la integra en el flujo:
-  // sin revisión → sugerir revisarla antes de presentar; ROJO → confirm reforzado.
-  revision?: { verdicto: "ROJO" | "AMBAR" | "VERDE"; rojos: number } | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -88,8 +85,7 @@ export function DriverBanner({
     | { kind: "nav"; label: string; href: string }
     | { kind: "avanzar"; label: string; accion: string; confirm?: string; navAfter?: string }
     | { kind: "cita"; label: string }
-    | { kind: "copiar"; label: string }
-    | { kind: "ancla"; label: string; target: string };
+    | { kind: "copiar"; label: string };
 
   let prim: Prim = { kind: "espera", label: "" };
   let secundaria: React.ReactNode = null;
@@ -119,19 +115,9 @@ export function DriverBanner({
         secundaria = <span className="text-xs text-slate-400">{t("Faltan {n} documento(s) del cliente").replace("{n}", String(progreso.docs.faltan.length))}</span>;
       }
     } else {
-      // Formularios listos → presentar. La revisión se ofrece, no se impone.
-      const rojo = revision?.verdicto === "ROJO";
-      prim = {
-        kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
-        confirm: rojo
-          ? t("La revisión «como Extranjería» ha detectado {n} riesgo(s) ALTO(s) de requerimiento. ¿Presentar igualmente?").replace("{n}", String(revision?.rojos ?? 0))
-          : t("¿Marcar como presentado? Se avisará al cliente."),
-      };
-      secundaria = (
-        <button onClick={() => abrirYScroll("centinela", "centinela")} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${rojo ? "border-red-300 text-red-700 hover:bg-red-50" : revision?.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
-          {rojo ? `🔴 ${t("Ver los hallazgos")}` : revision?.verdicto === "AMBAR" ? `🟡 ${t("Ver los hallazgos")}` : revision ? `✓ ${t("Revisión sin hallazgos")}` : t("Revisar antes como Extranjería")}
-        </button>
-      );
+      // Formularios listos → presentar. (La revisión previa se retiró del producto
+      // el 22/08/2026 por decisión de Matthias.)
+      prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") };
     }
   } else switch (estado) {
     case "BORRADOR":
@@ -148,31 +134,7 @@ export function DriverBanner({
     case "DOCS_PENDIENTES": prim = { kind: "avanzar", label: t("Generar formularios"), accion: "forzar_validados", confirm: t("Aún faltan documentos del cliente. ¿Quieres pasar al siguiente paso igualmente? Podrás generar los formularios ahora, y el cliente seguirá pudiendo enviar los que falten desde su enlace."), navAfter: formulariosHref }; break;
     case "DOCS_VALIDADOS": prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref }; break;
     case "FORM_GENERADO":
-      // El flujo pasa POR la revisión «como Extranjería»: sin revisión, el siguiente
-      // paso es revisarla (no presentar a ciegas); con ROJO, confirm reforzado.
-      if (!revision) {
-        // 21/08/2026: la revisión NO puede bloquear el cierre. Medido en el despacho que
-        // más trabaja (66 expedientes, 34 al mes): 16 listos para presentar, 0 revisados,
-        // y CERO marcados como presentados — porque cerrar exigía pulsar un botón
-        // secundario llamado «Presentar sin revisar», que suena a hacer mal el trabajo.
-        // Y sin cierre no se siembra el vencimiento: Vigía se quedaba vacío, es decir la
-        // única función que acumula valor con el tiempo. Revisar es una ayuda que se
-        // ofrece, no un peaje.
-        prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") };
-        secundaria = <button onClick={() => abrirYScroll("centinela", "centinela")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">{t("Revisar antes como Extranjería")}</button>;
-      } else {
-        prim = {
-          kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar",
-          confirm: revision.verdicto === "ROJO"
-            ? t("La revisión «como Extranjería» ha detectado {n} riesgo(s) ALTO(s) de requerimiento. ¿Presentar igualmente?").replace("{n}", String(revision.rojos))
-            : t("¿Marcar como presentado? Se avisará al cliente."),
-        };
-        secundaria = (
-          <button onClick={() => abrirYScroll("centinela", "centinela")} className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:opacity-60 ${revision.verdicto === "ROJO" ? "border-red-300 text-red-700 hover:bg-red-50" : revision.verdicto === "AMBAR" ? "border-amber-300 text-amber-700 hover:bg-amber-50" : "border-aproba-300 text-aproba-700 hover:bg-aproba-50"}`}>
-            {revision.verdicto === "ROJO" ? `🔴 ${t("Ver los hallazgos")}` : revision.verdicto === "AMBAR" ? `🟡 ${t("Ver los hallazgos")}` : `✓ ${t("Revisión sin hallazgos")}`}
-          </button>
-        );
-      }
+      prim = { kind: "avanzar", label: t("Marcar como presentado"), accion: "presentar", confirm: t("¿Marcar como presentado? Se avisará al cliente.") };
       break;
     case "PRESENTADO":
       prim = { kind: "avanzar", label: t("Resolución favorable"), accion: "resolver_favorable" };
@@ -195,14 +157,7 @@ export function DriverBanner({
       secundaria = <a href="/app/vencimientos" className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">{t("Ver vencimientos")} →</a>;
       break;
     case "RECHAZADO":
-      // Denegado ≠ callejón sin salida: el Funcionario Fantasma redacta el recurso o la
-      // contestación al requerimiento (el panel tiene el campo para pegarlo).
       prim = { kind: "espera", label: t("Expediente denegado") };
-      secundaria = (
-        <button onClick={() => abrirYScroll("centinela", "centinela")} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
-          {t("Redactar recurso / contestación")} →
-        </button>
-      );
       break;
     default: prim = { kind: "espera", label: t("Sin acciones pendientes") };
   }
@@ -219,7 +174,6 @@ export function DriverBanner({
     else if (prim.kind === "avanzar") { if (!prim.confirm || (await confirmar(prim.confirm))) avanzar(prim.accion, undefined, prim.navAfter); }
     else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
-    else if (prim.kind === "ancla") abrirYScroll(prim.target === "centinela" ? "centinela" : "documentos", prim.target);
   }
 
   const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";

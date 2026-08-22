@@ -14,7 +14,7 @@ export const maxDuration = 60; // parseo + una llamada al modelo
 
 const MAX_FILAS = 1500;
 const MAX_COLS = 40;
-const MODELO = "claude-opus-4-8"; // misma familia que Centinela: precisión ante todo (se importa UNA vez)
+const MODELO = "claude-opus-4-8"; // precisión ante todo (se importa UNA vez)
 
 // Celda XLSX → string estable. cellDates:true entrega Date para las fechas → ISO
 // (nunca el formato en-US de raw:false, que volvería ambiguas las fechas dd/mm).
