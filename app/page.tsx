@@ -130,6 +130,8 @@ export default function Landing() {
             <a href="#como-funciona" className="hover:text-slate-900">Cómo funciona</a>
             <a href="#funciones" className="hover:text-slate-900">Funciones</a>
             <a href="#precios" className="hover:text-slate-900">Precios</a>
+            {/* Sección editorial (SEO): sale de la landing, por eso es <Link> y no ancla */}
+            <Link href="/articulos" className="hover:text-slate-900">Artículos</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
@@ -418,6 +420,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-slate-500 md:flex-row">
           <div className="flex items-center gap-2"><AprobaMark size={24} /><span>© 2026 Aproba</span></div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            <Link href="/articulos" className="hover:text-slate-700">Artículos</Link>
             <Link href="/legal/aviso-legal" className="hover:text-slate-700">Aviso legal</Link>
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <Link href="/legal/cookies" className="hover:text-slate-700">Cookies</Link>
