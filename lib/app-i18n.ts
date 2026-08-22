@@ -150,6 +150,7 @@ export const CA: Record<string, string> = {
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
   "Faltan": "Falten",
   "requeridos": "requerits",
+  "Resultado": "Resultat",
   "Preparación": "Preparació",
   "Listo para presentar": "A punt per presentar",
   "Información": "Informació",
@@ -211,7 +212,6 @@ export const CA: Record<string, string> = {
   // DOC_ESTADO_META
   "Pendiente": "Pendent",
   "Procesando…": "Processant…",
-  "Validado": "Validat",
   // TIPO_LABEL (trámite)
   "Asignación de NIE": "Assignació de NIE",
   "Tarjeta TIE": "Targeta TIE",

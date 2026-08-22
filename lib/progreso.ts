@@ -111,7 +111,7 @@ export const FASES: { key: FaseKey; label: string }[] = [
   { key: "recepcion", label: "Preparación" },
   { key: "preparacion", label: "Listo para presentar" },
   { key: "presentacion", label: "Presentado" },
-  { key: "cierre", label: "Validado" },
+  { key: "cierre", label: "Resultado" },
 ];
 
 // ── ¿Están los documentos completos? ─────────────────────────────────────────

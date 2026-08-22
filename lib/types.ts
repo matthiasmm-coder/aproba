@@ -120,7 +120,7 @@ export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEsta
   { key: "recepcion",    label: "Preparación",          estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
   { key: "preparacion",  label: "Listo para presentar", estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
   { key: "presentacion", label: "Presentado",           estados: ["PRESENTADO", "RESUELTO", "RECHAZADO"] },
-  { key: "cierre",       label: "Validado",             estados: ["CITA_HUELLAS", "FINALIZADO"] },
+  { key: "cierre",       label: "Resultado",            estados: ["CITA_HUELLAS", "FINALIZADO"] },
 ];
 
 // Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice

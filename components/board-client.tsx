@@ -327,9 +327,14 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
             return (
               <Fragment key={ph.key}>
                 <div className="flex w-[82vw] max-w-xs shrink-0 snap-start flex-col sm:w-auto sm:max-w-none sm:flex-1 sm:shrink">
-                  <div className="mb-3 flex items-center justify-between rounded-lg bg-aproba-50 px-3 py-2">
-                    <span className="text-[13px] font-bold text-aproba-700">{i + 1}. {t(ph.label)}</span>
-                    <span className="rounded-full bg-white/70 px-1.5 text-xs font-semibold text-aproba-700">{cards.length}</span>
+                  {/* Título CENTRADO con el contador flotando a la derecha: en grid, el
+                      centro es el de la cabecera entera, no el del hueco que deja el
+                      contador — así los cuatro títulos quedan alineados entre columnas
+                      aunque los contadores tengan uno o dos dígitos. */}
+                  <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center rounded-lg bg-aproba-50 px-3 py-2">
+                    <span aria-hidden />
+                    <span className="text-center text-[13px] font-bold text-aproba-700">{i + 1}. {t(ph.label)}</span>
+                    <span className="justify-self-end rounded-full bg-white/70 px-1.5 text-xs font-semibold text-aproba-700">{cards.length}</span>
                   </div>
                   <div className="space-y-2.5">
                     {cards.map((e) => <Card key={e.id} e={e} onArchive={(id) => setArchivado(id, true)} />)}
