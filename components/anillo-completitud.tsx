@@ -9,8 +9,9 @@ export function AnilloCompletitud({ pct, titulo, size = 34 }: { pct: number; tit
   const r = (size - 5) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(100, Math.round(pct)));
-  // 100 % en verde pleno; por debajo, ámbar — el mismo idioma que la barra que sustituye.
-  const color = v === 100 ? "text-aproba-500" : "text-amber-400";
+  // Siempre verde aproba (pedido de Matthias): el % ya dice cuánto queda — colorearlo
+  // de ámbar encima era decir lo mismo dos veces.
+  const color = "text-aproba-500";
   return (
     <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} title={titulo} aria-label={`${v}%`}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">

@@ -1,4 +1,3 @@
-import { metaDeEstado } from "@/lib/progreso";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
@@ -188,10 +187,8 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
           </div>
           <div className="space-y-1">
             {servicios.map((s) => {
-              const meta = metaDeEstado(s.estado);
               const cuerpo = (
                 <>
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
                   {/* El nombre ocupa su propia línea (bloque truncado): un badge en la misma
                       línea flex lo aplastaba a cero y desbordaba sobre el importe. */}
                   <div className="min-w-0 flex-1">
@@ -205,7 +202,6 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
                       {s.importe != null && <span className="shrink-0 font-semibold text-slate-600">· {eur(s.importe)}</span>}
                     </div>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
                 </>
               );
               return s.href ? (

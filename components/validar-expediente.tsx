@@ -47,13 +47,13 @@ export function ValidarExpediente({ id, completitud }: { id: string; completitud
   );
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-        <AnilloCompletitud pct={completitud.pct} size={44} />
-        {pieza("Información", completitud.info >= 1)}
-        {pieza("Documentos", completitud.docs >= 1)}
-        {pieza("Formularios", completitud.formularios >= 1)}
-      </div>
+    // TODO en una línea (anillo · partes · botón), pedido de Matthias — con flex-wrap
+    // para que el móvil pliegue sin desbordar.
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+      <AnilloCompletitud pct={completitud.pct} size={44} />
+      {pieza("Información", completitud.info >= 1)}
+      {pieza("Documentos", completitud.docs >= 1)}
+      {pieza("Formularios", completitud.formularios >= 1)}
 
       {completitud.manual ? (
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -70,7 +70,7 @@ export function ValidarExpediente({ id, completitud }: { id: string; completitud
           {loading ? "…" : t("Marcar como listo para presentar")}
         </button>
       )}
-      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
     </div>
   );
 }

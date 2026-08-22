@@ -74,11 +74,10 @@ export interface Expediente {
   eventos: Evento[];
 }
 
-// ESTADO_META (los 9 estados viejos) VIVIÓ AQUÍ hasta el 22/08/2026. Se retira porque
-// ya no la leía nadie y aun así causó el fallo que encontró Matthias: el tablero pintaba
-// «Borrador» / «Docs validados» / «Formularios listos» mucho después de la reforma,
-// porque quedaba a mano y parecía viva. La píldora de estado se pide a metaDeEstado()
-// (lib/progreso.ts), que normaliza y devuelve uno de los 5 estados. Una sola fuente.
+// ESTADO_META (los 9 estados viejos) VIVIÓ AQUÍ hasta el 22/08/2026; su sucesora
+// ESTADO5_META se retiró el mismo día al desaparecer las píldoras de estado de todas
+// las pantallas (lib/progreso.ts cuenta la historia). Cualquier lectura de estado pasa
+// por normalizarEstado(), nunca por el valor bruto de la base.
 // ⚠️ FACTURA_ESTADO_META y DOC_ESTADO_META son OTRAS máquinas de estados: no se tocan.
 
 export const DOC_ESTADO_META: Record<

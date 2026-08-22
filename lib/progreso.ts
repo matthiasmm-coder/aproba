@@ -47,21 +47,11 @@ export function normalizarEstado(v: string | null | undefined): Estado5 {
 const RANGO: Record<Estado5, number> = { EN_PREPARACION: 0, PRESENTADO: 1, RESUELTO: 2, RECHAZADO: 2, FINALIZADO: 3 };
 export const yaPresentado = (e: Estado5): boolean => RANGO[e] >= 1;
 
-export const ESTADO5_META: Record<Estado5, { label: string; dot: string; pill: string }> = {
-  EN_PREPARACION: { label: "En preparación", dot: "bg-amber-500", pill: "bg-amber-100 text-amber-700" },
-  PRESENTADO: { label: "Presentado", dot: "bg-indigo-500", pill: "bg-indigo-100 text-indigo-700" },
-  RESUELTO: { label: "Resolución favorable", dot: "bg-aproba-600", pill: "bg-aproba-100 text-aproba-700" },
-  RECHAZADO: { label: "Denegado", dot: "bg-red-500", pill: "bg-red-100 text-red-700" },
-  FINALIZADO: { label: "Finalizado", dot: "bg-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
-};
-
-// La píldora de estado de CUALQUIER pantalla pasa por aquí. Sin esto, el tablero
-// seguía pintando «Borrador», «Docs validados» o «Formularios listos» —los 9 estados
-// viejos— porque leía el valor BRUTO de la base contra el mapa antiguo: la reforma
-// estaba en las columnas y en la acción siguiente, pero no en lo que el gestor lee.
-export function metaDeEstado(v: string | null | undefined): { label: string; dot: string; pill: string } {
-  return ESTADO5_META[normalizarEstado(v)];
-}
+// Las píldoras de estado (ESTADO5_META / metaDeEstado) se retiraron el 22/08/2026
+// con TODAS las pantallas que las pintaban (pedido de Matthias): la columna del
+// kanban y el stepper de fases ya dicen dónde está el expediente. Si un día hace
+// falta un rótulo de estado, reconstruirlo SOBRE normalizarEstado — nunca sobre el
+// valor bruto de la base (ahí vivía el fallo de los 9 estados viejos).
 
 // ── Los hechos que alimentan el cálculo ──────────────────────────────────────
 export type Hechos = {

@@ -7,9 +7,8 @@ import { BOARD_COLUMNS, BOARD_PHASES, type ExpedienteEstado } from "@/lib/types"
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
-import { NextAction } from "@/components/next-action";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import { metaDeEstado, normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
+import { normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -53,13 +52,6 @@ const esperandoCliente = (e: BoardItem): boolean =>
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const t = useT();
-  const meta = metaDeEstado(e.estado);
-  // La píldora solo se enseña donde DICE algo que la columna no dice ya. En Recepción y
-  // Preparación todas las tarjetas son EN_PREPARACION —cinco píldoras ámbar idénticas, y
-  // bajo el rótulo «1. Recepción» encima parecía una contradicción (lo señaló Matthias)—:
-  // ahí lo que distingue una tarjeta es su ACCIÓN. De Presentación en adelante sí separa
-  // (Presentado / Resolución favorable / Denegado / Finalizado), así que se queda.
-  const pildoraUtil = normalizarEstado(e.estado) !== "EN_PREPARACION";
   // La barra habla el MISMO idioma que la acción: documentos requeridos por el servicio,
   // no documentos subidos. Con el denominador viejo la tarjeta se contradecía sola —
   // «3/3» al lado de «Esperando documentos» (caso real: Rosa, 3 subidos y validados,
@@ -93,14 +85,6 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       <p className="mt-0.5 text-[13px] text-slate-500" title={e.extrasLabels?.length ? `+ ${e.extrasLabels.join(" + ")}` : undefined}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
       <div className="mt-2.5 flex items-center gap-2">
-        {/* whitespace-nowrap: «Resolución favorable» es más largo que los estados viejos
-            y se partía en dos líneas dentro de la tarjeta. La píldora no se parte; lo
-            que cede es la barra de progreso. */}
-        {pildoraUtil && (
-          <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.pill}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
-          </span>
-        )}
         {/* Completitud del expediente (Información + Documentos + Formularios). Tras
             presentar se apaga: lo depositado está depositado. */}
         {comp && !post && (
@@ -118,11 +102,14 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-        <NextAction estado={e.estado} accion={e.progreso?.accion} />
-        {/* El gesto diario nº1: recordar los documentos al cliente sin abrir la ficha. */}
-        {esperandoCliente(e) && <RecordarMini id={e.id} />}
-      </div>
+      {/* Las líneas de acción («→ Generar formularios»…) se retiraron el 22/08 (pedido
+          de Matthias): columna + anillo ya dicen dónde está el expediente. Solo queda
+          «Recordar», el gesto diario nº1, cuando de verdad se espera al cliente. */}
+      {esperandoCliente(e) && (
+        <div className="mt-2 flex justify-end border-t border-slate-100 pt-2">
+          <RecordarMini id={e.id} />
+        </div>
+      )}
     </Link>
   );
 }
@@ -363,17 +350,14 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         /* Vue archivés : liste */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {visibles.map((e) => {
-            const meta = metaDeEstado(e.estado);
             return (
               <div key={e.id} className="flex items-center gap-3 border-b border-slate-50 px-5 py-3 last:border-0 hover:bg-cream-50">
                 <a href={`/app/expedientes/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-800">{e.clienteNombre}</p>
                     <p className="truncate text-xs text-slate-400">{e.tipoLabel} · {e.referencia}</p>
                   </div>
                 </a>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
                 <button onClick={() => setArchivado(e.id, false)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-aproba-500 hover:text-aproba-700">{t("Restaurar")}</button>
               </div>
             );

@@ -34,7 +34,6 @@ import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
-import { metaDeEstado } from "@/lib/progreso";
 
 export const metadata = { title: "Expediente" };
 
@@ -126,8 +125,6 @@ export default async function ExpedienteDetail({
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
   const docsPendientes = docsFaltantes(docsRequeridos, e.documentos);
 
-  const meta = metaDeEstado(e.estado);
-
   // Lectura del ciclo de vida: EL MISMO constructor que el tablero (progresoDeExpediente),
   // con el MISMO catálogo por sede. La ficha tenía su copia inline y divergía (Karim:
   // «2/3» en la tarjeta, «3/3» aquí). Un solo constructor: no puede volver a pasar.
@@ -181,7 +178,6 @@ export default async function ExpedienteDetail({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
-            <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.pill}`}>{t(meta.label)}</span>
             <ExportarZipButton expedienteId={e.id} referencia={e.referencia} />
             <ArchivarButton id={e.id} />
             <EliminarExpedienteButton id={e.id} referencia={e.referencia} />

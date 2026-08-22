@@ -1,6 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
-import { metaDeEstado } from "@/lib/progreso";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
@@ -12,7 +11,7 @@ import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 
 export type DocFamilia = { id: string; tipo: string; nombreArchivo: string | null; createdAt: string };
 export type FamiliaResumen = { id: string; nombre: string; miembros: number };
-export type MiembroExpediente = { id: string; referencia: string; tipoLabel: string; estado: string; estadoLabel: string; portalToken: string | null };
+export type MiembroExpediente = { id: string; referencia: string; tipoLabel: string; estado: string; portalToken: string | null };
 export type FamiliaMiembro = {
   id: string; nombre: string; parentesco: string | null; telefono: string | null;
   // Gestión de miembros desde el panel del gestor: quién solicita (formularios ×solicitante)
@@ -89,7 +88,6 @@ export async function fetchFamiliaDetalle(id: string): Promise<FamiliaDetalle | 
         referencia: e.referencia,
         tipoLabel: TIPO_LABEL[e.tipo] ?? e.tipo,
         estado: e.estado,
-        estadoLabel: metaDeEstado(e.estado).label,
         portalToken: e.portalToken ?? null,
       })),
       };
