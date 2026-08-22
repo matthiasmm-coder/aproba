@@ -112,10 +112,14 @@ describe("acción siguiente — ninguna tarjeta muda", () => {
     expect(p.accion.espera).toBe(false);
   });
 
-  it("con documentos que faltan, la pelota está en el cliente", () => {
+  // La línea de acción nombra SIEMPRE el siguiente gesto del gestor: los documentos que
+  // faltan nunca impiden preparar (así trabajan los despachos reales). Quién debe qué se
+  // lee en los hechos: docs.faltan alimenta la barra y el botón «Recordar».
+  it("con documentos que faltan, la acción sigue siendo del gestor (y faltan queda en los hechos)", () => {
     const p = calcularProgreso({ ...base, docsRequeridos: ["Pasaporte"], tiposValidados: [], arrancado: true });
-    expect(p.accion.clave).toBe("esperando_docs");
-    expect(p.accion.espera).toBe(true);
+    expect(p.accion.clave).toBe("generar_formularios");
+    expect(p.accion.espera).toBe(false);
+    expect(p.docs.faltan).toEqual(["Pasaporte"]);
   });
 
   it("documentos completos y sin formularios → generar", () => {
@@ -193,9 +197,9 @@ describe("expediente que nunca arrancó", () => {
     expect(p.accion.espera).toBe(false);
   });
 
-  it("en cuanto llega UN documento, sí se espera al cliente", () => {
+  it("en cuanto llega UN documento, la acción pasa a preparar (no a esperar)", () => {
     const p = calcularProgreso({ ...base, serviciosResueltos: 1, docsRequeridos: ["Pasaporte", "Nómina"], tiposValidados: ["PASAPORTE"], arrancado: true });
-    expect(p.accion.clave).toBe("esperando_docs");
-    expect(p.accion.espera).toBe(true);
+    expect(p.accion.clave).toBe("generar_formularios");
+    expect(p.docs.faltan).toHaveLength(1);
   });
 });

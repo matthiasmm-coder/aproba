@@ -122,7 +122,7 @@ export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEsta
 export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: boolean }> = {
   EN_PREPARACION:  { label: "En preparación" },
   BORRADOR:        { label: "Enviar enlace al cliente" },
-  DOCS_PENDIENTES: { label: "Esperando documentos", espera: true },
+  DOCS_PENDIENTES: { label: "Generar formularios" }, // repli alineado: preparar nunca espera
   DOCS_VALIDADOS:  { label: "Generar formularios" },
   FORM_GENERADO:   { label: "Presentar en Mercurio" },
   PRESENTADO:      { label: "Esperando resolución", espera: true },

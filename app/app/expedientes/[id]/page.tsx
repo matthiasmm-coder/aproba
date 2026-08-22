@@ -243,7 +243,16 @@ export default async function ExpedienteDetail({
         <SeccionPlegable
           id="documentos"
           titulo={`${t("Documentos")} (${e.documentos.length})`}
-          resumen={e.documentos.length > 0 ? `${e.documentos.filter((d) => d.estado === "VALIDADO").length}/${e.documentos.length} ${t("validados")}` : undefined}
+          // «3/3 validados» bajo un aviso de «falta 1» era el mismo bug de denominador que
+          // la barra del tablero: validados cuenta lo SUBIDO, el aviso cuenta lo REQUERIDO.
+          // El resumen dice ahora las dos verdades juntas.
+          resumen={(() => {
+            const val = e.documentos.filter((d) => d.estado === "VALIDADO").length;
+            const faltan = progresoExp.docs.faltan.length;
+            if (e.documentos.length === 0 && faltan === 0) return undefined;
+            const base = e.documentos.length > 0 ? `${val}/${e.documentos.length} ${t("validados")}` : t("ninguno subido");
+            return faltan > 0 ? `${base} · ${t("faltan")} ${faltan} ${t("requerido(s)")}` : base;
+          })()}
         >
           {despachoEncargo && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">

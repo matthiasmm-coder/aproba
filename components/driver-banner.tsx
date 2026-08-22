@@ -102,7 +102,7 @@ export function DriverBanner({
   const enPreparacion = Boolean(progreso && progreso.estado === "EN_PREPARACION");
   const tieneCita = Boolean(progreso?.hitos.resuelto && citaFecha);
   if (enPreparacion && progreso) {
-    if (clave === "elegir_servicio" || (clave === "esperando_docs" && !progreso.hitos.arrancado)) {
+    if (clave === "elegir_servicio") {
       prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
       if (permiteSubidaInterna) {
         secundaria = (
@@ -111,9 +111,9 @@ export function DriverBanner({
           </button>
         );
       }
-    } else if (clave === "esperando_docs" || clave === "generar_formularios") {
+    } else if (clave === "generar_formularios") {
       // Faltan papeles pero NADA impide preparar: el despacho rellena el EX en cuanto
-      // tiene la identidad. Antes esto exigía «forzar» un estado con un aviso culpable.
+      // tiene la identidad. La tarjeta del tablero dice ahora lo MISMO (una sola lectura).
       prim = { kind: "nav", label: t("Generar formularios"), href: formulariosHref };
       if (progreso.docs.faltan.length > 0) {
         secundaria = <span className="text-xs text-slate-400">{t("Faltan {n} documento(s) del cliente").replace("{n}", String(progreso.docs.faltan.length))}</span>;

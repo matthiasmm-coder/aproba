@@ -160,6 +160,9 @@ export const CA: Record<string, string> = {
 
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
   "Faltan": "Falten",
+  "faltan": "falten",
+  "requerido(s)": "requerit(s)",
+  "ninguno subido": "cap de pujat",
   // Puesta al día en lote (tablero)
   "expedientes listos para presentar. ¿Algunos ya están presentados en Mercurio? Ponlos al día de golpe — sin avisos al cliente.": "expedients a punt per presentar. Alguns ja estan presentats a Mercurio? Posa'ls al dia de cop — sense avisos al client.",
   "Poner al día…": "Posar al dia…",

@@ -97,7 +97,7 @@ export type Progreso = {
 
 export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
 export type AccionClave =
-  | "elegir_servicio" | "esperando_docs" | "generar_formularios" | "presentar"
+  | "elegir_servicio" | "generar_formularios" | "presentar"
   | "esperando_resolucion" | "finalizar" | "cerrado" | "denegado";
 
 export const FASES: { key: FaseKey; label: string }[] = [
@@ -187,7 +187,13 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
   if (!h.arrancado && !hitoForm && h.docsTotales === 0 && docs.recibidos === 0) {
     return { label: "Enviar enlace al cliente", espera: false, clave: "elegir_servicio" };
   }
-  if (docs.faltan.length > 0 && !hitoForm) return { label: "Esperando documentos", espera: true, clave: "esperando_docs" };
+  // «Esperando documentos» YA NO es una acción (22/08). Lo era, y contradecía a la ficha
+  // sobre el mismo expediente: la tarjeta decía «espera al cliente» mientras la ficha
+  // decía «Generar formularios». La regla única: la línea de acción nombra SIEMPRE el
+  // siguiente gesto del gestor (los papeles que faltan nunca impiden preparar — es lo
+  // que hacen los despachos reales); quién debe qué se lee en los HECHOS: la barra
+  // recibidos/requeridos y el botón «Recordar», que sale de docs.faltan, no de aquí.
+  // El gris de espera queda solo donde el gestor no puede hacer nada: tras presentar.
   if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
   return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };
 }

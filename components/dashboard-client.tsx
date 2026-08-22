@@ -52,12 +52,16 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   // «Requieren tu acción» = TODOS los estados donde le toca al gestor (fuente única
   // ACCION_ESTADO). Antes solo 2 estados: un RESUELTO (cliente esperando su cita de
   // huellas) desaparecía del radar.
-  const accion = live.filter((e) => ACCION_ESTADO[e.estado] && !ACCION_ESTADO[e.estado].espera)
+  // El progreso calculado manda; ACCION_ESTADO queda como repli de filas degradadas.
+  const accion = live.filter((e) => { const a = e.progreso?.accion ?? ACCION_ESTADO[e.estado]; return a && !a.espera; })
     .sort((a, b) => diasHasta(a.fechaLimiteISO) - diasHasta(b.fechaLimiteISO));
   const vencenSemana = live.filter((e) => { const d = diasHasta(e.fechaLimiteISO); return d !== Infinity && d <= 7; });
   const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
   // Hecho, no estado: un expediente con formularios ya generados no espera a nadie.
-  const esperandoCliente = live.filter((e) => e.progreso ? e.progreso.accion.clave === "esperando_docs" : e.estado === "DOCS_PENDIENTES").length;
+  const esperandoCliente = live.filter((e) => e.progreso
+    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.formularios && !e.progreso.hitos.presentado
+      && e.progreso.accion.clave !== "elegir_servicio" // sin enlace enviado no se «recuerda» nada
+    : e.estado === "DOCS_PENDIENTES").length;
 
   const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)).length }));
   const maxFase = Math.max(1, ...porFase.map((p) => p.count));

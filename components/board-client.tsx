@@ -32,11 +32,16 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
-// «Esperando al cliente» = el despacho no puede hacer nada mientras no lleguen papeles.
-// Antes era el estado DOCS_PENDIENTES; ahora es el hecho, porque ese estado ya no existe
-// y porque un expediente con formularios ya generados NO espera a nadie.
+// «Esperando al cliente» = HECHO, no acción: faltan documentos requeridos y los
+// formularios aún no están (con formularios generados ya no se persigue a nadie —
+// misma regla que el cron de recordatorios). Alimenta el botón «Recordar» y el KPI,
+// mientras la línea de acción sigue nombrando el siguiente gesto del gestor.
 const esperandoCliente = (e: BoardItem): boolean =>
-  e.progreso ? e.progreso.accion.clave === "esperando_docs" : e.estado === "DOCS_PENDIENTES";
+  e.progreso
+    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.formularios && !e.progreso.hitos.presentado
+      // Si la acción aún es «Enviar enlace» no hay nada que recordar: el gesto ES el enlace.
+      && e.progreso.accion.clave !== "elegir_servicio"
+    : e.estado === "DOCS_PENDIENTES";
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
   const t = useT();
