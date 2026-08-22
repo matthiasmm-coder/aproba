@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, restoPendiente, suplidosAsignados, tarifaAsignada } from "./multi-servicio";
+import { catalogoDeSede, aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, restoPendiente, suplidosAsignados, tarifaAsignada } from "./multi-servicio";
 import type { Servicio } from "./servicios";
 
 // Invariante central del descuento: anticipo + resto == bruto − rebaja AL CÉNTIMO,
@@ -198,5 +198,44 @@ describe("etiquetaDescuento", () => {
   it("vacía si el descuento no es válido", () => {
     expect(etiquetaDescuento(null)).toBe("");
     expect(etiquetaDescuento({ tipo: "PORCENTAJE", valor: 0 } as never)).toBe("");
+  });
+});
+
+// La cascade multi-oficina como función PURA: una sede con catálogo propio usa SU
+// catálogo ENTERO; sin catálogo propio, el común (filas oficinaId null). Es la regla
+// de fetchServiciosDeWorkspace, compartida ahora por tablero y ficha — sin ella, con
+// claves duplicadas entre sedes cada superficie elegía un ganador distinto (el
+// «2/3 aquí, 3/3 allá» de Karim).
+describe("catalogoDeSede", () => {
+  const filas = [
+    { id: "renovacion_tie", oficinaId: null, docs: ["TIE actual", "Padrón", "Medios"] },
+    { id: "arraigo", oficinaId: null, docs: ["Pasaporte"] },
+    { id: "renovacion_tie", oficinaId: "sede-A", docs: ["TIE actual", "Padrón"] },
+    { id: "nacionalidad", oficinaId: "sede-A", docs: ["Pasaporte", "Antecedentes"] },
+  ];
+
+  it("una sede CON catálogo propio usa su catálogo entero — sin mezclar con el común", () => {
+    const cat = catalogoDeSede(filas, "sede-A");
+    expect(cat.map((f) => f.id).sort()).toEqual(["nacionalidad", "renovacion_tie"]);
+    expect(cat.find((f) => f.id === "renovacion_tie")?.docs).toHaveLength(2);
+    expect(cat.some((f) => f.id === "arraigo")).toBe(false);
+  });
+
+  it("una sede SIN catálogo propio cae al común completo", () => {
+    const cat = catalogoDeSede(filas, "sede-B");
+    expect(cat.map((f) => f.id).sort()).toEqual(["arraigo", "renovacion_tie"]);
+    expect(cat.find((f) => f.id === "renovacion_tie")?.docs).toHaveLength(3);
+  });
+
+  it("expediente sin sede (oficinaId null) → catálogo común", () => {
+    const cat = catalogoDeSede(filas, null);
+    expect(cat).toHaveLength(2);
+    expect(cat.every((f) => f.oficinaId === null)).toBe(true);
+  });
+
+  it("determinista: nunca depende del orden de las filas", () => {
+    const alReves = [...filas].reverse();
+    expect(catalogoDeSede(alReves, "sede-A").find((f) => f.id === "renovacion_tie")?.docs)
+      .toEqual(catalogoDeSede(filas, "sede-A").find((f) => f.id === "renovacion_tie")?.docs);
   });
 });

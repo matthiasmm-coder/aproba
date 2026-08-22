@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchExpedienteDetalle, fetchNotasExpediente } from "@/lib/data/expedientes";
+import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -8,7 +8,7 @@ import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
+import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
 import { AsignarExpediente } from "@/components/asignar-expediente";
@@ -32,7 +32,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { fetchUltimaRevision } from "@/lib/centinela";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
-import { calcularProgreso, metaDeEstado } from "@/lib/progreso";
+import { metaDeEstado } from "@/lib/progreso";
 
 export const metadata = { title: "Expediente" };
 
@@ -78,7 +78,11 @@ export default async function ExpedienteDetail({
     : [null, null, []];
   // Multi-servicio: principal (servicioClave, repli por tipo) + extras. Docs = unión,
   // tarifa = suma, cita = OR (gestor gana) — mismas reglas que la API y el portal.
-  const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, servicios);
+  // ⚠️ CATÁLOGO POR SEDE PRIMERO (catalogoDeSede): con claves duplicadas entre sedes,
+  // usar todas las filas mezcladas elegía un ganador al azar — distinto del tablero y
+  // del portal /j (que ya cascadea). Tarifa, docs y cita salen del MISMO catálogo.
+  const serviciosSede = catalogoDeSede(servicios, e.oficinaId);
+  const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, serviciosSede);
   const docsRequeridos = docsDeServicios(serviciosExp);
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
@@ -120,29 +124,19 @@ export default async function ExpedienteDetail({
 
   const meta = metaDeEstado(e.estado);
 
-  // Lectura del ciclo de vida (lib/progreso.ts): fase, «qué toca ahora» y documentos
-  // que faltan, calculados desde los hechos de esta ficha — no desde una etapa validada.
-  const docsNoEncargo = e.documentos.filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
-  const progresoExp = calcularProgreso({
-    estado: e.estado,
-    serviciosResueltos: serviciosExp.length,
-    docsRequeridos: docsRequeridos,
-    tiposValidados: docsNoEncargo.filter((d) => d.estado === "VALIDADO").map((d) => String(d.tipo ?? "")),
-    docsTotales: docsNoEncargo.length,
-    docsValidados: docsNoEncargo.filter((d) => d.estado === "VALIDADO").length,
-    formulariosCurados: e.formulariosCurados,
-    tieneTasa: e.tieneTasa,
-    encargoFirmado: e.documentos.some((d) => (d.tipo === "HOJA_ENCARGO" || d.tipo === "MANDATO") && d.estado === "VALIDADO"),
-    encargoAplica: false,
-    anticipoPagado: false,
-    citaPresencial: cita.citaPresencial,
-    fechaCita: e.cita?.fecha ?? null,
-    arrancado: docsNoEncargo.length > 0,
-    // El estado legado ya afirmaba en publico «documentacion validada»: no puede
-    // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio
-    // valor mientras las filas antiguas existan: sin columna nueva ni UPDATE de remap.
-    docsDadosPorValidados: ["DOCS_VALIDADOS", "FORM_GENERADO"].includes(String(e.estado)),
-  });
+  // Lectura del ciclo de vida: EL MISMO constructor que el tablero (progresoDeExpediente),
+  // con el MISMO catálogo por sede. La ficha tenía su copia inline y divergía (Karim:
+  // «2/3» en la tarjeta, «3/3» aquí). Un solo constructor: no puede volver a pasar.
+  const progresoExp = progresoDeExpediente(
+    {
+      estado: e.estado, tipo: e.tipoEnum,
+      servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra,
+      documentos: e.documentos,
+      formulariosGenerados: e.formulariosGenerados, tasaPath: e.tasaPath,
+      fechaCita: e.cita?.fecha ?? null,
+    },
+    serviciosSede.map((sv) => ({ id: sv.id, docs: sv.docs, citaPresencial: sv.citaPresencial })),
+  );
 
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
@@ -243,16 +237,15 @@ export default async function ExpedienteDetail({
         <SeccionPlegable
           id="documentos"
           titulo={`${t("Documentos")} (${e.documentos.length})`}
-          // «3/3 validados» bajo un aviso de «falta 1» era el mismo bug de denominador que
-          // la barra del tablero: validados cuenta lo SUBIDO, el aviso cuenta lo REQUERIDO.
-          // El resumen dice ahora las dos verdades juntas.
-          resumen={(() => {
-            const val = e.documentos.filter((d) => d.estado === "VALIDADO").length;
-            const faltan = progresoExp.docs.faltan.length;
-            if (e.documentos.length === 0 && faltan === 0) return undefined;
-            const base = e.documentos.length > 0 ? `${val}/${e.documentos.length} ${t("validados")}` : t("ninguno subido");
-            return faltan > 0 ? `${base} · ${t("faltan")} ${faltan} ${t("requerido(s)")}` : base;
-          })()}
+          // UNA métrica, la misma que la tarjeta del tablero: recibidos/REQUERIDOS.
+          // «3/3 validados» aquí contra «2/3» en la tarjeta era contar cosas distintas
+          // en dos sitios (lo señaló Matthias con Karim). Sin requisitos configurados,
+          // repli al conteo de subidos.
+          resumen={progresoExp.docs.requeridos > 0
+            ? `${progresoExp.docs.recibidos}/${progresoExp.docs.requeridos} ${t("requeridos")}`
+            : e.documentos.length > 0
+              ? `${e.documentos.filter((d) => d.estado === "VALIDADO").length}/${e.documentos.length} ${t("validados")}`
+              : undefined}
         >
           {despachoEncargo && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">

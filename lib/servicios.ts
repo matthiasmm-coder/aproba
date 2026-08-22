@@ -5,6 +5,7 @@
 export type CitaQuien = "cliente" | "gestor";
 
 export type Servicio = {
+  oficinaId?: string | null; // sede propietaria de la fila (null = catálogo común)
   id: string;
   label: string;
   desc: string;

@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { asignacionValida, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
+import { asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs } from "@/lib/tramites";
 import { calcularProgreso, type Progreso } from "@/lib/progreso";
@@ -74,13 +74,13 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   };
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
-  const SEL_BASE = "id, referencia, tipo, servicioClave, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
+  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
     conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
-    supabase.from("ServicioConfig").select("clave, label, docs, citaPresencial"),
+    supabase.from("ServicioConfig").select("clave, label, docs, citaPresencial, oficinaId"),
   ]);
   // Replis en cadena SIN reasignar la respuesta tipada (los selects difieren en columnas).
   let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
@@ -101,14 +101,11 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     error = r3.error;
   }
   if (error) throw new Error(`Expedientes: ${error.message}`);
-  const labelDeServicio: Record<string, string> = {};
-  const docsDeServicioClave: Record<string, string[]> = {};
-  const citaDeServicioClave: Record<string, boolean> = {};
-  for (const s of (svc.data ?? []) as { clave: string; label: string | null; docs?: string[] | null; citaPresencial?: boolean | null }[]) {
-    if (s.label && s.label.trim()) labelDeServicio[s.clave] = s.label;
-    if (Array.isArray(s.docs)) docsDeServicioClave[s.clave] = s.docs;
-    if (s.citaPresencial) citaDeServicioClave[s.clave] = true;
-  }
+  // Las FILAS del catálogo, sin aplanar: con claves duplicadas entre sedes, un mapa
+  // plano clave→docs elegía un ganador al azar (y distinto del de la ficha). La
+  // resolución correcta es por sede del expediente — catalogoDeSede — fila a fila.
+  const filasCatalogo = ((svc.data ?? []) as { clave: string; label: string | null; docs?: string[] | null; citaPresencial?: boolean | null; oficinaId?: string | null }[])
+    .map((f) => ({ id: f.clave, label: f.label ?? "", docs: f.docs ?? [], citaPresencial: Boolean(f.citaPresencial), oficinaId: f.oficinaId ?? null }));
 
   const unoFam = (v: { nombre: string } | { nombre: string }[] | null | undefined) => (Array.isArray(v) ? v[0] ?? null : v ?? null);
   return ((data ?? []) as unknown as ResumenRow[]).map((e) => ({
@@ -123,11 +120,11 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     // dedup contra el principal aunque venga derivado del tipo) — y esos labels
     // alimentan el tooltip y la búsqueda del tablero.
     ...(() => {
+      const cat = catalogoDeSede(filasCatalogo, (e as unknown as { oficinaId?: string | null }).oficinaId ?? null);
+      const labelDe = (c: string) => cat.find((f: { id: string }) => f.id === c)?.label || DEFAULT_SERVICIOS.find((d) => d.id === c)?.label;
       const claves = clavesDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: (e as unknown as { serviciosExtra?: string[] | null }).serviciosExtra, tipo: e.tipo });
-      const extrasLabels = claves.slice(1)
-        .map((c) => labelDeServicio[c] ?? DEFAULT_SERVICIOS.find((d) => d.id === c)?.label)
-        .filter((l): l is string => Boolean(l));
-      const base = (e.servicioClave && labelDeServicio[e.servicioClave]) || TIPO_LABEL[e.tipo] || e.tipo;
+      const extrasLabels = claves.slice(1).map(labelDe).filter((l): l is string => Boolean(l));
+      const base = (e.servicioClave && labelDe(e.servicioClave)) || TIPO_LABEL[e.tipo] || e.tipo;
       return { tipoLabel: base + (extrasLabels.length ? ` +${extrasLabels.length}` : ""), extrasLabels };
     })(),
     estado: e.estado as ExpedienteEstado,
@@ -137,7 +134,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,
-    progreso: progresoDeFila(e, docsDeServicioClave, citaDeServicioClave),
+    progreso: progresoDeExpediente(e, catalogoDeSede(filasCatalogo, (e as unknown as { oficinaId?: string | null }).oficinaId ?? null)),
   }));
 }
 
@@ -191,6 +188,9 @@ export type FacturaPago = {
 
 export type ExpedienteDetalle = ExpedienteUI & {
   tipoEnum: string;
+  oficinaId: string | null; // sede del expediente — resuelve el catálogo (catalogoDeSede)
+  formulariosGenerados: string[] | null; // bruto, para el constructor único del progreso
+  tasaPath: string | null;
   tieneTasa: boolean; // tasa 790-012 oficial guardada (tasaPath — flujo individual)
   formulariosCurados: boolean; // la lista fue persistida (aunque vacía) → ES la verdad, no re-unir defaults
   facturasPago: FacturaPago[];
@@ -287,6 +287,9 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     formulariosCurados: Array.isArray((e as { formulariosGenerados?: string[] | null }).formulariosGenerados),
     eventos,
     tipoEnum: e.tipo,
+    oficinaId: (e as unknown as { oficinaId?: string | null }).oficinaId ?? null,
+    formulariosGenerados: ((e as { formulariosGenerados?: string[] | null }).formulariosGenerados) ?? null,
+    tasaPath: ((e as { tasaPath?: string | null }).tasaPath) ?? null,
     servicioClave: e.servicioClave ?? null,
     serviciosExtra: Array.isArray((e as { serviciosExtra?: string[] | null }).serviciosExtra) ? ((e as { serviciosExtra?: string[] | null }).serviciosExtra as string[]).filter(Boolean) : [],
     suplidosOverride: (() => {
@@ -410,22 +413,31 @@ export async function fetchNotasExpediente(expedienteId: string): Promise<NotaEx
     }));
 }
 
-// ── Lectura del ciclo de vida para una fila del tablero ──────────────────────
-// Se calcula en el servidor con los hechos que la consulta ya trae. Si un repli no
-// pudo traer formulariosGenerados/tasaPath/fechaCita, el progreso sale DEGRADADO (no
-// roto): el expediente sigue en su fase y con una acción coherente.
-function progresoDeFila(
-  e: ResumenRow,
-  docsPorClave: Record<string, string[]>,
-  citaPorClave: Record<string, boolean>,
+// ── EL constructor único de la lectura del ciclo ─────────────────────────────
+// Tablero Y ficha pasan por aquí — con el MISMO catálogo (ya resuelto por sede vía
+// catalogoDeSede). Antes había dos constructores paralelos: el de la ficha y el del
+// tablero divergían en la resolución del catálogo y en detalles de los hechos, y el
+// mismo expediente decía «2/3» en una superficie y «3/3» en otra (lo cazó Matthias
+// con Karim). Un solo constructor = imposible que vuelva a pasar.
+// Si un repli no pudo traer formulariosGenerados/tasaPath/fechaCita, el progreso sale
+// DEGRADADO (no roto): el expediente sigue en su fase y con una acción coherente.
+export type CatalogoResuelto = { id: string; docs?: string[] | null; citaPresencial?: boolean | null }[];
+export function progresoDeExpediente(
+  e: {
+    estado: string; tipo: string;
+    servicioClave?: string | null; serviciosExtra?: string[] | null;
+    documentos?: { tipo?: string | null; estado: string }[] | null;
+    formulariosGenerados?: string[] | null; tasaPath?: string | null; fechaCita?: string | null;
+  },
+  catalogo: CatalogoResuelto,
 ): Progreso {
-  const claves = clavesDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: (e as { serviciosExtra?: string[] | null }).serviciosExtra ?? null, tipo: e.tipo });
+  const claves = clavesDeExpediente({ servicioClave: e.servicioClave ?? null, serviciosExtra: e.serviciosExtra ?? null, tipo: e.tipo });
   // Un servicio «resuelto» es el que existe en el catálogo del despacho: si el gestor lo
   // borró, no se puede exigir su documentación (ni decir que falta).
-  const resueltos = claves.filter((c) => docsPorClave[c] !== undefined);
-  const requeridos = dedupDocs(resueltos.flatMap((c) => docsPorClave[c] ?? []));
+  const porId = new Map(catalogo.map((f) => [f.id, f]));
+  const resueltos = claves.map((c) => porId.get(c)).filter((f): f is CatalogoResuelto[number] => Boolean(f));
+  const requeridos = dedupDocs(resueltos.flatMap((f) => f.docs ?? []));
   const docs = (e.documentos ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
-  const formularios = (e as { formulariosGenerados?: string[] | null }).formulariosGenerados;
 
   return calcularProgreso({
     estado: e.estado,
@@ -434,13 +446,13 @@ function progresoDeFila(
     tiposValidados: docs.filter((d) => d.estado === "VALIDADO").map((d) => String(d.tipo ?? "")),
     docsTotales: docs.length,
     docsValidados: docs.filter((d) => d.estado === "VALIDADO").length,
-    formulariosCurados: Array.isArray(formularios),
-    tieneTasa: Boolean((e as { tasaPath?: string | null }).tasaPath),
+    formulariosCurados: Array.isArray(e.formulariosGenerados),
+    tieneTasa: Boolean(e.tasaPath),
     encargoFirmado: (e.documentos ?? []).some((d) => (d.tipo === "HOJA_ENCARGO" || d.tipo === "MANDATO") && d.estado === "VALIDADO"),
-    encargoAplica: false, // el tablero no necesita el detalle de la firma
+    encargoAplica: false,
     anticipoPagado: false,
-    citaPresencial: resueltos.some((c) => citaPorClave[c]),
-    fechaCita: (e as { fechaCita?: string | null }).fechaCita ?? null,
+    citaPresencial: resueltos.some((f) => Boolean(f.citaPresencial)),
+    fechaCita: e.fechaCita ?? null,
     arrancado: docs.length > 0,
     // El estado legado ya afirmaba en publico «documentacion validada»: no puede
     // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio

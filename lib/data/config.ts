@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // `clave` (DB) ↔ `id` (UI) : identifiant stable d'un service/aviso.
 
 type ServicioRow = {
+  oficinaId?: string | null;
   clave: string;
   label: string;
   descripcion: string | null;
@@ -26,6 +27,7 @@ export function mapServicioRow(r: ServicioRow): Servicio {
     id: r.clave,
     label: r.label,
     desc: r.descripcion ?? "",
+    oficinaId: (r as { oficinaId?: string | null }).oficinaId ?? null,
     docs: r.docs ?? [],
     active: r.active,
     anticipo,
@@ -73,12 +75,12 @@ export function parsePacks(raw: unknown): Pack[] {
     .filter((p) => p.id && p.nombre);
 }
 
-const SELECT_SERVICIOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria";
+const SELECT_SERVICIOS = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria";
 // Replis por tramo de migración (categoría → pro → suplidos → noIncluye → base).
-const SELECT_SERVICIOS_SIN_CATEGORIA = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
-const SELECT_SERVICIOS_SIN_PRO = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
-const SELECT_SERVICIOS_SIN_SUPLIDOS = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
-const SELECT_SERVICIOS_SIN_NOINCLUYE = "clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
+const SELECT_SERVICIOS_SIN_CATEGORIA = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
+const SELECT_SERVICIOS_SIN_PRO = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
+const SELECT_SERVICIOS_SIN_SUPLIDOS = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye";
+const SELECT_SERVICIOS_SIN_NOINCLUYE = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
 
 // Servicios du workspace de l'utilisateur connecté. Fallback : defaults (workspace pas encore configuré).
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {

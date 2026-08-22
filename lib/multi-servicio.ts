@@ -16,6 +16,21 @@ export type ExpConServicios = {
   tipo: string; // tipoEnum
 };
 
+// ── Catálogo por sede (cascade multi-oficina) ────────────────────────────────
+// Una sede con catálogo PROPIO (≥1 fila con su id) usa SU catálogo ENTERO; si no, el
+// común de la gestoría (filas con oficinaId null). Nunca fusión servicio a servicio.
+// Es la MISMA regla que fetchServiciosDeWorkspace (portal /j, /api/pagos), como función
+// pura para que el tablero y la ficha resuelvan IGUAL. Sin ella, con claves duplicadas
+// entre sedes (Jennifer: 14), cada superficie elegía un ganador distinto al azar —
+// así nació el «2/3 aquí, 3/3 allá» que señaló Matthias.
+export function catalogoDeSede<T extends { oficinaId?: string | null }>(filas: T[], oficinaId: string | null): T[] {
+  if (oficinaId) {
+    const propias = filas.filter((f) => (f.oficinaId ?? null) === oficinaId);
+    if (propias.length) return propias;
+  }
+  return filas.filter((f) => (f.oficinaId ?? null) === null);
+}
+
 // Claves del expediente, principal primero, dedupe, sin nulos.
 export function clavesDeExpediente(exp: ExpConServicios): string[] {
   const principal = exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo] ?? null;
