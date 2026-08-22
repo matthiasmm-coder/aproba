@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BOARD_COLUMNS, BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
@@ -116,6 +117,78 @@ function RecordarMini({ id }: { id: string }) {
   );
 }
 
+// ── Puesta al día en lote ────────────────────────────────────────────────────
+// Medición 22/08: 43 expedientes reales llevaban semanas «listos para presentar»
+// cuando ya estaban presentados en Mercurio — nadie da 43 clics declarativos uno a
+// uno. Este banner deja decir la verdad de golpe. Sin avisos a los clientes.
+function PonerAlDia({ candidatos, onDone }: { candidatos: BoardItem[]; onDone: () => void }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [fecha, setFecha] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = (id: string) => setSel((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  async function enviar() {
+    if (!sel.size || enviando) return;
+    setEnviando(true); setError(null);
+    try {
+      const res = await fetch("/api/expedientes/presentados-lote", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...sel], fecha: fecha || undefined }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? t("No se pudo actualizar."));
+      setOpen(false); onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo actualizar."));
+    } finally { setEnviando(false); }
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-indigo-900">
+          <span className="font-semibold">{candidatos.length}</span> {t("expedientes listos para presentar. ¿Algunos ya están presentados en Mercurio? Ponlos al día de golpe — sin avisos al cliente.")}
+        </p>
+        <button onClick={() => setOpen((o) => !o)} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
+          {open ? t("Cerrar") : t("Poner al día…")}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-3 rounded-lg border border-indigo-100 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <button onClick={() => setSel(new Set(candidatos.map((c) => c.id)))} className="text-xs font-semibold text-indigo-700 hover:underline">{t("Seleccionar todos")}</button>
+            {sel.size > 0 && <button onClick={() => setSel(new Set())} className="text-xs text-slate-400 hover:underline">{t("Ninguno")}</button>}
+          </div>
+          <div className="max-h-56 space-y-1 overflow-y-auto">
+            {candidatos.map((c) => (
+              <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-slate-700 hover:bg-indigo-50/60">
+                <input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} className="h-4 w-4 accent-indigo-600" />
+                <span className="font-mono text-[11px] text-slate-400">{c.referencia}</span>
+                <span className="min-w-0 truncate">{c.clienteNombre}</span>
+                <span className="ml-auto shrink-0 text-[11px] text-slate-400">{c.tipoLabel}</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+            <label className="text-xs text-slate-500">
+              {t("Fecha de presentación (opcional)")}
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="ml-1.5 rounded-md border border-slate-300 px-2 py-1 text-[16px] sm:text-xs outline-none focus:border-indigo-500" />
+            </label>
+            <button onClick={enviar} disabled={!sel.size || enviando} className="ml-auto rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50">
+              {enviando ? "…" : `${t("Marcar como presentados")}${sel.size ? ` (${sel.size})` : ""}`}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BoardClient({ items, asignados, filtroInicial = null }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null }) {
   const t = useT();
   const [q, setQ] = useState("");
@@ -127,6 +200,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
   // Archivado = SERVIDOR (items[].archivado, igual para los 3 usuarios) ∪ localStorage
   // (gestos de esta pestaña + legado pre-migración).
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   useEffect(() => {
     const s = loadArchivados();
@@ -155,6 +229,10 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
   const activos = useMemo(() => items.filter((e) => !archivados.has(e.id)), [items, archivados]);
   const archivadosList = useMemo(() => items.filter((e) => archivados.has(e.id)), [items, archivados]);
   const visibles = (view === "activos" ? activos : archivadosList).filter(matchSearch);
+
+  // Candidatos a la puesta al día: los que el cálculo declara «listos para presentar».
+  // Umbral de 3: con uno o dos, el clic normal en la ficha basta y el banner es ruido.
+  const paraPresentar = useMemo(() => activos.filter((e) => e.progreso?.accion.clave === "presentar"), [activos]);
 
   return (
     <div>
@@ -205,6 +283,10 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
             {t("Crear mi primer expediente")}
           </Link>
         </div>
+      )}
+
+      {view === "activos" && !soloEsperando && paraPresentar.length >= 3 && (
+        <PonerAlDia candidatos={paraPresentar} onDone={() => router.refresh()} />
       )}
 
       {/* Vue active : pipeline en 4 fases (cabe en pantalla, lectura izq→der como un flujo) */}

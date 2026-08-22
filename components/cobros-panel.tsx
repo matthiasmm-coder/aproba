@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { eur, totalDe } from "@/lib/facturas";
@@ -58,6 +58,16 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
     .filter((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA")
     .sort((a, b) => Number(String(a.momento).split("_")[1]) - Number(String(b.momento).split("_")[1]));
   if (anticipo <= 0 && resto <= 0 && facturas.length === 0) return null;
+
+  // «Resolución favorable» encadena aquí: el driver dispara este evento y el popup de la
+  // liquidación final se abre solo — únicamente si de verdad queda algo por cobrar y no
+  // hay ya factura final ni plan de cuotas (mismas condiciones que el botón).
+  useEffect(() => {
+    const h = () => { if (resto > 0 && !pagoFinal && cuotas.length === 0) setCrear("FINAL"); };
+    window.addEventListener("abrir-pago-final", h);
+    return () => window.removeEventListener("abrir-pago-final", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resto, pagoFinal, cuotas.length]);
 
   async function fraccionar() {
     setFraccionando(true); setError(null);

@@ -17,12 +17,18 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     clienteNombre: e.clienteNombre,
     clienteNacionalidad: e.clienteNacionalidad,
     tipoLabel: e.tipoLabel,
+    extrasLabels: e.extrasLabels,
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
     archivado: e.archivado,
     validados: e.validados,
     total: e.total,
+    // ⚠️ Este mapping TIRABA `progreso` (y extrasLabels): el tablero real llevaba desde
+    // la reforma corriendo sobre los replis por estado — fases y acciones correctas de
+    // casualidad, orden y «esperando cliente» degradados, y la puesta al día en lote
+    // ciega. Si añades un campo a BoardItem, pásalo aquí: nadie te avisará.
+    progreso: e.progreso,
   }));
 
   const asignados = [...new Set(items.map((e) => e.asignadoA))].sort();

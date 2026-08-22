@@ -98,7 +98,7 @@ export type Progreso = {
 export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
 export type AccionClave =
   | "elegir_servicio" | "esperando_docs" | "generar_formularios" | "presentar"
-  | "esperando_resolucion" | "agendar_cita" | "finalizar" | "cerrado" | "denegado";
+  | "esperando_resolucion" | "finalizar" | "cerrado" | "denegado";
 
 export const FASES: { key: FaseKey; label: string }[] = [
   { key: "recepcion", label: "Recepción" },
@@ -167,11 +167,12 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
   if (estado === "FINALIZADO") return { label: "Expediente cerrado", espera: true, clave: "cerrado" };
   if (estado === "RECHAZADO") return { label: "Expediente denegado", espera: true, clave: "denegado" };
   if (estado === "RESUELTO") {
-    // Con cita presencial pendiente de agendar hay un paso más; si ya está agendada (o no
-    // hace falta), lo que queda es cerrar. Sin esta rama, «Finalizar» sería inalcanzable.
-    return h.citaPresencial && !h.fechaCita
-      ? { label: "Agendar cita", espera: false, clave: "agendar_cita" }
-      : { label: "Finalizar trámite", espera: false, clave: "finalizar" };
+    // La cita es un HECHO del expediente resuelto, no una etapa (medición 22/08: en 79
+    // expedientes reales nadie recorrió la cola del ciclo — cada parada declarativa de
+    // más era una razón para no llegar al final). La única acción tras la resolución es
+    // cerrar cuando la tarjeta está entregada; agendar/editar la cita queda a mano en la
+    // ficha como gesto secundario.
+    return { label: "Finalizar trámite", espera: false, clave: "finalizar" };
   }
   if (estado === "PRESENTADO") return { label: "Esperando resolución", espera: true, clave: "esperando_resolucion" };
 

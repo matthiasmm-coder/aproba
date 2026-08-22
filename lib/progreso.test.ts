@@ -134,14 +134,15 @@ describe("acción siguiente — ninguna tarjeta muda", () => {
     expect(calcularProgreso({ ...base, estado: "PRESENTADO" }).accion).toMatchObject({ clave: "esperando_resolucion", espera: true });
   });
 
-  // Sin esta rama, «Finalizar» era inalcanzable tras suprimir CITA_HUELLAS.
-  it("resuelto con cita presencial pendiente → agendar; ya agendada → finalizar", () => {
-    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: null }).accion.clave).toBe("agendar_cita");
+  // La cita ya no es LA acción: es un hecho. Resuelto → finalizar, siempre — con o sin
+  // cita agendada, presencial o no (agendar vive en la ficha como gesto secundario).
+  it("resuelto → finalizar, la cita nunca bloquea el cierre", () => {
+    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: null }).accion.clave).toBe("finalizar");
     expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: "2026-09-12" }).accion.clave).toBe("finalizar");
     expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: false }).accion.clave).toBe("finalizar");
   });
 
-  it("un expediente legado en CITA_HUELLAS con fecha ofrece finalizar, no re-agendar", () => {
+  it("un expediente legado en CITA_HUELLAS ofrece finalizar", () => {
     const p = calcularProgreso({ ...base, estado: "CITA_HUELLAS", citaPresencial: true, fechaCita: "2026-09-12" });
     expect(p.estado).toBe("RESUELTO");
     expect(p.accion.clave).toBe("finalizar");

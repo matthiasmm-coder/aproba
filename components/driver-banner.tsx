@@ -56,6 +56,15 @@ export function DriverBanner({
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo completar la acción.")); }
       if (navHref) router.push(navHref); else router.refresh();
+      // Que el clic PAGUE: tras marcar la resolución favorable se abre el cobro con la
+      // liquidación final lista para revisar y emitir — el momento en que el trabajo
+      // está hecho es el momento de facturarlo, no una sección que buscar más tarde.
+      if (accion === "resolver_favorable") {
+        setTimeout(() => {
+          abrirYScroll("cobro", "cobro", "center");
+          window.dispatchEvent(new CustomEvent("abrir-pago-final"));
+        }, 600);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo completar la acción."));
     } finally { setLoading(false); }
@@ -170,14 +179,13 @@ export function DriverBanner({
       secundaria = <button onClick={async () => { if (await confirmar(t("¿Marcar como denegado?"))) avanzar("resolver_desfavorable"); }} disabled={loading} className={btnSec}>{t("Denegado")}</button>;
       break;
     case "RESUELTO":
-      // Con cita presencial pendiente hay un paso más; ya agendada (o innecesaria), lo
-      // que queda es cerrar. Sin esta distinción, «Finalizar» era inalcanzable desde que
-      // CITA_HUELLAS dejó de ser un estado.
-      prim = citaPresencial && !progreso?.hitos.cerrado && !tieneCita
-        ? { kind: "cita", label: t("Agendar cita") }
-        : { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
-      if (tieneCita && citaPresencial) {
-        secundaria = <button onClick={() => setCitaOpen(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white">{t("Editar la cita")}</button>;
+      // La cita es un hecho, no una etapa: la acción tras la resolución es SIEMPRE
+      // cerrar (tarjeta entregada). Agendar/editar la cita queda como gesto secundario
+      // — antes era la acción principal y una parada más en una cola que, medido sobre
+      // 79 expedientes reales, nadie recorría.
+      prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
+      if (citaPresencial) {
+        secundaria = <button onClick={() => setCitaOpen(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white">{t(tieneCita ? "Editar la cita" : "Agendar cita")}</button>;
       }
       break;
     case "CITA_HUELLAS": prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") }; break;
@@ -267,7 +275,7 @@ export function DriverBanner({
         </div>
       )}
 
-      {prim.kind === "cita" && citaOpen && (
+      {citaOpen && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
           <p className="mb-2 text-xs font-semibold text-slate-700">{t("Datos de la cita")}</p>
           <div className="grid gap-2 sm:grid-cols-2">
