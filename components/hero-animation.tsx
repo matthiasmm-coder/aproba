@@ -22,8 +22,8 @@ const TABS = [
 
 function NavIcon({ name }: { name: string }) {
   const c = "h-3.5 w-3.5";
-  if (name === "home") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>;
-  if (name === "calendar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
+  if (name === "home") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>;
+  if (name === "calendar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M15 3v4M9 3v4M4 11h16M12 14.5v4M10 16.5h4"/></svg>;
   if (name === "board") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>;
   if (name === "users") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>;
   if (name === "invoice") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>;
@@ -57,15 +57,26 @@ function MiniAnillo({ pct }: { pct: number }) {
   );
 }
 
-// Inicio : dashboard réel — saludo, 4 KPIs (el primero resaltado) y la agenda semanal.
+// Inicio : dashboard real — saludo con el resumen, 4 KPIs con su icono y su sublínea
+// (el primero resaltado, como el real), y la agenda semanal con ‹ Hoy ›, el rango de
+// fechas, el día de hoy en círculo verde y una cita como chip.
+function KpiIcon({ name }: { name: "bell" | "clock" | "folder" | "cal" }) {
+  const c = "h-2 w-2";
+  if (name === "bell") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
+  if (name === "clock") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+  if (name === "folder") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7h-8l-2-2H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z"/></svg>;
+  return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M15 3v4M9 3v4M4 11h16"/></svg>;
+}
+
 function Inicio() {
-  const kpis = [
-    { n: "3", l: "Requieren tu acción", on: true },
-    { n: "2", l: "Plazos esta semana" },
-    { n: "6", l: "Expedientes activos" },
-    { n: "1", l: "Caducan pronto" },
+  const kpis: { n: string; l: string; sub?: string; subCls?: string; icon: "bell" | "clock" | "folder" | "cal"; on?: boolean }[] = [
+    { n: "3", l: "Requieren tu acción", icon: "bell", on: true },
+    { n: "2", l: "Plazos esta semana", sub: "1 vencido", subCls: "text-red-600", icon: "clock" },
+    { n: "6", l: "Expedientes activos", sub: "2 esperando cliente →", subCls: "text-aproba-700", icon: "folder" },
+    { n: "1", l: "Caducan pronto", sub: "1 ya caducada", subCls: "text-slate-400", icon: "cal" },
   ];
   const dias = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
+  const HOY = 3; // jueves 19
   return (
     <div>
       <div className="mb-2">
@@ -75,22 +86,28 @@ function Inicio() {
       <div className="grid grid-cols-4 gap-1.5">
         {kpis.map((k) => (
           <div key={k.l} className={`rounded-lg border p-1.5 text-center ${k.on ? "border-aproba-300 bg-aproba-50/60" : "border-slate-200 bg-white"}`}>
-            <p className={`text-[13px] font-bold tracking-tightest ${k.on ? "text-aproba-700" : "text-slate-800"}`}>{k.n}</p>
+            <span className={`mx-auto flex h-4 w-4 items-center justify-center rounded ${k.on ? "bg-aproba-600 text-white" : "bg-cream-100 text-slate-500"}`}><KpiIcon name={k.icon} /></span>
+            <p className={`mt-0.5 text-[12px] font-bold leading-none tracking-tightest ${k.on ? "text-aproba-700" : "text-slate-800"}`}>{k.n}</p>
             <p className="truncate text-[5.5px] text-slate-500">{k.l}</p>
+            <p className={`truncate text-[5px] ${k.sub ? k.subCls : "text-transparent"}`}>{k.sub ?? "·"}</p>
           </div>
         ))}
       </div>
       <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2">
-        <div className="mb-1.5 flex items-center justify-between">
+        <div className="mb-1.5 flex items-center justify-between gap-1">
           <span className="text-[8px] font-semibold text-slate-800">Agenda</span>
-          <span className="rounded bg-aproba-600 px-1.5 py-0.5 text-[6px] font-semibold text-white">+ Nueva cita</span>
+          <div className="flex items-center gap-1">
+            <span className="rounded border border-slate-200 px-1 py-0.5 text-[5.5px] text-slate-400">‹ <span className="text-slate-500">Hoy</span> ›</span>
+            <span className="text-[5.5px] text-slate-400">16 – 22 jun 2026</span>
+            <span className="rounded bg-aproba-600 px-1.5 py-0.5 text-[6px] font-semibold text-white">+ Nueva cita</span>
+          </div>
         </div>
         <div className="grid grid-cols-7 gap-1">
           {dias.map((d, i) => (
-            <div key={d} className={`rounded border p-1 text-center ${i === 3 ? "border-aproba-200 bg-aproba-50/50" : "border-slate-100"}`}>
+            <div key={d} className={`rounded border p-1 text-center ${i === HOY ? "border-aproba-100 bg-aproba-50/40" : "border-slate-100"}`}>
               <p className="text-[5px] text-slate-400">{d}</p>
-              <p className="text-[7px] font-semibold text-slate-700">{16 + i}</p>
-              {i === 3 && <p className="mt-0.5 truncate rounded bg-aproba-100 px-0.5 text-[4.5px] font-medium text-aproba-800">10:00 Huellas</p>}
+              <p className={`mx-auto text-[7px] font-semibold ${i === HOY ? "flex h-3 w-3 items-center justify-center rounded-full bg-aproba-600 text-white" : "text-slate-700"}`}>{16 + i}</p>
+              {i === HOY && <p className="mt-0.5 truncate rounded bg-aproba-100 px-0.5 text-[4.5px] font-medium text-aproba-800">10:00 Huellas</p>}
             </div>
           ))}
         </div>
