@@ -66,6 +66,30 @@ export function NuevoExpediente() {
   const [falloCopia, setFalloCopia] = useState(false);
   const [ajustando, setAjustando] = useState(false); // popup «cerrar el precio antes de enviar»
   const [ajustado, setAjustado] = useState(false);
+  // Modo de trabajo, elegido AQUÍ (22/08, pedido de Matthias): «portal» manda el enlace
+  // al cliente; «manual» significa que el despacho lo trabaja internamente y el producto
+  // deja de pedir el enlace por todas partes (tarjeta, ficha, recordatorios).
+  const [modo, setModo] = useState<"portal" | "manual">("portal");
+  const [guardandoModo, setGuardandoModo] = useState(false);
+  const [errorModo, setErrorModo] = useState<string | null>(null);
+
+  async function elegirModo(nuevo: "portal" | "manual") {
+    if (!expId || guardandoModo) return;
+    const antes = modo;
+    setModo(nuevo); setGuardandoModo(true); setErrorModo(null);
+    try {
+      const res = await fetch(`/api/expedientes/${expId}/modo`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo: nuevo }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? t("No se pudo guardar el modo."));
+      }
+    } catch (e) {
+      setModo(antes); // el toggle no miente: si el servidor no lo guardó, vuelve
+      setErrorModo(e instanceof Error ? e.message : t("No se pudo guardar el modo."));
+    } finally { setGuardandoModo(false); }
+  }
   const [gestoriaNombre, setGestoriaNombre] = useState("");
   // Contador mensual de expedientes (cuota del plan).
   const [usados, setUsados] = useState<number | null>(null);
@@ -427,7 +451,41 @@ export function NuevoExpediente() {
             </div>
           )}
 
-          <div className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 text-left">
+          {/* Cómo se va a trabajar este expediente. Es una decisión REAL del despacho:
+              muchos trámites (contra-trámites, clientes que traen los papeles en mano)
+              nunca pasan por el portal, y pedirles el enlace era ruido permanente. */}
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => elegirModo("portal")}
+              aria-pressed={modo === "portal"}
+              className={`rounded-2xl border p-4 text-left transition ${modo === "portal" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
+            >
+              <p className="text-sm font-semibold text-slate-900">{t("Con enlace al cliente")}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("Tu cliente rellena sus datos y sube los documentos desde su portal. Tú lo sigues desde el tablero.")}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => elegirModo("manual")}
+              aria-pressed={modo === "manual"}
+              className={`rounded-2xl border p-4 text-left transition ${modo === "manual" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
+            >
+              <p className="text-sm font-semibold text-slate-900">{t("Modo manual")}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("Lo trabajas tú: subes los documentos y preparas el expediente. No se te pedirá enviar ningún enlace.")}</p>
+            </button>
+          </div>
+          {errorModo && <p role="alert" className="mt-2 text-xs text-red-600">{errorModo}</p>}
+
+          {modo === "manual" ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-center">
+              <p className="text-sm text-slate-600">{t("Este expediente se trabaja en el despacho. Abre su ficha para subir los documentos y preparar los formularios.")}</p>
+              <Link href={`/app/expedientes/${expId}`} className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
+                {t("Abrir el expediente")}
+              </Link>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{t("¿Cambias de idea? El enlace del cliente sigue disponible desde la ficha en cualquier momento.")}</p>
+            </div>
+          ) : (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-left">
             <p className="text-sm font-semibold text-slate-800">{t("Enlace para tu cliente")}</p>
             <p className="mt-1 text-xs text-slate-500">{t("Envíaselo por WhatsApp. Elegirá su trámite y subirá sus datos y documentos sin instalar nada.")}</p>
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-cream-50 px-3 py-2.5">
@@ -475,6 +533,7 @@ export function NuevoExpediente() {
               </a>
             </div>
           </div>
+          )}
 
           <div className="mt-5 flex justify-center gap-3 text-sm">
             <Link href="/app/expedientes" className="font-semibold text-aproba-700 hover:underline">{t("Ir al tablero")}</Link>

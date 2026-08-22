@@ -46,6 +46,8 @@ const esperandoCliente = (e: BoardItem): boolean =>
     ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
       // Si la acción aún es «Enviar enlace» no hay nada que recordar: el gesto ES el enlace.
       && e.progreso.accion.clave !== "elegir_servicio"
+      // Modo manual: el cliente no tiene enlace — recordarle algo sería absurdo.
+      && e.progreso.accion.clave !== "subir_docs"
     : e.estado === "DOCS_PENDIENTES";
 
 function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {

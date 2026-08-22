@@ -203,3 +203,39 @@ describe("expediente que nunca arrancó", () => {
     expect(p.docs.faltan).toHaveLength(1);
   });
 });
+
+describe("modo manual — el despacho trabaja sin enlace", () => {
+  // Pedido de Matthias (22/08): con «modo manual» el producto NO debe pedir el enlace
+  // por ninguna parte. Antes, un expediente sin portal se quedaba clavado en «Enviar
+  // enlace al cliente» para siempre.
+  const manual = { ...base, modoManual: true, serviciosResueltos: 1 };
+
+  it("sin nada subido, el gesto es aportar los documentos — nunca el enlace", () => {
+    const p = calcularProgreso({ ...manual, docsRequeridos: ["Pasaporte", "Nómina"], tiposValidados: [] });
+    expect(p.accion.clave).toBe("subir_docs");
+    expect(p.accion.espera).toBe(false);
+  });
+
+  it("con documentos dentro, se prepara (y sigue sin pedir enlace)", () => {
+    const p = calcularProgreso({ ...manual, docsRequeridos: ["Pasaporte"], tiposValidados: [], docsTotales: 1, docsValidados: 0, arrancado: true });
+    expect(p.accion.clave).toBe("generar_formularios");
+  });
+
+  it("con formularios listos, presentar", () => {
+    expect(calcularProgreso({ ...manual, formulariosCurados: true }).accion.clave).toBe("presentar");
+  });
+
+  it("el modo manual NUNCA produce «elegir_servicio» (que es el enlace)", () => {
+    for (const req of [[], ["Pasaporte"]]) {
+      for (const tot of [0, 2]) {
+        const p = calcularProgreso({ ...manual, docsRequeridos: req, docsTotales: tot, docsValidados: tot });
+        expect(p.accion.clave).not.toBe("elegir_servicio");
+      }
+    }
+  });
+
+  it("sin modo manual, el comportamiento no cambia", () => {
+    const p = calcularProgreso({ ...base, serviciosResueltos: 1, docsRequeridos: ["Pasaporte"], tiposValidados: [] });
+    expect(p.accion.clave).toBe("elegir_servicio");
+  });
+});

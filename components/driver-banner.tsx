@@ -81,7 +81,8 @@ export function DriverBanner({
     | { kind: "espera"; label: string }
     | { kind: "nav"; label: string; href: string }
     | { kind: "avanzar"; label: string; accion: string; confirm?: string; navAfter?: string }
-    | { kind: "copiar"; label: string };
+    | { kind: "copiar"; label: string }
+    | { kind: "ancla"; label: string; target: string };
 
   let prim: Prim = { kind: "espera", label: "" };
   let secundaria: React.ReactNode = null;
@@ -94,7 +95,10 @@ export function DriverBanner({
   const enPreparacion = Boolean(progreso && progreso.estado === "EN_PREPARACION");
   const tieneCita = Boolean(progreso?.hitos.resuelto && citaFecha);
   if (enPreparacion && progreso) {
-    if (clave === "elegir_servicio") {
+    if (clave === "subir_docs") {
+      // Modo manual: el gesto es aportar los papeles uno mismo, no pedir nada al cliente.
+      prim = { kind: "ancla", label: t("Subir los documentos"), target: "subir-interno" };
+    } else if (clave === "elegir_servicio") {
       prim = portalToken ? { kind: "copiar", label: t("Enviar enlace al cliente") } : { kind: "espera", label: t("Comparte el enlace con el cliente") };
       if (permiteSubidaInterna) {
         secundaria = (
@@ -168,6 +172,7 @@ export function DriverBanner({
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
     else if (prim.kind === "avanzar") { if (!prim.confirm || (await confirmar(prim.confirm))) avanzar(prim.accion, undefined, prim.navAfter); }
+    else if (prim.kind === "ancla") abrirYScroll("documentos", prim.target, "center");
     else if (prim.kind === "copiar") copiarEnlace();
   }
 

@@ -61,6 +61,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   const esperandoCliente = live.filter((e) => e.progreso
     ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
       && e.progreso.accion.clave !== "elegir_servicio" // sin enlace enviado no se «recuerda» nada
+      && e.progreso.accion.clave !== "subir_docs" // modo manual: el cliente no tiene enlace
     : e.estado === "DOCS_PENDIENTES").length;
 
   const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)).length }));

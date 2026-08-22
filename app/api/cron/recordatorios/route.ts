@@ -64,8 +64,12 @@ export async function GET(req: Request) {
   const interno = (id: string) => INTERNOS.some((r) => r.test(nombreWs.get(id) ?? ""));
 
   const { data: exps } = await admin.from("Expediente")
-    .select("id, workspaceId, estado, createdAt, formulariosGenerados, tasaPath").in("estado", ESTADOS_PREPARACION);
-  const vivos = (exps ?? []).filter((e) => !interno(e.workspaceId as string) && dias(e.createdAt as string) <= EDAD_MAX_DIAS);
+    .select("id, workspaceId, estado, createdAt, formulariosGenerados, tasaPath, modoTrabajo").in("estado", ESTADOS_PREPARACION);
+  // modoTrabajo es columna nueva (supabase/modo-trabajo.sql): sin migrar, se reintenta
+  // sin ella — el cron no puede caerse por una migración pendiente.
+  const expsSeguro = exps ?? (await admin.from("Expediente")
+    .select("id, workspaceId, estado, createdAt, formulariosGenerados, tasaPath").in("estado", ESTADOS_PREPARACION)).data;
+  const vivos = (expsSeguro ?? []).filter((e) => !interno(e.workspaceId as string) && dias(e.createdAt as string) <= EDAD_MAX_DIAS);
   if (!vivos.length) return NextResponse.json({ ok: true, activo: ACTIVO, candidatos: 0 });
 
   // Un solo barrido del diario para los expedientes en juego.
@@ -109,7 +113,10 @@ export async function GET(req: Request) {
     // El despacho ya avanzó SIN el cliente (formularios curados o tasa generada): pedirle
     // documentos entonces es reclamar algo que ya no bloquea nada. Con el ciclo nuevo esto
     // importa más que antes: «en preparación» incluye expedientes muy adelantados.
-    const f = (e as { formulariosGenerados?: string[] | null; tasaPath?: string | null });
+    const f = (e as { formulariosGenerados?: string[] | null; tasaPath?: string | null; modoTrabajo?: string | null });
+    // MODO MANUAL: el cliente no tiene enlace. Mandarle un recordatorio con un portal
+    // que nadie le ha dado sería el peor correo posible del producto.
+    if (f.modoTrabajo === "manual") return false;
     if (Array.isArray(f.formulariosGenerados) || f.tasaPath) return false;
     // Medido el 18/08: de 27 expedientes con respuesta, 14 se quedaron en UN solo
     // documento y 24 de 27 lo hicieron todo en una única sesión de <2 h. El cliente

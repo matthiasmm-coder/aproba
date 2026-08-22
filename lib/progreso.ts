@@ -81,6 +81,11 @@ export type Hechos = {
   citaPresencial: boolean;
   fechaCita: string | null;
   arrancado: boolean;             // el cliente entró o hay algún documento: el trámite vive
+  // MODO MANUAL (22/08): el despacho trabaja el expediente internamente y NUNCA se le
+  // pide enviar un enlace — ni aquí, ni en la ficha, ni en los recordatorios. Sin este
+  // hecho, un expediente sin portal se quedaba pidiendo «Enviar enlace al cliente»
+  // para siempre, que es exactamente lo que NO hay que hacer en ese modo.
+  modoManual?: boolean;
   // Marcador de migración: el estado antiguo YA afirmaba públicamente «docs validados»
   // (forzar_validados). Sin él, 18 clientes reales verían su seguimiento RETROCEDER.
   docsDadosPorValidados?: boolean;
@@ -97,7 +102,7 @@ export type Progreso = {
 
 export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
 export type AccionClave =
-  | "elegir_servicio" | "generar_formularios" | "presentar"
+  | "elegir_servicio" | "subir_docs" | "generar_formularios" | "presentar"
   | "esperando_resolucion" | "finalizar" | "cerrado" | "denegado";
 
 export const FASES: { key: FaseKey; label: string }[] = [
@@ -175,6 +180,16 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
     return { label: "Finalizar trámite", espera: false, clave: "finalizar" };
   }
   if (estado === "PRESENTADO") return { label: "Esperando resolución", espera: true, clave: "esperando_resolucion" };
+
+  // MODO MANUAL: nunca se pide el enlace. Lo que toca es aportar los documentos uno
+  // mismo (o preparar ya, si el servicio no exige ninguno).
+  if (h.modoManual) {
+    if (!hitoForm && docs.faltan.length > 0 && h.docsTotales === 0) {
+      return { label: "Subir los documentos", espera: false, clave: "subir_docs" };
+    }
+    if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
+    return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };
+  }
 
   // EN_PREPARACION: el orden importa. Sin servicio resuelto no hay documentos que pedir
   // — decir «esperando documentos» ahí sería mentir sobre quién bloquea.
