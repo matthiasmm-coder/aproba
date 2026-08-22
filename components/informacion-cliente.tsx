@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { useT } from "@/components/lang-provider";
 import { EditarCliente } from "@/components/editar-cliente";
+import { copiarTexto } from "@/lib/copiar";
 
 // Sección «Información» de la ficha del expediente (22/08/2026, pedido de Matthias):
 // TODOS los datos personales del cliente, los MISMOS que pide el portal y que se ven en
@@ -24,13 +26,31 @@ function valorLegible(k: keyof ClienteFicha, v: string, t: (s: string) => string
   return v;
 }
 
-export function InformacionCliente({ ficha, clienteId, oficinas = [], oficinaId = null }: {
+export function InformacionCliente({ ficha, clienteId, oficinas = [], oficinaId = null, portalToken = null }: {
   ficha: ClienteFicha;
   clienteId: string | null;
   oficinas?: { id: string; nombre: string }[];
   oficinaId?: string | null;
+  // Solo en modo «con enlace»: el enlace del cliente vive aquí desde que salió del
+  // banner de «Siguiente paso» (22/08). En modo manual llega null y no se enseña.
+  portalToken?: string | null;
 }) {
   const t = useT();
+  const [copiado, setCopiado] = useState(false);
+  const [enClaro, setEnClaro] = useState<string | null>(null);
+
+  async function copiarEnlace() {
+    if (!portalToken) return;
+    const url = `${window.location.origin}/j/${portalToken}`;
+    if (await copiarTexto(url)) {
+      setCopiado(true); setEnClaro(null);
+      window.setTimeout(() => setCopiado(false), 4000);
+    } else {
+      // Nunca dejar al gestor sin el enlace: si el navegador bloquea el portapapeles,
+      // se enseña en claro para seleccionarlo a mano (misma regla que el alta).
+      setEnClaro(url);
+    }
+  }
 
   return (
     <div>
@@ -60,6 +80,24 @@ export function InformacionCliente({ ficha, clienteId, oficinas = [], oficinaId 
           );
         })}
       </div>
+
+      {portalToken && (
+        <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t("Enlace del cliente")}</p>
+          <button onClick={copiarEnlace} className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700">
+            {copiado ? t("¡Copiado!") : t("Copiar enlace del cliente")}
+          </button>
+          {enClaro && (
+            <input
+              readOnly
+              value={enClaro}
+              onFocus={(ev) => ev.currentTarget.select()}
+              aria-label={t("Enlace del cliente")}
+              className="mt-2 w-full bg-transparent text-center font-mono text-[16px] sm:text-xs text-slate-700 outline-none"
+            />
+          )}
+        </div>
+      )}
 
       {clienteId && (
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 border-t border-slate-100 pt-4">

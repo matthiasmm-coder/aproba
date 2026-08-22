@@ -169,11 +169,13 @@ export function DriverBanner({
   // documento (el cliente o el propio gestor), el expediente pasaba a DOCS_PENDIENTES
   // y el enlace se volvía irrecuperable desde la ficha. Ahora está siempre a mano,
   // salvo cuando ya es la acción principal (no duplicar el mismo botón).
-  // En MODO MANUAL no se ofrece el enlace en ninguna parte — es toda la promesa del
-  // modo. El expediente TIENE portalToken (se genera siempre al crearlo), así que sin
-  // esta condición el botón seguía ahí contradiciendo «no se te pedirá enviar ningún
-  // enlace». Si el gestor cambia de idea, el enlace vive en la ficha del cliente.
-  const enlaceSiempre = Boolean(portalToken) && prim.kind !== "copiar" && !modoManual;
+  // El botón utilitario «Copiar enlace del cliente» SALIÓ de este banner (22/08, los dos
+  // modos): «Siguiente paso» nombra UN gesto, no lleva herramientas permanentes. El
+  // enlace no se pierde — vive ahora en la sección «Información» de la ficha, junto al
+  // resto de los datos del cliente. Ojo: quitarlo sin darle otra casa habría repetido
+  // el fallo de julio (746e38c), cuando el enlace era irrecuperable tras el primer
+  // documento. Cuando el siguiente paso ES mandar el enlace, sigue siendo la acción
+  // principal (kind "copiar"), que es otra cosa.
   async function onPrimary() {
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
@@ -206,16 +208,7 @@ export function DriverBanner({
             </span>
           </div>
         )}
-        {(secundaria || enlaceSiempre) && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {secundaria}
-            {enlaceSiempre && (
-              <button onClick={copiarEnlace} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-white">
-                {t("Copiar enlace del cliente")}
-              </button>
-            )}
-          </div>
-        )}
+        {secundaria && <div className="flex shrink-0 flex-wrap items-center gap-2">{secundaria}</div>}
       </div>
 
       {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}

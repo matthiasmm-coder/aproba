@@ -253,6 +253,7 @@ export default async function ExpedienteDetail({
             ficha={(e.clienteFicha ?? {}) as ClienteFicha}
             clienteId={e.clienteId ?? null}
             oficinas={oficinasDespacho}
+            portalToken={e.modoTrabajo === "manual" ? null : e.portalToken}
           />
         </SeccionPlegable>
 
