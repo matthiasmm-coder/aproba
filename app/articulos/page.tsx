@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { listaArticulos, minutosDeLectura, fechaLarga } from "@/lib/articulos";
+import { listaArticulos, imagenDe, minutosDeLectura, fechaLarga } from "@/lib/articulos";
 
 export const metadata: Metadata = {
   title: "Artículos sobre extranjería para despachos",
@@ -28,7 +29,18 @@ export default function ArticulosIndex() {
 
       <div className="mt-10 space-y-4">
         {articulos.map((a) => (
-          <article key={a.slug} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-aproba-300 hover:shadow-card sm:p-6">
+          <article key={a.slug} className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-aproba-300 hover:shadow-card">
+            <Link href={`/articulos/${a.slug}`} aria-hidden tabIndex={-1} className="block">
+              <Image
+                src={imagenDe(a)}
+                alt=""
+                width={1536}
+                height={1024}
+                sizes="(max-width: 768px) 100vw, 768px"
+                className="aspect-[2/1] w-full border-b border-slate-100 object-cover"
+              />
+            </Link>
+            <div className="p-5 sm:p-6">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
               <span className="rounded-full bg-aproba-50 px-2 py-0.5 font-semibold text-aproba-700">{a.tema}</span>
               <time dateTime={a.actualizado ?? a.fecha}>{fechaLarga(a.actualizado ?? a.fecha)}</time>
@@ -42,6 +54,7 @@ export default function ArticulosIndex() {
             <Link href={`/articulos/${a.slug}`} className="mt-3 inline-block text-sm font-semibold text-aproba-700 hover:underline">
               Leer el artículo →
             </Link>
+            </div>
           </article>
         ))}
       </div>

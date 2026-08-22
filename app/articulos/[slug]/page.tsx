@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ARTICULOS, getArticulo, listaArticulos, minutosDeLectura, fechaLarga } from "@/lib/articulos";
+import Image from "next/image";
+import { ARTICULOS, getArticulo, imagenDe, listaArticulos, minutosDeLectura, fechaLarga } from "@/lib/articulos";
 import { ArticuloCuerpo } from "@/components/articulo-cuerpo";
 
 const BASE = "https://aproba-software.com";
@@ -27,8 +28,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: a.descripcion,
       publishedTime: a.fecha,
       modifiedTime: a.actualizado ?? a.fecha,
+      images: [{ url: imagenDe(a), width: 1536, height: 1024, alt: a.imagenAlt }],
     },
-    twitter: { card: "summary_large_image", title: a.titulo, description: a.descripcion },
+    twitter: { card: "summary_large_image", title: a.titulo, description: a.descripcion, images: [imagenDe(a)] },
   };
 }
 
@@ -48,6 +50,7 @@ export default async function ArticuloPage({ params }: { params: Promise<{ slug:
         "@type": "Article",
         headline: a.titulo,
         description: a.descripcion,
+        image: [`${BASE}${imagenDe(a)}`],
         datePublished: a.fecha,
         dateModified: a.actualizado ?? a.fecha,
         inLanguage: "es-ES",
@@ -88,6 +91,18 @@ export default async function ArticuloPage({ params }: { params: Promise<{ slug:
         {a.actualizado && (
           <p className="mt-2 text-xs text-slate-400">Actualizado el {fechaLarga(a.actualizado)}</p>
         )}
+
+        {/* priority: es el elemento grande de la mitad superior — cargarla tarde
+            penaliza el LCP, que es justo lo que mide el buscador. */}
+        <Image
+          src={imagenDe(a)}
+          alt={a.imagenAlt}
+          width={1536}
+          height={1024}
+          priority
+          sizes="(max-width: 768px) 100vw, 768px"
+          className="mt-8 w-full rounded-2xl border border-slate-200"
+        />
 
         <hr className="my-8 border-slate-200" />
 

@@ -27,8 +27,16 @@ export type Articulo = {
   actualizado?: string;    // ISO — si se revisa, cuenta para el frescor en buscadores
   tema: string;            // etiqueta corta para el índice
   entradilla: string;      // resumen visible bajo el h1
+  // Imagen de cabecera (public/articulos/<slug>.jpg, 1536×1024). Sirve DOS veces: en la
+  // página y como tarjeta al compartir el enlace (og:image). El alt describe la imagen,
+  // no repite el título — quien la escucha con un lector de pantalla ya lo ha oído.
+  imagenAlt: string;
   bloques: Bloque[];
 };
+
+// La ruta se deriva del slug: una imagen por artículo, mismo nombre, sin campo que
+// pueda quedar desincronizado.
+export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
@@ -41,6 +49,8 @@ export const ARTICULOS: Articulo[] = [
     tema: "Regularización 2026",
     entradilla:
       "La regularización extraordinaria de 2026 no termina cuando se resuelve el último expediente: empieza otra vez doce meses después. Estos son los números y lo que un despacho puede hacer hoy.",
+    imagenAlt:
+      "Ilustración: una ola inmensa formada por miles de expedientes de papel avanza hacia una mesa pequeña con un calendario.",
     bloques: [
       { t: "h2", texto: "Qué pasó en 2026" },
       {
@@ -143,6 +153,8 @@ export const ARTICULOS: Articulo[] = [
     tema: "Plazos",
     entradilla:
       "La fase de subsanación de la regularización extraordinaria afecta a cientos de miles de expedientes y se cierra el 30 de septiembre de 2026. El plazo que circula por el sector no siempre es el correcto.",
+    imagenAlt:
+      "Ilustración: un calendario con una fecha rodeada en verde, un reloj de arena casi vacío y un sobre cerrado.",
     bloques: [
       { t: "h2", texto: "El plazo: 15 días, no 10" },
       {
@@ -200,6 +212,8 @@ export const ARTICULOS: Articulo[] = [
     tema: "Práctica del despacho",
     entradilla:
       "Casi ningún requerimiento llega por el fondo del asunto. Llega porque falta una hoja, porque una fecha no cuadra o porque la foto del móvil no se lee. Estos son los siete casos más repetidos.",
+    imagenAlt:
+      "Ilustración cenital: documentos en blanco y un pasaporte sobre una mesa, con una lupa que destaca el detalle marcado por una pestaña ámbar.",
     bloques: [
       { t: "h2", texto: "1. El documento ilegible" },
       {
