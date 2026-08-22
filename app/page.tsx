@@ -132,7 +132,7 @@ export default function Landing() {
             <a href="#precios" className="hover:text-slate-900">Precios</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 sm:px-3">
+            <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-3 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
               Entrar
             </Link>
             <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
