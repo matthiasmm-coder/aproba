@@ -5,7 +5,7 @@ import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs } from "@/lib/tramites";
 import { calcularProgreso, type Progreso } from "@/lib/progreso";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
-import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { FICHA_KEYS, FICHA_CAMPOS, type ClienteFicha } from "@/lib/ficha";
 
 // Construit la ficha à partir des colonnes Cliente (uniquement les clés connues).
 function fichaDeCliente(c: Record<string, string | null> | null | undefined): ClienteFicha {
@@ -74,7 +74,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   };
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
-  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, estado, fechaLimite, cliente:Cliente(nombre, apellidos, nacionalidad), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
+  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
     conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
@@ -102,8 +102,8 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   }
   // modoTrabajo es columna nueva (supabase/modo-trabajo.sql): sin migrar, TODA la cadena
   // fallaría porque vive en SEL_BASE — se reintenta la consulta completa sin ella.
-  if (error && /modoTrabajo/i.test(String(error.message))) {
-    const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+  if (error && /modoTrabajo|validadoAt/i.test(String(error.message))) {
+    const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r4.data ?? null) as unknown[] | null;
     error = r4.error;
   }
@@ -141,7 +141,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,
-    progreso: progresoDeExpediente(e, catalogoDeSede(filasCatalogo, (e as unknown as { oficinaId?: string | null }).oficinaId ?? null)),
+    progreso: progresoDeExpediente({ ...e, cliente: (Array.isArray(e.cliente) ? e.cliente[0] : e.cliente) as Record<string, unknown> | null }, catalogoDeSede(filasCatalogo, (e as unknown as { oficinaId?: string | null }).oficinaId ?? null)),
   }));
 }
 
@@ -197,6 +197,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   tipoEnum: string;
   oficinaId: string | null; // sede del expediente — resuelve el catálogo (catalogoDeSede)
   modoTrabajo: "portal" | "manual"; // manual = el despacho lo trabaja sin enlace al cliente
+  validadoManual: boolean; // el gestor declaró las 3 secciones OK (100 % y «Listo para presentar»)
   formulariosGenerados: string[] | null; // bruto, para el constructor único del progreso
   tasaPath: string | null;
   tieneTasa: boolean; // tasa 790-012 oficial guardada (tasaPath — flujo individual)
@@ -231,7 +232,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo, validadoAt,
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
@@ -297,6 +298,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     tipoEnum: e.tipo,
     oficinaId: (e as unknown as { oficinaId?: string | null }).oficinaId ?? null,
     modoTrabajo: ((e as unknown as { modoTrabajo?: string | null }).modoTrabajo === "manual" ? "manual" : "portal"),
+    validadoManual: Boolean((e as unknown as { validadoAt?: string | null }).validadoAt),
     formulariosGenerados: ((e as { formulariosGenerados?: string[] | null }).formulariosGenerados) ?? null,
     tasaPath: ((e as { tasaPath?: string | null }).tasaPath) ?? null,
     servicioClave: e.servicioClave ?? null,
@@ -333,8 +335,8 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
   // citaQuien es columna nueva (supabase/cita-quien.sql): sin migrar, se reintenta sin ella.
-  if (res.error && /citaQuien|modoTrabajo/i.test(res.error.message)) {
-    const sinNuevas = DETALLE_SELECT.replace(" citaQuien,", "").replace(" modoTrabajo,", "");
+  if (res.error && /citaQuien|modoTrabajo|validadoAt/i.test(res.error.message)) {
+    const sinNuevas = DETALLE_SELECT.replace(" citaQuien,", "").replace(" modoTrabajo,", "").replace(" validadoAt,", "");
     res = await supabase.from("Expediente").select(sinNuevas).eq("id", id).maybeSingle() as typeof res;
   }
   // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
@@ -443,6 +445,11 @@ export function progresoDeExpediente(
     documentos?: { tipo?: string | null; estado: string }[] | null;
     formulariosGenerados?: string[] | null; tasaPath?: string | null; fechaCita?: string | null;
     modoTrabajo?: string | null;
+    validadoAt?: string | null;
+    // Ficha del cliente: alimenta la parte «Información» de la completitud. Se pasa el
+    // objeto cliente crudo y aquí se cuenta contra FICHA_CAMPOS — así el tablero y la
+    // ficha usan el MISMO denominador que la sección «Información» de la pantalla.
+    cliente?: Record<string, unknown> | null;
   },
   catalogo: CatalogoResuelto,
 ): Progreso {
@@ -470,6 +477,9 @@ export function progresoDeExpediente(
     fechaCita: e.fechaCita ?? null,
     arrancado: docs.length > 0,
     modoManual: e.modoTrabajo === "manual",
+    validadoManual: Boolean(e.validadoAt),
+    fichaRellenos: FICHA_CAMPOS.filter((c: { k: string }) => String(((e.cliente ?? {}) as Record<string, unknown>)[c.k] ?? "").trim()).length,
+    fichaTotal: FICHA_CAMPOS.length,
     // El estado legado ya afirmaba en publico «documentacion validada»: no puede
     // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio
     // valor mientras las filas antiguas existan: sin columna nueva ni UPDATE de remap.

@@ -239,3 +239,46 @@ describe("modo manual — el despacho trabaja sin enlace", () => {
     expect(p.accion.clave).toBe("elegir_servicio");
   });
 });
+
+describe("completitud del expediente (Información + Documentos + Formularios)", () => {
+  // Pedido de Matthias (22/08): un % por expediente, media simple de tres partes
+  // iguales, para que el gestor pueda reconstruir el número mirándolo.
+  const b = { ...base, serviciosResueltos: 1, fichaTotal: 18 };
+
+  it("expediente vacío = 0 %", () => {
+    expect(calcularProgreso({ ...b, fichaRellenos: 0, docsRequeridos: ["Pasaporte"] }).completitud.pct).toBe(0);
+  });
+
+  it("solo la ficha completa = 33 %", () => {
+    expect(calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"] }).completitud.pct).toBe(33);
+  });
+
+  it("ficha + documentos, sin formularios = 67 %", () => {
+    const p = calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"] });
+    expect(p.completitud.pct).toBe(67);
+    expect(p.completitud.formularios).toBe(0);
+  });
+
+  it("las tres partes = 100 %", () => {
+    expect(calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"], formulariosCurados: true }).completitud.pct).toBe(100);
+  });
+
+  it("documentos a medias cuentan en proporción", () => {
+    const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["A", "B"], tiposValidados: [], formulariosCurados: true });
+    // info 0,5 + docs 0 + forms 1 = 1,5/3 = 50 %
+    expect(p.completitud.pct).toBe(50);
+  });
+
+  it("la validación MANUAL fuerza 100 % y empuja a «Listo para presentar»", () => {
+    const p = calcularProgreso({ ...b, fichaRellenos: 0, docsRequeridos: ["Pasaporte"], validadoManual: true });
+    expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.manual).toBe(true);
+    expect(p.fase).toBe("preparacion");
+  });
+
+  it("un expediente ya presentado está al 100 % sin necesitar validación", () => {
+    const p = calcularProgreso({ ...b, estado: "PRESENTADO", fichaRellenos: 0 });
+    expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.manual).toBe(false);
+  });
+});

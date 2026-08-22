@@ -26,6 +26,7 @@ import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
 import { AccionesCiclo } from "@/components/acciones-ciclo";
+import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
@@ -142,6 +143,8 @@ export default async function ExpedienteDetail({
       // Mismo fallo que cuando el mapping del tablero tiraba `progreso`: si añades un
       // hecho a progresoDeExpediente, hay que pasarlo en LAS DOS llamadas.
       modoTrabajo: e.modoTrabajo,
+      validadoAt: e.validadoManual ? "1" : null,
+      cliente: (e.clienteFicha ?? {}) as Record<string, unknown>,
     },
     serviciosSede.map((sv) => ({ id: sv.id, docs: sv.docs, citaPresencial: sv.citaPresencial })),
   );
@@ -194,6 +197,12 @@ export default async function ExpedienteDetail({
             expediente no avanza nunca. Las navegaciones que el banner también ofrecía
             (generar formularios, subir documentos) ya viven en sus secciones. */}
         <AccionesCiclo id={e.id} estado={e.estado} progreso={progresoExp} />
+
+        {/* Completitud + el botón único de validación. Solo antes de presentar: después,
+            declarar «listo» ya no significa nada. */}
+        {!progresoExp.hitos.presentado && (
+          <ValidarExpediente id={e.id} completitud={progresoExp.completitud} />
+        )}
 
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>

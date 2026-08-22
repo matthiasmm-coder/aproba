@@ -86,6 +86,14 @@ export type Hechos = {
   // hecho, un expediente sin portal se quedaba pidiendo «Enviar enlace al cliente»
   // para siempre, que es exactamente lo que NO hay que hacer en ese modo.
   modoManual?: boolean;
+  // Validación MANUAL del gestor (un botón en la ficha): declara que Información,
+  // Documentos y Formularios están OK. Sube la completitud a 100 % y mete el
+  // expediente en «Listo para presentar». Existe porque el producto NO puede saberlo
+  // todo: papeles que el cliente trajo en mano, campos que no aplican a ese trámite…
+  validadoManual?: boolean;
+  // Denominador de «Información»: campos de la ficha del cliente rellenos / total.
+  fichaRellenos?: number;
+  fichaTotal?: number;
   // Marcador de migración: el estado antiguo YA afirmaba públicamente «docs validados»
   // (forzar_validados). Sin él, 18 clientes reales verían su seguimiento RETROCEDER.
   docsDadosPorValidados?: boolean;
@@ -98,6 +106,11 @@ export type Progreso = {
   hitos: { arrancado: boolean; docs: boolean; formularios: boolean; presentado: boolean; resuelto: boolean; cerrado: boolean };
   accion: { label: string; espera: boolean; clave: AccionClave };
   score: number; // orden dentro de la fase (0-100)
+  // Completitud del expediente en % — media de las TRES secciones que el gestor mira
+  // antes de presentar: Información (campos de la ficha), Documentos (requeridos
+  // validados) y Formularios (generados). `desglose` alimenta el tooltip: un número
+  // global sin detalle no dice qué falta.
+  completitud: { pct: number; info: number; docs: number; formularios: number; manual: boolean };
 };
 
 export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
@@ -158,7 +171,16 @@ export function calcularProgreso(h: Hechos): Progreso {
     cerrado: estado === "FINALIZADO",
   };
 
-  return { estado, fase: faseDe(estado, hitoDocs, hitoForm), docs, hitos, accion: accionSiguiente(h, estado, docs, hitoForm), score: scoreDe(estado, docs, hitoForm, h) };
+  const completitud = completitudDe(h, docs, hitoForm, post);
+  // La validación manual también EMPUJA de fase: es su sentido — «esto ya está listo».
+  return {
+    estado,
+    fase: faseDe(estado, hitoDocs || Boolean(h.validadoManual), hitoForm),
+    docs, hitos,
+    accion: accionSiguiente(h, estado, docs, hitoForm),
+    score: scoreDe(estado, docs, hitoForm, h),
+    completitud,
+  };
 }
 
 // La frontera Recepción/Preparación ya no puede ser una pertenencia de estado (los cuatro
@@ -213,6 +235,27 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
   // El gris de espera queda solo donde el gestor no puede hacer nada: tras presentar.
   if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
   return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };
+}
+
+// ── Completitud (0-100) ──────────────────────────────────────────────────────
+// Media simple de tres partes iguales. Nada de ponderaciones invisibles: el gestor
+// tiene que poder mirar el número y reconstruir de dónde sale.
+//  · Información  → campos rellenos / total de la ficha del cliente
+//  · Documentos   → requeridos validados / requeridos (sin requisitos: 1 si hay algo
+//                   subido y todo validado, si no 0 — nunca «completo por vacío»)
+//  · Formularios  → 1 si hay modelos o tasa generados, 0 si no
+// Presentado o validado a mano ⇒ 100 %: el trabajo previo ya está hecho, y seguir
+// enseñando «67 %» sobre un expediente depositado sería mentir al revés.
+function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean, post: boolean): Progreso["completitud"] {
+  const manual = Boolean(h.validadoManual);
+  const total = h.fichaTotal ?? 0;
+  const info = total > 0 ? Math.min(1, (h.fichaRellenos ?? 0) / total) : 0;
+  const dcs = docs.requeridos > 0
+    ? docs.recibidos / docs.requeridos
+    : (docs.completo ? 1 : 0);
+  const frm = hitoForm ? 1 : 0;
+  if (manual || post) return { pct: 100, info: 1, docs: 1, formularios: 1, manual };
+  return { pct: Math.round(((info + dcs + frm) / 3) * 100), info, docs: dcs, formularios: frm, manual };
 }
 
 // Orden dentro de una fase: sustituye al antiguo ORDEN por estado, que ya no discrimina.

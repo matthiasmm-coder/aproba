@@ -8,6 +8,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { NextAction } from "@/components/next-action";
+import { AnilloCompletitud } from "@/components/anillo-completitud";
 import { metaDeEstado, normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
@@ -72,7 +73,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
   const barra = conRequisitos
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
-  const pct = barra.total > 0 ? Math.round((barra.hechos / barra.total) * 100) : 0;
+  const comp = e.progreso?.completitud;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
     <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
@@ -100,11 +101,19 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
             <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{t(meta.label)}
           </span>
         )}
-        {barra.total > 0 && !post && (
-          <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-400" title={barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : undefined}>
-            <span className="h-1 w-10 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full ${pct === 100 ? "bg-aproba-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} /></span>
-            {barra.hechos}/{barra.total}
-          </span>
+        {/* Completitud del expediente (Información + Documentos + Formularios). Tras
+            presentar se apaga: lo depositado está depositado. */}
+        {comp && !post && (
+          <AnilloCompletitud
+            pct={comp.pct}
+            titulo={[
+              comp.manual ? t("Validado a mano por el gestor") : null,
+              `${t("Información")}: ${Math.round(comp.info * 100)}%`,
+              `${t("Documentos")}: ${barra.total > 0 ? `${barra.hechos}/${barra.total}` : `${Math.round(comp.docs * 100)}%`}`,
+              `${t("Formularios")}: ${comp.formularios === 1 ? t("sí") : t("no")}`,
+              barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : null,
+            ].filter(Boolean).join(" · ")}
+          />
         )}
         <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
       </div>
