@@ -132,6 +132,11 @@ export default async function ExpedienteDetail({
       documentos: e.documentos,
       formulariosGenerados: e.formulariosGenerados, tasaPath: e.tasaPath,
       fechaCita: e.cita?.fecha ?? null,
+      // ⚠️ Pasarlo SIEMPRE: sin él la ficha seguía pidiendo «Enviar enlace al cliente»
+      // en un expediente manual mientras la tarjeta del tablero decía lo correcto.
+      // Mismo fallo que cuando el mapping del tablero tiraba `progreso`: si añades un
+      // hecho a progresoDeExpediente, hay que pasarlo en LAS DOS llamadas.
+      modoTrabajo: e.modoTrabajo,
     },
     serviciosSede.map((sv) => ({ id: sv.id, docs: sv.docs, citaPresencial: sv.citaPresencial })),
   );
@@ -194,7 +199,7 @@ export default async function ExpedienteDetail({
         citaFecha={e.cita?.fecha ?? null}
         citaPresencial={cita.citaPresencial}
         portalToken={e.portalToken}
-        permiteSubidaInterna={!familia}
+        permiteSubidaInterna={!familia && e.modoTrabajo !== "manual"}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
       />
 
