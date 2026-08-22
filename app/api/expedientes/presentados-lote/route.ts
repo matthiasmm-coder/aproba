@@ -50,7 +50,15 @@ export async function POST(req: Request) {
   const admin = createSupabaseAdmin();
   const ahora = new Date().toISOString();
   const okIds = elegibles.map((e) => e.id);
-  const { error: eUp } = await admin.from("Expediente").update({ estado: "PRESENTADO", updatedAt: ahora }).in("id", okIds);
+  // La fecha REAL de presentación es la que declara el gestor (estos expedientes se
+  // presentaron hace semanas); sin ella, el día de la puesta al día.
+  const fechaISO = typeof body.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha)
+    ? new Date(`${body.fecha}T12:00:00.000Z`).toISOString()
+    : ahora;
+  let { error: eUp } = await admin.from("Expediente").update({ estado: "PRESENTADO", updatedAt: ahora, fechaPresentacion: fechaISO }).in("id", okIds);
+  if (eUp && /fechaPresentacion|column|schema cache/i.test(eUp.message)) {
+    eUp = (await admin.from("Expediente").update({ estado: "PRESENTADO", updatedAt: ahora }).in("id", okIds)).error;
+  }
   if (eUp) return NextResponse.json({ error: eUp.message }, { status: 500 });
 
   const desc = `Expediente presentado en la Administración${fecha ? ` (el ${fecha})` : ""} — puesta al día en lote, sin avisos`;

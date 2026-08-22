@@ -21,6 +21,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
+    presentadoEl: e.presentadoEl,
     archivado: e.archivado,
     validados: e.validados,
     total: e.total,

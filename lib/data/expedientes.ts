@@ -28,6 +28,7 @@ export type ExpedienteResumen = {
   asignadoA: string;
   fechaLimite?: string;
   fechaLimiteISO?: string; // brut, para calcular días restantes REALES (no el label dd/mm)
+  presentadoEl?: string;   // dd/mm/aaaa — solo a partir de «Presentado»
   archivado: boolean; // servidor (archivadoAt) — igual para todo el equipo
   validados: number;
   total: number;
@@ -44,6 +45,7 @@ type ResumenRow = {
   servicioClave: string | null;
   estado: string;
   fechaLimite: string | null;
+  fechaPresentacion?: string | null;
   cliente: ({ nombre: string; apellidos: string | null; nacionalidad: string | null; email?: string | null; telefono?: string | null } & Record<string, string | null>) | null;
   familia?: { nombre: string } | { nombre: string }[] | null;
   asignadoA: { nombre: string | null } | null;
@@ -74,7 +76,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   };
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
-  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
+  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
     conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
@@ -103,7 +105,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   // modoTrabajo es columna nueva (supabase/modo-trabajo.sql): sin migrar, TODA la cadena
   // fallaría porque vive en SEL_BASE — se reintenta la consulta completa sin ella.
   if (error && /modoTrabajo|validadoAt/i.test(String(error.message))) {
-    const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+    const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "").replace(" fechaPresentacion,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r4.data ?? null) as unknown[] | null;
     error = r4.error;
   }
@@ -114,8 +116,25 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   const filasCatalogo = ((svc.data ?? []) as { clave: string; label: string | null; docs?: string[] | null; citaPresencial?: boolean | null; oficinaId?: string | null }[])
     .map((f) => ({ id: f.clave, label: f.label ?? "", docs: f.docs ?? [], citaPresencial: Boolean(f.citaPresencial), oficinaId: f.oficinaId ?? null }));
 
+  // Fecha de presentación de los expedientes ANTERIORES al sellado de la columna: se
+  // deriva del evento PRESENTADO del historial (única huella que existía). Solo se
+  // consulta si de verdad hay filas sin sellar — con el tiempo, ninguna.
+  const filas = (data ?? []) as unknown as ResumenRow[];
+  const POST = new Set(["PRESENTADO", "RESUELTO", "RECHAZADO", "FINALIZADO", "CITA_HUELLAS"]);
+  const fechaEvento = new Map<string, string>();
+  if (filas.some((e) => POST.has(String(e.estado)) && !e.fechaPresentacion)) {
+    // Sin .in(ids): la lista podría llevar cientos de UUID a la URL. RLS ya limita los
+    // eventos al workspace, y un despacho real tiene pocos PRESENTADO.
+    const { data: evs } = await supabase
+      .from("ExpedienteEvento").select("expedienteId, createdAt")
+      .eq("tipo", "PRESENTADO").order("createdAt", { ascending: true }).limit(2000);
+    for (const ev of (evs ?? []) as { expedienteId: string; createdAt: string }[]) {
+      if (!fechaEvento.has(ev.expedienteId)) fechaEvento.set(ev.expedienteId, ev.createdAt); // el PRIMERO
+    }
+  }
+
   const unoFam = (v: { nombre: string } | { nombre: string }[] | null | undefined) => (Array.isArray(v) ? v[0] ?? null : v ?? null);
-  return ((data ?? []) as unknown as ResumenRow[]).map((e) => ({
+  return filas.map((e) => ({
     id: e.id,
     referencia: e.referencia,
     // Expediente familiar → la tarjeta lleva el nombre de la FAMILIA (el dossier avanza
@@ -138,6 +157,9 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
     fechaLimite: fmtFechaCorta(e.fechaLimite),
     fechaLimiteISO: e.fechaLimite ?? undefined,
+    presentadoEl: POST.has(String(e.estado))
+      ? fmtFechaCorta(e.fechaPresentacion ?? fechaEvento.get(e.id))
+      : undefined,
     archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,

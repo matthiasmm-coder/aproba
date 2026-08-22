@@ -131,7 +131,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: `Esta acción no es posible desde el estado actual (${exp.estado}).` }, { status: 409 });
   }
 
-  const { error: upErr } = await admin.from("Expediente").update({ estado: tr.hacia, updatedAt: new Date().toISOString() }).eq("id", id);
+  // Al presentar se SELLA la fecha (columna fechaPresentacion, que existía sin usarse):
+  // la tarjeta del tablero la enseña, y el evento del historial —única fuente hasta hoy—
+  // no sirve cuando la puesta al día en lote declara una fecha distinta a la del clic.
+  const ahora = new Date().toISOString();
+  const patch: Record<string, unknown> = { estado: tr.hacia, updatedAt: ahora };
+  if (accion === "presentar") patch.fechaPresentacion = ahora;
+  let { error: upErr } = await admin.from("Expediente").update(patch).eq("id", id);
+  if (upErr && patch.fechaPresentacion && /fechaPresentacion|column|schema cache/i.test(upErr.message)) {
+    // La columna no puede bloquear el ciclo: se avanza igual, sin sellar la fecha.
+    upErr = (await admin.from("Expediente").update({ estado: tr.hacia, updatedAt: ahora }).eq("id", id)).error;
+  }
   if (upErr) { console.error("[avanzar]", upErr.message); return NextResponse.json({ error: "No se pudo actualizar el estado del expediente." }, { status: 500 }); }
 
   await admin.from("ExpedienteEvento").insert({ id: crypto.randomUUID(), expedienteId: id, tipo: tr.evento, descripcion: tr.desc, userId: user.id });

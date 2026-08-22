@@ -158,6 +158,8 @@ export const CA: Record<string, string> = {
   "Devolver a Preparación": "Tornar a Preparació",
   "Archivar el expediente": "Arxivar l'expedient",
   "Finalizar y archivar": "Finalitzar i arxivar",
+  "Presentado el": "Presentat el",
+  "Aceptado": "Acceptat",
   "Trámite finalizado y archivado": "Tràmit finalitzat i arxivat",
   "Sin email del cliente: no se envió ningún correo.": "Sense correu del client: no s'ha enviat cap missatge.",
   "Email de finalización enviado a": "Correu de finalització enviat a",

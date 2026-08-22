@@ -20,6 +20,7 @@ export type BoardItem = {
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string;
+  presentadoEl?: string; // dd/mm/aaaa — cuándo se depositó en la Administración
   archivado?: boolean; // servidor — compartido por todo el equipo
   validados: number;
   total: number;
@@ -55,7 +56,13 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
   const comp = e.progreso?.completitud;
-  const post = yaPresentado(normalizarEstado(e.estado));
+  const est5 = normalizarEstado(e.estado);
+  const post = yaPresentado(est5);
+  // Desenlace de la Administración: solo existe una vez resuelto. FINALIZADO viene
+  // siempre de una resolución favorable, así que cuenta como aceptado.
+  const desenlace = est5 === "RECHAZADO" ? "denegado"
+    : est5 === "RESUELTO" || est5 === "FINALIZADO" ? "aceptado"
+    : null;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
     // Todas las tarjetas MIDEN LO MISMO (pedido de Matthias): nombre y servicio en una
@@ -78,8 +85,20 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
 
       {/* min-h reserva el alto del anillo: en Presentado/Resultado ya no se enseña
           (pedido de Matthias — un % sobre algo ya depositado no informa) y sin la
-          reserva esas tarjetas encogían y las columnas dejaban de estar alineadas. */}
+          reserva esas tarjetas encogían y las columnas dejaban de estar alineadas.
+          Ese hueco lo ocupa ahora lo que SÍ informa después de presentar: la fecha de
+          depósito, y luego el desenlace (la columna «Resultado» no dice cuál fue). */}
       <div className="mt-2.5 flex min-h-[34px] items-center gap-2">
+        {post && (desenlace
+          ? (
+            <span className={`text-xs font-semibold ${desenlace === "denegado" ? "text-red-600" : "text-aproba-700"}`}>
+              {desenlace === "denegado" ? t("Denegado") : t("Aceptado")}
+            </span>
+          )
+          : e.presentadoEl && (
+            <span className="text-xs text-slate-500">{t("Presentado el")} <span className="font-medium text-slate-700">{e.presentadoEl}</span></span>
+          )
+        )}
         {comp && !post && (
           <AnilloCompletitud
             pct={comp.pct}
