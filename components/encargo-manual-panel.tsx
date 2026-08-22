@@ -205,7 +205,7 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
           </p>
         </div>
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        <div className="mt-4 flex items-center justify-end gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <button onClick={() => { setPaso("form"); setError(null); }} disabled={busy} className="text-sm text-slate-500 transition hover:text-slate-800">{t("Volver")}</button>
           <button onClick={enviar} disabled={busy} className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
             {busy ? (fase || "…") : t("Confirmar y enviar al cliente")}
@@ -320,7 +320,7 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
 
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="mt-5 flex items-center justify-between gap-3">
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <Link href={`/app/expedientes/${expedienteId}`} className="text-xs text-slate-400 transition hover:text-slate-600">
           {t("Saltar por ahora y abrir el expediente")}
         </Link>
