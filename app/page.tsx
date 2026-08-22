@@ -135,11 +135,10 @@ export default function Landing() {
             <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-3 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
               Entrar
             </Link>
-            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-4">
+            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
               <span className="sm:hidden">Prueba gratis</span>
               <span className="hidden sm:inline">Prueba 1 mes gratis</span>
             </Link>
-            <DemoButton className="hidden px-3 py-2 sm:px-4 md:inline-block" />
           </div>
         </div>
       </header>
