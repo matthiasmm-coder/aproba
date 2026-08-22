@@ -150,10 +150,10 @@ export const CA: Record<string, string> = {
   // ── Libellés dynamiques centraux (états, trámites, documents, rôles, factures) ──
   "Faltan": "Falten",
   "requeridos": "requerits",
+  "Los subes tú, sin enlace.": "Els puges tu, sense enllaç.",
+  "Tu cliente sube sus documentos.": "El teu client puja els seus documents.",
   "Con enlace al cliente": "Amb enllaç al client",
-  "Tu cliente rellena sus datos y sube los documentos desde su portal. Tú lo sigues desde el tablero.": "El teu client omple les seves dades i puja els documents des del seu portal. Tu ho segueixes des del tauler.",
   "Modo manual": "Mode manual",
-  "Lo trabajas tú: subes los documentos y preparas el expediente. No se te pedirá enviar ningún enlace.": "El treballes tu: puges els documents i prepares l'expedient. No se't demanarà enviar cap enllaç.",
   "Este expediente se trabaja en el despacho. Abre su ficha para subir los documentos y preparar los formularios.": "Aquest expedient es treballa al despatx. Obre la seva fitxa per pujar els documents i preparar els formularis.",
   "Abrir el expediente": "Obrir l'expedient",
   "¿Cambias de idea? El enlace del cliente sigue disponible desde la ficha en cualquier momento.": "Canvies d'idea? L'enllaç del client segueix disponible des de la fitxa en qualsevol moment.",

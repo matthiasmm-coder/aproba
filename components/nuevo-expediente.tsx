@@ -455,23 +455,25 @@ export function NuevoExpediente() {
               muchos trámites (contra-trámites, clientes que traen los papeles en mano)
               nunca pasan por el portal, y pedirles el enlace era ruido permanente. */}
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            {/* focus-visible en verde de marca: el anillo azul por defecto del navegador
+                se quedaba pegado tras el clic y no era el color de Aproba. */}
             <button
               type="button"
               onClick={() => elegirModo("portal")}
               aria-pressed={modo === "portal"}
-              className={`rounded-2xl border p-4 text-left transition ${modo === "portal" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
+              className={`rounded-2xl border p-4 text-center outline-none transition focus-visible:ring-2 focus-visible:ring-aproba-300 ${modo === "portal" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
             >
               <p className="text-sm font-semibold text-slate-900">{t("Con enlace al cliente")}</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("Tu cliente rellena sus datos y sube los documentos desde su portal. Tú lo sigues desde el tablero.")}</p>
+              <p className="mt-1 text-xs text-slate-500">{t("Tu cliente sube sus documentos.")}</p>
             </button>
             <button
               type="button"
               onClick={() => elegirModo("manual")}
               aria-pressed={modo === "manual"}
-              className={`rounded-2xl border p-4 text-left transition ${modo === "manual" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
+              className={`rounded-2xl border p-4 text-center outline-none transition focus-visible:ring-2 focus-visible:ring-aproba-300 ${modo === "manual" ? "border-aproba-500 bg-aproba-50/60 ring-2 ring-aproba-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
             >
               <p className="text-sm font-semibold text-slate-900">{t("Modo manual")}</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("Lo trabajas tú: subes los documentos y preparas el expediente. No se te pedirá enviar ningún enlace.")}</p>
+              <p className="mt-1 text-xs text-slate-500">{t("Los subes tú, sin enlace.")}</p>
             </button>
           </div>
           {errorModo && <p role="alert" className="mt-2 text-xs text-red-600">{errorModo}</p>}
