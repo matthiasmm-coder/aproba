@@ -28,7 +28,7 @@ export function Seguimiento({
   token, gestoria, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, miembros, gruposDocs,
 }: {
   token: string; gestoria: string; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
-  citaPresencial?: boolean; citaQuien?: "cliente" | "gestor"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
+  citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
   miembros?: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[];
   // Familia: secciones de documentos (comunes + una por miembro) — los SegDoc llevan
@@ -283,7 +283,7 @@ export function Seguimiento({
                 <p className="text-sm font-medium text-purple-800">{t("seg.citaFecha")} {fmtCita(cita.fecha)}{cita.hora ? ` · ${cita.hora}` : ""}</p>
               </div>
             </div>
-            {citaQuien === "cliente" ? (
+            {citaQuien !== "gestor" ? (
               <div className="mt-2 space-y-1 border-t border-purple-100 pt-2 text-xs text-purple-700">
                 {cita.lugar && <p>📍 {cita.lugar}</p>}
                 {cita.notas && <p>{cita.notas}</p>}

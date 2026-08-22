@@ -43,7 +43,7 @@ const fmtFecha = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(is
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { accion?: Accion; fecha?: string; hora?: string; lugar?: string; notas?: string };
+  let body: { accion?: Accion; fecha?: string; hora?: string; lugar?: string; notas?: string; quien?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const accion = body.accion as Accion;
 
@@ -59,49 +59,66 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const ws = w?.workspaceId as string | undefined;
   const baseUrl = baseUrlFromRequest(req);
 
-  // ── CITA : transition spéciale (champs détaillés + aviso selon qui s'y rend) ──
+  // ── CITA : hecho del expediente, editable desde la sección «Citas» de la ficha ──
+  // SIN puerta de estado (22/08): las citas existen en cualquier punto del trámite
+  // (presentación en oficina, huellas tras resolver, recogida de la TIE) — exigir
+  // RESUELTO era el viejo modelo lineal.
   if (accion === "cita") {
-    if (!RESUELTO_O_CITA.includes(exp.estado)) return NextResponse.json({ error: `Esta acción no es posible desde el estado actual (${exp.estado}).` }, { status: 409 });
     if (!body.fecha) return NextResponse.json({ error: "Falta la fecha de la cita." }, { status: 400 });
-    // Idempotencia por CONTENIDO, no por existencia: si el gestor corrige una fecha
-    // equivocada hay que guardarla Y reavisar al cliente — tirar la corrección en
-    // silencio le dejaría presentándose el día que no es.
-    const igual = exp.cita?.fecha === body.fecha
-      && (exp.cita?.hora ?? null) === (body.hora ?? null)
-      && (exp.cita?.lugar ?? null) === (body.lugar ?? null);
-    if (igual) return NextResponse.json({ ok: true, estado: exp.estado, sinCambios: true });
 
-    // Qui se rend à la cita ? Multi-servicio: fusión OR (si UN servicio con cita la
-    // asume el gestor, acude el gestor) — misma regla que la ficha, /s y la agenda.
-    let quien: "cliente" | "gestor" = "cliente";
-    if (ws) {
-      let sedeExp: string | null = null;
-      try {
-        const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", id).maybeSingle();
-        sedeExp = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
-      } catch { sedeExp = null; }
-      const servicios = await fetchServiciosDeWorkspace(admin, ws, sedeExp);
-      quien = citaDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipoEnum }, servicios)).citaQuien;
+    // ¿Quién acude? Elección POR CITA del gestor (cliente / gestor / ambos); si no
+    // llega, el valor derivado del servicio (el comportamiento histórico).
+    const QUIEN = new Set(["cliente", "gestor", "ambos"]);
+    let quien: "cliente" | "gestor" | "ambos";
+    if (typeof body.quien === "string" && QUIEN.has(body.quien)) {
+      quien = body.quien as typeof quien;
+    } else {
+      quien = "cliente";
+      if (ws) {
+        let sedeExp: string | null = null;
+        try {
+          const { data: se } = await admin.from("Expediente").select("oficinaId").eq("id", id).maybeSingle();
+          sedeExp = ((se as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
+        } catch { sedeExp = null; }
+        const servicios = await fetchServiciosDeWorkspace(admin, ws, sedeExp);
+        quien = citaDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipoEnum }, servicios)).citaQuien;
+      }
     }
 
-    // NO se toca el estado: la cita es un hecho del expediente resuelto, no una etapa.
+    // Idempotencia por CONTENIDO (fecha+hora+lugar+notas+quien): si el gestor corrige
+    // una fecha hay que guardarla Y reavisar — tirar la corrección en silencio le
+    // dejaría al cliente presentándose el día que no es. ⚠️ notas y quien cuentan:
+    // antes, cambiar SOLO las notas devolvía «sin cambios» y no se guardaba nada.
+    const igual = exp.cita?.fecha === body.fecha
+      && (exp.cita?.hora ?? null) === (body.hora ?? null)
+      && (exp.cita?.lugar ?? null) === (body.lugar ?? null)
+      && (exp.cita?.notas ?? null) === (body.notas ?? null)
+      && (exp.cita?.quien ?? null) === (typeof body.quien === "string" && QUIEN.has(body.quien) ? body.quien : (exp.cita?.quien ?? null));
+    if (igual) return NextResponse.json({ ok: true, estado: exp.estado, sinCambios: true });
+
+    // NO se toca el estado: la cita es un hecho, no una etapa. citaQuien es columna
+    // nueva (supabase/cita-quien.sql): fail-soft si la migración no corrió.
     const patch = { fechaCita: body.fecha, citaHora: body.hora ?? null, citaLugar: body.lugar ?? null, citaNotas: body.notas ?? null, updatedAt: new Date().toISOString() };
-    const { error: upErr } = await admin.from("Expediente").update(patch).eq("id", id);
+    let upErr = (await admin.from("Expediente").update({ ...patch, citaQuien: quien }).eq("id", id)).error;
+    if (upErr && /citaQuien|column|schema cache/i.test(upErr.message)) {
+      upErr = (await admin.from("Expediente").update(patch).eq("id", id)).error;
+    }
     if (upErr) { console.error("[avanzar cita]", upErr.message); return NextResponse.json({ error: "No se pudo guardar la cita." }, { status: 500 }); }
 
+    const quienTxt = quien === "ambos" ? "acuden el cliente y el gestor" : `acude el ${quien}`;
     const detalle = `${fmtFecha(body.fecha)}${body.hora ? ` ${body.hora}` : ""}${body.lugar ? ` · ${body.lugar}` : ""}`;
-    await admin.from("ExpedienteEvento").insert({ id: crypto.randomUUID(), expedienteId: id, tipo: "ESTADO_CAMBIADO", descripcion: `Cita presencial: ${detalle} (acude el ${quien})`, userId: user.id });
+    await admin.from("ExpedienteEvento").insert({ id: crypto.randomUUID(), expedienteId: id, tipo: "ESTADO_CAMBIADO", descripcion: `Cita presencial: ${detalle} (${quienTxt})`, userId: user.id });
 
-    // {fecha} assemblé : détaillé pour le client (date + heure + lieu), juste la date pour le gestor.
+    // {fecha} assemblé : détaillé pour el cliente si acude (date + heure + lieu).
     let fechaTxt = "el " + fmtFecha(body.fecha);
-    if (quien === "cliente") {
+    if (quien !== "gestor") {
       if (body.hora) fechaTxt += ` a las ${body.hora}`;
       if (body.lugar) fechaTxt += ` en ${body.lugar}`;
     }
     try {
       if (ws) await dispararAviso(admin, { workspaceId: ws, expedienteId: id, clave: quien === "gestor" ? "cita_gestor" : "cita_cliente", vars: { fecha: fechaTxt, notas: body.notas ?? "" }, baseUrl });
     } catch { /* un aviso ne casse jamais le flux */ }
-    return NextResponse.json({ ok: true, estado: exp.estado });
+    return NextResponse.json({ ok: true, estado: exp.estado, quien });
   }
 
   // ── Transitions simples ──

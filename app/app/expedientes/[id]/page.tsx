@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
+import { CitasPanel } from "@/components/citas-panel";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { docsFaltantes } from "@/lib/tramites";
+import { fmtFechaCorta, docsFaltantes } from "@/lib/tramites";
 import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
@@ -192,7 +193,6 @@ export default async function ExpedienteDetail({
         progreso={progresoExp}
         citaFecha={e.cita?.fecha ?? null}
         citaPresencial={cita.citaPresencial}
-        citaQuien={cita.citaQuien}
         portalToken={e.portalToken}
         permiteSubidaInterna={!familia}
         formulariosHref={`/app/expedientes/${e.id}/formularios`}
@@ -316,6 +316,18 @@ export default async function ExpedienteDetail({
             <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
           </SeccionPlegable>
         )}
+
+        {/* Citas del expediente (22/08, pedido de Matthias): fecha, hora, lugar, quién
+            acude y notas — un hecho editable en cualquier punto del trámite. */}
+        <SeccionPlegable
+          id="citas"
+          titulo={t("Citas")}
+          resumen={e.cita.fecha
+            ? `${fmtFechaCorta(e.cita.fecha) ?? e.cita.fecha}${e.cita.hora ? ` · ${e.cita.hora}` : ""} · ${t(e.cita.quien === "gestor" ? "acude el gestor" : e.cita.quien === "ambos" ? "acuden ambos" : "acude el cliente")}`
+            : t("Sin cita")}
+        >
+          <CitasPanel expedienteId={e.id} inicial={e.cita} quienPorDefecto={cita.citaQuien} />
+        </SeccionPlegable>
 
         {/* Cobro */}
         <SeccionPlegable

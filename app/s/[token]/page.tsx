@@ -28,13 +28,19 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const { token } = await params;
   const admin = createSupabaseAdmin();
 
-  const BASE = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, cliente:Cliente(id, nombre, idioma), workspace:Workspace(id, nombre)";
+  const BASE = "id, referencia, estado, tipo, servicioClave, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, cliente:Cliente(id, nombre, idioma), workspace:Workspace(id, nombre)";
   // Documento.clienteId: atribuye cada subida a su miembro (familia). Repli sin él al final.
   const SELECT = `${BASE}, documentos:Documento(id, tipo, estado, storagePath, clienteId)`;
   const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas
   // (la MÁS nueva se quita primero: serviciosAsignacion → serviciosExtra → …).
   let res = await admin.from("Expediente").select(`oficinaId, ${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  // citaQuien es columna nueva: sin la migración, TODA la cadena con BASE fallaría —
+  // primer repli: la misma consulta completa sin esa columna.
+  if (res.error && /citaQuien/i.test(res.error.message)) {
+    const SIN = (q: string) => q.replace(" citaQuien,", "");
+    res = await admin.from("Expediente").select(SIN(`oficinaId, ${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`)).eq("portalToken", token).maybeSingle();
+  }
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, serviciosAsignacion, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, serviciosExtra, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   if (res.error) res = await admin.from("Expediente").select(`${SELECT}, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
@@ -45,7 +51,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   type Row = {
     id: string; referencia: string; estado: string; tipo: string;
-    servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null;
+    servicioClave: string | null; fechaCita: string | null; citaHora: string | null; citaLugar: string | null; citaNotas: string | null; citaQuien?: string | null;
     serviciosExtra?: string[] | null; serviciosAsignacion?: unknown;
     formulariosGenerados?: string[] | null; formulariosPorMiembro?: Record<string, string[]> | null; tasaPath?: string | null; familiaId?: string | null;
     cliente: { id: string; nombre: string | null; idioma: string | null } | { id: string; nombre: string | null; idioma: string | null }[] | null;
@@ -166,7 +172,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       referencia={exp.referencia}
       estado={exp.estado}
       citaPresencial={cita.citaPresencial}
-      citaQuien={cita.citaQuien}
+      citaQuien={(exp.citaQuien === "gestor" || exp.citaQuien === "ambos" || exp.citaQuien === "cliente" ? exp.citaQuien : cita.citaQuien)}
       cita={{ fecha: exp.fechaCita, hora: exp.citaHora, lugar: exp.citaLugar, notas: exp.citaNotas }}
       docs={docsFamiliares ?? docs}
       gruposDocs={gruposDocs}

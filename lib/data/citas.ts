@@ -59,14 +59,14 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
     const selCitas = (cols: string) => supabase
       .from("Expediente")
       .select(cols)
-      // La cita dejó de ser un estado: es un HECHO (fechaCita) de un expediente resuelto.
-      // Se aceptan los dos mundos — con .eq() las citas reales desaparecerían de la
-      // agenda del gestor mientras el remap no hubiera corrido.
-      .in("estado", ["RESUELTO", "CITA_HUELLAS"])
+      // La cita es un HECHO (fechaCita), editable en cualquier punto del trámite desde
+      // la sección «Citas» de la ficha (22/08) — ya no se filtra por estado: una cita
+      // de presentación previa a resolver también es una cita del gestor.
       .gte("fechaCita", today)
       .order("fechaCita", { ascending: true })
       .limit(limite);
-    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)");
+    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)");
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)") as typeof resC;
     if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)") as typeof resC;
     const data = resC.data as unknown as Record<string, unknown>[] | null;
     for (const e of data ?? []) {
@@ -76,7 +76,12 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
         (e.servicioClave as string) ?? TIPO_A_SERVICIO[e.tipo as string],
         ...(Array.isArray(e.serviciosExtra) ? (e.serviciosExtra as string[]) : []),
       ].filter(Boolean);
-      if (!claves.some((clave) => (quienPorClave[clave] ?? "cliente") === "gestor")) continue;
+      // Quién acude: la elección POR CITA del gestor manda; el servicio queda de repli.
+      const quienCita = (e.citaQuien as string | null | undefined) ?? null;
+      const acudeGestor = quienCita
+        ? quienCita === "gestor" || quienCita === "ambos"
+        : claves.some((clave) => (quienPorClave[clave] ?? "cliente") === "gestor");
+      if (!acudeGestor) continue;
       const cli = uno(e.cliente as { nombre: string | null; apellidos: string | null }[] | null);
       items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string });
     }

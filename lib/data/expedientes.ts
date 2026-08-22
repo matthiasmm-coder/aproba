@@ -202,7 +202,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   formulariosPorMiembro: Record<string, string[]> | null; // curación de formularios por miembro
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
-  cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null };
+  cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null; quien: string | null };
 };
 
 // JSON `datos` d'une Extraction → liste de champs {label, value} pour l'UI.
@@ -223,7 +223,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien,
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
@@ -305,7 +305,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     formulariosPorMiembro: (() => { const v = (e as { formulariosPorMiembro?: unknown }).formulariosPorMiembro; return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, string[]> : null; })(),
     portalToken: e.portalToken ?? null,
     familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
-    cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null },
+    cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null, quien: ((e as unknown as { citaQuien?: string | null }).citaQuien) ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
       id: f.id,
       numero: f.numero,
@@ -323,6 +323,10 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   const supabase = await createSupabaseServer();
   // Repli sin formulariosGenerados si la migración de la columna no está aplicada.
   let res = await supabase.from("Expediente").select(DETALLE_SELECT).eq("id", id).maybeSingle();
+  // citaQuien es columna nueva (supabase/cita-quien.sql): sin migrar, se reintenta sin ella.
+  if (res.error && /citaQuien/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace(" citaQuien,", "")).eq("id", id).maybeSingle() as typeof res;
+  }
   // Replis por tramo de migración: primero sin serviciosExtra (la más reciente), luego sin ambos.
   if (res.error && /formulariosPorMiembro|column|schema cache/i.test(res.error.message)) {
     res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "")).eq("id", id).maybeSingle() as typeof res;

@@ -20,7 +20,7 @@ function abrirYScroll(seccion: string, target: string, block: ScrollLogicalPosit
 }
 
 export function DriverBanner({
-  id, estado, progreso, citaFecha = null, citaPresencial = false, citaQuien = "cliente", portalToken, permiteSubidaInterna = false, formulariosHref,
+  id, estado, progreso, citaFecha = null, citaPresencial = false, portalToken, permiteSubidaInterna = false, formulariosHref,
 }: {
   id: string;
   estado: ExpedienteEstado;
@@ -29,7 +29,6 @@ export function DriverBanner({
   progreso?: Progreso;
   citaFecha?: string | null;
   citaPresencial?: boolean;
-  citaQuien?: "cliente" | "gestor";
   portalToken?: string | null;
   // Expediente individual → el gestor puede trabajarlo internamente (subir docs él mismo).
   permiteSubidaInterna?: boolean;
@@ -40,9 +39,7 @@ export function DriverBanner({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [citaOpen, setCitaOpen] = useState(false);
   const [enlaceEnClaro, setEnlaceEnClaro] = useState<string | null>(null);
-  const [cita, setCita] = useState({ fecha: "", hora: "", lugar: "", notas: "" });
 
   async function avanzar(accion: string, extra?: Record<string, unknown>, navHref?: string) {
     setLoading(true); setError(null);
@@ -84,7 +81,6 @@ export function DriverBanner({
     | { kind: "espera"; label: string }
     | { kind: "nav"; label: string; href: string }
     | { kind: "avanzar"; label: string; accion: string; confirm?: string; navAfter?: string }
-    | { kind: "cita"; label: string }
     | { kind: "copiar"; label: string };
 
   let prim: Prim = { kind: "espera", label: "" };
@@ -147,7 +143,7 @@ export function DriverBanner({
       // 79 expedientes reales, nadie recorría.
       prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") };
       if (citaPresencial) {
-        secundaria = <button onClick={() => setCitaOpen(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white">{t(tieneCita ? "Editar la cita" : "Agendar cita")}</button>;
+        secundaria = <button onClick={() => abrirYScroll("citas", "citas")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white">{t(tieneCita ? "Editar la cita" : "Agendar cita")}</button>;
       }
       break;
     case "CITA_HUELLAS": prim = { kind: "avanzar", label: t("Finalizar trámite"), accion: "finalizar", confirm: t("¿Finalizar este trámite? Se avisará al cliente.") }; break;
@@ -172,11 +168,8 @@ export function DriverBanner({
     if (loading) return;
     if (prim.kind === "nav") router.push(prim.href);
     else if (prim.kind === "avanzar") { if (!prim.confirm || (await confirmar(prim.confirm))) avanzar(prim.accion, undefined, prim.navAfter); }
-    else if (prim.kind === "cita") setCitaOpen((o) => !o);
     else if (prim.kind === "copiar") copiarEnlace();
   }
-
-  const fld = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";
 
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${actionable ? "border-aproba-200 bg-aproba-50" : "border-slate-200 bg-slate-50"}`}>
@@ -229,29 +222,6 @@ export function DriverBanner({
         </div>
       )}
 
-      {citaOpen && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
-          <p className="mb-2 text-xs font-semibold text-slate-700">{t("Datos de la cita")}</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="block text-xs text-slate-500">{t("Fecha")} *
-              <input type="date" value={cita.fecha} onChange={(e) => setCita((c) => ({ ...c, fecha: e.target.value }))} className={fld} />
-            </label>
-            <label className="block text-xs text-slate-500">{t("Hora")}
-              <input type="time" value={cita.hora} onChange={(e) => setCita((c) => ({ ...c, hora: e.target.value }))} className={fld} />
-            </label>
-            <label className="block text-xs text-slate-500 sm:col-span-2">{t("Lugar / dirección")}
-              <input value={cita.lugar} onChange={(e) => setCita((c) => ({ ...c, lugar: e.target.value }))} placeholder={t("Comisaría, oficina…")} className={fld} />
-            </label>
-            <label className="block text-xs text-slate-500 sm:col-span-2">{t("Instrucciones (qué llevar…)")}
-              <textarea value={cita.notas} onChange={(e) => setCita((c) => ({ ...c, notas: e.target.value }))} rows={2} className={`${fld} resize-none`} />
-            </label>
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">{citaQuien === "cliente" ? t("El cliente recibirá todos estos datos por email.") : t("El cliente solo recibirá la fecha; acudes tú en su nombre.")}</p>
-          <button onClick={() => cita.fecha && avanzar("cita", cita)} disabled={!cita.fecha || loading} className="mt-2 w-full rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
-            {loading ? t("Guardando…") : t("Confirmar cita y avisar")}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
