@@ -8,7 +8,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import type { Progreso } from "@/lib/progreso";
+import { normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -55,6 +55,7 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
   const comp = e.progreso?.completitud;
+  const post = yaPresentado(normalizarEstado(e.estado));
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
     // Todas las tarjetas MIDEN LO MISMO (pedido de Matthias): nombre y servicio en una
@@ -75,10 +76,11 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
       </div>
       <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
 
-      <div className="mt-2.5 flex items-center gap-2">
-        {/* Completitud del expediente (Información + Documentos + Formularios). Tras
-            presentar marca 100 % — la fila queda para que todas las tarjetas midan igual. */}
-        {comp && (
+      {/* min-h reserva el alto del anillo: en Presentado/Resultado ya no se enseña
+          (pedido de Matthias — un % sobre algo ya depositado no informa) y sin la
+          reserva esas tarjetas encogían y las columnas dejaban de estar alineadas. */}
+      <div className="mt-2.5 flex min-h-[34px] items-center gap-2">
+        {comp && !post && (
           <AnilloCompletitud
             pct={comp.pct}
             titulo={[

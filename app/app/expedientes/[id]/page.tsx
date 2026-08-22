@@ -201,8 +201,10 @@ export default async function ExpedienteDetail({
         <ValidarExpediente id={e.id} estado={e.estado} fase={progresoExp.fase} completitud={progresoExp.completitud} />
       </div>
 
-      {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
-      {docsPendientes.length > 0 && (
+      {/* Documentos del cliente pendientes — SOLO en la columna «1. Preparación»
+          (pedido de Matthias): de «Listo para presentar» en adelante el gestor ya
+          decidió avanzar y el aviso solo metía ruido. */}
+      {docsPendientes.length > 0 && progresoExp.fase === "recepcion" && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
           <div className="min-w-0 text-sm text-amber-800">
             {/* Icono en la MISMA línea que el título: centrar una columna con el icono

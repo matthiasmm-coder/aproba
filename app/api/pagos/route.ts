@@ -35,6 +35,9 @@ export async function POST(req: Request) {
     token?: string; expedienteId?: string; momento?: string;
     // Factura editada desde el popup del gestor (opcional). Si falta → automática por tarifa.
     factura?: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null };
+    // Solo gestor: no enviar aquí el email de la factura — el llamante manda UNO combinado
+    // (alta en modo manual: servicios + factura + hoja de encargo en el mismo correo).
+    sinEmail?: boolean;
   };
   try {
     body = await req.json();
@@ -307,10 +310,14 @@ export async function POST(req: Request) {
 
   const baseUrl = baseUrlFromRequest(req);
   // Email au client : facture + coordonnées bancaires (IBAN) pour payer par virement.
-  await enviarSolicitudPago(admin, { expedienteId: exp.id, facturaId, numero, total, concepto, baseUrl });
-  // Au premier paiement demandé, on (re)donne aussi le lien de suivi.
-  if (momento === "ANTICIPO") {
-    await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl });
+  // `sinEmail` (solo gestor autenticado): el alta manual envía después UN correo combinado
+  // — dos emails por el mismo alta parecerían spam de la gestoría.
+  if (!(viaGestor && body.sinEmail === true)) {
+    await enviarSolicitudPago(admin, { expedienteId: exp.id, facturaId, numero, total, concepto, baseUrl });
+    // Au premier paiement demandé, on (re)donne aussi le lien de suivi.
+    if (momento === "ANTICIPO") {
+      await enviarSeguimiento(admin, { expedienteId: exp.id, baseUrl });
+    }
   }
 
   return NextResponse.json({ ok: true, facturaId, numero, total, estado: "EMITIDA" });

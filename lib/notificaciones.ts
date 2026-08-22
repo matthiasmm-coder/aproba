@@ -512,6 +512,124 @@ export async function enviarSolicitudPago(
   }
 }
 
+// Email del ALTA EN MODO MANUAL (22/08, pedido de Matthias): UN solo correo con los
+// servicios contratados, la factura inicial si la hay (IBAN + tarjeta, como la solicitud
+// de pago) y la hoja de encargo + el mandato ADJUNTOS para firmar. El gestor lo valida
+// desde el alta viendo exactamente qué va a salir. Devuelve el estado del envío para
+// que la ruta se lo cuente al gestor (nada de fallos silenciosos con un cliente real).
+export async function enviarEncargoManual(
+  admin: SupabaseClient,
+  opts: {
+    expedienteId: string;
+    destino: string; // email ya validado por la ruta
+    serviciosLabels: string[]; // etiquetas de los servicios contratados
+    factura?: { facturaId: string; numero: string; total: number } | null;
+    adjuntos?: { filename: string; content: string }[]; // hoja/mandato en base64
+    baseUrl?: string;
+  },
+): Promise<Estado> {
+  try {
+    const { data: expRaw } = await admin
+      .from("Expediente")
+      .select("workspaceId, oficinaId, referencia, Cliente(nombre), Workspace(nombre)")
+      .eq("id", opts.expedienteId)
+      .maybeSingle();
+    const exp = expRaw as { workspaceId: string; oficinaId?: string | null; referencia: string; Cliente: { nombre: string | null } | { nombre: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
+    if (!exp) return "ERROR";
+    const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
+    const nombre = primerNombre(uno(exp.Cliente)?.nombre ?? "cliente");
+
+    const serviciosHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0"><tr><td style="background:#F8FAF7;border:1px solid #E2E8F0;border-radius:12px;padding:14px 18px">
+      <p style="margin:0 0 6px;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748b">Servicios contratados</p>
+      ${opts.serviciosLabels.map((l) => `<p style="margin:2px 0;font-family:${FUENTE};font-size:14px;font-weight:600;color:#1e293b">· ${l}</p>`).join("")}
+    </td></tr></table>`;
+
+    // Bloque de pago: mismo lenguaje que la solicitud de pago (importe, IBAN de la sede,
+    // tarjeta si la gestoría la activó). Sin factura inicial, el bloque no existe.
+    let pagoHtml = "";
+    if (opts.factura) {
+      const { cuentaParaOficina } = await import("./facturacion-oficina");
+      const cuenta = await cuentaParaOficina(admin, exp.workspaceId, exp.oficinaId ?? null) ?? undefined;
+      const bancoBox = cuenta?.iban
+        ? `<p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;color:#475569">Puedes pagarla por <strong>transferencia bancaria</strong>:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;font-family:${FUENTE};font-size:14px;color:#1e293b">
+            ${cuenta.titular ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Titular</td><td style="font-weight:600;text-align:left">${cuenta.titular}</td></tr>` : ""}
+            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">IBAN</td><td style="font-weight:600;font-family:'SFMono-Regular',Consolas,monospace;letter-spacing:0.02em;text-align:left">${cuenta.iban}</td></tr>
+            ${cuenta.banco ? `<tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Banco</td><td style="font-weight:600;text-align:left">${cuenta.banco}</td></tr>` : ""}
+            <tr><td style="padding:3px 16px 3px 0;color:#64748b;text-align:left">Concepto</td><td style="font-weight:600;text-align:left">${opts.factura.numero}</td></tr>
+          </table>`
+        : `<p style="margin:0;font-family:${FUENTE};font-size:14px;color:#64748b">Tu gestoría te facilitará los datos para realizar el pago.</p>`;
+      const tarjetaOn = Boolean(opts.baseUrl) && Boolean(await fetchStripeKeyDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null));
+      const botonTarjeta = tarjetaOn
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="text-align:center;padding-top:16px"><table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${opts.baseUrl}/api/pagos/checkout?f=${opts.factura.facturaId}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">Pagar ${fmtEur(opts.factura.total)} con tarjeta</a></td></tr></table></td></tr></table>`
+        : "";
+      pagoHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td align="center" style="background:#ECFDF5;border:1px solid #C7EFDD;border-radius:12px;padding:18px;text-align:center">
+        <p style="margin:0;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0D6E4D">Factura ${opts.factura.numero} · IVA incluido</p>
+        <p style="margin:5px 0 0;font-family:${FUENTE};font-size:27px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1">${fmtEur(opts.factura.total)}</p>
+      </td></tr></table>
+      ${bancoBox}
+      <p style="margin:14px 0 0;font-family:${FUENTE};font-size:13px;color:#64748b;line-height:1.6">Si pagas por transferencia, indica el número de factura (<strong>${opts.factura.numero}</strong>) en el concepto.</p>
+      ${botonTarjeta}`;
+    }
+
+    const firmaHtml = opts.adjuntos?.length
+      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos la <strong>hoja de encargo</strong> y el <strong>mandato de representación</strong>. Por favor, fírmalos y háznoslos llegar (en persona o respondiendo a tu gestoría) para que podamos actuar en tu nombre.</p>`
+      : "";
+
+    const html = emailLayout({
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      gestoria,
+      titulo: "Hemos puesto en marcha tu trámite",
+      cuerpoHtml: `<p style="margin:0 0 2px">Hola ${nombre},</p>
+        <p style="margin:0">${gestoria} ya está trabajando en tu trámite (expediente <strong>${exp.referencia}</strong>). Aquí tienes el detalle:</p>
+        ${serviciosHtml}
+        ${pagoHtml}
+        ${firmaHtml}`,
+      cta: null,
+      footerNota: `Mensaje de ${gestoria}. Por favor, no respondas a este correo.`,
+      preheader: `Tu trámite con ${gestoria}${opts.factura ? ` · ${fmtEur(opts.factura.total)}` : ""}`,
+    });
+
+    let estado: Estado = "SIMULADO";
+    if (resendDisponible()) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from,
+        to: opts.destino,
+        subject: `Tu trámite con ${gestoria} · ${exp.referencia}`,
+        html,
+        text: [
+          `Hola ${nombre}, ${gestoria} ya está trabajando en tu trámite (${exp.referencia}).`,
+          `Servicios: ${opts.serviciosLabels.join(" + ")}.`,
+          ...(opts.factura ? [`Factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`] : []),
+          ...(opts.adjuntos?.length ? ["Adjuntamos la hoja de encargo y el mandato para firmar."] : []),
+        ].join("\n"),
+        attachments: opts.adjuntos?.length ? opts.adjuntos : undefined,
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[encargoManual email]", error.message ?? error);
+    }
+    console.log(`[encargoManual ${estado}] email → ${opts.destino} | ${exp.referencia} | ${opts.serviciosLabels.join(" + ")}`);
+
+    const partes = [
+      opts.serviciosLabels.join(" + "),
+      ...(opts.factura ? [`factura ${opts.factura.numero} (${fmtEur(opts.factura.total)})`] : []),
+      ...(opts.adjuntos?.length ? ["hoja de encargo y mandato adjuntos"] : []),
+    ].join(" · ");
+    const { sufijo } = iconoYSufijo(estado, null);
+    await admin.from("ExpedienteEvento").insert({
+      id: crypto.randomUUID(),
+      expedienteId: opts.expedienteId,
+      tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `📨 Encargo enviado al cliente: ${partes}${sufijo}`,
+    });
+    return estado;
+  } catch (e) {
+    console.error("[enviarEncargoManual]", e instanceof Error ? e.message : e);
+    return "ERROR";
+  }
+}
+
 // Confirmación de pago RECIBIDO (tarjeta o transferencia) → email al cliente SIN IBAN
 // (ya está pagada): solo agradecimiento + enlace de seguimiento. Se envía cuando una
 // factura pasa a PAGADA. No casser el flux appelant.

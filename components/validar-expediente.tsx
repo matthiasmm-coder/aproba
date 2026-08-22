@@ -120,14 +120,22 @@ export function ValidarExpediente({ id, estado, fase, completitud }: {
     );
   }
 
+  // En Presentado/Resultado el % y las tres partes sobran (pedido de Matthias): lo
+  // depositado está depositado — la carta se queda solo con las decisiones del ciclo.
+  const enPreparacion = est === "EN_PREPARACION";
+
   return (
     // TODO en una línea (anillo · partes · botón del momento) — con flex-wrap para que
     // el móvil pliegue sin desbordar.
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-      <AnilloCompletitud pct={completitud.pct} size={44} />
-      {pieza("Información", completitud.info >= 1)}
-      {pieza("Documentos", completitud.docs >= 1)}
-      {pieza("Formularios", completitud.formularios >= 1)}
+      {enPreparacion && (
+        <>
+          <AnilloCompletitud pct={completitud.pct} size={44} />
+          {pieza("Información", completitud.info >= 1)}
+          {pieza("Documentos", completitud.docs >= 1)}
+          {pieza("Formularios", completitud.formularios >= 1)}
+        </>
+      )}
       {acciones}
       {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
     </div>

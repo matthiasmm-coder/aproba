@@ -8,6 +8,7 @@ import { periodoCuota } from "@/lib/cuota";
 import { copiarTexto } from "@/lib/copiar";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
+import { EncargoManualPanel } from "@/components/encargo-manual-panel";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
@@ -479,13 +480,10 @@ export function NuevoExpediente() {
           {errorModo && <p role="alert" className="mt-2 text-xs text-red-600">{errorModo}</p>}
 
           {modo === "manual" ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-center">
-              <p className="text-sm text-slate-600">{t("Este expediente se trabaja en el despacho. Abre su ficha para subir los documentos y preparar los formularios.")}</p>
-              <Link href={`/app/expedientes/${expId}`} className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">
-                {t("Abrir el expediente")}
-              </Link>
-              <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{t("¿Cambias de idea? El enlace del cliente sigue disponible desde la ficha en cualquier momento.")}</p>
-            </div>
+            /* Modo manual (22/08, pedido de Matthias): antes de trabajar, el gestor FIJA
+               el encargo — servicios del catálogo, cobro inicial y el email combinado al
+               cliente (factura + hoja de encargo y mandato para firmar). */
+            <EncargoManualPanel expedienteId={expId} nMiembros={miembrosFam} />
           ) : (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-left">
             <p className="text-sm font-semibold text-slate-800">{t("Enlace para tu cliente")}</p>
