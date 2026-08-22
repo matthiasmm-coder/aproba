@@ -88,19 +88,19 @@ export function CitasPanel({ expedienteId, inicial, quienPorDefecto }: {
           className={`mt-1 ${inp} resize-y`} />
       </label>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-4 text-center">
         <button onClick={guardar} disabled={!fecha || estado === "guardando"} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-50">
           {estado === "guardando" ? "…" : t(inicial.fecha ? "Guardar cambios" : "Guardar cita")}
         </button>
-        <p className="text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
           {quien === "gestor"
             ? t("Al guardar se avisa al cliente de que la gestoría acude por él.")
             : t("Al guardar se avisa al cliente con la fecha, la hora, el lugar y las notas.")}
         </p>
+        {estado === "ok" && <p className="mt-2 text-xs font-semibold text-aproba-700">{t("Cita guardada — cliente avisado.")}</p>}
+        {estado === "sin_cambios" && <p className="mt-2 text-xs text-slate-400">{t("Sin cambios — no se ha reenviado ningún aviso.")}</p>}
+        {estado === "error" && <p className="mt-2 text-xs text-red-600">{error}</p>}
       </div>
-      {estado === "ok" && <p className="mt-2 text-xs font-semibold text-aproba-700">{t("Cita guardada — cliente avisado.")}</p>}
-      {estado === "sin_cambios" && <p className="mt-2 text-xs text-slate-400">{t("Sin cambios — no se ha reenviado ningún aviso.")}</p>}
-      {estado === "error" && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
