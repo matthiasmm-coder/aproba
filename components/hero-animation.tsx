@@ -3,22 +3,27 @@
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
 
-// Animation héro — un iPad qui recorre la interfaz admin del gestor,
-// cambiando de pestaña automáticamente (Expedientes → Clientes → Facturas → Ajustes).
-// Les contenus reproduisent fidèlement les vrais écrans : board-client.tsx (4 fases
-// Preparación → Listo para presentar → Presentado → Resultado, anneau de complétude,
-// fecha de depósito, Aceptado/Denegado — actualizado 22/08 tras la reforma del ciclo),
-// la table clientes, lib/facturas.ts (Pagada/Emitida/Vencida) et servicios-manager.
+// Animation héro — un iPad qui recorre la interfaz admin del gestor, cambiando de
+// pestaña automáticamente por las SEIS entradas reales de la sidebar (app/app/layout):
+// Inicio → Expedientes → Clientes → Vencimientos → Facturas → Ajustes. Los contenidos
+// reproducen los pantallazos reales (rehecho 22/08 tras la observación de Matthias:
+// faltaban Inicio y Vencimientos, y Clientes no tenía ni pestañas ni columnas):
+// dashboard con KPIs y agenda, board de 4 fases, tabla de clientes con individuales/
+// familias y último trámite, Vigía con «Iniciar renovación», facturas y servicios.
 
 const TABS = [
+  { label: "Inicio", icon: "home" },
   { label: "Expedientes", icon: "board" },
   { label: "Clientes", icon: "users" },
+  { label: "Vencimientos", icon: "calendar" },
   { label: "Facturas", icon: "invoice" },
   { label: "Ajustes", icon: "settings" },
 ];
 
 function NavIcon({ name }: { name: string }) {
   const c = "h-3.5 w-3.5";
+  if (name === "home") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>;
+  if (name === "calendar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
   if (name === "board") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>;
   if (name === "users") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>;
   if (name === "invoice") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>;
@@ -52,6 +57,90 @@ function MiniAnillo({ pct }: { pct: number }) {
   );
 }
 
+// Inicio : dashboard réel — saludo, 4 KPIs (el primero resaltado) y la agenda semanal.
+function Inicio() {
+  const kpis = [
+    { n: "3", l: "Requieren tu acción", on: true },
+    { n: "2", l: "Plazos esta semana" },
+    { n: "6", l: "Expedientes activos" },
+    { n: "1", l: "Caducan pronto" },
+  ];
+  const dias = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
+  return (
+    <div>
+      <div className="mb-2">
+        <span className="text-[12px] font-bold tracking-tightest text-slate-900">Hola, Marta</span>
+        <p className="text-[7.5px] text-slate-500"><span className="font-semibold text-slate-700">3 expedientes</span> requieren tu acción · <span className="text-red-600">1 vencido</span></p>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {kpis.map((k) => (
+          <div key={k.l} className={`rounded-lg border p-1.5 text-center ${k.on ? "border-aproba-300 bg-aproba-50/60" : "border-slate-200 bg-white"}`}>
+            <p className={`text-[13px] font-bold tracking-tightest ${k.on ? "text-aproba-700" : "text-slate-800"}`}>{k.n}</p>
+            <p className="truncate text-[5.5px] text-slate-500">{k.l}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[8px] font-semibold text-slate-800">Agenda</span>
+          <span className="rounded bg-aproba-600 px-1.5 py-0.5 text-[6px] font-semibold text-white">+ Nueva cita</span>
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {dias.map((d, i) => (
+            <div key={d} className={`rounded border p-1 text-center ${i === 3 ? "border-aproba-200 bg-aproba-50/50" : "border-slate-100"}`}>
+              <p className="text-[5px] text-slate-400">{d}</p>
+              <p className="text-[7px] font-semibold text-slate-700">{16 + i}</p>
+              {i === 3 && <p className="mt-0.5 truncate rounded bg-aproba-100 px-0.5 text-[4.5px] font-medium text-aproba-800">10:00 Huellas</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Vencimientos : Vigía réel — grupos por urgencia, punto de color, «caduca en N días»
+// y el botón «Iniciar renovación» (vencimientos-list.tsx).
+function Vencimientos() {
+  const grupos = [
+    {
+      titulo: "Caducan en menos de 60 días", tono: "text-amber-600",
+      items: [
+        { n: "Karim Benali", t: "Renovación de TIE", d: "caduca en 24 días", dot: "bg-amber-400", btn: "Iniciar renovación", primario: true },
+        { n: "Aïcha Diallo", t: "TIE · Arraigo laboral", d: "caduca en 51 días", dot: "bg-amber-400", btn: "Iniciar renovación", primario: true },
+      ],
+    },
+    {
+      titulo: "En los próximos 6 meses", tono: "text-slate-600",
+      items: [
+        { n: "Liu Wei", t: "Renovación de TIE", d: "caduca en 122 días", dot: "bg-slate-300", btn: "Ver renovación", primario: false },
+      ],
+    },
+  ];
+  return (
+    <div>
+      <Head title="Vencimientos" sub="Vigía avisa antes de cada caducidad y renueva en un clic" />
+      {grupos.map((g) => (
+        <div key={g.titulo} className="mb-2">
+          <p className={`mb-1 text-[7px] font-bold uppercase tracking-wide ${g.tono}`}>{g.titulo}</p>
+          <div className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+            {g.items.map((v) => (
+              <div key={v.n} className="flex items-center gap-1.5 px-2 py-1.5">
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${v.dot}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[8.5px] font-medium text-slate-800">{v.n}</p>
+                  <p className="truncate text-[6.5px] text-slate-400">{v.t} · {v.d}</p>
+                </div>
+                <span className={`shrink-0 rounded px-1.5 py-1 text-[6.5px] font-semibold ${v.primario ? "bg-aproba-600 text-white" : "border border-aproba-300 text-aproba-700"}`}>{v.btn}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Expedientes() {
   type Tarjeta = { n: string; t: string; who: string; venc?: string; pct?: number; fecha?: string; res?: "ok" | "no" };
   const cols: { label: string; cards: Tarjeta[] }[] = [
@@ -77,7 +166,7 @@ function Expedientes() {
   ];
   return (
     <div>
-      <Head title="Expedientes" sub="5 activos" cta="+ Nuevo expediente" />
+      <Head title="Expedientes" sub="6 activos" />
       <div className="grid grid-cols-4 gap-1.5">
         {cols.map((c) => (
           <div key={c.label} className="min-w-0">
@@ -109,29 +198,56 @@ function Expedientes() {
   );
 }
 
-// Clientes : table fidèle — avatar initiales, nom, nacionalidad, nº expedientes.
+// Clientes : réplica de app/app/clientes — dos botones (Importar datos + Nuevo cliente),
+// pestañas individuales/familias, buscador, y la TABLA real con cabeceras (CLIENTE con
+// la oficina bajo el nombre · NACIONALIDAD · ÚLTIMO TRÁMITE · EXP.).
 function Clientes() {
   const rows = [
-    { n: "Julia Mendoza", p: "Colombia", i: "JM", x: "1" },
-    { n: "Karim Benali", p: "Marruecos", i: "KB", x: "2" },
-    { n: "Liu Wei", p: "China", i: "LW", x: "1" },
-    { n: "Aïcha Diallo", p: "Senegal", i: "AD", x: "1" },
-    { n: "Oksana Koval", p: "Ucrania", i: "OK", x: "1" },
+    { n: "Julia Mendoza", of: "Oficina Barcelona", p: "Colombia", tr: "Arraigo social", i: "JM", x: "1" },
+    { n: "Karim Benali", of: "Oficina Zaragoza", p: "Marruecos", tr: "Renovación de TIE", i: "KB", x: "2" },
+    { n: "Liu Wei", of: "Oficina Madrid", p: "China", tr: "Reagrupación familiar", i: "LW", x: "1" },
+    { n: "Aïcha Diallo", of: "Oficina Zaragoza", p: "Senegal", tr: "Arraigo laboral", i: "AD", x: "1" },
+    { n: "Oksana Koval", of: "Oficina Barcelona", p: "Ucrania", tr: "Nacionalidad española", i: "OK", x: "1" },
   ];
   return (
     <div>
-      <Head title="Clientes" sub="5 clientes" cta="+ Cliente" />
-      <div className="relative mb-2">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <span className="text-[12px] font-bold tracking-tightest text-slate-900">Clientes</span>
+          <p className="text-[7.5px] text-slate-500">5 clientes · 1 familia</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[7px] font-semibold text-slate-600">Importar datos</span>
+          <span className="rounded-md bg-aproba-600 px-1.5 py-1 text-[7px] font-semibold text-white">+ Nuevo cliente</span>
+        </div>
+      </div>
+      <div className="mb-1.5 flex gap-3 border-b border-slate-200 text-[7.5px] font-medium">
+        <span className="border-b-2 border-aproba-600 pb-0.5 text-aproba-700">Clientes individuales (5)</span>
+        <span className="pb-0.5 text-slate-400">Familias (1)</span>
+      </div>
+      <div className="relative mb-1.5">
         <svg className="absolute left-2 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <div className="rounded-md border border-slate-300 bg-white py-1 pl-6 pr-2 text-[8px] text-slate-400">Buscar cliente, nacionalidad…</div>
+        <div className="rounded-md border border-slate-300 bg-white py-1 pl-6 pr-2 text-[7.5px] text-slate-400">Buscar por nombre o nacionalidad…</div>
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex items-center gap-1.5 border-b border-slate-100 bg-cream-50/60 px-2 py-1 text-[5.5px] font-bold uppercase tracking-wide text-slate-400">
+          <span className="flex-1">Cliente</span>
+          <span className="w-[46px]">Nacionalidad</span>
+          <span className="w-[58px]">Último trámite</span>
+          <span className="w-[14px] text-right">Exp.</span>
+        </div>
         {rows.map((r, i) => (
-          <div key={r.n} className={`flex items-center gap-2 px-2.5 py-1.5 ${i < rows.length - 1 ? "border-b border-slate-100" : ""}`}>
-            <Avatar txt={r.i} />
-            <span className="flex-1 text-[9px] font-medium text-slate-800">{r.n}</span>
-            <span className="text-[8px] text-slate-400">{r.p}</span>
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[8px] font-medium text-slate-500">{r.x}</span>
+          <div key={r.n} className={`flex items-center gap-1.5 px-2 py-1 ${i < rows.length - 1 ? "border-b border-slate-100" : ""}`}>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <Avatar txt={r.i} />
+              <div className="min-w-0">
+                <p className="truncate text-[8px] font-medium text-slate-800">{r.n}</p>
+                <p className="truncate text-[5.5px] text-slate-400">{r.of}</p>
+              </div>
+            </div>
+            <span className="w-[46px] truncate text-[7px] text-slate-500">{r.p}</span>
+            <span className="w-[58px] truncate text-[7px] text-slate-500">{r.tr}</span>
+            <span className="flex w-[14px] justify-end"><span className="rounded-full bg-slate-100 px-1 py-0.5 text-[6.5px] font-medium text-slate-500">{r.x}</span></span>
           </div>
         ))}
       </div>
@@ -259,7 +375,7 @@ function Head({ title, sub, cta }: { title: string; sub?: string; cta?: string }
   );
 }
 
-const CONTENT = [Expedientes, Clientes, Facturas, Ajustes];
+const CONTENT = [Inicio, Expedientes, Clientes, Vencimientos, Facturas, Ajustes];
 
 export function HeroAnimation() {
   const [tab, setTab] = useState(0);
@@ -320,9 +436,13 @@ export function HeroAnimation() {
                 <div className="flex h-8 items-center justify-between border-b border-slate-200 bg-cream-50 px-3">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[9px] font-semibold text-slate-700">Gestoría Vallès</span>
-                    <Pill cls="bg-aproba-100 text-aproba-700">Pro</Pill>
+                    <Pill cls="bg-aproba-100 text-aproba-700">Business</Pill>
                   </div>
-                  <Avatar txt="MR" />
+                  <div className="flex items-center gap-1.5">
+                    {/* En el real, «+ Nuevo expediente» vive en la barra superior */}
+                    <span className="rounded-md bg-aproba-600 px-1.5 py-0.5 text-[7px] font-semibold text-white">+ Nuevo expediente</span>
+                    <Avatar txt="MR" />
+                  </div>
                 </div>
                 <div key={tab} className="flex-1 animate-fadein overflow-hidden p-3">
                   <Active />
