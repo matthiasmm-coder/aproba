@@ -25,7 +25,7 @@ import { CobrosPanel } from "@/components/cobros-panel";
 import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
-import { DriverBanner } from "@/components/driver-banner";
+import { AccionesCiclo } from "@/components/acciones-ciclo";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
@@ -189,6 +189,12 @@ export default async function ExpedienteDetail({
           <PhaseStepper activeEstado={e.estado} activeFase={progresoExp.fase} />
         </div>
 
+        {/* Los TRES clics del ciclo. El banner «Siguiente paso» se retiró (pedido de
+            Matthias, 22/08); estas decisiones no podían irse con él — sin ellas un
+            expediente no avanza nunca. Las navegaciones que el banner también ofrecía
+            (generar formularios, subir documentos) ya viven en sus secciones. */}
+        <AccionesCiclo id={e.id} estado={e.estado} progreso={progresoExp} />
+
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <div><span className="text-slate-400">{t("Asignado a")} </span><span className="font-medium text-slate-700">{e.asignadoA}</span></div>
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
@@ -197,17 +203,6 @@ export default async function ExpedienteDetail({
       </div>
 
       {/* Driver : la flèche déclenche directement l'action suivante */}
-      <DriverBanner
-        id={e.id}
-        estado={e.estado}
-        progreso={progresoExp}
-        citaFecha={e.cita?.fecha ?? null}
-        citaPresencial={cita.citaPresencial}
-        portalToken={e.portalToken}
-        permiteSubidaInterna={!familia && e.modoTrabajo !== "manual"}
-        modoManual={e.modoTrabajo === "manual"}
-        formulariosHref={`/app/expedientes/${e.id}/formularios`}
-      />
 
       {/* Alerta persistente: documentos del cliente aún pendientes (en cualquier estado). */}
       {docsPendientes.length > 0 && (
