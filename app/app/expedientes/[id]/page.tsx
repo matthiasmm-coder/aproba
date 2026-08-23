@@ -10,7 +10,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { fmtFechaCorta, docsFaltantes } from "@/lib/tramites";
+import { fmtFechaCorta, docsFaltantes, labelADocTipo } from "@/lib/tramites";
 import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
@@ -28,6 +28,7 @@ import { PhaseStepper } from "@/components/phase-stepper";
 import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
+import { CasillaDocumentoGestor } from "@/components/casilla-documento-gestor";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -297,14 +298,37 @@ export default async function ExpedienteDetail({
               <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
             </p>
           )}
+          {/* Las casillas del trámite SIEMPRE a la vista, en su orden, tenga o no el
+              cliente su enlace: el gestor ve de un vistazo lo que falta y sube el
+              archivo en su hueco (le llega por email o en mano). Cada documento
+              subido consume UNA casilla; lo que no encaje en ninguna va después.
+              Familia = por miembro (portal), aquí solo expedientes individuales. */}
           <div className="space-y-3">
-            {e.documentos.length > 0 ? (
-              e.documentos.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400">
-                {t("Sin documentos en este expediente.")}
-              </div>
-            )}
+            {(() => {
+              const casillas = familia ? [] : docsRequeridos;
+              const libres = [...e.documentos];
+              const filas = casillas.map((label) => {
+                const tipo = labelADocTipo(label);
+                const i = libres.findIndex((d) => d.tipo === tipo && (d.tieneArchivo || d.estado !== "PENDIENTE"));
+                const doc = i >= 0 ? libres.splice(i, 1)[0] : null;
+                return doc
+                  ? <DocumentoRow key={doc.id} d={doc} expedienteId={e.id} />
+                  : <CasillaDocumentoGestor key={`falta-${label}`} expedienteId={e.id} label={label} />;
+              });
+              // Lo demás: extras subidos por el gestor y, sin requisitos configurados,
+              // la lista completa de siempre. Solo se descarta el hueco vacío que YA
+              // representa una casilla de arriba (si no, saldría dos veces).
+              const tiposEnCasillas = new Set(casillas.map(labelADocTipo));
+              const extras = libres.filter((d) => d.tieneArchivo || d.estado !== "PENDIENTE" || !tiposEnCasillas.has(d.tipo ?? ""));
+              if (filas.length === 0 && extras.length === 0) {
+                return (
+                  <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400">
+                    {t("Sin documentos en este expediente.")}
+                  </div>
+                );
+              }
+              return [...filas, ...extras.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)];
+            })()}
           </div>
           {/* MODO INTERNO: el gestor sube docs él mismo (cliente con docu ya en mano), sin enlace.
               Disponible en CUALQUIER etapa (una resolución llega en PRESENTADO, un TIE nuevo en

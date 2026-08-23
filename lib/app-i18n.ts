@@ -944,6 +944,8 @@ export const CA: Record<string, string> = {
   "¿Ya tienes la documentación? Súbela tú mismo, sin enviar el enlace al cliente.": "Ja tens la documentació? Puja-la tu mateix, sense enviar l'enllaç al client.",
   "Subiendo y validando con IA…": "Pujant i validant amb IA…",
   "Subir documento": "Pujar document",
+  "Subir": "Pujar",
+  "Falta": "Falta",
   "No se pudo subir el documento.": "No s'ha pogut pujar el document.",
   "Eliminar definitivamente": "Eliminar definitivament",
   "Eliminar expediente": "Eliminar expedient",
