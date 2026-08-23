@@ -37,6 +37,7 @@ export interface Documento {
   id: string;
   tipo?: string; // clave técnica del tipo de documento (para casar con los requeridos)
   etiqueta?: string | null; // casilla EXACTA a la que pertenece (documentos propios)
+  clienteId?: string | null; // familiar: miembro al que pertenece (null = del expediente)
   tipoLabel: string;
   estado: DocumentoEstado;
   tieneArchivo?: boolean; // un fichier a été téléversé (téléchargeable par le gestor)

@@ -127,8 +127,8 @@ export default async function ExpedienteDetail({
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
   // Familiar: lo que se pide, con su ámbito. Los del servicio salen del MISMO
   // repartidor que el portal (docsFamiliaPorServicios) para no divergir.
-  const docsFamiliaFicha: { label: string; porPersona: boolean; propio: boolean }[] = (() => {
-    if (!familia) return [];
+  const repartoFamilia = (() => {
+    if (!familia) return null;
     const sol = solicitantesExp.length ? solicitantesExp : familia.miembros;
     const rep = docsFamiliaPorServicios(
       serviciosExp,
@@ -136,13 +136,35 @@ export default async function ExpedienteDetail({
       sol.map((m) => ({ id: m.id, fechaNacimiento: (m.ficha?.fechaNacimiento as string | undefined) ?? null })),
       e.docsExtra,
     );
-    const porPersona = new Set(Object.values(rep.porMiembro).flat());
-    const propios = new Set(docsExtraPlanos(e.docsExtra));
-    return [
-      ...rep.comunes.map((label) => ({ label, porPersona: false, propio: propios.has(label) })),
-      ...[...porPersona].map((label) => ({ label, porPersona: true, propio: propios.has(label) })),
-    ];
+    // Firma: la hoja/mandato se piden UNA vez (al representante) — igual que el portal.
+    const firma = despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [];
+    return { ...rep, comunes: [...firma, ...rep.comunes], miembros: sol };
   })();
+  const propiosFicha = new Set(docsExtraPlanos(e.docsExtra));
+  // Grupos de la ficha familiar (comunes + un miembro por sección) con SUS documentos
+  // ya emparejados: se calcula ANTES del JSX para saber qué documentos quedan fuera
+  // (si no, el bloque de abajo los repintaba y salían dos veces).
+  const gruposFamilia = repartoFamilia
+    ? [
+        { id: null as string | null, titulo: t("Comunes de la familia"), labels: repartoFamilia.comunes },
+        ...repartoFamilia.miembros.map((m) => ({
+          id: m.id as string | null,
+          titulo: m.nombre.trim() || t("Miembro"),
+          labels: repartoFamilia.porMiembro[m.id] ?? [],
+        })),
+      ]
+        .filter((g) => g.labels.length > 0)
+        .map((g) => {
+          const suyos = e.documentos.filter((d) => (d.clienteId ?? null) === g.id && (d.tieneArchivo || d.estado !== "PENDIENTE"));
+          return { ...g, casados: emparejarDocs(g.labels, suyos) };
+        })
+    : [];
+  const usadosFamilia = new Set(
+    gruposFamilia.flatMap((g) => g.casados).filter((d): d is NonNullable<typeof d> => Boolean(d)).map((d) => d.id),
+  );
+  const totalCasillasFamilia = repartoFamilia
+    ? repartoFamilia.comunes.length + Object.values(repartoFamilia.porMiembro).reduce((a, l) => a + l.length, 0)
+    : 0;
   const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
   // Descuento del expediente sobre la tarifa YA multiplicada (nMiembros=1 aquí).
   // El pago final muestra el PENDIENTE real: si el anticipo ya se cobró (a precio pleno,
@@ -343,9 +365,9 @@ export default async function ExpedienteDetail({
               Familia = por miembro (portal), aquí solo expedientes individuales. */}
           {/* Encabezado explícito: el gestor tiene que saber, sin recordarlo de memoria,
               qué papeles hay que reunir en ESTE expediente. */}
-          {!familia && casillasFicha.length > 0 && (
+          {(familia ? totalCasillasFamilia > 0 : casillasFicha.length > 0) && (
             <p className="mb-2 -mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("Documentos requeridos")} · {casillasFicha.length}
+              {t("Documentos requeridos")} · {familia ? totalCasillasFamilia : casillasFicha.length}
             </p>
           )}
           <div className="space-y-3">
@@ -376,7 +398,10 @@ export default async function ExpedienteDetail({
               // la lista completa de siempre. Solo se descarta el hueco vacío que YA
               // representa una casilla de arriba (si no, saldría dos veces).
               const tiposEnCasillas = new Set(casillas.map(labelADocTipo));
-              const extras = libres.filter((d) => d.tieneArchivo || d.estado !== "PENDIENTE" || !tiposEnCasillas.has(d.tipo ?? ""));
+              const extras = libres
+                .filter((d) => d.tieneArchivo || d.estado !== "PENDIENTE" || !tiposEnCasillas.has(d.tipo ?? ""))
+                // Familiar: lo que YA está en una sección de arriba no se repite aquí.
+                .filter((d) => !usadosFamilia.has(d.id));
               // Nada que enseñar → nada: el bloque «elige los documentos» de abajo ya
               // dice lo que pasa (el marco vacío solo repetía la ausencia).
               return [...filas, ...extras.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)];
@@ -387,28 +412,44 @@ export default async function ExpedienteDetail({
               FINALIZADO…): el pipeline solo promociona/regresa el estado en las etapas de
               recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
               (vía portal); aquí solo expedientes individuales. */}
-          {/* Familiar: el gestor NO sube aquí (cada miembro tiene su casilla en el
-              portal), pero SÍ decide qué se pide — y si el papel es del dossier o de
-              cada persona. Antes, un documento añadido en familia se contaba como
-              «falta» y NADIE podía enviarlo. */}
-          {familia && docsFamiliaFicha.length > 0 && (
-            <div className="mb-3 space-y-1.5">
-              {docsFamiliaFicha.map((d) => (
-                <div key={d.label + d.porPersona} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 bg-cream-50/30 px-3 py-2">
-                  <span className="min-w-0 text-sm text-slate-600">{t(d.label)}</span>
-                  <span className="flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                    {d.porPersona ? t("por persona") : t("del expediente")}
-                    {/* Solo lo pedido a mano se puede retirar: la lista del servicio
-                        se cambia en Ajustes. */}
-                    {d.propio && <QuitarDocEsperado expedienteId={e.id} label={d.label} docsExtra={e.docsExtra} />}
-                  </span>
+          {/* FAMILIAR: una sección por ámbito — comunes del dossier y luego cada
+              miembro, con SU casilla y SU zona de arrastre. El documento se guarda
+              con el clienteId del miembro (o sin él si es común), que es justo lo que
+              distingue las casillas del portal. */}
+          {/* FAMILIAR: una sección por ámbito — comunes del dossier y luego cada
+              miembro, con SU casilla y SU zona de arrastre. El documento se guarda con
+              el clienteId del miembro (o sin él si es común): lo mismo que distingue
+              las casillas del portal. */}
+          {familia && (
+            <div className="space-y-4">
+              {gruposFamilia.map((g) => (
+                <div key={g.id ?? "comunes"}>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{g.titulo}</p>
+                  <div className="space-y-3">
+                    {g.labels.map((label, i) => {
+                      const doc = g.casados[i];
+                      return doc ? (
+                        <DocumentoRow key={doc.id} d={doc} expedienteId={e.id} />
+                      ) : (
+                        <div key={`falta-${g.id ?? "c"}-${label}`} className="relative">
+                          <CasillaDocumentoGestor expedienteId={e.id} label={label} miembroId={g.id} />
+                          {propiosFicha.has(label) && (
+                            <span className="absolute right-2 top-2">
+                              <QuitarDocEsperado expedienteId={e.id} label={label} docsExtra={e.docsExtra} />
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <SubirDocumentoGestor expedienteId={e.id} miembroId={g.id} />
                 </div>
               ))}
             </div>
           )}
           <DocumentosEsperados
             expedienteId={e.id}
-            docsActuales={familia ? docsFamiliaFicha.map((d) => d.label) : casillasFicha}
+            docsActuales={familia && repartoFamilia ? [...repartoFamilia.comunes, ...Object.values(repartoFamilia.porMiembro).flat()] : casillasFicha}
             docsTramite={docsRequeridos}
             docsExtra={e.docsExtra}
             sugerencias={sugerenciasDocs}

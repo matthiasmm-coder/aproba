@@ -27,7 +27,7 @@ type Item = {
 const ACEPTA = "image/jpeg,image/png,image/webp,application/pdf";
 const MAX_BYTES = 8 * 1024 * 1024;
 
-export function SubirDocumentoGestor({ expedienteId }: { expedienteId: string }) {
+export function SubirDocumentoGestor({ expedienteId, miembroId = null }: { expedienteId: string; miembroId?: string | null }) {
   const t = useT();
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
@@ -52,7 +52,7 @@ export function SubirDocumentoGestor({ expedienteId }: { expedienteId: string })
       try {
         const { ok, data } = await subirConProgreso({
           url: `/api/expedientes/${expedienteId}/documentos`,
-          form: { auto: "1" },
+          form: { auto: "1", ...(miembroId ? { clienteId: miembroId } : {}) },
           file: base[i].file,
           onProgreso: (v) => patch(i, { prog: v }),
           errorRed: t("Fallo de red — vuelve a intentarlo."),

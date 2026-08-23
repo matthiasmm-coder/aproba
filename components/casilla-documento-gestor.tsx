@@ -17,10 +17,11 @@ const ACEPTA = "image/jpeg,image/png,image/webp,application/pdf";
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export function CasillaDocumentoGestor({
-  expedienteId, label, quitable = false, docsExtra = [],
+  expedienteId, label, quitable = false, docsExtra = [], miembroId = null,
 }: {
   expedienteId: string;
   label: string;
+  miembroId?: string | null;  // familiar: el documento es de ESTE miembro
   quitable?: boolean;      // pedido a mano → se puede retirar de este expediente
   docsExtra?: string[];
 }) {
@@ -55,7 +56,7 @@ export function CasillaDocumentoGestor({
     try {
       const { ok, data } = await subirConProgreso({
         url: `/api/expedientes/${expedienteId}/documentos`,
-        form: { label },
+        form: { label, ...(miembroId ? { clienteId: miembroId } : {}) },
         file,
         onProgreso: setProg,
         errorRed: t("Fallo de red — vuelve a intentarlo."),

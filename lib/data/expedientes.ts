@@ -267,7 +267,7 @@ const DETALLE_SELECT =
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
-   documentos:Documento(id, tipo, etiqueta, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
+   documentos:Documento(id, tipo, etiqueta, clienteId, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    eventos:ExpedienteEvento(tipo, descripcion, createdAt, user:User(nombre)),
    facturas:Factura(id, numero, total, baseImponible, estado, origen, momento, metodoPago)`;
 
@@ -281,6 +281,7 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
       // Etiqueta EXACTA de su casilla (los documentos propios son todos OTRO). Manda
       // sobre el label del catálogo: si el gestor pidió «Foto tamaño carnet», eso se lee.
       etiqueta: (d as { etiqueta?: string | null }).etiqueta ?? null,
+      clienteId: (d as { clienteId?: string | null }).clienteId ?? null, // familiar: de quién es
       tipoLabel: (d as { etiqueta?: string | null }).etiqueta || DOC_LABEL[d.tipo] || d.tipo,
       estado: d.estado as DocumentoUI["estado"],
       tieneArchivo: Boolean(d.storagePath),
@@ -395,10 +396,10 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
     res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /etiqueta|docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, clienteId, estado", "id, tipo, clienteId, estado").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, clienteId, estado", "id, tipo, clienteId, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -424,10 +425,10 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
     res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /etiqueta|docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, clienteId, estado", "id, tipo, clienteId, estado").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, clienteId, estado", "id, tipo, clienteId, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);
