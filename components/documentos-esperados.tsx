@@ -167,7 +167,10 @@ function Selector({
           <div
             role="listbox"
             aria-multiselectable
-            className="absolute left-0 z-20 mt-1 w-[min(18rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-lg"
+            // EN EL FLUJO, no flotando: la tarjeta de la sección es overflow-hidden y
+            // recortaba el desplegable a media lista. Empuja lo de abajo, y así no hay
+            // recorte posible ni desajuste al hacer scroll (móvil incluido).
+            className="mt-1 w-[min(18rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm"
           >
             <div className="max-h-64 overflow-y-auto py-1">
               {opciones.map((l) => {
