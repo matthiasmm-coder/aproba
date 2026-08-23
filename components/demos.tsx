@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Animation synchronisée : à gauche ce que vit le client (téléphone),
 // à droite ce que voit le gestor (dashboard). Un seul `step` pilote les deux.
@@ -105,7 +105,11 @@ function Phone({ step }: { step: number }) {
   const cur = Math.max(0, Math.min(step - 3, DOCS.length - 1)); // doc en cours de subida (steps 3-6)
   return (
     <div className="relative mx-auto w-[260px]">
-      <div className="relative aspect-[9/18.5] overflow-hidden rounded-[2.3rem] border-[7px] border-slate-900 bg-cream-50 shadow-2xl">
+      {/* isolate + translateZ(0): en Safari, los hijos con transform (las Screen que
+          entran deslizándose) se SALEN de un overflow-hidden redondeado si el marco no
+          es su propio contexto de composición — «la animación se sale del móvil»
+          (lo vio Matthias). Chrome clippea igual con o sin esto. */}
+      <div className="relative isolate aspect-[9/18.5] overflow-hidden rounded-[2.3rem] border-[7px] border-slate-900 bg-cream-50 shadow-2xl [transform:translateZ(0)]">
         <div className="relative z-20 flex h-6 items-center justify-center bg-white">
           <div className="h-3.5 w-16 rounded-full bg-slate-900" />
         </div>
@@ -113,11 +117,12 @@ function Phone({ step }: { step: number }) {
         <div className="relative h-[calc(100%-1.5rem)]">
           {/* 0 · WhatsApp */}
           <Screen active={step === 0}>
-            <div className="flex h-9 items-center gap-2 bg-[#075E54] px-3 text-white">
+            <div className="flex h-full flex-col">
+            <div className="flex h-9 shrink-0 items-center gap-2 bg-[#075E54] px-3 text-white">
               <div className="h-6 w-6 rounded-full bg-white/20" />
               <span className="text-[13px] font-medium">Gestoría Vallès</span>
             </div>
-            <div className="space-y-2 bg-[#ECE5DD] p-3" style={{ minHeight: "100%" }}>
+            <div className="flex-1 space-y-2 bg-[#ECE5DD] p-3">
               <div className="max-w-[85%] rounded-lg rounded-tl-none bg-white p-2.5 text-[12px] text-slate-700 shadow-sm">
                 Hola Julia 👋 Para tu trámite, abre tu expediente seguro aquí:
                 <div className="mt-2 rounded-md border border-aproba-200 bg-aproba-50 p-2">
@@ -132,6 +137,7 @@ function Phone({ step }: { step: number }) {
                 <p className="mt-1 text-right text-[9px] text-slate-400">10:24 ✓✓</p>
               </div>
               <TapPulse />
+            </div>
             </div>
           </Screen>
 
@@ -153,7 +159,7 @@ function Phone({ step }: { step: number }) {
           <Screen active={step >= 3 && step <= 6}>
             <PortalHeader />
             <PortalStepper current={2} />
-            <Documentos cur={cur} />
+            <DocumentosScroll cur={cur} activo={step >= 3 && step <= 6} />
           </Screen>
 
           {/* 7 · ¡Todo enviado! (Step 4 du vrai portail) */}
@@ -365,6 +371,31 @@ function TramiteSelector({ active }: { active: boolean }) {
   );
 }
 
+// La lista de documentos puede crecer más que la pantalla del móvil: el «scroll» lo
+// hace la animación (suave, hacia la carta activa), nunca el contenido desbordando.
+function DocumentosScroll({ cur, activo }: { cur: number; activo: boolean }) {
+  // Translación CSS (scrollTo suave no funciona sobre overflow:hidden): la carta
+  // activa queda siempre a la vista y nada puede salirse del marco (clamp + clip).
+  const [desp, setDesp] = useState(0);
+  const winRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!activo) { setDesp(0); return; }
+    const win = winRef.current, inner = innerRef.current;
+    if (!win || !inner) return;
+    const carta = inner.querySelectorAll("[data-doc]")[cur] as HTMLElement | undefined;
+    const pos = carta ? carta.getBoundingClientRect().top - inner.getBoundingClientRect().top : 0;
+    setDesp(Math.max(0, Math.min(pos - 132, inner.scrollHeight - win.clientHeight)));
+  }, [cur, activo]);
+  return (
+    <div ref={winRef} className="relative h-[calc(100%-70px)] overflow-hidden">
+      <div ref={innerRef} className="relative transition-transform duration-700 ease-in-out" style={{ transform: `translateY(-${desp}px)` }}>
+        <Documentos cur={cur} />
+      </div>
+    </div>
+  );
+}
+
 // Step 2 du vrai portail : cartes de documents (icône "i", estados, chips de datos extraídos).
 function Documentos({ cur }: { cur: number }) {
   const [infoOpen, setInfoOpen] = useState(false);
@@ -386,7 +417,7 @@ function Documentos({ cur }: { cur: number }) {
           const analizando = i === cur;
           const esInfo = analizando && infoOpen;
           return (
-            <div key={d.label} className="rounded-xl border border-slate-200 bg-white p-2">
+            <div key={d.label} data-doc className="rounded-xl border border-slate-200 bg-white p-2">
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${validado ? "bg-aproba-100 text-aproba-600" : analizando ? "bg-amber-100 text-amber-600" : "bg-cream-50 text-slate-400"}`}>
@@ -452,8 +483,32 @@ function Dashboard({ step }: { step: number }) {
   const comp = COMP_POR_STEP[step];
   const formsListos = step >= 7;
   const docsCount = DOCS.length;
+
+  // Desplazamiento narrativo del marco (medido: el contenido llega a 933 px en un
+  // marco de 600 — antes el final quedaba cortado e invisible): pasos 0-2 arriba
+  // (cabecera + carta de completitud), 3-6 sobre los documentos que van validándose,
+  // 7 al fondo (Generado automáticamente + historial completo).
+  // ⚠️ TRANSLACIÓN CSS, no scrollTo: scrollTo({behavior:"smooth"}) es un no-op sobre
+  // overflow:hidden (probado — el scroll directo funciona, el suave no se mueve).
+  const [desp, setDesp] = useState(0);
+  const winRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const docsRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const win = winRef.current, inner = innerRef.current;
+    if (!win || !inner) return;
+    // Posición por DIFERENCIA de rects (no offsetTop: devolvía valores fantasma según
+    // el offsetParent): restar el top del contenido anula la translación en curso y da
+    // la posición real de la sección dentro del contenido.
+    const posDe = (el: HTMLElement | null) => (el ? el.getBoundingClientRect().top - inner.getBoundingClientRect().top : 0);
+    let top = 0;
+    if (step >= 3 && step <= 6) top = posDe(docsRef.current) - 64;
+    if (step >= 7) top = inner.scrollHeight;
+    setDesp(Math.max(0, Math.min(top, inner.scrollHeight - win.clientHeight)));
+  }, [step]);
+
   return (
-    <div className="h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card">
+    <div className="isolate h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card [transform:translateZ(0)]">
       {/* Barre navigateur */}
       <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -462,6 +517,10 @@ function Dashboard({ step }: { step: number }) {
         <span className="ml-3 font-mono text-[11px] text-slate-400">app.aproba-software.com/app/expedientes/exp-42</span>
       </div>
 
+      <div ref={winRef} className="relative h-[calc(100%-2.5rem)] overflow-hidden">
+      {/* relative: los offsetTop de las secciones se miden contra ESTE div, que es el
+          que se traslada. duration-700 ≈ un desplazamiento de lectura, no un salto. */}
+      <div ref={innerRef} className="relative transition-transform duration-700 ease-in-out" style={{ transform: `translateY(-${desp}px)` }}>
       <div className="p-4">
         {/* En-tête expediente : referencia + nom + STEPPER de fases (la píldora de
             estado ya no existe en el producto — reforma del 22/08). */}
@@ -511,7 +570,7 @@ function Dashboard({ step }: { step: number }) {
         </div>
 
         {/* Documentos — cartes avec bouton Descargar + datos extraídos por IA */}
-        <p className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Documentos ({docsCount})</p>
+        <p ref={docsRef} className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Documentos ({docsCount})</p>
         <div className="space-y-1.5">
           {DOCS.map((d, i) => {
             const ok = docValidated(i);
@@ -574,6 +633,8 @@ function Dashboard({ step }: { step: number }) {
             </li>
           ))}
         </ol>
+      </div>
+      </div>
       </div>
     </div>
   );
