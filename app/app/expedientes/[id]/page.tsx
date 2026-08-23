@@ -12,7 +12,7 @@ import { FamiliaExpedienteSection } from "@/components/familia-expediente-sectio
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { docsFamiliaPorServicios } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsExtraPlanos } from "@/lib/familia";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
@@ -31,7 +31,7 @@ import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { CasillaDocumentoGestor } from "@/components/casilla-documento-gestor";
-import { DocumentosEsperados } from "@/components/documentos-esperados";
+import { DocumentosEsperados, QuitarDocEsperado } from "@/components/documentos-esperados";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -127,7 +127,7 @@ export default async function ExpedienteDetail({
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
   // Familiar: lo que se pide, con su ámbito. Los del servicio salen del MISMO
   // repartidor que el portal (docsFamiliaPorServicios) para no divergir.
-  const docsFamiliaFicha: { label: string; porPersona: boolean }[] = (() => {
+  const docsFamiliaFicha: { label: string; porPersona: boolean; propio: boolean }[] = (() => {
     if (!familia) return [];
     const sol = solicitantesExp.length ? solicitantesExp : familia.miembros;
     const rep = docsFamiliaPorServicios(
@@ -137,9 +137,10 @@ export default async function ExpedienteDetail({
       e.docsExtra,
     );
     const porPersona = new Set(Object.values(rep.porMiembro).flat());
+    const propios = new Set(docsExtraPlanos(e.docsExtra));
     return [
-      ...rep.comunes.map((label) => ({ label, porPersona: false })),
-      ...[...porPersona].map((label) => ({ label, porPersona: true })),
+      ...rep.comunes.map((label) => ({ label, porPersona: false, propio: propios.has(label) })),
+      ...[...porPersona].map((label) => ({ label, porPersona: true, propio: propios.has(label) })),
     ];
   })();
   const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
@@ -395,8 +396,11 @@ export default async function ExpedienteDetail({
               {docsFamiliaFicha.map((d) => (
                 <div key={d.label + d.porPersona} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 bg-cream-50/30 px-3 py-2">
                   <span className="min-w-0 text-sm text-slate-600">{t(d.label)}</span>
-                  <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  <span className="flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                     {d.porPersona ? t("por persona") : t("del expediente")}
+                    {/* Solo lo pedido a mano se puede retirar: la lista del servicio
+                        se cambia en Ajustes. */}
+                    {d.propio && <QuitarDocEsperado expedienteId={e.id} label={d.label} docsExtra={e.docsExtra} />}
                   </span>
                 </div>
               ))}

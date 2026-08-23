@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import { useT } from "@/components/lang-provider";
+import { PREFIJO_POR_PERSONA } from "@/lib/familia";
+
+const quitarPrefijo = (d: string) => (d.startsWith(PREFIJO_POR_PERSONA) ? d.slice(PREFIJO_POR_PERSONA.length).trim() : d);
 
 // Casilla VACÍA de un documento que el trámite exige. El gestor ve lo que falta sin
 // abrir el portal del cliente, y sube el archivo directamente en su hueco (llega por
@@ -35,7 +38,7 @@ export function CasillaDocumentoGestor({
       const res = await fetch(`/api/expedientes/${expedienteId}/docs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docs: docsExtra.filter((d) => d !== label) }),
+        body: JSON.stringify({ docs: docsExtra.filter((d) => quitarPrefijo(d) !== label) }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? t("No se pudo guardar."));

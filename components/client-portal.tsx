@@ -150,7 +150,7 @@ export function ClientPortal({
       ...(serviciosExtraClaves ?? [])
         .filter((c) => c !== servicioInicial)
         .flatMap((c) => catalogo.find((x) => x.id === c)?.docs ?? []),
-      ...docsExtra, // pedidos a mano: sin ellos, lo ya enviado volvía a pedirse
+      ...docsExtraPlanos(docsExtra), // pedidos a mano: sin ellos, lo ya enviado volvía a pedirse
     ]);
     const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
     // Emparejado ÚNICO (lib/tramites): un documento llena UNA casilla. Antes casaba
@@ -289,8 +289,11 @@ export function ClientPortal({
   // «Título homologado» salía como «Diplôme» (la regla de tipo lo mete en
   // TITULO_ESTUDIOS para la IA) y el cliente traía otro papel. Los del catálogo sí
   // se traducen — el migrante los entiende mejor en su idioma.
-  const etiquetaDoc = (l: string) => (docsExtra.includes(l) ? l : docLabel(l, lang));
-  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? []), ...docsExtra]);
+  // SIN el prefijo «uno por persona» (familia): en individual esa persona es el
+  // titular, y el prefijo NUNCA debe verse en pantalla.
+  const docsExtraLimpios = docsExtraPlanos(docsExtra);
+  const etiquetaDoc = (l: string) => (docsExtraLimpios.includes(l) ? l : docLabel(l, lang));
+  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? []), ...docsExtraLimpios]);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
   // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
@@ -1138,7 +1141,7 @@ export function ClientPortal({
             miembros={famMiembros}
             docsComunes={docsFam.comunes}
             docsPorMiembro={docsFam.porMiembro}
-            docsPropios={docsExtraPlanos(docsExtra)}
+            docsPropios={docsExtraLimpios}
             encargoActivo={encargoActivo && Boolean(token)}
             onBack={() => setStep(serviciosFijados ? 0 : 1)}
             onContinue={proceder}
