@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { esChunkPerimido, recargarPorChunkPerimido } from "@/lib/chunk-perimido";
 
 // Error boundary de segment (Next.js). Évite la page blanche sur un crash React :
 // affiche un message propre + reintentar. Trace en logs serveur + Sentry (no-op sans DSN).
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const [recargando, setRecargando] = useState(false);
   useEffect(() => {
+    // Chunk de un build viejo tras un deploy: recargar trae el build nuevo. No es un
+    // fallo de la app y no debe asustar al gestor con «Algo ha fallado».
+    if (esChunkPerimido(error) && recargarPorChunkPerimido()) { setRecargando(true); return; }
     console.error("[app error]", error.digest ?? "", error.message);
     Sentry.captureException(error);
   }, [error]);
+
+  if (recargando) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
+        <p className="text-sm text-slate-500">Hay una versión nueva de Aproba — actualizando…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
