@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emparejarDocs } from "@/lib/tramites";
+import { emparejarDocs, unirDocsPedidos } from "@/lib/tramites";
 
 // El caso que rompía el portal: dos documentos pedidos a mano caen los dos en OTRO.
 describe("emparejarDocs", () => {
@@ -35,5 +35,21 @@ describe("emparejarDocs", () => {
   it("un documento con etiqueta de OTRA casilla no se usa por tipo", () => {
     const docs = [{ tipo: "OTRO", etiqueta: "Foto tamaño carnet", id: "f" }];
     expect(emparejarDocs(["Certificado médico oficial"], docs)[0]).toBeNull();
+  });
+});
+
+describe("unirDocsPedidos", () => {
+  it("un documento pedido a mano no lo absorbe el dedup por tipo", () => {
+    // «Contrato de alquiler» y «Contrato de trabajo» comparten tipo técnico.
+    const r = unirDocsPedidos(["Contrato de trabajo"], ["Contrato de alquiler"]);
+    expect(r).toEqual(["Contrato de trabajo", "Contrato de alquiler"]);
+  });
+
+  it("no repite si el gestor pide algo que el servicio ya pedía", () => {
+    expect(unirDocsPedidos(["Pasaporte"], ["  pasaporte "])).toEqual(["Pasaporte"]);
+  });
+
+  it("los del servicio siguen dedupándose por tipo", () => {
+    expect(unirDocsPedidos(["Pasaporte", "Pasaporte completo"], [])).toHaveLength(1);
   });
 });

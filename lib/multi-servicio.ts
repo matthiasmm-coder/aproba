@@ -1,5 +1,5 @@
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
-import { dedupDocs } from "@/lib/tramites";
+import { dedupDocs, unirDocsPedidos } from "@/lib/tramites";
 import { docsExtraPlanos } from "@/lib/familia";
 import type { Servicio } from "@/lib/servicios";
 
@@ -66,7 +66,7 @@ export function docsDeServicios(servicios: Servicio[]): string[] {
 export function docsDeExpediente(servicios: Servicio[], docsExtra?: unknown): string[] {
   // Los «de cada persona» pierden aquí su prefijo: en un expediente individual esa
   // persona ES el titular, y en la familia la reparte docsFamiliaPorServicios.
-  return dedupDocs([...docsDeServicios(servicios), ...docsExtraPlanos(docsExtra)]);
+  return unirDocsPedidos(docsDeServicios(servicios), docsExtraPlanos(docsExtra));
 }
 
 // Suma de tarifas: la factura automática (ANTICIPO/FINAL) cobra la suma de todos los

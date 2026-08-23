@@ -171,3 +171,21 @@ export function emparejarDocs<T extends { tipo?: string | null; etiqueta?: strin
     return sacar(libres.findIndex((d) => d.tipo === tipo && !d.etiqueta));
   });
 }
+
+// Une los documentos DEL SERVICIO (dedup por tipo: «Pasaporte»/«Pasaporte completo»
+// son la misma casilla) con los que el gestor pidió A MANO, que se respetan por
+// ETIQUETA: «Contrato de alquiler» comparte tipo técnico con «Contrato de trabajo»
+// y el dedup por tipo se lo comía — el gestor lo pidió, tiene que estar.
+export function unirDocsPedidos(docsServicio: string[], extras: string[]): string[] {
+  const base = dedupDocs(docsServicio);
+  const norm = (s: string) => s.trim().toLowerCase();
+  const vistos = new Set(base.map(norm));
+  const out = [...base];
+  for (const e of extras) {
+    const n = norm(e);
+    if (!n || vistos.has(n)) continue;
+    vistos.add(n);
+    out.push(e.trim());
+  }
+  return out;
+}

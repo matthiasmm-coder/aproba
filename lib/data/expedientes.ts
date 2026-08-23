@@ -2,7 +2,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs } from "@/lib/tramites";
+import { docsExtraPlanos } from "@/lib/familia";
+import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs, unirDocsPedidos } from "@/lib/tramites";
 import { calcularProgreso, type Progreso } from "@/lib/progreso";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
 import { FICHA_KEYS, FICHA_CAMPOS, type ClienteFicha } from "@/lib/ficha";
@@ -504,8 +505,8 @@ export function progresoDeExpediente(
   const resueltos = claves.map((c) => porId.get(c)).filter((f): f is CatalogoResuelto[number] => Boolean(f));
   // Los pedidos a mano cuentan IGUAL que los del servicio: si no, el anillo diría
   // «completo» mientras el gestor sigue esperando un papel que él mismo reclamó.
-  const extra = Array.isArray(e.docsExtra) ? e.docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim()) : [];
-  const requeridos = dedupDocs([...resueltos.flatMap((f) => f.docs ?? []), ...extra]);
+  const extra = docsExtraPlanos(e.docsExtra);
+  const requeridos = unirDocsPedidos(resueltos.flatMap((f) => f.docs ?? []), extra);
   const docs = (e.documentos ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
 
   return calcularProgreso({

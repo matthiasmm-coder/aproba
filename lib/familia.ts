@@ -1,7 +1,7 @@
 // Dossier familial: constantes partagées (rôle/parenté). La parenté est un texte libre
 // contrôlé (comme sexo/estadoCivil dans lib/ficha.ts), pas un enum Postgres → évolutif.
 
-import { labelADocTipo, dedupDocs } from "@/lib/tramites";
+import { labelADocTipo, dedupDocs, unirDocsPedidos } from "@/lib/tramites";
 
 export const PARENTESCOS = [
   ["TITULAR", "Titular"],
@@ -88,11 +88,11 @@ export function docsFamiliaPorServicios(
   }
   // Dedup por TIPO (dos servicios piden «Pasaporte» y «Pasaporte completo» → una casilla),
   // los personalizados (OTRO) por etiqueta — caso real de Juan: el pasaporte salía doble.
+  // Los pedidos a mano se respetan por etiqueta (unirDocsPedidos): el dedup por tipo
+  // fusionaba «Contrato de alquiler» con «Contrato de trabajo».
   const extra = separarDocsExtra(docsExtra);
-  comunes.push(...extra.comunes);
-  for (const m of solicitantes) porMiembro[m.id].push(...extra.porPersona);
-  for (const id of Object.keys(porMiembro)) porMiembro[id] = dedupDocs(porMiembro[id]);
-  return { comunes: dedupDocs(comunes), porMiembro };
+  for (const id of Object.keys(porMiembro)) porMiembro[id] = unirDocsPedidos(porMiembro[id], extra.porPersona);
+  return { comunes: unirDocsPedidos(comunes, extra.comunes), porMiembro };
 }
 
 // ── Documentos pedidos A MANO en un expediente FAMILIAR ────────────────────────
