@@ -325,7 +325,7 @@ export default async function ExpedienteDetail({
               qué papeles hay que reunir en ESTE expediente. */}
           {!familia && casillasFicha.length > 0 && (
             <p className="mb-2 -mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("Documentos que hay que reunir")} · {casillasFicha.length}
+              {t("Documentos requeridos")} · {casillasFicha.length}
             </p>
           )}
           <div className="space-y-3">
