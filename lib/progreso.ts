@@ -1,4 +1,4 @@
-import { labelADocTipo } from "@/lib/tramites";
+import { labelADocTipo, emparejarDocs } from "@/lib/tramites";
 
 // CICLO DE VIDA DEL EXPEDIENTE — 5 estados persistidos + progresión DERIVADA.
 //
@@ -59,6 +59,9 @@ export type Hechos = {
   serviciosResueltos: number;     // servicios del expediente encontrados en el catálogo
   docsRequeridos: string[];       // labels requeridos (union servicio principal + extras)
   tiposValidados: string[];       // docTipos con al menos un Documento VALIDADO
+  // Documentos con su CASILLA (etiqueta): si vienen, mandan sobre tiposValidados —
+  // dos casillas propias son las dos OTRO y un solo fichero llenaba las dos.
+  docsCasillas?: { tipo?: string | null; etiqueta?: string | null; estado: string }[];
   docsTotales: number;            // documentos subidos (excluidos encargo/mandato)
   docsValidados: number;
   // Curación de formularios HECHA: [] explícito («ningún modelo aplica») cuenta como
@@ -124,11 +127,15 @@ export const FASES: { key: FaseKey; label: string }[] = [
 // tolerante a dos labels que mapean el mismo tipo), pero como cálculo puro y SIN el
 // guard que excluía a las familias — su exclusión es justamente lo que las dejaba
 // atascadas en «documentos pendientes» para siempre.
-export function docsCompletos(h: Pick<Hechos, "docsRequeridos" | "tiposValidados" | "docsTotales" | "docsValidados">): {
+export function docsCompletos(h: Pick<Hechos, "docsRequeridos" | "tiposValidados" | "docsCasillas" | "docsTotales" | "docsValidados">): {
   requeridos: number; recibidos: number; faltan: string[]; completo: boolean;
 } {
   const validados = new Set(h.tiposValidados);
-  const faltan = h.docsRequeridos.filter((label) => !validados.has(labelADocTipo(label)));
+  const faltan = h.docsCasillas
+    ? emparejarDocs(h.docsRequeridos, h.docsCasillas.filter((d) => d.estado === "VALIDADO"))
+        .map((d, i) => (d ? null : h.docsRequeridos[i]))
+        .filter((l): l is string => Boolean(l))
+    : h.docsRequeridos.filter((label) => !validados.has(labelADocTipo(label)));
   // Sin requisitos configurados no se puede afirmar «completo» por vacuidad: se cae al
   // criterio de «todo lo subido está validado», y solo si hay algo subido.
   const completo = h.docsRequeridos.length > 0

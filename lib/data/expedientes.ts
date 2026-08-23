@@ -76,7 +76,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   };
   // Tarjeta del tablero: para un expediente FAMILIAR, el título es el nombre de la familia
   // (no el del titular). Repli sin el join Familia si la migración no está aplicada.
-  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
+  const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo, etiqueta)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
     conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
@@ -104,6 +104,13 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   }
   // modoTrabajo es columna nueva (supabase/modo-trabajo.sql): sin migrar, TODA la cadena
   // fallaría porque vive en SEL_BASE — se reintenta la consulta completa sin ella.
+  // etiqueta es columna nueva (supabase/documento-etiqueta.sql) y vive en SEL_BASE:
+  // sin migrar, TODA la cadena fallaría. Se reintenta la consulta completa sin ella.
+  if (error && /etiqueta/i.test(String(error.message))) {
+    const rE = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(", etiqueta)", ")")}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+    data = (rE.data ?? null) as unknown[] | null;
+    error = rE.error;
+  }
   if (error && /modoTrabajo|validadoAt/i.test(String(error.message))) {
     const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "").replace(" fechaPresentacion,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r4.data ?? null) as unknown[] | null;
@@ -260,7 +267,7 @@ const DETALLE_SELECT =
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
-   documentos:Documento(id, tipo, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
+   documentos:Documento(id, tipo, etiqueta, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    eventos:ExpedienteEvento(tipo, descripcion, createdAt, user:User(nombre)),
    facturas:Factura(id, numero, total, baseImponible, estado, origen, momento, metodoPago)`;
 
@@ -271,7 +278,10 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     return {
       id: d.id,
       tipo: d.tipo,
-      tipoLabel: DOC_LABEL[d.tipo] ?? d.tipo,
+      // Etiqueta EXACTA de su casilla (los documentos propios son todos OTRO). Manda
+      // sobre el label del catálogo: si el gestor pidió «Foto tamaño carnet», eso se lee.
+      etiqueta: (d as { etiqueta?: string | null }).etiqueta ?? null,
+      tipoLabel: (d as { etiqueta?: string | null }).etiqueta || DOC_LABEL[d.tipo] || d.tipo,
       estado: d.estado as DocumentoUI["estado"],
       tieneArchivo: Boolean(d.storagePath),
       nombreArchivo: d.nombreArchivo ?? undefined,
@@ -384,11 +394,11 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
     res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
-  if (res.error && /docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+  if (res.error && /etiqueta|docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -413,11 +423,11 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
     res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
-  if (res.error && /docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  if (res.error && /etiqueta|docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("id, tipo, etiqueta, estado", "id, tipo, estado").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);
@@ -475,7 +485,7 @@ export function progresoDeExpediente(
     estado: string; tipo: string;
     servicioClave?: string | null; serviciosExtra?: string[] | null;
     docsExtra?: string[] | null; // pedidos a mano en ESTE expediente
-    documentos?: { tipo?: string | null; estado: string }[] | null;
+    documentos?: { tipo?: string | null; etiqueta?: string | null; estado: string }[] | null;
     formulariosGenerados?: string[] | null; tasaPath?: string | null; fechaCita?: string | null;
     modoTrabajo?: string | null;
     validadoAt?: string | null;
@@ -502,6 +512,8 @@ export function progresoDeExpediente(
     serviciosResueltos: resueltos.length,
     docsRequeridos: requeridos,
     tiposValidados: docs.filter((d) => d.estado === "VALIDADO").map((d) => String(d.tipo ?? "")),
+    // Con la casilla exacta: un fichero llena UNA casilla (ver emparejarDocs).
+    docsCasillas: docs.map((d) => ({ tipo: d.tipo ?? null, etiqueta: (d as { etiqueta?: string | null }).etiqueta ?? null, estado: d.estado })),
     docsTotales: docs.length,
     docsValidados: docs.filter((d) => d.estado === "VALIDADO").length,
     formulariosCurados: Array.isArray(e.formulariosGenerados),

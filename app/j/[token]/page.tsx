@@ -130,10 +130,13 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       const supOv = (exp as unknown as { suplidosOverride?: { concepto: string; importe: number }[] | null }).suplidosOverride;
       suplidosOverride = Array.isArray(supOv) ? supOv.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) })) : null;
       try {
-        const { data: docRows } = await admin.from("Documento").select("tipo, estado, clienteId").eq("expedienteId", exp.id);
-        docsSubidos = ((docRows ?? []) as { tipo: string; estado: string; clienteId: string | null }[])
+        let dr = await admin.from("Documento").select("tipo, estado, clienteId, etiqueta").eq("expedienteId", exp.id);
+        if (dr.error && /etiqueta|column|schema cache/i.test(dr.error.message)) {
+          dr = await admin.from("Documento").select("tipo, estado, clienteId").eq("expedienteId", exp.id) as typeof dr;
+        }
+        docsSubidos = ((dr.data ?? []) as { tipo: string; estado: string; clienteId: string | null; etiqueta?: string | null }[])
           .filter((d) => !d.clienteId)
-          .map((d) => ({ tipo: d.tipo, estado: d.estado }));
+          .map((d) => ({ tipo: d.tipo, estado: d.estado, etiqueta: d.etiqueta ?? null }));
       } catch { /* sin docs */ }
 
       // Cobro con tarjeta del anticipo: solo si la gestoría tiene su clave Stripe.

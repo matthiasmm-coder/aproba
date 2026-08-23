@@ -10,7 +10,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { fmtFechaCorta, docsFaltantes, labelADocTipo, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
+import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
@@ -150,6 +150,7 @@ export default async function ExpedienteDetail({
     {
       estado: e.estado, tipo: e.tipoEnum,
       servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra,
+      docsExtra: e.docsExtra, // pedidos a mano: cuentan como requeridos
       documentos: e.documentos,
       formulariosGenerados: e.formulariosGenerados, tasaPath: e.tasaPath,
       fechaCita: e.cita?.fecha ?? null,
@@ -331,11 +332,15 @@ export default async function ExpedienteDetail({
           <div className="space-y-3">
             {(() => {
               const casillas = casillasFicha;
-              const libres = [...e.documentos];
-              const filas = casillas.map((label) => {
-                const tipo = labelADocTipo(label);
-                const i = libres.findIndex((d) => d.tipo === tipo && (d.tieneArchivo || d.estado !== "PENDIENTE"));
-                const doc = i >= 0 ? libres.splice(i, 1)[0] : null;
+              // MISMO emparejador que el portal (lib/tramites): la etiqueta manda, el
+              // tipo es el repli. Sin él, dos documentos propios (los dos OTRO) se
+              // pisaban entre casillas.
+              const utiles = e.documentos.filter((d) => d.tieneArchivo || d.estado !== "PENDIENTE");
+              const casados = emparejarDocs(casillas, utiles);
+              const usados = new Set(casados.filter((d): d is NonNullable<typeof d> => Boolean(d)).map((d) => d.id));
+              const libres = e.documentos.filter((d) => !usados.has(d.id));
+              const filas = casillas.map((label, idx) => {
+                const doc = casados[idx];
                 return doc
                   ? <DocumentoRow key={doc.id} d={doc} expedienteId={e.id} />
                   : <CasillaDocumentoGestor

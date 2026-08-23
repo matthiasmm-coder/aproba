@@ -59,8 +59,18 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
   }
 
   // Documento: reutilizar la fila del mismo tipo (por miembro) si existe (re-subida), sinon crear.
-  const dq = admin.from("Documento").select("id").eq("expedienteId", exp.id).eq("tipo", docTipo);
-  const { data: existente } = await (clienteId ? dq.eq("clienteId", clienteId) : dq).limit(1).maybeSingle();
+  // La fila se reutiliza (re-subida) por CASILLA, no por tipo: dos documentos pedidos
+  // a mano son los dos OTRO y el segundo pisaba el fichero del primero.
+  const buscar = (conEtiqueta: boolean) => {
+    let q = admin.from("Documento").select("id").eq("expedienteId", exp.id).eq("tipo", docTipo);
+    if (conEtiqueta) q = q.eq("etiqueta", label);
+    if (clienteId) q = q.eq("clienteId", clienteId);
+    return q.limit(1).maybeSingle();
+  };
+  let ex = await buscar(true);
+  const sinEtiqueta = Boolean(ex.error && /etiqueta|column|schema cache/i.test(ex.error.message));
+  if (sinEtiqueta) ex = await buscar(false);
+  const existente = ex.data;
   const docId = existente?.id ?? uuid();
 
   // Almacenamiento (bucket privado) — ruta por expediente, con marca de tiempo.
@@ -78,10 +88,12 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     sizeBytes: file.size,
     uploadedAt: new Date().toISOString(),
   };
-  const { error: e3 } = existente
-    ? await admin.from("Documento").update({ ...base, estado: "PROCESANDO" }).eq("id", docId)
-    : await admin.from("Documento").insert({ id: docId, ...base, estado: "PROCESANDO" });
-  if (e3) throw new Error(e3.message);
+  const escribir = async (fila: Record<string, unknown>) => (existente
+    ? admin.from("Documento").update({ ...fila, estado: "PROCESANDO" }).eq("id", docId)
+    : admin.from("Documento").insert({ id: docId, ...fila, estado: "PROCESANDO" }));
+  let w = await escribir(sinEtiqueta ? base : { ...base, etiqueta: label });
+  if (w.error && /etiqueta|column|schema cache/i.test(w.error.message)) w = await escribir(base);
+  if (w.error) throw new Error(w.error.message);
 
   await admin.from("ExpedienteEvento").insert({
     id: uuid(), expedienteId: exp.id, tipo: "DOC_SUBIDO",

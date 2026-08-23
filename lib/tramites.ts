@@ -69,13 +69,14 @@ export function dedupDocs(labels: string[]): string[] {
 // en /s/[token], el aviso de seguimiento, el detalle del gestor y el recordatorio.
 export function docsFaltantes(
   requeridos: string[],
-  subidos: { tipo?: string | null; estado: string | null }[],
+  subidos: { tipo?: string | null; etiqueta?: string | null; estado: string | null }[],
 ): string[] {
-  const m = new Map(subidos.map((d) => [d.tipo ?? "", d.estado]));
-  return requeridos.filter((label) => {
-    const st = m.get(labelADocTipo(label));
-    return st !== "VALIDADO" && st !== "PROCESANDO";
-  });
+  // Por CASILLA (emparejarDocs), no por tipo: dos documentos pedidos a mano son los
+  // dos OTRO y uno solo tapaba las dos casillas.
+  const enCurso = subidos.filter((d) => d.estado === "VALIDADO" || d.estado === "PROCESANDO");
+  return emparejarDocs(requeridos, enCurso)
+    .map((d, i) => (d ? null : requeridos[i]))
+    .filter((l): l is string => Boolean(l));
 }
 
 // DocumentoTipo → tipo_documento du schéma d'extraction (contrôle de cohérence).
@@ -147,4 +148,26 @@ export function fmtFechaCorta(iso: string | null | undefined): string | undefine
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+// Empareja las CASILLAS (labels, en su orden) con los documentos subidos. Un mismo
+// documento no puede llenar dos casillas: se consume. Prioridad a la etiqueta exacta
+// —imprescindible desde que el gestor pide documentos propios, que caen todos en el
+// tipo técnico OTRO— y repli por tipo para las filas de antes de la etiqueta y para
+// los sinónimos («Pasaporte» / «Pasaporte completo»).
+export function emparejarDocs<T extends { tipo?: string | null; etiqueta?: string | null }>(
+  labels: string[],
+  docs: T[],
+): (T | null)[] {
+  const libres = [...docs];
+  const sacar = (i: number) => (i >= 0 ? libres.splice(i, 1)[0] : null);
+  const norm = (s: string) => s.trim().toLowerCase();
+  return labels.map((label) => {
+    const exacto = libres.findIndex((d) => d.etiqueta && norm(d.etiqueta) === norm(label));
+    if (exacto >= 0) return sacar(exacto);
+    const tipo = labelADocTipo(label);
+    // Sin etiqueta propia: solo puede casar por tipo un documento que no lleve una
+    // etiqueta DISTINTA (si la lleva, es de otra casilla y esperará a la suya).
+    return sacar(libres.findIndex((d) => d.tipo === tipo && !d.etiqueta));
+  });
 }

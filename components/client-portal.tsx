@@ -9,7 +9,7 @@ import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
-import { dedupDocs, labelADocTipo } from "@/lib/tramites";
+import { dedupDocs, labelADocTipo, emparejarDocs } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
@@ -89,7 +89,7 @@ export function ClientPortal({
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   descuento?: Descuento | null;
   asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
-  docsSubidos?: { tipo: string; estado: string }[];
+  docsSubidos?: { tipo: string; estado: string; etiqueta?: string | null }[];
   docsExtra?: string[]; // documentos pedidos a mano por el gestor en este expediente
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
@@ -150,10 +150,12 @@ export function ClientPortal({
       ...(serviciosExtraClaves ?? [])
         .filter((c) => c !== servicioInicial)
         .flatMap((c) => catalogo.find((x) => x.id === c)?.docs ?? []),
+      ...docsExtra, // pedidos a mano: sin ellos, lo ya enviado volvía a pedirse
     ]);
     const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
-    labels.forEach((label, i) => {
-      const row = docsSubidos.find((d) => d.tipo === labelADocTipo(label));
+    // Emparejado ÚNICO (lib/tramites): un documento llena UNA casilla. Antes casaba
+    // por tipo y dos documentos propios (los dos OTRO) marcaban las dos casillas.
+    emparejarDocs(labels, docsSubidos).forEach((row, i) => {
       if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
     });
     return m;
@@ -283,6 +285,11 @@ export function ClientPortal({
   // el cliente veía el pasaporte tres veces al elegir un pack (reportado por Matthias).
   // + los pedidos a mano por el gestor en ESTE expediente (Expediente.docsExtra):
   // sus casillas tienen que salir aquí también, si no el cliente no los envía nunca.
+  // Un documento pedido A MANO por el gestor se enseña con SU nombre, sin traducir:
+  // «Título homologado» salía como «Diplôme» (la regla de tipo lo mete en
+  // TITULO_ESTUDIOS para la IA) y el cliente traía otro papel. Los del catálogo sí
+  // se traducen — el migrante los entiende mejor en su idioma.
+  const etiquetaDoc = (l: string) => (docsExtra.includes(l) ? l : docLabel(l, lang));
   const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? []), ...docsExtra]);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
@@ -465,7 +472,7 @@ export function ClientPortal({
           patchLote(i, { fase: "hecho", prog: 100, okDoc: false, texto: t("s2.lote.noReconocido") });
         } else {
           aplicarEnCasilla(slot, d);
-          patchLote(i, { fase: "hecho", prog: 100, okDoc: d.estado === "VALIDADO", texto: docLabel(requiredDocs[slot], lang) });
+          patchLote(i, { fase: "hecho", prog: 100, okDoc: d.estado === "VALIDADO", texto: etiquetaDoc(requiredDocs[slot]) });
         }
       } catch (err) {
         patchLote(i, { fase: "error", prog: 0, texto: err instanceof Error ? err.message : t("s2.errorSubir") });
@@ -1220,7 +1227,7 @@ export function ClientPortal({
                             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                           )}
                         </span>
-                        <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-3">{docLabel(label, lang)}</span>
+                        <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-3">{etiquetaDoc(label)}</span>
                         {ayuda && (
                           <button
                             type="button"
