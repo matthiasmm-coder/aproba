@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { docsFamiliaPorServicios } from "./familia";
+import { docsFamiliaPorServicios, separarDocsExtra, docsExtraPlanos } from "./familia";
 
 // Caso Juan: padre arraigo + madre renovación — cada uno sube SUS documentos,
 // los comunes (empadronamiento, libro de familia…) una sola vez.
@@ -63,5 +63,30 @@ describe("docsFamiliaPorServicios", () => {
     const r = docsFamiliaPorServicios([ARRAIGO, RENOVACION], { arraigo_social: ["fantasma"] }, [MADRE]);
     expect(r.porMiembro.m1).toEqual(["Pasaporte completo", "TIE actual"]);
     expect(Object.keys(r.porMiembro)).toEqual(["m1"]);
+  });
+});
+
+describe("docsExtra en familia (comunes vs por persona)", () => {
+  it("separa los del dossier de los de cada persona", () => {
+    const r = separarDocsExtra(["Contrato de alquiler", "@persona:Certificado médico", "  "]);
+    expect(r.comunes).toEqual(["Contrato de alquiler"]);
+    expect(r.porPersona).toEqual(["Certificado médico"]);
+  });
+
+  it("reparte: el común una vez, el de persona a CADA solicitante", () => {
+    const SV = { id: "s", docs: ["Pasaporte"] };
+    const r = docsFamiliaPorServicios(
+      [SV], null,
+      [{ id: "m1" }, { id: "m2" }],
+      ["Contrato de alquiler", "@persona:Certificado médico"],
+    );
+    expect(r.comunes).toContain("Contrato de alquiler");
+    expect(r.porMiembro.m1).toContain("Certificado médico");
+    expect(r.porMiembro.m2).toContain("Certificado médico");
+    expect(r.comunes).not.toContain("Certificado médico");
+  });
+
+  it("en individual, el prefijo desaparece (esa persona es el titular)", () => {
+    expect(docsExtraPlanos(["@persona:Certificado médico", "Contrato"])).toEqual(["Certificado médico", "Contrato"]);
   });
 });

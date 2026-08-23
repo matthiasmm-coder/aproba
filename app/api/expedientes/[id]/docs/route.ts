@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { PREFIJO_POR_PERSONA } from "@/lib/familia";
 
 // El GESTOR define QUÉ documentos hay que reunir en ESTE expediente, además de los
 // del servicio. Sin esto, un trámite «Otro» o un servicio propio creado sin lista
@@ -23,7 +24,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const docs: string[] = [];
   for (const d of body.docs) {
     if (typeof d !== "string") continue;
-    const limpio = d.trim().replace(/\s+/g, " ").slice(0, MAX_LARGO);
+    // El prefijo «uno por persona» (familia) lo pone la UI, no el gestor: se separa,
+    // se sanea la etiqueta y se vuelve a poner. Así nadie lo escribe a mano.
+    const marcado = d.startsWith(PREFIJO_POR_PERSONA);
+    const bruto = marcado ? d.slice(PREFIJO_POR_PERSONA.length) : d;
+    const etiqueta = bruto.trim().replace(/\s+/g, " ").slice(0, MAX_LARGO);
+    const limpio = etiqueta ? (marcado ? `${PREFIJO_POR_PERSONA}${etiqueta}` : etiqueta) : "";
     if (!limpio) continue;
     const clave = limpio.toLowerCase();
     if (vistos.has(clave)) continue;

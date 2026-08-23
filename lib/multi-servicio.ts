@@ -1,5 +1,6 @@
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { dedupDocs } from "@/lib/tramites";
+import { docsExtraPlanos } from "@/lib/familia";
 import type { Servicio } from "@/lib/servicios";
 
 // Multi-servicio: un expediente tiene UN servicio principal (servicioClave, repli
@@ -63,10 +64,9 @@ export function docsDeServicios(servicios: Servicio[]): string[] {
 // portal del cliente, el progreso, la clasificación automática y el recordatorio
 // tienen que pedir exactamente lo mismo.
 export function docsDeExpediente(servicios: Servicio[], docsExtra?: unknown): string[] {
-  const extra = Array.isArray(docsExtra)
-    ? docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim())
-    : [];
-  return dedupDocs([...docsDeServicios(servicios), ...extra]);
+  // Los «de cada persona» pierden aquí su prefijo: en un expediente individual esa
+  // persona ES el titular, y en la familia la reparte docsFamiliaPorServicios.
+  return dedupDocs([...docsDeServicios(servicios), ...docsExtraPlanos(docsExtra)]);
 }
 
 // Suma de tarifas: la factura automática (ANTICIPO/FINAL) cobra la suma de todos los

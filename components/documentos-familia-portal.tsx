@@ -25,18 +25,23 @@ const esMenor = (m: MiembroInicial) => {
 const FIRMA_LABELS = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 export function DocumentosFamiliaPortal({
-  token, lang, miembros, docsComunes, docsPorMiembro, encargoActivo, onBack, onContinue,
+  token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], encargoActivo, onBack, onContinue,
 }: {
   token: string; lang: Lang; miembros: MiembroInicial[];
   // Calculado por el llamante con docsFamiliaPorServicios: comunes (se suben UNA vez)
   // + los de CADA miembro según SUS servicios asignados (familia heterogénea).
   docsComunes: string[]; docsPorMiembro: Record<string, string[]>;
+  // Etiquetas pedidas A MANO por el gestor: se enseñan tal cual, sin traducir
+  // («Título homologado» no puede salir como «Diplôme»).
+  docsPropios?: string[];
   encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
   const t = makeT(lang);
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
   const firmaLabels = encargoActivo ? FIRMA_LABELS : [];
   const comunes = docsComunes.filter((l) => !esFirma(l));
+  const propios = new Set(docsPropios.map((d) => d.trim().toLowerCase()));
+  const etiquetaDoc = (l: string) => (propios.has(l.trim().toLowerCase()) ? l : docLabel(l, lang));
   // Miembros CON documentos propios (los solicitantes o asignados a algún servicio).
   const solicitantes = useMemo(
     () => miembros.filter((m) => (docsPorMiembro[m.id] ?? []).length > 0 || m.esSolicitante),
@@ -137,7 +142,7 @@ export function DocumentosFamiliaPortal({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
               )}
             </span>
-            <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-3">{docLabel(label, lang)}</span>
+            <span className="min-w-0 text-sm font-medium leading-snug text-slate-800 line-clamp-3">{etiquetaDoc(label)}</span>
             {docHelp(label, lang) && (
               <button
                 type="button"

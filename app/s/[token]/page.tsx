@@ -143,7 +143,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       formularios: pmForms ? (pmForms[r.id] ?? []) : formularios,
     }));
 
-    const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista.map((r) => ({ id: r.id, fechaNacimiento: r.fechaNacimiento ?? null })));
+    const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista.map((r) => ({ id: r.id, fechaNacimiento: r.fechaNacimiento ?? null })), (exp as { docsExtra?: unknown }).docsExtra);
     const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO, ...fam.comunes].map(labelADocTipo));
     docsFamiliares = [
       ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []).map((l) => segDoc(l, null, "comunes")),

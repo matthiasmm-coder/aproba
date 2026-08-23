@@ -56,6 +56,9 @@ export function docsFamiliaPorServicios(
   servicios: { id: string; docs?: string[] }[],
   asignacion: Record<string, string[]> | null | undefined,
   solicitantes: { id: string; fechaNacimiento?: string | null }[],
+  // Pedidos a mano por el gestor (Expediente.docsExtra): los del dossier van a
+  // «comunes», los marcados «uno por persona» a CADA solicitante.
+  docsExtra?: unknown,
 ): { comunes: string[]; porMiembro: Record<string, string[]> } {
   const norm = (l: string) => l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const esFirma = (l: string) => { const n = norm(l); return n.includes("encargo") || n.includes("mandato"); };
@@ -85,6 +88,42 @@ export function docsFamiliaPorServicios(
   }
   // Dedup por TIPO (dos servicios piden «Pasaporte» y «Pasaporte completo» → una casilla),
   // los personalizados (OTRO) por etiqueta — caso real de Juan: el pasaporte salía doble.
+  const extra = separarDocsExtra(docsExtra);
+  comunes.push(...extra.comunes);
+  for (const m of solicitantes) porMiembro[m.id].push(...extra.porPersona);
   for (const id of Object.keys(porMiembro)) porMiembro[id] = dedupDocs(porMiembro[id]);
   return { comunes: dedupDocs(comunes), porMiembro };
+}
+
+// ── Documentos pedidos A MANO en un expediente FAMILIAR ────────────────────────
+// Un papel añadido por el gestor puede ser del DOSSIER (un contrato de alquiler: se
+// envía una vez) o DE CADA PERSONA (un certificado médico: uno por solicitante). Se
+// guardan en la MISMA columna Expediente.docsExtra; los de cada persona llevan este
+// prefijo. Un solo parser para que la ficha, el portal /j, /s y el progreso lean lo
+// mismo — y el gestor nunca escribe el prefijo a mano (la API lo limpia).
+export const PREFIJO_POR_PERSONA = "@persona:";
+
+export function separarDocsExtra(docsExtra: unknown): { comunes: string[]; porPersona: string[] } {
+  const lista = Array.isArray(docsExtra)
+    ? docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim())
+    : [];
+  const comunes: string[] = [];
+  const porPersona: string[] = [];
+  for (const d of lista) {
+    if (d.startsWith(PREFIJO_POR_PERSONA)) {
+      const limpio = d.slice(PREFIJO_POR_PERSONA.length).trim();
+      if (limpio) porPersona.push(limpio);
+    } else comunes.push(d);
+  }
+  return { comunes, porPersona };
+}
+
+// Etiquetas SIN prefijo (expediente individual: «cada persona» = el titular, así que
+// la distinción no aplica y todo cuenta una vez).
+export function docsExtraPlanos(docsExtra: unknown): string[] {
+  // Se conserva el ORDEN en que el gestor los pidió (solo se quita el prefijo).
+  return (Array.isArray(docsExtra) ? docsExtra : [])
+    .filter((d): d is string => typeof d === "string" && Boolean(d.trim()))
+    .map((d) => (d.startsWith(PREFIJO_POR_PERSONA) ? d.slice(PREFIJO_POR_PERSONA.length) : d).trim())
+    .filter(Boolean);
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DOC_LABEL } from "@/lib/tramites";
+import { PREFIJO_POR_PERSONA } from "@/lib/familia";
 import { useT } from "@/components/lang-provider";
 
 // «¿Qué hay que reunir en este expediente?» — la pregunta que la ficha no contestaba.
@@ -18,6 +19,7 @@ export function DocumentosEsperados({
   docsExtra,
   sugerencias,
   nServicios,
+  esFamilia = false,
 }: {
   expedienteId: string;
   docsActuales: string[];  // todo lo que ya se pide (firma + servicio + añadidos)
@@ -26,6 +28,7 @@ export function DocumentosEsperados({
   docsExtra: string[];     // los añadidos a mano en este expediente
   sugerencias: string[];   // lista estándar del trámite, para el arranque en 1 clic
   nServicios: number;      // 0 = trámite «Otro» sin servicio → se habla de trámite
+  esFamilia?: boolean;     // familiar → el gestor elige: del dossier o de cada persona
 }) {
   const t = useT();
   const router = useRouter();
@@ -37,14 +40,14 @@ export function DocumentosEsperados({
   const catalogo = Object.values(DOC_LABEL).filter((l) => l !== DOC_LABEL.OTRO && !yaEstan.has(l.toLowerCase()));
   const sugerenciasUtiles = sugerencias.filter((l) => !yaEstan.has(l.toLowerCase()));
 
-  async function guardar(nuevos: string[]) {
+  async function guardar(nuevos: string[], porPersona = false) {
     setGuardando(true);
     setError(null);
     try {
       const res = await fetch(`/api/expedientes/${expedienteId}/docs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docs: [...docsExtra, ...nuevos] }),
+        body: JSON.stringify({ docs: [...docsExtra, ...nuevos.map((d) => (porPersona ? `${PREFIJO_POR_PERSONA}${d}` : d))] }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? t("No se pudo guardar."));
@@ -76,7 +79,7 @@ export function DocumentosEsperados({
             {t("Usar la lista habitual")} ({sugerenciasUtiles.length})
           </button>
         )}
-        <Selector catalogo={catalogo} onGuardar={guardar} guardando={guardando} t={t} />
+        <Selector catalogo={catalogo} onGuardar={guardar} guardando={guardando} t={t} esFamilia={esFamilia} />
         {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
       </div>
     );
@@ -95,7 +98,7 @@ export function DocumentosEsperados({
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-3">
           <p className="text-xs text-slate-500">{t("Se añadirán a las casillas de arriba y al enlace del cliente.")}</p>
-          <Selector catalogo={catalogo} onGuardar={guardar} guardando={guardando} t={t} />
+          <Selector catalogo={catalogo} onGuardar={guardar} guardando={guardando} t={t} esFamilia={esFamilia} />
           <button type="button" onClick={() => { setAbierto(false); setError(null); }} className="mt-2 text-[11px] text-slate-400 hover:text-slate-600">
             {t("Cancelar")}
           </button>
@@ -110,16 +113,20 @@ export function DocumentosEsperados({
 // final cubre el papel raro que la extranjería saca siempre («Certificado médico»,
 // «Título homologado»…), y aparece en la lista como uno más para poder desmarcarlo.
 function Selector({
-  catalogo, onGuardar, guardando, t,
+  catalogo, onGuardar, guardando, t, esFamilia,
 }: {
   catalogo: string[];
-  onGuardar: (docs: string[]) => void;
+  onGuardar: (docs: string[], porPersona: boolean) => void;
   guardando: boolean;
   t: (s: string) => string;
+  esFamilia: boolean;
 }) {
   const [marcados, setMarcados] = useState<string[]>([]);
   const [libre, setLibre] = useState("");
   const [desplegado, setDesplegado] = useState(false);
+  // Familiar: ¿un papel DEL DOSSIER (contrato de alquiler, se envía una vez) o uno
+  // POR PERSONA (certificado médico de cada solicitante)? Lo decide el gestor aquí.
+  const [porPersona, setPorPersona] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
 
   // Cerrar al pulsar fuera o con Escape (un desplegable que se queda abierto tapa
@@ -217,9 +224,15 @@ function Selector({
         )}
       </div>
 
+      {esFamilia && (
+        <label className="order-last flex w-full cursor-pointer items-center justify-center gap-2 text-xs text-slate-600">
+          <input type="checkbox" checked={porPersona} onChange={(e) => setPorPersona(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+          {t("Uno por cada persona de la familia")}
+        </label>
+      )}
       <button
         type="button"
-        onClick={() => onGuardar(marcados)}
+        onClick={() => onGuardar(marcados, porPersona)}
         disabled={guardando || marcados.length === 0}
         className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60"
       >

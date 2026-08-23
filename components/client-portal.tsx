@@ -17,7 +17,7 @@ import {
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
-import { docsFamiliaPorServicios } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsExtraPlanos } from "@/lib/familia";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -311,6 +311,7 @@ export function ClientPortal({
         asig,
         // fechaNacimiento de la ficha → los MENORES no cargan antecedentes penales.
         solicitantesFam.map((m) => ({ id: m.id, fechaNacimiento: m.ficha?.fechaNacimiento ?? null })),
+        docsExtra, // pedidos a mano: comunes al dossier o uno por persona
       )
     : { comunes: [] as string[], porMiembro: {} as Record<string, string[]> };
   // Expediente FAMILIAR: el servicio se tarifica POR MIEMBRO → el pago total
@@ -1137,6 +1138,7 @@ export function ClientPortal({
             miembros={famMiembros}
             docsComunes={docsFam.comunes}
             docsPorMiembro={docsFam.porMiembro}
+            docsPropios={docsExtraPlanos(docsExtra)}
             encargoActivo={encargoActivo && Boolean(token)}
             onBack={() => setStep(serviciosFijados ? 0 : 1)}
             onContinue={proceder}

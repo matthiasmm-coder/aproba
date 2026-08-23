@@ -12,6 +12,7 @@ import { FamiliaExpedienteSection } from "@/components/familia-expediente-sectio
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
+import { docsFamiliaPorServicios } from "@/lib/familia";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
@@ -124,6 +125,23 @@ export default async function ExpedienteDetail({
   const asignadosExp = new Set(Object.values(e.serviciosAsignacion ?? {}).flat());
   const solicitantesExp = familia ? (() => { const sol = familia.miembros.filter((m) => m.esSolicitante || asignadosExp.has(m.id)); return sol.length ? sol : familia.miembros; })() : [];
   const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
+  // Familiar: lo que se pide, con su ámbito. Los del servicio salen del MISMO
+  // repartidor que el portal (docsFamiliaPorServicios) para no divergir.
+  const docsFamiliaFicha: { label: string; porPersona: boolean }[] = (() => {
+    if (!familia) return [];
+    const sol = solicitantesExp.length ? solicitantesExp : familia.miembros;
+    const rep = docsFamiliaPorServicios(
+      serviciosExp,
+      e.serviciosAsignacion,
+      sol.map((m) => ({ id: m.id, fechaNacimiento: (m.ficha?.fechaNacimiento as string | undefined) ?? null })),
+      e.docsExtra,
+    );
+    const porPersona = new Set(Object.values(rep.porMiembro).flat());
+    return [
+      ...rep.comunes.map((label) => ({ label, porPersona: false })),
+      ...[...porPersona].map((label) => ({ label, porPersona: true })),
+    ];
+  })();
   const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
   // Descuento del expediente sobre la tarifa YA multiplicada (nMiembros=1 aquí).
   // El pago final muestra el PENDIENTE real: si el anticipo ya se cobró (a precio pleno,
@@ -368,16 +386,31 @@ export default async function ExpedienteDetail({
               FINALIZADO…): el pipeline solo promociona/regresa el estado en las etapas de
               recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
               (vía portal); aquí solo expedientes individuales. */}
-          {!familia && (
-            <DocumentosEsperados
-              expedienteId={e.id}
-              docsActuales={casillasFicha}
-              docsTramite={docsRequeridos}
-              docsExtra={e.docsExtra}
-              sugerencias={sugerenciasDocs}
-              nServicios={serviciosExp.length}
-            />
+          {/* Familiar: el gestor NO sube aquí (cada miembro tiene su casilla en el
+              portal), pero SÍ decide qué se pide — y si el papel es del dossier o de
+              cada persona. Antes, un documento añadido en familia se contaba como
+              «falta» y NADIE podía enviarlo. */}
+          {familia && docsFamiliaFicha.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              {docsFamiliaFicha.map((d) => (
+                <div key={d.label + d.porPersona} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 bg-cream-50/30 px-3 py-2">
+                  <span className="min-w-0 text-sm text-slate-600">{t(d.label)}</span>
+                  <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    {d.porPersona ? t("por persona") : t("del expediente")}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
+          <DocumentosEsperados
+            expedienteId={e.id}
+            docsActuales={familia ? docsFamiliaFicha.map((d) => d.label) : casillasFicha}
+            docsTramite={docsRequeridos}
+            docsExtra={e.docsExtra}
+            sugerencias={sugerenciasDocs}
+            nServicios={serviciosExp.length}
+            esFamilia={Boolean(familia)}
+          />
           {!familia && <SubirDocumentoGestor expedienteId={e.id} />}
         </SeccionPlegable>
 
