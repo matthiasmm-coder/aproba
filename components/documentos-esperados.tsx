@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DOC_LABEL } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
@@ -106,8 +106,9 @@ export function DocumentosEsperados({
   );
 }
 
-// Marcar VARIOS de golpe y añadirlos de una vez. El campo libre cubre el papel raro
-// que la extranjería saca siempre («Certificado médico», «Título homologado»…).
+// Desplegable con círculos: se marcan VARIOS y se añaden de una vez. El campo del
+// final cubre el papel raro que la extranjería saca siempre («Certificado médico»,
+// «Título homologado»…), y aparece en la lista como uno más para poder desmarcarlo.
 function Selector({
   catalogo, onGuardar, guardando, t,
 }: {
@@ -118,6 +119,19 @@ function Selector({
 }) {
   const [marcados, setMarcados] = useState<string[]>([]);
   const [libre, setLibre] = useState("");
+  const [desplegado, setDesplegado] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+
+  // Cerrar al pulsar fuera o con Escape (un desplegable que se queda abierto tapa
+  // las casillas de abajo).
+  useEffect(() => {
+    if (!desplegado) return;
+    const fuera = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setDesplegado(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setDesplegado(false); };
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fuera); document.removeEventListener("keydown", esc); };
+  }, [desplegado]);
 
   const alterna = (l: string) => setMarcados((xs) => (xs.includes(l) ? xs.filter((x) => x !== l) : [...xs, l]));
   const añadeLibre = () => {
@@ -126,55 +140,88 @@ function Selector({
     setMarcados((xs) => [...xs, v]);
     setLibre("");
   };
-  // Los escritos a mano también son chips: se ven y se quitan igual que los del catálogo.
   const propios = marcados.filter((m) => !catalogo.includes(m));
+  const opciones = [...catalogo, ...propios];
 
   return (
-    <div className="mt-3">
-      <div className="flex flex-wrap justify-center gap-1.5">
-        {[...catalogo, ...propios].map((l) => {
-          const on = marcados.includes(l);
-          return (
-            <button
-              key={l}
-              type="button"
-              onClick={() => alterna(l)}
-              aria-pressed={on}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${on ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 bg-white text-slate-600 hover:border-aproba-400 hover:text-aproba-700"}`}
-            >
-              {on ? "✓ " : ""}{t(l)}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2">
-        <input
-          type="text"
-          value={libre}
-          onChange={(e) => setLibre(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); añadeLibre(); } }}
-          placeholder={t("Otro documento…")}
-          maxLength={60}
-          className="w-44 min-w-0 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm"
-        />
+    <div className="mt-3 flex flex-wrap items-start justify-center gap-2">
+      <div ref={caja} className="relative">
         <button
           type="button"
-          onClick={añadeLibre}
-          disabled={!libre.trim()}
-          aria-label={t("Añadir a la selección")}
-          className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-40"
+          onClick={() => setDesplegado((v) => !v)}
+          aria-expanded={desplegado}
+          aria-haspopup="listbox"
+          className="flex w-[min(18rem,calc(100vw-3rem))] items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition hover:border-aproba-400"
         >
-          +
+          <span className={marcados.length ? "font-medium text-slate-800" : "text-slate-400"}>
+            {marcados.length === 0
+              ? t("Elegir documentos…")
+              : marcados.length === 1
+                ? t(marcados[0])
+                : `${marcados.length} ${t("documentos elegidos")}`}
+          </span>
+          <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${desplegado ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
         </button>
-        <button
-          type="button"
-          onClick={() => onGuardar(marcados)}
-          disabled={guardando || marcados.length === 0}
-          className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60"
-        >
-          {guardando ? "…" : `${t("Añadir")}${marcados.length ? ` (${marcados.length})` : ""}`}
-        </button>
+
+        {desplegado && (
+          <div
+            role="listbox"
+            aria-multiselectable
+            className="absolute left-0 z-20 mt-1 w-[min(18rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-lg"
+          >
+            <div className="max-h-64 overflow-y-auto py-1">
+              {opciones.map((l) => {
+                const on = marcados.includes(l);
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    role="option"
+                    aria-selected={on}
+                    onClick={() => alterna(l)}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-cream-50"
+                  >
+                    <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition ${on ? "border-aproba-600 bg-aproba-600" : "border-slate-300"}`}>
+                      {on && <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 13 4 4L19 7" /></svg>}
+                    </span>
+                    <span className="min-w-0 flex-1 leading-snug">{t(l)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* El papel que no está en la lista: se escribe y entra ya marcado. */}
+            <div className="flex items-center gap-1.5 border-t border-slate-100 p-2">
+              <input
+                type="text"
+                value={libre}
+                onChange={(e) => setLibre(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); añadeLibre(); } }}
+                placeholder={t("Otro documento…")}
+                maxLength={60}
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[16px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-aproba-600 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={añadeLibre}
+                disabled={!libre.trim()}
+                aria-label={t("Añadir a la selección")}
+                className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => onGuardar(marcados)}
+        disabled={guardando || marcados.length === 0}
+        className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60"
+      >
+        {guardando ? "…" : `${t("Añadir")}${marcados.length ? ` (${marcados.length})` : ""}`}
+      </button>
     </div>
   );
 }

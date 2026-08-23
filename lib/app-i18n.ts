@@ -942,6 +942,8 @@ export const CA: Record<string, string> = {
   "Subiendo y validando con IA…": "Pujant i validant amb IA…",
   "Subir documento": "Pujar document",
   "Subir": "Pujar",
+  "Elegir documentos…": "Triar documents…",
+  "documentos elegidos": "documents triats",
   "Ningún documento asociado a este trámite": "Cap document associat a aquest tràmit",
   "Ningún documento asociado a este servicio": "Cap document associat a aquest servei",
   "Ningún documento asociado a estos servicios": "Cap document associat a aquests serveis",
