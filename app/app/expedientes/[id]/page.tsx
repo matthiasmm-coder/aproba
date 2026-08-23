@@ -10,7 +10,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { fmtFechaCorta, docsFaltantes, labelADocTipo, TIPO_A_SERVICIO } from "@/lib/tramites";
+import { fmtFechaCorta, docsFaltantes, labelADocTipo, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
@@ -100,6 +100,12 @@ export default async function ExpedienteDetail({
     const estandar = clave ? DEFAULT_SERVICIOS.find((d) => d.id === clave) : null;
     return estandar?.docs ?? [];
   })();
+  // Casillas de la ficha: firma PRIMERO (mismo orden que el portal /j y /s) y luego
+  // los del trámite. La hoja/mandato firmados van por casilla como todo lo demás —
+  // era lo ÚNICO que quedaba en el selector manual, que ya no hace falta.
+  const casillasFicha = familia
+    ? []
+    : [...(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []), ...docsRequeridos];
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
@@ -318,14 +324,14 @@ export default async function ExpedienteDetail({
               Familia = por miembro (portal), aquí solo expedientes individuales. */}
           {/* Encabezado explícito: el gestor tiene que saber, sin recordarlo de memoria,
               qué papeles hay que reunir en ESTE expediente. */}
-          {!familia && docsRequeridos.length > 0 && (
+          {!familia && casillasFicha.length > 0 && (
             <p className="mb-2 -mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("Documentos que hay que reunir")} · {docsRequeridos.length}
+              {t("Documentos que hay que reunir")} · {casillasFicha.length}
             </p>
           )}
           <div className="space-y-3">
             {(() => {
-              const casillas = familia ? [] : docsRequeridos;
+              const casillas = casillasFicha;
               const libres = [...e.documentos];
               const filas = casillas.map((label) => {
                 const tipo = labelADocTipo(label);
@@ -371,7 +377,7 @@ export default async function ExpedienteDetail({
               sugerencias={sugerenciasDocs}
             />
           )}
-          {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={docsRequeridos} />}
+          {!familia && <SubirDocumentoGestor expedienteId={e.id} />}
         </SeccionPlegable>
 
         {/* Formularios */}

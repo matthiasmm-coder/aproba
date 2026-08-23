@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DOC_LABEL } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import { useT } from "@/components/lang-provider";
 
@@ -11,8 +10,9 @@ import { useT } from "@/components/lang-provider";
 // gestor arrastra N archivos de golpe; cada uno pasa por el MISMO pipeline IA del portal
 // (una sola pasada de Vision detecta el tipo Y valida) y cae solo en su casilla. Barra
 // de progreso real por archivo (XHR) + fase de análisis. Treinta gestos → uno.
-// El selector manual de siempre queda como repli plegado (documentos firmados, casos
-// que la IA no reconoce, o cuando el gestor quiere decidir él).
+// El viejo selector «elige tú el tipo» se retiró el 23/08: cada documento esperado
+// (incluidos la hoja de encargo y el mandato firmados) tiene YA su casilla con su
+// botón Subir, y lo que no está en la lista se añade con «Pedir otro documento».
 
 type Fase = "esperando" | "subiendo" | "hecho" | "error";
 type Item = {
@@ -27,7 +27,7 @@ type Item = {
 const ACEPTA = "image/jpeg,image/png,image/webp,application/pdf";
 const MAX_BYTES = 8 * 1024 * 1024;
 
-export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedienteId: string; docsRequeridos: string[] }) {
+export function SubirDocumentoGestor({ expedienteId }: { expedienteId: string }) {
   const t = useT();
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
@@ -126,82 +126,6 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
           )}
         </div>
       )}
-
-      {/* Repli manual: documentos firmados o tipo elegido a mano */}
-      <details className="mt-2">
-        <summary className="cursor-pointer text-center text-[11px] text-slate-400 transition hover:text-slate-600">
-          {t("¿Prefieres elegir el tipo tú mismo? (documentos firmados, casos especiales)")}
-        </summary>
-        <SubidaManual expedienteId={expedienteId} docsRequeridos={docsRequeridos} />
-      </details>
-    </div>
-  );
-}
-
-// El flujo de siempre, intacto: selector de tipo + un archivo. Necesario para la hoja de
-// encargo/mandato firmados (sin IA) y para forzar una casilla concreta.
-function SubidaManual({ expedienteId, docsRequeridos }: { expedienteId: string; docsRequeridos: string[] }) {
-  const t = useT();
-  const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const otros = Object.values(DOC_LABEL).filter((l) => !docsRequeridos.includes(l));
-  const opciones = [...docsRequeridos, ...otros];
-  const [tipo, setTipo] = useState<string>(opciones[0] ?? "");
-  const [prog, setProg] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function subir(file: File) {
-    setProg(0); setError(null);
-    try {
-      const { ok, data } = await subirConProgreso({
-        url: `/api/expedientes/${expedienteId}/documentos`,
-        form: { label: tipo },
-        file,
-        onProgreso: setProg,
-        errorRed: t("Fallo de red — vuelve a intentarlo."),
-      });
-      if (!ok || !data) throw new Error(data?.error ?? t("No se pudo subir el documento."));
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("No se pudo subir el documento."));
-    } finally {
-      setProg(null);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
-
-  const subiendo = prog !== null;
-  return (
-    <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-center">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t("Tipo de documento")} className="min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
-          {docsRequeridos.length > 0 ? (
-            <>
-              <optgroup label={t("Del trámite")}>
-                {docsRequeridos.map((op) => <option key={op} value={op}>{t(op)}</option>)}
-              </optgroup>
-              <optgroup label={t("Otros")}>
-                {otros.map((op) => <option key={op} value={op}>{t(op)}</option>)}
-              </optgroup>
-            </>
-          ) : opciones.map((op) => <option key={op} value={op}>{t(op)}</option>)}
-        </select>
-        <button onClick={() => fileRef.current?.click()} disabled={subiendo || !tipo} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
-          {subiendo ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
-          ) : (
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
-          )}
-          {subiendo ? `${Math.round(prog ?? 0)}%` : t("Subir documento")}
-        </button>
-        <input ref={fileRef} type="file" accept={ACEPTA} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); }} />
-      </div>
-      {subiendo && (
-        <div className="mx-auto mt-2 h-1 max-w-xs overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200" style={{ width: `${prog}%` }} />
-        </div>
-      )}
-      {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
