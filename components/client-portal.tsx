@@ -1181,7 +1181,7 @@ export function ClientPortal({
                           {x.fase === "esperando" && <span className="shrink-0 text-slate-400">…</span>}
                           {x.fase === "subiendo" && <span className="shrink-0 tabular-nums font-semibold text-aproba-700">{x.prog < 46 ? "" : t("s2.analizando") + " "}{Math.round(x.prog)}%</span>}
                           {x.fase === "hecho" && (
-                            <span className={`shrink-0 font-semibold ${x.okDoc ? "text-aproba-700" : "text-amber-600"}`}>{x.okDoc ? "✓ " : "⚠ "}{x.texto}</span>
+                            <span className={`shrink-0 font-semibold ${x.okDoc ? "text-aproba-700" : "text-amber-600"}`}>{x.okDoc ? "✓" : "⚠"}</span>
                           )}
                           {x.fase === "error" && <span className="shrink-0 font-semibold text-red-600">✕</span>}
                         </div>
@@ -1189,6 +1189,9 @@ export function ClientPortal({
                           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
                             <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200" style={{ width: `${x.prog}%` }} />
                           </div>
+                        )}
+                        {x.fase === "hecho" && x.texto && (
+                          <p className={`mt-1 text-[11px] leading-snug ${x.okDoc ? "text-aproba-700" : "text-amber-700"}`}>{x.texto}</p>
                         )}
                         {x.fase === "error" && x.texto && <p role="alert" className="mt-1 text-[11px] leading-snug text-red-600">{x.texto}</p>}
                       </div>

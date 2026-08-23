@@ -101,7 +101,7 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
                 {x.fase === "subiendo" && <span className="shrink-0 tabular-nums text-aproba-700">{x.prog < 46 ? t("Subiendo…") : t("Analizando…")} {Math.round(x.prog)}%</span>}
                 {x.fase === "hecho" && (
                   <span className={`shrink-0 font-semibold ${x.estadoDoc === "VALIDADO" ? "text-aproba-700" : "text-amber-600"}`}>
-                    {x.estadoDoc === "VALIDADO" ? "✓ " : "⚠ "}{x.label ? t(x.label) : ""}
+                    {x.estadoDoc === "VALIDADO" ? "✓" : "⚠"}
                   </span>
                 )}
                 {x.fase === "error" && <span className="shrink-0 font-semibold text-red-600">✕</span>}
@@ -111,8 +111,10 @@ export function SubirDocumentoGestor({ expedienteId, docsRequeridos }: { expedie
                   <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200" style={{ width: `${x.prog}%` }} />
                 </div>
               )}
-              {x.fase === "hecho" && x.estadoDoc !== "VALIDADO" && x.alerta && (
-                <p className="mt-1 text-[11px] leading-snug text-amber-700">{x.alerta}</p>
+              {x.fase === "hecho" && (x.label || x.alerta) && (
+                <p className={`mt-1 text-[11px] leading-snug ${x.estadoDoc === "VALIDADO" ? "text-aproba-700" : "text-amber-700"}`}>
+                  {[x.label ? t(x.label) : null, x.estadoDoc !== "VALIDADO" ? x.alerta : null].filter(Boolean).join(" — ")}
+                </p>
               )}
               {x.fase === "error" && x.alerta && <p role="alert" className="mt-1 text-[11px] leading-snug text-red-600">{x.alerta}</p>}
             </div>
@@ -172,7 +174,7 @@ function SubidaManual({ expedienteId, docsRequeridos }: { expedienteId: string; 
   return (
     <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-center">
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t("Tipo de documento")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t("Tipo de documento")} className="min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100">
           {docsRequeridos.length > 0 ? (
             <>
               <optgroup label={t("Del trámite")}>
