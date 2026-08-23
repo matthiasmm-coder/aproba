@@ -12,7 +12,7 @@ import { FamiliaExpedienteSection } from "@/components/familia-expediente-sectio
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
+import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
 import { AsignarExpediente } from "@/components/asignar-expediente";
@@ -90,7 +90,6 @@ export default async function ExpedienteDetail({
   const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, serviciosSede);
   // Lo que hay que reunir = documentos del servicio + los que el gestor pidió a mano
   // en ESTA ficha. Un solo resolutor para la ficha, el portal, el progreso y el aviso.
-  const docsServicio = docsDeServicios(serviciosExp);
   const docsRequeridos = docsDeExpediente(serviciosExp, e.docsExtra);
   // Arranque en 1 clic cuando no hay nada: la lista habitual del trámite. Si el
   // expediente es «Otro» (sin trámite estándar), no se inventa nada — el gestor elige.
@@ -354,13 +353,8 @@ export default async function ExpedienteDetail({
               // representa una casilla de arriba (si no, saldría dos veces).
               const tiposEnCasillas = new Set(casillas.map(labelADocTipo));
               const extras = libres.filter((d) => d.tieneArchivo || d.estado !== "PENDIENTE" || !tiposEnCasillas.has(d.tipo ?? ""));
-              if (filas.length === 0 && extras.length === 0) {
-                return (
-                  <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400">
-                    {t("Sin documentos en este expediente.")}
-                  </div>
-                );
-              }
+              // Nada que enseñar → nada: el bloque «elige los documentos» de abajo ya
+              // dice lo que pasa (el marco vacío solo repetía la ausencia).
               return [...filas, ...extras.map((d) => <DocumentoRow key={d.id} d={d} expedienteId={e.id} />)];
             })()}
           </div>
@@ -372,9 +366,11 @@ export default async function ExpedienteDetail({
           {!familia && (
             <DocumentosEsperados
               expedienteId={e.id}
-              docsServicio={docsServicio}
+              docsActuales={casillasFicha}
+              docsTramite={docsRequeridos}
               docsExtra={e.docsExtra}
               sugerencias={sugerenciasDocs}
+              nServicios={serviciosExp.length}
             />
           )}
           {!familia && <SubirDocumentoGestor expedienteId={e.id} />}
