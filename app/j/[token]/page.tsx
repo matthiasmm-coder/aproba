@@ -64,6 +64,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let descuentoExp: DescuentoT | null = null;
   let asignacionExp: AsignacionT | null = null;
   let docsSubidos: { tipo: string; estado: string }[] = [];
+  // Documentos pedidos a mano por el gestor en ESTE expediente: casillas de más.
+  let docsExtraExp: string[] = [];
   // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
   // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
   let pagoPendiente: { numero: string; total: number; checkoutUrl: string | null; cuenta: { titular: string; iban: string; banco: string | null } | null } | null = null;
@@ -71,8 +73,13 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
+    // docsExtra es columna nueva (supabase/docs-expediente.sql): sin ella, TODA la
+    // cadena caería hasta el repli mínimo y el portal perdería descuento y extras.
+    if (res.error && /docsExtra|column|schema cache/i.test(res.error.message)) {
+      res = await admin.from("Expediente").select(SEL.replace(", docsExtra", "")).eq("portalToken", token).maybeSingle();
+    }
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
@@ -114,6 +121,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       if (servicioInicial && !servicios.some((s) => s.id === servicioInicial && s.active)) servicioInicial = null;
       // Multi-servicio: extras puestos por el gestor — el cliente NO los elige en el
       // wizard, pero suman documentos requeridos y tarifa (deben cuadrar con /api/pagos).
+      const docsExtraRaw = (exp as unknown as { docsExtra?: string[] | null }).docsExtra;
+      docsExtraExp = Array.isArray(docsExtraRaw) ? docsExtraRaw.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim()) : [];
       const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
       serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
       descuentoExp = descuentoValido((exp as unknown as { descuento?: unknown }).descuento);
@@ -215,6 +224,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       descuento={descuentoExp}
       asignacion={asignacionExp}
       docsSubidos={docsSubidos}
+      docsExtra={docsExtraExp}
     />
   );
 }

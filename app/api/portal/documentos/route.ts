@@ -4,7 +4,7 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 import { labelADocTipo } from "@/lib/tramites";
 import { procesarSubidaDocumento } from "@/lib/documentos-upload";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
+import { docsDeExpediente, serviciosDeExpediente } from "@/lib/multi-servicio";
 
 // Upload d'un document depuis le portail client (/j/[token]). Authentifié par le token
 // du portail. Le pipeline (Storage → Vision → validation → progression) est partagé avec
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   if (auto) {
     try {
       const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string, (exp.oficinaId as string | null) ?? null);
-      docsRequeridos = docsDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo));
+      docsRequeridos = docsDeExpediente(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo), (exp as { docsExtra?: unknown }).docsExtra);
     } catch { /* sin catálogo → todo caerá en NO_RECONOCIDO, casillas manuales disponibles */ }
   }
   try {
@@ -80,7 +80,12 @@ export async function DELETE(req: Request) {
   const cId = (clienteId ?? "").trim() || null;
 
   const admin = createSupabaseAdmin();
-  const { data: exp } = await admin.from("Expediente").select("id, estado").eq("portalToken", token).maybeSingle();
+  let expQ = await admin.from("Expediente").select("id, estado, docsExtra").eq("portalToken", token).maybeSingle();
+  // Repli si la migración docs-expediente.sql no está aplicada todavía.
+  if (expQ.error && /docsExtra|column|schema cache/i.test(expQ.error.message)) {
+    expQ = await admin.from("Expediente").select("id, estado").eq("portalToken", token).maybeSingle() as typeof expQ;
+  }
+  const exp = expQ.data;
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
   const docTipo = labelADocTipo(label);

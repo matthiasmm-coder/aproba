@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeExpediente, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
 import { docsFamiliaPorServicios } from "@/lib/familia";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
@@ -34,7 +34,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const SELECT_VIEJO = `${BASE}, documentos:Documento(id, tipo, estado, storagePath)`;
   // Intenta con las columnas nuevas; si la migración aún no se aplicó, repli sin ellas
   // (la MÁS nueva se quita primero: serviciosAsignacion → serviciosExtra → …).
-  let res = await admin.from("Expediente").select(`oficinaId, ${SELECT}, serviciosExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
+  let res = await admin.from("Expediente").select(`oficinaId, ${SELECT}, serviciosExtra, docsExtra, serviciosAsignacion, formulariosPorMiembro, formulariosGenerados, tasaPath, familiaId`).eq("portalToken", token).maybeSingle();
   // citaQuien es columna nueva: sin la migración, TODA la cadena con BASE fallaría —
   // primer repli: la misma consulta completa sin esa columna.
   if (res.error && /citaQuien/i.test(res.error.message)) {
@@ -85,7 +85,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // descarga en el bloque de arriba y sube en los primeros huecos de la lista.
   const requeridos: string[] = [
     ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
-    ...docsDeServicios(serviciosExp),
+    ...docsDeExpediente(serviciosExp, (exp as { docsExtra?: unknown }).docsExtra),
   ];
 
   // Statut d'un document requis (par type normalisé + membre) + id pour le téléchargement.

@@ -7,7 +7,7 @@ import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, whatsappDisponible, canalesEfectivos, type CanalAvisos } from "@/lib/whatsapp";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
-import { serviciosDeExpediente, docsDeServicios } from "@/lib/multi-servicio";
+import { serviciosDeExpediente, docsDeExpediente } from "@/lib/multi-servicio";
 
 // Avisos automáticos au client — email (Resend) et/ou WhatsApp (Twilio) selon le canal
 // choisi par le workspace (Ajustes → Notificaciones al cliente : EMAIL | WHATSAPP | AMBOS).
@@ -265,7 +265,7 @@ export async function enviarSeguimiento(
   try {
     let resExp = await admin
       .from("Expediente")
-      .select("portalToken, tipo, servicioClave, serviciosExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .select("portalToken, tipo, servicioClave, serviciosExtra, docsExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
     if (resExp.error) resExp = await admin
@@ -316,7 +316,7 @@ export async function enviarSeguimiento(
         } catch { return null; }
       })();
       const servicios = await fetchServiciosDeWorkspace(admin, ws.id, sedeNtf);
-        const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
+        const requeridos = docsDeExpediente(serviciosDeExpediente(exp, servicios), (exp as { docsExtra?: unknown }).docsExtra);
         faltanDocs = docsFaltantes(requeridos, exp.documentos ?? []).length > 0;
       }
     } catch { /* repli propre : sin info de docs, email de seguimiento normal */ }
@@ -1033,7 +1033,7 @@ export async function enviarRecordatorioDocs(
   try {
     let resExp = await admin
       .from("Expediente")
-      .select("portalToken, tipo, servicioClave, serviciosExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
+      .select("portalToken, tipo, servicioClave, serviciosExtra, docsExtra, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre), documentos:Documento(tipo, estado)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
     if (resExp.error) resExp = await admin
@@ -1069,7 +1069,7 @@ export async function enviarRecordatorioDocs(
         } catch { return null; }
       })();
       const servicios = await fetchServiciosDeWorkspace(admin, ws.id, sedeNtf);
-      const requeridos = docsDeServicios(serviciosDeExpediente(exp, servicios));
+      const requeridos = docsDeExpediente(serviciosDeExpediente(exp, servicios), (exp as { docsExtra?: unknown }).docsExtra);
       faltantes = docsFaltantes(requeridos, exp.documentos ?? []);
     }
     if (!faltantes.length) return { enviado: false, faltan: 0, motivo: "sin_faltan" };

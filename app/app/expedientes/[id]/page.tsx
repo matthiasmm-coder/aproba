@@ -10,8 +10,9 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
-import { fmtFechaCorta, docsFaltantes, labelADocTipo } from "@/lib/tramites";
-import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
+import { fmtFechaCorta, docsFaltantes, labelADocTipo, TIPO_A_SERVICIO } from "@/lib/tramites";
+import { DEFAULT_SERVICIOS } from "@/lib/servicios";
+import { catalogoDeSede, serviciosDeExpediente, docsDeServicios, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarMiembros } from "@/components/asignar-miembros";
 import { AsignarExpediente } from "@/components/asignar-expediente";
@@ -29,6 +30,7 @@ import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { CasillaDocumentoGestor } from "@/components/casilla-documento-gestor";
+import { DocumentosEsperados } from "@/components/documentos-esperados";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -86,7 +88,18 @@ export default async function ExpedienteDetail({
   // del portal /j (que ya cascadea). Tarifa, docs y cita salen del MISMO catálogo.
   const serviciosSede = catalogoDeSede(servicios, e.oficinaId);
   const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, serviciosSede);
-  const docsRequeridos = docsDeServicios(serviciosExp);
+  // Lo que hay que reunir = documentos del servicio + los que el gestor pidió a mano
+  // en ESTA ficha. Un solo resolutor para la ficha, el portal, el progreso y el aviso.
+  const docsServicio = docsDeServicios(serviciosExp);
+  const docsRequeridos = docsDeExpediente(serviciosExp, e.docsExtra);
+  // Arranque en 1 clic cuando no hay nada: la lista habitual del trámite. Si el
+  // expediente es «Otro» (sin trámite estándar), no se inventa nada — el gestor elige.
+  const sugerenciasDocs = (() => {
+    if (docsRequeridos.length > 0) return [];
+    const clave = e.servicioClave ?? TIPO_A_SERVICIO[e.tipoEnum] ?? null;
+    const estandar = clave ? DEFAULT_SERVICIOS.find((d) => d.id === clave) : null;
+    return estandar?.docs ?? [];
+  })();
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
@@ -303,6 +316,13 @@ export default async function ExpedienteDetail({
               archivo en su hueco (le llega por email o en mano). Cada documento
               subido consume UNA casilla; lo que no encaje en ninguna va después.
               Familia = por miembro (portal), aquí solo expedientes individuales. */}
+          {/* Encabezado explícito: el gestor tiene que saber, sin recordarlo de memoria,
+              qué papeles hay que reunir en ESTE expediente. */}
+          {!familia && docsRequeridos.length > 0 && (
+            <p className="mb-2 -mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t("Documentos que hay que reunir")} · {docsRequeridos.length}
+            </p>
+          )}
           <div className="space-y-3">
             {(() => {
               const casillas = familia ? [] : docsRequeridos;
@@ -313,7 +333,15 @@ export default async function ExpedienteDetail({
                 const doc = i >= 0 ? libres.splice(i, 1)[0] : null;
                 return doc
                   ? <DocumentoRow key={doc.id} d={doc} expedienteId={e.id} />
-                  : <CasillaDocumentoGestor key={`falta-${label}`} expedienteId={e.id} label={label} />;
+                  : <CasillaDocumentoGestor
+                      key={`falta-${label}`}
+                      expedienteId={e.id}
+                      label={label}
+                      // Solo se puede retirar lo que se pidió a mano: la lista del
+                      // servicio se cambia en Ajustes, no expediente por expediente.
+                      quitable={e.docsExtra.includes(label)}
+                      docsExtra={e.docsExtra}
+                    />;
               });
               // Lo demás: extras subidos por el gestor y, sin requisitos configurados,
               // la lista completa de siempre. Solo se descarta el hueco vacío que YA
@@ -335,6 +363,14 @@ export default async function ExpedienteDetail({
               FINALIZADO…): el pipeline solo promociona/regresa el estado en las etapas de
               recogida, así que subir tarde nunca mueve el expediente. Familia = por miembro
               (vía portal); aquí solo expedientes individuales. */}
+          {!familia && (
+            <DocumentosEsperados
+              expedienteId={e.id}
+              docsServicio={docsServicio}
+              docsExtra={e.docsExtra}
+              sugerencias={sugerenciasDocs}
+            />
+          )}
           {!familia && <SubirDocumentoGestor expedienteId={e.id} docsRequeridos={docsRequeridos} />}
         </SeccionPlegable>
 

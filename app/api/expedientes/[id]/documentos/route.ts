@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { procesarSubidaDocumento } from "@/lib/documentos-upload";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
+import { docsDeExpediente, serviciosDeExpediente } from "@/lib/multi-servicio";
 
 // El GESTOR sube un documento a un expediente desde su ficha (MODO INTERNO: el cliente ya
 // tiene la documentación por email/WhatsApp; no hace falta enviarle el enlace). Sesión + el
@@ -34,7 +34,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Pertenencia al workspace bajo RLS (anti-IDOR): un id ajeno simplemente no existe.
-  const { data: exp } = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle();
+  let expQ = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra, docsExtra").eq("id", id).maybeSingle();
+  // Repli si la migración docs-expediente.sql no está aplicada todavía.
+  if (expQ.error && /docsExtra|column|schema cache/i.test(expQ.error.message)) {
+    expQ = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle() as typeof expQ;
+  }
+  const exp = expQ.data;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const admin = createSupabaseAdmin();
@@ -53,7 +58,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (auto) {
     try {
       const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string, (exp.oficinaId as string | null) ?? null);
-      docsRequeridos = docsDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo));
+      docsRequeridos = docsDeExpediente(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo), (exp as { docsExtra?: unknown }).docsExtra);
     } catch { /* sin catálogo → labels genéricos del tipo detectado */ }
   }
   try {

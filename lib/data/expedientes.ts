@@ -79,7 +79,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
+    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label, docs, citaPresencial, oficinaId"),
@@ -227,6 +227,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   facturasPago: FacturaPago[];
   servicioClave: string | null;
   serviciosExtra: string[]; // multi-servicio: claves ADICIONALES (principal = servicioClave)
+  docsExtra: string[]; // documentos pedidos a mano SOLO en este expediente
   suplidosOverride: { concepto: string; importe: number }[] | null; // null = usar los del servicio
   descuento: Descuento | null; // null = sin descuento
   serviciosAsignacion: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
@@ -255,7 +256,7 @@ function camposDe(datos: unknown): { label: string; value: string }[] {
 }
 
 const DETALLE_SELECT =
-  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo, validadoAt, fechaPresentacion,
+  `id, referencia, tipo, estado, fechaLimite, createdAt, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, formulariosPorMiembro, portalToken, familiaId, formulariosGenerados, tasaPath, fechaCita, citaHora, citaLugar, citaNotas, citaQuien, modoTrabajo, validadoAt, fechaPresentacion,
    cliente:Cliente(id, nombre, apellidos, nacionalidad, email, telefono, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre),
    asignadoAId,
    asignadoA:User(nombre),
@@ -332,6 +333,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     tasaPath: ((e as { tasaPath?: string | null }).tasaPath) ?? null,
     servicioClave: e.servicioClave ?? null,
     serviciosExtra: Array.isArray((e as { serviciosExtra?: string[] | null }).serviciosExtra) ? ((e as { serviciosExtra?: string[] | null }).serviciosExtra as string[]).filter(Boolean) : [],
+    // Documentos pedidos a mano en ESTE expediente (además de los del servicio).
+    docsExtra: Array.isArray((e as { docsExtra?: string[] | null }).docsExtra) ? ((e as { docsExtra?: string[] | null }).docsExtra as string[]).filter(Boolean) : [],
     suplidosOverride: (() => {
       const raw = (e as { suplidosOverride?: unknown }).suplidosOverride;
       if (!Array.isArray(raw)) return null; // null = sin override → suplidos del servicio
@@ -381,11 +384,11 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
     res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
-  if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
+  if (res.error && /docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
+    res = await supabase.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("id", id).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
@@ -410,11 +413,11 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (res.error && /suplidosOverride|column|schema cache/i.test(res.error.message)) {
     res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
-  if (res.error && /serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+  if (res.error && /docsExtra|serviciosExtra|formulariosGenerados|column|schema cache/i.test(res.error.message)) {
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   if (res.error && /formulariosGenerados|column|schema cache/i.test(res.error.message)) {
-    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
+    res = await admin.from("Expediente").select(DETALLE_SELECT.replace("formulariosPorMiembro, ", "").replace("serviciosAsignacion, ", "").replace("descuento, ", "").replace("suplidosOverride, ", "").replace("docsExtra, ", "").replace("serviciosExtra, ", "").replace("formulariosGenerados, tasaPath, ", "")).eq("portalToken", token).maybeSingle() as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);
@@ -471,6 +474,7 @@ export function progresoDeExpediente(
   e: {
     estado: string; tipo: string;
     servicioClave?: string | null; serviciosExtra?: string[] | null;
+    docsExtra?: string[] | null; // pedidos a mano en ESTE expediente
     documentos?: { tipo?: string | null; estado: string }[] | null;
     formulariosGenerados?: string[] | null; tasaPath?: string | null; fechaCita?: string | null;
     modoTrabajo?: string | null;
@@ -487,7 +491,10 @@ export function progresoDeExpediente(
   // borró, no se puede exigir su documentación (ni decir que falta).
   const porId = new Map(catalogo.map((f) => [f.id, f]));
   const resueltos = claves.map((c) => porId.get(c)).filter((f): f is CatalogoResuelto[number] => Boolean(f));
-  const requeridos = dedupDocs(resueltos.flatMap((f) => f.docs ?? []));
+  // Los pedidos a mano cuentan IGUAL que los del servicio: si no, el anillo diría
+  // «completo» mientras el gestor sigue esperando un papel que él mismo reclamó.
+  const extra = Array.isArray(e.docsExtra) ? e.docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim()) : [];
+  const requeridos = dedupDocs([...resueltos.flatMap((f) => f.docs ?? []), ...extra]);
   const docs = (e.documentos ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
 
   return calcularProgreso({

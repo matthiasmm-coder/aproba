@@ -58,6 +58,17 @@ export function docsDeServicios(servicios: Servicio[]): string[] {
   return dedupDocs(out);
 }
 
+// Documentos ESPERADOS de un expediente = los de sus servicios + los que el gestor
+// añadió a mano en ESTA ficha (Expediente.docsExtra). Resolutor ÚNICO: la ficha, el
+// portal del cliente, el progreso, la clasificación automática y el recordatorio
+// tienen que pedir exactamente lo mismo.
+export function docsDeExpediente(servicios: Servicio[], docsExtra?: unknown): string[] {
+  const extra = Array.isArray(docsExtra)
+    ? docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim())
+    : [];
+  return dedupDocs([...docsDeServicios(servicios), ...extra]);
+}
+
 // Suma de tarifas: la factura automática (ANTICIPO/FINAL) cobra la suma de todos los
 // servicios (después ×N miembros en familia, como hoy).
 export function tarifaDeServicios(servicios: Servicio[]): { anticipo: number; resto: number } {

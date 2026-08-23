@@ -69,6 +69,7 @@ export function ClientPortal({
   descuento = null,
   asignacion = null,
   docsSubidos,
+  docsExtra = [],
 }: {
   servicios?: Servicio[];
   packs?: Pack[];
@@ -89,6 +90,7 @@ export function ClientPortal({
   descuento?: Descuento | null;
   asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
   docsSubidos?: { tipo: string; estado: string }[];
+  docsExtra?: string[]; // documentos pedidos a mano por el gestor en este expediente
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
   const [step, setStep] = useState(() => {
@@ -279,7 +281,9 @@ export function ClientPortal({
   // Dedup por TIPO de documento, no por etiqueta exacta: dos servicios del mismo pack
   // piden «Pasaporte» y «Copia del pasaporte» → UNA casilla. Con el `includes` anterior
   // el cliente veía el pasaporte tres veces al elegir un pack (reportado por Matthias).
-  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? [])]);
+  // + los pedidos a mano por el gestor en ESTE expediente (Expediente.docsExtra):
+  // sus casillas tienen que salir aquí también, si no el cliente no los envía nunca.
+  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? []), ...docsExtra]);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
   // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
