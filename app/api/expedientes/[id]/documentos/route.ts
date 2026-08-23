@@ -3,6 +3,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { procesarSubidaDocumento } from "@/lib/documentos-upload";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 
 // El GESTOR sube un documento a un expediente desde su ficha (MODO INTERNO: el cliente ya
 // tiene la documentación por email/WhatsApp; no hace falta enviarle el enlace). Sesión + el
@@ -17,9 +19,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const form = await req.formData().catch(() => null);
   const label = String(form?.get("label") ?? "").trim();
+  // auto=1: clasificación automática — la IA detecta el tipo y el doc cae en su casilla
+  // (pedido de Matthias 23/08: subir en lote lo que llega por email/en mano).
+  const auto = String(form?.get("auto") ?? "") === "1";
   const clienteId = String(form?.get("clienteId") ?? "").trim() || null; // familiar: doc de un miembro
   const file = form?.get("file");
-  if (!label || !(file instanceof File)) return NextResponse.json({ error: "label y file requeridos" }, { status: 400 });
+  if ((!label && !auto) || !(file instanceof File)) return NextResponse.json({ error: "label (o auto=1) y file requeridos" }, { status: 400 });
   const ext = TIPOS_OK[file.type];
   if (!ext) return NextResponse.json({ error: "Formato no soportado (JPG, PNG, WebP o PDF)" }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "El archivo supera los 8 MB" }, { status: 400 });
@@ -29,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Pertenencia al workspace bajo RLS (anti-IDOR): un id ajeno simplemente no existe.
-  const { data: exp } = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId").eq("id", id).maybeSingle();
+  const { data: exp } = await supa.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra").eq("id", id).maybeSingle();
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const admin = createSupabaseAdmin();
@@ -42,10 +47,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const baseUrl = baseUrlFromRequest(req);
+  // Requeridos del servicio (mismo catálogo cascadado que la ficha): en modo auto, la
+  // clasificación prefiere las casillas del servicio — respeta labels personalizados.
+  let docsRequeridos: string[] = [];
+  if (auto) {
+    try {
+      const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string, (exp.oficinaId as string | null) ?? null);
+      docsRequeridos = docsDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo));
+    } catch { /* sin catálogo → labels genéricos del tipo detectado */ }
+  }
   try {
     const r = await procesarSubidaDocumento(admin, {
       exp: { id: exp.id as string, workspaceId: exp.workspaceId as string, clienteId: exp.clienteId as string | null, tipo: exp.tipo as string, estado: exp.estado as string, familiaId: exp.familiaId as string | null },
-      label, clienteId, file, buffer, ext, baseUrl, origen: "gestor",
+      label, clienteId, file, buffer, ext, baseUrl, origen: "gestor", auto, docsRequeridos,
     });
     return NextResponse.json(r);
   } catch (err) {

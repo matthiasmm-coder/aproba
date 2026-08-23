@@ -2,7 +2,7 @@ import type { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { extraerDocumento } from "@/lib/extraction";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
-import { labelADocTipo, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
+import { labelADocTipo, clasificarDeteccion, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
 import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { sembrarVencimiento, fechaCaducidadISO, tipoVencimientoDeDocumento } from "@/lib/vencimientos";
 
@@ -27,11 +27,36 @@ type Resultado = { ok: true; estado: string; campos?: unknown; alertas: string[]
 // subida NO cambia el estado: que el trámite esté vivo se deriva de que haya documentos.
 export async function procesarSubidaDocumento(admin: Admin, opts: {
   exp: ExpParaSubida; label: string; clienteId: string | null; file: File; buffer: Buffer; ext: string; baseUrl: string; origen: "cliente" | "gestor";
-}): Promise<Resultado> {
-  const { exp, label, clienteId, file, buffer, ext, baseUrl, origen } = opts;
+  // CLASIFICACIÓN AUTOMÁTICA: con auto=true el label de entrada se ignora — la IA
+  // detecta el tipo (UNA sola pasada de Vision, la misma que valida) y el documento
+  // cae en su casilla. soloRequeridos (portal): un tipo fuera de la lista del servicio
+  // NO se guarda — se devuelve NO_RECONOCIDO y el cliente usa su casilla manual.
+  auto?: boolean; docsRequeridos?: string[]; soloRequeridos?: boolean;
+}): Promise<Resultado & { tipo?: string; label?: string; requerido?: boolean }> {
+  const { exp, clienteId, file, buffer, ext, baseUrl, origen } = opts;
   const uuid = () => crypto.randomUUID();
   const notificar = origen === "cliente"; // en modo interno el cliente no recibe avisos
-  const docTipo = labelADocTipo(label);
+
+  // ── Modo AUTO: detectar ANTES de persistir (así un NO_RECONOCIDO no deja rastro) ──
+  let resultadoPrevio: Awaited<ReturnType<typeof extraerDocumento>> | null = null;
+  let label = opts.label;
+  let docTipo: string;
+  if (opts.auto) {
+    try {
+      resultadoPrevio = await extraerDocumento(buffer, file.type);
+    } catch (err) {
+      console.error("[upload auto] validación IA caída:", err instanceof Error ? err.message : err);
+      throw new Error("La validación automática no está disponible en este momento. Vuelve a intentarlo en unos minutos.");
+    }
+    const cls = clasificarDeteccion(resultadoPrevio.tipoDetectado, opts.docsRequeridos ?? []);
+    if (opts.soloRequeridos && !cls.requerido) {
+      return { ok: true, estado: "NO_RECONOCIDO", campos: [], alertas: [], tipo: cls.docTipo, label: cls.label, requerido: false };
+    }
+    docTipo = cls.docTipo;
+    label = cls.label;
+  } else {
+    docTipo = labelADocTipo(label);
+  }
 
   // Documento: reutilizar la fila del mismo tipo (por miembro) si existe (re-subida), sinon crear.
   const dq = admin.from("Documento").select("id").eq("expedienteId", exp.id).eq("tipo", docTipo);
@@ -82,13 +107,13 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     // campos DEBE ser un array (el tipo lo es): un {} aquí hacía que el portal
     // ejecutara {}.slice(...) al recibir la respuesta → «slice is not a function»
     // y la página del cliente crashea al subir el encargo/mandato firmado.
-    return { ok: true, estado: "VALIDADO", campos: [], alertas: [] };
+    return { ok: true, estado: "VALIDADO", campos: [], alertas: [], tipo: docTipo, label };
   }
 
-  // ── Validación IA (Claude Vision) ──
+  // ── Validación IA (Claude Vision) — en modo auto ya se hizo (una sola pasada) ──
   let resultado;
   try {
-    resultado = await extraerDocumento(buffer, file.type);
+    resultado = resultadoPrevio ?? await extraerDocumento(buffer, file.type);
   } catch (err) {
     await admin.from("Documento").update({ estado: "PENDIENTE" }).eq("id", docId);
     // Caída transitoria del proveedor IA (sobrecarga 529, rate limit 429, timeout…):
@@ -100,8 +125,9 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     throw new Error("La validación automática no está disponible en este momento. Tu documento se ha guardado — vuelve a intentarlo en unos minutos.");
   }
 
-  // ¿El documento detectado corresponde al pedido?
-  const esperado = DOC_A_TIPO_IA[docTipo];
+  // ¿El documento detectado corresponde al pedido? (En modo auto no aplica: la casilla
+  // ES la detección — no puede contradecirse a sí misma.)
+  const esperado = opts.auto ? undefined : DOC_A_TIPO_IA[docTipo];
   const alertas = [...resultado.alertas];
   if (esperado && !["otro", "desconocido", esperado].includes(resultado.tipoDetectado)) {
     alertas.unshift(`El documento parece ser «${resultado.tipoDetectado.replace(/_/g, " ")}», no «${label}». Comprueba que has subido el archivo correcto.`);
@@ -147,7 +173,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     clave: resultado.estado === "VALIDADO" ? "doc_validado" : "doc_rechazado", vars: { documento: docLabel }, baseUrl,
   });
 
-  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal };
+  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal, tipo: docTipo, label };
 }
 
 // ── Reconciliación de estado según los documentos requeridos: YA NO EXISTE ──

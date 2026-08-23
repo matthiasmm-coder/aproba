@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { labelADocTipo } from "@/lib/tramites";
 import { procesarSubidaDocumento } from "@/lib/documentos-upload";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 
 // Upload d'un document depuis le portail client (/j/[token]). Authentifié par le token
 // du portail. Le pipeline (Storage → Vision → validation → progression) est partagé avec
@@ -19,10 +21,14 @@ export async function POST(req: Request) {
   const form = await req.formData().catch(() => null);
   const token = String(form?.get("token") ?? "").trim();
   const label = String(form?.get("label") ?? "").trim();
+  // auto=1: «sube todos tus documentos de una vez» — la IA clasifica y cada archivo cae
+  // en su casilla. SOLO tipos requeridos por el servicio: lo demás vuelve NO_RECONOCIDO
+  // (el cliente no debe poder sembrar el expediente de archivos sueltos).
+  const auto = String(form?.get("auto") ?? "") === "1";
   const clienteId = String(form?.get("clienteId") ?? "").trim() || null; // expediente familiar: doc de un miembro
   const file = form?.get("file");
-  if (!token || !label || !(file instanceof File)) {
-    return NextResponse.json({ error: "token, label y file requeridos" }, { status: 400 });
+  if (!token || (!label && !auto) || !(file instanceof File)) {
+    return NextResponse.json({ error: "token y file (con label o auto=1) requeridos" }, { status: 400 });
   }
   const ext = TIPOS_OK[file.type];
   if (!ext) return NextResponse.json({ error: "Formato no soportado (JPG, PNG, WebP o PDF)" }, { status: 400 });
@@ -33,7 +39,7 @@ export async function POST(req: Request) {
   // Expediente authentifié par le token du portail.
   const { data: exp, error: e1 } = await admin
     .from("Expediente")
-    .select("id, workspaceId, oficinaId, clienteId, tipo, estado, referencia, familiaId")
+    .select("id, workspaceId, oficinaId, clienteId, tipo, estado, referencia, familiaId, servicioClave, serviciosExtra")
     .eq("portalToken", token)
     .maybeSingle();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
@@ -48,10 +54,17 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const baseUrl = baseUrlFromRequest(req);
+  let docsRequeridos: string[] = [];
+  if (auto) {
+    try {
+      const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId as string, (exp.oficinaId as string | null) ?? null);
+      docsRequeridos = docsDeServicios(serviciosDeExpediente({ servicioClave: exp.servicioClave as string | null, serviciosExtra: exp.serviciosExtra as string[] | null, tipo: exp.tipo as string }, catalogo));
+    } catch { /* sin catálogo → todo caerá en NO_RECONOCIDO, casillas manuales disponibles */ }
+  }
   try {
     const r = await procesarSubidaDocumento(admin, {
       exp: { id: exp.id as string, workspaceId: exp.workspaceId as string, clienteId: exp.clienteId as string | null, tipo: exp.tipo as string, estado: exp.estado as string, familiaId: exp.familiaId as string | null },
-      label, clienteId, file, buffer, ext, baseUrl, origen: "cliente",
+      label, clienteId, file, buffer, ext, baseUrl, origen: "cliente", auto, docsRequeridos, soloRequeridos: auto,
     });
     return NextResponse.json(r);
   } catch (err) {

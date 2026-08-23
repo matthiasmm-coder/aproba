@@ -92,6 +92,29 @@ export const DOC_A_TIPO_IA: Record<string, string> = {
   TITULO_ESTUDIOS: "titulo_estudios",
 };
 
+// CLASIFICACIÓN AUTOMÁTICA (23/08, pedido de Matthias tras el email de Juan: «si me
+// llega por email o en mano, no la subo a Aproba»): la IA ya detecta el tipo del
+// documento — este resolutor lo convierte en (docTipo, label) para guardarlo en la
+// casilla correcta sin que nadie elija nada en un desplegable.
+// Prioridad del label: el literal REQUERIDO del servicio (respeta los nombres
+// personalizados del gestor) > el label del catálogo > «Otro documento».
+const TIPO_IA_A_DOC: Record<string, string> = Object.fromEntries(
+  Object.entries(DOC_A_TIPO_IA).map(([doc, ia]) => [ia, doc]),
+);
+
+export function clasificarDeteccion(
+  tipoDetectado: string,
+  docsRequeridos: string[],
+): { docTipo: string; label: string; requerido: boolean } {
+  const docTipo = TIPO_IA_A_DOC[tipoDetectado] ?? "OTRO";
+  const requerido = docsRequeridos.find((l) => labelADocTipo(l) === docTipo);
+  return {
+    docTipo,
+    label: requerido ?? DOC_LABEL[docTipo] ?? "Otro documento",
+    requerido: Boolean(requerido),
+  };
+}
+
 export const FORM_LABEL: Record<string, string> = {
   EX15: "EX-15",
   EX17: "EX-17",

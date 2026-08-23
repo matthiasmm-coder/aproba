@@ -413,6 +413,63 @@ export function ClientPortal({
     }
   }
 
+  // ── SUBIDA EN LOTE con clasificación automática (23/08, pedido de Matthias) ──
+  // El cliente elige varios archivos de golpe; el servidor detecta el tipo de cada uno
+  // (misma pasada de Vision que valida) y el documento cae en su casilla. Un tipo fuera
+  // de la lista del trámite vuelve NO_RECONOCIDO y se sube a mano en su casilla.
+  type LoteItem = { nombre: string; fase: "esperando" | "subiendo" | "hecho" | "error"; prog: number; texto?: string; okDoc?: boolean };
+  const [lote, setLote] = useState<LoteItem[]>([]);
+  const [loteEnCurso, setLoteEnCurso] = useState(false);
+  const loteRef = useRef<HTMLInputElement>(null);
+  const patchLote = (i: number, p: Partial<LoteItem>) => setLote((xs) => xs.map((x, j) => (j === i ? { ...x, ...p } : x)));
+
+  function aplicarEnCasilla(slot: number, data: { estado?: string; campos?: { label: string; value: string }[]; alertas?: string[] }) {
+    setProg((p) => ({ ...p, [slot]: 100 }));
+    const alertas = data.alertas ?? [];
+    if (data.estado === "VALIDADO") {
+      const campos = Array.isArray(data.campos) ? data.campos : [];
+      setCamposReales((m) => ({ ...m, [slot]: campos.slice(0, 6).map((c) => [c?.label ?? "", c?.value ?? ""] as [string, string]) }));
+      if (alertas.length) setAlertasReales((m) => ({ ...m, [slot]: alertas }));
+      setDocs((d) => ({ ...d, [slot]: { status: "validado", attempts: (d[slot]?.attempts ?? 0) + 1 } }));
+    } else {
+      setAlertasReales((m) => ({ ...m, [slot]: alertas.length ? alertas : [t("s2.noSeLee")] }));
+      setDocs((d) => ({ ...d, [slot]: { status: "alerta", attempts: (d[slot]?.attempts ?? 0) + 1 } }));
+    }
+  }
+
+  async function procesarLote(files: File[]) {
+    if (!files.length || loteEnCurso || !token) return;
+    const base: LoteItem[] = files.map((f) => f.size > 8 * 1024 * 1024
+      ? { nombre: f.name, fase: "error", prog: 0, texto: t("s2.demasiadoGrande") }
+      : { nombre: f.name, fase: "esperando", prog: 0 });
+    setLote(base);
+    setLoteEnCurso(true);
+    for (let i = 0; i < files.length; i++) {
+      if (base[i].fase === "error") continue;
+      patchLote(i, { fase: "subiendo", prog: 0 });
+      try {
+        const { ok, data } = await subirConProgreso({
+          form: { token, auto: "1" },
+          file: files[i],
+          onProgreso: (v) => patchLote(i, { prog: v }),
+          errorRed: t("s2.errorSubir"),
+        });
+        if (!ok || !data) throw new Error(data?.error ?? t("s2.errorSubir"));
+        const d = data as typeof data & { tipo?: string; label?: string };
+        const slot = d.tipo ? requiredDocs.findIndex((l) => labelADocTipo(l) === d.tipo) : -1;
+        if (d.estado === "NO_RECONOCIDO" || slot < 0) {
+          patchLote(i, { fase: "hecho", prog: 100, okDoc: false, texto: t("s2.lote.noReconocido") });
+        } else {
+          aplicarEnCasilla(slot, d);
+          patchLote(i, { fase: "hecho", prog: 100, okDoc: d.estado === "VALIDADO", texto: docLabel(requiredDocs[slot], lang) });
+        }
+      } catch (err) {
+        patchLote(i, { fase: "error", prog: 0, texto: err instanceof Error ? err.message : t("s2.errorSubir") });
+      }
+    }
+    setLoteEnCurso(false);
+  }
+
   // Suppression d'un document soumis par erreur → on remet le slot à zéro (et on supprime
   // côté serveur en mode réel). Le client peut alors re-téléverser le bon fichier.
   async function quitarDoc(i: number) {
@@ -1097,6 +1154,47 @@ export function ClientPortal({
                     {t("firma.mandato")}
                   </a>
                 </div>
+              </div>
+            )}
+
+            {/* Subida en LOTE: varios archivos de golpe, la IA los coloca en su casilla */}
+            {token && requiredDocs.length > 1 && (
+              <div className="mt-6 rounded-xl border-2 border-dashed border-aproba-300 bg-aproba-50/40 p-4 text-center">
+                <p className="text-sm font-semibold text-slate-800">{t("s2.lote.titulo")}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("s2.lote.desc")}</p>
+                <button
+                  type="button"
+                  onClick={() => loteRef.current?.click()}
+                  disabled={loteEnCurso}
+                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-aproba-600 px-5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                  {t("s2.lote.boton")}
+                </button>
+                <input ref={loteRef} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ""; void procesarLote(fs); }} />
+                {lote.length > 0 && (
+                  <div className="mt-3 space-y-1.5 text-start">
+                    {lote.map((x, i) => (
+                      <div key={`${x.nombre}-${i}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="min-w-0 flex-1 truncate font-medium text-slate-700">{x.nombre}</span>
+                          {x.fase === "esperando" && <span className="shrink-0 text-slate-400">…</span>}
+                          {x.fase === "subiendo" && <span className="shrink-0 tabular-nums font-semibold text-aproba-700">{x.prog < 46 ? "" : t("s2.analizando") + " "}{Math.round(x.prog)}%</span>}
+                          {x.fase === "hecho" && (
+                            <span className={`shrink-0 font-semibold ${x.okDoc ? "text-aproba-700" : "text-amber-600"}`}>{x.okDoc ? "✓ " : "⚠ "}{x.texto}</span>
+                          )}
+                          {x.fase === "error" && <span className="shrink-0 font-semibold text-red-600">✕</span>}
+                        </div>
+                        {(x.fase === "subiendo" || x.fase === "esperando") && (
+                          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-aproba-500 transition-[width] duration-200" style={{ width: `${x.prog}%` }} />
+                          </div>
+                        )}
+                        {x.fase === "error" && x.texto && <p role="alert" className="mt-1 text-[11px] leading-snug text-red-600">{x.texto}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
