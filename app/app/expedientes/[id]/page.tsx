@@ -13,7 +13,7 @@ import { FamiliaExpedienteSection } from "@/components/familia-expediente-sectio
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { docsFamiliaPorServicios, docsExtraPlanos } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
@@ -105,7 +105,7 @@ export default async function ExpedienteDetail({
   // era lo ÚNICO que quedaba en el selector manual, que ya no hace falta.
   const casillasFicha = familia
     ? []
-    : [...(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []), ...docsRequeridos];
+    : [...sinQuitados(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], e.docsExtra), ...docsRequeridos];
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
@@ -137,7 +137,7 @@ export default async function ExpedienteDetail({
       e.docsExtra,
     );
     // Firma: la hoja/mandato se piden UNA vez (al representante) — igual que el portal.
-    const firma = despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [];
+    const firma = sinQuitados(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], e.docsExtra);
     return { ...rep, comunes: [...firma, ...rep.comunes], miembros: sol };
   })();
   const propiosFicha = new Set(docsExtraPlanos(e.docsExtra));
@@ -412,7 +412,9 @@ export default async function ExpedienteDetail({
                       label={label}
                       // Solo se puede retirar lo que se pidió a mano: la lista del
                       // servicio se cambia en Ajustes, no expediente por expediente.
-                      quitable={e.docsExtra.includes(label)}
+                      // Cualquier casilla se puede retirar de ESTE expediente (pedida
+                      // a mano o del servicio); el catálogo del despacho no cambia.
+                      quitable
                       docsExtra={e.docsExtra}
                     />;
               });
@@ -453,14 +455,14 @@ export default async function ExpedienteDetail({
                       return doc ? (
                         <DocumentoRow key={doc.id} d={doc} expedienteId={e.id} />
                       ) : (
-                        <div key={`falta-${g.id ?? "c"}-${label}`} className="relative">
-                          <CasillaDocumentoGestor expedienteId={e.id} label={label} miembroId={g.id} />
-                          {propiosFicha.has(label) && (
-                            <span className="absolute right-2 top-2">
-                              <QuitarDocEsperado expedienteId={e.id} label={label} docsExtra={e.docsExtra} />
-                            </span>
-                          )}
-                        </div>
+                        <CasillaDocumentoGestor
+                          key={`falta-${g.id ?? "c"}-${label}`}
+                          expedienteId={e.id}
+                          label={label}
+                          miembroId={g.id}
+                          quitable
+                          docsExtra={e.docsExtra}
+                        />
                       );
                     })}
                   </div>

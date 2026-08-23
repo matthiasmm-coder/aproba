@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { PREFIJO_POR_PERSONA } from "@/lib/familia";
+import { PREFIJO_POR_PERSONA, PREFIJO_QUITADO } from "@/lib/familia";
 
 // El GESTOR define QUÉ documentos hay que reunir en ESTE expediente, además de los
 // del servicio. Sin esto, un trámite «Otro» o un servicio propio creado sin lista
@@ -9,7 +9,7 @@ import { PREFIJO_POR_PERSONA } from "@/lib/familia";
 // acordarse de memoria — el caso que señaló Matthias el 23/08. Sesión + RLS.
 // El cuerpo trae la lista COMPLETA de los añadidos a mano (idempotente).
 
-const MAX_DOCS = 25;
+const MAX_DOCS = 50; // documentos pedidos + marcas de retirada
 const MAX_LARGO = 60;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,10 +26,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (typeof d !== "string") continue;
     // El prefijo «uno por persona» (familia) lo pone la UI, no el gestor: se separa,
     // se sanea la etiqueta y se vuelve a poner. Así nadie lo escribe a mano.
-    const marcado = d.startsWith(PREFIJO_POR_PERSONA);
-    const bruto = marcado ? d.slice(PREFIJO_POR_PERSONA.length) : d;
+    const prefijo = d.startsWith(PREFIJO_QUITADO) ? PREFIJO_QUITADO : d.startsWith(PREFIJO_POR_PERSONA) ? PREFIJO_POR_PERSONA : "";
+    const bruto = prefijo ? d.slice(prefijo.length) : d;
     const etiqueta = bruto.trim().replace(/\s+/g, " ").slice(0, MAX_LARGO);
-    const limpio = etiqueta ? (marcado ? `${PREFIJO_POR_PERSONA}${etiqueta}` : etiqueta) : "";
+    const limpio = etiqueta ? `${prefijo}${etiqueta}` : "";
     if (!limpio) continue;
     const clave = limpio.toLowerCase();
     if (vistos.has(clave)) continue;

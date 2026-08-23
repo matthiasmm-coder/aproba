@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { docsFamiliaPorServicios, separarDocsExtra, docsExtraPlanos } from "./familia";
+import { docsFamiliaPorServicios, separarDocsExtra, docsExtraPlanos, sinQuitados } from "./familia";
 
 // Caso Juan: padre arraigo + madre renovación — cada uno sube SUS documentos,
 // los comunes (empadronamiento, libro de familia…) una sola vez.
@@ -88,5 +88,23 @@ describe("docsExtra en familia (comunes vs por persona)", () => {
 
   it("en individual, el prefijo desaparece (esa persona es el titular)", () => {
     expect(docsExtraPlanos(["@persona:Certificado médico", "Contrato"])).toEqual(["Certificado médico", "Contrato"]);
+  });
+});
+
+describe("documentos retirados del expediente", () => {
+  it("un documento del servicio se puede retirar SOLO en este expediente", () => {
+    const SV = [{ id: "s", docs: ["Pasaporte", "TIE actual"] }];
+    const r = docsFamiliaPorServicios(SV, null, [{ id: "m1" }], ["@quitado:TIE actual"]);
+    const todos = [...r.comunes, ...r.porMiembro.m1];
+    expect(todos).toContain("Pasaporte");
+    expect(todos).not.toContain("TIE actual");
+  });
+
+  it("la marca de retirada no es un documento pedido", () => {
+    expect(docsExtraPlanos(["Contrato de alquiler", "@quitado:Pasaporte"])).toEqual(["Contrato de alquiler"]);
+  });
+
+  it("sinQuitados no distingue mayúsculas ni espacios", () => {
+    expect(sinQuitados(["TIE actual", "Pasaporte"], ["@quitado:  tie ACTUAL "])).toEqual(["Pasaporte"]);
   });
 });

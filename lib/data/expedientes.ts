@@ -2,7 +2,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { docsExtraPlanos } from "@/lib/familia";
+import { docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs, unirDocsPedidos } from "@/lib/tramites";
 import { calcularProgreso, type Progreso } from "@/lib/progreso";
 import type { ExpedienteEstado, Documento as DocumentoUI, Expediente as ExpedienteUI } from "@/lib/types";
@@ -506,7 +506,7 @@ export function progresoDeExpediente(
   // Los pedidos a mano cuentan IGUAL que los del servicio: si no, el anillo diría
   // «completo» mientras el gestor sigue esperando un papel que él mismo reclamó.
   const extra = docsExtraPlanos(e.docsExtra);
-  const requeridos = unirDocsPedidos(resueltos.flatMap((f) => f.docs ?? []), extra);
+  const requeridos = unirDocsPedidos(sinQuitados(resueltos.flatMap((f) => f.docs ?? []), e.docsExtra), extra);
   const docs = (e.documentos ?? []).filter((d) => d.tipo !== "HOJA_ENCARGO" && d.tipo !== "MANDATO");
 
   return calcularProgreso({

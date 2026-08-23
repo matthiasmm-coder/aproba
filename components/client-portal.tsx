@@ -9,7 +9,7 @@ import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
-import { dedupDocs, labelADocTipo, emparejarDocs } from "@/lib/tramites";
+import { dedupDocs, labelADocTipo, emparejarDocs, unirDocsPedidos } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
-import { docsFamiliaPorServicios, docsExtraPlanos } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsExtraPlanos, sinQuitados } from "@/lib/familia";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -151,7 +151,7 @@ export function ClientPortal({
         .filter((c) => c !== servicioInicial)
         .flatMap((c) => catalogo.find((x) => x.id === c)?.docs ?? []),
       ...docsExtraPlanos(docsExtra), // pedidos a mano: sin ellos, lo ya enviado volvía a pedirse
-    ]);
+    ].filter((l) => sinQuitados([l], docsExtra).length > 0));
     const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
     // Emparejado ÚNICO (lib/tramites): un documento llena UNA casilla. Antes casaba
     // por tipo y dos documentos propios (los dos OTRO) marcaban las dos casillas.
@@ -293,11 +293,12 @@ export function ClientPortal({
   // titular, y el prefijo NUNCA debe verse en pantalla.
   const docsExtraLimpios = docsExtraPlanos(docsExtra);
   const etiquetaDoc = (l: string) => (docsExtraLimpios.includes(l) ? l : docLabel(l, lang));
-  const docsBase = dedupDocs([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? []), ...docsExtraLimpios]);
+  // Lo retirado por el gestor en ESTE expediente no se le pide al cliente.
+  const docsBase = unirDocsPedidos(sinQuitados([...(tramite?.docs ?? []), ...extrasServicios.flatMap((sv) => sv.docs ?? [])], docsExtra), docsExtraLimpios);
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
   // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
-  const requiredDocs = [...(encargoActivo && token ? DOCS_FIRMA : []), ...docsBase];
+  const requiredDocs = [...sinQuitados(encargoActivo && token ? DOCS_FIRMA : [], docsExtra), ...docsBase];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,

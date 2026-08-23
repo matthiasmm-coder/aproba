@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DOC_LABEL } from "@/lib/tramites";
-import { PREFIJO_POR_PERSONA } from "@/lib/familia";
+import { PREFIJO_POR_PERSONA, PREFIJO_QUITADO } from "@/lib/familia";
 import { useT } from "@/components/lang-provider";
 
 // «¿Qué hay que reunir en este expediente?» — la pregunta que la ficha no contestaba.
@@ -269,7 +269,13 @@ export function QuitarDocEsperado({ expedienteId, label, docsExtra }: { expedien
       const res = await fetch(`/api/expedientes/${expedienteId}/docs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docs: docsExtra.filter((d) => limpio(d) !== label) }),
+        body: JSON.stringify({ docs: (() => {
+          const norm = (x: string) => x.trim().toLowerCase();
+          const eraPedido = docsExtra.some((d) => !d.startsWith(PREFIJO_QUITADO) && norm(limpio(d)) === norm(label));
+          return eraPedido
+            ? docsExtra.filter((d) => d.startsWith(PREFIJO_QUITADO) || norm(limpio(d)) !== norm(label))
+            : [...docsExtra, `${PREFIJO_QUITADO}${label}`];
+        })() }),
       });
       if (!res.ok) throw new Error("ko");
       router.refresh();

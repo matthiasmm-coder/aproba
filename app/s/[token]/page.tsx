@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
-import { docsFamiliaPorServicios } from "@/lib/familia";
+import { docsFamiliaPorServicios, sinQuitados } from "@/lib/familia";
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 import { asegurarEspacioToken } from "@/lib/espacio";
@@ -84,7 +84,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // Firma PRIMERO (mismo orden que /j y que las secciones de familia): el cliente
   // descarga en el bloque de arriba y sube en los primeros huecos de la lista.
   const requeridos: string[] = [
-    ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []),
+    ...sinQuitados(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], (exp as { docsExtra?: unknown }).docsExtra),
     ...docsDeExpediente(serviciosExp, (exp as { docsExtra?: unknown }).docsExtra),
   ];
 

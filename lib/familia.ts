@@ -91,8 +91,8 @@ export function docsFamiliaPorServicios(
   // Los pedidos a mano se respetan por etiqueta (unirDocsPedidos): el dedup por tipo
   // fusionaba «Contrato de alquiler» con «Contrato de trabajo».
   const extra = separarDocsExtra(docsExtra);
-  for (const id of Object.keys(porMiembro)) porMiembro[id] = unirDocsPedidos(porMiembro[id], extra.porPersona);
-  return { comunes: unirDocsPedidos(comunes, extra.comunes), porMiembro };
+  for (const id of Object.keys(porMiembro)) porMiembro[id] = unirDocsPedidos(sinQuitados(porMiembro[id], docsExtra), extra.porPersona);
+  return { comunes: unirDocsPedidos(sinQuitados(comunes, docsExtra), extra.comunes), porMiembro };
 }
 
 // ── Documentos pedidos A MANO en un expediente FAMILIAR ────────────────────────
@@ -102,28 +102,48 @@ export function docsFamiliaPorServicios(
 // prefijo. Un solo parser para que la ficha, el portal /j, /s y el progreso lean lo
 // mismo — y el gestor nunca escribe el prefijo a mano (la API lo limpia).
 export const PREFIJO_POR_PERSONA = "@persona:";
+// Documento del SERVICIO retirado SOLO en este expediente (un arraigo sin contrato,
+// un cliente que no tiene TIE…). El catálogo del despacho no se toca: se cambia en
+// Ajustes y sigue valiendo para los demás expedientes.
+export const PREFIJO_QUITADO = "@quitado:";
 
-export function separarDocsExtra(docsExtra: unknown): { comunes: string[]; porPersona: string[] } {
+export function separarDocsExtra(docsExtra: unknown): { comunes: string[]; porPersona: string[]; quitados: string[] } {
   const lista = Array.isArray(docsExtra)
     ? docsExtra.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim())
     : [];
   const comunes: string[] = [];
   const porPersona: string[] = [];
+  const quitados: string[] = [];
   for (const d of lista) {
-    if (d.startsWith(PREFIJO_POR_PERSONA)) {
+    if (d.startsWith(PREFIJO_QUITADO)) {
+      const limpio = d.slice(PREFIJO_QUITADO.length).trim();
+      if (limpio) quitados.push(limpio);
+    } else if (d.startsWith(PREFIJO_POR_PERSONA)) {
       const limpio = d.slice(PREFIJO_POR_PERSONA.length).trim();
       if (limpio) porPersona.push(limpio);
     } else comunes.push(d);
   }
-  return { comunes, porPersona };
+  return { comunes, porPersona, quitados };
+}
+
+// Quita de una lista de casillas las que el gestor retiró en ESTE expediente.
+export function sinQuitados(labels: string[], docsExtra: unknown): string[] {
+  const { quitados } = separarDocsExtra(docsExtra);
+  if (!quitados.length) return labels;
+  const fuera = new Set(quitados.map((q) => q.toLowerCase()));
+  return labels.filter((l) => !fuera.has(l.trim().toLowerCase()));
 }
 
 // Etiquetas SIN prefijo (expediente individual: «cada persona» = el titular, así que
 // la distinción no aplica y todo cuenta una vez).
 export function docsExtraPlanos(docsExtra: unknown): string[] {
-  // Se conserva el ORDEN en que el gestor los pidió (solo se quita el prefijo).
+  // Se conserva el ORDEN en que el gestor los pidió (solo se quita el prefijo). Los
+  // «@quitado:» NO son documentos: son marcas de retirada.
+  const { comunes, porPersona } = separarDocsExtra(docsExtra);
+  const pedidos = new Set([...comunes, ...porPersona].map((d) => d.toLowerCase()));
   return (Array.isArray(docsExtra) ? docsExtra : [])
     .filter((d): d is string => typeof d === "string" && Boolean(d.trim()))
+    .filter((d) => !d.startsWith(PREFIJO_QUITADO))
     .map((d) => (d.startsWith(PREFIJO_POR_PERSONA) ? d.slice(PREFIJO_POR_PERSONA.length) : d).trim())
-    .filter(Boolean);
+    .filter((d) => d && pedidos.has(d.toLowerCase()));
 }
