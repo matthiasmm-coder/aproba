@@ -9,19 +9,31 @@ type Svc = { id: string; label: string };
 // El gestor corrige los SERVICIOS del expediente desde la ficha: el principal (pilota el
 // trámite/encargo) y los adicionales (suman documentos, formularios y tarifa). Discreto:
 // un enlace que despliega selector + chips. POST a /api/expedientes/[id]/servicio.
-export function CambiarServicio({ expedienteId, servicios, actualClave, extrasActuales = [] }: {
+export function CambiarServicio({ expedienteId, servicios, actualClave, extrasActuales = [], miembros = [], asignacionInicial = null }: {
   expedienteId: string; servicios: Svc[]; actualClave: string | null; extrasActuales?: string[];
+  // Expediente FAMILIAR: aquí también se decide PARA QUIÉN es cada servicio (pedido de
+  // Matthias 23/08: el padre un trámite, la madre otro — y los documentos de cada
+  // miembro salen de SU servicio). Sin marcar a nadie = toda la familia (×N).
+  miembros?: { id: string; nombre: string }[];
+  asignacionInicial?: Record<string, string[]> | null;
 }) {
   const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [clave, setClave] = useState(actualClave ?? "");
   const [extras, setExtras] = useState<string[]>(extrasActuales);
+  const [asig, setAsig] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const labelDe = (id: string) => servicios.find((s) => s.id === id)?.label ?? id;
   const disponibles = servicios.filter((s) => s.id !== clave && !extras.includes(s.id));
+  const esFamilia = miembros.length > 0;
+  const seleccionados = [clave, ...extras].filter(Boolean);
+  const toggleAsig = (svc: string, id: string) => setAsig((a) => {
+    const lista = a[svc] ?? [];
+    return { ...a, [svc]: lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id] };
+  });
 
   async function guardar() {
     const svc = servicios.find((s) => s.id === clave);
@@ -34,6 +46,22 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo cambiar el servicio."));
+      if (esFamilia) {
+        // Solo claves FINALES y con selección: lo demás queda «toda la familia».
+        const limpia = Object.fromEntries(
+          [clave, ...extras.filter((x) => x !== clave)]
+            .map((c) => [c, asig[c] ?? []] as const)
+            .filter(([, ids]) => ids.length > 0),
+        );
+        const ra = await fetch(`/api/expedientes/${expedienteId}/asignacion`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ asignacion: Object.keys(limpia).length ? limpia : null }),
+        });
+        if (!ra.ok) {
+          const da = await ra.json().catch(() => ({}));
+          throw new Error(da.error ?? t("No se pudo guardar la asignación."));
+        }
+      }
       setAbierto(false);
       router.refresh();
     } catch (e) {
@@ -43,7 +71,7 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
 
   if (!abierto) {
     return (
-      <button onClick={() => { setClave(actualClave ?? ""); setExtras(extrasActuales); setError(null); setAbierto(true); }} className="-my-2 mt-1 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:mt-1 sm:py-0">
+      <button onClick={() => { setClave(actualClave ?? ""); setExtras(extrasActuales); setAsig(asignacionInicial ? { ...asignacionInicial } : {}); setError(null); setAbierto(true); }} className="-my-2 mt-1 py-2 text-xs font-medium text-aproba-700 hover:underline sm:my-0 sm:mt-1 sm:py-0">
         {extrasActuales.length > 0 ? t("Cambiar servicios") : t("Cambiar servicio")}
       </button>
     );
@@ -76,6 +104,25 @@ export function CambiarServicio({ expedienteId, servicios, actualClave, extrasAc
           </select>
         )}
       </div>
+      {esFamilia && seleccionados.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-cream-50/40 p-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t("¿Para quién es cada servicio?")}</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">{t("Sin marcar a nadie, el servicio cuenta para toda la familia.")}</p>
+          {seleccionados.map((svc) => (
+            <div key={svc} className="mt-2">
+              <p className="text-xs font-medium text-slate-700">{labelDe(svc)}</p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1.5">
+                {miembros.map((m) => (
+                  <label key={m.id} className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
+                    <input type="checkbox" checked={(asig[svc] ?? []).includes(m.id)} onChange={() => toggleAsig(svc, m.id)} disabled={busy} className="h-3.5 w-3.5 accent-aproba-600" />
+                    {m.nombre}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="text-[11px] text-slate-400">{t("El principal define el trámite; los adicionales suman documentos y honorarios.")}</p>
       {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
     </div>

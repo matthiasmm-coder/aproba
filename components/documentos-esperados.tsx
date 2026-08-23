@@ -62,11 +62,24 @@ export function DocumentosEsperados({
 
   // Sin NINGÚN documento esperado: el caso que dejaba la ficha muda.
   if (docsTramite.length === 0) {
-    const sujeto = nServicios === 0 ? t("este trámite") : nServicios === 1 ? t("este servicio") : t("estos servicios");
+    // Sin servicio, el gesto correcto NO es elegir documentos a mano: es elegir el
+    // servicio (en «Cambiar servicio», junto al trámite) — sus documentos llegan solos.
+    // Los servicios se deciden al crear el expediente o ahí; nunca en esta sección.
+    if (nServicios === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-5 text-center">
+          <p className="text-sm font-semibold text-amber-900">{t("Este expediente aún no tiene servicio")}</p>
+          <p className="mt-1 text-xs text-amber-800">{t("Elígelo en «Cambiar servicio», junto al trámite: sus documentos aparecerán aquí solos. ¿Un papel suelto? Pídelo abajo.")}</p>
+          <Selector catalogo={catalogo} onGuardar={guardar} guardando={guardando} t={t} esFamilia={esFamilia} />
+          {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+        </div>
+      );
+    }
+    const sujeto = nServicios === 1 ? t("este servicio") : t("estos servicios");
     return (
       <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-5 text-center">
         <p className="text-sm font-semibold text-amber-900">
-          {nServicios > 1 ? t("Ningún documento asociado a estos servicios") : nServicios === 1 ? t("Ningún documento asociado a este servicio") : t("Ningún documento asociado a este trámite")}
+          {nServicios > 1 ? t("Ningún documento asociado a estos servicios") : t("Ningún documento asociado a este servicio")}
         </p>
         <p className="mt-1 text-xs text-amber-800">{t("Elige los documentos necesarios para")} {sujeto}.</p>
         {sugerenciasUtiles.length > 0 && (
