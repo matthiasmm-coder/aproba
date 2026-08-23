@@ -4,6 +4,7 @@ import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } fr
 import { NotasExpediente } from "@/components/notas-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
+import { EnlaceCliente } from "@/components/enlace-cliente";
 import { FICHA_CAMPOS, type ClienteFicha } from "@/lib/ficha";
 import { CitasPanel } from "@/components/citas-panel";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -305,7 +306,10 @@ export default async function ExpedienteDetail({
 
         {/* Información del cliente: los MISMOS campos que pide el portal y que se ven en
             «Clientes» (lib/ficha.ts, fuente única). El gestor los lee y corrige aquí,
-            sin salir del expediente que está preparando. */}
+            sin salir del expediente que está preparando.
+            FAMILIAR: no se enseña — repetiría la ficha del titular, que ya se edita
+            miembro a miembro en «Familia» (el portal del cliente NO cambia). */}
+        {!familia && (
         <SeccionPlegable
           id="informacion"
           titulo={t("Información")}
@@ -327,11 +331,20 @@ export default async function ExpedienteDetail({
             portalToken={e.modoTrabajo === "manual" ? null : e.portalToken}
           />
         </SeccionPlegable>
+        )}
 
         {/* Familia (expediente familiar): miembros + facturación familiar */}
         {familia && (
           <SeccionPlegable id="familia" titulo={t("Familia")} resumen={`${familia.miembros.length} ${t("miembros")}`}>
-            <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />
+            <>
+              <FamiliaExpedienteSection familia={familia} expedienteId={e.id} prefill={famPrefill} facturas={famFacturas} />
+              {/* El enlace vivía dentro de «Información», que aquí ya no se enseña. */}
+              {e.modoTrabajo !== "manual" && e.portalToken && (
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <EnlaceCliente portalToken={e.portalToken} />
+                </div>
+              )}
+            </>
           </SeccionPlegable>
         )}
 
