@@ -22,6 +22,18 @@ import { resumirOrigen, type Origen } from "@/lib/origen";
 // Lo que NO es: un CRM. No guarda estado, no puntúa, no decide. Lee la base cada mañana
 // y dice a quién llamar hoy. Si una señal molesta, es que el prospecto está muerto o
 // atendido — en ambos casos se apaga sola en cuanto la realidad cambia.
+//
+// ⚠️ CADENCIA (24/08/2026). El supuesto de arriba era falso: un prospecto puede quedarse
+// en el MISMO estado indefinidamente. Gretell llevaba 11 días «alta sin arranque» y el
+// mismo correo salía cada mañana — que es justo lo que este cron intenta evitar cuando
+// excluye los workspaces internos: enseñar a no abrirlo. Una señal VERDADERA hoy no es
+// una señal NUEVA. Ahora cada señal habla el día en que APARECE y luego los lunes; solo
+// la ventana de dinero (prueba a ≤2 días de vencer, o recién vencida) habla a diario.
+// Sin estado que guardar: todo se deriva de los contadores que ya se calculan.
+//
+// ⚠️ El cron corre de lunes a viernes (vercel.json «0 7 * * 1-5»), así que una cadencia
+// «cada 7 días» sería una TRAMPA: el día 0 y el día 7 caen siempre en el MISMO día de la
+// semana — si ese día es sábado, la señal no sonaría JAMÁS. De ahí el ancla en lunes.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +56,14 @@ const MIN_CARTERA = 20;        // por debajo, un ratio bajo no significa nada
 const RATIO_TRABAJO = 0.1;     // expedientes/clientes: <10 % = cartera importada y aparcada
 const VENCE_EN = 7;
 const VENCIDA_HASTA = 5;   // días tras caducar en los que aún merece una llamada
+const URGENTE = 2;         // días de margen en los que la señal sí habla a diario
+
+// El día que aparece la señal, y después los lunes. Si aparece en fin de semana (el cron
+// no corre), el lunes la recoge con 1-2 días de retraso en vez de perderla.
+function vigente(dias: number | null, desde: number, esLunes: boolean): boolean {
+  if (dias === null) return false;
+  return dias >= desde && (dias === desde || esLunes);
+}
 
 function autorizado(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -92,6 +112,10 @@ export async function GET(req: Request) {
     }
   }
 
+  // Ancla de la cadencia semanal. UTC: el cron dispara a las 07:00 UTC, así que el día
+  // de la semana en UTC es el mismo que ve el destinatario en España.
+  const esLunes = new Date().getUTCDay() === 1;
+
   const fichas: Ficha[] = [];
   for (const w of (wss ?? []) as { id: string; nombre: string; createdAt: string }[]) {
     const nombre = w.nombre ?? "(sin nombre)";
@@ -113,25 +137,27 @@ export async function GET(req: Request) {
     const enPrueba = sub?.estado === "TRIAL" && quedan !== null && quedan >= 0;
 
     const señales: Señal[] = [];
-    if (cli === 0 && altaDias >= DIAS_SIN_ARRANQUE && altaDias <= 45) {
+    if (cli === 0 && altaDias <= 45 && vigente(altaDias, DIAS_SIN_ARRANQUE, esLunes)) {
       señales.push({ orden: 1, etiqueta: "ALTA SIN ARRANQUE",
         detalle: `se registró hace ${altaDias} días y sigue sin dar de alta ningún cliente` });
     }
-    if (cli >= MIN_CARTERA && exp / cli < RATIO_TRABAJO && enPrueba) {
+    if (cli >= MIN_CARTERA && exp / cli < RATIO_TRABAJO && enPrueba && vigente(altaDias, DIAS_SIN_ARRANQUE, esLunes)) {
       señales.push({ orden: 2, etiqueta: "IMPORTÓ SIN TRABAJAR",
         detalle: `${cli} clientes cargados pero solo ${exp} expedientes (${Math.round((exp / cli) * 100)} %): la cartera está aparcada` });
     }
-    if (exp >= 3 && inactivoDias !== null && inactivoDias >= DIAS_ENFRIADO && enPrueba) {
+    if (exp >= 3 && enPrueba && vigente(inactivoDias, DIAS_ENFRIADO, esLunes)) {
       señales.push({ orden: 3, etiqueta: "SE ENFRIÓ",
         detalle: `trabajó de verdad (${exp} expedientes) y lleva ${inactivoDias} días sin crear nada` });
     }
-    if (enPrueba && quedan! <= VENCE_EN) {
+    // La prueba es el momento del dinero: a ≤2 días habla todos los días, antes solo los lunes.
+    if (enPrueba && quedan! <= VENCE_EN && (quedan! <= URGENTE || esLunes)) {
       señales.push({ orden: quedan! <= 2 ? 0 : 4, etiqueta: "LA PRUEBA VENCE",
         detalle: `quedan ${quedan} días de prueba y no hay suscripción` });
     }
     // Ventana corta y con uso real: se avisa del que MERECÍA convertir y no lo hizo,
     // no de todos los abandonos acumulados desde junio.
-    if (sub?.estado === "TRIAL" && quedan !== null && quedan < 0 && quedan >= -VENCIDA_HASTA && exp >= 3) {
+    if (sub?.estado === "TRIAL" && quedan !== null && quedan < 0 && quedan >= -VENCIDA_HASTA && exp >= 3
+        && (-quedan <= URGENTE || esLunes)) {
       señales.push({ orden: 0, etiqueta: "VENCIÓ SIN CONVERTIR",
         detalle: `la prueba caducó hace ${-quedan} días tras abrir ${exp} expedientes: es ahora o nunca` });
     }
@@ -158,7 +184,9 @@ export async function GET(req: Request) {
     const primera = fichas[0];
     const cuerpo =
       `A quién llamar hoy (${fichas.length} ${fichas.length === 1 ? "despacho" : "despachos"}):\n\n${bloques}\n\n` +
-      `— Las señales se apagan solas en cuanto el prospecto arranca, trabaja o se suscribe.\n` +
+      `— Cada señal habla el día que aparece y luego los lunes; una prueba a punto de vencer habla a diario.\n` +
+      `Si hoy no hay correo, es que no hay nada nuevo — no que no pase nada.\n` +
+      `Las señales se apagan solas en cuanto el prospecto arranca, trabaja o se suscribe.\n` +
       `Se excluyen los workspaces internos y los clientes de pago.`;
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
