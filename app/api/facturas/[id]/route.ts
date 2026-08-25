@@ -128,8 +128,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // después, un número vivo y quemado a la vez no daña la serie (max idéntico).
   // Un BORRADOR no se quema: su número nunca se emitió y puede reusarse legalmente.
   if ((f as { estado: string }).estado !== "BORRADOR") {
+    // id explícito: como Cliente/Expediente, las tablas de este esquema no llevan
+    // default en la PK (convención de la casa, ver supabase/entregas-a-cuenta.sql).
     const quema = await admin.from("FacturaNumeroQuemado").upsert(
-      { workspaceId: (f as { workspaceId: string }).workspaceId, numero: String((f as { numero: string }).numero) },
+      { id: crypto.randomUUID(), workspaceId: (f as { workspaceId: string }).workspaceId, numero: String((f as { numero: string }).numero) },
       { onConflict: "workspaceId,numero", ignoreDuplicates: true },
     );
     if (quema.error && !/FacturaNumeroQuemado|relation|does not exist|schema cache|PGRST205/i.test(quema.error.message)) {
