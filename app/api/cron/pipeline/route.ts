@@ -23,12 +23,18 @@ import { resumirOrigen, type Origen } from "@/lib/origen";
 // y dice a quién llamar hoy. Si una señal molesta, es que el prospecto está muerto o
 // atendido — en ambos casos se apaga sola en cuanto la realidad cambia.
 //
-// ⚠️ CADENCIA (24/08/2026). El supuesto de arriba era falso: un prospecto puede quedarse
+// ⚠️ CADENCIA (24-25/08/2026). El supuesto de arriba era falso: un prospecto puede quedarse
 // en el MISMO estado indefinidamente. Gretell llevaba 11 días «alta sin arranque» y el
 // mismo correo salía cada mañana — que es justo lo que este cron intenta evitar cuando
-// excluye los workspaces internos: enseñar a no abrirlo. Una señal VERDADERA hoy no es
-// una señal NUEVA. Ahora cada señal habla el día en que APARECE y luego los lunes; solo
-// la ventana de dinero (prueba a ≤2 días de vencer, o recién vencida) habla a diario.
+// excluye los workspaces internos: enseñar a no abrirlo.
+//
+// Primer intento (24/08): hablar el día en que la señal APARECE, y luego los lunes. No
+// bastó — al día siguiente kassid cruzó el umbral de 2 días y saltó otro correo. Era una
+// señal legítimamente nueva, pero para quien lo recibe es «otra vez el mismo correo».
+// Regla definitiva: **SOLO LOS LUNES**, un único resumen semanal. Única excepción, la
+// ventana de dinero: una prueba a ≤2 días de vencer, o recién vencida, sí habla a diario
+// — ahí un día de retraso cuesta la conversión.
+//
 // Sin estado que guardar: todo se deriva de los contadores que ya se calculan.
 //
 // ⚠️ El cron corre de lunes a viernes (vercel.json «0 7 * * 1-5»), así que una cadencia
@@ -58,11 +64,12 @@ const VENCE_EN = 7;
 const VENCIDA_HASTA = 5;   // días tras caducar en los que aún merece una llamada
 const URGENTE = 2;         // días de margen en los que la señal sí habla a diario
 
-// El día que aparece la señal, y después los lunes. Si aparece en fin de semana (el cron
-// no corre), el lunes la recoge con 1-2 días de retraso en vez de perderla.
+// Solo los lunes. Una señal que aparece el martes espera al lunes siguiente: seis días de
+// retraso sobre un prospecto que lleva semanas parado no cambian nada, y un correo diario
+// que se ignora no vale nada.
 function vigente(dias: number | null, desde: number, esLunes: boolean): boolean {
   if (dias === null) return false;
-  return dias >= desde && (dias === desde || esLunes);
+  return dias >= desde && esLunes;
 }
 
 function autorizado(req: Request): boolean {
@@ -184,7 +191,7 @@ export async function GET(req: Request) {
     const primera = fichas[0];
     const cuerpo =
       `A quién llamar hoy (${fichas.length} ${fichas.length === 1 ? "despacho" : "despachos"}):\n\n${bloques}\n\n` +
-      `— Cada señal habla el día que aparece y luego los lunes; una prueba a punto de vencer habla a diario.\n` +
+      `— Este resumen sale los LUNES. Solo una prueba a punto de vencer puede saltar otro día.\n` +
       `Si hoy no hay correo, es que no hay nada nuevo — no que no pase nada.\n` +
       `Las señales se apagan solas en cuanto el prospecto arranca, trabaja o se suscribe.\n` +
       `Se excluyen los workspaces internos y los clientes de pago.`;
