@@ -58,3 +58,28 @@ describe("series por oficina (prefijo)", () => {
   });
 });
 
+// ── Números quemados (24/08/2026, caso Gesnet) ────────────────────────────────
+// Borrar la factura del TOPE de la serie liberaba su número y la siguiente lo
+// REUTILIZABA: dos PDF distintos se llamaron 2026-0006. emitidos() une ahora los
+// números de FacturaNumeroQuemado a los vivos; estas pruebas fijan la semántica
+// de esa unión sobre la función pura.
+describe("números quemados: un número emitido no vuelve a salir", () => {
+  it("borrar la factura del tope NO libera su número (el quemado sostiene el max)", () => {
+    const vivos = ["2026-0001", "2026-0002", "2026-0003", "2026-0004", "2026-0005"];
+    const quemados = ["2026-0006"]; // la 0006 se borró: viva ya no está, quemada sí
+    expect(calcularSiguiente([...vivos, ...quemados], 2026)).toBe("2026-0007");
+  });
+  it("sin la unión, el número se reutilizaría (el bug que se cierra)", () => {
+    const vivos = ["2026-0001", "2026-0002", "2026-0003", "2026-0004", "2026-0005"];
+    expect(calcularSiguiente(vivos, 2026)).toBe("2026-0006"); // ← lo que pasaba
+  });
+  it("un número vivo Y quemado a la vez no daña la serie (quema antes de borrar)", () => {
+    const vivos = ["2026-0001", "2026-0002"];
+    const quemados = ["2026-0002"]; // el delete falló tras quemar: duplicado inocuo
+    expect(calcularSiguiente([...vivos, ...quemados], 2026)).toBe("2026-0003");
+  });
+  it("los quemados respetan la serie de su prefijo de oficina", () => {
+    const todos = ["DG-2026-0001", "DG-2026-0002", "2026-0009"];
+    expect(calcularSiguiente(todos.filter((n) => n.startsWith("DG-")), 2026, "DG")).toBe("DG-2026-0003");
+  });
+});

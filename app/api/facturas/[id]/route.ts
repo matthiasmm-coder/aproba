@@ -60,6 +60,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const numero = body.numero?.trim() || String(f.numero);
   patch.numero = numero;
   patch.baseImponible = baseImponible; patch.iva = iva; patch.total = total;
+  // Una factura retocada por el gestor deja de ser AUTOMATICA: si no, el próximo paso
+  // del cliente por /api/pagos la REALINEA a la tarifa y pisa la edición en silencio
+  // (auditoría 25/08). MANUAL = la palabra del gestor es definitiva.
+  patch.origen = "MANUAL";
   if (body.clienteNombre?.trim()) patch.clienteNombre = body.clienteNombre.trim();
   if (body.concepto?.trim()) patch.concepto = body.concepto.trim();
 
@@ -110,6 +114,31 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   }
 
   const admin = createSupabaseAdmin();
+
+  // Dinero YA recibido: una factura con entregas a cuenta no se elimina — la FK
+  // EntregaCuenta.facturaId es ON DELETE CASCADE y el rastro del efectivo encajado
+  // desaparecería con ella (auditoría 25/08). Anular, o retirar antes las entregas.
+  const entregas = await admin.from("EntregaCuenta").select("id", { count: "exact", head: true }).eq("facturaId", id);
+  if (!entregas.error && (entregas.count ?? 0) > 0) {
+    return NextResponse.json({ error: "Esta factura tiene entregas a cuenta registradas: el dinero recibido no puede desaparecer. Anúlala, o retira antes las entregas." }, { status: 409 });
+  }
+
+  // Un número EMITIDO no se reutiliza jamás (caso Gesnet 24/08: dos PDF distintos
+  // acabaron llamándose 2026-0006). Se quema ANTES de borrar: si el delete fallara
+  // después, un número vivo y quemado a la vez no daña la serie (max idéntico).
+  // Un BORRADOR no se quema: su número nunca se emitió y puede reusarse legalmente.
+  if ((f as { estado: string }).estado !== "BORRADOR") {
+    const quema = await admin.from("FacturaNumeroQuemado").upsert(
+      { workspaceId: (f as { workspaceId: string }).workspaceId, numero: String((f as { numero: string }).numero) },
+      { onConflict: "workspaceId,numero", ignoreDuplicates: true },
+    );
+    if (quema.error && !/FacturaNumeroQuemado|relation|does not exist|schema cache|PGRST205/i.test(quema.error.message)) {
+      return NextResponse.json({ error: quema.error.message }, { status: 500 });
+    }
+    // Migración ausente → repli: se borra como antes (comportamiento pre-fix), y la
+    // migración supabase/factura-numeros-quemados.sql cierra el hueco al ejecutarse.
+  }
+
   const { error } = await admin.from("Factura").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, numero: String((f as { numero: string }).numero) });

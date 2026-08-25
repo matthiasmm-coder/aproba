@@ -105,8 +105,15 @@ async function emitirFacturaCita(
     delete fila.clienteId;
     ({ error } = await admin.from("Factura").insert(fila));
   }
+  // Colisión de número (dos emisiones simultáneas): reintento ÚNICO con un número
+  // fresco, en vez de tragarse el error y dejar la cita «cobrada» sin factura
+  // (auditoría 25/08: el insert fallido solo hacía console.error + null).
+  if (error && /duplicate|unique/i.test(error.message)) {
+    fila.numero = await siguienteNumero(admin, o.workspaceId, year, prefijoCita);
+    ({ error } = await admin.from("Factura").insert(fila));
+  }
   if (error) { console.error("[citas/factura]", error.message); return null; }
-  return { facturaId, numero, total, oficinaId: oficinaCita };
+  return { facturaId, numero: String(fila.numero), total, oficinaId: oficinaCita };
 }
 
 // Foto del gestor que lleva la cita (la creó o la edita): el cliente reconoce a su
