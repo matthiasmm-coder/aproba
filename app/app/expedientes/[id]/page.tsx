@@ -31,7 +31,7 @@ import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
 import { SubirDocumentoGestor } from "@/components/subir-documento-gestor";
 import { CasillaDocumentoGestor } from "@/components/casilla-documento-gestor";
-import { DocumentosEsperados, QuitarDocEsperado } from "@/components/documentos-esperados";
+import { DocumentosEsperados } from "@/components/documentos-esperados";
 import { FormulariosGeneradosChips } from "@/components/formularios-generados-chips";
 import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";

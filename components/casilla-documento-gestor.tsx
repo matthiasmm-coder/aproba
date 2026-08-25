@@ -31,6 +31,11 @@ export function CasillaDocumentoGestor({
   const [prog, setProg] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quitando, setQuitando] = useState(false);
+  // La fila se va EN CUANTO el servidor dice que sí. Antes se esperaba a que
+  // router.refresh() volviera con el árbol entero: la casilla se quedaba con «…»
+  // varios segundos, y si el refresco fallaba, para siempre (caso Matthias 25/08,
+  // «el mandato se quedó en un estado transitorio raro»).
+  const [retirado, setRetirado] = useState(false);
 
   // Retirar SOLO de este expediente (la lista del servicio no se toca).
   async function quitar() {
@@ -50,9 +55,11 @@ export function CasillaDocumentoGestor({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? t("No se pudo guardar."));
+      setRetirado(true);   // desaparece ya; el refresco solo confirma
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo guardar."));
+      setRetirado(false);
       setQuitando(false);
     }
   }
@@ -79,6 +86,7 @@ export function CasillaDocumentoGestor({
   }
 
   const subiendo = prog !== null;
+  if (retirado) return null;
   return (
     <div className="rounded-xl border border-dashed border-slate-200 bg-cream-50/30 p-5">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">

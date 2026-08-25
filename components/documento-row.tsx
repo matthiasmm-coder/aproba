@@ -30,6 +30,9 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
   const [abierto, setAbierto] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  // Mismo motivo que en casilla-documento-gestor: sin esto la fila se queda con «…»
+  // hasta que vuelve el árbol del servidor («el pasaporte tardó en irse», 25/08).
+  const [eliminado, setEliminado] = useState(false);
 
   // El gestor descarta el documento (archivo equivocado, o validado por la IA pero
   // no aceptable para el despacho): el hueco vuelve a «pendiente» para el cliente.
@@ -40,13 +43,16 @@ export function DocumentoRow({ d, expedienteId }: { d: Documento; expedienteId: 
     try {
       const res = await fetch(`/api/expedientes/${expedienteId}/documentos/${d.id}`, { method: "DELETE" });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo eliminar el documento.")); }
+      setEliminado(true);   // desaparece ya; el refresco solo confirma
       router.refresh();
     } catch (e) {
       setErrorEliminar(e instanceof Error ? e.message : t("No se pudo eliminar el documento."));
+      setEliminado(false);
       setEliminando(false);
     }
   }
 
+  if (eliminado) return null;
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
       {/* Móvil: nombre del documento a ancho completo y acciones debajo (antes «Certificado de e…»);
