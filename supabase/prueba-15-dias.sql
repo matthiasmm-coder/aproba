@@ -14,11 +14,16 @@
 -- llama a la de 3, pero dejar la otra en 30 días sería una trampa para el día en que
 -- alguien la invoque. Copia exacta de las funciones activas — solo cambia la duración.
 -- Aditiva e idempotente.
+--
+-- ⚠️ EJECUTAR LOS DOS BLOQUES POR SEPARADO en el editor SQL de Supabase. El editor
+-- parte el script por los punto y coma y se pierde con dos cuerpos de función en el
+-- mismo pegado («unterminated dollar-quoted string», 26/08). Por eso además cada
+-- cuerpo lleva su propio delimitador con nombre ($fn3$ / $fn2$) en vez de $$.
 -- ─────────────────────────────────────────────────────────────────────────────────────
 
 -- Sobrecarga de 3 argumentos — la que usa el formulario de alta (onboarding-form.tsx).
 create or replace function public.create_workspace(p_nombre text, p_tipo text default 'GESTORIA', p_plan text default 'STARTER')
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security definer set search_path = public as $fn3$
 declare v_ws text := gen_random_uuid()::text; v_uid text := auth.uid()::text;
 begin
   if v_uid is null then raise exception 'no authenticated user'; end if;
@@ -29,12 +34,12 @@ begin
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
     values (gen_random_uuid()::text, v_ws, coalesce(nullif(p_plan,''),'STARTER')::"Plan", 'TRIAL', now() + interval '15 days', now());
   return v_ws;
-end; $$;
+end; $fn3$;
 grant execute on function public.create_workspace(text, text, text) to authenticated;
 
 -- Sobrecarga de 2 argumentos — heredada, aún viva en la base. Misma duración.
 create or replace function public.create_workspace(p_nombre text, p_tipo text default 'GESTORIA')
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security definer set search_path = public as $fn2$
 declare v_ws text := gen_random_uuid()::text; v_uid text := auth.uid()::text;
 begin
   if v_uid is null then raise exception 'no authenticated user'; end if;
@@ -45,5 +50,5 @@ begin
   insert into public."Subscription" (id, "workspaceId", plan, estado, "trialEndsAt", "createdAt")
     values (gen_random_uuid()::text, v_ws, 'STARTER'::"Plan", 'TRIAL', now() + interval '15 days', now());
   return v_ws;
-end; $$;
+end; $fn2$;
 grant execute on function public.create_workspace(text, text) to authenticated;
