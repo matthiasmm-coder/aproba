@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { ARTICULOS, getArticulo, imagenDe, listaArticulos, minutosDeLectura, fechaLarga } from "@/lib/articulos";
+import { ARTICULOS, getArticulo, imagenDe, listaArticulos, minutosDeLectura, fechaLarga, faqDe } from "@/lib/articulos";
 import { ArticuloCuerpo } from "@/components/articulo-cuerpo";
 
 const BASE = "https://aproba-software.com";
@@ -43,9 +43,22 @@ export default async function ArticuloPage({ params }: { params: Promise<{ slug:
 
   // Datos estructurados: Article + migas. Es lo que permite al buscador entender que
   // esto es un artículo con fecha y autor, y no una página de producto más.
+  // FAQPage: si el artículo trae preguntas frecuentes, el buscador puede desplegarlas
+  // bajo el resultado — es el rich snippet más accesible para contenido editorial.
+  const faq = faqDe(a);
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
+      ...(faq.length
+        ? [{
+            "@type": "FAQPage",
+            mainEntity: faq.map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a.replace(/\*\*/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") },
+            })),
+          }]
+        : []),
       {
         "@type": "Article",
         headline: a.titulo,

@@ -17,7 +17,17 @@ export type Bloque =
   | { t: "ol"; items: string[] }
   | { t: "cita"; texto: string; autor: string }
   | { t: "datos"; items: { valor: string; etiqueta: string }[] }
-  | { t: "nota"; titulo?: string; texto: string };
+  | { t: "nota"; titulo?: string; texto: string }
+  // Tabla editorial: cabeceras + filas de texto plano (admite **negrita**). El wrapper
+  // desborda con scroll horizontal en móvil — la página nunca se ensancha.
+  | { t: "tabla"; titulo?: string; encabezados: string[]; filas: string[][]; nota?: string }
+  // Barras de rango min–max (p. ej. honorarios): se pintan como divs en servidor, sin JS.
+  // `techo` fija la escala común para que los rangos sean comparables entre sí.
+  | { t: "rangos"; titulo: string; unidad: string; techo: number; items: { etiqueta: string; min: number; max: number }[]; nota?: string }
+  // Cronología vertical de hitos con fecha (p. ej. calendario normativo).
+  | { t: "hitos"; items: { fecha: string; titulo: string; texto?: string; destacado?: boolean }[] }
+  // Preguntas frecuentes: además de pintarse, alimentan el JSON-LD FAQPage de la página.
+  | { t: "faq"; items: { q: string; a: string }[] };
 
 export type Articulo = {
   slug: string;
@@ -40,6 +50,209 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
+  {
+    slug: "honorarios-extranjeria-cuanto-cobrar-2026",
+    titulo: "Honorarios de extranjería en 2026: cuánto cobrar por cada trámite",
+    descripcion:
+      "Rangos de honorarios habituales en extranjería en 2026 —arraigos, renovaciones, nacionalidad—, por qué no existen baremos oficiales y cómo estructurar el cobro.",
+    fecha: "2026-08-26",
+    tema: "Gestión del despacho",
+    entradilla:
+      "Es la pregunta que todo despacho se hace y casi nadie responde por escrito: qué cobrar por un arraigo, una renovación o una nacionalidad. Aquí están los rangos que se observan en el mercado, el porqué de que no haya tarifa oficial, y cómo estructurar el precio para no perder dinero por el camino.",
+    imagenAlt:
+      "Balanza de latón sobre un escritorio de despacho: en un platillo, documentos oficiales con sello de lacre; en el otro, monedas.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Fijar honorarios en extranjería tiene algo de paradoja: es la decisión que más afecta a la cuenta de resultados del despacho y, a la vez, la que menos referencias públicas tiene. No hay tarifa oficial, los colegios no pueden publicar baremos y cada despacho fija lo suyo mirando de reojo al de al lado. Este artículo pone números encima de la mesa — con su metodología y sus límites dichos claramente.",
+      },
+      { t: "h2", texto: "Por qué no existe una tarifa oficial" },
+      {
+        t: "p",
+        texto:
+          "Desde la **Ley 25/2009** (la llamada «ley ómnibus», que modificó la Ley 2/1974 de Colegios Profesionales), los colegios tienen **prohibido establecer baremos orientativos** de honorarios o cualquier otra recomendación sobre precios. La única excepción legal son los informes para la tasación de costas judiciales. La CNMC ha sancionado a varios colegios por saltarse esta prohibición. Consecuencia práctica: los honorarios son libres, y cualquier «baremo del colegio» que circule en PDF es anterior a 2009 o directamente ilegal — no lo uses como escudo ante un cliente.",
+      },
+      { t: "h2", texto: "Las tres piezas del precio (y cuál lleva IVA)" },
+      {
+        t: "p",
+        texto:
+          "Un encargo de extranjería bien facturado separa tres conceptos. Mezclarlos no es solo un problema estético: cobrar la tasa dentro del honorario te hace pagar IVA sobre un dinero que no es tuyo.",
+      },
+      {
+        t: "tabla",
+        titulo: "Los tres componentes de una factura de extranjería",
+        encabezados: ["Componente", "Qué es", "¿Lleva IVA?", "Ejemplo"],
+        filas: [
+          ["Honorario", "Tu trabajo profesional: estudio, preparación, presentación, seguimiento", "Sí, 21 %", "450 € por un arraigo social"],
+          ["Tasa oficial", "Lo que cobra la Administración (modelos 790, códigos 052 y 012)", "No, si se repercute como suplido por su importe exacto", "La tasa de la autorización o de la TIE, al céntimo"],
+          ["Otros suplidos", "Gastos adelantados por cuenta del cliente", "No, con factura o justificante a nombre del cliente", "Traducción jurada, certificados, apostillas"],
+        ],
+        nota: "Los importes de las tasas se actualizan periódicamente: consulta siempre el importe vigente del modelo 790 en la sede electrónica antes de presentar.",
+      },
+      { t: "h2", texto: "Rangos habituales en 2026" },
+      {
+        t: "nota",
+        titulo: "Metodología, dicha claramente",
+        texto:
+          "No existe ninguna fuente oficial de honorarios. Los rangos siguientes son **orientativos**, observados en el mercado español en 2026 entre despachos especializados. Varían con la plaza (Madrid y Barcelona cotizan por encima), la urgencia, la complejidad del caso y el idioma del cliente. Son honorarios SIN IVA y SIN tasas.",
+      },
+      {
+        t: "rangos",
+        titulo: "Honorarios observados por trámite (€, sin IVA ni tasas)",
+        unidad: "€",
+        techo: 850,
+        items: [
+          { etiqueta: "Nacionalidad por residencia", min: 300, max: 800 },
+          { etiqueta: "Arraigo (social, sociolaboral, familiar)", min: 350, max: 700 },
+          { etiqueta: "Reagrupación familiar", min: 350, max: 650 },
+          { etiqueta: "Estancia por estudios y prórrogas", min: 250, max: 500 },
+          { etiqueta: "Renovación de autorización + TIE", min: 120, max: 300 },
+          { etiqueta: "NIE, certificados, citas", min: 50, max: 150 },
+        ],
+        nota: "Rangos de honorarios observados en agosto de 2026. El tramo alto suele incluir recursos de subsanación y familia a cargo.",
+      },
+      {
+        t: "p",
+        texto:
+          "Dos lecturas rápidas de esos rangos. Primera: **la renovación está sistemáticamente infravalorada** — se cobra a 120-300 € un trámite del que depende que el cliente conserve su estatus, y que en [2027 llegará en masa](/articulos/renovaciones-2027-regularizacion-extraordinaria). Segunda: el tramo alto de cada horquilla no es «caro»: suele incluir lo que el tramo bajo factura aparte (subsanaciones, más de un intento de cita, familiares a cargo).",
+      },
+      { t: "h2", texto: "Cómo estructurar el cobro" },
+      {
+        t: "ol",
+        items: [
+          "**Anticipo del 40-50 % al aceptar el encargo**, resto a la presentación (o a la resolución, si quieres diferenciarte). Sin anticipo, el incobrable es tuyo y financias tú el expediente.",
+          "**Familia: precio por miembro**, no «por familia». Una reagrupación de cuatro no es una de uno. Lo habitual: tarifa completa el titular y un descuento del 20-40 % a partir del segundo miembro.",
+          "**Fraccionar a partir de ~400 €** en dos o tres cuotas cerradas con fecha. Cobra mejor que un «ya me lo irás pagando».",
+          "**La tasa, siempre como suplido separado** y por su importe exacto — y que el justificante quede en el expediente.",
+        ],
+      },
+      { t: "h2", texto: "Tres errores que cuestan dinero" },
+      {
+        t: "ul",
+        items: [
+          "**Cobrar la tasa dentro del honorario.** Pagas 21 % de IVA sobre dinero que solo transita por tu cuenta. En un despacho con volumen, son cientos de euros al año regalados.",
+          "**No pedir anticipo** «porque el cliente es de confianza». Los impagos de extranjería se concentran precisamente en los encargos sin anticipo: si el expediente se deniega, la voluntad de pagar desaparece con él.",
+          "**No repercutir el trabajo documental.** Perseguir documentos es la mitad del expediente ([y donde más se pierde tiempo](/articulos/errores-documentales-retrasan-expediente-extranjeria)); si tu proceso lo resuelve rápido, es argumento para el tramo alto de la horquilla, no un regalo.",
+        ],
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Puede mi colegio decirme cuánto cobrar?",
+            a: "No. Desde la Ley 25/2009, los colegios profesionales tienen prohibido publicar baremos o recomendaciones de honorarios (salvo para tasación de costas). Los honorarios son libres y se pactan por escrito con el cliente.",
+          },
+          {
+            q: "¿La tasa de extranjería lleva IVA?",
+            a: "Si la repercutes como suplido —por su importe exacto y con justificante— no lleva IVA. Si la integras en tu honorario, tributa como el resto: es el error de facturación más común del sector.",
+          },
+          {
+            q: "¿Cuánto se cobra por un arraigo social en 2026?",
+            a: "En el mercado se observan honorarios de entre 350 y 700 € sin IVA, tasas aparte, según plaza y complejidad. El tramo alto suele incluir subsanaciones y acompañamiento a cita.",
+          },
+          {
+            q: "¿Es mejor cobrar todo al final?",
+            a: "No: el estándar del sector es un anticipo del 40-50 % al aceptar el encargo y el resto a la presentación. El anticipo filtra al cliente que no va en serio y reparte el riesgo de denegación.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: "verifactu-despachos-extranjeria-fechas-2027",
+    titulo: "VeriFactu para despachos de extranjería: fechas y obligaciones",
+    descripcion:
+      "VeriFactu será obligatorio el 1 de enero de 2027 para sociedades y el 1 de julio para autónomos. Qué exige el RD 1007/2023 y cómo preparar el despacho.",
+    fecha: "2026-08-26",
+    tema: "Facturación",
+    entradilla:
+      "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
+    imagenAlt:
+      "Una factura de papel sobre un escritorio de cuero verde cuya mitad derecha se disuelve en trazos luminosos y un mosaico tipo QR.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "VeriFactu es el nombre popular del **Reglamento de los sistemas informáticos de facturación** (RD 1007/2023): a partir de 2027, el software con el que emites tus facturas deberá generar por cada una un **registro inalterable y encadenado**, con huella criptográfica y código QR, verificable por la Agencia Tributaria — y podrá (o no, a tu elección) remitirlo a la AEAT en el momento. Emitir facturas con Word, Excel o un programa no adaptado dejará de ser una opción legal.",
+      },
+      { t: "h2", texto: "El calendario, con sus normas" },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Julio 2021", titulo: "Ley 11/2021 antifraude", texto: "Crea el artículo 201 bis de la LGT: fabricar, comercializar o poseer «software de doble uso» pasa a ser infracción tributaria específica." },
+          { fecha: "Diciembre 2023", titulo: "RD 1007/2023", texto: "Aprueba el reglamento (RRSIF): registros de facturación inalterables, encadenados y con QR." },
+          { fecha: "Octubre 2024", titulo: "Orden HAC/1177/2024", texto: "Especificaciones técnicas: formato de los registros, huella, firma y remisión." },
+          { fecha: "29 julio 2025", titulo: "Obligación para los fabricantes", texto: "Desde esta fecha solo puede comercializarse software de facturación conforme al reglamento." },
+          { fecha: "2025", titulo: "Aplazamientos (RD 254/2025 y RDL 15/2025)", texto: "El calendario inicial de 2025-2026 se traslada definitivamente a 2027." },
+          { fecha: "1 enero 2027", titulo: "Obligatorio para sociedades", texto: "Todos los contribuyentes del Impuesto sobre Sociedades que no estén en el SII.", destacado: true },
+          { fecha: "1 julio 2027", titulo: "Obligatorio para autónomos y el resto", texto: "Profesionales en estimación directa y demás obligados no acogidos al SII.", destacado: true },
+        ],
+      },
+      {
+        t: "tabla",
+        titulo: "¿A quién obliga y cuándo?",
+        encabezados: ["Situación del despacho", "Fecha", "Nota"],
+        filas: [
+          ["Sociedad (SL, SLP…) sujeta al IS", "**1 de enero de 2027**", "La fecha que afecta a la mayoría de despachos con forma societaria"],
+          ["Autónomo en estimación directa", "**1 de julio de 2027**", "La mayoría de gestores y abogados por cuenta propia"],
+          ["Acogido al SII (grandes empresas, REDEME)", "Exento de VeriFactu", "Ya remite sus registros por el Suministro Inmediato de Información"],
+          ["País Vasco y Navarra", "Sistema foral propio", "TicketBAI y equivalentes forales, con su propio calendario"],
+        ],
+      },
+      { t: "h2", texto: "Las sanciones" },
+      {
+        t: "datos",
+        items: [
+          { valor: "50.000 €", etiqueta: "por ejercicio, para quien use software no conforme (art. 201 bis LGT)" },
+          { valor: "150.000 €", etiqueta: "por ejercicio y tipo de software, para quien lo fabrique o comercialice" },
+          { valor: "0 €", etiqueta: "cuesta preguntarle hoy a tu proveedor si estará listo" },
+        ],
+      },
+      { t: "h2", texto: "Qué significa para un despacho de extranjería" },
+      {
+        t: "p",
+        texto:
+          "La facturación de extranjería tiene manías propias: **anticipos** al abrir el expediente, **tasas repercutidas como suplidos**, **cuotas fraccionadas**, facturas por miembro de familia. Todo eso seguirá siendo legal — pero cada emisión deberá generar su registro, y las correcciones deberán hacerse **por rectificativa o anulación, nunca borrando**: la serie queda encadenada y un hueco se nota. Si tu costumbre es «borro la factura y la vuelvo a hacer bien», VeriFactu es la fecha límite de esa costumbre.",
+      },
+      {
+        t: "ul",
+        items: [
+          "**Pregunta a tu proveedor de facturación**, por escrito, si emitirá registros VeriFactu en tu fecha (1/1/2027 o 1/7/2027). Su respuesta te dice si tienes proveedor o tienes problema.",
+          "**Si facturas con Word o Excel**, planifica el cambio este otoño: la migración de serie y numeración es lo que más cuesta, y [2027 va a ser un año sin tiempo libre](/articulos/renovaciones-2027-regularizacion-extraordinaria).",
+          "**Revisa tu política de correcciones**: rectificativa e anulación con motivo, nunca reutilizar un número ni borrar una factura emitida.",
+          "**Decide modalidad**: «VERI*FACTU» (remisión inmediata a la AEAT) o no remisión con conservación local firmada. Para un despacho pequeño, la remisión simplifica la carga de conservación.",
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Y sí, nos afecta a nosotros también",
+        texto:
+          "Aproba emite facturas por tus expedientes, así que esta obligación es también nuestra: la adaptación VeriFactu del módulo de facturación está en el plan de producto para estar lista antes de tu fecha, con la numeración correlativa y las anulaciones ya funcionando como el reglamento exige.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿VeriFactu me afecta si soy autónomo?",
+            a: "Sí. Los autónomos en estimación directa entran el 1 de julio de 2027 (las sociedades, el 1 de enero). Solo quedan fuera los acogidos al SII y los territorios forales, que tienen sistema propio.",
+          },
+          {
+            q: "¿Puedo seguir facturando con Excel o Word?",
+            a: "Hasta tu fecha de 2027, sí. A partir de ella, no: cada factura deberá nacer de un sistema que genere registro inalterable con huella y QR, cosa que una hoja de cálculo no hace.",
+          },
+          {
+            q: "¿VeriFactu es lo mismo que la factura electrónica obligatoria B2B?",
+            a: "No. Son dos obligaciones distintas: VeriFactu (RD 1007/2023) regula CÓMO se genera el registro de cada factura; la factura electrónica B2B de la Ley Crea y Crece regula el FORMATO de intercambio entre empresas y sigue pendiente de su propio desarrollo reglamentario.",
+          },
+          {
+            q: "¿Qué pasa si mi software no cumple en la fecha?",
+            a: "El uso de software no conforme es infracción del artículo 201 bis de la LGT, con multa de hasta 50.000 € por ejercicio. Para el fabricante que lo comercialice, hasta 150.000 € por ejercicio y tipo de software.",
+          },
+        ],
+      },
+    ],
+  },
   {
     slug: "renovaciones-2027-regularizacion-extraordinaria",
     titulo: "La ola de renovaciones de 2027: qué viene y cómo prepararla",
@@ -278,6 +491,13 @@ export const listaArticulos = (): Articulo[] =>
 
 export const getArticulo = (slug: string): Articulo | undefined => ARTICULOS.find((a) => a.slug === slug);
 
+// FAQ del artículo (si la hay) — la página la convierte en JSON-LD FAQPage, el formato
+// que permite al buscador mostrar las preguntas desplegadas bajo el resultado.
+export function faqDe(a: Articulo): { q: string; a: string }[] {
+  const b = a.bloques.find((x) => x.t === "faq");
+  return b && b.t === "faq" ? b.items : [];
+}
+
 // Minutos de lectura calculados, no escritos a mano: si el texto crece, el dato sigue
 // siendo verdad (200 palabras/minuto, la referencia habitual en castellano).
 export function minutosDeLectura(a: Articulo): number {
@@ -287,6 +507,10 @@ export function minutosDeLectura(a: Articulo): number {
       if (b.t === "datos") return b.items.map((d) => `${d.valor} ${d.etiqueta}`).join(" ");
       if (b.t === "cita") return `${b.texto} ${b.autor}`;
       if (b.t === "nota") return `${b.titulo ?? ""} ${b.texto}`;
+      if (b.t === "tabla") return [b.titulo ?? "", ...b.encabezados, ...b.filas.flat(), b.nota ?? ""].join(" ");
+      if (b.t === "rangos") return [b.titulo, ...b.items.map((x) => x.etiqueta), b.nota ?? ""].join(" ");
+      if (b.t === "hitos") return b.items.map((x) => `${x.fecha} ${x.titulo} ${x.texto ?? ""}`).join(" ");
+      if (b.t === "faq") return b.items.map((x) => `${x.q} ${x.a}`).join(" ");
       return b.texto;
     })
     .join(" ");

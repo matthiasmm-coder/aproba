@@ -5,16 +5,23 @@ import type { Bloque } from "@/lib/articulos";
 // comparten las páginas legales y los artículos; los bloques propios (datos, cita, nota)
 // traen su estilo aquí.
 
-// **negrita** → <strong>. Nada más: el contenido es nuestro, no hay HTML de terceros que
-// sanear, y un mini-lenguaje corto se lee mejor en el fichero de contenido que etiquetas.
-function conNegrita(texto: string): React.ReactNode {
-  const partes = texto.split(/(\*\*[^*]+\*\*)/g);
-  return partes.map((p, i) =>
-    p.startsWith("**") && p.endsWith("**")
-      ? <strong key={i} className="font-semibold text-slate-900">{p.slice(2, -2)}</strong>
-      : <span key={i}>{p}</span>,
-  );
+import Link from "next/link";
+
+// **negrita** → <strong> y [texto](/ruta) → <Link> (solo rutas internas: el contenido es
+// nuestro y los enlaces internos entre artículos son parte del SEO). Nada más: un
+// mini-lenguaje corto se lee mejor en el fichero de contenido que etiquetas.
+function conFormato(texto: string): React.ReactNode {
+  const partes = texto.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(\/[^)]+\))/g);
+  return partes.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**"))
+      return <strong key={i} className="font-semibold text-slate-900">{p.slice(2, -2)}</strong>;
+    const enlace = /^\[([^\]]+)\]\((\/[^)]+)\)$/.exec(p);
+    if (enlace)
+      return <Link key={i} href={enlace[2]} className="font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2 hover:text-aproba-800">{enlace[1]}</Link>;
+    return <span key={i}>{p}</span>;
+  });
 }
+const conNegrita = conFormato; // los bloques existentes siguen llamando conNegrita
 
 export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
   return (
@@ -46,6 +53,85 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                   </div>
                 ))}
               </div>
+            );
+          case "tabla":
+            return (
+              <figure key={i} className="my-6">
+                {b.titulo && <figcaption className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{b.titulo}</figcaption>}
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full border-collapse bg-white text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-cream-50/60">
+                        {b.encabezados.map((h, j) => (
+                          <th key={j} scope="col" className="px-3.5 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-slate-600">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {b.filas.map((fila, j) => (
+                        <tr key={j} className={j < b.filas.length - 1 ? "border-b border-slate-100" : ""}>
+                          {fila.map((c, k) => (
+                            <td key={k} className={`px-3.5 py-2.5 align-top leading-snug ${k === 0 ? "font-medium text-slate-900" : "text-slate-600"}`}>{conFormato(c)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {b.nota && <p className="mt-2 text-xs leading-relaxed text-slate-400">{b.nota}</p>}
+              </figure>
+            );
+          case "rangos": {
+            const pct = (v: number) => Math.min(100, Math.max(0, (v / b.techo) * 100));
+            return (
+              <figure key={i} className="my-6 rounded-xl border border-slate-200 bg-white p-5">
+                <figcaption className="text-xs font-bold uppercase tracking-wide text-slate-500">{b.titulo}</figcaption>
+                <div className="mt-4 space-y-3.5">
+                  {b.items.map((r, j) => (
+                    <div key={j}>
+                      <div className="mb-1 flex items-baseline justify-between gap-3">
+                        <span className="text-sm font-medium text-slate-800">{r.etiqueta}</span>
+                        <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{r.min}–{r.max} {b.unidad}</span>
+                      </div>
+                      <div className="relative h-2.5 rounded-full bg-slate-100">
+                        <div
+                          className="absolute inset-y-0 rounded-full bg-gradient-to-r from-aproba-400 to-aproba-600"
+                          style={{ left: `${pct(r.min)}%`, width: `${Math.max(2, pct(r.max) - pct(r.min))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {b.nota && <p className="mt-3 text-xs leading-relaxed text-slate-400">{b.nota}</p>}
+              </figure>
+            );
+          }
+          case "hitos":
+            return (
+              <ol key={i} className="my-6 space-y-0 border-l-2 border-slate-200 pl-0">
+                {b.items.map((h, j) => (
+                  <li key={j} className="relative pb-5 pl-6 last:pb-0">
+                    <span className={`absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-white ${h.destacado ? "bg-aproba-600 ring-2 ring-aproba-200" : "bg-slate-300"}`} />
+                    <p className={`text-xs font-bold uppercase tracking-wide ${h.destacado ? "text-aproba-700" : "text-slate-400"}`}>{h.fecha}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{h.titulo}</p>
+                    {h.texto && <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{conFormato(h.texto)}</p>}
+                  </li>
+                ))}
+              </ol>
+            );
+          case "faq":
+            return (
+              <section key={i} className="mt-10">
+                <h2 id={`s${i}`}>Preguntas frecuentes</h2>
+                <div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+                  {b.items.map((f, j) => (
+                    <div key={j} className="p-4">
+                      <h3 className="!mt-0 text-sm font-semibold text-slate-900">{f.q}</h3>
+                      <p className="mt-1.5 !mb-0 text-sm leading-relaxed text-slate-600">{conFormato(f.a)}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
             );
           case "nota":
             return (
