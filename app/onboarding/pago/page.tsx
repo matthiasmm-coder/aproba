@@ -74,7 +74,7 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
           </span>
           {expirada ? (
             <>
-              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Tu mes de prueba ha terminado</h1>
+              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Tu prueba ha terminado</h1>
               <p className="mt-2 text-center text-sm leading-relaxed text-slate-600">
                 Esperamos que Aproba te haya sido útil. <strong className="font-semibold text-slate-800">Para seguir accediendo a tu cuenta, activa tu suscripción.</strong> Puedes cancelar cuando quieras desde Ajustes.
               </p>
@@ -85,7 +85,7 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
             </>
           ) : (
             <>
-              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Empieza tu mes de prueba</h1>
+              <h1 className="mt-4 text-center text-2xl font-bold tracking-tightest text-slate-900">Empieza tus 15 días de prueba</h1>
               <p className="mt-2 text-center text-sm leading-relaxed text-slate-600">
                 Para activar tu cuenta, añade una tarjeta. <strong className="font-semibold text-slate-800">No se cobra nada durante 1 mes.</strong> Al terminar la prueba se cobrará tu plan, y puedes cancelar cuando quieras desde Ajustes.
               </p>

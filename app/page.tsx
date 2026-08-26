@@ -71,7 +71,7 @@ const PLANES = [
 ];
 
 const FAQ = [
-  { q: "¿Cómo es la demo?", a: "Una videollamada de 20–30 minutos en la que recorremos Aproba con tus casos reales: subes un documento, ves cómo se validan los datos y cómo se genera el formulario oficial. Después tienes 1 mes de prueba gratis, sin tarjeta y sin permanencia." },
+  { q: "¿Cómo es la demo?", a: "Una videollamada de 20–30 minutos en la que recorremos Aproba con tus casos reales: subes un documento, ves cómo se validan los datos y cómo se genera el formulario oficial. Después tienes 15 días de prueba gratis, sin tarjeta y sin permanencia." },
   { q: "¿Es seguro? ¿Qué pasa con los datos de mis clientes?", a: "Sí. Los datos viajan cifrados, se alojan en servidores de la UE y nunca se usan para entrenar modelos de IA. Aproba cumple el RGPD y firmamos el contrato de encargado de tratamiento (DPA)." },
   { q: "¿Tengo que cambiar mi forma de trabajar?", a: "No. Aproba se ocupa de la parte pesada —recoger documentos y rellenar formularios—. Tú sigues presentando en la sede electrónica como siempre, pero con todo listo y validado." },
   { q: "¿Reemplaza a mi equipo?", a: "Al contrario. Les quita el trabajo repetitivo (pedir documentos, teclear los EX) para que dediquen su tiempo a lo que aporta valor: el cliente y la estrategia del caso." },
@@ -140,7 +140,7 @@ export default function Landing() {
             <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
               <span className="min-[360px]:hidden">Prueba</span>
               <span className="hidden min-[360px]:inline sm:hidden">Prueba gratis</span>
-              <span className="hidden sm:inline">Prueba 1 mes gratis</span>
+              <span className="hidden sm:inline">Prueba 15 días gratis</span>
             </Link>
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function Landing() {
                 Descubrir en 90s
               </a>
             </div>
-            <p className="mt-4 text-xs text-slate-500">Demo online de 20 min · después, 1 mes de prueba gratis sin tarjeta</p>
+            <p className="mt-4 text-xs text-slate-500">Demo online de 20 min · después, 15 días de prueba gratis sin tarjeta</p>
           </div>
 
           {/* Animation */}
@@ -363,7 +363,7 @@ export default function Landing() {
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Precios por volumen, no por profesión</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Todos los planes empiezan con 1 mes de prueba gratis, sin permanencia. Precios sin IVA.</p>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Todos los planes empiezan con 15 días de prueba gratis, sin permanencia. Precios sin IVA.</p>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {PLANES.map((p, i) => (
               <Reveal key={p.nombre} delay={i * 90}>

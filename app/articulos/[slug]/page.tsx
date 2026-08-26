@@ -119,7 +119,7 @@ export default async function ArticuloPage({ params }: { params: Promise<{ slug:
           href="/signup?modo=prueba"
           className="mt-5 inline-block rounded-lg bg-aproba-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700"
         >
-          Prueba 1 mes gratis
+          Prueba 15 días gratis
         </Link>
       </div>
 

@@ -21,7 +21,7 @@ export default function ArticulosLayout({ children }: { children: React.ReactNod
               className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4"
             >
               <span className="min-[360px]:hidden">Prueba</span>
-              <span className="hidden min-[360px]:inline">Prueba 1 mes gratis</span>
+              <span className="hidden min-[360px]:inline">Prueba 15 días gratis</span>
             </Link>
           </div>
         </div>

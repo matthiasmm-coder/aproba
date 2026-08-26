@@ -54,7 +54,7 @@ PROBLEMAS FRECUENTES
 - «No me deja crear más expedientes»: has llegado al límite mensual de tu plan; a partir de ahí cada expediente extra son 3 €. Lo ves en Ajustes → Plan y equipo.
 - «Me sobra un aviso en Vencimientos»: bórralo con la papelera de esa línea (no borra al cliente).
 
-PLANES Y CUOTA: Starter, Pro y Business. Cada plan incluye un número de expedientes nuevos al mes (Starter 20, Pro 50, Business ilimitado); si te pasas, cada expediente extra son 3 € (los expedientes importados NO cuentan). Suscripción mensual o anual (el año equivale a 10 meses: 2 meses de ahorro). Los precios se muestran sin IVA. La prueba dura 30 días.
+PLANES Y CUOTA: Starter, Pro y Business. Cada plan incluye un número de expedientes nuevos al mes (Starter 20, Pro 50, Business ilimitado); si te pasas, cada expediente extra son 3 € (los expedientes importados NO cuentan). Suscripción mensual o anual (el año equivale a 10 meses: 2 meses de ahorro). Los precios se muestran sin IVA. La prueba dura 15 días.
 `.trim();
 
 export const ASISTENTE_SISTEMA = `Eres el asistente de Aproba, el software de gestión de expedientes de extranjería. Ayudas a gestores y abogados que USAN el programa: les explicas cómo hacer algo en la plataforma o les desatascas cuando algo no les sale.
