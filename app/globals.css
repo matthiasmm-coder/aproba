@@ -150,3 +150,39 @@ details[open] > .faq-body {
     font-size: 16px;
   }
 }
+
+/* ── Tabla editorial de artículo ─────────────────────────────────────────────
+   En escritorio es una tabla normal. Por debajo de 640 px se convierte en
+   FICHAS apiladas: cada celda muestra su encabezado a la izquierda (data-label)
+   y desaparece el scroll horizontal. Una tabla de 4 columnas en un móvil de
+   375 px deja la última columna invisible por mucho overflow-x que tenga —
+   comprobado el 26/08. Sin JS: es solo el mismo HTML leído de otra forma. */
+@media (max-width: 639px) {
+  .tabla-articulo thead { display: none; }
+  .tabla-articulo tr { display: block; padding: 0.25rem 0; }
+  .tabla-articulo tr + tr { border-top: 1px solid #e2e8f0; }
+  .tabla-articulo td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 34%) 1fr;
+    gap: 0.75rem;
+    padding: 0.4rem 0.9rem;
+    border: 0;
+  }
+  .tabla-articulo td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #64748b; /* slate-500 */
+  }
+  /* La primera celda es el nombre de la fila: hace de título de la ficha. */
+  .tabla-articulo td:first-child {
+    display: block;
+    padding-top: 0.7rem;
+    font-size: 0.95rem;
+  }
+  .tabla-articulo td:first-child::before { content: none; }
+  .tabla-articulo tr:last-child td:last-child { padding-bottom: 0.7rem; }
+}

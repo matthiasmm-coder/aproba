@@ -59,7 +59,7 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
               <figure key={i} className="my-6">
                 {b.titulo && <figcaption className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{b.titulo}</figcaption>}
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full border-collapse bg-white text-sm">
+                  <table className="tabla-articulo w-full border-collapse bg-white text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-cream-50/60">
                         {b.encabezados.map((h, j) => (
@@ -71,7 +71,7 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                       {b.filas.map((fila, j) => (
                         <tr key={j} className={j < b.filas.length - 1 ? "border-b border-slate-100" : ""}>
                           {fila.map((c, k) => (
-                            <td key={k} className={`px-3.5 py-2.5 align-top leading-snug ${k === 0 ? "font-medium text-slate-900" : "text-slate-600"}`}>{conFormato(c)}</td>
+                            <td key={k} data-label={b.encabezados[k] ?? ""} className={`px-3.5 py-2.5 align-top leading-snug ${k === 0 ? "font-medium text-slate-900" : "text-slate-600"}`}>{conFormato(c)}</td>
                           ))}
                         </tr>
                       ))}
@@ -108,7 +108,7 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
           }
           case "hitos":
             return (
-              <ol key={i} className="my-6 space-y-0 border-l-2 border-slate-200 pl-0">
+              <ol key={i} className="my-6 !list-none space-y-0 border-l-2 border-slate-200 !pl-0">
                 {b.items.map((h, j) => (
                   <li key={j} className="relative pb-5 pl-6 last:pb-0">
                     <span className={`absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-white ${h.destacado ? "bg-aproba-600 ring-2 ring-aproba-200" : "bg-slate-300"}`} />
