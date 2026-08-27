@@ -83,7 +83,7 @@ const SELECT_SERVICIOS_SIN_SUPLIDOS = "oficinaId, clave, label, descripcion, doc
 const SELECT_SERVICIOS_SIN_NOINCLUYE = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien";
 
 // Servicios du workspace de l'utilisateur connecté. Fallback : defaults (workspace pas encore configuré).
-export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean }> {
+export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean; fallo?: boolean }> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("ServicioConfig").select(SELECT_SERVICIOS).order("orden");
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CATEGORIA).order("orden")) as unknown as typeof res;
@@ -91,7 +91,13 @@ export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; d
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).order("orden")) as unknown as typeof res;
   const { data, error } = res;
-  if (error) throw new Error(`ServicioConfig: ${error.message}`);
+  if (error) {
+    if (esFalloPasajero(error.message)) {
+      console.error("[fetchServiciosConfig] fallo pasajero:", error.message);
+      return { servicios: DEFAULT_SERVICIOS, desdeDb: false, fallo: true };
+    }
+    throw new Error(`ServicioConfig: ${error.message}`);
+  }
   if (!data || data.length === 0) return { servicios: DEFAULT_SERVICIOS, desdeDb: false };
   return { servicios: (data as ServicioRow[]).map(mapServicioRow), desdeDb: true };
 }
@@ -261,8 +267,26 @@ export async function fetchCuentasBancarias(): Promise<CuentaBancaria[]> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("CuentaBancaria").select("id, titular, iban, banco, activa, oficinaId").order("createdAt");
   if (res.error) res = await supabase.from("CuentaBancaria").select("id, titular, iban, banco, activa").order("createdAt") as typeof res; // fase 6 sin migrar
-  if (res.error) throw new Error(`CuentaBancaria: ${res.error.message}`);
+  if (res.error) {
+    if (esFalloPasajero(res.error.message)) {
+      console.error("[fetchCuentasBancarias] fallo pasajero:", res.error.message);
+      return [];
+    }
+    throw new Error(`CuentaBancaria: ${res.error.message}`);
+  }
   return (res.data ?? []) as CuentaBancaria[];
+}
+
+// ── Panne passagère vs bug de schéma ───────────────────────────────────────────
+// Sentry, 27/08/2026 : « AvisoConfig: JWT issued at future » a fait planter TOUTE la
+// page /app/ajustes en production. C'est un décalage d'horloge entre l'émission du
+// token et sa vérification — rien à corriger dans le code, ça se résout tout seul.
+//
+// Mais une colonne manquante (migration pas passée) doit, elle, rester visible : la
+// masquer transformerait un bug corrigeable en «configuración vacía» silencieuse.
+// D'où la distinction : ce qui est passager dégrade proprement, le reste remonte.
+export function esFalloPasajero(msg: string): boolean {
+  return /jwt|token|expired|issued at|signature|network|fetch failed|timeout|ETIMEDOUT|ECONNRESET|socket|502|503|504/i.test(msg);
 }
 
 type AvisoRow = {
@@ -274,13 +298,22 @@ type AvisoRow = {
   orden: number;
 };
 
-export async function fetchAvisosConfig(): Promise<{ avisos: Aviso[]; desdeDb: boolean }> {
+export async function fetchAvisosConfig(): Promise<{ avisos: Aviso[]; desdeDb: boolean; fallo?: boolean }> {
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
     .from("AvisoConfig")
     .select("clave, evento, template, canal, activo, orden")
     .order("orden");
-  if (error) throw new Error(`AvisoConfig: ${error.message}`);
+  if (error) {
+    // Passager → on rend les defaults AVEC `fallo:true` : la page prévient et
+    // bloque l'enregistrement, sinon un «Guardar» écraserait les textes du gestor
+    // par les nôtres sans qu'il l'ait voulu.
+    if (esFalloPasajero(error.message)) {
+      console.error("[fetchAvisosConfig] fallo pasajero:", error.message);
+      return { avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true };
+    }
+    throw new Error(`AvisoConfig: ${error.message}`);
+  }
   const byClave = new Map(((data as AvisoRow[]) ?? []).map((r) => [r.clave, r]));
   // On part TOUJOURS de la liste canonique (DEFAULT_AVISOS) : les claves obsolètes en
   // base (ex. cita_asignada/resolucion héritées) ne s'affichent plus, et les avisos

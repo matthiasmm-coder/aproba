@@ -1,4 +1,6 @@
 import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig } from "@/lib/data/config";
+import { DEFAULT_SERVICIOS } from "@/lib/servicios";
+import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchEquipo } from "@/lib/data/equipo";
 import { fetchOficinas } from "@/lib/data/oficinas";
 import { fetchServiciosDeScope, fetchAvisosDeScope } from "@/lib/data/config";
@@ -70,15 +72,24 @@ const IconFacturacion = (
 
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
-  const [{ servicios }, { avisos }, cuentas, equipo, despacho, packs, oficinas] = await Promise.all([
-    fetchServiciosConfig(),
-    fetchAvisosConfig(),
+  // ⚠️ Promise.all : UN SEUL rejet tue la page entière. Les cinq autres appels
+  // avaient déjà leur .catch ; ces deux-là ne l'avaient pas — d'où la page blanche
+  // du 27/08 sur un simple hoquet de token. Les fonctions dégradent maintenant
+  // elles-mêmes sur panne passagère (fallo:true) ; le .catch reste la ceinture.
+  const [srv, avs, cuentas, equipo, despacho, packs, oficinas] = await Promise.all([
+    fetchServiciosConfig().catch(() => ({ servicios: DEFAULT_SERVICIOS, desdeDb: false, fallo: true })),
+    fetchAvisosConfig().catch(() => ({ avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true })),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
     fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
   ]);
+  const { servicios } = srv;
+  const { avisos } = avs;
+  // Si la lecture a échoué, on montre les valeurs par DÉFAUT : enregistrer à ce
+  // moment-là écraserait la configuration réelle du despacho. On le dit.
+  const configNoCargada = Boolean(srv.fallo || avs.fallo);
   // MULTI-OFICINA — scopes des sedes NON-gestoría pour servicios/avisos (l'UI doit
   // distinguer « propio » de « heredando ») ; la fila automática (orden -1) édite
   // le scope común (null) de toujours.
@@ -105,6 +116,13 @@ export default async function Ajustes() {
     <div className="mx-auto max-w-4xl">
       <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Ajustes")}</h1>
       <p className="mt-1 text-slate-500">{t("Configura tus servicios, los avisos a tus clientes y los datos de tu despacho.")}</p>
+
+      {configNoCargada && (
+        <div role="alert" className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>
+          <span>{t("No hemos podido cargar tu configuración ahora mismo. Lo que ves debajo son los valores por defecto: NO guardes nada o sobrescribirás lo tuyo. Vuelve a cargar la página en un minuto.")}</span>
+        </div>
+      )}
 
       {!puedeEditar && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
