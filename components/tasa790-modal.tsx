@@ -100,7 +100,7 @@ export function Tasa790Modal({ expedienteId, clienteId, etiqueta }: { expediente
     <>
       <button onClick={() => iniciar(false)} className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
-        {etiqueta ?? t("Generar tasa 790-012 oficial")}
+        {etiqueta ?? t("Tasa 790-012 oficial")}
       </button>
 
       {open && (
