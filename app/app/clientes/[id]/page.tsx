@@ -22,7 +22,7 @@ function initials(name: string) {
 }
 
 
-export default async function ClienteDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClienteDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ editar?: string }> }) {
   const t = await getT();
   const { id } = await params;
   const supabase = await createSupabaseServer();
@@ -166,7 +166,7 @@ export default async function ClienteDetail({ params }: { params: Promise<{ id: 
         <div className="flex flex-col gap-3 sm:items-end">
           <div className="flex items-center gap-3">
             <EliminarClienteButton clienteId={cliente.id} nombre={nombre} />
-            <EditarCliente clienteId={cliente.id} ficha={ficha} oficinas={oficinas} oficinaId={cliente.oficinaId ?? null} />
+            <EditarCliente clienteId={cliente.id} ficha={ficha} oficinas={oficinas} oficinaId={cliente.oficinaId ?? null} autoAbrir={(await searchParams)?.editar === "1"} />
           </div>
           <div className="hidden gap-6 text-center sm:flex">
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{servicios.length}</p><p className="text-xs text-slate-400">{t("servicios")}</p></div>

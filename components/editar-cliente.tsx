@@ -12,7 +12,7 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 // declarativo de campos (lib/ficha.ts) — los mismos que rellena el cliente en el portal —
 // y guarda vía PATCH /api/clientes/[id].
 export function EditarCliente({
-  clienteId, ficha, oficinas = [], oficinaId = null,
+  clienteId, ficha, oficinas = [], oficinaId = null, autoAbrir = false,
 }: {
   clienteId: string;
   ficha: ClienteFicha;
@@ -20,6 +20,9 @@ export function EditarCliente({
   // jamais dans le portail) — elle voyage à part, et n'apparaît que s'il y en a.
   oficinas?: { id: string; nombre: string }[];
   oficinaId?: string | null;
+  // ?editar=1 (enlace «Completar la ficha» de formularios): el diálogo se abre solo
+  // al llegar — el gestor viene A editar, no a mirar la ficha.
+  autoAbrir?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -53,6 +56,15 @@ export function EditarCliente({
   }
 
   useScrollBloqueado(abierto);
+
+  // Llegada con ?editar=1 → abrir al montar y limpiar la URL (shallow): así un
+  // refresco o el botón atrás no re-abren el diálogo que el gestor ya cerró.
+  useEffect(() => {
+    if (!autoAbrir) return;
+    abrir();
+    window.history.replaceState(null, "", window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Foco dentro del diálogo al abrir, trampa de Tab, Escape, y restauración del foco al cerrar.
   useEffect(() => {

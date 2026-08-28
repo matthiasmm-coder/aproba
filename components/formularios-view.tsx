@@ -113,13 +113,15 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
             ))}
           </ul>
           {faltanPorPersona.length === 1 && faltanPorPersona[0].id !== "titular" ? (
-            <Link href={`/app/clientes/${faltanPorPersona[0].id}`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950">
+            // ?editar=1 : la ficha llega con el diálogo «Editar cliente» YA abierto —
+            // el gestor viene a rellenar huecos, no a buscar el botón Editar.
+            <Link href={`/app/clientes/${faltanPorPersona[0].id}?editar=1`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950">
               {t("Completar la ficha")} →
             </Link>
           ) : (
             <p className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm font-semibold text-amber-900">
               {faltanPorPersona.filter((p) => p.id !== "titular").map((p) => (
-                <Link key={p.id} href={`/app/clientes/${p.id}`} className="underline underline-offset-2 hover:text-amber-950">
+                <Link key={p.id} href={`/app/clientes/${p.id}?editar=1`} className="underline underline-offset-2 hover:text-amber-950">
                   {t("Completar")} {p.nombre} →
                 </Link>
               ))}
