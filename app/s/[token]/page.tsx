@@ -112,11 +112,19 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     ? exp.formulariosGenerados
     : (exp.formulariosGenerados === undefined && FORM_LISTOS.has(exp.estado)
       ? formulariosDelTramite(exp.tipo, [exp.servicioClave, ...(exp.serviciosExtra ?? [])]) : []);
-  const tasaDisponible = Boolean(exp.tasaPath);
+  let tasaDisponible = Boolean(exp.tasaPath);
+  // La 790-026 (nacionalidad) no usa tasaPath (columna cableada a la 012): vive en el
+  // storage por ruta determinista. Solo se sondea si no hay 012 — cero coste extra
+  // para los expedientes con tasa clásica.
+  let tasaEtiqueta: string | undefined;
+  if (!tasaDisponible && !exp.familiaId) {
+    const { data: archivos026 } = await admin.storage.from("documentos").list(exp.id, { search: "tasa-790-026.pdf" });
+    if ((archivos026 ?? []).some((a) => a.name === "tasa-790-026.pdf")) { tasaDisponible = true; tasaEtiqueta = "Tasa 790-026"; }
+  }
 
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
   // nominativa, presencia detectada en el storage por ruta determinista).
-  let miembros: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[] | undefined;
+  let miembros: { id: string; nombre: string; tieneTasa: boolean; tasaEtiqueta?: string; formularios?: string[] }[] | undefined;
   // Familia: documentos agrupados — COMUNES (una vez) + los de CADA miembro según SUS
   // servicios asignados (mismo helper que el portal /j). Sin asignación → retro-compat.
   let docsFamiliares: SegDoc[] | undefined;
@@ -131,7 +139,13 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     const sol = rows.filter((r) => r.esSolicitante || asignados.has(r.id));
     const lista = sol.length ? sol : rows;
     const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
-    const conTasa = new Set((archivos ?? []).map((a) => a.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
+    // id de miembro → «012» | «026» (si tiene ambas, gana la 012: mismo criterio que
+    // el expediente individual, donde tasaPath — la 012 — tiene prioridad).
+    const conTasa = new Map<string, "012" | "026">();
+    for (const a of archivos ?? []) {
+      const m = /^tasa-790-(012|026)-(.+)\.pdf$/.exec(a.name);
+      if (m && (m[1] === "012" || !conTasa.has(m[2]))) conTasa.set(m[2], m[1] as "012" | "026");
+    }
     // Formularios del MIEMBRO: exactamente la selección que el gestor generó para él
     // (formulariosPorMiembro). Sin mapa (datos antiguos) → repli a la lista plana.
     const pmForms = exp.formulariosPorMiembro && typeof exp.formulariosPorMiembro === "object" && !Array.isArray(exp.formulariosPorMiembro)
@@ -140,6 +154,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       id: r.id,
       nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro",
       tieneTasa: conTasa.has(r.id),
+      ...(conTasa.get(r.id) === "026" ? { tasaEtiqueta: "Tasa 790-026" } : {}),
       formularios: pmForms ? (pmForms[r.id] ?? []) : formularios,
     }));
 
@@ -178,6 +193,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       gruposDocs={gruposDocs}
       formularios={formularios}
       tasaDisponible={tasaDisponible}
+      tasaEtiqueta={tasaEtiqueta}
       miembros={miembros}
     />
   );

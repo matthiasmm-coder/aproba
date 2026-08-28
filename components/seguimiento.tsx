@@ -25,12 +25,14 @@ function Download({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, miembros, gruposDocs,
+  token, gestoria, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, tasaEtiqueta, miembros, gruposDocs,
 }: {
   token: string; gestoria: string; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
+  // «Tasa 790-026» cuando lo guardado es la de nacionalidad (por defecto: 790-012).
+  tasaEtiqueta?: string;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
-  miembros?: { id: string; nombre: string; tieneTasa: boolean; formularios?: string[] }[];
+  miembros?: { id: string; nombre: string; tieneTasa: boolean; tasaEtiqueta?: string; formularios?: string[] }[];
   // Familia: secciones de documentos (comunes + una por miembro) — los SegDoc llevan
   // grupo/clienteId y aquí solo se agrupan y pliegan. Sin esto: lista plana (individual).
   gruposDocs?: { id: string; nombre?: string; parentesco?: string | null }[];
@@ -452,7 +454,7 @@ export function Seguimiento({
                         </button>
                         {abierta && (
                           <div className="space-y-2 px-3 pb-3">
-                            {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`Tasa 790-012 · ${m.nombre.split(" ")[0]}`} />}
+                            {m.tieneTasa && <LinkTasa clienteId={m.id} etiqueta={`${m.tasaEtiqueta ?? "Tasa 790-012"} · ${m.nombre.split(" ")[0]}`} />}
                             {suyos.map((f) => <LinkForm key={`${m.id}:${f}`} f={f} clienteId={m.id} />)}
                             {nArchivos >= 2 && <LinkZip clienteId={m.id} />}
                           </div>
@@ -463,7 +465,7 @@ export function Seguimiento({
                 </div>
               ) : (
                 <div className="mt-2 space-y-2">
-                  {tasaDisponible && <LinkTasa />}
+                  {tasaDisponible && <LinkTasa etiqueta={tasaEtiqueta} />}
                   {formularios.map((f) => <LinkForm key={f} f={f} />)}
                   {formularios.length + (tasaDisponible ? 1 : 0) >= 2 && <LinkZip />}
                 </div>

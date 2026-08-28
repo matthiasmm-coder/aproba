@@ -26,18 +26,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   // familiar (la tasa del miembro vive en el storage), así que una puerta sobre él
   // habría roto la descarga de TODAS las familias.
 
-  let path = exp.tasaPath;
-  let nombre = "tasa-790-012.pdf";
+  // Candidatas en orden de prioridad: la 790-012 (tasaPath / nominativa) y, si no
+  // existe, la 790-026 (nacionalidad — nunca escribe tasaPath, vive por ruta
+  // determinista). Se sirve la primera que exista en el bucket.
+  let candidatas: string[];
   if (clienteId && exp.familiaId) {
     const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
     if (!m) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-    path = `${exp.id}/tasa-790-012-${clienteId}.pdf`;
-    nombre = `tasa-790-012-${clienteId}.pdf`;
+    candidatas = [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`];
+  } else {
+    candidatas = [...(exp.tasaPath ? [exp.tasaPath] : []), `${exp.id}/tasa-790-026.pdf`];
   }
-  if (!path) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
 
-  const { data: blob, error: e2 } = await admin.storage.from("documentos").download(path);
-  if (e2 || !blob) return NextResponse.json({ error: "Archivo no disponible." }, { status: 404 });
+  let blob: Blob | null = null;
+  let nombre = "";
+  for (const path of candidatas) {
+    const { data, error: e2 } = await admin.storage.from("documentos").download(path);
+    if (!e2 && data) { blob = data; nombre = path.split("/").pop() ?? "tasa-790.pdf"; break; }
+  }
+  if (!blob) return NextResponse.json({ error: "Archivo no disponible." }, { status: 404 });
 
   const buffer = Buffer.from(await blob.arrayBuffer());
   return new Response(buffer, {

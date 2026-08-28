@@ -83,11 +83,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   }
 
   // Tasa 790: nominativa del miembro (familiar) o la del expediente (individual).
+  // Primero la 012 (tasaPath/nominativa); si no existe, la 026 (nacionalidad, que
+  // nunca escribe tasaPath) — se incluye la primera que haya, con su nombre real.
   try {
-    const ruta = clienteId && exp.familiaId ? `${exp.id}/tasa-790-012-${clienteId}.pdf` : tasaPath;
-    if (ruta) {
+    const rutas = clienteId && exp.familiaId
+      ? [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`]
+      : [...(tasaPath ? [tasaPath] : []), `${exp.id}/tasa-790-026.pdf`];
+    for (const ruta of rutas) {
       const { data: blob } = await admin.storage.from("documentos").download(ruta);
-      if (blob) entries.push({ name: "tasa-790-012.pdf", data: new Uint8Array(await blob.arrayBuffer()) });
+      if (blob) {
+        const base = /026/.test(ruta.split("/").pop() ?? "") ? "tasa-790-026.pdf" : "tasa-790-012.pdf";
+        entries.push({ name: base, data: new Uint8Array(await blob.arrayBuffer()) });
+        break;
+      }
     }
   } catch { /* sin tasa */ }
 
