@@ -106,7 +106,24 @@ export async function rellenarTasa026(plantilla: Uint8Array, c: Campos026): Prom
     const v = limpiar(valor);
     try {
       const f = form.getTextField(nombre);
-      if (v) f.setText(v);
+      if (v) {
+        f.setText(v);
+        // Muchos campos del impreso llevan fuente FIJA en su DA («/Helv 12 Tf»): un
+        // valor más ancho que la casilla se corta en seco (visto con datos reales:
+        // «WILLIAM MARSHALL» perdía la última letra en sus 113 pt). Si el DA fija un
+        // tamaño y el texto desborda, se reduce SOLO ese campo (mín. 5 pt). Los campos
+        // sin DA propio heredan «/Helv 0 Tf» del formulario = auto-ajuste: no tocar.
+        try {
+          const da = String(f.acroField.getDefaultAppearance?.() ?? "");
+          const fija = Number((/\/\S+\s+([\d.]+)\s+Tf/.exec(da) ?? [])[1] ?? 0);
+          const ancho = f.acroField.getWidgets()[0]?.getRectangle().width ?? 0;
+          if (fija > 0 && ancho > 8 && font.widthOfTextAtSize(v, fija) > ancho - 5) {
+            let size = fija;
+            while (size > 5 && font.widthOfTextAtSize(v, size) > ancho - 5) size -= 0.5;
+            f.setFontSize(size);
+          }
+        } catch { /* ajuste de tamaño: nunca tumba el campo */ }
+      }
     } catch (e) {
       if (!opcional) throw new Error(`El impreso oficial ha cambiado (falta el campo «${nombre}»).`);
       void e;
