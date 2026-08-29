@@ -161,8 +161,15 @@ export function patchDesdeStripe(sub: Stripe.Subscription): Record<string, unkno
   const periodEnd = (item as unknown as { current_period_end?: number } | undefined)?.current_period_end ?? legacy;
   const lookup = item?.price?.lookup_key ?? "";
   const cancelado = sub.status === "canceled" || sub.status === "incomplete_expired";
+  const estado = mapEstadoStripe(sub.status);
   return {
-    estado: mapEstadoStripe(sub.status),
+    estado,
+    // Una suscripción de pago ACTIVA nunca es un tester. Sin esto, el modoPrueba del
+    // essai testeur SOBREVIVÍA al paso a pago (visto con Juan el 29/08, a su segundo
+    // mes cobrado): lib/overage.ts trata modoPrueba como prueba y el excedente de
+    // 3 €/expediente no se facturaba nunca. El acceso no cambia: el candado del layout
+    // solo mira modoPrueba en estado TRIAL.
+    ...(estado === "ACTIVA" ? { modoPrueba: false } : {}),
     // une suscripción anulada ne doit plus bloquer un nouveau checkout
     stripeSubscriptionId: cancelado ? null : sub.id,
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
