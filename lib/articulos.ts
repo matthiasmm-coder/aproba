@@ -52,9 +52,9 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 export const ARTICULOS: Articulo[] = [
   {
     slug: "nacionalidad-por-residencia-plazos-tasas-2026",
-    titulo: "Nacionalidad por residencia en 2026: plazos, tasas y por qué se atasca",
+    titulo: "Nacionalidad por residencia en 2026: plazos, tasas y atascos",
     descripcion:
-      "299.732 concesiones en 2025 y 256.000 expedientes pendientes. Plazos por nacionalidad, coste real (790-026, CCSE, DELE) y los errores que retrasan el expediente.",
+      "299.732 concesiones en 2025 y 256.000 expedientes pendientes. Plazos por nacionalidad, coste real (790-026, CCSE, DELE) y qué retrasa el expediente.",
     fecha: "2026-08-31",
     tema: "Nacionalidad",
     entradilla:
