@@ -123,8 +123,22 @@ export async function POST(req: Request) {
     return fb > fa ? b : a;
   };
   const hoja = hojas.find((h) => h.nombre === hojaPedida) ?? hojas.reduce(mejor);
-  const filas = hoja.filas.slice(0, MAX_FILAS);
-  const truncado = hoja.filas.length > MAX_FILAS;
+
+  // Quita el PREÁMBULO: filas de título/sección que preceden a la cabecera real.
+  // ⚠️ Nuestra plantilla tiene DOS filas de encabezado —«IDENTIDAD | DOMICILIO |…»
+  // (6 celdas) y luego los 30 nombres de columna—, pero `primeraFilaEsCabecera` solo
+  // salta UNA. Sin esto, la fila de nombres se importaba como cliente y el despacho
+  // acababa con un fantasma llamado «Nombre Apellidos» (visto con LexPats, 31/08).
+  // Criterio: una fila de sección es MUCHO más estrecha que la cabecera real; solo se
+  // descartan filas ANTERIORES a la primera fila ancha, nunca datos.
+  const llenas = (f: string[]) => f.filter((c) => c !== "").length;
+  const cabecera = Math.max(...hoja.filas.slice(0, 6).map(llenas), 0);
+  let desde = 0;
+  while (desde < Math.min(5, hoja.filas.length - 1) && llenas(hoja.filas[desde]) < cabecera * 0.5) desde++;
+  const utiles = hoja.filas.slice(desde);
+
+  const filas = utiles.slice(0, MAX_FILAS);
+  const truncado = utiles.length > MAX_FILAS;
 
   // Catálogo del despacho → el modelo mapea los trámites libres a ESTAS claves.
   const admin = createSupabaseAdmin();

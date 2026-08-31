@@ -55,3 +55,49 @@ describe("elección de hoja", () => {
     expect(elegir([vacia, clientes(3)]).nombre).toBe("Clientes");
   });
 });
+
+// ── Preámbulo: filas de sección antes de la cabecera real ────────────────────
+// Nuestra plantilla lleva DOS filas de encabezado y `primeraFilaEsCabecera` solo
+// salta una: sin recortar el preámbulo, la fila de nombres de columna entraba como
+// cliente («Nombre Apellidos», visto con LexPats el 31/08).
+const llenas = (f: string[]) => f.filter((c) => c !== "").length;
+function recortar(filas: string[][]): string[][] {
+  const cabecera = Math.max(...filas.slice(0, 6).map(llenas), 0);
+  let desde = 0;
+  while (desde < Math.min(5, filas.length - 1) && llenas(filas[desde]) < cabecera * 0.5) desde++;
+  return filas.slice(desde);
+}
+const vacías = (n: number) => Array.from({ length: n }, () => "");
+
+describe("recorte del preámbulo", () => {
+  const secciones = ["IDENTIDAD", ...vacías(11), "DOMICILIO", ...vacías(17)];
+  const cabeceras = Array.from({ length: 30 }, (_, i) => `col${i}`);
+  const dato = (n: string) => [n, ...Array.from({ length: 20 }, (_, i) => `v${i}`), ...vacías(9)];
+
+  it("el caso LexPats: quita la fila de secciones y deja la cabecera primera", () => {
+    const out = recortar([secciones, cabeceras, dato("Lauren"), dato("Hafid")]);
+    expect(out[0][0]).toBe("col0");
+    expect(out).toHaveLength(3);
+  });
+
+  it("fichero normal (cabecera en la fila 0): no se toca nada", () => {
+    const filas = [cabeceras, dato("Ana"), dato("Luis")];
+    expect(recortar(filas)).toHaveLength(3);
+    expect(recortar(filas)[0][0]).toBe("col0");
+  });
+
+  it("sin cabecera, solo datos: no se pierde ninguna fila", () => {
+    const filas = [dato("Ana"), dato("Luis"), dato("Eva")];
+    expect(recortar(filas)).toHaveLength(3);
+  });
+
+  it("varias filas de título seguidas se quitan todas", () => {
+    const out = recortar([["Migración de clientes", ...vacías(29)], secciones, cabeceras, dato("Ana")]);
+    expect(out[0][0]).toBe("col0");
+    expect(out).toHaveLength(2);
+  });
+
+  it("nunca deja la tabla vacía", () => {
+    expect(recortar([["solo esto"]]).length).toBeGreaterThan(0);
+  });
+});
