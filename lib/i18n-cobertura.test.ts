@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { CA } from "./app-i18n";
+import { DEFAULT_AVISOS } from "./avisos";
+import { PLANES, ROLES, TIPOS } from "./planes";
+import { FICHA_CAMPOS, GRUPOS } from "./ficha";
 
 // Cobertura catalana de la app gestor. La mecánica del agujero (vista el 31/08/2026):
 // cada entrega de UI añade cadenas t("…") y, si nadie piensa en el catalán, caen al
@@ -40,6 +43,25 @@ describe("catalán · cobertura de la app gestor", () => {
       }
     }
     expect([...new Set(faltan)]).toEqual([]);
+  });
+
+  it("los valores dinámicos que pasan por t(variable) tienen traducción", () => {
+    // El extractor de literales no ve t(a.evento) ni t(p.para): las FUENTES de esos
+    // valores se declaran aquí. Visto el 01/09: «Documento recibido» en castellano
+    // en plena pantalla catalana de Notificacions.
+    const dinamicos = [
+      ...DEFAULT_AVISOS.map((a) => a.evento),
+      ...Object.values(PLANES).map((p) => p.para),
+      ...Object.values(ROLES).flatMap((r) => [r.label, r.desc]),
+      ...TIPOS.flatMap((tp) => [tp.label, tp.desc]),
+      ...FICHA_CAMPOS.map((c) => c.label),
+      ...GRUPOS,
+      // labels de los modales de tasa (arrays locales al componente)
+      ...["components/tasa790-modal.tsx", "components/tasa790026-modal.tsx"].flatMap((f) =>
+        [...readFileSync(f, "utf8").matchAll(/label: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1])),
+    ];
+    const faltan = [...new Set(dinamicos)].filter((v) => v && !(v in CA));
+    expect(faltan).toEqual([]);
   });
 
   it("los placeholders {x} de cada traducción coinciden con los de su clave", () => {
