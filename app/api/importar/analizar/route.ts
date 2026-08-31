@@ -102,8 +102,27 @@ export async function POST(req: Request) {
   }
   if (!hojas.length) return NextResponse.json({ error: "El archivo está vacío." }, { status: 400 });
 
-  // Hoja a analizar: la pedida, o la de más filas.
-  const hoja = hojas.find((h) => h.nombre === hojaPedida) ?? hojas.reduce((a, b) => (b.filas.length > a.filas.length ? b : a));
+  // Hoja a analizar: la pedida, o la que MÁS SE PARECE A UNA TABLA DE DATOS.
+  // ⚠️ Antes se cogía la de más filas, y eso rompía con NUESTRA PROPIA plantilla:
+  // su pestaña «Instrucciones» (16 líneas de texto en una sola columna) es más larga
+  // que la de «Clientes» mientras el despacho tenga menos de ~16 clientes. Sandra
+  // (LexPats, 31/08) vio a Aproba intentar importar «Cómo rellenar esta plantilla»
+  // como si fueran sus clientes. Una hoja de datos tiene MUCHAS columnas; una de
+  // instrucciones, una sola: se puntúa por anchura y solo se desempata por altura.
+  const anchura = (h: Hoja) => {
+    const cuerpo = h.filas.slice(0, 40);
+    if (!cuerpo.length) return 0;
+    // media de celdas no vacías por fila: 1 ≈ prosa, ≥3 ≈ tabla real
+    return cuerpo.reduce((n, f) => n + f.filter((c) => c !== "").length, 0) / cuerpo.length;
+  };
+  const puntua = (h: Hoja) => [anchura(h) >= 3 ? 1 : 0, anchura(h), h.filas.length] as const;
+  const mejor = (a: Hoja, b: Hoja) => {
+    const [pa, aa, fa] = puntua(a), [pb, ab, fb] = puntua(b);
+    if (pa !== pb) return pa > pb ? a : b;
+    if (Math.abs(aa - ab) > 0.5) return aa > ab ? a : b;
+    return fb > fa ? b : a;
+  };
+  const hoja = hojas.find((h) => h.nombre === hojaPedida) ?? hojas.reduce(mejor);
   const filas = hoja.filas.slice(0, MAX_FILAS);
   const truncado = hoja.filas.length > MAX_FILAS;
 
