@@ -141,7 +141,7 @@ const uno = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? nul
 async function plantillaDeAviso(
   admin: SupabaseClient,
   opts: { workspaceId: string; expedienteId: string; clave: string },
-): Promise<{ evento: string; template: string; canal: string; activo: boolean } | null> {
+): Promise<{ evento: string; template: string; canal: string; activo: boolean; oculto?: boolean; sedeAviso: string | null } | null> {
   let sedeAviso: string | null = null;
   if (opts.expedienteId) {
     try {
@@ -154,32 +154,76 @@ async function plantillaDeAviso(
       }
     } catch { sedeAviso = null; }
   }
-  let row: { evento: string; template: string; canal: string; activo: boolean } | null = null;
+  type Row = { evento: string; template: string; canal: string; activo: boolean; oculto?: boolean | null };
+  // `oculto` llegó con avisos-personalizados.sql: cada select lo intenta y, si la
+  // columna no existe aún, reintenta sin ella (mismo patrón que el resto de la config).
+  const leer = async (filtroSede: string | null) => {
+    const q = (cols: string) => {
+      let b = admin.from("AvisoConfig").select(cols)
+        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      b = filtroSede ? b.eq("oficinaId", filtroSede) : ((b as any).is("oficinaId", null));
+      return b.maybeSingle();
+    };
+    let r = await q("evento, template, canal, activo, oculto");
+    if (r.error) r = (await q("evento, template, canal, activo")) as unknown as typeof r;
+    return (r.data as Row | null) ?? null;
+  };
+  let row: Row | null = null;
   if (sedeAviso) {
-    try {
-      const { data: propio } = await admin.from("AvisoConfig")
-        .select("evento, template, canal, activo")
-        .eq("workspaceId", opts.workspaceId).eq("oficinaId", sedeAviso).eq("clave", opts.clave)
-        .maybeSingle();
-      row = (propio as typeof row) ?? null;
-    } catch { row = null; }
+    try { row = await leer(sedeAviso); } catch { row = null; }
   }
   if (!row) {
-    let base = await admin.from("AvisoConfig")
-      .select("evento, template, canal, activo")
-      .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
-      .is("oficinaId", null)
-      .maybeSingle();
-    if (base.error) base = await admin.from("AvisoConfig")
-      .select("evento, template, canal, activo")
-      .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
-      .maybeSingle(); // migración ausente
-    row = (base.data as typeof row) ?? null;
+    try { row = await leer(null); } catch { row = null; }
+    if (!row) {
+      // migración config-por-oficina ausente: sin filtro de sede
+      let base = await admin.from("AvisoConfig")
+        .select("evento, template, canal, activo")
+        .eq("workspaceId", opts.workspaceId).eq("clave", opts.clave)
+        .maybeSingle();
+      row = (base.data as Row | null) ?? null;
+    }
   }
   // Repli sur le défaut si le workspace n'a pas (encore) personnalisé cet aviso →
   // les avisos fonctionnent out-of-the-box, sans config manuelle préalable.
   const def = DEFAULT_AVISOS.find((a) => a.id === opts.clave);
-  return row ?? (def ? { evento: def.evento, template: def.template, canal: def.canal, activo: def.activo } : null);
+  const res = row ?? (def ? { evento: def.evento, template: def.template, canal: def.canal, activo: def.activo } : null);
+  return res ? { ...res, oculto: res.oculto === true, sedeAviso } : null;
+}
+
+// Avisos PERSONALIZADOS colgados de un evento real (pedido de Sandra/LexPats, 31/08).
+// Ámbito: si la sede tiene avisos propios, los suyos; si no, los de la gestoría —
+// misma cascada de bloque entero que el resto de la config (nunca fusión).
+// Pre-migración (columna eventoBase ausente): cualquier error → lista vacía.
+async function customsDeAviso(
+  admin: SupabaseClient,
+  opts: { workspaceId: string; clave: string; sedeAviso: string | null },
+): Promise<{ evento: string; template: string }[]> {
+  const listar = async (filtroSede: string | null) => {
+    let b = admin.from("AvisoConfig")
+      .select("evento, template, activo, oculto, orden")
+      .eq("workspaceId", opts.workspaceId).eq("eventoBase", opts.clave);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    b = filtroSede ? b.eq("oficinaId", filtroSede) : ((b as any).is("oficinaId", null));
+    const { data, error } = await b.order("orden");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as { evento: string; template: string; activo: boolean; oculto?: boolean | null; orden: number }[];
+  };
+  try {
+    let filas: Awaited<ReturnType<typeof listar>> = [];
+    if (opts.sedeAviso) {
+      // ¿tiene la sede config propia? (cualquier fila suya) → sus customs y solo los suyos
+      const { count } = await admin.from("AvisoConfig")
+        .select("id", { count: "exact", head: true })
+        .eq("workspaceId", opts.workspaceId).eq("oficinaId", opts.sedeAviso);
+      filas = (count ?? 0) > 0 ? await listar(opts.sedeAviso) : await listar(null);
+    } else {
+      filas = await listar(null);
+    }
+    return filas.filter((f) => f.activo && f.oculto !== true).map((f) => ({ evento: f.evento, template: f.template }));
+  } catch {
+    return []; // migración ausente o fallo puntual: los predeterminados no se ven afectados
+  }
 }
 
 export async function dispararAviso(
@@ -188,7 +232,13 @@ export async function dispararAviso(
 ): Promise<void> {
   try {
     const aviso = await plantillaDeAviso(admin, opts);
-    if (!aviso || !aviso.activo) return; // inconnu/non configuré ou désactivé → rien
+    // Mensajes a enviar: el predeterminado (si está activo y no «eliminado») + los
+    // personalizados colgados del mismo evento (pedido de Sandra/LexPats, 31/08).
+    const mensajes: { evento: string; template: string }[] = [];
+    if (aviso && aviso.activo && !aviso.oculto) mensajes.push({ evento: aviso.evento, template: aviso.template });
+    const customs = await customsDeAviso(admin, { workspaceId: opts.workspaceId, clave: opts.clave, sedeAviso: aviso?.sedeAviso ?? null });
+    mensajes.push(...customs);
+    if (!mensajes.length) return; // nada activo para este evento
 
     const { data: expRaw } = await admin
       .from("Expediente")
@@ -199,12 +249,14 @@ export async function dispararAviso(
     const cliente = uno(exp?.Cliente ?? null);
     const gestoria = uno(exp?.Workspace ?? null)?.nombre ?? "Tu gestoría";
     const nombre = cliente?.nombre ?? "cliente";
-    const cuerpo = render(aviso.template, { nombre: primerNombre(nombre), ...(opts.vars ?? {}) });
     const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
     // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
     const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
     const foto = await fotoDelExpediente(admin, opts.expedienteId);
+
+    for (const mensaje of mensajes) {
+    const cuerpo = render(mensaje.template, { nombre: primerNombre(nombre), ...(opts.vars ?? {}) });
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -215,10 +267,10 @@ export async function dispararAviso(
       } else if (resendDisponible()) {
         const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-          from, to: destino, subject: aviso.evento,
+          from, to: destino, subject: mensaje.evento,
           html: emailLayout({
             avatarUrl: foto,
-            gestoria, titulo: aviso.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
+            gestoria, titulo: mensaje.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
             cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
             footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
             preheader: cuerpo,
@@ -228,14 +280,14 @@ export async function dispararAviso(
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[aviso email]", error.message ?? error);
       }
-      console.log(`[aviso ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | ${aviso.evento} | ${cuerpo}`);
+      console.log(`[aviso ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | ${mensaje.evento} | ${cuerpo}`);
     };
     if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link: portalUrl });
-      console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${aviso.evento}`);
+      console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${mensaje.evento}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email
@@ -247,8 +299,9 @@ export async function dispararAviso(
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `${icono} Aviso al cliente${sufijo}: ${aviso.evento}`,
+      descripcion: `${icono} Aviso al cliente${sufijo}: ${mensaje.evento}`,
     });
+    } // fin del bucle de mensajes
   } catch (e) {
     // Un aviso ne doit JAMAIS casser le flux appelant.
     console.error("[dispararAviso]", e instanceof Error ? e.message : e);

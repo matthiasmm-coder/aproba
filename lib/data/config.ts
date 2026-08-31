@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
-import { DEFAULT_AVISOS, esCanalAvisos, type Aviso, type CanalAvisos } from "@/lib/avisos";
+import { combinarAvisos, DEFAULT_AVISOS, esCanalAvisos, type Aviso, type CanalAvisos } from "@/lib/avisos";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Config du workspace (servicios + avisos) — Supabase, sous RLS.
@@ -168,25 +168,25 @@ export async function fetchServiciosDeScope(oficinaId: string | null): Promise<{
 // Avisos de un ámbito (misma lógica estricta, para las pestañas de Ajustes).
 export async function fetchAvisosDeScope(oficinaId: string | null): Promise<{ avisos: Aviso[]; propios: boolean }> {
   const supabase = await createSupabaseServer();
-  let b = supabase.from("AvisoConfig").select("clave, evento, template, canal, activo, orden");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  b = oficinaId ? b.eq("oficinaId", oficinaId) : ((b as any).is("oficinaId", null));
-  const { data, error } = await b.order("orden");
+  const q = (cols: string) => {
+    let b = supabase.from("AvisoConfig").select(cols);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    b = oficinaId ? b.eq("oficinaId", oficinaId) : ((b as any).is("oficinaId", null));
+    return b.order("orden");
+  };
+  // eventoBase/oculto: migración avisos-personalizados.sql; repli al select antiguo.
+  let res = await q("clave, evento, template, canal, activo, orden, eventoBase, oculto");
+  if (res.error) res = (await q("clave, evento, template, canal, activo, orden")) as unknown as typeof res;
+  const { data, error } = res;
   if (error) {
     if (oficinaId) return { avisos: [], propios: false };
     const base = await fetchAvisosConfig();
     return { avisos: base.avisos, propios: true };
   }
-  const filas = (data ?? []) as { clave: string; evento: string; template: string; canal: string; activo: boolean; orden: number }[];
+  const filas = (data ?? []) as unknown as AvisoRow[];
   if (oficinaId && filas.length === 0) return { avisos: [], propios: false };
   if (filas.length === 0) return { avisos: DEFAULT_AVISOS, propios: true };
-  return {
-    avisos: DEFAULT_AVISOS.map((d) => {
-      const f = filas.find((x) => x.clave === d.id);
-      return f ? { ...d, template: f.template, canal: (f.canal as Aviso["canal"]) ?? d.canal, activo: f.activo } : d;
-    }),
-    propios: true,
-  };
+  return { avisos: combinarAvisos(filas), propios: true };
 }
 
 // Packs del workspace (Workspace.packs JSONB) — [] pre-migración o sin packs.
@@ -296,14 +296,23 @@ type AvisoRow = {
   canal: string;
   activo: boolean;
   orden: number;
+  eventoBase?: string | null; // avisos personalizados (migración avisos-personalizados.sql)
+  oculto?: boolean | null;    // predeterminado «eliminado» por el gestor
 };
 
 export async function fetchAvisosConfig(): Promise<{ avisos: Aviso[]; desdeDb: boolean; fallo?: boolean }> {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase
+  // eventoBase/oculto: migración avisos-personalizados.sql. Si aún no está, se
+  // reintenta con el select antiguo — los predeterminados siguen funcionando.
+  let res = await supabase
+    .from("AvisoConfig")
+    .select("clave, evento, template, canal, activo, orden, eventoBase, oculto")
+    .order("orden");
+  if (res.error) res = (await supabase
     .from("AvisoConfig")
     .select("clave, evento, template, canal, activo, orden")
-    .order("orden");
+    .order("orden")) as unknown as typeof res;
+  const { data, error } = res;
   if (error) {
     // Passager → on rend les defaults AVEC `fallo:true` : la page prévient et
     // bloque l'enregistrement, sinon un «Guardar» écraserait les textes du gestor
@@ -314,16 +323,8 @@ export async function fetchAvisosConfig(): Promise<{ avisos: Aviso[]; desdeDb: b
     }
     throw new Error(`AvisoConfig: ${error.message}`);
   }
-  const byClave = new Map(((data as AvisoRow[]) ?? []).map((r) => [r.clave, r]));
-  // On part TOUJOURS de la liste canonique (DEFAULT_AVISOS) : les claves obsolètes en
-  // base (ex. cita_asignada/resolucion héritées) ne s'affichent plus, et les avisos
-  // récents (ex. form_generado) apparaissent même absents de la base. On conserve les
-  // personnalisations du gestor (texte + activo) là où une ligne existe. Canal = email.
-  const avisos: Aviso[] = DEFAULT_AVISOS.map((def) => {
-    const row = byClave.get(def.id);
-    return row
-      ? { id: def.id, evento: def.evento, template: row.template || def.template, canal: "email", activo: row.activo }
-      : def;
-  });
-  return { avisos, desdeDb: byClave.size > 0 };
+  const filas = ((data as AvisoRow[]) ?? []);
+  // combinarAvisos parte SIEMPRE de la lista canónica (claves obsoletas fuera, avisos
+  // nuevos presentes) + añade los personalizados (custom_) al final. Canal = email.
+  return { avisos: combinarAvisos(filas), desdeDb: filas.length > 0 };
 }

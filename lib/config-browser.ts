@@ -108,7 +108,7 @@ export async function guardarPacks(packs: Pack[]): Promise<void> {
 export async function guardarAvisos(avisos: Aviso[], oficinaId: string | null = null): Promise<void> {
   const supabase = createSupabaseBrowser();
   const ws = await workspaceId();
-  const rows: Record<string, unknown>[] = avisos.map((a, i) => ({
+  const filaDe = (a: Aviso, i: number, conExtras: boolean): Record<string, unknown> => ({
     id: oficinaId ? `avi_${ws}_${oficinaId}_${a.id}` : `avi_${ws}_${a.id}`,
     ...(oficinaId ? { oficinaId } : {}),
     workspaceId: ws,
@@ -119,10 +119,32 @@ export async function guardarAvisos(avisos: Aviso[], oficinaId: string | null = 
     activo: a.activo,
     orden: i,
     updatedAt: new Date().toISOString(),
-  }));
-  const { error } = await supabase.from("AvisoConfig").upsert(rows, { onConflict: "id" });
+    // Columnas de avisos-personalizados.sql — solo si la migración está aplicada.
+    ...(conExtras ? { eventoBase: a.eventoBase ?? null, oculto: a.oculto === true } : {}),
+  });
+  let { error } = await supabase.from("AvisoConfig").upsert(avisos.map((a, i) => filaDe(a, i, true)), { onConflict: "id" });
+  if (error && /eventoBase|oculto|column|schema cache/i.test(error.message)) {
+    // Migración avisos-personalizados.sql ausente. Los predeterminados se guardan
+    // igual; los personalizados y los ocultos NO caben en el esquema antiguo — se
+    // avisa en claro en vez de perderlos en silencio.
+    const necesitaExtras = avisos.some((a) => a.eventoBase || a.oculto);
+    if (necesitaExtras) {
+      throw new Error("Falta la migración: ejecuta supabase/avisos-personalizados.sql en Supabase para crear avisos o eliminar predeterminados.");
+    }
+    ({ error } = await supabase.from("AvisoConfig").upsert(avisos.map((a, i) => filaDe(a, i, false)), { onConflict: "id" }));
+  }
   if (error) throw new Error(oficinaId && /oficinaId/i.test(error.message)
     ? "Falta la migración: ejecuta supabase/config-por-oficina.sql en Supabase." : error.message);
+}
+
+// Borra del todo un aviso PERSONALIZADO (los predeterminados nunca se borran: se ocultan).
+export async function borrarAvisoCustom(clave: string, oficinaId: string | null = null): Promise<void> {
+  if (!clave.startsWith("custom_")) return;
+  const supabase = createSupabaseBrowser();
+  const ws = await workspaceId();
+  const id = oficinaId ? `avi_${ws}_${oficinaId}_${clave}` : `avi_${ws}_${clave}`;
+  const { error } = await supabase.from("AvisoConfig").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 // Quita el catálogo/avisos PROPIOS de una sede → vuelve a heredar de la gestoría.
