@@ -41,6 +41,7 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
   const t = useT();
   const router = useRouter();
   const [crear, setCrear] = useState<"ANTICIPO" | "FINAL" | null>(null);
+  const [externo, setExterno] = useState(false); // abrir el popup con «cobro externo» marcado
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +65,18 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
   // hay ya factura final ni plan de cuotas (mismas condiciones que el botón).
   useEffect(() => {
     const h = () => { if (resto > 0 && !pagoFinal && cuotas.length === 0) setCrear("FINAL"); };
+    // «¿Cobro fuera de la plataforma?» (ficha): abre el popup del momento aún sin factura
+    // con «cobro externo» ya marcado — anticipo primero, orden cronológico del dinero.
+    const hx = () => {
+      const momento = anticipo > 0 && !pagoAnticipo ? "ANTICIPO"
+        : resto > 0 && !pagoFinal && cuotas.length === 0 ? "FINAL" : null;
+      if (momento) { setExterno(true); setCrear(momento); }
+    };
     window.addEventListener("abrir-pago-final", h);
-    return () => window.removeEventListener("abrir-pago-final", h);
+    window.addEventListener("abrir-cobro-externo", hx);
+    return () => { window.removeEventListener("abrir-pago-final", h); window.removeEventListener("abrir-cobro-externo", hx); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resto, pagoFinal, cuotas.length]);
+  }, [resto, anticipo, pagoAnticipo, pagoFinal, cuotas.length]);
 
   async function fraccionar() {
     setFraccionando(true); setError(null);
@@ -234,7 +243,12 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
 
         {!ocultarCobroFuera && (
           <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
-            {t("¿Cobro fuera de la plataforma?")} <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>.
+            {t("¿Cobro fuera de la plataforma?")}{" "}
+            {(anticipo > 0 && !pagoAnticipo) || (resto > 0 && !pagoFinal && cuotas.length === 0) ? (
+              <button type="button" onClick={() => window.dispatchEvent(new Event("abrir-cobro-externo"))} className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Regístralo aquí (factura ya pagada)")}</button>
+            ) : (
+              <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">{t("Crea la factura manualmente")}</Link>
+            )}.
           </p>
         )}
       </div>
@@ -248,7 +262,8 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
           conceptoFinal={crear === "ANTICIPO" ? conceptoAnticipo : conceptoFinal}
           baseFinal={crear === "ANTICIPO" ? anticipo : resto}
           suplidosPrefill={suplidosEn === crear ? suplidos : []}
-          onClose={() => setCrear(null)}
+          externoInicial={externo}
+          onClose={() => { setCrear(null); setExterno(false); }}
         />
       )}
       {editId && (

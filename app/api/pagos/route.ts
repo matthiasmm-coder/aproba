@@ -38,6 +38,10 @@ export async function POST(req: Request) {
     // Solo gestor: no enviar aquí el email de la factura — el llamante manda UNO combinado
     // (alta en modo manual: servicios + factura + hoja de encargo en el mismo correo).
     sinEmail?: boolean;
+    // Solo gestor: el dinero ya se cobró FUERA de la plataforma (efectivo, Bizum, TPV…).
+    // La factura nace directamente PAGADA con su método real y NO se envía ninguna
+    // solicitud de pago al cliente (pedírselo por dinero ya entregado quema confianza).
+    cobroExterno?: string;
   };
   try {
     body = await req.json();
@@ -48,6 +52,8 @@ export async function POST(req: Request) {
   if (!momento) {
     return NextResponse.json({ error: "momento (ANTICIPO|FINAL) requerido" }, { status: 400 });
   }
+  const cobroExterno = ["EFECTIVO", "TRANSFERENCIA", "TARJETA"].includes(String(body.cobroExterno))
+    ? (body.cobroExterno as "EFECTIVO" | "TRANSFERENCIA" | "TARJETA") : null;
 
   const admin = createSupabaseAdmin();
 
@@ -219,6 +225,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, yaExistia: true, facturaId: previa.id, numero: previa.numero, total: Number(previa.total), estado: previa.estado });
   }
 
+  // Cobro externo: SOLO el gestor autenticado. Por token de portal sería un cliente
+  // final fabricándose una factura «ya pagada» — se rechaza en seco.
+  if (cobroExterno && !viaGestor) {
+    return NextResponse.json({ error: "Solo el gestor puede registrar un cobro externo." }, { status: 403 });
+  }
+
   // Numérotation séquentielle de l'année (salvo nº personalizado del popup).
   const year = new Date().getFullYear();
   let numero = fac?.numero?.trim() || "";
@@ -244,12 +256,13 @@ export async function POST(req: Request) {
     baseImponible,
     iva,
     total,
-    estado: "EMITIDA",
+    estado: cobroExterno ? "PAGADA" : "EMITIDA",
     origen: "AUTOMATICA",
     momento,
-    metodoPago: "TRANSFERENCIA",
+    metodoPago: cobroExterno ?? "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(),
-    fechaVencimiento: vencimiento.toISOString(),
+    // Pagada al nacer: sin plazo de pago que mostrar — vence hoy mismo.
+    fechaVencimiento: (cobroExterno ? ahora : vencimiento).toISOString(),
     ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
     // multi-oficina: la factura hereda la sede de su expediente (emisor/cuenta correctos)
     ...((exp as { oficinaId?: string | null }).oficinaId ? { oficinaId: (exp as { oficinaId?: string | null }).oficinaId } : {}),
@@ -305,14 +318,17 @@ export async function POST(req: Request) {
     id: uuid(),
     expedienteId: exp.id,
     tipo: "COMENTARIO",
-    descripcion: `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · pendiente de pago por transferencia`,
+    descripcion: cobroExterno
+      ? `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · cobrada fuera de la plataforma (${cobroExterno.toLowerCase()})`
+      : `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · pendiente de pago por transferencia`,
   });
 
   const baseUrl = baseUrlFromRequest(req);
   // Email au client : facture + coordonnées bancaires (IBAN) pour payer par virement.
   // `sinEmail` (solo gestor autenticado): el alta manual envía después UN correo combinado
   // — dos emails por el mismo alta parecerían spam de la gestoría.
-  if (!(viaGestor && body.sinEmail === true)) {
+  // Cobro externo: el dinero ya está en la caja — ninguna solicitud de pago al cliente.
+  if (!cobroExterno && !(viaGestor && body.sinEmail === true)) {
     await enviarSolicitudPago(admin, { expedienteId: exp.id, facturaId, numero, total, concepto, baseUrl });
     // Au premier paiement demandé, on (re)donne aussi le lien de suivi.
     if (momento === "ANTICIPO") {
@@ -320,5 +336,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, facturaId, numero, total, estado: "EMITIDA" });
+  return NextResponse.json({ ok: true, facturaId, numero, total, estado: cobroExterno ? "PAGADA" : "EMITIDA" });
 }

@@ -17,7 +17,7 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 // Carga plan + servicios (y nº de serie / la factura a editar) y monta el editor ya listo.
 
 export function CobroFacturaModal({
-  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL", suplidosPrefill = [],
+  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL", suplidosPrefill = [], externoInicial = false,
 }: {
   modo: "crear" | "editar";
   expedienteId?: string; // requerido para crear; en editar el servidor lo resuelve de la factura
@@ -30,6 +30,8 @@ export function CobroFacturaModal({
   momento?: "ANTICIPO" | "FINAL";
   // Tasas y suplidos del servicio (ya ×N): prefill al crear la factura del momento que los lleva.
   suplidosPrefill?: { concepto: string; importe: number }[];
+  // Abrir con «cobro externo» ya marcado (puerta «¿Cobro fuera de la plataforma?»).
+  externoInicial?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -41,6 +43,10 @@ export function CobroFacturaModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificar, setNotificar] = useState(false); // edición: reenviar corregida
+  // Cobro EXTERNO (dinero ya recibido en mano/Bizum/TPV): la factura se emite PAGADA
+  // con su método real y no se envía ninguna solicitud al cliente.
+  const [externo, setExterno] = useState(externoInicial);
+  const [metodoExterno, setMetodoExterno] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA">("EFECTIVO");
   const [tieneExpediente, setTieneExpediente] = useState(false); // solo se puede reenviar si la factura está ligada a un expediente (cliente con portal/email)
   const [forceAvanzada, setForceAvanzada] = useState(false); // editar una factura con líneas/suplidos usa el editor rico aunque el plan sea Starter (no perder datos)
   const avanzada = facturacionAvanzada(plan) || forceAvanzada;
@@ -89,7 +95,7 @@ export function CobroFacturaModal({
       const factura = { numero: p.numero, clienteNombre: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas };
       const res = modo === "editar" && facturaId
         ? await fetch(`/api/facturas/${facturaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...factura, notificar }) })
-        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura }) });
+        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura, ...(externo ? { cobroExterno: metodoExterno } : {}) }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar la factura."));
       // Carrera: ya existía una factura final → no se aplicaron los cambios editados.
@@ -106,7 +112,9 @@ export function CobroFacturaModal({
     } finally { setBusy(false); }
   }
 
-  const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}` : momento === "ANTICIPO" ? t("Solicitar anticipo") : t("Solicitar pago final");
+  const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}`
+    : externo ? t("Registrar cobro externo")
+    : momento === "ANTICIPO" ? t("Solicitar anticipo") : t("Solicitar pago final");
 
   return (
     // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
@@ -122,7 +130,9 @@ export function CobroFacturaModal({
         <p className="mb-4 text-sm text-slate-500">
           {modo === "editar"
             ? t("Modifica la factura. Puedes reenviarla corregida al cliente.")
-            : t("Revisa y ajusta la factura. Al validar, se emite y se envía automáticamente al cliente con los datos de pago.")}
+            : externo
+              ? t("La factura se emitirá directamente como PAGADA, con su método real. No se enviará ninguna solicitud de pago al cliente.")
+              : t("Revisa y ajusta la factura. Al validar, se emite y se envía automáticamente al cliente con los datos de pago.")}
         </p>
 
         {!inicial ? (
@@ -143,13 +153,30 @@ export function CobroFacturaModal({
             onSubmit={onSubmit}
             busy={busy}
             error={error}
-            submitLabel={modo === "editar" ? t("Guardar cambios") : t("Validar y enviar al cliente")}
-            extra={modo === "editar" && tieneExpediente ? (
+            submitLabel={modo === "editar" ? t("Guardar cambios") : externo ? t("Registrar cobro (ya pagado)") : t("Validar y enviar al cliente")}
+            extra={modo === "editar" ? (tieneExpediente ? (
               <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" checked={notificar} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                 {t("Reenviar la factura corregida al cliente por email")}
               </label>
-            ) : undefined}
+            ) : undefined) : (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                <label className="flex items-start gap-2 text-sm text-slate-600">
+                  <input type="checkbox" checked={externo} onChange={(e) => setExterno(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+                  <span><span className="font-medium text-slate-700">{t("Ya lo he cobrado fuera de la plataforma.")}</span> {t("La factura quedará PAGADA y no se pedirá nada al cliente.")}</span>
+                </label>
+                {externo && (
+                  <label className="mt-2 flex items-center gap-2 pl-6 text-sm text-slate-600">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Método")}</span>
+                    <select value={metodoExterno} onChange={(e) => setMetodoExterno(e.target.value as typeof metodoExterno)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600">
+                      <option value="EFECTIVO">{t("Efectivo")}</option>
+                      <option value="TRANSFERENCIA">{t("Transferencia")}</option>
+                      <option value="TARJETA">{t("Tarjeta")}</option>
+                    </select>
+                  </label>
+                )}
+              </div>
+            )}
           />
         )}
       </div>

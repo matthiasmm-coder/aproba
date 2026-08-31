@@ -1570,6 +1570,15 @@ export const CA: Record<string, string> = {
   "Trámites administrativos y de extranjería": "Tràmits administratius i d'estrangeria",
   "Abogacía y representación legal": "Advocacia i representació legal",
   "Gestoría y servicios jurídicos": "Gestoria i serveis jurídics",
+  // ── Registrar cobro externo (01/09/2026) ──
+  "Registrar cobro externo": "Registrar cobrament extern",
+  "Efectivo": "Efectiu",
+  "Transferencia": "Transferència",
+  "Registrar cobro (ya pagado)": "Registrar cobrament (ja pagat)",
+  "Regístralo aquí (factura ya pagada)": "Registra'l aquí (factura ja pagada)",
+  "Ya lo he cobrado fuera de la plataforma.": "Ja l'he cobrat fora de la plataforma.",
+  "La factura quedará PAGADA y no se pedirá nada al cliente.": "La factura quedarà PAGADA i no es demanarà res al client.",
+  "La factura se emitirá directamente como PAGADA, con su método real. No se enviará ninguna solicitud de pago al cliente.": "La factura s'emetrà directament com a PAGADA, amb el seu mètode real. No s'enviarà cap sol·licitud de pagament al client.",
 };
 
 export function translate(lang: Lang, es: string): string {

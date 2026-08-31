@@ -24,6 +24,7 @@ import { EliminarExpedienteButton } from "@/components/eliminar-expediente-butto
 import { ExportarZipButton } from "@/components/exportar-zip-button";
 import { DocumentoRow } from "@/components/documento-row";
 import { CobrosPanel } from "@/components/cobros-panel";
+import { CobroExternoLink } from "@/components/cobro-externo-link";
 import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
 import { PhaseStepper } from "@/components/phase-stepper";
@@ -591,9 +592,20 @@ export default async function ExpedienteDetail({
         {/* Puerta de salida al final del bloque, después de los ajustes. */}
         <p className="mt-3 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
           {t("¿Cobro fuera de la plataforma?")}{" "}
-          <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">
-            {t("Crea la factura manualmente")}
-          </Link>.
+          {(() => {
+            // Momento aún sin factura → registrar el cobro externo SOBRE el expediente
+            // (misma factura de anticipo/final, nacida PAGADA). Si ya está todo facturado,
+            // queda la salida clásica: factura manual suelta.
+            const pagoAnt = e.facturasPago.find((f) => f.momento === "ANTICIPO");
+            const pagoFin = e.facturasPago.find((f) => f.momento === "FINAL");
+            const nCuotas = e.facturasPago.filter((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA").length;
+            const abierto = (tarifaExp.anticipo > 0 && !pagoAnt) || (tarifaExp.resto > 0 && !pagoFin && nCuotas === 0);
+            return abierto ? <CobroExternoLink /> : (
+              <Link href="/app/facturas/nueva" className="inline-block py-2 font-semibold text-aproba-700 hover:underline sm:py-0">
+                {t("Crea la factura manualmente")}
+              </Link>
+            );
+          })()}.
         </p>
         </SeccionPlegable>
 
