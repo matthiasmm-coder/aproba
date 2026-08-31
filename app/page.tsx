@@ -37,7 +37,7 @@ function StatIcon({ name }: { name: string }) {
 // El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación.
 const MODULOS = [
   { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
-  { titulo: "Formularios en un clic", desc: "12 modelos EX y la tasa 790-012, rellenados solos. Sin teclear, sin erratas.", icon: "doc" },
+  { titulo: "Formularios en un clic", desc: "13 modelos EX y las tasas 790-012 y 790-026, rellenados solos. Sin teclear, sin erratas.", icon: "doc" },
   { titulo: "Revisión «como Extranjería»", desc: "La IA repasa el expediente igual que el funcionario, antes de presentarlo.", icon: "eye" },
   { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
   { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },
@@ -55,7 +55,7 @@ const SIN = [
 
 const CON = [
   "Un enlace: el cliente sube todo desde el móvil",
-  "EX y 790-012 generados automáticamente",
+  "EX y tasas 790 generados automáticamente",
   "Tablero con el estado de cada expediente",
   "Avisos automáticos en cada paso",
   "El cliente lo completa en su idioma (8 idiomas, árabe incluido)",
@@ -63,7 +63,7 @@ const CON = [
 ];
 
 const PLANES = [
-  { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + 790-012 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
+  { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + tasas 790 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
   { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
   // «Multi-oficina» a secas dejaba al lector sin saber cuántas sedes entran: se dice
   // el número Y el precio de la siguiente, como se hace con los expedientes.
@@ -191,7 +191,7 @@ export default function Landing() {
                 Descubrir en 90s
               </a>
             </div>
-            <p className="mt-4 text-xs text-slate-500">Demo online de 20 min · después, 15 días de prueba gratis sin tarjeta</p>
+            <p className="mt-4 text-xs text-slate-500">Demo online de 20–30 min · después, 15 días de prueba gratis sin tarjeta</p>
           </div>
 
           {/* Animation */}

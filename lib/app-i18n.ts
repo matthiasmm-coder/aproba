@@ -729,6 +729,18 @@ export const CA: Record<string, string> = {
   "invitaciones de equipo": "invitacions d'equip",
   "Para empezar tu": "Per començar la teva",
   "prueba de 15 días": "prova de 15 dies",
+  // ── Avisos personalizados (gestor d'avisos, 31/08/2026) ──
+  "Nuevo aviso": "Nou avís",
+  "Se envía cuando…": "S'envia quan…",
+  "Asunto del email": "Assumpte de l'email",
+  "Mensaje": "Missatge",
+  "Crear aviso": "Crear avís",
+  "con": "amb",
+  "aviso predeterminado eliminado": "avís predeterminat eliminat",
+  "avisos predeterminados eliminados": "avisos predeterminats eliminats",
+  "P. ej. Recordatorio: trae tu pasaporte original": "P. ex. Recordatori: porta el teu passaport original",
+  "¿Eliminar el aviso «{n}»?": "Vols eliminar l'avís «{n}»?",
+  "¿Eliminar «{n}» de tu lista? No se enviará y podrás restaurarlo cuando quieras.": "Vols eliminar «{n}» de la teva llista? No s'enviarà i podràs restaurar-lo quan vulguis.",
   // ── Prueba de 15 días (alineado con la duración real; antes 14/«1 mes») ──
   "Empezar mis 15 días gratis": "Començar els meus 15 dies gratis",
   "Continuar — empezar mis 15 días gratis": "Continuar — començar els meus 15 dies gratis",

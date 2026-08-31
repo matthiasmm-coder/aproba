@@ -23,7 +23,9 @@ EXPEDIENTES (tablero): 4 fases — 1. Recepción · 2. Preparación · 3. Presen
 
 DOCUMENTOS: cuando el cliente sube un documento, la IA lo lee y extrae los datos (por ejemplo la caducidad de la TIE). Estados: PROCESANDO → VALIDADO (o rechazado si no se lee). Tú también puedes subir documentos sueltos desde la ficha del cliente, sin expediente.
 
-FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha (EX-01, EX-10, EX-11, EX-13, EX-15, EX-17, EX-18, EX-23, EX-26, tasa 790-012…). Desde la pestaña «Formularios» del expediente, o desde la ficha del cliente («Formularios oficiales» → elegir modelo → «Descargar»). En un expediente familiar se elige a qué miembro corresponde cada formulario.
+FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha — 13 modelos EX (EX-01, EX-02, EX-03, EX-10, EX-11, EX-13, EX-15, EX-17, EX-18, EX-23, EX-26, EX-31, EX-32) y las tasas 790-012 y 790-026 (esta última para nacionalidad). Desde la pestaña «Formularios» del expediente, o desde la ficha del cliente («Formularios oficiales» → elegir modelo → «Descargar»). En un expediente familiar se elige a qué miembro corresponde cada formulario.
+
+AVISOS AL CLIENTE: emails automáticos en cada paso (documento recibido/validado/rechazado, formularios preparados, expediente presentado, resolución, cita, trámite completado). En Ajustes → «Notificaciones al cliente» puedes editar el texto de cada aviso, desactivarlo, eliminarlo (con «Restaurar» para recuperarlo) o crear avisos propios con «Nuevo aviso»: eliges cuándo se envía (uno de esos eventos), el asunto del email y el mensaje. Placeholders {nombre}, {documento} y {fecha} se rellenan solos.
 
 
 VENCIMIENTOS (Vigía): el radar de caducidades y renovaciones. Se llena solo (al validar un TIE, al finalizar un trámite o al importar tu cartera). Agrupa en «Ya caducadas», «Caducan en menos de 60 días», «En los próximos 6 meses» y «Más adelante».
@@ -45,10 +47,10 @@ COBROS: por transferencia (aparece tu IBAN en la factura) o con tarjeta (Stripe)
 
 HOJA DE ENCARGO Y MANDATO: si lo activas en Ajustes, se generan automáticamente y el cliente los firma desde su enlace.
 
-AJUSTES: servicios y tarifas (anticipo/resto, documentos requeridos, suplidos, qué NO incluye), cuenta bancaria, datos de facturación, avisos al cliente (email y/o WhatsApp), equipo (invitar compañeros y roles), plan y suscripción, idioma de la interfaz (español/català) e instalar la app.
+AJUSTES: servicios y tarifas (anticipo/resto, documentos requeridos, suplidos, qué NO incluye), cuenta bancaria, datos de facturación, notificaciones al cliente (ver AVISOS AL CLIENTE), equipo (invitar compañeros y roles), plan y suscripción, idioma de la interfaz (español/català) e instalar la app.
 
 PROBLEMAS FRECUENTES
-- «El cliente no recibe / ha perdido su enlace»: usa «Recordar al cliente» (ficha del expediente) o «Recordar» en la tarjeta del tablero; comprueba que el email del cliente es correcto en su ficha, mira el canal de avisos en Ajustes (email y/o WhatsApp) y dile que revise su carpeta de spam. También puedes copiar el enlace y mandárselo tú por WhatsApp.
+- «El cliente no recibe / ha perdido su enlace»: usa «Recordar al cliente» (ficha del expediente) o «Recordar» en la tarjeta del tablero; comprueba que el email del cliente es correcto en su ficha y dile que revise su carpeta de spam. También puedes copiar el enlace y mandárselo tú por WhatsApp.
 - «Un documento se queda en PROCESANDO»: la IA lo está leyendo; recarga la página al cabo de unos segundos. Si no cambia, pídele que lo vuelva a subir (fotos muy pesadas o borrosas fallan más).
 - «El cliente no ve su trámite en el portal»: en el portal solo salen los servicios que tengas ACTIVOS en Ajustes → Servicios.
 - «No me deja crear más expedientes»: has llegado al límite mensual de tu plan; a partir de ahí cada expediente extra son 3 €. Lo ves en Ajustes → Plan y equipo.

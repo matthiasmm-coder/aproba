@@ -1,5 +1,10 @@
 // Plans & rôles — source unique pour l'inscription, l'onboarding et la gestion d'équipe.
 // Les sièges (maxUsuarios) reprennent exactement la landing : Starter 1 · Pro 5 · Business ∞.
+// `para` s'affiche dans le sélecteur de plan de l'onboarding ; `features` ne s'affiche
+// NULLE PART aujourd'hui (la landing a sa propre liste dans app/page.tsx) — on les garde
+// alignés sur elle pour qu'un futur écran ne ressorte pas un texte contredisant la web
+// (audit 31/08/2026 : avisos rangés en Pro alors qu'ils marchent dès Starter, facturación
+// rangée en Business alors que facturacionAvanzada() la donne dès Pro).
 
 export type PlanId = "STARTER" | "PRO" | "BUSINESS";
 
@@ -17,7 +22,7 @@ export const PLANES: Record<PlanId, {
     maxUsuarios: 1,
     maxExpedientes: 20,
     para: "Autónomo · hasta 20 expedientes/mes",
-    features: ["1 usuario", "Validación IA de documentos", "Formularios EX + 790-012", "Portal del cliente", "Soporte por email"],
+    features: ["1 usuario", "Validación IA de documentos", "Formularios EX + tasas 790", "Portal del cliente", "Avisos automáticos al cliente", "Soporte por email"],
   },
   PRO: {
     label: "Pro",
@@ -25,7 +30,7 @@ export const PLANES: Record<PlanId, {
     maxUsuarios: 5,
     maxExpedientes: 50,
     para: "Equipo · hasta 50 expedientes/mes",
-    features: ["Hasta 5 usuarios", "Todo lo de Starter", "Avisos automáticos al cliente", "Pagos en plataforma", "Soporte prioritario"],
+    features: ["Hasta 5 usuarios", "Todo lo de Starter", "Facturación integrada: facturas y suplidos", "Cobro por tarjeta opcional", "Soporte prioritario"],
   },
   BUSINESS: {
     label: "Business",
@@ -35,10 +40,7 @@ export const PLANES: Record<PlanId, {
     // cobro de overage (lib/overage) no aplica jamás a BUSINESS, sin tocar su código.
     maxExpedientes: Infinity,
     para: "Multi-oficina · expedientes ilimitados",
-    // Mismo texto que la landing (app/page.tsx): el número de sedes incluidas y el
-    // precio de la siguiente se dicen aquí también — un cliente que compara el
-    // plan desde Ajustes no debe leer algo distinto de lo que vio en la web.
-    features: ["Expedientes ilimitados", "Usuarios ilimitados", "Todo lo de Pro", "Facturación integrada", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Onboarding dedicado"],
+    features: ["Expedientes ilimitados", "Usuarios ilimitados", "Todo lo de Pro", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Onboarding dedicado"],
   },
 };
 
