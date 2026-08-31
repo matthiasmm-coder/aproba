@@ -8,7 +8,6 @@ import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/l
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
-import { confirmar } from "@/components/confirm-dialog";
 import { EntregasCuenta } from "@/components/entregas-cuenta";
 import type { Entrega } from "@/lib/entregas";
 
@@ -30,11 +29,14 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
   const suplidos = f.suplidos ?? [];
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
 
-  async function marcarPagada() {
-    if (!(await confirmar(t("¿Marcar esta factura como pagada? Confirma que has recibido el pago del cliente.")))) return;
+  // El propio selector de método hace de confirmación (antes: diálogo sí/no y
+  // TRANSFERENCIA grabada fija aunque el cliente pagara en efectivo).
+  const [eligiendo, setEligiendo] = useState(false);
+  async function marcarPagada(metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO") {
+    setEligiendo(false);
     setMarcando(true);
     try {
-      const res = await fetch(`/api/facturas/${f.id}/pagada`, { method: "POST" });
+      const res = await fetch(`/api/facturas/${f.id}/pagada`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metodo }) });
       if (res.ok) router.refresh();
     } finally {
       setMarcando(false);
@@ -58,12 +60,20 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
               {t("Editar")}
             </button>
           )}
-          {f.estado === "EMITIDA" && (
-            <button onClick={marcarPagada} disabled={marcando} className="inline-flex items-center gap-1.5 rounded-lg border border-aproba-300 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60">
+          {f.estado === "EMITIDA" && (eligiendo ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-sm">
+              <span className="text-xs font-medium text-slate-500">{t("¿Cómo te ha pagado?")}</span>
+              {([["EFECTIVO", t("Efectivo")], ["TRANSFERENCIA", t("Transferencia")], ["TARJETA", t("Tarjeta")], ["OTRO", t("Otro")]] as const).map(([m, lbl]) => (
+                <button key={m} onClick={() => marcarPagada(m)} disabled={marcando} className="rounded-md border border-aproba-200 bg-aproba-50 px-2.5 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-100 disabled:opacity-60">{lbl}</button>
+              ))}
+              <button onClick={() => setEligiendo(false)} className="px-1 text-xs text-slate-400 hover:text-slate-600">{t("Cancelar")}</button>
+            </span>
+          ) : (
+            <button onClick={() => setEligiendo(true)} disabled={marcando} className="inline-flex items-center gap-1.5 rounded-lg border border-aproba-300 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
               {marcando ? t("Guardando…") : t("Marcar como pagada")}
             </button>
-          )}
+          ))}
           <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" /></svg>
             {t("Imprimir / PDF")}

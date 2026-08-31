@@ -861,7 +861,7 @@ export async function enviarEncargoManual(
 // factura pasa a PAGADA. No casser el flux appelant.
 export async function enviarConfirmacionPago(
   admin: SupabaseClient,
-  opts: { expedienteId: string; numero: string; total: number; metodo?: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO"; baseUrl?: string },
+  opts: { expedienteId: string; numero: string; total: number; metodo?: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" | "OTRO"; baseUrl?: string },
 ): Promise<void> {
   try {
     const { data: expRaw } = await admin
@@ -874,11 +874,12 @@ export async function enviarConfirmacionPago(
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
-    const via = opts.metodo === "TARJETA" ? "con tarjeta" : opts.metodo === "EFECTIVO" ? "en efectivo" : "por transferencia";
+    // OTRO (Bizum, cheque…): no se inventa el medio — la frase queda sin coletilla.
+    const via = opts.metodo === "TARJETA" ? " con tarjeta" : opts.metodo === "EFECTIVO" ? " en efectivo" : opts.metodo === "OTRO" ? "" : " por transferencia";
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
 
     const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
-      <p style="margin:0">hemos recibido tu pago ${via} de la factura <strong>${opts.numero}</strong> (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.</p>`;
+      <p style="margin:0">hemos recibido tu pago${via} de la factura <strong>${opts.numero}</strong> (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.</p>`;
     const html = emailLayout({
       avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
       gestoria,

@@ -7,7 +7,6 @@ import { eur, totalDe } from "@/lib/facturas";
 import type { FacturaPago } from "@/lib/data/expedientes";
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { useT } from "@/components/lang-provider";
-import { confirmar } from "@/components/confirm-dialog";
 
 // Panneau Cobros du détail d'expediente : état de l'anticipo et du pago final.
 // • "Solicitar pago final" ouvre un popup de facture éditable (→ /api/pagos → émise + envoyée).
@@ -44,6 +43,9 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
   const [externo, setExterno] = useState(false); // abrir el popup con «cobro externo» marcado
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  // Elegir el método REAL al marcar pagada (hasta 01/09 grababa TRANSFERENCIA fijo).
+  // El propio selector hace de confirmación: un clic accidental solo lo abre.
+  const [eligiendoPago, setEligiendoPago] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Fraccionar en cuotas (pedido por Juan): N facturas mensuales en lugar del pago final.
   const [fracOpen, setFracOpen] = useState(false);
@@ -94,13 +96,13 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
     } finally { setFraccionando(false); }
   }
 
-  // Le gestor confirme avoir reçu le virement → la facture passe à PAGADA.
-  async function marcarPagada(id: string) {
-    if (!(await confirmar(t("¿Confirmas que has recibido el pago de esta factura?")))) return;
+  // Le gestor confirme avoir reçu le paiement → la facture passe à PAGADA avec son mode réel.
+  async function marcarPagada(id: string, metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO") {
+    setEligiendoPago(null);
     setConfirmando(true);
     setError(null);
     try {
-      const res = await fetch(`/api/facturas/${id}/pagada`, { method: "POST" });
+      const res = await fetch(`/api/facturas/${id}/pagada`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metodo }) });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo confirmar el pago.")); }
       router.refresh();
     } catch (err) {
@@ -127,7 +129,7 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
               ) : (
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V7l9-4 9 4v14" /><path d="M9 21v-6h6v6M9 10h.01M15 10h.01" /></svg>
               )}
-              {pago.metodoPago === "TARJETA" ? t("Pagado con tarjeta") : pago.metodoPago === "TRANSFERENCIA" ? t("Pagado por transferencia") : t("Pagado en efectivo")}
+              {pago.metodoPago === "TARJETA" ? t("Pagado con tarjeta") : pago.metodoPago === "TRANSFERENCIA" ? t("Pagado por transferencia") : pago.metodoPago === "OTRO" ? t("Pagado (otro método)") : t("Pagado en efectivo")}
             </p>
           )}
         </div>
@@ -147,12 +149,20 @@ export function CobrosPanel({ ocultarTitulo = false, ocultarCobroFuera = false,
       </div>
       {pago && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-          {pago.estado !== "PAGADA" && (
-            <button onClick={() => marcarPagada(pago.id)} disabled={confirmando} className="inline-flex items-center gap-1 text-xs font-semibold text-aproba-700 transition hover:underline disabled:opacity-60">
+          {pago.estado !== "PAGADA" && (eligiendoPago === pago.id ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-medium text-slate-500">{t("¿Cómo te ha pagado?")}</span>
+              {([["EFECTIVO", t("Efectivo")], ["TRANSFERENCIA", t("Transferencia")], ["TARJETA", t("Tarjeta")], ["OTRO", t("Otro")]] as const).map(([m, lbl]) => (
+                <button key={m} onClick={() => marcarPagada(pago.id, m)} disabled={confirmando} className="rounded-md border border-aproba-200 bg-aproba-50 px-2 py-1 font-semibold text-aproba-700 transition hover:bg-aproba-100 disabled:opacity-60">{lbl}</button>
+              ))}
+              <button onClick={() => setEligiendoPago(null)} className="px-1 py-1 text-slate-400 hover:text-slate-600">{t("Cancelar")}</button>
+            </span>
+          ) : (
+            <button onClick={() => setEligiendoPago(pago.id)} disabled={confirmando} className="inline-flex items-center gap-1 text-xs font-semibold text-aproba-700 transition hover:underline disabled:opacity-60">
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
               {confirmando ? t("Confirmando…") : t("Marcar como pagada (he recibido el pago)")}
             </button>
-          )}
+          ))}
           {pago.estado !== "PAGADA" && (
             <button onClick={() => setEditId(pago.id)} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-aproba-700 hover:underline">
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>

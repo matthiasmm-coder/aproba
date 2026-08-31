@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { marcarFacturaPagada } from "@/lib/cobros-tarjeta";
 import { enviarConfirmacionPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
-import { admiteEntregas, estaCubierta, saldoPendiente, r2, fetchEntregasDeFacturas } from "@/lib/entregas";
+import { metodoFactura, admiteEntregas, estaCubierta, saldoPendiente, r2, fetchEntregasDeFacturas } from "@/lib/entregas";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -82,13 +82,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const todas = [...previas, { importe }];
   let pagada = false;
   if (estaCubierta(Number(f.total), todas)) {
-    const r = await marcarFacturaPagada(admin, id, "TRANSFERENCIA");
+    // El método que consta es el de la entrega que SALDA la factura (la de este POST).
+    const r = await marcarFacturaPagada(admin, id, metodoFactura(fila.metodo as string));
     pagada = Boolean(r);
     if (r === "nuevo" && f.expedienteId) {
       try {
         await enviarConfirmacionPago(admin, {
           expedienteId: String(f.expedienteId), numero: String(f.numero),
-          total: Number(f.total), metodo: "TRANSFERENCIA", baseUrl: baseUrlFromRequest(req),
+          total: Number(f.total), metodo: metodoFactura(fila.metodo as string), baseUrl: baseUrlFromRequest(req),
         });
       } catch { /* la factura ya está pagada: el aviso es best-effort */ }
     }

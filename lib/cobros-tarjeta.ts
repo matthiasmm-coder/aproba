@@ -104,7 +104,7 @@ export function stripeConClave(key: string): Stripe {
 export async function marcarFacturaPagada(
   admin: SupabaseClient,
   facturaId: string,
-  metodo: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" = "TARJETA",
+  metodo: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" | "OTRO" = "TARJETA",
 ): Promise<"nuevo" | "ya" | null> {
   const { data: f } = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
   if (!f) return null;

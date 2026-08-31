@@ -11,6 +11,10 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // À la transition réelle, on envoie au client une confirmation de pago (sans IBAN).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Método real del cobro (elegido por el gestor al confirmar). Sin body o valor
+  // desconocido → TRANSFERENCIA, el comportamiento histórico.
+  const body = (await req.json().catch(() => ({}))) as { metodo?: string };
+  const metodo = (["EFECTIVO", "TRANSFERENCIA", "TARJETA", "OTRO"] as const).find((m) => m === body.metodo) ?? "TRANSFERENCIA";
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
@@ -21,10 +25,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (f.estado === "ANULADA") return NextResponse.json({ error: "La factura está anulada: no puede marcarse como pagada." }, { status: 409 });
 
   const admin = createSupabaseAdmin();
-  const r = await marcarFacturaPagada(admin, id, "TRANSFERENCIA");
+  const r = await marcarFacturaPagada(admin, id, metodo);
   if (!r) return NextResponse.json({ error: "No se pudo confirmar el pago." }, { status: 500 });
   if (r === "nuevo" && f.expedienteId) {
-    await enviarConfirmacionPago(admin, { expedienteId: String(f.expedienteId), numero: String(f.numero), total: Number(f.total), metodo: "TRANSFERENCIA", baseUrl: baseUrlFromRequest(req) });
+    await enviarConfirmacionPago(admin, { expedienteId: String(f.expedienteId), numero: String(f.numero), total: Number(f.total), metodo, baseUrl: baseUrlFromRequest(req) });
   }
   return NextResponse.json({ ok: true, estado: "PAGADA" });
 }

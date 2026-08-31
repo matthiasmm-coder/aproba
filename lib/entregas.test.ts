@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { totalEntregado, saldoPendiente, estaCubierta, admiteEntregas, r2 } from "./entregas";
+import { metodoFactura, totalEntregado, saldoPendiente, estaCubierta, admiteEntregas, r2 } from "./entregas";
 
 // El caso real: una factura de 363 € que el cliente paga 50 + 100 + 213.
 describe("entregas a cuenta", () => {
@@ -44,5 +44,19 @@ describe("entregas a cuenta", () => {
   it("redondea a 2 decimales (dinero, no flotantes)", () => {
     expect(r2(0.1 + 0.2)).toBe(0.3);
     expect(totalEntregado(e(0.1, 0.2))).toBe(0.3);
+  });
+});
+
+describe("metodoFactura — método real al saldar (fix 01/09/2026)", () => {
+  it("mapea cada método de entrega al metodoPago de la factura", () => {
+    expect(metodoFactura("efectivo")).toBe("EFECTIVO");
+    expect(metodoFactura("tarjeta")).toBe("TARJETA");
+    expect(metodoFactura("transferencia")).toBe("TRANSFERENCIA");
+    expect(metodoFactura("otro")).toBe("OTRO");
+  });
+  it("desconocido o ausente → TRANSFERENCIA (comportamiento histórico)", () => {
+    expect(metodoFactura("bizum")).toBe("TRANSFERENCIA");
+    expect(metodoFactura(null)).toBe("TRANSFERENCIA");
+    expect(metodoFactura(undefined)).toBe("TRANSFERENCIA");
   });
 });

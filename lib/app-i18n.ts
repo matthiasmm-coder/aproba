@@ -1574,6 +1574,8 @@ export const CA: Record<string, string> = {
   "Registrar cobro externo": "Registrar cobrament extern",
   "Efectivo": "Efectiu",
   "Transferencia": "Transferència",
+  "¿Cómo te ha pagado?": "Com t'ha pagat?",
+  "Pagado (otro método)": "Pagat (altre mètode)",
   "Registrar cobro (ya pagado)": "Registrar cobrament (ja pagat)",
   "Regístralo aquí (factura ya pagada)": "Registra'l aquí (factura ja pagada)",
   "Ya lo he cobrado fuera de la plataforma.": "Ja l'he cobrat fora de la plataforma.",

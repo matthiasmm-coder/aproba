@@ -52,8 +52,8 @@ export async function POST(req: Request) {
   if (!momento) {
     return NextResponse.json({ error: "momento (ANTICIPO|FINAL) requerido" }, { status: 400 });
   }
-  const cobroExterno = ["EFECTIVO", "TRANSFERENCIA", "TARJETA"].includes(String(body.cobroExterno))
-    ? (body.cobroExterno as "EFECTIVO" | "TRANSFERENCIA" | "TARJETA") : null;
+  const cobroExterno = ["EFECTIVO", "TRANSFERENCIA", "TARJETA", "OTRO"].includes(String(body.cobroExterno))
+    ? (body.cobroExterno as "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO") : null;
 
   const admin = createSupabaseAdmin();
 
@@ -319,7 +319,7 @@ export async function POST(req: Request) {
     expedienteId: exp.id,
     tipo: "COMENTARIO",
     descripcion: cobroExterno
-      ? `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · cobrada fuera de la plataforma (${cobroExterno.toLowerCase()})`
+      ? `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · cobrada fuera de la plataforma (${cobroExterno === "OTRO" ? "otro método" : cobroExterno.toLowerCase()})`
       : `📄 Factura ${numero} emitida (${momento === "ANTICIPO" ? "anticipo" : "pago final"}) · pendiente de pago por transferencia`,
   });
 

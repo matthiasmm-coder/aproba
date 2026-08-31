@@ -22,6 +22,13 @@ export const METODOS = [
 
 export const r2 = (n: number) => Math.round(n * 100) / 100;
 
+// Método de la entrega (minúsculas) → metodoPago de Factura (mayúsculas). Hasta el
+// 01/09/2026 el cierre por entregas grababa TRANSFERENCIA fijo: un cliente que saldaba
+// en efectivo acababa con «Pagado por transferencia» en un documento contable.
+export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO";
+export const metodoFactura = (m: string | null | undefined): MetodoPago =>
+  m === "efectivo" ? "EFECTIVO" : m === "tarjeta" ? "TARJETA" : m === "otro" ? "OTRO" : "TRANSFERENCIA";
+
 /** Suma de entregas de una factura. */
 export const totalEntregado = (entregas: { importe: number }[]): number =>
   r2(entregas.reduce((a, e) => a + Number(e.importe || 0), 0));

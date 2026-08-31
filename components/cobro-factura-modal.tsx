@@ -46,7 +46,7 @@ export function CobroFacturaModal({
   // Cobro EXTERNO (dinero ya recibido en mano/Bizum/TPV): la factura se emite PAGADA
   // con su método real y no se envía ninguna solicitud al cliente.
   const [externo, setExterno] = useState(externoInicial);
-  const [metodoExterno, setMetodoExterno] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA">("EFECTIVO");
+  const [metodoExterno, setMetodoExterno] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO">("EFECTIVO");
   const [tieneExpediente, setTieneExpediente] = useState(false); // solo se puede reenviar si la factura está ligada a un expediente (cliente con portal/email)
   const [forceAvanzada, setForceAvanzada] = useState(false); // editar una factura con líneas/suplidos usa el editor rico aunque el plan sea Starter (no perder datos)
   const avanzada = facturacionAvanzada(plan) || forceAvanzada;
@@ -172,6 +172,7 @@ export function CobroFacturaModal({
                       <option value="EFECTIVO">{t("Efectivo")}</option>
                       <option value="TRANSFERENCIA">{t("Transferencia")}</option>
                       <option value="TARJETA">{t("Tarjeta")}</option>
+                      <option value="OTRO">{t("Otro")}</option>
                     </select>
                   </label>
                 )}
