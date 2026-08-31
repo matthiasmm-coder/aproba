@@ -1,5 +1,6 @@
-// i18n du portail client (/j/[token]) — 5 langues, sans dépendance externe.
-// Le client choisit sa langue à la 1re étape. Le reste de l'app (gestor) reste en ES.
+// i18n du portail client (/j/[token]) — 8 langues, sans dépendance externe.
+// Le client choisit sa langue à la 1re étape. L'app gestor a son propre i18n
+// (lib/app-i18n, es/ca) — deux systèmes séparés, ne pas mélanger les clés.
 import { labelADocTipo } from "@/lib/tramites";
 import { EXTRA } from "@/lib/portal-i18n-extra";
 
