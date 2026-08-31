@@ -51,6 +51,148 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    slug: "nacionalidad-por-residencia-plazos-tasas-2026",
+    titulo: "Nacionalidad por residencia en 2026: plazos, tasas y por qué se atasca",
+    descripcion:
+      "299.732 concesiones en 2025 y 256.000 expedientes pendientes. Plazos por nacionalidad, coste real (790-026, CCSE, DELE) y los errores que retrasan el expediente.",
+    fecha: "2026-08-31",
+    tema: "Nacionalidad",
+    entradilla:
+      "La nacionalidad por residencia es el trámite que más ha crecido en los últimos años y el que peor fama tiene de plazos. Estos son los números oficiales, el coste real para el cliente y las tres cosas que hacen que un expediente tarde el doble.",
+    imagenAlt:
+      "Un pasaporte granate abierto sobre un escritorio de nogal, con una estela de luz verde que se eleva de sus páginas hacia un reloj de arena de latón cuya arena cae lentamente.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "En 2025, **299.732 personas** adquirieron la nacionalidad española: el dato más alto de toda la serie histórica del INE, un **18,7 % más** que el año anterior. Al mismo tiempo, el Ministerio de Justicia arrastra **más de 256.000 expedientes pendientes**. Las dos cifras juntas explican la experiencia real de cualquier despacho: nunca se han concedido tantas nacionalidades, y nunca se ha esperado tanto por cada una.",
+      },
+      { t: "h2", texto: "Cuántos años de residencia hacen falta" },
+      {
+        t: "p",
+        texto:
+          "El **artículo 22 del Código Civil** fija cuatro plazos. La diferencia entre ellos es enorme —de uno a diez años— y determinar cuál aplica es la primera decisión del expediente. La residencia debe ser **legal, continuada e inmediatamente anterior** a la solicitud: un periodo en situación irregular en medio rompe el cómputo.",
+      },
+      {
+        t: "tabla",
+        titulo: "Plazos de residencia exigidos (art. 22 CC)",
+        encabezados: ["Plazo", "A quién se aplica", "Nota práctica"],
+        filas: [
+          ["**10 años**", "Regla general", "El resto de nacionalidades sin trato preferente"],
+          ["**5 años**", "Refugiados con estatuto reconocido", "Cuenta desde el reconocimiento, no desde la solicitud de asilo"],
+          [
+            "**2 años**",
+            "Iberoamericanos, Andorra, Filipinas, Guinea Ecuatorial, Portugal y sefardíes",
+            "La vía mayoritaria: los nueve países iberoamericanos suman más de la mitad de las concesiones",
+          ],
+          [
+            "**1 año**",
+            "Nacidos en España; casados con español/a hace ≥1 año sin separación; viudos de español/a; tutelados por español/a o institución durante 2 años",
+            "El matrimonio debe estar vigente y sin separación legal ni de hecho",
+          ],
+        ],
+        nota: "En todos los casos se exige además buena conducta cívica y suficiente grado de integración en la sociedad española.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "37.712", etiqueta: "concesiones a colombianos en 2025, el primer país" },
+          { valor: "36.271", etiqueta: "a venezolanos, el segundo" },
+          { valor: "20.745", etiqueta: "a hondureños, el tercero" },
+        ],
+      },
+      { t: "h2", texto: "Lo que cuesta de verdad" },
+      {
+        t: "p",
+        texto:
+          "El cliente pregunta «cuánto es la tasa» y la respuesta honesta son **tres importes distintos**, dos de ellos ajenos a tu despacho. Conviene decírselos juntos desde la primera visita: la sorpresa a mitad de expediente es una de las causas más frecuentes de impago.",
+      },
+      {
+        t: "tabla",
+        titulo: "Coste para el solicitante (sin honorarios)",
+        encabezados: ["Concepto", "Importe", "Quién lo cobra", "Cuándo"],
+        filas: [
+          ["**Tasa 790-026**", "**104,05 €**", "Ministerio de Justicia", "Antes de presentar; el justificante va en el expediente"],
+          ["**Prueba CCSE**", "**85 €**", "Instituto Cervantes", "Incluye dos convocatorias si suspende o no se presenta"],
+          ["**DELE A2**", "Según nivel y país", "Instituto Cervantes", "Exentos los nacionales de países hispanohablantes"],
+        ],
+        nota: "Las dos pruebas del Cervantes no caducan a efectos de nacionalidad, pero sí conviene hacerlas antes de solicitar: sin ellas el expediente se presenta incompleto.",
+      },
+      {
+        t: "nota",
+        titulo: "Las exenciones que más se olvidan",
+        texto:
+          "Del **DELE** están exentos los nacionales de países donde el español es idioma oficial —es decir, casi toda la vía de los dos años—. Del **CCSE** están exentos los menores de edad y las personas con capacidad modificada judicialmente. Comprobar la exención antes de mandar al cliente a examinarse ahorra 85 € y varias semanas.",
+      },
+      { t: "h2", texto: "El plazo legal y el plazo real" },
+      {
+        t: "p",
+        texto:
+          "Justicia dispone de **un año** para resolver desde que el expediente entra completo. En la práctica, los plazos observados en 2026 se mueven entre **12 y 24 meses**, y la fase donde más se acumulan los expedientes es la de **calificación**. Transcurrido el año sin respuesta se produce **silencio administrativo negativo**: la solicitud se entiende denegada, lo que abre la vía del recurso contencioso-administrativo por inactividad — el instrumento habitual para desbloquear expedientes parados.",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Antes de solicitar", titulo: "Pruebas y tasa", texto: "CCSE y DELE aprobados (salvo exención) y tasa 790-026 pagada. Sin esto, el expediente nace incompleto." },
+          { fecha: "Día 0", titulo: "Presentación telemática", texto: "Se registra la solicitud con toda la documentación y el justificante de la tasa." },
+          { fecha: "Meses 1-6", titulo: "Instrucción", texto: "Se piden informes: antecedentes penales, CNI, padrón, Seguridad Social." },
+          { fecha: "Meses 6-18", titulo: "Calificación", texto: "La fase más lenta y donde se detiene la mayoría de los expedientes.", destacado: true },
+          { fecha: "Mes 12", titulo: "Vence el plazo legal", texto: "A partir de aquí cabe entender denegada la solicitud por silencio y recurrir por inactividad.", destacado: true },
+          { fecha: "Tras la concesión", titulo: "Jura en 180 días", texto: "Plazo de caducidad para jurar o prometer ante el Registro Civil. Si vence, la concesión decae." },
+        ],
+      },
+      { t: "h2", texto: "Las tres causas reales de retraso" },
+      {
+        t: "ol",
+        items: [
+          "**El cómputo de residencia mal hecho.** Un hueco entre una autorización y su renovación rompe la continuidad. Antes de solicitar, reconstruye el historial completo de autorizaciones: es más rápido que discutirlo después con la Administración.",
+          "**Los antecedentes penales del país de origen.** Deben estar legalizados o apostillados y traducidos, y muchos caducan a los tres o seis meses según el país. Pedirlos demasiado pronto obliga a repetirlos; demasiado tarde retrasa la presentación.",
+          "**El domicilio desactualizado.** Justicia notifica al domicilio del expediente. Una mudanza no comunicada convierte un requerimiento en una denegación por falta de respuesta, y eso ya no se arregla con una subsanación.",
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "Ninguna de las tres es un problema jurídico complejo: son problemas de seguimiento a lo largo de dos años. Por eso la nacionalidad castiga tanto al despacho que la lleva en carpetas y hojas de cálculo — y por eso conviene tratarla como [un expediente vivo con vencimientos](/articulos/errores-documentales-retrasan-expediente-extranjeria), no como un trámite que se presenta y se olvida.",
+      },
+      {
+        t: "nota",
+        titulo: "Por qué esto crece y va a seguir creciendo",
+        texto:
+          "Los dos años de residencia para iberoamericanos convierten cada permiso inicial en una futura solicitud de nacionalidad a corto plazo. Con [la ola de renovaciones de 2027](/articulos/renovaciones-2027-regularizacion-extraordinaria) llegando en paralelo, un despacho que hoy tramita residencias tendrá dentro de dos años una cartera de nacionalidades del mismo cliente. Merece la pena registrarlo desde ahora.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Cuánto cuesta la tasa de nacionalidad por residencia en 2026?",
+            a: "La tasa modelo 790 código 026 son 104,05 €. Se paga antes de presentar la solicitud y el justificante debe incorporarse al expediente: sin él, la Administración no evalúa la documentación.",
+          },
+          {
+            q: "¿Cuánto tarda la nacionalidad española por residencia?",
+            a: "El plazo legal es de un año desde la solicitud completa. En la práctica, en 2026 se observan resoluciones entre 12 y 24 meses, con la fase de calificación como principal cuello de botella.",
+          },
+          {
+            q: "¿Qué pasa si pasa un año y no me responden?",
+            a: "Se produce silencio administrativo negativo: la solicitud se entiende denegada. Esto abre la posibilidad de interponer recurso contencioso-administrativo por inactividad, que es la vía habitual para desbloquear expedientes paralizados.",
+          },
+          {
+            q: "¿Quién está exento del examen DELE?",
+            a: "Los nacionales de países o territorios donde el español es idioma oficial. Es decir, prácticamente toda la vía de los dos años de residencia (países iberoamericanos, Guinea Ecuatorial). Del CCSE están exentos los menores y las personas con capacidad modificada judicialmente.",
+          },
+          {
+            q: "¿Cuántos años de residencia necesita un iberoamericano?",
+            a: "Dos años de residencia legal, continuada e inmediatamente anterior a la solicitud (art. 22 CC), frente a los diez de la regla general. El mismo plazo se aplica a nacionales de Andorra, Filipinas, Guinea Ecuatorial, Portugal y a los sefardíes.",
+          },
+          {
+            q: "¿Qué ocurre si no juro la nacionalidad a tiempo?",
+            a: "La concesión caduca. Hay 180 días desde la notificación para jurar o prometer ante el Registro Civil; superado el plazo sin causa justificada, la resolución pierde efecto y hay que volver a empezar.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: "honorarios-extranjeria-cuanto-cobrar-2026",
     titulo: "Honorarios de extranjería en 2026: cuánto cobrar por cada trámite",
     descripcion:
