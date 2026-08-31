@@ -636,7 +636,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
             </ul>
           </div>
           {esPrueba ? (
-            <p className="text-sm text-slate-500"><strong className="text-slate-700">{t("Prueba gratis de 1 mes, sin tarjeta.")}</strong> {t("Al terminar el mes, podrás suscribirte para seguir usando Aproba.")}</p>
+            <p className="text-sm text-slate-500"><strong className="text-slate-700">{t("Prueba gratis de 15 días, sin tarjeta.")}</strong> {t("Al terminar la prueba, podrás suscribirte para seguir usando Aproba.")}</p>
           ) : (
             <p className="text-sm text-slate-500">{t("Para empezar tu")} <strong className="text-slate-700">{t("prueba de 15 días")}</strong> {t("te pediremos una tarjeta. No se cobra nada hasta el final de la prueba, y puedes cancelar cuando quieras.")}</p>
           )}
