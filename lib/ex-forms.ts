@@ -399,10 +399,15 @@ export async function rellenarOficial(
   const estampar = (pos: Pos | undefined, txt: string, size = 9, key = "campo") => {
     if (!pos) return;
     const pg = pages[pos.page ?? 0];
-    if (!pg || !txt) return;
+    if (!pg) return;
+    // Sin valor: en PDF plano no se dibuja nada, pero en modo EDITABLE se crea igualmente
+    // la casilla vacía — si no, un dato ausente en la ficha deja una línea donde el gestor
+    // NO puede escribir (petición de Juan, 01/09/2026). Las marcas X no se crean vacías.
+    if (!txt && (!editable || !form || key === "sexo" || key === "ec")) return;
     const sz = pos.size ?? size;
     if (!editable || !form) { pg.drawText(txt, { x: pos.x, y: pos.y, size: sz, font, color: TINTA }); return; }
     const esMarca = txt === "X" && !(key in ANCHO);
+    if (!txt && esMarca) return;
     if (esMarca) marcasPuestas.add(`${pos.page ?? 0}:${Math.round(pos.x)},${Math.round(pos.y)}`);
     // y-3 / alto sz+5: realinea la caja del campo con la línea base del drawText plano.
     crearCampo(pg, `f_${key}`, {

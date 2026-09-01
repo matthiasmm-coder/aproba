@@ -48,6 +48,11 @@ export const FICHA_CAMPOS: { k: keyof ClienteFicha; label: string; grupo: "Ident
   { k: "paisNacimiento", label: "País de nacimiento", grupo: "Identidad", w: "half" },
   { k: "numeroDocumento", label: "NIE", grupo: "Identidad", w: "half" },
   { k: "pasaporte", label: "Pasaporte / doc. de identidad", grupo: "Identidad", w: "half" },
+  // Padre y madre: los modelos EX los piden (EX-18 y todos los vectoriales los mapean) y
+  // `camposQueFaltan` ya avisaba de su ausencia — pero no había DÓNDE escribirlos salvo
+  // el portal o una importación. Petición de Juan (01/09/2026): el gestor los teclea aquí.
+  { k: "nombrePadre", label: "Nombre del padre", grupo: "Identidad", w: "half" },
+  { k: "nombreMadre", label: "Nombre de la madre", grupo: "Identidad", w: "half" },
   { k: "via", label: "Domicilio (calle, plaza…)", grupo: "Domicilio", w: "full", ac: "street-address" },
   { k: "numeroVia", label: "Número", grupo: "Domicilio", w: "half", inputMode: "numeric" },
   { k: "piso", label: "Piso / puerta", grupo: "Domicilio", w: "half" },
@@ -88,8 +93,5 @@ export function camposQueFaltan(ficha: Partial<ClienteFicha> | null | undefined)
   }
   // Documento: el formulario pide NIE y/o pasaporte; con uno de los dos no se avisa.
   if (vacio("numeroDocumento") && vacio("pasaporte")) faltan.push("NIE o pasaporte");
-  // Padre y madre no están en FICHA_CAMPOS (se rellenan en la ficha ampliada).
-  if (vacio("nombrePadre")) faltan.push("Nombre del padre");
-  if (vacio("nombreMadre")) faltan.push("Nombre de la madre");
   return faltan;
 }

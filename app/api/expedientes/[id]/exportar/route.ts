@@ -128,7 +128,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           for (const code of (pmZip ? (pmZip[s.id] ?? []) : generados)) {
             try {
               const { datos, extra: ex } = formularioParaMiembro(code, datosTitular, s.datos, s.fechaNacimiento);
-              const b = await rellenarOficial(code, datos, tramiteDe(code), ex);
+              const b = await rellenarOficial(code, datos, tramiteDe(code), ex, { editable: true });
               if (b) add(`formularios/${nombreSeguro(code)}_${nombreSeguro(s.nombre)}.pdf`, b);
             } catch (e) { console.error("[exportar] oficial", code, s.id, e instanceof Error ? e.message : e); }
           }
@@ -136,7 +136,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       } else {
         for (const code of generados) {
           try {
-            const b = await rellenarOficial(code, datosTitular, tramiteDe(code));
+            const b = await rellenarOficial(code, datosTitular, tramiteDe(code), undefined, { editable: true });
             if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
           } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
         }

@@ -123,3 +123,36 @@ describe("EX-10 (AcroForm) · los datos se escriben en sus casillas", () => {
     expect(read(mapa.texto.pasaporte)).toBe("AY0429317");
   });
 });
+
+// ── Petición de Juan (01/09/2026): poder escribir en los campos que la ficha deja vacíos.
+// Antes, `estampar` salía en seco si no había valor → ninguna casilla que rellenar, ni
+// siquiera en modo editable. El PDF PLANO debe seguir sin dibujar nada.
+describe("modo editable · campos vacíos", () => {
+  const SIN_PADRES = { ...SAMPLE, nombrePadre: "", nombreMadre: "" };
+
+  it("crea la casilla del padre aunque la ficha esté vacía", async () => {
+    const editable = await rellenarOficial("EX-18", SIN_PADRES, undefined, undefined, { editable: true });
+    const conDatos = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    expect(editable).toBeTruthy();
+    const pdf = await PDFDocument.load(editable!);
+    const nombres = pdf.getForm().getFields().map((f) => f.getName());
+    expect(nombres).toContain("f_nombrePadre");
+    expect(nombres).toContain("f_nombreMadre");
+    // y el caso con datos sigue funcionando igual
+    const conPdf = await PDFDocument.load(conDatos!);
+    expect(conPdf.getForm().getTextField("f_nombrePadre").getText()).toBe("CARLOS MENDOZA");
+  });
+
+  it("el PDF plano no gana campos ni dibuja nada por un dato vacío", async () => {
+    const plano = await rellenarOficial("EX-18", SIN_PADRES);
+    const pdf = await PDFDocument.load(plano!);
+    expect(pdf.getForm().getFields().length).toBe(0);
+  });
+
+  it("una marca (sexo/estado civil) sin valor NO crea casilla", async () => {
+    const sinSexo = await rellenarOficial("EX-18", { ...SAMPLE, sexo: "", estadoCivil: "" }, undefined, undefined, { editable: true });
+    const nombres = (await PDFDocument.load(sinSexo!)).getForm().getFields().map((f) => f.getName());
+    expect(nombres.some((n) => n.startsWith("f_sexo"))).toBe(false);
+    expect(nombres.some((n) => n.startsWith("f_ec"))).toBe(false);
+  });
+});
