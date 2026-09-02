@@ -28,6 +28,11 @@ const SAMPLE: DatosForm = {
 } as DatosForm;
 
 const esRelleno = (ch: string) => /[.…_·\s□☐▯-]/.test(ch);
+// Un « / » ISOLÉ entre deux tramos de points (« …../…../…… ») est un SÉPARATEUR de
+// créneau, pas un mot : le champ du jour doit pouvoir mordre dessus, sinon Aperçu rogne
+// le second chiffre (seuil mesuré : largeur 14). Un « / » à l'intérieur d'un mot
+// (« DNI/NIE/PAS », « UE/EEE/Suiza ») reste protégé, car il n'est jamais isolé.
+const esSeparador = (tramo: string) => tramo === "/";
 // Helvetica estándar (WinAnsi) no sabe medir «□» y compañía: se sustituyen por un
 // espacio ANTES de medir. Son caracteres de relleno, así que no falsean el cálculo.
 const medible = (s: string) => s.replace(/[^\u0000-\u00ff\u2026\u2018-\u201d\u20ac]/g, " ");
@@ -64,7 +69,8 @@ describe("ningún campo editable tapa una palabra impresa", () => {
             if (!dentro && ini >= 0) {
               const a = x0 + font.widthOfTextAtSize(m.slice(0, ini), talla);
               const b = x0 + font.widthOfTextAtSize(m.slice(0, k), talla);
-              palabras.push({ p: p - 1, x: a, y: i.transform[5], w: b - a, s: s.slice(ini, k) });
+              const tramo = s.slice(ini, k);
+              if (!esSeparador(tramo)) palabras.push({ p: p - 1, x: a, y: i.transform[5], w: b - a, s: tramo });
               ini = -1;
             }
           }

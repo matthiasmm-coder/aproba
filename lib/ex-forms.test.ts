@@ -308,3 +308,59 @@ describe("EX-18 · les dates entrent en entier et tombent sur la ligne", () => {
     expect(Math.abs(r.y - (197.2 - 3.7))).toBeLessThan(0.3);
   });
 });
+
+// Le /DA doit vivre sur le WIDGET, pas seulement sur le champ (mesuré au banc PDFKit
+// le 02/09/2026). Aperçu n'hérite pas le /DA du /Parent : sans lui il rend TOUT en
+// Helvetica 12 pt, et « 2026 » (26,7 pt) se fait rogner en « 202 » dans un créneau de
+// 24 pt. Chrome, lui, hérite — d'où un défaut invisible selon le lecteur.
+describe("modo editable · el /DA viaja en el widget", () => {
+  it("cada campo nuestro lleva su /DA en la anotación, en UNA sola línea", async () => {
+    const { PDFName } = await import("pdf-lib");
+    const bytes = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(bytes!)).getForm();
+    const sin: string[] = [];
+    for (const f of form.getFields()) {
+      const n = f.getName();
+      if (!/^[fbm]_/.test(n)) continue;
+      for (const w of f.acroField.getWidgets()) {
+        const da = w.dict.get(PDFName.of("DA"));
+        const txt = da ? String(da) : "";
+        // présent, avec une taille, et sans saut de ligne (PDFKit décroche sinon)
+        if (!/\/\S+\s+[\d.]+\s+Tf/.test(txt)) sin.push(`${n}: /DA ausente o sin talla`);
+        else if (/[\r\n]/.test(txt)) sin.push(`${n}: /DA en varias líneas`);
+      }
+    }
+    expect(sin).toEqual([]);
+  });
+
+  it("la talla del widget coincide con la declarada en el campo", async () => {
+    const { PDFName } = await import("pdf-lib");
+    const bytes = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(bytes!)).getForm();
+    const talla = (s: string) => Number((/\/\S+\s+([\d.]+)\s+Tf/.exec(s) ?? [])[1] ?? -1);
+    for (const n of ["b_fecha_inicio_a", "b_lf_ano", "b_periodo_previsto"]) {
+      const f = form.getField(n);
+      const campo = talla(String(f.acroField.getDefaultAppearance() ?? ""));
+      const widget = talla(String(f.acroField.getWidgets()[0].dict.get(PDFName.of("DA")) ?? ""));
+      expect(widget).toBe(campo);
+      expect(widget).toBeGreaterThan(0);
+    }
+  });
+
+  it("los créneaux de fecha admiten su valor máximo en Aperçu (regla ancho − 6)", async () => {
+    const bytes = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(bytes!)).getForm();
+    // Umbral medido en el motor real: recorta si anchoTexto > ancho − 6.
+    const casos: [string, string, number][] = [
+      ["b_fecha_inicio_d", "31", 7], ["b_fecha_inicio_m", "12", 7],
+      ["b_fecha_inicio_a", "2026", 7], ["b_lf_ano", "2026", 9],
+    ];
+    const malos: string[] = [];
+    for (const [n, val, size] of casos) {
+      const r = form.getField(n).acroField.getWidgets()[0].getRectangle();
+      const necesario = val.length * size * 0.556 + 6;
+      if (r.width < necesario) malos.push(`${n}: ${r.width} < ${necesario.toFixed(1)} para «${val}»`);
+    }
+    expect(malos).toEqual([]);
+  });
+});

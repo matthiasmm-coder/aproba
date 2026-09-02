@@ -2,7 +2,7 @@ import "server-only";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb, TextAlignment } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, TextAlignment, PDFName, PDFString, type PDFForm } from "pdf-lib";
 import type { DatosForm } from "./formularios";
 
 // Remplissage des PDF officiels EX avec les données de l'expediente. Deux modes :
@@ -277,11 +277,11 @@ const P2_BLANKS: Record<string, Blank[]> = {
     // « PERÍODO PREVISTO … » : les points vont de 230,9 à 323,9 (demande de Juan).
     t2("periodo_previsto", 233, 707.6, 88),
     // « FECHA DE INICIO … (2) …../…../…… » : TROIS créneaux, comme l'imprimé.
-    // Les créneaux imprimés sont minuscules et les lecteurs PDF rognent plus tôt que
-    // notre propre rendu : l'année sortait « 202 ». L'année est donc élargie vers la
-    // droite (rien d'imprimé après), et le jour/mois passent en corps 6,5 — le « / »
-    // imprimé interdit de les élargir.
-    t2("fecha_inicio_d", 509, 707.6, 11.5, 6.5), t2("fecha_inicio_m", 522.6, 707.6, 11.5, 6.5), t2("fecha_inicio_a", 536.2, 707.6, 24, 7),
+    // Aperçu rogne dès que la valeur dépasse (largeur − 6) : seuil mesuré au banc
+    // PDFKit, w=13 perd un chiffre, w=14 passe. Les boîtes du jour et du mois mordent
+    // donc de 2 pt sur le « / » imprimé — invisible (champ sans bordure), et le glyphe
+    // rendu reste dans son créneau. Le corps 6,5 était illusoire : PDFKit arrondit à 7.
+    t2("fecha_inicio_d", 509, 707.6, 14, 7), t2("fecha_inicio_m", 522.6, 707.6, 14, 7), t2("fecha_inicio_a", 536.2, 707.6, 24, 7),
     t2("n_familiares", 366, 686.9, 84),
     t2("ue_documento", 266, 586.4, 113),
     t2("ue_vinculo", 258, 573.2, 121),
@@ -406,6 +406,27 @@ export function formulariosDelTramite(tipoEnum: string, claves?: string | (strin
 // y la p.2 de EX-15/17/18 recibe campos VACÍOS para escribir (casillas, especificar…).
 // La descarga del CLIENTE y el ZIP siguen planos (sin opts) — un PDF manipulable no
 // debe salir del despacho hacia el cliente.
+
+// ── Sceller le /DA sur le WIDGET, pas seulement sur le champ ────────────────────────
+// Aperçu (PDFKit) n'hérite PAS le /DA du /Parent : sans /DA sur l'annotation elle-même,
+// il retombe sur Helvetica 12 pt pour TOUS les champs. À 12 pt « 2026 » fait 26,7 pt et
+// se fait rogner en « 202 » dans un créneau de 24 pt — le défaut vu par Matthias le
+// 02/09/2026. Chrome, lui, hérite correctement : d'où un bug invisible selon le lecteur.
+// Le /DA doit tenir sur UNE SEULE LIGNE : pdf-lib l'écrit « rg\n/Helvetica 7 Tf » et le
+// saut de ligne casse la lecture par PDFKit (taille ET couleur).
+// À appeler APRÈS updateFieldAppearances, qui réécrit sinon ce qu'on vient de poser.
+function sellarDA(form: PDFForm) {
+  for (const f of form.getFields()) {
+    if (!/^[fbm]_/.test(f.getName())) continue; // seulement NOS champs
+    const da = f.acroField.getDefaultAppearance?.();
+    const m = da?.match(/\/([A-Za-z0-9#_+-]+)\s+([\d.]+)\s+Tf/);
+    if (!m) continue;
+    const linea = `/${m[1]} ${m[2]} Tf 0.06 0.09 0.28 rg`;
+    f.acroField.setDefaultAppearance(linea);
+    for (const w of f.acroField.getWidgets()) w.dict.set(PDFName.of("DA"), PDFString.of(linea));
+  }
+}
+
 export async function rellenarOficial(
   code: string, datos: DatosForm, tramite?: string,
   extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm },
@@ -447,6 +468,7 @@ export async function rellenarOficial(
       }
     }
     try { form.updateFieldAppearances(); } catch { /* ignore */ }
+    if (opts?.editable) sellarDA(form);
     return pdf.save();
   }
 
@@ -574,6 +596,7 @@ export async function rellenarOficial(
       crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h: b.h ?? 14, size: b.size ?? 9, centrar: b.centrar });
     }
     try { form.updateFieldAppearances(font); } catch { /* ignore */ }
+    sellarDA(form);
   }
   return pdf.save();
 }
