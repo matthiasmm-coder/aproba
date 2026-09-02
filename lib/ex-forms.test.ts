@@ -250,29 +250,33 @@ describe("modo editable · casillas de marca y secciones 2/3", () => {
   });
 });
 
-// Centres RELEVÉS des carrés sexo/estado civil de l'EX-18 (règle graduée, 02/09/2026).
-// Avant, les positions venaient d'une heuristique « fin du libellé + n » : juste pour
-// certaines cases, ratée pour d'autres — la croix touchait le bord (M et Sp notamment).
+// Centres des cadres sexo/estado civil de l'EX-18 MESURÉS AU RASTER (rendu 8 px/pt du
+// modèle vierge, 02/09/2026). Ce sont des cadres de 13×15 pt, pas des « □ » de 7 pt.
+// Avant, les positions venaient d'une heuristique « fin du libellé + n » : jusqu'à 8,6 pt
+// de travers sur d'autres modèles (la croix « M » de l'EX-17 sortait du cadre), et même
+// ici 1 à 2 pt trop bas — la hauteur n'avait jamais été mesurée.
 describe("EX-18 · marcas centradas sobre el cuadrado impreso", () => {
-  const CENTROS = { sexo: { X: 472.8, H: 507.4, M: 538.2 }, ec: { S: 415.8, C: 444.4, V: 473.2, D: 502.1, Sp: 529.5 } };
+  const CENTROS = { sexo: { X: [472.8, 608.5], H: [507.6, 608.5], M: [538.2, 608.5] }, ec: { S: [415.8, 571.5], C: [444.5, 571.5], V: [473, 571.5], D: [502.2, 571.5], Sp: [529.3, 571.5] } };
 
-  it("cada casilla editable cae en el centro medido (±1 pt)", async () => {
+  it("cada casilla editable cae en el centro medido (±1 pt, en x y en y)", async () => {
     const b = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
     const form = (await PDFDocument.load(b!)).getForm();
     for (const [grupo, mapa] of Object.entries(CENTROS)) {
-      for (const [k, centro] of Object.entries(mapa)) {
+      for (const [k, [cx, cy]] of Object.entries(mapa)) {
         const r = form.getField(`m_${grupo}_${k}`).acroField.getWidgets()[0].getRectangle();
-        expect(Math.abs(r.x + r.width / 2 - centro)).toBeLessThan(1);
+        expect(Math.abs(r.x + r.width / 2 - cx)).toBeLessThan(1);
+        expect(Math.abs(r.y + r.height / 2 - cy)).toBeLessThan(1);
       }
     }
   });
 
   it("en PDF plano la aspa también se dibuja centrada", async () => {
-    // La posición de dibujo es el centro menos la mitad óptica de la « X » (3,35).
+    // La posición de dibujo es el centro menos la mitad óptica de la « X » (3,35 / 3,6).
     const { FORMS } = await import("./ex-forms");
-    const m = FORMS["EX-18"] as { sexoMarks: Record<string, { x: number }>; estadoCivilMarks: Record<string, { x: number }> };
-    expect(Math.abs(m.sexoMarks.M.x + 3.35 - CENTROS.sexo.M)).toBeLessThan(0.1);
-    expect(Math.abs(m.estadoCivilMarks.Sp.x + 3.35 - CENTROS.ec.Sp)).toBeLessThan(0.1);
+    const m = FORMS["EX-18"] as { sexoMarks: Record<string, { x: number; y: number }>; estadoCivilMarks: Record<string, { x: number; y: number }> };
+    expect(Math.abs(m.sexoMarks.M.x + 3.35 - CENTROS.sexo.M[0])).toBeLessThan(0.1);
+    expect(Math.abs(m.sexoMarks.M.y + 3.6 - CENTROS.sexo.M[1])).toBeLessThan(0.1);
+    expect(Math.abs(m.estadoCivilMarks.Sp.x + 3.35 - CENTROS.ec.Sp[0])).toBeLessThan(0.1);
   });
 });
 
@@ -282,7 +286,7 @@ describe("EX-18 · marcas centradas sobre el cuadrado impreso", () => {
 describe("EX-18 · les dates entrent en entier et tombent sur la ligne", () => {
   const anchoHelv = (txt: string, size: number) => txt.length * size * 0.556; // chiffres Helvetica
   const CASOS: [string, string, number][] = [
-    ["b_fecha_inicio_d", "31", 6.5], ["b_fecha_inicio_m", "12", 6.5], ["b_fecha_inicio_a", "2026", 7],
+    ["b_fecha_inicio_d", "31", 7], ["b_fecha_inicio_m", "12", 7], ["b_fecha_inicio_a", "2026", 7],
     ["b_lf_dia", "31", 9], ["b_lf_ano", "2026", 9],
   ];
 
@@ -299,13 +303,13 @@ describe("EX-18 · les dates entrent en entier et tombent sur la ligne", () => {
   });
 
   it("la boîte se cale sur la ligne imprimée, pas au-dessus", async () => {
-    // Ligne imprimée « ……, a … de … de … » : base à y=197,2 sur l'EX-18.
+    // Ligne imprimée « ……, a … de … de … » : encre des points à 198,1 sur l'EX-18 → base 200,1.
     const b = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
     const form = (await PDFDocument.load(b!)).getForm();
     const r = form.getField("b_lf_lugar").acroField.getWidgets()[0].getRectangle();
-    // Le texte se dessine ~3,7 pt au-dessus du bas de la boîte : la boîte doit donc
-    // commencer 3,7 pt SOUS la ligne imprimée pour que les deux coïncident.
-    expect(Math.abs(r.y - (197.2 - 3.7))).toBeLessThan(0.3);
+    // Le texte se dessine ~4 pt au-dessus du bas de la boîte (3,77 pdf-lib / 4,2 Aperçu) :
+    // la boîte commence donc 4 pt SOUS la ligne de base visée (haut des points + 2).
+    expect(Math.abs(r.y - (200.1 - 4))).toBeLessThan(0.3);
   });
 });
 

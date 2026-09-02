@@ -35,13 +35,19 @@ const esRelleno = (ch: string) => /[.…_·\s□☐▯-]/.test(ch);
 const esSeparador = (tramo: string) => tramo === "/";
 // Helvetica estándar (WinAnsi) no sabe medir «□» y compañía: se sustituyen por un
 // espacio ANTES de medir. Son caracteres de relleno, así que no falsean el cálculo.
-const medible = (s: string) => s.replace(/[^\u0000-\u00ff\u2026\u2018-\u201d\u20ac]/g, " ");
+// Le carré « □ » fait ~0,72 em (7,2 pt à 10 pt) : mesuré comme une espace (0,28 em), tout
+// ce qui le suit sur la ligne serait estimé 4-5 pt trop à gauche (« □ Menor de 18 años »).
+const medible = (s: string) => s.replace(/[□☐▯]/g, "H").replace(/[^\u0000-\u00ff\u2026\u2018-\u201d\u20ac]/g, " ");
 const nuestro = (n: string) => /^(f_|b_|m_)/.test(n);
 
 describe("ningún campo editable tapa una palabra impresa", () => {
   for (const code of formulariosOficiales().sort()) {
     it(`${code}`, async () => {
-      const bytes = await rellenarOficial(code, SAMPLE, undefined, undefined, { editable: true });
+      // Blocs secondaires (EX-02 reagrupado, EX-31/32 menor) : sans `extra` ils n'existent
+      // pas, et leurs cases NIE mordaient les tirets sans que personne le voie (02/09/2026).
+      const extra = code === "EX-02" ? { reagrupado: SAMPLE, menorRepresentado: true }
+        : code === "EX-31" || code === "EX-32" ? { padreTutor: SAMPLE } : undefined;
+      const bytes = await rellenarOficial(code, SAMPLE, undefined, extra, { editable: true });
       expect(bytes).toBeTruthy();
 
       const medidor = await PDFDocument.create();
