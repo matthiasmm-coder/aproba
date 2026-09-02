@@ -49,7 +49,11 @@ function vec(
   // au ruban sur le PDF. Sans eux, on retombe sur l'heuristique « fin du libellé + n »,
   // qui vise juste pour certaines cases et rate les autres (la croix touchait le bord).
   ov?: { fx?: [number, number, number]; pisoX?: number; nie?: [number, number, number, number, number];
-         marcas?: { sexo: [number, number, number]; ec: [number, number, number, number, number] } },
+         marcas?: { sexo: [number, number, number]; ec: [number, number, number, number, number] };
+         // Bornes mesurées là où la boîte d'un champ mordait un libellé imprimé
+         // (défauts antérieurs : « Nº » contre « Piso », « fechaA » contre « Lugar »,
+         // « provincia » contre son propre libellé sur l'EX-15).
+         limites?: { numeroW?: number; fechaAW?: number; provinciaX?: number } },
 ): MapaOverlay {
   // La case suit son libellé : X ≈ fin du libellé + bord de case (+11 lettre seule, +16 « Sp », +20 « X * »).
   const y = (v: number) => v - 1;
@@ -70,12 +74,12 @@ function vec(
       nie3: { x: s2b + 3, y: t.P, w: 28 },
       apellido1: { x: 115, y: t.A }, apellido2: { x: 410, y: t.A },
       nombre: { x: 92, y: t.N },
-      fechaD: { x: fx[0], y: t.F }, fechaM: { x: fx[1], y: t.F }, fechaA: { x: fx[2], y: t.F },
+      fechaD: { x: fx[0], y: t.F }, fechaM: { x: fx[1], y: t.F }, fechaA: { x: fx[2], y: t.F, w: ov?.limites?.fechaAW ?? 38 },
       lugarNac: { x: 262, y: t.F }, paisNac: { x: 458, y: t.F },
       nacionalidad: { x: 115, y: t.NAC },
       nombrePadre: { x: pm[1] + 92, y: pm[0] }, nombreMadre: { x: pm[2] + 90, y: pm[0] },
-      domicilio: { x: 150, y: t.D }, numero: { x: 498, y: t.D }, piso: { x: ov?.pisoX ?? 540, y: t.D },
-      localidad: { x: 105, y: t.L }, cp: { x: 360, y: t.L }, provincia: { x: 460, y: t.L },
+      domicilio: { x: 150, y: t.D }, numero: { x: 498, y: t.D, w: ov?.limites?.numeroW ?? 18 }, piso: { x: ov?.pisoX ?? 540, y: t.D },
+      localidad: { x: 105, y: t.L }, cp: { x: 360, y: t.L }, provincia: { x: ov?.limites?.provinciaX ?? 460, y: t.L },
       telefono: { x: 128, y: t.T }, email: { x: 305, y: t.T },
     },
     sexoMarks: {
@@ -95,10 +99,10 @@ function vec(
 
 export const FORMS: Record<string, Mapa> = {
   // ── Modèles vectoriels (overlay) — positions relevées via pdfjs ────────────
-  "EX-31": vec({ P: 687, A: 670, N: 649, F: 631, NAC: 613, D: 577, L: 559, T: 541 }, [651, 461, 501, 525], [612, 404, 433, 461, 490, 519], [594, 56, 305], { fx: [152, 179, 205], pisoX: 547 , nie: [327, 359.4, 363.8, 513.5, 515.7] }),
-  "EX-02": vec({ P: 687, A: 670, N: 652, F: 631, NAC: 616, D: 580, L: 562, T: 544 }, [651, 336, 372, 400], [615, 396, 424, 452, 483, 512], [597, 51, 297], { nie: [325.4, 357.1, 359.3, 505.8, 508] }),
+  "EX-31": vec({ P: 687, A: 670, N: 649, F: 631, NAC: 613, D: 577, L: 559, T: 541 }, [651, 461, 501, 525], [612, 404, 433, 461, 490, 519], [594, 56, 305], { fx: [152, 179, 205], pisoX: 547 , nie: [327, 359.4, 363.8, 513.5, 515.7] , limites: { numeroW: 24, fechaAW: 26 } }),
+  "EX-02": vec({ P: 687, A: 670, N: 652, F: 631, NAC: 616, D: 580, L: 562, T: 544 }, [651, 336, 372, 400], [615, 396, 424, 452, 483, 512], [597, 51, 297], { nie: [325.4, 357.1, 359.3, 505.8, 508] , limites: { numeroW: 14 } }),
   "EX-03": vec({ P: 687, A: 669, N: 651, F: 630, NAC: 615, D: 579, L: 561, T: 543 }, [651, 458, 495, 519], [615, 399, 427, 456, 485, 514], [597, 51, 300]),
-  "EX-15": vec({ P: 669, A: 651, N: 633, F: 612, NAC: 597, D: 561, L: 543, T: 525 }, [633, 468, 502, 526], [597, 406, 434, 463, 492, 521], [579, 51, 307], { pisoX: 553 , nie: [328.5, 360.8, 365.2, 514.9, 517.1] }),
+  "EX-15": vec({ P: 669, A: 651, N: 633, F: 612, NAC: 597, D: 561, L: 543, T: 525 }, [633, 468, 502, 526], [597, 406, 434, 463, 492, 521], [579, 51, 307], { pisoX: 553 , nie: [328.5, 360.8, 365.2, 514.9, 517.1] , limites: { numeroW: 31, provinciaX: 466 } }),
   "EX-17": vec({ P: 642, A: 624, N: 606, F: 585, NAC: 570, D: 531, L: 513, T: 495 }, [606, 459, 495, 519], [570, 399, 427, 456, 485, 514], [549, 51, 300]),
   "EX-01": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510] }),
   // Autorización de regreso — pedido por el 1er cliente real (Juan, 2026-07). Layout estándar.
@@ -109,7 +113,7 @@ export const FORMS: Record<string, Mapa> = {
   "EX-23": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 569, D: 532, L: 514, T: 496 }, [604, 460, 495, 519], [569, 399, 427, 456, 485, 514], [550, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510] }),
   "EX-26": vec({ P: 677, A: 660, N: 641, F: 620, NAC: 604, D: 567, L: 549, T: 531 }, [639, 458, 495, 519], [604, 399, 427, 456, 485, 514], [586, 51, 300]),
   // EX-32 (7 pág., familia DA): etiquetas desplazadas +5 (x=56); fecha/piso a calibrar al render.
-  "EX-32": vec({ P: 672, A: 655, N: 635, F: 615, NAC: 599, D: 562, L: 544, T: 526 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [580, 56, 305], { fx: [152, 179, 205], pisoX: 546 , nie: [327, 359.4, 363.8, 513.5, 515.7] }),
+  "EX-32": vec({ P: 672, A: 655, N: 635, F: 615, NAC: 599, D: 562, L: 544, T: 526 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [580, 56, 305], { fx: [152, 179, 205], pisoX: 546 , nie: [327, 359.4, 363.8, 513.5, 515.7] , limites: { numeroW: 24, fechaAW: 26 } }),
 
   // ── EX-10 : AcroForm (noms trompeurs, mapping par probe visuel) ─────────────
   "EX-10": {
