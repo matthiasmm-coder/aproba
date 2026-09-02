@@ -306,10 +306,12 @@ const P2_BLANKS: Record<string, Blank[]> = {
 // 4 campos vacíos (lugar / día / mes / año) sobre los tramos punteados, SOLO en modo editable.
 // `corto`: EX-02 a une ligne 7,3 pt plus courte (un « … » de moins dans le tramo du
 // lieu) — tout ce qui suit la virgule est donc décalé d'autant vers la gauche.
+// Valeurs EXACTES relevées par probe (pas arrondies) : l'arrondi à l'entier coûtait
+// jusqu'à 0,4 pt, ce qui dominait une fois l'alignement réglé au dixième de point.
 const LUGAR_FECHA: Record<string, { x0: number; y: number; corto?: boolean }> = {
-  "EX-02": { x0: 260, y: 209, corto: true }, "EX-10": { x0: 282, y: 87 }, "EX-15": { x0: 256, y: 334 },
-  "EX-17": { x0: 256, y: 491 }, "EX-18": { x0: 256, y: 197 }, "EX-19": { x0: 256, y: 305 },
-  "EX-31": { x0: 282, y: 539 }, "EX-32": { x0: 282, y: 446 },
+  "EX-02": { x0: 259.7, y: 208.6, corto: true }, "EX-10": { x0: 282.1, y: 86.6 }, "EX-15": { x0: 256, y: 334.3 },
+  "EX-17": { x0: 256, y: 491.4 }, "EX-18": { x0: 256, y: 197.2 }, "EX-19": { x0: 256, y: 305 },
+  "EX-31": { x0: 282.1, y: 539.2 }, "EX-32": { x0: 282.1, y: 446.1 },
 };
 // Offsets relevés au repère visuel sur EX-18 (ligne identique sur EX-10/15/17/31/32,
 // largeur 261,7 pt). Avant, « día » commençait sur le « a » de « , a » : le texte tapé
