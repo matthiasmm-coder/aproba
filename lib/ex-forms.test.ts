@@ -156,3 +156,55 @@ describe("modo editable · campos vacíos", () => {
     expect(nombres.some((n) => n.startsWith("f_ec"))).toBe(false);
   });
 });
+
+// ── Géométrie des champs éditables (cas Juan, 02/09/2026) ────────────────────
+// Trois défauts constatés sur l'EX-18 rempli : la croix tombait hors du carré, la
+// casilla du NIE mordait le séparateur « -- » imprimé, et le champ « día » démarrait
+// sur le « a » de « , a ». Positions imprimées relevées par probe pdfjs — ce sont
+// elles qui font foi ici, pas les valeurs du code.
+describe("modo editable · geometría de los campos", () => {
+  const IMPRESO = {
+    // EX-18, page 1 : séparateurs de la rangée N.I.E.
+    nieSep1: [353.8, 358.1], nieSep2: [507.8, 510.0],
+    // EX-18, page 2 : « , a » puis les tramos pointillés
+    aLetra: [359.2, 363.5], deMes: [384.6, 391.6], deAno: [475.7, 483.0],
+    // carré à cocher « Trabajador por cuenta ajena »
+    caja: { x: 68.6, y: 657, w: 7.2, h: 8 },
+  };
+  const rects = async () => {
+    const bytes = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(bytes!)).getForm();
+    const out: Record<string, { x: number; y: number; w: number; h: number }> = {};
+    for (const f of form.getFields()) {
+      const r = f.acroField.getWidgets()[0]?.getRectangle();
+      if (r) out[f.getName()] = { x: r.x, y: r.y, w: r.width, h: r.height };
+    }
+    return out;
+  };
+
+  it("ninguna casilla del NIE pisa los separadores impresos", async () => {
+    const r = await rects();
+    expect(r.f_nie1.x + r.f_nie1.w).toBeLessThan(IMPRESO.nieSep1[0]);
+    expect(r.f_nie2.x).toBeGreaterThan(IMPRESO.nieSep1[1]);
+    expect(r.f_nie2.x + r.f_nie2.w).toBeLessThan(IMPRESO.nieSep2[0]);
+    expect(r.f_nie3.x).toBeGreaterThan(IMPRESO.nieSep2[1]);
+  });
+
+  it("los tramos de « lugar y fecha » no pisan la « a » ni los « de »", async () => {
+    const r = await rects();
+    expect(r.b_lf_lugar.x + r.b_lf_lugar.w).toBeLessThan(IMPRESO.aLetra[0]);
+    expect(r.b_lf_dia.x).toBeGreaterThan(IMPRESO.aLetra[1]);
+    expect(r.b_lf_dia.x + r.b_lf_dia.w).toBeLessThan(IMPRESO.deMes[0]);
+    expect(r.b_lf_mes.x).toBeGreaterThan(IMPRESO.deMes[1]);
+    expect(r.b_lf_mes.x + r.b_lf_mes.w).toBeLessThan(IMPRESO.deAno[0]);
+    expect(r.b_lf_ano.x).toBeGreaterThan(IMPRESO.deAno[1]);
+  });
+
+  it("la casilla a marcar está CENTRADA sobre el cuadrado impreso", async () => {
+    const r = await rects();
+    const c = r.b_t_cuenta_ajena;
+    const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+    expect(Math.abs(cx - (IMPRESO.caja.x + IMPRESO.caja.w / 2))).toBeLessThan(1);
+    expect(Math.abs(cy - (IMPRESO.caja.y + IMPRESO.caja.h / 2))).toBeLessThan(1);
+  });
+});

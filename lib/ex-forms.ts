@@ -2,7 +2,7 @@ import "server-only";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, TextAlignment } from "pdf-lib";
 import type { DatosForm } from "./formularios";
 
 // Remplissage des PDF officiels EX avec les données de l'expediente. Deux modes :
@@ -42,15 +42,24 @@ function vec(
   sx: [number, number, number, number],
   ec: [number, number, number, number, number, number],
   pm: [number, number, number],
-  ov?: { fx?: [number, number, number]; pisoX?: number }, // ajustes par modèle (labels plus longs)
+  // `nie`: [fin du libellé N.I.E., début « -- », fin « -- », début « - », fin « - »] relevés
+  // par probe (scripts). Sans lui, la géométrie majoritaire. Antes había un x fijo para
+  // TODOS los modelos: la casilla nie1 se comía el separador « -- » (caso Juan, 02/09).
+  ov?: { fx?: [number, number, number]; pisoX?: number; nie?: [number, number, number, number, number] },
 ): MapaOverlay {
   // La case suit son libellé : X ≈ fin du libellé + bord de case (+11 lettre seule, +16 « Sp », +20 « X * »).
   const y = (v: number) => v - 1;
   const fx = ov?.fx ?? [130, 158, 184];
+  // Tramos NIE déduits des séparateurs : chaque casilla vit ENTRE deux repères imprimés,
+  // avec 3-4 pt de marge pour ne jamais mordre dessus.
+  const [nl, s1a, s1b, s2a, s2b] = ov?.nie ?? [321.4, 353.8, 358.1, 507.8, 510];
   return {
     modo: "overlay",
     coords: {
-      pasaporte: { x: 112, y: t.P }, nie1: { x: 340, y: t.P }, nie2: { x: 370, y: t.P }, nie3: { x: 518, y: t.P },
+      pasaporte: { x: 112, y: t.P, w: 185 },
+      nie1: { x: nl + 4, y: t.P, w: s1a - nl - 7 },
+      nie2: { x: s1b + 3, y: t.P, w: s2a - s1b - 6 },
+      nie3: { x: s2b + 3, y: t.P, w: 28 },
       apellido1: { x: 115, y: t.A }, apellido2: { x: 410, y: t.A },
       nombre: { x: 92, y: t.N },
       fechaD: { x: fx[0], y: t.F }, fechaM: { x: fx[1], y: t.F }, fechaA: { x: fx[2], y: t.F },
@@ -71,21 +80,21 @@ function vec(
 
 export const FORMS: Record<string, Mapa> = {
   // ── Modèles vectoriels (overlay) — positions relevées via pdfjs ────────────
-  "EX-31": vec({ P: 687, A: 670, N: 649, F: 631, NAC: 613, D: 577, L: 559, T: 541 }, [651, 461, 501, 525], [612, 404, 433, 461, 490, 519], [594, 56, 305], { fx: [152, 179, 205], pisoX: 547 }),
-  "EX-02": vec({ P: 687, A: 670, N: 652, F: 631, NAC: 616, D: 580, L: 562, T: 544 }, [651, 336, 372, 400], [615, 396, 424, 452, 483, 512], [597, 51, 297]),
+  "EX-31": vec({ P: 687, A: 670, N: 649, F: 631, NAC: 613, D: 577, L: 559, T: 541 }, [651, 461, 501, 525], [612, 404, 433, 461, 490, 519], [594, 56, 305], { fx: [152, 179, 205], pisoX: 547 , nie: [327, 359.4, 363.8, 513.5, 515.7] }),
+  "EX-02": vec({ P: 687, A: 670, N: 652, F: 631, NAC: 616, D: 580, L: 562, T: 544 }, [651, 336, 372, 400], [615, 396, 424, 452, 483, 512], [597, 51, 297], { nie: [325.4, 357.1, 359.3, 505.8, 508] }),
   "EX-03": vec({ P: 687, A: 669, N: 651, F: 630, NAC: 615, D: 579, L: 561, T: 543 }, [651, 458, 495, 519], [615, 399, 427, 456, 485, 514], [597, 51, 300]),
-  "EX-15": vec({ P: 669, A: 651, N: 633, F: 612, NAC: 597, D: 561, L: 543, T: 525 }, [633, 468, 502, 526], [597, 406, 434, 463, 492, 521], [579, 51, 307], { pisoX: 553 }),
+  "EX-15": vec({ P: 669, A: 651, N: 633, F: 612, NAC: 597, D: 561, L: 543, T: 525 }, [633, 468, 502, 526], [597, 406, 434, 463, 492, 521], [579, 51, 307], { pisoX: 553 , nie: [328.5, 360.8, 365.2, 514.9, 517.1] }),
   "EX-17": vec({ P: 642, A: 624, N: 606, F: 585, NAC: 570, D: 531, L: 513, T: 495 }, [606, 459, 495, 519], [570, 399, 427, 456, 485, 514], [549, 51, 300]),
-  "EX-01": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
+  "EX-01": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510] }),
   // Autorización de regreso — pedido por el 1er cliente real (Juan, 2026-07). Layout estándar.
   "EX-13": vec({ P: 628, A: 610, N: 592, F: 572, NAC: 555, D: 518, L: 500, T: 482 }, [592, 457, 495, 519], [555, 399, 427, 456, 485, 514], [537, 51, 300]),
   "EX-11": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
   // Layout EX-01 estándar (etiquetas x=51), solo cambian las filas Y (probe pdfjs).
   "EX-18": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 568, D: 532, L: 514, T: 496 }, [604, 458, 495, 519], [568, 399, 427, 456, 485, 514], [550, 51, 300]),
-  "EX-23": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 569, D: 532, L: 514, T: 496 }, [604, 460, 495, 519], [569, 399, 427, 456, 485, 514], [550, 51, 300]),
+  "EX-23": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 569, D: 532, L: 514, T: 496 }, [604, 460, 495, 519], [569, 399, 427, 456, 485, 514], [550, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510] }),
   "EX-26": vec({ P: 677, A: 660, N: 641, F: 620, NAC: 604, D: 567, L: 549, T: 531 }, [639, 458, 495, 519], [604, 399, 427, 456, 485, 514], [586, 51, 300]),
   // EX-32 (7 pág., familia DA): etiquetas desplazadas +5 (x=56); fecha/piso a calibrar al render.
-  "EX-32": vec({ P: 672, A: 655, N: 635, F: 615, NAC: 599, D: 562, L: 544, T: 526 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [580, 56, 305], { fx: [152, 179, 205], pisoX: 546 }),
+  "EX-32": vec({ P: 672, A: 655, N: 635, F: 615, NAC: 599, D: 562, L: 544, T: 526 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [580, 56, 305], { fx: [152, 179, 205], pisoX: 546 , nie: [327, 359.4, 363.8, 513.5, 515.7] }),
 
   // ── EX-10 : AcroForm (noms trompeurs, mapping par probe visuel) ─────────────
   "EX-10": {
@@ -194,9 +203,16 @@ export const P2_OPCIONES: Record<string, { value: string; label: string }[]> = {
 // ── Modo editable: campos VACÍOS de la p.2 (lo que el gestor rellena a mano) ───────────
 // Posiciones relevadas por probe pdfjs (glifo □ / líneas de puntos). Solo se emiten en
 // modo editable; el PDF plano queda byte-idéntico al de siempre.
-type Blank = { name: string; x: number; y: number; w: number; h?: number; size?: number; page?: number };
+type Blank = { name: string; x: number; y: number; w: number; h?: number; size?: number; page?: number; centrar?: boolean };
 // Casilla: campo 13×13 sobre el glifo □ (misma transformación que las marcas X: x-0.5/y-4).
-const caja = (name: string, gx: number, gy: number): Blank => ({ name, x: gx - 0.5, y: gy - 4, w: 13, h: 13, size: 10, page: 1 });
+// Le glyphe « carré » fait 7,2 pt de large et ~8 pt de haut, posé sur sa ligne de base.
+// L'ancien champ (13×13 calé en bas à gauche) débordait à droite et sous le carré : la
+// croix tombait décentrée et le champ mordait le libellé (cas Juan, 02/09). Ici le champ
+// est CENTRÉ sur le carré, texte centré dedans, donc la croix tombe pile au milieu.
+const CAJA_W = 7.2, CAJA_H = 8;
+const caja = (name: string, gx: number, gy: number): Blank => ({
+  name, x: gx + CAJA_W / 2 - 5.5, y: gy + CAJA_H / 2 - 5.5, w: 11, h: 11, size: 8, page: 1, centrar: true,
+});
 const P2_BLANKS: Record<string, Blank[]> = {
   "EX-17": [caja("inicial", 77, 669), caja("renovacion", 77, 650), caja("duplicado", 77, 630)],
   "EX-15": [
@@ -207,7 +223,7 @@ const P2_BLANKS: Record<string, Blank[]> = {
     caja("sit_estancia", 69, 418), caja("sit_residencia", 228, 418),
   ],
   "EX-18": [
-    { name: "fecha_inicio", x: 507, y: 704, w: 72, h: 13, size: 9, page: 1 },
+    { name: "fecha_inicio", x: 509, y: 704, w: 42, h: 13, size: 8, page: 1 },
     caja("res_temporal", 54, 671), caja("t_cuenta_ajena", 69, 657), caja("t_cuenta_propia", 69, 642), caja("t_no_activo", 69, 628), caja("t_estudiante", 69, 614), caja("t_nacional_ue", 69, 599),
     caja("res_permanente", 54, 555), caja("p_5anos", 66, 542), caja("p_jub_3anos", 66, 527), caja("p_jub_conyuge", 66, 513), caja("p_jub_nac", 66, 498),
     caja("p_jubant_3anos", 66, 474), caja("p_jubant_conyuge", 66, 460), caja("p_jubant_nac", 66, 445),
@@ -222,17 +238,23 @@ const P2_BLANKS: Record<string, Blank[]> = {
 // Pedido por Juan: hacerla EDITABLE. La línea es idéntica en todos los modelos (mismos
 // offsets relativos, medidos por probe pdfjs); solo cambian el x de inicio y la y. Se emiten
 // 4 campos vacíos (lugar / día / mes / año) sobre los tramos punteados, SOLO en modo editable.
-const LUGAR_FECHA: Record<string, { x0: number; y: number }> = {
-  "EX-02": { x0: 260, y: 209 }, "EX-10": { x0: 282, y: 87 }, "EX-15": { x0: 256, y: 334 },
+// `corto`: EX-02 a une ligne 7,3 pt plus courte (un « … » de moins dans le tramo du
+// lieu) — tout ce qui suit la virgule est donc décalé d'autant vers la gauche.
+const LUGAR_FECHA: Record<string, { x0: number; y: number; corto?: boolean }> = {
+  "EX-02": { x0: 260, y: 209, corto: true }, "EX-10": { x0: 282, y: 87 }, "EX-15": { x0: 256, y: 334 },
   "EX-17": { x0: 256, y: 491 }, "EX-18": { x0: 256, y: 197 }, "EX-19": { x0: 256, y: 305 },
   "EX-31": { x0: 282, y: 539 }, "EX-32": { x0: 282, y: 446 },
 };
+// Offsets relevés au repère visuel sur EX-18 (ligne identique sur EX-10/15/17/31/32,
+// largeur 261,7 pt). Avant, « día » commençait sur le « a » de « , a » : le texte tapé
+// se superposait à la lettre imprimée (cas Juan, 02/09).
 function camposLugarFecha(code: string): Blank[] {
   const lf = LUGAR_FECHA[code];
   if (!lf) return [];
   const { x0, y } = lf;
+  const d = lf.corto ? 7.3 : 0;
   const b = (name: string, dx: number, w: number): Blank => ({ name, x: x0 + dx, y: y - 3, w, h: 14, size: 9, page: 1 });
-  return [b("lf_lugar", 0, 81), b("lf_dia", 100, 28), b("lf_mes", 147, 72), b("lf_ano", 238, 32)];
+  return [b("lf_lugar", 0, 96 - d), b("lf_dia", 109 - d, 17), b("lf_mes", 139 - d, 78), b("lf_ano", 230 - d, 30)];
 }
 
 export const formularioOficialDisponible = (code: string) => code in FORMS;
@@ -377,8 +399,9 @@ export async function rellenarOficial(
   const marcasPuestas = new Set<string>();
   // Campo AcroForm SIN borde ni fondo: las claves deben estar PRESENTES (aunque sea
   // undefined) — si faltan, pdf-lib pone fondo blanco y borde negro (PDFTextField.addToPage).
-  const crearCampo = (pg: (typeof pages)[number], name: string, o: { x: number; y: number; w: number; h: number; size: number; valor?: string }) => {
+  const crearCampo = (pg: (typeof pages)[number], name: string, o: { x: number; y: number; w: number; h: number; size: number; valor?: string; centrar?: boolean }) => {
     const f = form!.createTextField(uniq(name));
+    if (o.centrar) f.setAlignment(TextAlignment.Center);
     if (o.valor) f.setText(o.valor);
     // addToPage ANTES de setFontSize: la entrada /DA del campo solo existe tras crear el
     // widget (si no, pdf-lib lanza MissingDAEntryError).
@@ -458,7 +481,7 @@ export async function rellenarOficial(
       const pg = pages[b.page ?? 1];
       if (!pg) continue;
       if (marcasPuestas.has(`${b.page ?? 1}:${Math.round(b.x + 1)},${Math.round(b.y + 3)}`)) continue;
-      crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h: b.h ?? 14, size: b.size ?? 9 });
+      crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h: b.h ?? 14, size: b.size ?? 9, centrar: b.centrar });
     }
     try { form.updateFieldAppearances(font); } catch { /* ignore */ }
   }
