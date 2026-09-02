@@ -45,7 +45,11 @@ function vec(
   // `nie`: [fin du libellé N.I.E., début « -- », fin « -- », début « - », fin « - »] relevés
   // par probe (scripts). Sans lui, la géométrie majoritaire. Antes había un x fijo para
   // TODOS los modelos: la casilla nie1 se comía el separador « -- » (caso Juan, 02/09).
-  ov?: { fx?: [number, number, number]; pisoX?: number; nie?: [number, number, number, number, number] },
+  // `marcas`: CENTRES réels des carrés à cocher [sexo X,H,M] et [ec S,C,V,D,Sp], relevés
+  // au ruban sur le PDF. Sans eux, on retombe sur l'heuristique « fin du libellé + n »,
+  // qui vise juste pour certaines cases et rate les autres (la croix touchait le bord).
+  ov?: { fx?: [number, number, number]; pisoX?: number; nie?: [number, number, number, number, number];
+         marcas?: { sexo: [number, number, number]; ec: [number, number, number, number, number] } },
 ): MapaOverlay {
   // La case suit son libellé : X ≈ fin du libellé + bord de case (+11 lettre seule, +16 « Sp », +20 « X * »).
   const y = (v: number) => v - 1;
@@ -53,6 +57,10 @@ function vec(
   // Tramos NIE déduits des séparateurs : chaque casilla vit ENTRE deux repères imprimés,
   // avec 3-4 pt de marge pour ne jamais mordre dessus.
   const [nl, s1a, s1b, s2a, s2b] = ov?.nie ?? [321.4, 353.8, 358.1, 507.8, 510];
+  // La croix est dessinée en (x, y) taille 10 : son centre optique est à x+3,35.
+  // Pour la poser au milieu du carré, on part du centre et on recule d'autant.
+  const mc = (centro: number) => centro - 3.35;
+  const ms = ov?.marcas;
   return {
     modo: "overlay",
     coords: {
@@ -70,10 +78,17 @@ function vec(
       localidad: { x: 105, y: t.L }, cp: { x: 360, y: t.L }, provincia: { x: 460, y: t.L },
       telefono: { x: 128, y: t.T }, email: { x: 305, y: t.T },
     },
-    sexoMarks: { X: { x: sx[1] + 20, y: y(sx[0]) }, H: { x: sx[2] + 11, y: y(sx[0]) }, M: { x: sx[3] + 11, y: y(sx[0]) } },
+    sexoMarks: {
+      X: { x: ms ? mc(ms.sexo[0]) : sx[1] + 20, y: y(sx[0]) },
+      H: { x: ms ? mc(ms.sexo[1]) : sx[2] + 11, y: y(sx[0]) },
+      M: { x: ms ? mc(ms.sexo[2]) : sx[3] + 11, y: y(sx[0]) },
+    },
     estadoCivilMarks: {
-      S: { x: ec[1] + 11, y: y(ec[0]) }, C: { x: ec[2] + 11, y: y(ec[0]) }, V: { x: ec[3] + 11, y: y(ec[0]) },
-      D: { x: ec[4] + 11, y: y(ec[0]) }, Sp: { x: ec[5] + 16, y: y(ec[0]) },
+      S: { x: ms ? mc(ms.ec[0]) : ec[1] + 11, y: y(ec[0]) },
+      C: { x: ms ? mc(ms.ec[1]) : ec[2] + 11, y: y(ec[0]) },
+      V: { x: ms ? mc(ms.ec[2]) : ec[3] + 11, y: y(ec[0]) },
+      D: { x: ms ? mc(ms.ec[3]) : ec[4] + 11, y: y(ec[0]) },
+      Sp: { x: ms ? mc(ms.ec[4]) : ec[5] + 16, y: y(ec[0]) },
     },
   };
 }
@@ -90,7 +105,7 @@ export const FORMS: Record<string, Mapa> = {
   "EX-13": vec({ P: 628, A: 610, N: 592, F: 572, NAC: 555, D: 518, L: 500, T: 482 }, [592, 457, 495, 519], [555, 399, 427, 456, 485, 514], [537, 51, 300]),
   "EX-11": vec({ P: 666, A: 648, N: 627, F: 609, NAC: 591, D: 555, L: 537, T: 519 }, [627, 458, 495, 519], [591, 399, 427, 456, 485, 514], [573, 51, 300]),
   // Layout EX-01 estándar (etiquetas x=51), solo cambian las filas Y (probe pdfjs).
-  "EX-18": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 568, D: 532, L: 514, T: 496 }, [604, 458, 495, 519], [568, 399, 427, 456, 485, 514], [550, 51, 300]),
+  "EX-18": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 568, D: 532, L: 514, T: 496 }, [604, 458, 495, 519], [568, 399, 427, 456, 485, 514], [550, 51, 300], { marcas: { sexo: [472.8, 507.4, 538.2], ec: [415.8, 444.4, 473.2, 502.1, 529.5] } }),
   "EX-23": vec({ P: 642, A: 625, N: 605, F: 585, NAC: 569, D: 532, L: 514, T: 496 }, [604, 460, 495, 519], [569, 399, 427, 456, 485, 514], [550, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510] }),
   "EX-26": vec({ P: 677, A: 660, N: 641, F: 620, NAC: 604, D: 567, L: 549, T: 531 }, [639, 458, 495, 519], [604, 399, 427, 456, 485, 514], [586, 51, 300]),
   // EX-32 (7 pág., familia DA): etiquetas desplazadas +5 (x=56); fecha/piso a calibrar al render.

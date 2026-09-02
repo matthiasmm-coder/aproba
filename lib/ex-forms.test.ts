@@ -249,3 +249,29 @@ describe("modo editable · casillas de marca y secciones 2/3", () => {
     expect((await PDFDocument.load(plano!)).getForm().getFields().length).toBe(0);
   });
 });
+
+// Centres RELEVÉS des carrés sexo/estado civil de l'EX-18 (règle graduée, 02/09/2026).
+// Avant, les positions venaient d'une heuristique « fin du libellé + n » : juste pour
+// certaines cases, ratée pour d'autres — la croix touchait le bord (M et Sp notamment).
+describe("EX-18 · marcas centradas sobre el cuadrado impreso", () => {
+  const CENTROS = { sexo: { X: 472.8, H: 507.4, M: 538.2 }, ec: { S: 415.8, C: 444.4, V: 473.2, D: 502.1, Sp: 529.5 } };
+
+  it("cada casilla editable cae en el centro medido (±1 pt)", async () => {
+    const b = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(b!)).getForm();
+    for (const [grupo, mapa] of Object.entries(CENTROS)) {
+      for (const [k, centro] of Object.entries(mapa)) {
+        const r = form.getField(`m_${grupo}_${k}`).acroField.getWidgets()[0].getRectangle();
+        expect(Math.abs(r.x + r.width / 2 - centro)).toBeLessThan(1);
+      }
+    }
+  });
+
+  it("en PDF plano la aspa también se dibuja centrada", async () => {
+    // La posición de dibujo es el centro menos la mitad óptica de la « X » (3,35).
+    const { FORMS } = await import("./ex-forms");
+    const m = FORMS["EX-18"] as { sexoMarks: Record<string, { x: number }>; estadoCivilMarks: Record<string, { x: number }> };
+    expect(Math.abs(m.sexoMarks.M.x + 3.35 - CENTROS.sexo.M)).toBeLessThan(0.1);
+    expect(Math.abs(m.estadoCivilMarks.Sp.x + 3.35 - CENTROS.ec.Sp)).toBeLessThan(0.1);
+  });
+});
