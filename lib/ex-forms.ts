@@ -239,6 +239,8 @@ const caja = (name: string, gx: number, gy: number): Blank => ({
 // Positions déduites des libellés relevés par probe : chaque champ occupe l'espace ENTRE
 // la fin d'un libellé et le début du suivant.
 const t1 = (name: string, x: number, y: number, w: number): Blank => ({ name, x, y: y - 3, w, h: 14, size: 9, page: 0 });
+// Idem page 2. Corps 8 : les lignes y sont plus serrées que sur la page 1.
+const t2 = (name: string, x: number, y: number, w: number, size = 8): Blank => ({ name, x, y: y - 3, w, h: 13, size, page: 1 });
 const P1_BLANKS: Record<string, Blank[]> = {
   "EX-18": [
     // 2) Representante a efectos de presentación
@@ -247,6 +249,9 @@ const P1_BLANKS: Record<string, Blank[]> = {
     t1("r_localidad", 86, 370.4, 176), t1("r_cp", 284, 370.4, 62), t1("r_provincia", 385, 370.4, 158),
     t1("r_telefono", 102, 353.4, 133), t1("r_email", 264, 353.4, 279),
     t1("r_replegal", 160, 336.4, 196), t1("r_repdni", 407, 336.4, 52), t1("r_reptitulo", 491, 336.4, 52),
+    // 1) « Representante legal, en su caso » — la rangée du bloc SOLICITANTE, oubliée
+    // au premier passage (rótulos : fin 156,2 · DNI 369,8→413,5 · Título 482,6→507,2).
+    t1("s_replegal", 160, 481.2, 206), t1("s_repdni", 417, 481.2, 62), t1("s_reptitulo", 511, 481.2, 32),
     // 3) Domicilio a efectos de notificaciones
     t1("n_nombre", 126, 259.7, 296), t1("n_dni", 474, 259.7, 70),
     t1("n_domicilio", 122, 242.6, 345), t1("n_numero", 483, 242.6, 20), t1("n_piso", 524, 242.6, 20),
@@ -267,7 +272,22 @@ const P2_BLANKS: Record<string, Blank[]> = {
     caja("sit_estancia", 69, 418), caja("sit_residencia", 228, 418),
   ],
   "EX-18": [
-    { name: "fecha_inicio", x: 509, y: 704, w: 42, h: 13, size: 8, page: 1 },
+    // Toutes les conduites de points de la p.2 sont équipées. Bornes calculées par
+    // métriques de police, calibrées sur la largeur réelle de chaque ligne (probe).
+    // « PERÍODO PREVISTO … » : les points vont de 230,9 à 323,9 (demande de Juan).
+    t2("periodo_previsto", 233, 707.6, 88),
+    // « FECHA DE INICIO … (2) …../…../…… » : TROIS créneaux, comme l'imprimé.
+    // Corps 7 sur les trois : « 2026 » en corps 8 fait 15,6 pt et le créneau imprimé
+    // n'en offre que 14,8 — l'année sortait tronquée en « 202 ».
+    t2("fecha_inicio_d", 509, 707.6, 11.5, 7), t2("fecha_inicio_m", 522.6, 707.6, 11.5, 7), t2("fecha_inicio_a", 536.2, 707.6, 17, 7),
+    t2("n_familiares", 366, 686.9, 84),
+    t2("ue_documento", 266, 586.4, 113),
+    t2("ue_vinculo", 258, 573.2, 121),
+    t2("p_otros_txt", 94, 358.4, 231),
+    t2("m_otros_txt", 97, 280, 202),
+    t2("baja_causa_txt", 141, 243.4, 399),
+    // Pied de page : « DIRIGIDA A … Código DIR3 … PROVINCIA … »
+    t2("dirigida_a", 72, 29.6, 272), t2("codigo_dir3", 393, 29.6, 46), t2("provincia_pie", 487, 29.6, 54),
     caja("res_temporal", 54, 671), caja("t_cuenta_ajena", 69, 657), caja("t_cuenta_propia", 69, 642), caja("t_no_activo", 69, 628), caja("t_estudiante", 69, 614), caja("t_nacional_ue", 69, 599),
     caja("res_permanente", 54, 555), caja("p_5anos", 66, 542), caja("p_jub_3anos", 66, 527), caja("p_jub_conyuge", 66, 513), caja("p_jub_nac", 66, 498),
     caja("p_jubant_3anos", 66, 474), caja("p_jubant_conyuge", 66, 460), caja("p_jubant_nac", 66, 445),
