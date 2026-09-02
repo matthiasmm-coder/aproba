@@ -213,6 +213,31 @@ const CAJA_W = 7.2, CAJA_H = 8;
 const caja = (name: string, gx: number, gy: number): Blank => ({
   name, x: gx + CAJA_W / 2 - 5.5, y: gy + CAJA_H / 2 - 5.5, w: 11, h: 11, size: 8, page: 1, centrar: true,
 });
+// ── Page 1 : champs que la ficha ne remplit JAMAIS ────────────────────────────────
+// Sections 2) « representante a efectos de presentación » et 3) « domicilio a efectos de
+// notificaciones » : Aproba ne modélise pas ces personnes, donc rien ne s'y écrivait et
+// aucune case n'était créée — le gestor ne pouvait pas les remplir du tout (Juan, 02/09).
+// Positions déduites des libellés relevés par probe : chaque champ occupe l'espace ENTRE
+// la fin d'un libellé et le début du suivant.
+const t1 = (name: string, x: number, y: number, w: number): Blank => ({ name, x, y: y - 3, w, h: 14, size: 9, page: 0 });
+const P1_BLANKS: Record<string, Blank[]> = {
+  "EX-18": [
+    // 2) Representante a efectos de presentación
+    t1("r_nombre", 126, 404.4, 294), t1("r_dni", 473, 404.4, 70),
+    t1("r_domicilio", 122, 387.5, 339), t1("r_numero", 477, 387.5, 26), t1("r_piso", 525, 387.5, 20),
+    t1("r_localidad", 86, 370.4, 176), t1("r_cp", 284, 370.4, 62), t1("r_provincia", 385, 370.4, 158),
+    t1("r_telefono", 102, 353.4, 133), t1("r_email", 264, 353.4, 279),
+    t1("r_replegal", 160, 336.4, 196), t1("r_repdni", 407, 336.4, 52), t1("r_reptitulo", 491, 336.4, 52),
+    // 3) Domicilio a efectos de notificaciones
+    t1("n_nombre", 126, 259.7, 296), t1("n_dni", 474, 259.7, 70),
+    t1("n_domicilio", 122, 242.6, 345), t1("n_numero", 483, 242.6, 20), t1("n_piso", 524, 242.6, 20),
+    t1("n_localidad", 86, 225.7, 178), t1("n_cp", 286, 225.7, 62), t1("n_provincia", 387, 225.7, 156),
+    t1("n_telefono", 102, 208.7, 134), t1("n_email", 265, 208.7, 278),
+    // Consentement notifications électroniques (Dehú)
+    { ...caja("consiento", 48.1, 175.3), page: 0 },
+  ],
+};
+
 const P2_BLANKS: Record<string, Blank[]> = {
   "EX-17": [caja("inicial", 77, 669), caja("renovacion", 77, 650), caja("duplicado", 77, 630)],
   "EX-15": [
@@ -441,8 +466,28 @@ export async function rellenarOficial(
   for (const [key, pos] of Object.entries(mapa.coords)) {
     estampar(pos, limpiar((datos[key as keyof DatosForm] as string) || ""), 9, key);
   }
-  if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10, "sexo");
-  if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10, "ec");
+  // Sexo / estado civil. En PLAT: une seule croix, celle de la ficha (inchangé).
+  // En ÉDITABLE: une case par option, cochable à la main — sinon une ficha sans sexe
+  // laissait des carrés que le gestor ne pouvait pas cocher (Juan, 02/09). La case est
+  // CENTRÉE sur le carré imprimé, comme celles de la page 2.
+  if (!editable || !form) {
+    if (datos.sexo) estampar(mapa.sexoMarks?.[datos.sexo], "X", 10, "sexo");
+    if (datos.estadoCivil) estampar(mapa.estadoCivilMarks?.[datos.estadoCivil], "X", 10, "ec");
+  } else {
+    const casilla = (grupo: string, clave: string, pos: Pos | undefined, marcada: boolean) => {
+      if (!pos) return;
+      const pg = pages[pos.page ?? 0];
+      if (!pg) return;
+      // La croix plate est dessinée en (x, y) taille 10 → son centre optique est à
+      // (x + 3.35, y + 3.6). On centre un champ de 11×11 là-dessus.
+      crearCampo(pg, `m_${grupo}_${clave}`, {
+        x: pos.x + 3.35 - 5.5, y: pos.y + 3.6 - 5.5, w: 11, h: 11, size: 8,
+        valor: marcada ? "X" : undefined, centrar: true,
+      });
+    };
+    for (const k of ["X", "H", "M"] as const) casilla("sexo", k, mapa.sexoMarks?.[k], datos.sexo === k);
+    for (const k of ["S", "C", "V", "D", "Sp"] as const) casilla("ec", k, mapa.estadoCivilMarks?.[k], datos.estadoCivil === k);
+  }
 
   // Page 2: casilla de tipo de trámite derivable del expediente (EX-17 inicial/renovación,
   // EX-15 NIE). Sin trámite conocido (p. ej. formulario desde la ficha del cliente) no se marca.
@@ -477,7 +522,7 @@ export async function rellenarOficial(
   // se estampó una X (la del trámite) para no superponer dos campos.
   if (editable && form) {
     // Línea «lugar y fecha» (pedido por Juan) + casillas/campos vacíos específicos del modelo.
-    for (const b of [...camposLugarFecha(code), ...(P2_BLANKS[code] ?? [])]) {
+    for (const b of [...(P1_BLANKS[code] ?? []), ...camposLugarFecha(code), ...(P2_BLANKS[code] ?? [])]) {
       const pg = pages[b.page ?? 1];
       if (!pg) continue;
       if (marcasPuestas.has(`${b.page ?? 1}:${Math.round(b.x + 1)},${Math.round(b.y + 3)}`)) continue;

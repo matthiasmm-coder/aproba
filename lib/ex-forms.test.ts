@@ -208,3 +208,44 @@ describe("modo editable · geometría de los campos", () => {
     expect(Math.abs(cy - (IMPRESO.caja.y + IMPRESO.caja.h / 2))).toBeLessThan(1);
   });
 });
+
+// ── Lo que la ficha NUNCA rellena, pero el gestor debe poder escribir (Juan, 02/09) ──
+describe("modo editable · casillas de marca y secciones 2/3", () => {
+  const campos = async (datos = SAMPLE) => {
+    const b = await rellenarOficial("EX-18", datos, undefined, undefined, { editable: true });
+    return (await PDFDocument.load(b!)).getForm().getFields().map((f) => f.getName());
+  };
+
+  it("crea una casilla por CADA opción de sexo y estado civil", async () => {
+    const n = await campos();
+    for (const k of ["X", "H", "M"]) expect(n).toContain(`m_sexo_${k}`);
+    for (const k of ["S", "C", "V", "D", "Sp"]) expect(n).toContain(`m_ec_${k}`);
+  });
+
+  it("la opción de la ficha viene premarcada, las demás vacías", async () => {
+    const b = await rellenarOficial("EX-18", { ...SAMPLE, sexo: "H", estadoCivil: "C" }, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(b!)).getForm();
+    expect(form.getTextField("m_sexo_H").getText()).toBe("X");
+    expect(form.getTextField("m_sexo_M").getText() ?? "").toBe("");
+    expect(form.getTextField("m_ec_C").getText()).toBe("X");
+    expect(form.getTextField("m_ec_S").getText() ?? "").toBe("");
+  });
+
+  it("sin sexo en la ficha, las casillas existen igualmente (antes: ninguna)", async () => {
+    const n = await campos({ ...SAMPLE, sexo: "", estadoCivil: "" });
+    expect(n).toContain("m_sexo_H");
+    expect(n).toContain("m_ec_S");
+  });
+
+  it("las secciones 2) y 3) son rellenables", async () => {
+    const n = await campos();
+    for (const k of ["r_nombre", "r_dni", "r_domicilio", "r_localidad", "r_cp", "r_provincia", "r_telefono", "r_email"]) expect(n).toContain(`b_${k}`);
+    for (const k of ["n_nombre", "n_domicilio", "n_localidad", "n_cp", "n_provincia", "n_telefono", "n_email"]) expect(n).toContain(`b_${k}`);
+    expect(n).toContain("b_consiento");
+  });
+
+  it("el PDF PLANO no gana ningún campo por todo esto", async () => {
+    const plano = await rellenarOficial("EX-18", { ...SAMPLE, sexo: "H", estadoCivil: "C" });
+    expect((await PDFDocument.load(plano!)).getForm().getFields().length).toBe(0);
+  });
+});
