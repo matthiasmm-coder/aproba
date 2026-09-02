@@ -275,3 +275,36 @@ describe("EX-18 · marcas centradas sobre el cuadrado impreso", () => {
     expect(Math.abs(m.estadoCivilMarks.Sp.x + 3.35 - CENTROS.ec.Sp)).toBeLessThan(0.1);
   });
 });
+
+// Capacité et alignement des champs de date (rapporté par Matthias le 02/09/2026 :
+// l'année sortait « 202 » dans le lecteur PDF). Notre propre rendu était plus tolérant
+// que celui d'un lecteur : on exige donc une marge confortable, pas le strict minimum.
+describe("EX-18 · les dates entrent en entier et tombent sur la ligne", () => {
+  const anchoHelv = (txt: string, size: number) => txt.length * size * 0.556; // chiffres Helvetica
+  const CASOS: [string, string, number][] = [
+    ["b_fecha_inicio_d", "31", 6.5], ["b_fecha_inicio_m", "12", 6.5], ["b_fecha_inicio_a", "2026", 7],
+    ["b_lf_dia", "31", 9], ["b_lf_ano", "2026", 9],
+  ];
+
+  it("chaque créneau a au moins 4 pt de marge pour sa valeur maximale", async () => {
+    const b = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(b!)).getForm();
+    const estrechos: string[] = [];
+    for (const [nombre, valor, size] of CASOS) {
+      const r = form.getField(nombre).acroField.getWidgets()[0].getRectangle();
+      const necesario = anchoHelv(valor, size) + 4;
+      if (r.width < necesario) estrechos.push(`${nombre}: ${r.width}pt < ${necesario.toFixed(1)}pt para «${valor}»`);
+    }
+    expect(estrechos).toEqual([]);
+  });
+
+  it("la boîte se cale sur la ligne imprimée, pas au-dessus", async () => {
+    // Ligne imprimée « ……, a … de … de … » : base à y=197,2 sur l'EX-18.
+    const b = await rellenarOficial("EX-18", SAMPLE, undefined, undefined, { editable: true });
+    const form = (await PDFDocument.load(b!)).getForm();
+    const r = form.getField("b_lf_lugar").acroField.getWidgets()[0].getRectangle();
+    // Le texte se dessine ~3,7 pt au-dessus du bas de la boîte : la boîte doit donc
+    // commencer 3,7 pt SOUS la ligne imprimée pour que les deux coïncident.
+    expect(Math.abs(r.y - (197.2 - 3.7))).toBeLessThan(0.3);
+  });
+});

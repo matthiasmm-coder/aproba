@@ -238,9 +238,9 @@ const caja = (name: string, gx: number, gy: number): Blank => ({
 // aucune case n'était créée — le gestor ne pouvait pas les remplir du tout (Juan, 02/09).
 // Positions déduites des libellés relevés par probe : chaque champ occupe l'espace ENTRE
 // la fin d'un libellé et le début du suivant.
-const t1 = (name: string, x: number, y: number, w: number): Blank => ({ name, x, y: y - 3, w, h: 14, size: 9, page: 0 });
+const t1 = (name: string, x: number, y: number, w: number): Blank => ({ name, x, y: y - 3.7, w, h: 14, size: 9, page: 0 });
 // Idem page 2. Corps 8 : les lignes y sont plus serrées que sur la page 1.
-const t2 = (name: string, x: number, y: number, w: number, size = 8): Blank => ({ name, x, y: y - 3, w, h: 13, size, page: 1 });
+const t2 = (name: string, x: number, y: number, w: number, size = 8): Blank => ({ name, x, y: y - 3.7, w, h: 13, size, page: 1 });
 const P1_BLANKS: Record<string, Blank[]> = {
   "EX-18": [
     // 2) Representante a efectos de presentación
@@ -277,9 +277,11 @@ const P2_BLANKS: Record<string, Blank[]> = {
     // « PERÍODO PREVISTO … » : les points vont de 230,9 à 323,9 (demande de Juan).
     t2("periodo_previsto", 233, 707.6, 88),
     // « FECHA DE INICIO … (2) …../…../…… » : TROIS créneaux, comme l'imprimé.
-    // Corps 7 sur les trois : « 2026 » en corps 8 fait 15,6 pt et le créneau imprimé
-    // n'en offre que 14,8 — l'année sortait tronquée en « 202 ».
-    t2("fecha_inicio_d", 509, 707.6, 11.5, 7), t2("fecha_inicio_m", 522.6, 707.6, 11.5, 7), t2("fecha_inicio_a", 536.2, 707.6, 17, 7),
+    // Les créneaux imprimés sont minuscules et les lecteurs PDF rognent plus tôt que
+    // notre propre rendu : l'année sortait « 202 ». L'année est donc élargie vers la
+    // droite (rien d'imprimé après), et le jour/mois passent en corps 6,5 — le « / »
+    // imprimé interdit de les élargir.
+    t2("fecha_inicio_d", 509, 707.6, 11.5, 6.5), t2("fecha_inicio_m", 522.6, 707.6, 11.5, 6.5), t2("fecha_inicio_a", 536.2, 707.6, 24, 7),
     t2("n_familiares", 366, 686.9, 84),
     t2("ue_documento", 266, 586.4, 113),
     t2("ue_vinculo", 258, 573.2, 121),
@@ -317,8 +319,8 @@ function camposLugarFecha(code: string): Blank[] {
   if (!lf) return [];
   const { x0, y } = lf;
   const d = lf.corto ? 7.3 : 0;
-  const b = (name: string, dx: number, w: number): Blank => ({ name, x: x0 + dx, y: y - 3, w, h: 14, size: 9, page: 1 });
-  return [b("lf_lugar", 0, 96 - d), b("lf_dia", 109 - d, 17), b("lf_mes", 139 - d, 78), b("lf_ano", 230 - d, 30)];
+  const b = (name: string, dx: number, w: number): Blank => ({ name, x: x0 + dx, y: y - 3.7, w, h: 14, size: 9, page: 1 });
+  return [b("lf_lugar", 0, 96 - d), b("lf_dia", 109 - d, 17), b("lf_mes", 139 - d, 78), b("lf_ano", 230 - d, 40)];
 }
 
 export const formularioOficialDisponible = (code: string) => code in FORMS;
@@ -498,7 +500,9 @@ export async function rellenarOficial(
     if (esMarca) marcasPuestas.add(`${pos.page ?? 0}:${Math.round(pos.x)},${Math.round(pos.y)}`);
     // y-3 / alto sz+5: realinea la caja del campo con la línea base del drawText plano.
     crearCampo(pg, `f_${key}`, {
-      x: pos.x - 1, y: pos.y - 3,
+      // -3,7 (et non -3) : mesuré en relisant le PDF aplati, la ligne de base du texte
+      // saisi tombait 0,7 pt AU-DESSUS de la ligne pointillée imprimée.
+      x: pos.x - 1, y: pos.y - 3.7,
       w: pos.w ?? ANCHO[key] ?? (esMarca ? 13 : 120), h: sz + 5, size: sz, valor: txt,
     });
   };
