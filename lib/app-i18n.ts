@@ -1615,6 +1615,7 @@ export const CA: Record<string, string> = {
   "archivado": "arxivat",
   "datos": "dades",
   "¿Cómo termina este expediente?": "Com acaba aquest expedient?",
+  "Renovaciones en 6 meses": "Renovacions en 6 mesos",
 };
 
 export function translate(lang: Lang, es: string): string {

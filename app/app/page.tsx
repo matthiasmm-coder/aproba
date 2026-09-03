@@ -89,13 +89,16 @@ export default async function Dashboard() {
   const proximos = vencimientos.filter((v) => v.estado !== "TRAMITANDO");
   const caducanPronto = proximos.filter((v) => v.dias <= 60).length;
   const caducadas = proximos.filter((v) => v.dias < 0).length;
+  // Renovaciones que caducan en menos de 6 meses (incluidas las ya caducadas sin renovar):
+  // el trabajo que viene, visible en la carta «Por fase» (pedido de Matthias, 03/09).
+  const renovaciones6m = proximos.filter((v) => v.dias <= 183).length;
   return (
     <>
       {/* La checklist n'est PAS filtrée par sede (piège connu) — les pastillas ne
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist.items} esperandoAlCliente={checklist.esperando} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} hoy={new Date().toISOString().slice(0, 10)} />
     </>
   );
 }
