@@ -75,7 +75,8 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   const miembrosVista = sedesVista
     ? equipo.filter((m) => !m.esAdmin && m.sedes.some((s) => sedesVista.includes(s))).map((m) => m.nombre)
     : []; // «Todas»: como siempre, solo quien lleva carga (sin 0s — la lista sería larga)
-  const nombresCarga = [...new Set([...miembrosVista, ...Object.keys(cargaPorNombre)])];
+  // «Sin asignar» no es una persona: fuera de la carga (03/09), como en el filtro del tablero.
+  const nombresCarga = [...new Set([...miembrosVista, ...Object.keys(cargaPorNombre)])].filter((n) => n !== "Sin asignar");
   const carga = nombresCarga.map((n): [string, number] => [n, cargaPorNombre[n] ?? 0]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const maxCarga = Math.max(1, ...carga.map(([, n]) => n));
 
