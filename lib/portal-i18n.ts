@@ -355,6 +355,7 @@ export const UI: Record<string, Tr> = {
   "seg.descargar": { es: "Descargar", en: "Download", fr: "Télécharger", it: "Scarica", de: "Herunterladen" },
   "seg.formularios": { es: "Formularios de tu solicitud", en: "Your application forms", fr: "Les formulaires de votre demande", it: "I moduli della tua domanda", de: "Formulare deines Antrags" },
   "seg.formulariosSub": { es: "Preparados por tu gestoría a partir de tus datos. Puedes descargarlos.", en: "Prepared by your agency from your details. You can download them.", fr: "Préparés par votre cabinet à partir de vos informations. Vous pouvez les télécharger.", it: "Preparati dal tuo studio in base ai tuoi dati. Puoi scaricarli.", de: "Von deiner Kanzlei aus deinen Daten erstellt. Du kannst sie herunterladen." },
+  "mil.entregado": { es: "Expediente entregado", en: "File delivered", fr: "Dossier remis", it: "Pratica consegnata", de: "Akte übergeben" },
   "mil.recibido": { es: "Solicitud recibida", en: "Request received", fr: "Demande reçue", it: "Richiesta ricevuta", de: "Antrag erhalten" },
   "mil.validado": { es: "Documentos validados", en: "Documents validated", fr: "Documents validés", it: "Documenti validati", de: "Dokumente geprüft" },
   "mil.formularios": { es: "Formularios preparados", en: "Forms prepared", fr: "Formulaires préparés", it: "Moduli preparati", de: "Formulare vorbereitet" },

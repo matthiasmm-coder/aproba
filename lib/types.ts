@@ -111,19 +111,35 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
 
 // Fases del board : agrupan los 8 estados en 4 etapas del pipeline para que el tablero
 // quepa en pantalla y se lea como UN flujo (no 8 columnas sueltas). El estado fino sigue
-// visible en cada tarjeta. RECHAZADO queda fuera (igual que en BOARD_COLUMNS).
-// Nombres de las 4 fases (renombrados el 22/08/2026 a petición de Matthias).
-// ⚠️ LAS CLAVES NO CAMBIAN — son las que usa lib/progreso.ts (faseDe) y las que ya
-// están escritas en el código y en los tests. Por eso hay un DESFASE deliberado entre
-// clave y etiqueta: la clave "recepcion" se llama ahora «Preparación», y la clave
-// "preparacion" se llama «Listo para presentar». Al tocar esto, mirar la etiqueta,
-// nunca deducir del nombre de la clave.
+// visible en cada tarjeta.
+// FLUJO v4 (03/09/2026, Matthias): el ciclo del despacho termina en la ENTREGA. Dos
+// columnas de TRABAJO — «Preparación» (datos, documentos, formularios, citas y cobro, en
+// el orden en que lleguen) y «Preparado» (dossier listo: formularios/tasa generados o
+// marcado a mano) — y un solo gesto de cierre, «Facturar y archivar», que registra la
+// salida (Expediente.salida). La respuesta de la Administración ya no es una columna.
+// Las 4 fases anteriores (recepcion/preparacion/presentacion/cierre) desaparecen; los
+// `estados` son solo el repli de filas sin progreso calculado.
 export const BOARD_PHASES: { key: string; label: string; estados: ExpedienteEstado[] }[] = [
-  { key: "recepcion",    label: "Preparación",          estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES"] },
-  { key: "preparacion",  label: "Listo para presentar", estados: ["DOCS_VALIDADOS", "FORM_GENERADO"] },
-  { key: "presentacion", label: "Presentado",           estados: ["PRESENTADO"] },
-  { key: "cierre",       label: "Resultado",            estados: ["RESUELTO", "RECHAZADO", "CITA_HUELLAS", "FINALIZADO"] },
+  { key: "preparacion", label: "Preparación", estados: ["EN_PREPARACION", "BORRADOR", "DOCS_PENDIENTES", "DOCS_VALIDADOS"] },
+  { key: "preparado",   label: "Preparado",   estados: ["FORM_GENERADO", "PRESENTADO", "CITA_HUELLAS", "RESUELTO", "RECHAZADO", "FINALIZADO"] },
 ];
+
+// Salida del expediente al cerrarlo (Expediente.salida, migración supabase/flujo-v4.sql).
+export type Salida = "en_tramite" | "concedido" | "denegado" | "desistido";
+export const SALIDAS: { key: Salida; label: string; ayuda: string }[] = [
+  { key: "en_tramite", label: "En trámite", ayuda: "Presentado ante la Administración, o entregado al cliente para que lo presente. Pendiente de resolución." },
+  { key: "concedido", label: "Concedido", ayuda: "Resolución favorable recibida. Vigía toma la fecha de caducidad de aquí." },
+  { key: "denegado", label: "Denegado", ayuda: "Resolución desfavorable o inadmisión. Cabe recurso o nueva solicitud." },
+  { key: "desistido", label: "Desistido", ayuda: "Cerrado sin presentar: el cliente no siguió, sin documentación o sin pago." },
+];
+export const etiquetaSalida = (k: string | null | undefined): string | null => SALIDAS.find((s) => s.key === k)?.label ?? null;
+// Archivados de antes de la migración (sin salida): la categoría se deduce del estado.
+export function salidaDeEstado(estado: string): Salida | null {
+  if (estado === "RESUELTO" || estado === "FINALIZADO") return "concedido";
+  if (estado === "RECHAZADO") return "denegado";
+  if (estado === "PRESENTADO" || estado === "CITA_HUELLAS") return "en_tramite";
+  return null;
+}
 
 // Acción siguiente sugerida por estado (da el sentido de orquestación: la tarjeta dice
 // qué toca hacer). `espera: true` = no depende del gestor (en gris), si no = su turno.
@@ -132,10 +148,10 @@ export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: b
   BORRADOR:        { label: "Enviar enlace al cliente" },
   DOCS_PENDIENTES: { label: "Generar formularios" }, // repli alineado: preparar nunca espera
   DOCS_VALIDADOS:  { label: "Generar formularios" },
-  FORM_GENERADO:   { label: "Presentar en Mercurio" },
-  PRESENTADO:      { label: "Esperando resolución", espera: true },
-  RESUELTO:        { label: "Agendar cita" },
-  CITA_HUELLAS:    { label: "Finalizar" },
+  FORM_GENERADO:   { label: "Facturar y archivar" },
+  PRESENTADO:      { label: "Facturar y archivar" },
+  RESUELTO:        { label: "Facturar y archivar" },
+  CITA_HUELLAS:    { label: "Facturar y archivar" },
   FINALIZADO:      { label: "Expediente cerrado", espera: true },
   RECHAZADO:       { label: "Expediente denegado", espera: true },
 };

@@ -93,14 +93,17 @@ export function Seguimiento({
   // formularios marcaba «documentacion validada» aunque faltaran documentos, mientras
   // el propio portal decia arriba «sube los documentos que faltan». Al cliente se le
   // dice la verdad de cada paso, no una escalera.
+  // FLUJO v4 (03/09/2026): el ciclo del despacho termina en la ENTREGA. El cliente ve
+  // cuatro jalones (más la cita si el servicio la tiene) y el último, «expediente
+  // entregado», se marca cuando el despacho lo cierra como presentado/entregado.
+  // La resolución de la Administración ya no es un jalón; si el despacho registra una
+  // denegación, el último jalón lo dice en rojo.
   const MILESTONES = [
     { key: "mil.recibido", at: 1, hecho: true },
     { key: "mil.validado", at: 2, hecho: todosValidados || yaAfirmadoDocs || post },
     { key: "mil.formularios", at: 3, hecho: hayFormularios || yaAfirmadoForm || post },
-    { key: "mil.presentado", at: 4, hecho: post },
-    { key: "mil.resuelto", at: 5, hecho: est5 === "RESUELTO" || est5 === "FINALIZADO" },
-    ...(citaPresencial ? [{ key: "mil.cita", at: 6, hecho: Boolean(cita?.fecha) }] : []),
-    { key: "mil.tie", at: 7, hecho: est5 === "FINALIZADO" },
+    ...(citaPresencial ? [{ key: "mil.cita", at: 4, hecho: Boolean(cita?.fecha) }] : []),
+    { key: "mil.entregado", at: 5, hecho: post },
   ];
   const inicial = gestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const faltan = docs.filter((d) => d.status === "pendiente" || d.status === "rechazado").length;
@@ -254,15 +257,14 @@ export function Seguimiento({
               const current = !done && (i === 0 || MILESTONES[i - 1].hecho);
               // Expediente denegado: el jalón de resolución se muestra en rojo con la
               // verdad («desfavorable»), y los siguientes desaparecen del camino.
-              const denegadoAqui = estado === "RECHAZADO" && m.key === "mil.resuelto";
-              if (estado === "RECHAZADO" && m.at > 5) return null;
+              const denegadoAqui = estado === "RECHAZADO" && m.key === "mil.entregado";
               return (
                 <li key={m.key} className="flex gap-3">
                   <div className="flex flex-col items-center">
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-white transition-colors ${denegadoAqui ? "bg-red-500" : done ? "bg-aproba-600" : current ? "bg-amber-400" : "bg-slate-200"}`}>
                       {denegadoAqui ? <span className="text-[10px] font-bold">✕</span> : done ? <Check className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
-                    {i < MILESTONES.length - 1 && !(estado === "RECHAZADO" && m.at >= 5) && <span className={`my-0.5 w-px flex-1 ${MILESTONES[i + 1]?.hecho ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
+                    {i < MILESTONES.length - 1 && <span className={`my-0.5 w-px flex-1 ${MILESTONES[i + 1]?.hecho ? "bg-aproba-300" : "bg-slate-200"}`} style={{ minHeight: "18px" }} />}
                   </div>
                   <div className="pb-4">
                     <p className={`text-sm ${denegadoAqui ? "font-medium text-red-700" : done ? "font-medium text-slate-800" : current ? "font-medium text-amber-700" : "text-slate-400"}`}>{t(denegadoAqui ? "mil.desfavorable" : m.key)}</p>

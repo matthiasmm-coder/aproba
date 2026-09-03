@@ -3,34 +3,44 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
-import { confirmar } from "@/components/confirm-dialog";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import { FinalizarArchivar } from "@/components/finalizar-archivar";
+import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { normalizarEstado, type Progreso } from "@/lib/progreso";
+import { etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
+import { setArchivadoServidor } from "@/lib/archivo";
 
-// Carta de completitud Y del ciclo (rediseño 22/08 en dos tiempos, pedidos de Matthias):
-// una sola línea — anillo con el % dentro, las tres partes con su coca verde, y EL botón
-// del momento. El botón sigue al expediente por el tablero:
-//   Preparación          → «Marcar como listo para presentar» (validación manual — NO
-//                          toca el %, solo empuja de columna; reversible con «Retirar»)
-//   Listo para presentar → «Marcar como presentado»
-//   Presentado           → «Marcar como aceptado» / «Marcar como denegado» (rojo)
-//   Resultado            → «Finalizar y archivar» (popup: ¿facturar lo pendiente? + email de cierre)
-// Antes convivían dos juegos de botones (esta carta + AccionesCiclo en la cabecera) y
-// la carta seguía ofreciendo «listo para presentar» a un expediente que YA estaba en esa
-// columna — lo señaló Matthias. AccionesCiclo ya no existe: el ciclo entero vive aquí.
-export function ValidarExpediente({ id, estado, fase, completitud, finalizacion }: {
+// Carta de completitud Y del ciclo (flujo v4, 03/09/2026, decisiones de Matthias): una
+// sola línea — anillo con el % dentro, las tres partes y EL botón del momento.
+//   Preparación → «Marcar como preparado» (validación manual: empuja de columna sin tocar
+//                 el %) + la línea «Faltan N datos» con sus dos gestos (completar a mano,
+//                 o pedírselos al cliente por su enlace).
+//   Preparado   → «Facturar y archivar»: popup con la SALIDA del expediente, la factura
+//                 final si queda resto y el aviso al cliente. Único gesto de cierre.
+//   Archivado   → chip con la salida + «Restaurar».
+// La respuesta de la Administración ya no es una etapa: se registra como salida (o se
+// reclasifica desde Archivados cuando llega).
+export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, faltan = [], archivado = false, salida = null, pedir = null }: {
   id: string;
   estado: string;
-  fase: string; // clave de faseDe() — ⚠️ la clave `recepcion` se ETIQUETA «Preparación»
+  fase: string; // "preparacion" | "preparado" (lib/progreso.ts)
   completitud: Progreso["completitud"];
-  // Para el popup de cierre (columna Resultado): qué queda por facturar y a quién avisar.
+  // Para el popup de cierre: qué queda por facturar y a quién avisar.
   finalizacion: { resto: number; puedeFacturar: boolean; clienteEmail: string };
+  referencia?: string;
+  faltan?: string[];          // etiquetas de los datos de la ficha que aún faltan
+  archivado?: boolean;
+  salida?: string | null;     // Expediente.salida (o null antes de la migración)
+  // «Pedir al cliente»: su enlace /j, que solo pregunta los huecos. null en modo manual.
+  pedir?: { token: string; telefono?: string | null; nombre: string; gestoria: string } | null;
 }) {
   const t = useT();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogo, setDialogo] = useState(false);
+  const [faseCierre, setFaseCierre] = useState("");
+  const [errorCierre, setErrorCierre] = useState<string | null>(null);
+  const [hecho, setHecho] = useState<{ salida: Salida; enviado?: string; factura?: { numero: string; total: number } | null } | null>(null);
 
   async function validar(validado: boolean) {
     if (loading) return;
@@ -47,23 +57,63 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
     } finally { setLoading(false); }
   }
 
-  async function avanzar(accion: string, confirmMsg?: string) {
+  async function restaurar() {
     if (loading) return;
-    if (confirmMsg && !(await confirmar(confirmMsg))) return;
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/expedientes/${id}/avanzar`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion }),
-      });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error ?? t("No se pudo completar la acción.")); }
-      // «La resolución paga»: aceptar encadena con el popup de la liquidación final.
-      // El listener (cobros-panel) solo lo abre si de verdad queda algo por cobrar.
-      if (accion === "resolver_favorable") window.dispatchEvent(new Event("abrir-pago-final"));
+      if (!(await setArchivadoServidor(id, false))) throw new Error(t("No se pudo restaurar el expediente."));
+      setHecho(null);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("No se pudo completar la acción."));
+      setError(e instanceof Error ? e.message : t("No se pudo restaurar el expediente."));
     } finally { setLoading(false); }
+  }
+
+  // Cierre en un gesto: (1) factura final si procede, (2) salida + archivo, (3) email de
+  // cierre combinado cuando es «concedido» (finalización + factura), como el antiguo
+  // «Finalizar y archivar». Para las demás salidas, la factura sale con su propia
+  // solicitud de pago y el aviso lo dispara el servidor según la salida.
+  async function cerrar({ salida: s, facturar, avisar }: { salida: Salida; facturar: boolean; avisar: boolean }) {
+    if (loading) return;
+    setLoading(true); setErrorCierre(null);
+    try {
+      let facturaId: string | undefined;
+      const combinado = s === "concedido" && avisar && Boolean(finalizacion.clienteEmail);
+      if (facturar) {
+        setFaseCierre(t("Emitiendo la factura…"));
+        const rP = await fetch("/api/pagos", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expedienteId: id, momento: "FINAL", sinEmail: combinado || !avisar }),
+        });
+        const dP = await rP.json().catch(() => ({}));
+        if (!rP.ok) throw new Error(dP.error ?? t("No se pudo emitir la factura."));
+        facturaId = dP.facturaId;
+      }
+      setFaseCierre(t("Archivando…"));
+      const rC = await fetch(`/api/expedientes/${id}/cerrar`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salida: s, avisar }),
+      });
+      const dC = await rC.json().catch(() => ({}));
+      if (!rC.ok) throw new Error(dC.error ?? t("No se pudo cerrar el expediente."));
+      let enviado: string | undefined;
+      let factura: { numero: string; total: number } | null = null;
+      if (combinado) {
+        setFaseCierre(t("Enviando el email al cliente…"));
+        const rE = await fetch(`/api/expedientes/${id}/finalizar-email`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(facturaId ? { facturaId } : {}),
+        });
+        const dE = await rE.json().catch(() => ({}));
+        if (!rE.ok) throw new Error(dE.error ?? t("No se pudo enviar el email de finalización."));
+        enviado = dE.enviado; factura = dE.factura ?? null;
+      }
+      setHecho({ salida: s, enviado, factura });
+      setDialogo(false);
+      router.refresh();
+    } catch (e) {
+      setErrorCierre(e instanceof Error ? e.message : t("No se pudo completar el cierre."));
+    } finally { setLoading(false); setFaseCierre(""); }
   }
 
   // Coca verde cuando la parte está lista; círculo hueco gris mientras no.
@@ -83,38 +133,44 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
   const est = normalizarEstado(estado);
   const primario = "rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60";
   const borde = "rounded-lg border border-aproba-300 px-3.5 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60";
+  const cerrado = archivado || Boolean(hecho);
+  const salidaMostrada = hecho?.salida ?? salida ?? salidaDeEstado(estado);
+
+  // «Pedir al cliente»: el mismo mensaje de WhatsApp que el alta, con su enlace /j.
+  const pedirHref = (() => {
+    if (!pedir) return null;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://aproba-software.com";
+    const saludo = pedir.nombre.split(" ")[0];
+    const msg = `Hola ${saludo}, soy de ${pedir.gestoria || "tu gestoría"}. Nos faltan algunos datos para tu trámite: entra aquí y complétalos en un minuto: ${origin}/j/${pedir.token}`;
+    return pedir.telefono ? `https://wa.me/${pedir.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  })();
 
   let acciones: React.ReactNode;
-  if (est === "PRESENTADO") {
+  if (cerrado) {
     acciones = (
-      <>
-        <button onClick={() => avanzar("resolver_favorable")} disabled={loading} className={primario}>
-          {loading ? "…" : t("Marcar como aceptado")}
-        </button>
-        <button onClick={() => avanzar("resolver_desfavorable", t("¿Marcar como denegado?"))} disabled={loading} className="rounded-lg border border-red-300 px-3.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60">
-          {loading ? "…" : t("Marcar como denegado")}
-        </button>
-      </>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+          {t("Archivado")}{salidaMostrada ? ` · ${t(etiquetaSalida(salidaMostrada) ?? "")}` : ""}
+        </span>
+        {hecho?.enviado && hecho.enviado !== "SIN_CONTACTO" && (
+          <span className="text-xs text-slate-500">{t("Email de finalización enviado")}{hecho.factura ? ` · ${t("factura")} ${hecho.factura.numero}` : ""}</span>
+        )}
+        <button onClick={restaurar} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">{t("Restaurar")}</button>
+      </div>
     );
-  } else if (est !== "EN_PREPARACION") {
-    // RESUELTO / RECHAZADO / FINALIZADO: cerrar en un gesto — facturar lo pendiente
-    // (si lo hay), email de finalización y archivo.
-    acciones = <FinalizarArchivar expedienteId={id} estado={estado} resto={finalizacion.resto} puedeFacturar={finalizacion.puedeFacturar} clienteEmail={finalizacion.clienteEmail} />;
-  } else if (fase === "recepcion") {
-    // Columna «1. Preparación» (clave recepcion): validación manual.
+  } else if (fase !== "preparado") {
     acciones = (
       <button onClick={() => validar(true)} disabled={loading} className={borde}>
-        {loading ? "…" : t("Marcar como listo para presentar")}
+        {loading ? "…" : t("Marcar como preparado")}
       </button>
     );
   } else {
-    // Columna «2. Listo para presentar»: el siguiente paso es presentarlo de verdad.
     acciones = (
       <>
-        <button onClick={() => avanzar("presentar", t("¿Marcar como presentado? Se avisará al cliente."))} disabled={loading} className={primario}>
-          {loading ? "…" : t("Marcar como presentado")}
+        <button onClick={() => { setErrorCierre(null); setDialogo(true); }} disabled={loading} className={primario}>
+          {t("Facturar y archivar")}
         </button>
-        {completitud.manual && (
+        {completitud.manual && est === "EN_PREPARACION" && (
           <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>
             {t("Retirar")}
           </button>
@@ -123,9 +179,9 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
     );
   }
 
-  // En Presentado/Resultado el % y las tres partes sobran (pedido de Matthias): lo
-  // depositado está depositado — la carta se queda solo con las decisiones del ciclo.
-  const enPreparacion = est === "EN_PREPARACION";
+  // En Preparado el % y las tres partes sobran (pedido de Matthias): lo preparado está
+  // preparado — la carta se queda con el gesto de cierre.
+  const enPreparacion = !cerrado && fase !== "preparado";
 
   return (
     // TODO en una línea (anillo · partes · botón del momento) — con flex-wrap para que
@@ -137,10 +193,6 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
           {pieza("Información", completitud.info >= 1)}
           {pieza("Documentos", completitud.docs >= 1)}
           {pieza("Formularios", completitud.formularios >= 1)}
-          {/* El anillo marca 100 % desde «Listo para presentar», pero eso puede ser una
-              DECLARACIÓN del gestor (o venir de los formularios ya generados) y no que
-              todo esté subido. Sin esta línea, el 100 % al lado de tres círculos vacíos
-              se leería como un fallo del producto. Desaparece sola cuando todo llega. */}
           {completitud.pct === 100 && completitud.real < 100 && (
             <p className="w-full text-center text-xs text-amber-700">
               {t("Parte de los documentos o datos necesarios para el expediente no está en la plataforma.")}
@@ -149,7 +201,32 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion 
         </>
       )}
       {acciones}
+      {/* Lo que ningún documento trae, en una línea con dos gestos. «Completar» abre el
+          diálogo Editar cliente de siempre (?editar=1); «Pedir al cliente» manda su enlace,
+          que solo pregunta los huecos. Sin pantalla nueva (pedido de Matthias, 03/09). */}
+      {enPreparacion && faltan.length > 0 && (
+        <p className="flex w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-amber-700">
+          <span className="font-semibold">{t("Faltan")} {faltan.length} {t("datos")}</span>
+          <span className="inline-flex items-center gap-2">
+            <a href="?editar=1" className="rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-800 transition hover:border-amber-500">{t("Completar")}</a>
+            {pedirHref && (
+              <a href={pedirHref} target="_blank" rel="noreferrer" className="rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-800 transition hover:border-amber-500">{t("Pedir al cliente")}</a>
+            )}
+          </span>
+        </p>
+      )}
       {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
+      {dialogo && (
+        <CerrarExpedienteDialog
+          referencia={referencia ?? ""}
+          factura={finalizacion}
+          busy={loading}
+          fase={faseCierre}
+          error={errorCierre}
+          onClose={() => { if (!loading) setDialogo(false); }}
+          onConfirm={cerrar}
+        />
+      )}
     </div>
   );
 }

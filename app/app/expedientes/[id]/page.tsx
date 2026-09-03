@@ -6,6 +6,7 @@ import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
 import { EnlaceCliente } from "@/components/enlace-cliente";
 import { FICHA_CAMPOS, type ClienteFicha } from "@/lib/ficha";
+import { etiquetaSalida, salidaDeEstado } from "@/lib/types";
 import { CitasPanel } from "@/components/citas-panel";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
@@ -208,6 +209,24 @@ export default async function ExpedienteDetail({
     serviciosSede.map((sv) => ({ id: sv.id, docs: sv.docs, citaPresencial: sv.citaPresencial })),
   );
 
+  // FLUJO v4: cierre y salida del expediente (columna `salida` opcional hasta la migración
+  // supabase/flujo-v4.sql: si falta, la categoría se deduce del estado) — lectura aparte,
+  // bajo RLS, para no tocar la cadena de replis del cargador.
+  let cierre: { archivadoAt?: string | null; salida?: string | null } = {};
+  {
+    let rc = await supaRol.from("Expediente").select("archivadoAt, salida").eq("id", id).maybeSingle();
+    if (rc.error) rc = await supaRol.from("Expediente").select("archivadoAt").eq("id", id).maybeSingle();
+    cierre = (rc.data ?? {}) as typeof cierre;
+  }
+  const archivadoExp = Boolean(cierre.archivadoAt);
+  const salidaExp = cierre.salida ?? null;
+  const etiquetaSalidaExp = etiquetaSalida(salidaExp ?? salidaDeEstado(e.estado));
+  // «Pedir al cliente» (línea «Faltan N datos»): su enlace /j y el nombre del despacho.
+  const { data: wsRow } = await supaRol.from("Workspace").select("nombre").limit(1).maybeSingle();
+  const fichaExp = (e.clienteFicha ?? {}) as Record<string, unknown>;
+  // Mismo criterio que el portal (todo menos piso y NIE): lo que ningún documento trae aún.
+  const faltanDatos = FICHA_CAMPOS.filter((c) => c.k !== "piso" && c.k !== "numeroDocumento" && !String(fichaExp[c.k] ?? "").trim()).map((c) => c.label);
+
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
@@ -256,7 +275,7 @@ export default async function ExpedienteDetail({
         </div>
 
         <div className="mt-5 border-t border-slate-100 pt-4">
-          <PhaseStepper activeEstado={e.estado} activeFase={progresoExp.fase} />
+          <PhaseStepper activeEstado={e.estado} activeFase={progresoExp.fase} archivado={archivadoExp} salida={etiquetaSalidaExp ? t(etiquetaSalidaExp) : null} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
@@ -273,9 +292,14 @@ export default async function ExpedienteDetail({
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <ValidarExpediente
           id={e.id}
+          referencia={e.referencia}
           estado={e.estado}
           fase={progresoExp.fase}
           completitud={progresoExp.completitud}
+          faltan={faltanDatos}
+          archivado={archivadoExp}
+          salida={salidaExp}
+          pedir={e.modoTrabajo !== "manual" && e.portalToken ? { token: e.portalToken, telefono: String(fichaExp.telefono ?? "") || null, nombre: e.clienteNombre, gestoria: wsRow?.nombre ?? "" } : null}
           // Popup de cierre: mismo criterio que el botón de pago final del CobrosPanel
           // (queda resto, sin factura final viva, sin plan de cuotas).
           finalizacion={{
@@ -292,7 +316,7 @@ export default async function ExpedienteDetail({
       {/* Documentos del cliente pendientes — SOLO en la columna «1. Preparación»
           (pedido de Matthias): de «Listo para presentar» en adelante el gestor ya
           decidió avanzar y el aviso solo metía ruido. */}
-      {docsPendientes.length > 0 && progresoExp.fase === "recepcion" && (
+      {docsPendientes.length > 0 && progresoExp.fase === "preparacion" && !archivadoExp && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
           <div className="min-w-0 text-sm text-amber-800">
             {/* Icono en la MISMA línea que el título: centrar una columna con el icono

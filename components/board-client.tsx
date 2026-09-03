@@ -3,12 +3,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BOARD_COLUMNS, BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_COLUMNS, BOARD_PHASES, SALIDAS, etiquetaSalida, salidaDeEstado, type ExpedienteEstado, type Salida } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
-import { normalizarEstado, yaPresentado, type Progreso } from "@/lib/progreso";
+import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
+import { type Progreso } from "@/lib/progreso";
 
 export type BoardItem = {
   id: string;
@@ -22,9 +23,12 @@ export type BoardItem = {
   fechaLimite?: string;
   presentadoEl?: string; // dd/mm/aaaa — cuándo se depositó en la Administración
   archivado?: boolean; // servidor — compartido por todo el equipo
+  salida?: string | null; // Expediente.salida (flujo v4) — null antes de la migración o sin cerrar
   validados: number;
   total: number;
   progreso?: Progreso; // calculado en el servidor (lib/progreso.ts): fase, acción, orden
+  // Flujo v4: en «Preparado» la tarjeta dice si el expediente tiene factura (sin importes).
+  cobro?: { facturado: boolean };
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -34,8 +38,7 @@ const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
 
 // «Esperando al cliente» = HECHO: faltan documentos requeridos, el enlace ya salió y aún
-// no se presentó. Alimenta el filtro del KPI del dashboard (el botón «Recordar» de las
-// tarjetas se retiró el 22/08 — ese gesto vive ahora solo en la ficha).
+// no se presentó. Alimenta el filtro del KPI del dashboard.
 const esperandoCliente = (e: BoardItem): boolean =>
   e.progreso
     ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
@@ -44,32 +47,35 @@ const esperandoCliente = (e: BoardItem): boolean =>
       && e.progreso.accion.clave !== "subir_docs"
     : e.estado === "DOCS_PENDIENTES";
 
-function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void }) {
+// Categoría de un expediente cerrado: la salida registrada, o deducida del estado para
+// los archivados de antes de la migración. null = sin clasificar (no se afirma nada).
+const categoriaDe = (e: BoardItem): Salida | null => (SALIDAS.find((s) => s.key === e.salida)?.key ?? salidaDeEstado(e.estado) ?? null);
+const chipDe = (c: Salida | null) =>
+  c === "concedido" ? "bg-aproba-100 text-aproba-700"
+  : c === "denegado" ? "bg-red-50 text-red-600"
+  : c === "desistido" ? "bg-slate-100 text-slate-500"
+  : "bg-amber-50 text-amber-700";
+
+function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardItem) => void; preparado: boolean }) {
   const t = useT();
   // La barra habla el MISMO idioma que la acción: documentos requeridos por el servicio,
-  // no documentos subidos. Con el denominador viejo la tarjeta se contradecía sola —
-  // «3/3» al lado de «Esperando documentos» (caso real: Rosa, 3 subidos y validados,
-  // pero el justificante de medios económicos que exige la renovación sin llegar).
-  // Sin requisitos configurados (o sin progreso: repli), se queda el conteo de subidos.
+  // no documentos subidos. Sin requisitos configurados (o sin progreso), el conteo de subidos.
   const conRequisitos = (e.progreso?.docs.requeridos ?? 0) > 0;
   const barra = conRequisitos
     ? { hechos: e.progreso!.docs.recibidos, total: e.progreso!.docs.requeridos, faltan: e.progreso!.docs.faltan }
     : { hechos: e.validados, total: e.total, faltan: [] as string[] };
   const comp = e.progreso?.completitud;
-  const est5 = normalizarEstado(e.estado);
-  const post = yaPresentado(est5);
-  // Desenlace de la Administración: solo existe una vez resuelto. FINALIZADO viene
-  // siempre de una resolución favorable, así que cuenta como aceptado.
-  const desenlace = est5 === "RECHAZADO" ? "denegado"
-    : est5 === "RESUELTO" || est5 === "FINALIZADO" ? "aceptado"
-    : null;
+  // Legado: un expediente resuelto/denegado que quedó sin archivar enseña su desenlace.
+  const legado = preparado ? salidaDeEstado(e.estado) : null;
+  const desenlace = legado === "concedido" || legado === "denegado" ? legado : null;
   return (
     // Link real (no div onClick): navegable con teclado, «abrir en pestaña nueva», etc.
     // Todas las tarjetas MIDEN LO MISMO (pedido de Matthias): nombre y servicio en una
-    // sola línea (truncados, el completo en title) y la fila del anillo siempre presente.
-    <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
+    // sola línea (truncados, el completo en title); anillo/chip y avatar a la DERECHA, a
+    // la altura del nombre — sin fila inferior (03/09).
+    <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
       <button
-        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onArchive(e.id); }}
+        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onArchive(e); }}
         aria-label={t("Archivar")}
         title={t("Archivar")}
         className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition before:absolute before:-inset-2 before:content-[''] hover:border-aproba-500 hover:text-aproba-600 sm:opacity-0 sm:group-hover:opacity-100"
@@ -77,131 +83,63 @@ function Card({ e, onArchive }: { e: BoardItem; onArchive: (id: string) => void 
         <ArchiveIcon className="h-3.5 w-3.5" />
       </button>
 
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
-        {e.fechaLimite && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
-      </div>
-      <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
+            {e.fechaLimite && !preparado && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
+          </div>
+          <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
+        </div>
 
-      {/* min-h reserva el alto del anillo: en Presentado/Resultado ya no se enseña
-          (pedido de Matthias — un % sobre algo ya depositado no informa) y sin la
-          reserva esas tarjetas encogían y las columnas dejaban de estar alineadas.
-          Ese hueco lo ocupa ahora lo que SÍ informa después de presentar: la fecha de
-          depósito, y luego el desenlace (la columna «Resultado» no dice cuál fue). */}
-      <div className="mt-2.5 flex min-h-[34px] items-center gap-2">
-        {post && (desenlace
-          ? (
-            <span className={`text-xs font-semibold ${desenlace === "denegado" ? "text-red-600" : "text-aproba-700"}`}>
-              {desenlace === "denegado" ? t("Denegado") : t("Aceptado")}
-            </span>
-          )
-          : e.presentadoEl && (
-            <span className="text-xs text-slate-500">{t("Presentado el")} <span className="font-medium text-slate-700">{e.presentadoEl}</span></span>
-          )
-        )}
-        {comp && !post && (
-          <AnilloCompletitud
-            pct={comp.pct}
-            titulo={[
-              comp.manual ? t("Marcado como listo por el gestor") : null,
-              // El anillo enseña 100 desde «Listo para presentar»: el tooltip no miente.
-              comp.real < comp.pct ? `${t("Completado real")}: ${comp.real}%` : null,
-              `${t("Información")}: ${Math.round(comp.info * 100)}%`,
-              `${t("Documentos")}: ${barra.total > 0 ? `${barra.hechos}/${barra.total}` : `${Math.round(comp.docs * 100)}%`}`,
-              `${t("Formularios")}: ${comp.formularios === 1 ? t("sí") : t("no")}`,
-              barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : null,
-            ].filter(Boolean).join(" · ")}
-          />
-        )}
-        <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
+        {/* Grupo derecho de altura fija. En «Preparación» el anillo de completitud; en
+            «Preparado» el % sobra (pedido de Matthias): dos palabras sobre la factura, o el
+            desenlace legado si ya se conoce. */}
+        <div className="flex h-8 shrink-0 items-center gap-2">
+          {preparado ? (
+            desenlace ? (
+              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${chipDe(desenlace)}`}>{t(etiquetaSalida(desenlace) ?? "")}</span>
+            ) : (
+              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${e.cobro?.facturado ? "bg-aproba-50 text-aproba-700" : "bg-slate-50 text-slate-400"}`}>
+                {e.cobro?.facturado ? t("Facturado") : t("Sin facturar")}
+              </span>
+            )
+          ) : comp && (
+            <AnilloCompletitud
+              pct={comp.pct}
+              size={32}
+              titulo={[
+                comp.manual ? t("Marcado como preparado por el gestor") : null,
+                comp.real < comp.pct ? `${t("Completado real")}: ${comp.real}%` : null,
+                `${t("Información")}: ${Math.round(comp.info * 100)}%`,
+                `${t("Documentos")}: ${barra.total > 0 ? `${barra.hechos}/${barra.total}` : `${Math.round(comp.docs * 100)}%`}`,
+                `${t("Formularios")}: ${comp.formularios === 1 ? t("sí") : t("no")}`,
+                barra.faltan.length ? `${t("Faltan")}: ${barra.faltan.join(" · ")}` : null,
+              ].filter(Boolean).join(" · ")}
+            />
+          )}
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
+        </div>
       </div>
     </Link>
-  );
-}
-
-// ── Puesta al día en lote ────────────────────────────────────────────────────
-// Medición 22/08: 43 expedientes reales llevaban semanas «listos para presentar»
-// cuando ya estaban presentados en Mercurio — nadie da 43 clics declarativos uno a
-// uno. Este banner deja decir la verdad de golpe. Sin avisos a los clientes.
-function PonerAlDia({ candidatos, onDone }: { candidatos: BoardItem[]; onDone: () => void }) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const [fecha, setFecha] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggle = (id: string) => setSel((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-
-  async function enviar() {
-    if (!sel.size || enviando) return;
-    setEnviando(true); setError(null);
-    try {
-      const res = await fetch("/api/expedientes/presentados-lote", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [...sel], fecha: fecha || undefined }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j.error ?? t("No se pudo actualizar."));
-      setOpen(false); onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("No se pudo actualizar."));
-    } finally { setEnviando(false); }
-  }
-
-  return (
-    <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-indigo-900">
-          <span className="font-semibold">{candidatos.length}</span> {t("expedientes listos para presentar. ¿Algunos ya están presentados en Mercurio? Ponlos al día de golpe — sin avisos al cliente.")}
-        </p>
-        <button onClick={() => setOpen((o) => !o)} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
-          {open ? t("Cerrar") : t("Poner al día…")}
-        </button>
-      </div>
-      {open && (
-        <div className="mt-3 rounded-lg border border-indigo-100 bg-white p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <button onClick={() => setSel(new Set(candidatos.map((c) => c.id)))} className="text-xs font-semibold text-indigo-700 hover:underline">{t("Seleccionar todos")}</button>
-            {sel.size > 0 && <button onClick={() => setSel(new Set())} className="text-xs text-slate-400 hover:underline">{t("Ninguno")}</button>}
-          </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto">
-            {candidatos.map((c) => (
-              <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-slate-700 hover:bg-indigo-50/60">
-                <input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} className="h-4 w-4 accent-indigo-600" />
-                <span className="font-mono text-[11px] text-slate-400">{c.referencia}</span>
-                <span className="min-w-0 truncate">{c.clienteNombre}</span>
-                <span className="ml-auto shrink-0 text-[11px] text-slate-400">{c.tipoLabel}</span>
-              </label>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-            <label className="text-xs text-slate-500">
-              {t("Fecha de presentación (opcional)")}
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="ml-1.5 rounded-md border border-slate-300 px-2 py-1 text-[16px] sm:text-xs outline-none focus:border-indigo-500" />
-            </label>
-            <button onClick={enviar} disabled={!sel.size || enviando} className="ml-auto rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50">
-              {enviando ? "…" : `${t("Marcar como presentados")}${sel.size ? ` (${sel.size})` : ""}`}
-            </button>
-          </div>
-          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-        </div>
-      )}
-    </div>
   );
 }
 
 export function BoardClient({ items, asignados, filtroInicial = null }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null }) {
   const t = useT();
   const [q, setQ] = useState("");
-  // Filtro «esperando cliente» (desde el KPI del dashboard): un clic → la lista de
-  // expedientes DOCS_PENDIENTES con el botón Recordar en cada tarjeta.
+  // Filtro «esperando cliente» (desde el KPI del dashboard).
   const [soloEsperando, setSoloEsperando] = useState(filtroInicial === "esperando");
   const [asignado, setAsignado] = useState("");
   const [view, setView] = useState<"activos" | "archivados">("activos");
-  // Archivado = SERVIDOR (items[].archivado, igual para los 3 usuarios) ∪ localStorage
+  // Archivado = SERVIDOR (items[].archivado, igual para todo el equipo) ∪ localStorage
   // (gestos de esta pestaña + legado pre-migración).
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
+  const [dialogo, setDialogo] = useState<BoardItem | null>(null);
+  const [cerrando, setCerrando] = useState(false);
+  const [errorCierre, setErrorCierre] = useState<string | null>(null);
+  const [catFiltro, setCatFiltro] = useState<string>("");
+  const [aviso, setAviso] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -210,14 +148,47 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
     setArchivados(s);
   }, [items]);
 
-  const setArchivado = (id: string, val: boolean) => {
-    setArchivados((prev) => {
-      const next = new Set(prev);
-      if (val) next.add(id); else next.delete(id);
-      return next;
-    });
-    void setArchivadoServidor(id, val); // persiste (servidor + caché local)
+  const restaurar = (id: string) => {
+    setArchivados((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    void setArchivadoServidor(id, false).then(() => router.refresh());
   };
+
+  // Archivar desde la tarjeta = elegir la SALIDA y cerrar (sin factura ni aviso: el dinero
+  // y el email se tocan en la ficha). El estado se traduce en el servidor (lib/cierre.ts).
+  async function cerrarDesdeTablero(e: BoardItem, salida: Salida) {
+    if (cerrando) return;
+    setCerrando(true); setErrorCierre(null);
+    try {
+      const res = await fetch(`/api/expedientes/${e.id}/cerrar`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salida, avisar: false }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? t("No se pudo cerrar el expediente."));
+      setArchivados((prev) => new Set(prev).add(e.id));
+      setDialogo(null);
+      setAviso(`${e.referencia} · ${t("archivado")} · ${t(etiquetaSalida(salida) ?? "")}`);
+      router.refresh();
+    } catch (err) {
+      setErrorCierre(err instanceof Error ? err.message : t("No se pudo cerrar el expediente."));
+    } finally { setCerrando(false); }
+  }
+
+  // Reclasificar un archivado cuando llega la resolución: sin avisos, sin restaurar.
+  async function reclasificar(e: BoardItem, salida: Salida) {
+    try {
+      const res = await fetch(`/api/expedientes/${e.id}/salida`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salida }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? t("No se pudo reclasificar."));
+      setAviso(`${e.referencia} → ${t(etiquetaSalida(salida) ?? "")}${j.salidaGuardada === false ? ` · ${t("Falta la migración supabase/flujo-v4.sql: la categoría se deduce del estado.")}` : ""}`);
+      router.refresh();
+    } catch (err) {
+      setAviso(err instanceof Error ? err.message : t("No se pudo reclasificar."));
+    }
+  }
 
   const matchSearch = (e: BoardItem) => {
     const nq = norm(q.trim());
@@ -231,10 +202,10 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
   const activos = useMemo(() => items.filter((e) => !archivados.has(e.id)), [items, archivados]);
   const archivadosList = useMemo(() => items.filter((e) => archivados.has(e.id)), [items, archivados]);
   const visibles = (view === "activos" ? activos : archivadosList).filter(matchSearch);
-
-  // Candidatos a la puesta al día: los que el cálculo declara «listos para presentar».
-  // Umbral de 3: con uno o dos, el clic normal en la ficha basta y el banner es ruido.
-  const paraPresentar = useMemo(() => activos.filter((e) => e.progreso?.accion.clave === "presentar"), [activos]);
+  const faseDeTarjeta = (e: BoardItem) => (e.progreso ? e.progreso.fase : BOARD_PHASES.find((ph) => ph.estados.includes(e.estado))?.key ?? "preparacion");
+  // Un expediente siempre tiene usuario: «Sin asignar» no es un filtro (03/09). Los pocos
+  // legados sin asignar siguen visibles bajo «Todos».
+  const filtrosAsignado = asignados.filter((a) => a !== "Sin asignar");
 
   return (
     <div>
@@ -260,7 +231,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         {view === "activos" && (
           <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
             <button onClick={() => setAsignado("")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${asignado === "" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Todos")}</button>
-            {asignados.map((a) => (
+            {filtrosAsignado.map((a) => (
               <button key={a} onClick={() => setAsignado(a)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${asignado === a ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{a}</button>
             ))}
           </div>
@@ -273,7 +244,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         </div>
       </div>
 
-      {/* Día 1: tablero vacío → contar el flujo y llevar al primer expediente, no 4 columnas de «—». */}
+      {/* Día 1: tablero vacío → contar el flujo y llevar al primer expediente. */}
       {view === "activos" && visibles.length === 0 && (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-3xl">🗂️</p>
@@ -287,34 +258,23 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         </div>
       )}
 
-      {view === "activos" && !soloEsperando && paraPresentar.length >= 3 && (
-        <PonerAlDia candidatos={paraPresentar} onDone={() => router.refresh()} />
-      )}
-
-      {/* Vue active : pipeline en 4 fases (cabe en pantalla, lectura izq→der como un flujo) */}
+      {/* Vista activa: dos columnas de TRABAJO (Preparación · Preparado), lectura izq→der. */}
       {view === "activos" && visibles.length > 0 ? (
         <div className="no-scrollbar flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2 sm:snap-none sm:gap-2 sm:overflow-visible">
           {BOARD_PHASES.map((ph, i) => {
-            // La fase viene del progreso calculado (lib/progreso.ts): la frontera
-            // Recepción/Preparación ya no es una pertenencia de estado sino el avance
-            // real. Repli sobre el groupage antiguo si la fila no trae progreso.
             const cards = visibles
-              .filter((e) => (e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)))
+              .filter((e) => faseDeTarjeta(e) === ph.key)
               .sort((a, b) => (a.progreso?.score ?? ORDEN[a.estado] ?? 0) - (b.progreso?.score ?? ORDEN[b.estado] ?? 0));
             return (
               <Fragment key={ph.key}>
                 <div className="flex w-[82vw] max-w-xs shrink-0 snap-start flex-col sm:w-auto sm:max-w-none sm:flex-1 sm:shrink">
-                  {/* Título CENTRADO con el contador flotando a la derecha: en grid, el
-                      centro es el de la cabecera entera, no el del hueco que deja el
-                      contador — así los cuatro títulos quedan alineados entre columnas
-                      aunque los contadores tengan uno o dos dígitos. */}
                   <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center rounded-lg bg-aproba-50 px-3 py-2">
                     <span aria-hidden />
                     <span className="text-center text-[13px] font-bold text-aproba-700">{i + 1}. {t(ph.label)}</span>
                     <span className="justify-self-end rounded-full bg-white/70 px-1.5 text-xs font-semibold text-aproba-700">{cards.length}</span>
                   </div>
                   <div className="space-y-2.5">
-                    {cards.map((e) => <Card key={e.id} e={e} onArchive={(id) => setArchivado(id, true)} />)}
+                    {cards.map((e) => <Card key={e.id} e={e} preparado={ph.key === "preparado"} onArchive={(x) => { setErrorCierre(null); setDialogo(x); }} />)}
                     {cards.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">—</div>}
                   </div>
                 </div>
@@ -328,22 +288,63 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
           })}
         </div>
       ) : view === "activos" ? null : (
-        /* Vue archivés : liste */
+        /* Vista archivados: lista por SALIDA (chips + filtro), reclasificable en la fila. */
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          {visibles.map((e) => {
+          <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-4 py-3">
+            {[{ key: "", label: "Todas" }, ...SALIDAS.map((s) => ({ key: s.key as string, label: s.label })), { key: "sin", label: "Sin clasificar" }].map((c) => {
+              const n = c.key === "" ? archivadosList.length : archivadosList.filter((e) => (categoriaDe(e) ?? "sin") === c.key).length;
+              if (c.key !== "" && n === 0) return null;
+              return (
+                <button key={c.key} onClick={() => setCatFiltro(c.key)} className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${catFiltro === c.key ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 bg-white text-slate-600 hover:border-aproba-400 hover:text-aproba-700"}`}>
+                  {t(c.label)} <span className="opacity-70">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          {visibles.filter((e) => !catFiltro || (categoriaDe(e) ?? "sin") === catFiltro).map((e) => {
+            const cat = categoriaDe(e);
             return (
-              <div key={e.id} className="flex items-center gap-3 border-b border-slate-50 px-5 py-3 last:border-0 hover:bg-cream-50">
-                <a href={`/app/expedientes/${e.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+              // Móvil: el nombre en su línea y los mandos debajo; en ancho, todo en una fila.
+              <div key={e.id} className="flex flex-wrap items-center gap-3 border-b border-slate-50 px-5 py-3 last:border-0 hover:bg-cream-50">
+                <a href={`/app/expedientes/${e.id}`} className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-800">{e.clienteNombre}</p>
                     <p className="truncate text-xs text-slate-400">{e.tipoLabel} · {e.referencia}</p>
                   </div>
                 </a>
-                <button onClick={() => setArchivado(e.id, false)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-aproba-500 hover:text-aproba-700">{t("Restaurar")}</button>
+                {cat && <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold sm:ml-0 ${chipDe(cat)}`}>{t(etiquetaSalida(cat) ?? "")}</span>}
+                <select
+                  aria-label={t("Cambiar categoría")}
+                  value={cat ?? ""}
+                  onChange={(ev) => { const v = ev.target.value as Salida | ""; if (v) void reclasificar(e, v); }}
+                  className={`shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 outline-none focus:border-aproba-600 ${cat ? "" : "ml-auto sm:ml-0"}`}
+                >
+                  <option value="" disabled>{cat ? t("Cambiar…") : t("Clasificar…")}</option>
+                  {SALIDAS.map((s) => <option key={s.key} value={s.key}>{t(s.label)}</option>)}
+                </select>
+                <button onClick={() => restaurar(e.id)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-aproba-500 hover:text-aproba-700">{t("Restaurar")}</button>
               </div>
             );
           })}
           {visibles.length === 0 && <p className="px-5 py-12 text-center text-sm text-slate-400">{q ? t("Sin resultados.") : t("No hay expedientes archivados.")}</p>}
+        </div>
+      )}
+
+      {dialogo && (
+        <CerrarExpedienteDialog
+          referencia={dialogo.referencia}
+          cliente={dialogo.clienteNombre}
+          sinFactura
+          busy={cerrando}
+          error={errorCierre}
+          onClose={() => { if (!cerrando) setDialogo(null); }}
+          onConfirm={({ salida }) => void cerrarDesdeTablero(dialogo, salida)}
+        />
+      )}
+      {aviso && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-float">
+          <span>{aviso}</span>
+          <button onClick={() => setAviso(null)} className="text-slate-400 hover:text-white" aria-label={t("Cerrar")}>✕</button>
         </div>
       )}
     </div>

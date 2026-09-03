@@ -97,7 +97,9 @@ describe("formularios: la curación vacía cuenta como hecha", () => {
   it("curación explícita vacía cierra el paso", () => {
     const p = calcularProgreso({ ...base, formulariosCurados: true });
     expect(p.hitos.formularios).toBe(true);
-    expect(p.accion.clave).toBe("presentar");
+    // Flujo v4: con los formularios hechos el expediente está PREPARADO y el siguiente
+    // gesto es el cierre («Facturar y archivar»), no «presentar».
+    expect(p.accion.clave).toBe("archivar");
   });
 
   it("solo la tasa también cuenta", () => {
@@ -134,43 +136,47 @@ describe("acción siguiente — ninguna tarjeta muda", () => {
     expect(p.accion.clave).toBe("generar_formularios");
   });
 
-  it("presentado espera resolución; no hay acción del gestor", () => {
-    expect(calcularProgreso({ ...base, estado: "PRESENTADO" }).accion).toMatchObject({ clave: "esperando_resolucion", espera: true });
+  // Flujo v4: el ciclo termina en la entrega. Un expediente presentado (legado) que quedó
+  // sin archivar no «espera»: su único gesto es cerrarlo — nunca hay tarjeta gris.
+  it("presentado (legado) ofrece cerrar; el gris de espera ya no existe", () => {
+    expect(calcularProgreso({ ...base, estado: "PRESENTADO" }).accion).toMatchObject({ clave: "archivar", espera: false });
   });
 
-  // La cita ya no es LA acción: es un hecho. Resuelto → finalizar, siempre — con o sin
+  // La cita ya no es LA acción: es un hecho. Resuelto → cerrar, siempre — con o sin
   // cita agendada, presencial o no (agendar vive en la ficha como gesto secundario).
-  it("resuelto → finalizar, la cita nunca bloquea el cierre", () => {
-    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: null }).accion.clave).toBe("finalizar");
-    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: "2026-09-12" }).accion.clave).toBe("finalizar");
-    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: false }).accion.clave).toBe("finalizar");
+  it("resuelto → cerrar, la cita nunca bloquea el cierre", () => {
+    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: null }).accion.clave).toBe("archivar");
+    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: true, fechaCita: "2026-09-12" }).accion.clave).toBe("archivar");
+    expect(calcularProgreso({ ...base, estado: "RESUELTO", citaPresencial: false }).accion.clave).toBe("archivar");
   });
 
-  it("un expediente legado en CITA_HUELLAS ofrece finalizar", () => {
+  it("un expediente legado en CITA_HUELLAS ofrece cerrar", () => {
     const p = calcularProgreso({ ...base, estado: "CITA_HUELLAS", citaPresencial: true, fechaCita: "2026-09-12" });
     expect(p.estado).toBe("RESUELTO");
-    expect(p.accion.clave).toBe("finalizar");
+    expect(p.accion.clave).toBe("archivar");
   });
 });
 
 describe("fases del board — nadie desaparece del tablero", () => {
   it("cada estado cae en una fase, siempre", () => {
     for (const e of ["EN_PREPARACION", "PRESENTADO", "RESUELTO", "RECHAZADO", "FINALIZADO"] as const) {
-      expect(["recepcion", "preparacion", "presentacion", "cierre"]).toContain(faseDe(e, false, false));
+      expect(["preparacion", "preparado"]).toContain(faseDe(e, false, false));
     }
   });
 
-  it("la frontera recepción/preparación se deriva del avance", () => {
-    expect(faseDe("EN_PREPARACION", false, false)).toBe("recepcion");
-    expect(faseDe("EN_PREPARACION", true, false)).toBe("preparacion");
-    expect(faseDe("EN_PREPARACION", false, true)).toBe("preparacion"); // formularios generados con docs incompletos
+  // Flujo v4 (03/09): «Preparado» se lee de los hechos — formularios/tasa generados o el
+  // gestor lo marcó a mano. Los documentos completos NO cambian de columna: Documentación
+  // y Preparación se fusionaron porque la frontera nunca estaba clara.
+  it("la frontera Preparación/Preparado se deriva de los formularios o de la marca manual", () => {
+    expect(faseDe("EN_PREPARACION", false, false)).toBe("preparacion");
+    expect(faseDe("EN_PREPARACION", true, false)).toBe("preparado"); // formularios generados (aunque falten documentos)
+    expect(faseDe("EN_PREPARACION", false, true)).toBe("preparado"); // «Marcar como preparado»
   });
 
-  it("aceptados y denegados van al Resultado; solo lo presentado espera en Presentado", () => {
-    // Flujo del 22/08: la resolución (favorable o no) ES el resultado — 4ª columna.
-    expect(faseDe("RECHAZADO", true, true)).toBe("cierre");
-    expect(faseDe("RESUELTO", false, false)).toBe("cierre");
-    expect(faseDe("PRESENTADO", false, false)).toBe("presentacion");
+  it("presentados, resueltos y denegados (legado sin archivar) caen en Preparado", () => {
+    expect(faseDe("RECHAZADO", false, false)).toBe("preparado");
+    expect(faseDe("RESUELTO", false, false)).toBe("preparado");
+    expect(faseDe("PRESENTADO", false, false)).toBe("preparado");
   });
 
   it("un valor legado cualquiera sigue teniendo fase", () => {
@@ -224,8 +230,8 @@ describe("modo manual — el despacho trabaja sin enlace", () => {
     expect(p.accion.clave).toBe("generar_formularios");
   });
 
-  it("con formularios listos, presentar", () => {
-    expect(calcularProgreso({ ...manual, formulariosCurados: true }).accion.clave).toBe("presentar");
+  it("con formularios listos, cerrar", () => {
+    expect(calcularProgreso({ ...manual, formulariosCurados: true }).accion.clave).toBe("archivar");
   });
 
   it("el modo manual NUNCA produce «elegir_servicio» (que es el enlace)", () => {
@@ -256,12 +262,15 @@ describe("completitud del expediente (Información + Documentos + Formularios)",
     expect(calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"] }).completitud.pct).toBe(33);
   });
 
-  it("ficha + documentos, sin formularios = 67 % REAL (y 100 mostrado: ya está en «Listo»)", () => {
+  // Flujo v4: los documentos completos NO empujan de columna (Documentación y Preparación
+  // se fusionaron el 03/09), así que el % mostrado sigue siendo el real hasta que el
+  // expediente esté preparado de verdad (formularios) o el gestor lo marque.
+  it("ficha + documentos, sin formularios = 67 % real y mostrado (sigue en Preparación)", () => {
     const p = calcularProgreso({ ...b, fichaRellenos: 18, docsRequeridos: ["Pasaporte"], tiposValidados: ["PASAPORTE"] });
     expect(p.completitud.real).toBe(67);
     expect(p.completitud.formularios).toBe(0);
     expect(p.fase).toBe("preparacion");
-    expect(p.completitud.pct).toBe(100);
+    expect(p.completitud.pct).toBe(67);
   });
 
   it("las tres partes = 100 % — mostrado Y real (la ficha no avisa de nada)", () => {
@@ -278,17 +287,17 @@ describe("completitud del expediente (Información + Documentos + Formularios)",
 
   it("en «Preparación» el % mostrado ES el calculado", () => {
     const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["Pasaporte"] });
-    expect(p.fase).toBe("recepcion");
+    expect(p.fase).toBe("preparacion");
     expect(p.completitud.pct).toBe(17);
     expect(p.completitud.real).toBe(17);
   });
 
-  it("la validación manual empuja a «Listo para presentar» Y enseña 100 %, guardando el real", () => {
-    // Regla del 22/08 (2ª vuelta, Matthias): estar en «Listo para presentar» ES decir
-    // que el expediente está listo → el anillo marca 100. El número honesto sigue en
-    // `real` (17 %) y la ficha avisa de que falta documentación en la plataforma.
+  it("«Marcar como preparado» empuja a Preparado Y enseña 100 %, guardando el real", () => {
+    // Regla del 22/08 (Matthias), vigente en v4: estar en «Preparado» ES decir que el
+    // expediente está listo → el anillo marca 100. El número honesto sigue en `real`
+    // (17 %) y la ficha avisa de que falta documentación en la plataforma.
     const p = calcularProgreso({ ...b, fichaRellenos: 9, docsRequeridos: ["Pasaporte"], validadoManual: true });
-    expect(p.fase).toBe("preparacion");
+    expect(p.fase).toBe("preparado");
     expect(p.completitud.pct).toBe(100);
     expect(p.completitud.real).toBe(17); // (0,5 + 0 + 0) / 3
     expect(p.completitud.manual).toBe(true);

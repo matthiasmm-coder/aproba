@@ -108,18 +108,17 @@ export type Progreso = {
   completitud: { pct: number; real: number; info: number; docs: number; formularios: number; manual: boolean };
 };
 
-export type FaseKey = "recepcion" | "preparacion" | "presentacion" | "cierre";
+// FLUJO v4 (03/09/2026): dos fases de TRABAJO. El ciclo del despacho termina en la
+// entrega; «Facturar y archivar» es el único gesto de cierre y sale del tablero.
+export type FaseKey = "preparacion" | "preparado";
 export type AccionClave =
-  | "elegir_servicio" | "subir_docs" | "generar_formularios" | "presentar"
-  | "esperando_resolucion" | "finalizar" | "cerrado" | "denegado";
+  | "elegir_servicio" | "subir_docs" | "generar_formularios" | "archivar" | "cerrado" | "denegado";
 
 // Mismas etiquetas que BOARD_PHASES (lib/types.ts) — si divergen, el tablero y esto
-// dirían nombres distintos de la misma fase. Ver allí el aviso del desfase clave/etiqueta.
+// dirían nombres distintos de la misma fase.
 export const FASES: { key: FaseKey; label: string }[] = [
-  { key: "recepcion", label: "Preparación" },
-  { key: "preparacion", label: "Listo para presentar" },
-  { key: "presentacion", label: "Presentado" },
-  { key: "cierre", label: "Resultado" },
+  { key: "preparacion", label: "Preparación" },
+  { key: "preparado", label: "Preparado" },
 ];
 
 // ── ¿Están los documentos completos? ─────────────────────────────────────────
@@ -170,9 +169,9 @@ export function calcularProgreso(h: Hechos): Progreso {
     cerrado: estado === "FINALIZADO",
   };
 
-  // La validación manual también EMPUJA de fase: es su sentido — «esto ya está listo».
-  const fase = faseDe(estado, hitoDocs || Boolean(h.validadoManual), hitoForm);
-  const completitud = completitudDe(h, docs, hitoForm, post, fase !== "recepcion");
+  // «Marcar como preparado» (validación manual) EMPUJA de fase: es su sentido.
+  const fase = faseDe(estado, hitoForm, Boolean(h.validadoManual));
+  const completitud = completitudDe(h, docs, hitoForm, post, fase === "preparado");
   return {
     estado,
     fase,
@@ -183,30 +182,24 @@ export function calcularProgreso(h: Hechos): Progreso {
   };
 }
 
-// La frontera Recepción/Preparación ya no puede ser una pertenencia de estado (los cuatro
-// estados antiguos se fusionaron): se deriva del avance real.
-export function faseDe(estado: Estado5, hitoDocs: boolean, hitoForm: boolean): FaseKey {
-  // «Resultado» = el desenlace ya se conoce (flujo del 22/08, Matthias): aceptado o
-  // denegado saltan a la 4ª columna en cuanto se marca la resolución; en «Presentado»
-  // solo queda lo que de verdad espera respuesta de la Administración.
-  if (estado === "RESUELTO" || estado === "RECHAZADO" || estado === "FINALIZADO") return "cierre";
-  if (estado === "PRESENTADO") return "presentacion";
-  return hitoDocs || hitoForm ? "preparacion" : "recepcion";
+// «Preparado» se lee de los HECHOS, nunca se deduce del tiempo: formularios o tasa
+// generados, el gestor lo marcó a mano, o el expediente ya está presentado/resuelto
+// (legado). Todo lo demás está en Preparación, en el orden en que las cosas lleguen
+// (documentos completos NO cambian de columna: Documentación y Preparación se
+// fusionaron el 03/09 porque la frontera nunca estaba clara).
+export function faseDe(estado: Estado5, hitoForm: boolean, validadoManual = false): FaseKey {
+  if (estado === "PRESENTADO" || estado === "RESUELTO" || estado === "RECHAZADO" || estado === "FINALIZADO") return "preparado";
+  return hitoForm || validadoManual ? "preparado" : "preparacion";
 }
 
 // Qué toca hacer ahora. `espera: true` = la pelota no está en el tejado del despacho.
 function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean): Progreso["accion"] {
-  if (estado === "FINALIZADO") return { label: "Expediente cerrado", espera: true, clave: "cerrado" };
-  if (estado === "RECHAZADO") return { label: "Expediente denegado", espera: true, clave: "denegado" };
-  if (estado === "RESUELTO") {
-    // La cita es un HECHO del expediente resuelto, no una etapa (medición 22/08: en 79
-    // expedientes reales nadie recorrió la cola del ciclo — cada parada declarativa de
-    // más era una razón para no llegar al final). La única acción tras la resolución es
-    // cerrar cuando la tarjeta está entregada; agendar/editar la cita queda a mano en la
-    // ficha como gesto secundario.
-    return { label: "Archivar el expediente", espera: false, clave: "finalizar" };
+  // Legado: los estados de resolución que quedaron sin archivar. Su único gesto es cerrar.
+  if (estado === "FINALIZADO" || estado === "RECHAZADO" || estado === "RESUELTO" || estado === "PRESENTADO") {
+    return { label: "Facturar y archivar", espera: false, clave: "archivar" };
   }
-  if (estado === "PRESENTADO") return { label: "Esperando resolución", espera: true, clave: "esperando_resolucion" };
+  // «Preparado» a mano o por los hechos: el siguiente gesto es la entrega, es decir cerrar.
+  if (hitoForm || h.validadoManual) return { label: "Facturar y archivar", espera: false, clave: "archivar" };
 
   // MODO MANUAL: nunca se pide el enlace. Lo que toca es aportar los documentos uno
   // mismo (o preparar ya, si el servicio no exige ninguno).
@@ -214,8 +207,7 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
     if (!hitoForm && docs.faltan.length > 0 && h.docsTotales === 0) {
       return { label: "Subir los documentos", espera: false, clave: "subir_docs" };
     }
-    if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
-    return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };
+    return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
   }
 
   // EN_PREPARACION: el orden importa. Sin servicio resuelto no hay documentos que pedir
@@ -235,9 +227,8 @@ function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof doc
   // siguiente gesto del gestor (los papeles que faltan nunca impiden preparar — es lo
   // que hacen los despachos reales); quién debe qué se lee en los HECHOS: la barra
   // recibidos/requeridos y el botón «Recordar», que sale de docs.faltan, no de aquí.
-  // El gris de espera queda solo donde el gestor no puede hacer nada: tras presentar.
-  if (!hitoForm) return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
-  return { label: "Presentar en Mercurio", espera: false, clave: "presentar" };
+  // El gris de espera ya no existe: el ciclo termina en la entrega y siempre hay un gesto.
+  return { label: "Generar formularios", espera: false, clave: "generar_formularios" };
 }
 
 // ── Completitud (0-100) ──────────────────────────────────────────────────────

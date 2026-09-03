@@ -6,15 +6,20 @@ import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { useT } from "@/components/lang-provider";
 import { ChevronIcon, CheckIcon } from "@/components/icons";
 
-// Indicador de pipeline en 4 fases, compartido por el detalle (resalta la fase actual)
-// y el dashboard (muestra recuentos y enlaza al tablero). Mismo lenguaje que el board.
+// Indicador de pipeline en 2 fases de trabajo (flujo v4), compartido por el detalle
+// (resalta la fase actual; archivado = todo hecho + chip con la salida) y el dashboard
+// (muestra recuentos y enlaza al tablero). Mismo lenguaje que el board.
 export function PhaseStepper({
   activeEstado,
   activeFase,
   counts,
   linkHref,
+  archivado = false,
+  salida = null,
 }: {
   activeEstado?: ExpedienteEstado;
+  archivado?: boolean;       // ficha: el ciclo está cerrado
+  salida?: string | null;    // etiqueta ya traducida de la salida (o null)
   // Fase ya calculada (lib/progreso.ts). Necesaria desde que los cuatro estados de
   // trabajo se fundieron: EN_PREPARACION no pertenece a ninguna fase por sí solo, y sin
   // esto el stepper se quedaba TODO en gris en la mayoría de las fichas.
@@ -23,9 +28,11 @@ export function PhaseStepper({
   linkHref?: string;
 }) {
   const t = useT();
-  const activeIdx = activeFase
-    ? BOARD_PHASES.findIndex((p) => p.key === activeFase)
-    : activeEstado ? BOARD_PHASES.findIndex((p) => p.estados.includes(activeEstado)) : -1;
+  const activeIdx = archivado
+    ? BOARD_PHASES.length
+    : activeFase
+      ? BOARD_PHASES.findIndex((p) => p.key === activeFase)
+      : activeEstado ? BOARD_PHASES.findIndex((p) => p.estados.includes(activeEstado)) : -1;
 
   return (
     <div className="no-scrollbar flex items-stretch gap-1.5 overflow-x-auto pb-1 sm:gap-2 sm:overflow-visible sm:pb-0">
@@ -61,6 +68,11 @@ export function PhaseStepper({
           </Fragment>
         );
       })}
+      {archivado && (
+        <span className="self-center whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+          {t("Archivado")}{salida ? ` · ${salida}` : ""}
+        </span>
+      )}
     </div>
   );
 }

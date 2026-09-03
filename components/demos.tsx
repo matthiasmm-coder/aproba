@@ -67,10 +67,10 @@ const HISTORIAL = [
 // Fases del ciclo real (BOARD_PHASES/FASES, reforma 22/08): el detalle ya no lleva
 // píldora de estado — lleva el stepper de 4 fases y la carta de completitud (anillo %
 // + Información/Documentos/Formularios), como la ficha de verdad.
-const FASES = ["Preparación", "Listo para presentar", "Presentado", "Resultado"];
-// Fase activa por paso: en preparación hasta validar los docs; con los 4 validados
-// (paso 6) el expediente salta a «Listo para presentar» — igual que faseDe() real.
-const FASE_POR_STEP = [0, 0, 0, 0, 0, 0, 1, 1];
+const FASES = ["Preparación", "Preparado"];
+// Fase activa por paso (flujo v4): en Preparación hasta que los formularios están
+// generados (paso 7), momento en que el expediente pasa a «Preparado» — igual que faseDe().
+const FASE_POR_STEP = [0, 0, 0, 0, 0, 0, 0, 1];
 // Completitud por paso = media de 3 partes (lib/progreso.ts): Información (ficha
 // completa en el paso 2), Documentos (validados/4), Formularios (generados al final).
 const COMP_POR_STEP = [0, 0, 33, 33, 42, 50, 67, 100];
