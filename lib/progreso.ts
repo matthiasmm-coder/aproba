@@ -80,7 +80,7 @@ export type Hechos = {
   // para siempre, que es exactamente lo que NO hay que hacer en ese modo.
   modoManual?: boolean;
   // Validación MANUAL del gestor (un botón en la ficha): empuja el expediente a
-  // «Listo para presentar» SIN tocar el % — el número sigue siendo el calculado.
+  // «Preparado» SIN tocar el % — el número sigue siendo el calculado.
   // Existe porque el producto no puede saberlo todo (papeles en mano, campos que
   // no aplican a ese trámite…).
   validadoManual?: boolean;
@@ -103,7 +103,7 @@ export type Progreso = {
   // antes de presentar: Información (campos de la ficha), Documentos (requeridos
   // validados) y Formularios (generados). `desglose` alimenta el tooltip: un número
   // global sin detalle no dice qué falta.
-  // pct = el que se ENSEÑA (100 desde «Listo para presentar»); real = el calculado de
+  // pct = el que se ENSEÑA (100 desde «Preparado»); real = el calculado de
   // verdad. La ficha compara los dos para avisar de que falta algo en la plataforma.
   completitud: { pct: number; real: number; info: number; docs: number; formularios: number; manual: boolean };
 };
@@ -252,7 +252,7 @@ function completitudDe(h: Hechos, docs: ReturnType<typeof docsCompletos>, hitoFo
   const frm = hitoForm ? 1 : 0;
   const real = Math.round(((info + dcs + frm) / 3) * 100);
   if (post) return { pct: 100, real: 100, info: 1, docs: 1, formularios: 1, manual };
-  // «Listo para presentar» ⇒ 100 % (pedido de Matthias, 22/08): estar en esa columna
+  // «Preparado» ⇒ 100 % (pedido de Matthias, 22/08): estar en esa columna
   // ES la declaración de que el expediente está listo — sea porque los hechos lo dicen
   // (docs completos o formularios generados) o porque el gestor lo marcó a mano. La
   // verdad calculada NO se pierde: viaja en `real` y la ficha avisa si falta algo.

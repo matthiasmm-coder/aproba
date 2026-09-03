@@ -227,7 +227,7 @@ export type ExpedienteDetalle = ExpedienteUI & {
   tipoEnum: string;
   oficinaId: string | null; // sede del expediente — resuelve el catálogo (catalogoDeSede)
   modoTrabajo: "portal" | "manual"; // manual = el despacho lo trabaja sin enlace al cliente
-  validadoManual: boolean; // el gestor declaró las 3 secciones OK (100 % y «Listo para presentar»)
+  validadoManual: boolean; // el gestor lo marcó como preparado (100 % y columna «Preparado»)
   formulariosGenerados: string[] | null; // bruto, para el constructor único del progreso
   tasaPath: string | null;
   tieneTasa: boolean; // tasa 790-012 oficial guardada (tasaPath — flujo individual)

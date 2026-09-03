@@ -565,7 +565,7 @@ function Dashboard({ step }: { step: number }) {
             </span>
           ))}
           <span className={`rounded-md px-2 py-1 text-[9px] font-semibold transition-colors duration-500 ${formsListos ? "bg-aproba-600 text-white" : "border border-aproba-300 text-aproba-700"}`}>
-            {formsListos ? "Marcar como presentado" : "Marcar como listo para presentar"}
+            {formsListos ? "Facturar y archivar" : "Marcar como preparado"}
           </span>
         </div>
 

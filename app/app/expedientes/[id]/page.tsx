@@ -314,7 +314,7 @@ export default async function ExpedienteDetail({
       </div>
 
       {/* Documentos del cliente pendientes — SOLO en la columna «1. Preparación»
-          (pedido de Matthias): de «Listo para presentar» en adelante el gestor ya
+          (pedido de Matthias): en «Preparado» y archivado el gestor ya
           decidió avanzar y el aviso solo metía ruido. */}
       {docsPendientes.length > 0 && progresoExp.fase === "preparacion" && !archivadoExp && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">

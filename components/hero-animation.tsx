@@ -171,22 +171,18 @@ function Expedientes() {
       ],
     },
     {
-      label: "2. Listo para presentar",
-      cards: [{ n: "Julia Mendoza", t: "Arraigo social · Colombia", pct: 100, who: "MR", venc: "20/06" }],
-    },
-    {
-      label: "3. Presentado",
-      cards: [{ n: "Liu Wei", t: "Reagrupación familiar · China", fecha: "03/06", who: "MR" }],
-    },
-    {
-      label: "4. Resultado",
-      cards: [{ n: "Oksana Koval", t: "Nacionalidad española · Ucrania", res: "ok", who: "MR" }],
+      label: "2. Preparado",
+      cards: [
+        { n: "Julia Mendoza", t: "Arraigo social · Colombia", pct: 100, who: "MR", venc: "20/06" },
+        { n: "Liu Wei", t: "Reagrupación familiar · China", pct: 100, who: "MR" },
+        { n: "Oksana Koval", t: "Nacionalidad española · Ucrania", pct: 100, who: "MR" },
+      ],
     },
   ];
   return (
     <div>
       <Head title="Expedientes" sub="6 activos" />
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         {cols.map((c) => (
           <div key={c.label} className="min-w-0">
             <div className="mb-1.5 flex items-center justify-center gap-1 rounded bg-aproba-50/70 px-1 py-0.5">
