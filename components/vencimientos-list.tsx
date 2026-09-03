@@ -45,8 +45,9 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
     return [
       { key: "vencidos", titulo: t("Ya caducadas"), tono: "text-red-600", items: resto.filter((v) => v.dias < 0) },
       { key: "urgentes", titulo: t("Caducan en menos de 60 días"), tono: "text-amber-600", items: resto.filter((v) => v.dias >= 0 && v.dias <= 60) },
-      { key: "proximos", titulo: t("En los próximos 6 meses"), tono: "text-slate-600", items: resto.filter((v) => v.dias > 60 && v.dias <= 183) },
-      { key: "lejanos", titulo: t("Más adelante"), tono: "text-slate-400", items: resto.filter((v) => v.dias > 183) },
+      // Un solo grupo para todo lo que caduca en más de 60 días (03/09: «En los próximos
+      // 6 meses» fusionado aquí — el corte a 6 meses vive como indicador en Inicio).
+      { key: "lejanos", titulo: t("Más adelante"), tono: "text-slate-500", items: resto.filter((v) => v.dias > 60) },
       { key: "tramitando", titulo: t("Renovación en marcha"), tono: "text-aproba-700", items: enMarcha },
     ].filter((g) => g.items.length > 0);
   }, [vencimientos, q, t]);

@@ -130,7 +130,7 @@ function Vencimientos() {
       ],
     },
     {
-      titulo: "En los próximos 6 meses", tono: "text-slate-600",
+      titulo: "Más adelante", tono: "text-slate-500",
       items: [
         { n: "Liu Wei", t: "Renovación de TIE", d: "caduca en 122 días", dot: "bg-slate-300", btn: "Ver renovación", primario: false },
       ],

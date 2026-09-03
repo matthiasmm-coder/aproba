@@ -15,7 +15,6 @@ export const CA: Record<string, string> = {
   "Las tarjetas de tus clientes que caducan pronto. Inicia la renovación con un clic: se crea el expediente y se avisa al cliente en su idioma.": "Les targetes dels teus clients que caduquen aviat. Inicia la renovació amb un clic: es crea l'expedient i s'avisa el client en el seu idioma.",
   "Ya caducadas": "Ja caducades",
   "Caducan en menos de 60 días": "Caduquen en menys de 60 dies",
-  "En los próximos 6 meses": "En els pròxims 6 mesos",
   "Más adelante": "Més endavant",
   "Renovación en marcha": "Renovació en marxa",
   "Iniciar renovación": "Iniciar renovació",

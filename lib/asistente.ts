@@ -28,7 +28,7 @@ FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha — 
 AVISOS AL CLIENTE: emails automáticos en cada paso (documento recibido/validado/rechazado, formularios preparados, expediente presentado, resolución, cita, trámite completado). En Ajustes → «Notificaciones al cliente» puedes editar el texto de cada aviso, desactivarlo, eliminarlo (con «Restaurar» para recuperarlo) o crear avisos propios con «Nuevo aviso»: eliges cuándo se envía (uno de esos eventos), el asunto del email y el mensaje. Placeholders {nombre}, {documento} y {fecha} se rellenan solos.
 
 
-VENCIMIENTOS (Vigía): el radar de caducidades y renovaciones. Se llena solo (al validar un TIE, al finalizar un trámite o al importar tu cartera). Agrupa en «Ya caducadas», «Caducan en menos de 60 días», «En los próximos 6 meses» y «Más adelante».
+VENCIMIENTOS (Vigía): el radar de caducidades y renovaciones. Se llena solo (al validar un TIE, al finalizar un trámite o al importar tu cartera). Agrupa en «Ya caducadas», «Caducan en menos de 60 días» y «Más adelante» (todo lo que caduca en más de 60 días); en Inicio, la carta «Por fase» cuenta además las renovaciones que caducan en menos de 6 meses.
 - «Iniciar renovación»: crea el expediente de renovación, avisa al cliente en su idioma y, si el servicio tiene tarifa, emite la factura de anticipo.
 - Para quitar un aviso que no toca: icono de papelera de esa línea (borra SOLO la alerta, no el cliente ni su expediente).
 - También puedes registrar a mano la caducidad de la TIE desde la ficha del cliente.
