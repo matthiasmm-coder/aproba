@@ -40,7 +40,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; hoy: string }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; hoy: string }) {
   const t = useT();
   const router = useRouter();
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
@@ -100,6 +100,14 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
         </p>
       </div>
 
+      {bandejaPendientes > 0 && (
+        <Link href="/app/bandeja" className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 transition hover:bg-amber-100">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>
+          </span>
+          <span><b>{bandejaPendientes}</b> {t(bandejaPendientes === 1 ? "email con documentos espera a que digas de qué cliente es" : "emails con documentos esperan a que digas de qué cliente son")} · <span className="font-semibold underline underline-offset-2">{t("Ver la bandeja")}</span></span>
+        </Link>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (
           <Link key={k.label} href={k.href} className={`flex flex-col items-center rounded-2xl border p-5 text-center transition hover:shadow-sm ${k.tone}`}>

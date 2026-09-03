@@ -24,6 +24,31 @@ import { FotoPerfil } from "@/components/foto-perfil";
 import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
+import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { RecibirDocumentosConfig } from "@/components/recibir-documentos-config";
+import { direccionEntrante, generarTokenEntrante } from "@/lib/email-entrante";
+
+// Dirección de recepción de documentos por email del despacho (03/09/2026): el token
+// vive en Workspace.emailEntranteToken; si la migración lo dejó vacío, se genera aquí
+// una sola vez. Sin la columna (migración pendiente) → null y el bloque lo dice.
+async function direccionRecepcion(): Promise<{ direccion: string | null; pendientes: number }> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: m, error } = await supabase.from("Membership").select("workspaceId, Workspace(emailEntranteToken)").limit(1).maybeSingle();
+    if (error || !m) return { direccion: null, pendientes: 0 };
+    const wsRaw = (m as { Workspace?: { emailEntranteToken?: string | null } | { emailEntranteToken?: string | null }[] }).Workspace;
+    const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
+    let token = ws?.emailEntranteToken ?? null;
+    if (!token) {
+      token = generarTokenEntrante();
+      const { error: eUp } = await createSupabaseAdmin().from("Workspace").update({ emailEntranteToken: token }).eq("id", m.workspaceId as string);
+      if (eUp) return { direccion: null, pendientes: 0 };
+    }
+    const { count } = await supabase.from("BandejaEntrada").select("id", { count: "exact", head: true }).eq("estado", "PENDIENTE");
+    return { direccion: direccionEntrante(token), pendientes: count ?? 0 };
+  } catch { return { direccion: null, pendientes: 0 }; }
+}
 
 export const metadata = { title: "Ajustes" };
 
@@ -87,6 +112,7 @@ export default async function Ajustes() {
   ]);
   const { servicios } = srv;
   const { avisos } = avs;
+  const recepcion = await direccionRecepcion();
   // Si la lecture a échoué, on montre les valeurs par DÉFAUT : enregistrer à ce
   // moment-là écraserait la configuration réelle du despacho. On le dit.
   const configNoCargada = Boolean(srv.fallo || avs.fallo);
@@ -208,6 +234,7 @@ export default async function Ajustes() {
               />
             )}
           </fieldset>
+          <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={recepcion.pendientes} />
         </AjustesSection>
 
         {puedeEditar && (
