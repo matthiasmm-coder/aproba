@@ -21,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "5 de julio de 2026";
+export const ULTIMA_ACTUALIZACION = "3 de septiembre de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {
@@ -50,7 +50,7 @@ export const SUBENCARGADOS: Subencargado[] = [
     nombre: "Anthropic (Anthropic PBC) — Claude",
     finalidad: "Validación y extracción asistida por IA de los documentos del expediente (p. ej. pasaporte, NIE). No se usan los datos para entrenar modelos.",
     ubicacion: "EE. UU.",
-    garantia: "Cláusulas Contractuales Tipo (SCC) de la UE. Conservación cero / no entrenamiento por contrato comercial.",
+    garantia: "Cláusulas Contractuales Tipo (SCC) de la UE. Los datos no se usan para entrenar modelos; retención limitada por el proveedor (eliminación en un máximo de 30 días), sin conservación permanente.",
   },
   {
     nombre: "Stripe (Stripe Payments Europe, Ltd.)",
@@ -60,7 +60,7 @@ export const SUBENCARGADOS: Subencargado[] = [
   },
   {
     nombre: "Resend (Resend, Inc.)",
-    finalidad: "Envío de notificaciones y correos transaccionales a los clientes del despacho.",
+    finalidad: "Envío de notificaciones y correos transaccionales a los clientes del despacho, y recepción de los correos con documentos que el despacho reenvía a su dirección de Aproba (los adjuntos se guardan en el almacenamiento de la UE).",
     ubicacion: "EE. UU. (entrega a través de servidores en la UE, eu-west-1).",
     garantia: "SCC de la UE.",
   },
