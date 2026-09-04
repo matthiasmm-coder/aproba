@@ -221,12 +221,9 @@ export default async function ExpedienteDetail({
   const archivadoExp = Boolean(cierre.archivadoAt);
   const salidaExp = cierre.salida ?? null;
   const etiquetaSalidaExp = etiquetaSalida(salidaExp ?? salidaDeEstado(e.estado));
-  // «Pedir al cliente» (línea «Faltan N datos»): su enlace /j y el nombre del despacho.
   const { data: wsRow } = await supaRol.from("Workspace").select("nombre").limit(1).maybeSingle();
   const fichaExp = (e.clienteFicha ?? {}) as Record<string, unknown>;
   // Mismo criterio que el portal (todo menos piso y NIE): lo que ningún documento trae aún.
-  const faltanDatos = FICHA_CAMPOS.filter((c) => c.k !== "piso" && c.k !== "numeroDocumento" && !String(fichaExp[c.k] ?? "").trim()).map((c) => c.label);
-
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
   const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
@@ -296,10 +293,8 @@ export default async function ExpedienteDetail({
           estado={e.estado}
           fase={progresoExp.fase}
           completitud={progresoExp.completitud}
-          faltan={faltanDatos}
           archivado={archivadoExp}
           salida={salidaExp}
-          pedir={e.modoTrabajo !== "manual" && e.portalToken ? { token: e.portalToken, telefono: String(fichaExp.telefono ?? "") || null, nombre: e.clienteNombre, gestoria: wsRow?.nombre ?? "" } : null}
           // Popup de cierre: mismo criterio que el botón de pago final del CobrosPanel
           // (queda resto, sin factura final viva, sin plan de cuotas).
           finalizacion={{

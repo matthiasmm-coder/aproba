@@ -12,14 +12,13 @@ import { setArchivadoServidor } from "@/lib/archivo";
 // Carta de completitud Y del ciclo (flujo v4, 03/09/2026, decisiones de Matthias): una
 // sola línea — anillo con el % dentro, las tres partes y EL botón del momento.
 //   Preparación → «Marcar como preparado» (validación manual: empuja de columna sin tocar
-//                 el %) + la línea «Faltan N datos» con sus dos gestos (completar a mano,
-//                 o pedírselos al cliente por su enlace).
+//                 el %).
 //   Preparado   → «Facturar y archivar»: popup con la SALIDA del expediente, la factura
 //                 final si queda resto y el aviso al cliente. Único gesto de cierre.
 //   Archivado   → chip con la salida + «Restaurar».
 // La respuesta de la Administración ya no es una etapa: se registra como salida (o se
 // reclasifica desde Archivados cuando llega).
-export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, faltan = [], archivado = false, salida = null, pedir = null }: {
+export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, archivado = false, salida = null }: {
   id: string;
   estado: string;
   fase: string; // "preparacion" | "preparado" (lib/progreso.ts)
@@ -27,11 +26,8 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   // Para el popup de cierre: qué queda por facturar y a quién avisar.
   finalizacion: { resto: number; puedeFacturar: boolean; clienteEmail: string };
   referencia?: string;
-  faltan?: string[];          // etiquetas de los datos de la ficha que aún faltan
   archivado?: boolean;
   salida?: string | null;     // Expediente.salida (o null antes de la migración)
-  // «Pedir al cliente»: su enlace /j, que solo pregunta los huecos. null en modo manual.
-  pedir?: { token: string; telefono?: string | null; nombre: string; gestoria: string } | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -137,13 +133,6 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   const salidaMostrada = hecho?.salida ?? salida ?? salidaDeEstado(estado);
 
   // «Pedir al cliente»: el mismo mensaje de WhatsApp que el alta, con su enlace /j.
-  const pedirHref = (() => {
-    if (!pedir) return null;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://aproba-software.com";
-    const saludo = pedir.nombre.split(" ")[0];
-    const msg = `Hola ${saludo}, soy de ${pedir.gestoria || "tu gestoría"}. Nos faltan algunos datos para tu trámite: entra aquí y complétalos en un minuto: ${origin}/j/${pedir.token}`;
-    return pedir.telefono ? `https://wa.me/${pedir.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-  })();
 
   let acciones: React.ReactNode;
   if (cerrado) {
@@ -201,20 +190,6 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
         </>
       )}
       {acciones}
-      {/* Lo que ningún documento trae, en una línea con dos gestos. «Completar» abre el
-          diálogo Editar cliente de siempre (?editar=1); «Pedir al cliente» manda su enlace,
-          que solo pregunta los huecos. Sin pantalla nueva (pedido de Matthias, 03/09). */}
-      {enPreparacion && faltan.length > 0 && (
-        <p className="flex w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-amber-700">
-          <span className="font-semibold">{t("Faltan")} {faltan.length} {t("datos")}</span>
-          <span className="inline-flex items-center gap-2">
-            <a href="?editar=1" className="rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-800 transition hover:border-amber-500">{t("Completar")}</a>
-            {pedirHref && (
-              <a href={pedirHref} target="_blank" rel="noreferrer" className="rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-800 transition hover:border-amber-500">{t("Pedir al cliente")}</a>
-            )}
-          </span>
-        </p>
-      )}
       {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
       {dialogo && (
         <CerrarExpedienteDialog
