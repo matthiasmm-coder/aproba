@@ -18,6 +18,7 @@ import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { OficinasManager } from "@/components/oficinas-manager";
+import { MemoriaActividad } from "@/components/memoria-actividad";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { FotoPerfil } from "@/components/foto-perfil";
@@ -92,6 +93,14 @@ const IconFacturacion = (
   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="5" width="20" height="14" rx="2" />
     <path d="M2 10h20" />
+  </svg>
+);
+
+const IconMemoria = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 2v6h6" />
+    <path d="M8 17v-3M12 17v-6M16 17v-4" />
   </svg>
 );
 
@@ -396,6 +405,21 @@ export default async function Ajustes() {
                 />
               </div>
             )}
+          </AjustesSection>
+        )}
+
+        {/* Memoria de actividad — art. 8.1.f de la Orden ISM/164/2026. Las entidades
+            inscritas en el Registro de Colaboradores de Extranjería deben aportarla al
+            renovar su inscripción; el resto de despachos la usa como memoria anual.
+            Solo administración: es un documento institucional de la entidad entera. */}
+        {puedeEditar && (
+          <AjustesSection
+            id="memoria"
+            title={t("Memoria de actividad")}
+            subtitle={t("Informe del período para la prórroga como entidad colaboradora")}
+            icon={IconMemoria}
+          >
+            <MemoriaActividad />
           </AjustesSection>
         )}
 
