@@ -97,28 +97,57 @@ export const PLAN_LOOKUP_ANUAL: Record<PlanId, string> = {
   PRO: "aproba_pro_anual",
   BUSINESS: "aproba_business_anual",
 };
-export const LOOKUP_PLAN: Record<string, PlanId> = {
-  aproba_starter_mensual: "STARTER",
-  aproba_pro_mensual: "PRO",
-  aproba_business_mensual: "BUSINESS",
-  aproba_starter_anual: "STARTER",
-  aproba_pro_anual: "PRO",
-  aproba_business_anual: "BUSINESS",
+// ── PRECIO HEREDADO (04/09/2026) ────────────────────────────────────────────────
+// Al subir las tarifas, quien YA era cliente conserva la suya. Mecánica:
+//  · en Stripe, el precio antiguo NO se toca (una suscripción viva jamás se reprecia
+//    sola); solo cambia de etiqueta: pasa a la lookup_key «…_v1» y la canónica
+//    («aproba_pro_mensual») se la queda el precio nuevo — ver scripts/stripe-subir-precios.mjs.
+//  · aquí, los workspaces de esta lista se facturan SIEMPRE contra la etiqueta «_v1»,
+//    también si cambian de plan desde Ajustes (que es el único punto donde el código
+//    reprecia una suscripción existente: app/api/equipo/route.ts).
+export const SUFIJO_HEREDADO = "_v1";
+export const WS_PRECIO_HEREDADO: Record<string, string> = {
+  "f8b46f76-d577-435f-b49b-76e1747838a8": "Juan · GESTORIA EXTRANJERIA VALENCIA (49/99/199 desde 06/2026)",
+  "65bc1e7e-1477-4ced-aace-ec9fecc1c5cf": "Jennifer · Gesnet Asesoria y Gestion (tarifa vista en su prueba)",
 };
+export function tienePrecioHeredado(workspaceId?: string | null): boolean {
+  return Boolean(workspaceId && Object.hasOwn(WS_PRECIO_HEREDADO, workspaceId));
+}
+// Etiqueta Stripe que debe facturarse a un despacho para un plan y un ciclo dados.
+export function lookupDePlan(plan: PlanId, intervalo: Intervalo = "mensual", workspaceId?: string | null): string {
+  const base = intervalo === "anual" ? PLAN_LOOKUP_ANUAL[plan] : PLAN_LOOKUP[plan];
+  return tienePrecioHeredado(workspaceId) ? `${base}${SUFIJO_HEREDADO}` : base;
+}
+
+// Todas las etiquetas que el código puede pedir a Stripe (nuevas + heredadas).
+export const TODOS_LOOKUPS: string[] = [...Object.values(PLAN_LOOKUP), ...Object.values(PLAN_LOOKUP_ANUAL)]
+  .flatMap((lk) => [lk, `${lk}${SUFIJO_HEREDADO}`]);
+
+// lookup_key → plan. Incluye las heredadas: sin ellas, el webhook dejaría de reconocer
+// el plan de un abonado antiguo en cuanto su precio cambiara de etiqueta.
+export const LOOKUP_PLAN: Record<string, PlanId> = Object.fromEntries(
+  ([
+    ["aproba_starter_mensual", "STARTER"], ["aproba_pro_mensual", "PRO"], ["aproba_business_mensual", "BUSINESS"],
+    ["aproba_starter_anual", "STARTER"], ["aproba_pro_anual", "PRO"], ["aproba_business_anual", "BUSINESS"],
+  ] as [string, PlanId][]).flatMap(([lk, plan]) => [[lk, plan], [`${lk}${SUFIJO_HEREDADO}`, plan]]),
+) as Record<string, PlanId>;
 
 // Cache module : lookup_key → price id (une seule liste par process).
 const precios = new Map<string, string>();
-export async function precioDePlan(plan: PlanId, intervalo: Intervalo = "mensual"): Promise<string> {
-  const lk = intervalo === "anual" ? PLAN_LOOKUP_ANUAL[plan] : PLAN_LOOKUP[plan];
+export async function precioDePlan(plan: PlanId, intervalo: Intervalo = "mensual", workspaceId?: string | null): Promise<string> {
+  const lk = lookupDePlan(plan, intervalo, workspaceId);
   if (!precios.has(lk)) {
-    const res = await getStripe().prices.list({
-      lookup_keys: [...Object.values(PLAN_LOOKUP), ...Object.values(PLAN_LOOKUP_ANUAL)],
-      limit: 20,
-    });
-    for (const p of res.data) if (p.lookup_key) precios.set(p.lookup_key, p.id);
+    // Stripe limita `lookup_keys` a 10 por petición: con las heredadas son 12, así que
+    // se pide por tandas (pedirlas todas de golpe devolvía un 400 y ningún precio).
+    for (let i = 0; i < TODOS_LOOKUPS.length; i += 10) {
+      const res = await getStripe().prices.list({ lookup_keys: TODOS_LOOKUPS.slice(i, i + 10), limit: 20 });
+      for (const p of res.data) if (p.lookup_key) precios.set(p.lookup_key, p.id);
+    }
   }
   const id = precios.get(lk);
-  if (!id) throw new Error(`No existe el precio Stripe '${lk}'. Ejecuta: node scripts/stripe-setup.mjs`);
+  // Un heredado sin su precio «_v1» en Stripe NO debe caer en la tarifa nueva sin avisar:
+  // se corta y se dice, antes que cobrarle de más en silencio.
+  if (!id) throw new Error(`No existe el precio Stripe '${lk}'. Ejecuta: node scripts/stripe-subir-precios.mjs`);
   return id;
 }
 

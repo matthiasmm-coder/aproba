@@ -63,11 +63,11 @@ const CON = [
 ];
 
 const PLANES = [
-  { nombre: "Starter", precio: "49", anual: "490", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + tasas 790 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
-  { nombre: "Pro", precio: "99", anual: "990", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
+  { nombre: "Starter", precio: "79", anual: "790", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + tasas 790 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
+  { nombre: "Pro", precio: "149", anual: "1.490", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
   // «Multi-oficina» a secas dejaba al lector sin saber cuántas sedes entran: se dice
   // el número Y el precio de la siguiente, como se hace con los expedientes.
-  { nombre: "Business", precio: "199", anual: "1.990", incluidos: null, para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Expedientes ilimitados", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
+  { nombre: "Business", precio: "299", anual: "2.990", incluidos: null, para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Expedientes ilimitados", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
 ];
 
 const FAQ = [

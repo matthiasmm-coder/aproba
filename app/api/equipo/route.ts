@@ -175,7 +175,7 @@ export async function POST(req: Request) {
         // (sin esto pasaría silenciosamente a mensual).
         const ciclo = s.items.data[0]?.price?.recurring?.interval === "year" ? "anual" as const : "mensual" as const;
         await stripe.subscriptions.update(stripeSubId, {
-          items: [{ id: s.items.data[0].id, price: await precioDePlan(nuevo as PlanId, ciclo) }],
+          items: [{ id: s.items.data[0].id, price: await precioDePlan(nuevo as PlanId, ciclo, ws) }],
           proration_behavior: "create_prorations",
         });
       } catch (e) {

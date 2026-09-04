@@ -18,7 +18,7 @@ export const PLANES: Record<PlanId, {
 }> = {
   STARTER: {
     label: "Starter",
-    precio: 49,
+    precio: 79,
     maxUsuarios: 1,
     maxExpedientes: 20,
     para: "Autónomo · hasta 20 expedientes/mes",
@@ -26,7 +26,7 @@ export const PLANES: Record<PlanId, {
   },
   PRO: {
     label: "Pro",
-    precio: 99,
+    precio: 149,
     maxUsuarios: 5,
     maxExpedientes: 50,
     para: "Equipo · hasta 50 expedientes/mes",
@@ -34,7 +34,7 @@ export const PLANES: Record<PlanId, {
   },
   BUSINESS: {
     label: "Business",
-    precio: 199,
+    precio: 299,
     maxUsuarios: Infinity,
     // Ilimitado (decisión 2026-07-20): creadosMes > Infinity nunca es cierto → el
     // cobro de overage (lib/overage) no aplica jamás a BUSINESS, sin tocar su código.

@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       await admin.from("Subscription").update({ stripeCustomerId: customerId }).eq("workspaceId", ws);
     }
 
-    const price = await precioDePlan(planElegido ?? ((sub.plan as PlanId) ?? "STARTER"), intervalo);
+    const price = await precioDePlan(planElegido ?? ((sub.plan as PlanId) ?? "STARTER"), intervalo, ws);
 
     // Conserver les jours d'essai restants (carte non débitée avant la fin de l'essai).
     // Stripe Checkout rejette un trial_end à moins de 48 h dans le futur → en dessous,
