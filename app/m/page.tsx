@@ -8,7 +8,7 @@ import { RegistrarEscaneo } from "@/components/registrar-escaneo";
 // página y las tarjetas ya impresas siguen funcionando. Pensada para móvil: quien la
 // abre acaba de escanear un código delante de nosotros.
 export const metadata: Metadata = {
-  title: `${CONTACTO.nombre} · ${CONTACTO.empresa}`,
+  title: { absolute: `${CONTACTO.nombre} · ${CONTACTO.empresa}` }, // sin la plantilla del layout: si no, «… · Aproba · Aproba»
   description: CONTACTO.claim,
   robots: { index: false, follow: false }, // ficha de contacto, no contenido para buscadores
 };
