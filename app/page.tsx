@@ -14,9 +14,9 @@ const PAINS = [
 ];
 
 const STATS = [
-  { n: "4 h → 30 min", l: "por expediente", icon: "time" },
-  { n: "−70 %", l: "errores administrativos", icon: "shield" },
-  { n: "12", l: "formularios oficiales en un clic", icon: "file" },
+  { n: "3 h → 30 min", l: "por expediente", icon: "time" },
+  { n: "−80 %", l: "errores administrativos", icon: "shield" },
+  { n: "15", l: "formularios y tasas oficiales en un clic", icon: "file" },
   { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe" },
 ];
 
@@ -183,7 +183,7 @@ export default function Landing() {
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-600 lg:mx-0">
               La IA valida los documentos, genera los formularios oficiales, revisa el expediente
-              antes de presentarlo y vigila cada renovación. Lo que te llevaba 4 horas, en 30 minutos.
+              antes de presentarlo y vigila cada renovación. Lo que te llevaba 3 horas, en 30 minutos.
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <DemoButton className="w-full px-6 py-3 sm:w-auto" />
