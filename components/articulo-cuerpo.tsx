@@ -106,6 +106,55 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
               </figure>
             );
           }
+          case "barras": {
+            const max = Math.max(1, ...b.items.map((x) => x.valor));
+            return (
+              <figure key={i} className="my-6 rounded-xl border border-slate-200 bg-white p-5">
+                <figcaption className="text-xs font-bold uppercase tracking-wide text-slate-500">{b.titulo}</figcaption>
+                <div className="mt-4 space-y-2.5">
+                  {b.items.map((r, j) => (
+                    <div key={j} className="grid grid-cols-[minmax(7rem,11rem)_1fr_auto] items-center gap-3">
+                      <span className="truncate text-sm font-medium text-slate-800">{r.etiqueta}</span>
+                      <div className="h-3 rounded-full bg-slate-100">
+                        <div
+                          className={`h-3 rounded-full ${r.destacado ? "bg-aproba-600" : "bg-aproba-300"}`}
+                          style={{ width: `${Math.max(1.5, (r.valor / max) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="w-16 text-right text-xs tabular-nums text-slate-500">{r.valor.toLocaleString("es-ES")}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-right text-[11px] text-slate-400">{b.unidad}</p>
+                {b.nota && <p className="mt-2 text-xs leading-relaxed text-slate-400">{b.nota}</p>}
+              </figure>
+            );
+          }
+          case "esquema":
+            return (
+              <figure key={i} className="my-6 rounded-xl border border-slate-200 bg-white p-5">
+                <figcaption className="text-xs font-bold uppercase tracking-wide text-slate-500">{b.titulo}</figcaption>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {b.nodos.map((n, j) => (
+                    <div key={j} className={`rounded-xl border p-3.5 ${n.destacado ? "border-aproba-300 bg-aproba-50/60" : "border-slate-200 bg-cream-50/40"}`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{n.titulo}</p>
+                        {n.cifra && <span className="whitespace-nowrap text-xs font-bold tabular-nums text-aproba-700">{n.cifra}</span>}
+                      </div>
+                      {n.texto && <p className="mt-1 text-xs leading-relaxed text-slate-600">{n.texto}</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="my-2 flex justify-center text-slate-300" aria-hidden>
+                  <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v16M6 14l6 6 6-6" /></svg>
+                </div>
+                <div className="rounded-xl border-2 border-slate-800 bg-white p-4 text-center">
+                  <p className="text-sm font-bold text-slate-900">{b.destino.titulo}</p>
+                  {b.destino.texto && <p className="mt-1 text-xs leading-relaxed text-slate-600">{b.destino.texto}</p>}
+                </div>
+                {b.nota && <p className="mt-3 text-xs leading-relaxed text-slate-400">{b.nota}</p>}
+              </figure>
+            );
           case "hitos":
             return (
               <ol key={i} className="my-6 !list-none space-y-0 border-l-2 border-slate-200 !pl-0">

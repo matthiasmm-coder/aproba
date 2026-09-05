@@ -26,6 +26,12 @@ export type Bloque =
   | { t: "rangos"; titulo: string; unidad: string; techo: number; items: { etiqueta: string; min: number; max: number }[]; nota?: string }
   // Cronología vertical de hitos con fecha (p. ej. calendario normativo).
   | { t: "hitos"; items: { fecha: string; titulo: string; texto?: string; destacado?: boolean }[] }
+  // Gráfico de barras horizontales (p. ej. entidades por provincia): divs en servidor,
+  // sin JS. La escala es el valor máximo de la serie; `unidad` va en la cifra.
+  | { t: "barras"; titulo: string; unidad: string; items: { etiqueta: string; valor: number; destacado?: boolean }[]; nota?: string }
+  // Esquema de vías: varios nodos que convergen en un destino (p. ej. quién puede
+  // presentar un expediente y ante quién). Cajas + flechas en CSS, legible en móvil.
+  | { t: "esquema"; titulo: string; nodos: { titulo: string; texto?: string; cifra?: string; destacado?: boolean }[]; destino: { titulo: string; texto?: string }; nota?: string }
   // Preguntas frecuentes: además de pintarse, alimentan el JSON-LD FAQPage de la página.
   | { t: "faq"; items: { q: string; a: string }[] };
 
@@ -50,6 +56,175 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
+  {
+    slug: "entidades-colaboradoras-extranjeria-registro-2026",
+    titulo: "Entidades colaboradoras de extranjería: las 498 acreditadas y qué cambia para tu despacho",
+    descripcion:
+      "El Registro de Colaboradores de Extranjería acredita a 498 entidades para presentar expedientes sin cobrar. Dónde están, qué pueden hacer y qué obligaciones tienen.",
+    fecha: "2026-09-05",
+    tema: "Colaboradores de extranjería",
+    entradilla:
+      "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
+    imagenAlt:
+      "Gráfico: la cifra 498 junto a un diagrama de barras con las provincias con más entidades colaboradoras acreditadas, Madrid y Barcelona en cabeza.",
+    bloques: [
+      { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
+      {
+        t: "p",
+        texto:
+          "La **Orden ISM/164/2026, de 2 de marzo** (BOE-A-2026-5128, en vigor desde el 6 de marzo) creó el Registro Electrónico de Colaboradores de Extranjería: un censo de entidades habilitadas para representar a personas extranjeras ante la Administración en sus trámites. Nació al servicio de la [regularización extraordinaria](/articulos/renovaciones-2027-regularizacion-extraordinaria), con su ventana del 16 de abril al 30 de junio, pero no termina con ella: la inscripción vale **cuatro años** (art. 5.2) y la lista sigue creciendo.",
+      },
+      {
+        t: "p",
+        texto:
+          "Solo pueden inscribirse dos tipos de entidad (art. 4.1): los **sindicatos más representativos**, estatales o autonómicos, y las **entidades sin ánimo de lucro** constituidas hace más de tres años y con al menos dos de experiencia verificable con personas migrantes. Las gestorías y los despachos de abogados quedan fuera: la colaboración es, por definición, gratuita.",
+      },
+      { t: "h2", texto: "Las cifras: 498 entidades, un tercio en dos provincias" },
+      {
+        t: "p",
+        texto:
+          "El Ministerio de Inclusión, Seguridad Social y Migraciones publica la lista de entidades acreditadas y la va actualizando en su web. La versión del **4 de septiembre de 2026** recoge **498 entidades**. Hemos contado dónde están, provincia a provincia:",
+      },
+      {
+        t: "barras",
+        titulo: "Entidades colaboradoras acreditadas por provincia",
+        unidad: "entidades",
+        items: [
+          { etiqueta: "Madrid", valor: 84, destacado: true },
+          { etiqueta: "Barcelona", valor: 77, destacado: true },
+          { etiqueta: "Bizkaia", valor: 31 },
+          { etiqueta: "Valencia", valor: 28 },
+          { etiqueta: "Santa Cruz de Tenerife", valor: 24 },
+          { etiqueta: "Sevilla", valor: 17 },
+          { etiqueta: "Gipuzkoa", valor: 15 },
+          { etiqueta: "A Coruña", valor: 14 },
+          { etiqueta: "Tarragona", valor: 14 },
+          { etiqueta: "Almería", valor: 11 },
+          { etiqueta: "Las Palmas", valor: 11 },
+          { etiqueta: "Navarra", valor: 11 },
+        ],
+        nota:
+          "Recuento propio sobre la lista oficial de entidades colaboradoras acreditadas (Ministerio de Inclusión, versión del 4 de septiembre de 2026, 498 entidades). La provincia es la que declara la propia lista.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "32 %", etiqueta: "de las entidades están en Madrid o Barcelona" },
+          { valor: "4", etiqueta: "sindicatos inscritos: CCOO, UGT, CIG e Intersindical Solidària" },
+          { valor: "0", etiqueta: "gestorías o despachos de abogados: la norma los excluye" },
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "El mapa encaja con el de la regularización: Cataluña, Madrid, la Comunidad Valenciana y Andalucía concentraron las solicitudes de 2026, y ahí están las entidades. Llama la atención el peso de Canarias y de Euskadi, con más entidades acreditadas que provincias mucho más pobladas: el tejido asociativo pesa tanto como la demanda.",
+      },
+      { t: "h2", texto: "Quién puede presentar un expediente por otra persona" },
+      {
+        t: "p",
+        texto:
+          "Desde 2026 conviven cuatro vías para que un expediente de extranjería llegue a la Administración. Los datos oficiales del 2 de julio de 2026 sobre la regularización dicen cuánto pesa cada una:",
+      },
+      {
+        t: "esquema",
+        titulo: "Cuatro vías, un mismo destino",
+        nodos: [
+          { titulo: "Abogado o gestor", cifra: "58 % + 8,4 %", texto: "Representación profesional, con honorarios.", destacado: true },
+          { titulo: "Funcionario habilitado", cifra: "16,8 %", texto: "Registro asistido en oficinas públicas." },
+          { titulo: "La propia persona", cifra: "7,3 %", texto: "Con certificado digital o Cl@ve." },
+          { titulo: "Entidad colaboradora", cifra: "resto", texto: "Gratuita, inscrita en el registro." },
+        ],
+        destino: { titulo: "Oficina de Extranjería", texto: "Sede electrónica, uno a uno: la orden no prevé ningún canal masivo ni API." },
+        nota:
+          "Porcentajes: desglose del Gobierno sobre las 1.174.978 solicitudes de regularización (2 de julio de 2026). El desglose oficial no aísla a las entidades colaboradoras; el resto agrupa otras vías de presentación.",
+      },
+      {
+        t: "p",
+        texto:
+          "El grueso pasó por un despacho: **dos de cada tres solicitudes las presentó un abogado o un gestor**. Pero el bloque de los colaboradores no es pequeño. Solo CCOO comunicó el 29 de junio de 2026 haber **tramitado más de 7.500 expedientes** con cerca de 200 personas movilizadas en sus sedes; CCOO Canarias, más de 700.",
+      },
+      { t: "h2", texto: "Lo que un colaborador no puede hacer, y lo que está obligado a hacer" },
+      {
+        t: "p",
+        texto:
+          "La orden es corta y muy concreta en su artículo 8. Esto es lo que obliga, y lo que cada punto implica en el trabajo diario:",
+      },
+      {
+        t: "tabla",
+        titulo: "Obligaciones del colaborador de extranjería (art. 8 de la Orden ISM/164/2026)",
+        encabezados: ["Obligación", "Artículo", "En la práctica"],
+        filas: [
+          ["**Gratuidad** de la representación", "8.1.c", "No puede cobrar nada por los trámites que presenta al amparo del registro. Su única variable es el tiempo."],
+          ["Personas habilitadas con **conocimientos** y sin antecedentes", "8.1.a, 8.1.b", "Certificado negativo de delitos sexuales, sin condenas ni sanciones de extranjería, RGPD o LISOS en tres años."],
+          ["**Firma electrónica** y presentación telemática", "8.1.b.4º", "Presenta por medios electrónicos y entrega a la persona todos los justificantes y resguardos que genere la Administración."],
+          ["Representación con **constancia fidedigna**", "8.1.b.5º", "Un mandato que deje prueba de su existencia (art. 5 de la Ley 39/2015)."],
+          ["**Seguro** de responsabilidad civil", "8.1.d", "Cubre la representación que ejercen las personas habilitadas."],
+          ["**Protección de datos**", "8.1.e", "Trata datos de categoría especial, a menudo con voluntarios."],
+          ["**Memoria de actividad** o auditoría externa al renovar", "8.1.f", "Número de expedientes tramitados, procedimientos, tipo de actuaciones, recursos empleados y elementos para valorar calidad, alcance y eficacia."],
+          ["Comunicar cambios en **cinco días**", "8.2", "Cualquier modificación de los datos inscritos, con responsabilidad por lo que derive de no hacerlo."],
+        ],
+        nota: "La inscripción dura cuatro años; la prórroga se pide en los seis meses anteriores al vencimiento y exige acreditar que se siguen cumpliendo los requisitos (art. 5.2).",
+      },
+      {
+        t: "nota",
+        titulo: "El detalle que casi nadie ha leído",
+        texto:
+          "La memoria del artículo 8.1.f se entrega en 2030, pero se construye desde el primer expediente de 2026. Una entidad que no registre hoy qué tramita, en qué procedimiento y con qué recursos, tendrá que reconstruirlo de memoria dentro de cuatro años.",
+      },
+      { t: "h2", texto: "Y para tu despacho, ¿qué cambia?" },
+      {
+        t: "p",
+        texto:
+          "La lectura rápida es «el Estado acaba de acreditar a 498 competidores que trabajan gratis». La lectura correcta es otra: la gratuidad no es una ventaja de precio, es un límite de capacidad. El mejor ejemplo lo dio el mayor operador gratuito de extranjería del país.",
+      },
+      {
+        t: "cita",
+        texto: "El CITE no té viabilitat i no pot seguir prestant els serveis d'assessorament.",
+        autor: "Junta directiva del CITE de CCOO de Catalunya, 21 de enero de 2026",
+      },
+      {
+        t: "p",
+        texto:
+          "El CITE catalán tenía **40 años de historia, 30 oficinas y 16 personas en plantilla**, y atendió a **casi 11.000 personas** en su último año. En enero de 2026 pidió el concurso de acreedores; hoy mantiene abiertas tres oficinas, en Manresa, Terrassa y Tarragona. Un servicio gratuito con demanda ilimitada se hunde por el coste de las horas, no por falta de clientes.",
+      },
+      {
+        t: "p",
+        texto:
+          "Para un despacho, esto significa tres cosas. **Primera**: los colaboradores no van a absorber la [ola de renovaciones de 2027](/articulos/renovaciones-2027-regularizacion-extraordinaria); cuando se saturen, derivarán. **Segunda**: lo que el cliente compra en un despacho no es la presentación, que puede conseguir gratis, sino la disponibilidad, la velocidad y la responsabilidad de alguien que responde por el expediente. **Tercera**: la orden ha escrito por primera vez un estándar de trazabilidad —quién intervino, en qué, cuándo— que hasta ahora nadie exigía a nadie. Es razonable pensar que financiadores y clientes acabarán esperándolo de todos.",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "2 de marzo de 2026", titulo: "Orden ISM/164/2026", texto: "Se crea el Registro Electrónico de Colaboradores de Extranjería. En vigor el 6 de marzo." },
+          { fecha: "16 de abril – 30 de junio de 2026", titulo: "Ventana de la regularización", texto: "1.174.978 solicitudes; los colaboradores se estrenan con el mayor volumen de la historia reciente." },
+          { fecha: "30 de septiembre de 2026", titulo: "Fin de las subsanaciones", texto: "Último plazo para completar los expedientes requeridos." },
+          { fecha: "4 de septiembre de 2026", titulo: "498 entidades acreditadas", texto: "Última versión publicada de la lista del Ministerio.", destacado: true },
+          { fecha: "Mediados de 2027", titulo: "Vencen las autorizaciones de un año", texto: "Cerca de 600.000 renovaciones casi simultáneas.", destacado: true },
+          { fecha: "2030", titulo: "Primeras prórrogas del registro", texto: "Con la memoria de actividad del artículo 8.1.f bajo el brazo." },
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo resuelve Aproba",
+        texto:
+          "Para una entidad colaboradora, Aproba registra cada expediente con su procedimiento, sus actuaciones y quién intervino, y genera la memoria de actividad del artículo 8.1.f en un clic; el mandato de representación se firma desde el propio expediente y deja constancia fidedigna. Para un despacho, Vigía fecha cada vencimiento y prepara las renovaciones de 2027 antes de que lleguen todas a la vez.",
+      },
+      {
+        t: "faq",
+        items: [
+          { q: "¿Puede una gestoría o un despacho de abogados inscribirse como colaborador?", a: "No. El artículo 4.1 de la Orden ISM/164/2026 reserva el registro a los sindicatos más representativos y a las entidades sin ánimo de lucro con más de tres años de existencia." },
+          { q: "¿Puede una entidad colaboradora cobrar por presentar un expediente?", a: "No. La representación al amparo del registro es gratuita por obligación expresa (art. 8.1.c)." },
+          { q: "¿Dónde se consulta la lista de entidades acreditadas?", a: "El Ministerio de Inclusión la publica en su web, en la sección de la regularización, como documento actualizado; la versión del 4 de septiembre de 2026 recoge 498 entidades. No se publica en el BOE." },
+          { q: "¿Cuánto dura la inscripción y qué hace falta para renovarla?", a: "Cuatro años. La prórroga se solicita en los seis meses anteriores al vencimiento, acreditando que se mantienen los requisitos y aportando la memoria de actividad o auditoría externa del artículo 8.1.f." },
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "Una última pregunta, válida tanto para una entidad como para un despacho: **si mañana te pidieran cuántos expedientes has tramitado este año, por procedimiento y con qué recursos, ¿cuánto tardarías en responder?**",
+      },
+    ],
+  },
   {
     slug: "nacionalidad-por-residencia-plazos-tasas-2026",
     titulo: "Nacionalidad por residencia en 2026: plazos, tasas y atascos",
@@ -642,8 +817,9 @@ export function faqDe(a: Articulo): { q: string; a: string }[] {
 
 // Minutos de lectura calculados, no escritos a mano: si el texto crece, el dato sigue
 // siendo verdad (200 palabras/minuto, la referencia habitual en castellano).
-export function minutosDeLectura(a: Articulo): number {
-  const texto = a.bloques
+// Cuerpo aplanado a texto: lo usan el tiempo de lectura y el buscador del índice.
+export function textoPlano(a: Articulo): string {
+  return a.bloques
     .map((b) => {
       if (b.t === "ul" || b.t === "ol") return b.items.join(" ");
       if (b.t === "datos") return b.items.map((d) => `${d.valor} ${d.etiqueta}`).join(" ");
@@ -653,10 +829,15 @@ export function minutosDeLectura(a: Articulo): number {
       if (b.t === "rangos") return [b.titulo, ...b.items.map((x) => x.etiqueta), b.nota ?? ""].join(" ");
       if (b.t === "hitos") return b.items.map((x) => `${x.fecha} ${x.titulo} ${x.texto ?? ""}`).join(" ");
       if (b.t === "faq") return b.items.map((x) => `${x.q} ${x.a}`).join(" ");
+      if (b.t === "barras") return [b.titulo, ...b.items.map((x) => x.etiqueta), b.nota ?? ""].join(" ");
+      if (b.t === "esquema") return [b.titulo, ...b.nodos.map((n) => `${n.titulo} ${n.texto ?? ""}`), b.destino.titulo, b.destino.texto ?? "", b.nota ?? ""].join(" ");
       return b.texto;
     })
     .join(" ");
-  return Math.max(1, Math.round(texto.split(/\s+/).filter(Boolean).length / 200));
+}
+
+export function minutosDeLectura(a: Articulo): number {
+  return Math.max(1, Math.round(textoPlano(a).split(/\s+/).filter(Boolean).length / 200));
 }
 
 export const fechaLarga = (iso: string): string => {
