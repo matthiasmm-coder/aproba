@@ -162,8 +162,9 @@ export function GuiaActivacion() {
   const textoPaso = (rect && ancla && paso.textos?.[ancla]) || { titulo: paso.titulo, texto: paso.texto };
 
   const conBoton = Boolean(paso.cta) && (paso.avanza || paso.copia || paso.termina || !rect || (Boolean(paso.ir) && !paso.ctaSoloSinAncla));
-  const Tarjeta = (
-    <div className="w-[360px] rounded-2xl border border-aproba-200 bg-white p-5 shadow-xl">
+  // Ancho de la tarjeta: 360 px; en un hueco izquierdo algo estrecho se encoge (mín. 260) para caber sin tapar nada.
+  const tarjeta = (ancho = 360) => (
+    <div className="rounded-2xl border border-aproba-200 bg-white p-5 shadow-xl" style={{ width: ancho }}>
       <div className="flex items-center gap-1.5">
         {Array.from({ length: TOTAL_PASOS }, (_, i) => (
           <span key={i} className={`h-2 rounded-full transition-all ${i + 1 === paso.n ? "w-6 bg-aproba-600" : i + 1 < paso.n ? "w-2 bg-aproba-400" : "w-2 bg-slate-200"}`} />
@@ -179,6 +180,7 @@ export function GuiaActivacion() {
       </div>
     </div>
   );
+  const Tarjeta = tarjeta();
 
   // z-[45]: por encima del lanzador «Ayuda» (z-40), por debajo de banners y diálogos (z-50).
   // Con elemento en pantalla: una FLECHA que rebota sobre él (la pantalla entera sigue
@@ -206,10 +208,12 @@ export function GuiaActivacion() {
     const columna = ancla?.closest<HTMLElement>("main > *") ?? null;
     const columnaIzq = columna ? columna.getBoundingClientRect().left : null;
     const hueco = columnaIzq !== null ? columnaIzq - barraDerecha : 0;
-    if (hueco >= ANCHO + 16) {
-      const left = hueco >= ANCHO + 32 ? barraDerecha + (hueco - ANCHO) / 2 : barraDerecha + 8;
+    const ANCHO_MIN = 260;
+    if (hueco >= ANCHO_MIN + 16) {
+      const ancho = Math.min(ANCHO, hueco - 16);
+      const left = hueco >= ancho + 32 ? barraDerecha + (hueco - ancho) / 2 : barraDerecha + 8;
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
-      return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{Tarjeta}</div></>);
+      return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{tarjeta(ancho)}</div></>);
     }
     // 2) Debajo del bloque indicado por el paso (p. ej. los formularios): nunca tapa sus botones.
     const bloque = paso.debajoDe ? [...document.querySelectorAll<HTMLElement>(`[data-guia="${paso.debajoDe}"]`)].find((x) => x.getClientRects().length > 0) ?? null : null;
