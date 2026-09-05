@@ -350,6 +350,7 @@ export default async function ExpedienteDetail({
             FAMILIAR: no se enseña — repetiría la ficha del titular, que ya se edita
             miembro a miembro en «Familia» (el portal del cliente NO cambia). */}
         {!familia && (
+        <div data-guia="informacion">
         <SeccionPlegable
           id="informacion"
           titulo={t("Información")}
@@ -371,6 +372,7 @@ export default async function ExpedienteDetail({
             portalToken={e.modoTrabajo === "manual" ? null : e.portalToken}
           />
         </SeccionPlegable>
+        </div>
         )}
 
         {/* Familia (expediente familiar): miembros + facturación familiar */}
@@ -567,6 +569,7 @@ export default async function ExpedienteDetail({
 
         {/* Citas del expediente (22/08, pedido de Matthias): fecha, hora, lugar, quién
             acude y notas — un hecho editable en cualquier punto del trámite. */}
+        <div data-guia="citas">
         <SeccionPlegable
           id="citas"
           completa={Boolean(e.cita.fecha)}
@@ -577,8 +580,10 @@ export default async function ExpedienteDetail({
         >
           <CitasPanel expedienteId={e.id} inicial={e.cita} quienPorDefecto={cita.citaQuien} />
         </SeccionPlegable>
+        </div>
 
         {/* Cobro */}
+        <div data-guia="cobro">
         <SeccionPlegable
           id="cobro"
           // Completo = COBRADO: hay algo pagado y nada pendiente. Un servicio sin tarifa
@@ -640,6 +645,7 @@ export default async function ExpedienteDetail({
           })()}.
         </p>
         </SeccionPlegable>
+        </div>
 
         {/* Historial */}
         <SeccionPlegable id="historial" titulo={t("Historial")} resumen={`${e.eventos.length}`}>

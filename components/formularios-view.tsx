@@ -86,11 +86,17 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
     void fetch(`/api/expedientes/${exp.id}/formularios`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anadir: { code: tipo, ...(clienteId ? { clienteId } : {}) } }),
-    }).then((r) => { if (r.ok) router.refresh(); });
+    }).then((r) => {
+      if (!r.ok) return;
+      router.refresh(); avisarGuia();
+      // El primer formulario generado DE VERDAD en el ejemplo es el momento «ajá»: ahí se
+      // ofrece Aproba Despegue (una vez), igual que al marcarlos como generados.
+      if (despegue && esEjemplo(exp.referencia) && !despegueYaVisto()) setDespegueAbierto(true);
+    });
   };
 
   const descarga = (tipo: string, clienteId?: string, label?: string) => (
-    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} onClick={() => alDescargar(tipo, clienteId)} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+    <a key={`${clienteId ?? ""}${tipo}`} href={urlOficial(tipo, clienteId)} onClick={() => alDescargar(tipo, clienteId)} data-guia={tipo === seleccion[0] && !clienteId ? "descargar" : undefined} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
       {IconDescarga}{tipo}{label ? ` ${label}` : ""}
     </a>
   );

@@ -1,49 +1,86 @@
 // GUÍA INTERACTIVA (05/09/2026): en vez de bloques de texto, un solo paso a la vez,
 // señalado sobre el elemento real de la pantalla. Módulo puro: decide QUÉ paso toca
-// según el estado del despacho y la ruta; el componente (guia-activacion.tsx) lo pinta.
+// según el estado del despacho, la ruta y lo que ya se ha mirado; el componente
+// (guia-activacion.tsx) lo pinta.
 //
-// Orden = el de la checklist: primero el ejemplo (ver la IA sin depender de ningún
-// cliente), luego un cliente real, su pasaporte subido por el despacho, su expediente,
-// el enlace del portal. Cuando todo está hecho, la guía desaparece sola.
+// Dos fases con su propia progresión (pedido de Matthias, 05/09 noche):
+//  · «El ejemplo» (6 pasos): abrirlo → información → documentos → formularios (generados
+//    DE VERDAD: la descarga del EX-17 los registra) → citas → cobro. Todo en la ficha.
+//  · «Tu primer expediente real» (4 pasos): cliente → su pasaporte → expediente → enlace.
+// Los pasos de «mirar» (información, documentos, citas, cobro) se confirman con
+// «Siguiente» y se recuerdan en el navegador; los demás se deducen de los hechos.
+// Solo para cuentas nacidas con la guía: ver cuentaNueva() en lib/activacion.ts.
 import { cuentaNueva, type DatosActivacion } from "@/lib/activacion";
 export { cuentaNueva, GUIA_DESDE } from "@/lib/activacion";
 
+export type FaseGuia = "ejemplo" | "real";
 export type PasoGuia = {
   key: string;
+  fase: FaseGuia;
+  n: number;        // posición dentro de la fase (1..total) para los puntos de progreso
+  total: number;
   titulo: string;   // ≤ 6 palabras
   texto: string;    // UNA línea
-  anclaje?: string; // data-guia del elemento a señalar en ESTA página
-  ir?: string;      // destino del botón cuando el elemento no está en esta página
   cta: string;      // etiqueta del botón
-  n: number;        // posición (1..TOTAL) para los puntos de progreso
+  anclaje?: string; // data-guia del elemento a señalar en ESTA página
+  abrir?: string;   // id de sección plegable de la ficha que hay que abrir (evento abrir-seccion)
+  ir?: string;      // destino del botón cuando el elemento no está en esta página
+  avanza?: number;  // paso de «mirar»: el botón lo confirma y deja vistos = avanza
 };
-export const TOTAL_PASOS = 5;
+export type TourEjemplo = { vistos: number }; // 2 información · 3 documentos · 5 citas · 6 cobro
+export const TOUR_INICIAL: TourEjemplo = { vistos: 0 };
+export const PASOS_EJEMPLO = 6;
+export const PASOS_REAL = 4;
 
-// Solo para cuentas nacidas con la guía: ver cuentaNueva() en lib/activacion.ts.
-export function pasoDeGuia(d: DatosActivacion, pathname: string): PasoGuia | null {
+export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemplo = TOUR_INICIAL): PasoGuia | null {
   if (!cuentaNueva(d)) return null;
   const ej = d.ejemploId;
-  const enFichaEjemplo = Boolean(ej) && pathname === `/app/expedientes/${ej}`;
-  const enFormulariosEjemplo = Boolean(ej) && pathname === `/app/expedientes/${ej}/formularios`;
+  const ficha = ej ? `/app/expedientes/${ej}` : "/app/ejemplo"; // sin ejemplo: la página lo siembra y redirige
+  const enFicha = Boolean(ej) && pathname === ficha;
+  const enFormularios = Boolean(ej) && pathname === `${ficha}/formularios`;
+  const v = tour.vistos;
+  const E = (p: Omit<PasoGuia, "fase" | "total">): PasoGuia => ({ ...p, fase: "ejemplo", total: PASOS_EJEMPLO });
+  const R = (p: Omit<PasoGuia, "fase" | "total">): PasoGuia => ({ ...p, fase: "real", total: PASOS_REAL });
+  // Fuera de la ficha: una tarjeta que lleva de vuelta, con el número del paso pendiente.
+  const volver = (n: number, titulo: string, texto: string): PasoGuia => E({ key: `volver-${n}`, n, titulo, texto, ir: ficha, cta: n === 1 ? "Abrir el ejemplo" : "Volver al ejemplo" });
 
-  if (!d.ejemploFormulariosGenerados) {
-    if (enFormulariosEjemplo) return { key: "marcar", n: 1, anclaje: "marcar", titulo: "Genera los formularios", texto: "El EX-17 y la tasa 790 salen rellenados con la ficha.", cta: "Entendido" };
-    if (enFichaEjemplo) return { key: "generar", n: 1, anclaje: "generar", titulo: "Cuatro documentos ya validados", texto: "La IA los ha leído. Ahora, los formularios.", ir: `/app/expedientes/${ej}/formularios`, cta: "Ir a formularios" };
-    return { key: "ejemplo", n: 1, anclaje: "ejemplo", titulo: "Tu primer expediente ya está hecho", texto: "Ábrelo y mira lo que hace la IA.", ir: ej ? `/app/expedientes/${ej}` : "/app/ejemplo", cta: "Abrir el ejemplo" };
+  // Ejemplo borrado a propósito a mitad de visita: no insistir, pasar a lo real.
+  const ejemploCompleto = v >= 6 || (!ej && v >= 2);
+  if (!ejemploCompleto) {
+    if (v < 2) {
+      if (enFicha) return E({ key: "informacion", n: 2, anclaje: "informacion", abrir: "informacion", titulo: "La ficha, rellenada por la IA", texto: "Nombre, NIE, pasaporte…: leídos de sus documentos.", cta: "Siguiente", avanza: 2 });
+      return volver(1, "Tu primer expediente ya está hecho", "Ábrelo y mira lo que hace la IA.");
+    }
+    if (v < 3) {
+      if (enFicha) return E({ key: "documentos", n: 3, anclaje: "documentos", abrir: "documentos", titulo: "Cuatro documentos validados", texto: "Leídos y comprobados uno a uno. Nada que teclear.", cta: "Siguiente", avanza: 3 });
+      return volver(3, "Cuatro documentos validados", "Vuelve al ejemplo para verlos.");
+    }
+    if (!d.ejemploFormulariosGenerados) {
+      if (enFormularios) return E({ key: "descargar", n: 4, anclaje: "descargar", titulo: "Descarga el EX-17 relleno", texto: "Se genera con los datos de la ficha. Ábrelo y compruébalo.", cta: "Entendido" });
+      if (enFicha) return E({ key: "generar", n: 4, anclaje: "generar", titulo: "Ahora, los formularios", texto: "El EX-17 y la tasa 790 salen rellenados.", ir: `${ficha}/formularios`, cta: "Ir a formularios" });
+      return volver(4, "Ahora, los formularios", "Vuelve al ejemplo para generarlos.");
+    }
+    if (v < 5) {
+      if (enFicha) return E({ key: "citas", n: 5, anclaje: "citas", abrir: "citas", titulo: "Citas con el cliente", texto: "Videollamada o presencial, con recordatorio automático.", cta: "Siguiente", avanza: 5 });
+      return E({ key: "volver-5", n: 5, titulo: "Formularios listos", texto: "Vuelve a la ficha: quedan las citas y el cobro.", ir: ficha, cta: "Volver al expediente" });
+    }
+    if (enFicha) return E({ key: "cobro", n: 6, anclaje: "cobro", abrir: "cobro", titulo: "Cobro y factura", texto: "Anticipo, factura y pago con tarjeta o transferencia.", cta: "Terminar el ejemplo", avanza: 6 });
+    return volver(6, "Cobro y factura", "Último paso del ejemplo, en la ficha.");
   }
+
   if (d.clientes === 0) {
-    return { key: "cliente", n: 2, titulo: "Ahora, un cliente de verdad", texto: "Da de alta a uno que ya tengas.", ir: "/app/clientes/nuevo", cta: "Crear cliente" };
+    return R({ key: "cliente", n: 1, titulo: "Ahora, un cliente de verdad", texto: "Da de alta a uno que ya tengas.", ir: "/app/clientes/nuevo", cta: "Crear cliente" });
   }
   if ((d.documentosPropios ?? 0) === 0) {
     const enFichaCliente = /^\/app\/clientes\/[^/]+$/.test(pathname) && !pathname.endsWith("/nuevo");
-    if (enFichaCliente) return { key: "subir", n: 3, anclaje: "subir", titulo: "Sube su pasaporte", texto: "La IA lo lee y rellena su ficha.", cta: "Entendido" };
-    return { key: "subir-ir", n: 3, titulo: "Sube su pasaporte", texto: "Desde su ficha: la IA lo lee y rellena los datos.", ir: "/app/clientes", cta: "Ir a clientes" };
+    if (enFichaCliente) return R({ key: "subir", n: 2, anclaje: "subir", titulo: "Sube su pasaporte", texto: "La IA lo lee y rellena su ficha.", cta: "Entendido" });
+    return R({ key: "subir-ir", n: 2, titulo: "Sube su pasaporte", texto: "Desde su ficha: la IA lo lee y rellena los datos.", ir: "/app/clientes", cta: "Ir a clientes" });
   }
   if (d.expedientes === 0) {
-    return { key: "expediente", n: 4, anclaje: "nuevo-expediente", titulo: "Ábrele su primer expediente", texto: "Elige el trámite: sus documentos ya están.", ir: "/app/expedientes/nuevo", cta: "Nuevo expediente" };
+    return R({ key: "expediente", n: 3, anclaje: "nuevo-expediente", titulo: "Ábrele su primer expediente", texto: "Elige el trámite: sus documentos ya están.", ir: "/app/expedientes/nuevo", cta: "Nuevo expediente" });
   }
   if (d.enlacesEnviados === 0) {
-    return { key: "enlace", n: 5, titulo: "Envíale el enlace de su portal", texto: "Tu cliente sube el resto desde el móvil.", ir: "/app/expedientes", cta: "Ver expedientes" };
+    return R({ key: "enlace", n: 4, titulo: "Envíale el enlace de su portal", texto: "Tu cliente sube el resto desde el móvil.", ir: "/app/expedientes", cta: "Ver expedientes" });
   }
   return null;
 }
