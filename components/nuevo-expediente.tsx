@@ -300,11 +300,11 @@ export function NuevoExpediente() {
           {/* Bascule existant / nouveau */}
           <div className="mt-5 inline-flex gap-1 rounded-lg bg-slate-100 p-1">
             <button onClick={() => { setModoNuevo(false); setError(null); }} className={`rounded-md px-4 py-2 text-sm font-medium transition ${!modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente existente")}</button>
-            <button onClick={() => { setModoNuevo(true); setSeleccionado(null); setFamiliaSel(null); setError(null); }} className={`rounded-md px-4 py-2 text-sm font-medium transition ${modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente nuevo")}</button>
+            <button onClick={() => { setModoNuevo(true); setSeleccionado(null); setFamiliaSel(null); setError(null); }} data-guia={!modoNuevo && !seleccionado && !familiaSel ? "cliente-nuevo" : undefined} className={`rounded-md px-4 py-2 text-sm font-medium transition ${modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente nuevo")}</button>
           </div>
 
           {!modoNuevo ? (
-            <div className="mt-4" data-guia={!seleccionado && !familiaSel ? "elegir-cliente" : undefined}>
+            <div className="mt-4">
               {/* La oficina del expediente, visible DESDE EL PRINCIPIO (≥2 oficinas):
                   cliente/familia ya anclados → su sede manda y se enseña bloqueada;
                   sin selección o selección sin sede → selector (la elegida ADOPTA). */}

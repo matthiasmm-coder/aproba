@@ -42,6 +42,7 @@ export function GuiaActivacion() {
   const [fallo, setFallo] = useState(false); // /api/activacion no respondió: la guía calla, la checklist puede salir
   const [tour, setTour] = useState<TourEjemplo>(TOUR_INICIAL);
   const [rect, setRect] = useState<Caja | null>(null);
+  const [ancla, setAncla] = useState<string | null>(null); // data-guia señalado ahora (para los textos por anclaje)
   const [dialogo, setDialogo] = useState(false);
 
   useEffect(() => { try { setCerrada(localStorage.getItem(KEY) === "1"); } catch { setCerrada(false); } setLeida(true); }, []);
@@ -96,6 +97,7 @@ export function GuiaActivacion() {
     if (!hayPaso) { setRect(null); return; }
     let vivo = true, primero = true, tick = 0;
     let preparadoPara: string | null = null; // anclaje ya abierto/llevado a la vista (puede cambiar dentro del mismo paso)
+    let anclaVista: string | null | undefined; // último anclaje publicado (undefined = aún ninguno)
     let ultimo: Caja | null = null, ultimoDialogo: boolean | null = null;
     const mide = () => {
       if (!vivo) return;
@@ -124,6 +126,7 @@ export function GuiaActivacion() {
       const r = el ? el.getBoundingClientRect() : null;
       const caja: Caja | null = r ? { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
       if (primero || !mismaCaja(caja, ultimo)) { primero = false; ultimo = caja; setRect(caja); }
+      if (nombre !== anclaVista) { anclaVista = nombre; setAncla(nombre); }
       requestAnimationFrame(mide);
     };
     const raf = requestAnimationFrame(mide);
@@ -142,6 +145,7 @@ export function GuiaActivacion() {
   };
   const etiquetaFase = paso.fase === "ejemplo" ? "El ejemplo" : "Tu primer expediente real";
   const fase = t(etiquetaFase);
+  const textoPaso = (rect && ancla && paso.textos?.[ancla]) || { titulo: paso.titulo, texto: paso.texto };
 
   const Tarjeta = (
     <div className="w-[300px] rounded-2xl border border-aproba-200 bg-white p-4 shadow-xl">
@@ -151,11 +155,11 @@ export function GuiaActivacion() {
         ))}
         <span className="ml-auto truncate text-[11px] font-medium text-slate-400">{fase} · {paso.n}/{paso.total}</span>
       </div>
-      <p className="mt-2.5 text-base font-bold tracking-tight text-slate-900">{t(paso.titulo)}</p>
-      <p className="mt-1 text-sm leading-snug text-slate-600">{t(paso.texto)}</p>
+      <p className="mt-2.5 text-base font-bold tracking-tight text-slate-900">{t(textoPaso.titulo)}</p>
+      <p className="mt-1 text-sm leading-snug text-slate-600">{t(textoPaso.texto)}</p>
       <div className="mt-3.5 flex items-center justify-between gap-3">
         <button type="button" onClick={saltar} className="text-xs font-medium text-slate-400 hover:text-slate-600">{t("Saltar la guía")}</button>
-        {(paso.ir || paso.avanza || paso.termina || !rect) ? (
+        {!paso.cta ? null : (paso.ir || paso.avanza || paso.termina || !rect) ? (
           <button type="button" onClick={accion} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700">{t(paso.cta)}</button>
         ) : (
           <span className="text-xs font-semibold text-aproba-700">{t("↓ Aquí")}</span>
@@ -168,8 +172,20 @@ export function GuiaActivacion() {
   // Con elemento en pantalla: foco recortado (sombra gigante alrededor del rect) y tarjeta
   // debajo (o encima si no cabe). Sin elemento: tarjeta flotante abajo a la derecha.
   if (rect) {
-    const m = 8, ALTO = 170;
+    const m = 8, ALTO = 170, ANCHO = 300;
     const altoFoco = Math.min(rect.height, window.innerHeight * 0.5); // secciones abiertas muy altas: se enfoca cabecera y principio
+    // Elemento pequeño con sitio a su derecha: la tarjeta va AL LADO y no tapa lo que hay
+    // debajo (campos de un formulario, lista…). Si no, debajo; si no cabe, encima.
+    const aLaDerecha = altoFoco < 220 && rect.right + 16 + ANCHO + 12 <= window.innerWidth;
+    if (aLaDerecha) {
+      const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
+      return (
+        <>
+          <div aria-hidden className="pointer-events-none fixed z-[45] rounded-xl ring-2 ring-aproba-500" style={{ left: rect.left - m, top: rect.top - m, width: rect.width + 2 * m, height: altoFoco + 2 * m, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
+          <div className="fixed z-[45]" style={{ left: rect.right + 16, top }}>{Tarjeta}</div>
+        </>
+      );
+    }
     const abajo = rect.top + altoFoco + 12 + ALTO < window.innerHeight;
     // Si la tarjeta cae en la esquina inferior derecha (donde vive «Ayuda»), se corre a la izquierda.
     const bordeInferior = abajo ? rect.top + altoFoco + 14 + ALTO : rect.top - 14;

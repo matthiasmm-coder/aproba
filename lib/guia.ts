@@ -6,7 +6,10 @@
 // Dos fases con su propia progresión (pedido de Matthias, 05/09 noche):
 //  · «El ejemplo» (6 pasos): abrirlo → información → documentos → formularios (generados
 //    DE VERDAD: la descarga del EX-17 los registra) → citas → cobro. Todo en la ficha.
-//  · «Tu primer expediente real» (4 pasos): cliente → su pasaporte → expediente → enlace.
+//  · «Tu primer expediente real» (2 pasos): expediente para un cliente nuevo → enviarle el
+//    enlace. Es el camino natural del producto: el gestor NO teclea al cliente ni sube su
+//    pasaporte; le manda el enlace y el cliente elige trámite y sube documentos (05/09 noche,
+//    tras probarlo Matthias: el alta manual + subir el pasaporte uno mismo «no tenía sentido»).
 // Los pasos de «mirar» (información, documentos, citas, cobro) se confirman con
 // «Siguiente» y se recuerdan en el navegador; los demás se deducen de los hechos.
 // Solo para cuentas nacidas con la guía: ver cuentaNueva() en lib/activacion.ts.
@@ -23,7 +26,8 @@ export type PasoGuia = {
   texto: string;    // UNA línea
   cta: string;      // etiqueta del botón
   anclaje?: string; // data-guia del elemento a señalar en ESTA página
-  anclajes?: string[]; // alternativas por orden: se señala el PRIMER data-guia presente (p. ej. lista de clientes → botón crear)
+  anclajes?: string[]; // alternativas por orden: se señala el PRIMER data-guia presente
+  textos?: Record<string, { titulo: string; texto: string }>; // título/texto según el anclaje señalado (sin anclaje: los del paso)
   abrir?: string;   // id de sección plegable de la ficha que hay que abrir (evento abrir-seccion)
   ir?: string;      // destino del botón cuando el elemento no está en esta página
   avanza?: number;  // paso de «mirar»: el botón lo confirma y deja vistos = avanza
@@ -34,7 +38,7 @@ export type PasoGuia = {
 export type TourEjemplo = { vistos: number; enlaceVisto?: boolean };
 export const TOUR_INICIAL: TourEjemplo = { vistos: 0, enlaceVisto: false };
 export const PASOS_EJEMPLO = 6;
-export const PASOS_REAL = 4;
+export const PASOS_REAL = 2;
 
 export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemplo = TOUR_INICIAL): PasoGuia | null {
   if (!cuentaNueva(d)) return null;
@@ -72,29 +76,21 @@ export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemp
     return volver(6, "Cobro y factura", "Último paso del ejemplo, en la ficha.");
   }
 
-  // FASE REAL: cada paso se señala en la pantalla donde se hace; fuera de ella, la tarjeta
-  // lleva a esa pantalla. Los hechos (cliente, documento propio, expediente) los cuenta
-  // /api/activacion; las pantallas avisan con avisarGuia() al terminar su acción.
-  if (d.clientes === 0) {
-    if (pathname === "/app/clientes/nuevo") return R({ key: "guardar-cliente", n: 1, anclaje: "guardar-cliente", titulo: "Nombre y email bastan", texto: "Guarda: el resto lo leerá la IA de su pasaporte.", cta: "Entendido" });
-    return R({ key: "cliente", n: 1, titulo: "Ahora, un cliente de verdad", texto: "Da de alta a uno que ya tengas.", ir: "/app/clientes/nuevo", cta: "Crear cliente" });
-  }
-  if ((d.documentosPropios ?? 0) === 0) {
-    const enFichaCliente = /^\/app\/clientes\/[^/]+$/.test(pathname) && !pathname.endsWith("/nuevo");
-    if (enFichaCliente) return R({ key: "subir", n: 2, anclaje: "subir", titulo: "Sube su pasaporte", texto: "La IA lo lee y rellena su ficha.", cta: "Entendido" });
-    const fichaCliente = d.primerClienteId ? `/app/clientes/${d.primerClienteId}` : "/app/clientes";
-    return R({ key: "subir-ir", n: 2, titulo: "Sube su pasaporte", texto: "Desde su ficha: la IA lo lee y rellena los datos.", ir: fichaCliente, cta: d.primerClienteId ? "Ir a su ficha" : "Ir a clientes" });
-  }
+  // FASE REAL: el camino natural. 1) «+ Nuevo expediente» → «Cliente nuevo» (nombre y su
+  // WhatsApp bastan) → crear. 2) Enviarle el enlace: él elige el trámite y sube documentos.
   if (d.expedientes === 0) {
-    // Mientras no haya cliente elegido, el formulario marca su lista (elegir-cliente); al elegir, queda el botón.
-    if (pathname === "/app/expedientes/nuevo") return R({ key: "crear-expediente", n: 3, anclaje: "crear-expediente", anclajes: ["elegir-cliente", "crear-expediente"], titulo: "Elige a tu cliente y crea el expediente", texto: "Sus documentos ya están en su ficha.", cta: "Entendido" });
-    return R({ key: "expediente", n: 3, anclaje: "nuevo-expediente", titulo: "Ábrele su primer expediente", texto: "Elige el trámite: sus documentos ya están.", ir: "/app/expedientes/nuevo", cta: "Nuevo expediente" });
+    if (pathname === "/app/expedientes/nuevo") {
+      // Con la pestaña «Cliente existente» sin elección, se señala «Cliente nuevo»; ya en el
+      // formulario del cliente nuevo (o con uno elegido) no se tapa nada: tarjeta flotante.
+      return R({ key: "crear-expediente", n: 1, anclajes: ["cliente-nuevo"], textos: { "cliente-nuevo": { titulo: "Pulsa «Cliente nuevo»", texto: "Nombre, apellidos y su WhatsApp. Nada más." } }, titulo: "Crea el expediente", texto: "Con su nombre basta. Le llegará un enlace para elegir su trámite y subir sus documentos.", cta: "" });
+    }
+    return R({ key: "expediente", n: 1, anclaje: "nuevo-expediente", titulo: "Ahora, un cliente de verdad", texto: "Ábrele un expediente: le enviarás un enlace y subirá sus documentos.", ir: "/app/expedientes/nuevo", cta: "Nuevo expediente" });
   }
   if (!tour.enlaceVisto) {
     // Crear el expediente ya genera el enlace (evento «Enlace del portal generado»); lo que
     // queda es ENVIARLO, y eso no deja hecho en base: se confirma con el botón.
-    if (pathname === "/app/expedientes/nuevo") return R({ key: "enviar-enlace", n: 4, anclaje: "enviar-enlace", titulo: "Envíale el enlace de su portal", texto: "Por WhatsApp o copiado: sube el resto desde el móvil.", cta: "Terminar la guía", termina: true });
-    return R({ key: "enlace", n: 4, titulo: "Envíale el enlace de su portal", texto: "Está en su expediente. Tu cliente sube el resto desde el móvil.", cta: "Terminar la guía", termina: true });
+    if (pathname === "/app/expedientes/nuevo") return R({ key: "enviar-enlace", n: 2, anclaje: "enviar-enlace", titulo: "Envíale el enlace por WhatsApp", texto: "Elegirá su trámite y subirá sus documentos desde el móvil.", cta: "Terminar la guía", termina: true });
+    return R({ key: "enlace", n: 2, titulo: "Envíale el enlace de su portal", texto: "Está en su expediente. Tu cliente sube el resto desde el móvil.", cta: "Terminar la guía", termina: true });
   }
   return null;
 }
