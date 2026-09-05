@@ -1689,6 +1689,16 @@ export const CA: Record<string, string> = {
   "Borrar el ejemplo": "Esborrar l'exemple",
   "Borrando…": "Esborrant…",
   "No se pudo borrar el ejemplo.": "No s'ha pogut esborrar l'exemple.",
+  // ── Ventana Aproba Despegue tras el ejemplo (05/09/2026) ──
+  "¿Quieres ir más rápido?": "Vols anar més ràpid?",
+  "Acabas de ver lo que hace Aproba con un expediente. Con Aproba Despegue lo tienes funcionando con tus propios clientes en días, no en semanas:": "Acabes de veure què fa Aproba amb un expedient. Amb Aproba Despegue el tens funcionant amb els teus propis clients en dies, no en setmanes:",
+  "Configuración de tu cuenta: servicios, tarifas, cobros y equipo": "Configuració del teu compte: serveis, tarifes, cobraments i equip",
+  "Migración de tus clientes y de los expedientes en curso": "Migració dels teus clients i dels expedients en curs",
+  "Formación práctica de tu equipo, sobre tus propios casos": "Formació pràctica del teu equip, sobre els teus propis casos",
+  "Soporte prioritario con un interlocutor dedicado": "Suport prioritari amb un interlocutor dedicat",
+  "Ahora no": "Ara no",
+  "Sí, quiero el presupuesto": "Sí, vull el pressupost",
+  "Sin compromiso: te enviamos un presupuesto a medida.": "Sense compromís: t'enviem un pressupost a mida.",
 };
 
 export function translate(lang: Lang, es: string): string {

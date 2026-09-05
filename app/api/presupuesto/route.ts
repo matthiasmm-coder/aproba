@@ -61,8 +61,13 @@ export async function POST(req: Request) {
   if (!equipo) return fail("Indica cuántas personas sois.");
 
   const servicio = "Aproba Despegue";
+  // «app-ejemplo» = la ventana que salta al generar los formularios del expediente de
+  // ejemplo (05/09/2026): el prospecto acaba de ver el producto y pide el presupuesto
+  // desde dentro. Se marca en asunto y tabla para distinguirlo de la landing.
+  const origen = clamp(body.origen, 40) === "app-ejemplo" ? "Desde la app (expediente de ejemplo)" : "Landing";
   const rows: [string, string][] = [
     ["Servicio", servicio],
+    ["Origen", origen],
     ["Nombre", `${nombre} ${apellidos}`],
     ["Despacho", despacho],
     ["Email", email],
@@ -104,7 +109,7 @@ export async function POST(req: Request) {
         from,
         to: notify,
         replyTo: email,
-        subject: `[Presupuesto · ${servicio}] ${nombre} ${apellidos} (${despacho})`,
+        subject: `[Presupuesto · ${servicio}${origen.startsWith("Desde la app") ? " · desde la app" : ""}] ${nombre} ${apellidos} (${despacho})`,
         html,
         text,
         ...(adjunto ? { attachments: [adjunto] } : {}),

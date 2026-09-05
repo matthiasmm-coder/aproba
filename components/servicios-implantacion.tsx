@@ -55,12 +55,16 @@ export function ServiciosImplantacion() {
   );
 }
 
-function PresupuestoModal({ onClose }: { onClose: () => void }) {
+// Reutilizado desde la app (05/09/2026, components/despegue-modal.tsx): `prefill` rellena
+// lo que la sesión ya sabe, `origen` marca el email que recibe el fundador, y `sinPrecio`
+// oculta el «desde 690 €» — dentro de la app el precio va en el presupuesto, no en pantalla.
+export type PresupuestoPrefill = Partial<{ nombre: string; apellidos: string; despacho: string; email: string; telefono: string }>;
+export function PresupuestoModal({ onClose, prefill = {}, origen, sinPrecio = false }: { onClose: () => void; prefill?: PresupuestoPrefill; origen?: string; sinPrecio?: boolean }) {
   useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ servicio: SERVICIO.nombre, nombre: "", apellidos: "", despacho: "", email: "", telefono: "", equipo: "", comentarios: "", website: "" });
+  const [form, setForm] = useState({ servicio: SERVICIO.nombre, nombre: prefill.nombre ?? "", apellidos: prefill.apellidos ?? "", despacho: prefill.despacho ?? "", email: prefill.email ?? "", telefono: prefill.telefono ?? "", equipo: "", comentarios: "", website: "" });
 
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -76,7 +80,7 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
     if (!form.equipo) { setError("Indica cuántas personas sois."); return; }
     setEnviando(true);
     try {
-      const r = await fetch("/api/presupuesto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const r = await fetch("/api/presupuesto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...(origen ? { origen } : {}) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "No se pudo enviar. Inténtalo de nuevo.");
       setDone(true);
@@ -117,10 +121,10 @@ function PresupuestoModal({ onClose }: { onClose: () => void }) {
             <div className="rounded-lg border border-aproba-100 bg-aproba-50 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm font-semibold text-slate-900">{SERVICIO.nombre}</p>
-                <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{SERVICIO.desde}&nbsp;€</span> + IVA</p>
+                {!sinPrecio && <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{SERVICIO.desde}&nbsp;€</span> + IVA</p>}
               </div>
               <p className="mt-1 text-xs italic leading-relaxed text-slate-600">Configuración, migración de datos y expedientes, formación de tu equipo y acompañamiento.</p>
-              <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · IVA no incluido.</p>
+              {!sinPrecio && <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · IVA no incluido.</p>}
             </div>
             <div className="grid gap-3.5 sm:grid-cols-2">
               <div><label className={label}>Nombre *</label><input value={form.nombre} onChange={set("nombre")} className={inp} placeholder="Tu nombre" /></div>

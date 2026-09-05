@@ -56,5 +56,19 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     if (campos.length) faltanPorPersona = [{ id: exp.clienteId ?? "titular", nombre: exp.clienteNombre, campos }];
   }
 
-  return <FormulariosView faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Expediente de EJEMPLO: lo que la sesión ya sabe, para prellenar el presupuesto de
+  // Aproba Despegue si el prospecto acepta la ventana tras generar los formularios.
+  let despegue: { nombre: string; apellidos: string; despacho: string; email: string } | null = null;
+  if (exp.referencia === "EJEMPLO") {
+    try {
+      const { createSupabaseServer } = await import("@/lib/supabase/server");
+      const { fetchDespacho } = await import("@/lib/data/config");
+      const sb = await createSupabaseServer();
+      const [{ data: { user } }, d] = await Promise.all([sb.auth.getUser(), fetchDespacho()]);
+      const completo = String(user?.user_metadata?.nombre ?? "").trim();
+      const [nombre, ...resto] = completo.split(/\s+/);
+      despegue = { nombre: nombre ?? "", apellidos: resto.join(" "), despacho: d.nombre === "Mi despacho" ? "" : d.nombre, email: user?.email ?? "" };
+    } catch { despegue = { nombre: "", apellidos: "", despacho: "", email: "" }; }
+  }
+  return <FormulariosView despegue={despegue} faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }
