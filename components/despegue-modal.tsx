@@ -41,7 +41,7 @@ function Pregunta({ onSi, onNo, coheteUrl }: { onSi: () => void; onNo: () => voi
     <div role="dialog" aria-modal="true" aria-labelledby="despegue-titulo" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={onNo}>
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-4 bg-gradient-to-br from-aproba-50 to-white px-6 pt-6 sm:px-8">
-          {coheteUrl ? <img src={coheteUrl} alt="" className="h-20 w-20 shrink-0 object-contain" /> : <Cohete className="h-20 w-20 shrink-0" />}
+          {coheteUrl ? <img src={coheteUrl} alt="" className="h-24 w-24 shrink-0 object-contain" /> : <Cohete className="h-20 w-20 shrink-0" />}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-aproba-700">Aproba Despegue</p>
             <h2 id="despegue-titulo" className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{t("Rápido y sin errores")}</h2>
@@ -57,7 +57,7 @@ function Pregunta({ onSi, onNo, coheteUrl }: { onSi: () => void; onNo: () => voi
             </div>
           ))}
         </div>
-        <div className="flex flex-col-reverse gap-2 px-6 py-5 sm:flex-row sm:justify-end sm:px-8">
+        <div className="flex flex-col-reverse gap-2 px-6 py-5 sm:flex-row sm:justify-center sm:px-8">
           <button type="button" onClick={onNo} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:text-slate-900">{t("Ahora no")}</button>
           <button type="button" onClick={onSi} className="rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700">{t("Quiero el presupuesto")}</button>
         </div>
