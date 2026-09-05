@@ -40,7 +40,12 @@ export type DatosActivacion = {
   ejemploFormulariosGenerados?: boolean; // ya pulsó «Generar formularios» en el ejemplo
   documentosPropios?: number;            // documentos subidos POR EL DESPACHO fuera del ejemplo
   creadoEn?: string | null;              // Workspace.createdAt (UTC): guía y ejemplo solo para las cuentas nacidas con ellos
-  primerClienteId?: string | null;       // un cliente real (no el del ejemplo): la guía lleva a su ficha para subir el pasaporte
+  primerClienteId?: string | null;       // un cliente real (no el del ejemplo)
+  // 06/09/2026 — la checklist de Inicio es de CONFIGURACIÓN (el uso lo enseña la guía).
+  serviciosConPrecio?: number;           // servicios del catálogo con anticipo o resto > 0
+  datosFiscales?: boolean;               // NIF del despacho relleno
+  hojaEncargoActiva?: boolean;           // hoja de encargo + mandato activados
+  avisosPersonalizados?: number;         // avisos tocados (personalizados o desactivados)
 };
 
 // La guía y el expediente de ejemplo nacieron el 05/09/2026 (bfa522c, en producción a las
@@ -55,39 +60,24 @@ export function cuentaNueva(d: Pick<DatosActivacion, "creadoEn">): boolean {
   return c.slice(0, 19) >= GUIA_DESDE; // ambos en UTC, formato ISO → comparación lexicográfica
 }
 
-// Orden DELIBERADO, en dos tiempos (05/09/2026):
-//  1. La PRIMERA SESIÓN — lo que el gestor puede hacer solo, en diez minutos, y que le
-//     enseña lo que hace la IA: abrir el expediente de ejemplo (cuatro documentos ya
-//     validados) y generar sus formularios; después subir ÉL un pasaporte de un cliente
-//     que ya tenga. Medido en 75 días de altas: cinco de nueve prospectos crearon un
-//     expediente el día 1, vieron una lista de documentos vacía que esperaba a un cliente
-//     inexistente, y no volvieron. La lista anterior empezaba justo por ese punto muerto.
-//  2. La SEMANA UNO — el camino crítico de la adopción (cliente → expediente → enlace →
-//     documento subido POR EL CLIENTE), que sigue siendo el umbral real.
-//  3. La administración, al final: configurar servicios y cuenta no compromete a nadie.
+// Checklist de Inicio (06/09/2026, pedido de Matthias): SOLO configuración del despacho.
+// El uso de la plataforma (ejemplo, cliente, expediente, enlace) lo enseña la guía
+// interactiva; aquí queda lo que conviene dejar listo antes de trabajar con clientes.
 export function construirChecklist(d: DatosActivacion, t: (s: string) => string): ChecklistItem[] {
   const items: ChecklistItem[] = [
-    // El ejemplo solo se ofrece a las cuentas nacidas con él (ver cuentaNueva): a un despacho
-    // con años de expedientes no se le propone «abrir su primer expediente».
-    ...(cuentaNueva(d) ? [{ key: "ejemplo", label: t("Abre el expediente de ejemplo y genera sus formularios"), href: d.ejemploId ? `/app/expedientes/${d.ejemploId}` : "/app/ejemplo", done: Boolean(d.ejemploFormulariosGenerados) }] : []),
-    { key: "clientes", label: t("Da de alta a tu primer cliente"), href: "/app/clientes/nuevo", done: d.clientes > 0 },
-    { key: "documento_propio", label: t("Sube el pasaporte de un cliente que ya tengas y mira cómo lo valida la IA"), href: "/app/clientes", done: (d.documentosPropios ?? 0) > 0 },
-    { key: "expediente", label: t("Ábrele su primer expediente"), href: "/app/expedientes/nuevo", done: d.expedientes > 0 },
-    { key: "enlace", label: t("Envíale el enlace de su portal"), href: "/app/expedientes", done: d.enlacesEnviados > 0 },
-    { key: "documento", label: t("Recibe su primer documento"), href: "/app/expedientes", done: d.subidasDeCliente > 0 },
-    { key: "servicios", label: t("Ajusta tus servicios y precios"), href: "/app/ajustes", done: d.servicios > 0 },
-    { key: "banco", label: t("Añade tu cuenta bancaria"), href: "/app/ajustes", done: d.cuentas > 0 },
+    { key: "servicios", label: t("Pon precio a tus servicios"), href: "/app/ajustes#servicios", done: (d.serviciosConPrecio ?? 0) > 0 },
+    { key: "banco", label: t("Añade tu cuenta bancaria"), href: "/app/ajustes#facturacion", done: d.cuentas > 0 },
+    { key: "fiscal", label: t("Completa los datos fiscales de tu despacho"), href: "/app/ajustes#despacho", done: Boolean(d.datosFiscales) },
+    { key: "encargo", label: t("Activa la hoja de encargo y el mandato"), href: "/app/ajustes#encargo", done: Boolean(d.hojaEncargoActiva) },
+    { key: "avisos", label: t("Revisa los avisos automáticos a tus clientes"), href: "/app/ajustes#notificaciones", done: (d.avisosPersonalizados ?? 0) > 0 },
+    { key: "importar", label: t("Importa tus clientes desde Excel o CSV"), href: "/app/importar", done: d.clientes > 0 },
   ];
   if (d.plan !== "STARTER") {
-    items.push({ key: "equipo", label: t("Invita a tu equipo"), href: "/app/ajustes", done: d.miembros > 1 });
+    items.push({ key: "equipo", label: t("Invita a tu equipo"), href: "/app/ajustes#plan", done: d.miembros > 1 });
   }
   return items;
 }
 
-// El estado que no era visible en ninguna parte: el enlace salió y el cliente no ha
-// hecho nada. Es donde estaban parados Joshua (4 enlaces, 0 subidas) y S&D (4 y 0),
-// y ninguno de los dos volvió. No es un fallo del despacho ni del producto: es un
-// cliente que no ha abierto su correo, y se arregla con un recordatorio.
 export function esperandoAlCliente(d: DatosActivacion): boolean {
   return d.enlacesEnviados > 0 && d.subidasDeCliente === 0;
 }

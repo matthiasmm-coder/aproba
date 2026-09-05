@@ -39,7 +39,7 @@ export function SidebarNav() {
       {NAV.map((n) => {
         const active = isActive(n.href);
         return (
-          <Link key={n.href} href={n.href} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-aproba-50 text-aproba-700" : "text-slate-600 hover:bg-cream-50 hover:text-slate-900"}`}>
+          <Link key={n.href} href={n.href} data-guia={n.href === "/app/expedientes" ? "menu-expedientes" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-aproba-50 text-aproba-700" : "text-slate-600 hover:bg-cream-50 hover:text-slate-900"}`}>
             <span className={active ? "text-aproba-600" : "text-slate-400"}><NavIcon name={n.icon} /></span>
             {t(n.label)}
           </Link>
@@ -57,7 +57,7 @@ export function MobileNav() {
       {NAV.map((n) => {
         const active = isActive(n.href);
         return (
-          <Link key={n.href} href={n.href} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${active ? "text-aproba-700" : "text-slate-400"}`}>
+          <Link key={n.href} href={n.href} data-guia={n.href === "/app/expedientes" ? "menu-expedientes" : undefined} className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition ${active ? "text-aproba-700" : "text-slate-400"}`}>
             <NavIcon name={n.icon} />
             {t(n.label)}
           </Link>

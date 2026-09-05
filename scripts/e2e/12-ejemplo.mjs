@@ -34,7 +34,12 @@ export async function run() {
     const { data: files } = await admin.storage.from("documentos").list(expId, { limit: 50 });
     v.ok((files ?? []).length === 4, `4 archivos copiados al bucket bajo <id>/ (${(files ?? []).length})`);
     const { data: evs } = await admin.from("ExpedienteEvento").select("tipo, descripcion").eq("expedienteId", expId);
-    v.ok((evs ?? []).length === 9 && !evs.some((e) => /El cliente subió/.test(e.descripcion)), `diario: 1 alta + 4 subidas del despacho + 4 validaciones, ninguna atribuida al cliente (${(evs ?? []).length})`);
+    v.ok((evs ?? []).length === 11 && !evs.some((e) => /El cliente subió/.test(e.descripcion)), `diario: 1 alta + 4 subidas del despacho + 4 validaciones + cita + factura, ninguna atribuida al cliente (${(evs ?? []).length})`);
+    // 06/09: cita fijada y anticipo facturado en la serie EJEMPLO-… (fuera de la serie legal 2026-…)
+    const { data: cita } = await admin.from("Expediente").select("fechaCita, citaHora, citaLugar").eq("id", expId).maybeSingle();
+    v.ok(Boolean(cita?.fechaCita) && cita?.citaHora === "10:30" && /Extranjería/.test(cita?.citaLugar ?? ""), `cita fijada en el ejemplo (${cita?.fechaCita} ${cita?.citaHora})`);
+    const { data: fac } = await admin.from("Factura").select("numero, estado, momento, total").eq("expedienteId", expId);
+    v.ok((fac ?? []).length === 1 && fac[0].numero === "EJEMPLO-0001" && fac[0].estado === "EMITIDA" && fac[0].momento === "ANTICIPO", `anticipo facturado y pendiente, número fuera de la serie legal (${fac?.[0]?.numero}, ${fac?.[0]?.estado}, ${fac?.[0]?.total} €)`);
 
     // 2) Idempotente
     const r2 = await api("/api/ejemplo");
@@ -54,6 +59,8 @@ export async function run() {
     const { count: cliB } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("workspaceId", ws).eq("email", "ejemplo@aproba-software.com");
     v.ok(r3.status === 200 && r3.d?.borrado === true && !expB && (filesB ?? []).length === 0 && cliB === 0,
       `DELETE borra expediente, archivos y cliente ficticio (${r3.status}, exp ${expB ? "queda" : "fuera"}, archivos ${(filesB ?? []).length}, cliente ${cliB})`);
+    const { count: facB } = await admin.from("Factura").select("id", { count: "exact", head: true }).eq("expedienteId", expId);
+    v.ok(facB === 0, `DELETE borra también la factura de ejemplo (${facB})`);
     expId = null;
 
     // 5) Sin sesión → 401

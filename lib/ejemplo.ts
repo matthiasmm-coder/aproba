@@ -95,7 +95,12 @@ export async function sembrarEjemplo(admin: Admin, workspaceId: string, userId: 
     id, workspaceId, clienteId, referencia: REFERENCIA_EJEMPLO, portalToken: randomUUID().replace(/-/g, ""),
     tipo: "RENOVACION", estado: "EN_PREPARACION", asignadoAId: userId, createdAt: ahora, updatedAt: ahora,
   };
-  let e = await admin.from("Expediente").insert({ ...expBase, servicioClave: "renovacion_tie", docsExtra: ["Pasaporte"], ...(oficinaId ? { oficinaId } : {}) });
+  // Cita ya fijada (paso «citas» de la guía): dentro de tres días laborables, en Extranjería.
+  const cita = new Date(); cita.setDate(cita.getDate() + 3); while (cita.getDay() === 0 || cita.getDay() === 6) cita.setDate(cita.getDate() + 1);
+  const fechaCita = cita.toISOString().slice(0, 10);
+  const conCita = { fechaCita, citaHora: "10:30", citaLugar: "Oficina de Extranjería · Rambla de Guipúscoa 74, Barcelona", citaNotas: "Llevar el pasaporte original, el resguardo de la tasa 790 y una foto de carné." };
+  let e = await admin.from("Expediente").insert({ ...expBase, servicioClave: "renovacion_tie", docsExtra: ["Pasaporte"], ...conCita, ...(oficinaId ? { oficinaId } : {}) });
+  if (e.error && faltaColumna(e.error.message)) e = await admin.from("Expediente").insert({ ...expBase, servicioClave: "renovacion_tie", docsExtra: ["Pasaporte"], ...(oficinaId ? { oficinaId } : {}) });
   if (e.error && faltaColumna(e.error.message)) e = await admin.from("Expediente").insert(expBase);
   if (e.error) { await admin.from("Cliente").delete().eq("id", clienteId); throw new Error(`Expediente de ejemplo: ${e.error.message}`); }
 
@@ -128,6 +133,19 @@ export async function sembrarEjemplo(admin: Admin, workspaceId: string, userId: 
     eventos.push({ id: randomUUID(), expedienteId: id, tipo: "DOC_SUBIDO", descripcion: `El despacho subió: ${d.etiqueta}`, userId, createdAt: t.toISOString() });
     eventos.push({ id: randomUUID(), expedienteId: id, tipo: "DOC_VALIDADO", descripcion: `IA validó: ${d.etiqueta}`, userId: null, createdAt: new Date(t.getTime() + 20_000).toISOString() });
   }
+  // 4) Cobro (paso «cobro» de la guía): el anticipo ya facturado y pendiente de pago. Número
+  //    en la serie EJEMPLO-…, que NO es la serie legal (2026-…): la numeración correlativa
+  //    del despacho no se toca ni queda un hueco al borrar el ejemplo.
+  const vence = new Date(Date.now() + 15 * 86_400_000);
+  const factura: Record<string, unknown> = {
+    id: randomUUID(), workspaceId, expedienteId: id, clienteId, numero: "EJEMPLO-0001", clienteNombre: `${FICHA_JULIA.nombre} ${FICHA_JULIA.apellidos}`,
+    concepto: "Anticipo · Renovación de TIE", baseImponible: 80, iva: 16.8, total: 96.8, estado: "EMITIDA", origen: "AUTOMATICA", momento: "ANTICIPO",
+    metodoPago: "TRANSFERENCIA", fechaEmision: ahora, fechaVencimiento: vence.toISOString(),
+  };
+  let f = await admin.from("Factura").insert(factura);
+  if (f.error && /clienteId/i.test(f.error.message)) { delete factura.clienteId; f = await admin.from("Factura").insert(factura); }
+  if (!f.error) eventos.push({ id: randomUUID(), expedienteId: id, tipo: "COMENTARIO", descripcion: "📄 Factura EJEMPLO-0001 emitida (anticipo, 96,80 €) · pendiente de pago", userId, createdAt: ahora });
+  if (!e.error) eventos.push({ id: randomUUID(), expedienteId: id, tipo: "COMENTARIO", descripcion: `📅 Cita fijada: ${cita.toLocaleDateString("es-ES")} a las 10:30, Oficina de Extranjería · el cliente recibió el aviso`, userId, createdAt: ahora });
   await admin.from("ExpedienteEvento").insert(eventos);
   return { id, creado: true };
 }
@@ -146,6 +164,7 @@ export async function borrarEjemplo(admin: Admin, workspaceId: string): Promise<
       if (error) break;
     }
   } catch { /* sin archivos */ }
+  await admin.from("Factura").delete().eq("expedienteId", id); // la factura de ejemplo (serie EJEMPLO-…), sin cascada en la FK
   const { data: docs } = await admin.from("Documento").select("id").eq("expedienteId", id);
   const docIds = (docs ?? []).map((d) => d.id as string);
   if (docIds.length) await admin.from("Extraction").delete().in("documentoId", docIds);

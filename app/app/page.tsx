@@ -6,19 +6,19 @@ import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { construirChecklist, esperandoAlCliente, type ChecklistItem } from "@/lib/activacion";
+import { construirChecklist, type ChecklistItem } from "@/lib/activacion";
 import { fetchDatosActivacion } from "@/lib/data/activacion";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Inicio" };
 
 // État d'avancement (checklist du dashboard) — même source que la guía interactiva.
-async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<{ items: ChecklistItem[]; esperando: boolean }> {
+async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<{ items: ChecklistItem[] }> {
   try {
     const datos = await fetchDatosActivacion(supabase);
-    return { items: construirChecklist(datos, t), esperando: esperandoAlCliente(datos) };
+    return { items: construirChecklist(datos, t) };
   } catch {
-    return { items: [], esperando: false };
+    return { items: [] };
   }
 }
 
@@ -85,7 +85,7 @@ export default async function Dashboard() {
     <>
       {/* La checklist n'est PAS filtrée par sede (piège connu) — les pastillas ne
           gouvernent que les KPI et listes en dessous. */}
-      <OnboardingChecklist items={checklist.items} esperandoAlCliente={checklist.esperando} />
+      <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
     </>

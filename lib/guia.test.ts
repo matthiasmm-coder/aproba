@@ -8,57 +8,56 @@ const base: DatosActivacion = {
   ejemploId: "ej1", ejemploFormulariosGenerados: false, documentosPropios: 0,
   creadoEn: "2026-09-06T09:00:00",
 };
-const FICHA = "/app/expedientes/ej1", FORMS = "/app/expedientes/ej1/formularios", NUEVO = "/app/expedientes/nuevo";
+const FICHA = "/app/expedientes/ej1", FORMS = "/app/expedientes/ej1/formularios", NUEVO = "/app/expedientes/nuevo", TABLERO = "/app/expedientes";
 
-describe("guía interactiva · una sola secuencia de 8 pasos", () => {
+describe("guía interactiva · una sola secuencia de 9 pasos", () => {
   it("solo acompaña a las cuentas nacidas con ella (05/09/2026): las anteriores no ven nada", () => {
     expect(pasoDeGuia({ ...base, creadoEn: "2026-07-29T10:00:00" }, "/app")).toBeNull();
     expect(pasoDeGuia({ ...base, creadoEn: "2026-09-05T16:59:59" }, FICHA)).toBeNull();
-    expect(pasoDeGuia({ ...base, creadoEn: "2026-09-05T17:29:00.123Z" }, "/app")?.key).toBe("volver-1");
     expect(pasoDeGuia({ ...base, creadoEn: null }, "/app")).toBeNull();
+    expect(TOTAL_PASOS).toBe(9);
   });
-  it("1: desde el panel lleva a abrir el ejemplo; sin ejemplo sembrado, lo siembra al clic", () => {
-    expect(pasoDeGuia(base, "/app")).toMatchObject({ key: "volver-1", n: 1, ir: FICHA, cta: "Abrir el ejemplo" });
-    expect(pasoDeGuia({ ...base, ejemploId: null }, "/app")?.ir).toBe("/app/ejemplo");
-    expect(TOTAL_PASOS).toBe(8);
+  it("1 → 2: el menú Expedientes en el panel, la tarjeta del ejemplo en el tablero; el botón solo si el elemento no está", () => {
+    expect(pasoDeGuia(base, "/app")).toMatchObject({ key: "menu", n: 1, anclaje: "menu-expedientes", ir: TABLERO, cta: "Ver expedientes", ctaSoloSinAncla: true });
+    expect(pasoDeGuia(base, TABLERO)).toMatchObject({ key: "tarjeta", n: 2, anclaje: "tarjeta-ejemplo", ir: FICHA, cta: "Abrir el ejemplo", ctaSoloSinAncla: true });
+    expect(pasoDeGuia(base, "/app/clientes")).toMatchObject({ key: "volver-1", n: 1, ir: TABLERO, cta: "Ver expedientes" });
+    expect(pasoDeGuia({ ...base, ejemploId: null }, TABLERO)?.ir).toBe("/app/ejemplo"); // sin ejemplo: se siembra al clic
   });
-  it("2 → 5: información, documentos, citas y cobro se miran en la ficha, abren su sección y avanzan con «Siguiente»", () => {
-    expect(pasoDeGuia(base, FICHA)).toMatchObject({ key: "informacion", n: 2, abrir: "informacion", avanza: 2, cta: "Siguiente" });
-    expect(pasoDeGuia(base, FICHA, { vistos: 2 })).toMatchObject({ key: "documentos", n: 3, abrir: "documentos", avanza: 3 });
-    expect(pasoDeGuia(base, FICHA, { vistos: 3 })).toMatchObject({ key: "citas", n: 4, abrir: "citas", avanza: 4 });
-    expect(pasoDeGuia(base, FICHA, { vistos: 4 })).toMatchObject({ key: "cobro", n: 5, abrir: "cobro", avanza: 5 });
-    // fuera de la ficha, la tarjeta lleva de vuelta con el MISMO número
-    expect(pasoDeGuia(base, "/app/clientes", { vistos: 3 })).toMatchObject({ key: "volver-4", n: 4, ir: FICHA, cta: "Volver al ejemplo" });
+  it("3 → 6: información, documentos, citas y cobro en la ficha, abren su sección y avanzan con «Siguiente»", () => {
+    expect(pasoDeGuia(base, FICHA)).toMatchObject({ key: "informacion", n: 3, abrir: "informacion", avanza: 3, cta: "Siguiente" });
+    expect(pasoDeGuia(base, FICHA, { vistos: 3 })).toMatchObject({ key: "documentos", n: 4, abrir: "documentos", avanza: 4 });
+    expect(pasoDeGuia(base, FICHA, { vistos: 4 })).toMatchObject({ key: "citas", n: 5, abrir: "citas", avanza: 5 });
+    expect(pasoDeGuia(base, FICHA, { vistos: 5 })).toMatchObject({ key: "cobro", n: 6, abrir: "cobro", avanza: 6 });
+    expect(pasoDeGuia(base, "/app/clientes", { vistos: 4 })).toMatchObject({ key: "volver-5", n: 5, ir: FICHA, cta: "Volver al ejemplo" });
   });
-  it("6: los formularios van al final de la ficha y se generan de verdad (descarga); después NO hay que volver", () => {
-    const t = { vistos: 5 };
-    expect(pasoDeGuia(base, FICHA, t)).toMatchObject({ key: "generar", n: 6, anclaje: "generar", ir: FORMS, cta: "Ir a formularios" });
-    expect(pasoDeGuia(base, FORMS, t)).toMatchObject({ key: "descargar", n: 6, anclaje: "descargar", cta: "" });
+  it("7: los formularios van al final y se generan de verdad (descarga); después NO hay que volver", () => {
+    const t = { vistos: 6 };
+    expect(pasoDeGuia(base, FICHA, t)).toMatchObject({ key: "generar", n: 7, anclaje: "generar", ir: FORMS, cta: "Ir a formularios" });
+    expect(pasoDeGuia(base, FORMS, t)).toMatchObject({ key: "descargar", n: 7, anclaje: "descargar", cta: "" });
     const hecho = { ...base, ejemploFormulariosGenerados: true };
-    // generado: el siguiente paso ya es el expediente real, señalado en el botón de cabecera de ESTA página
-    expect(pasoDeGuia(hecho, FORMS, t)).toMatchObject({ key: "expediente", n: 7, anclaje: "nuevo-expediente", ir: NUEVO });
+    expect(pasoDeGuia(hecho, FORMS, t)).toMatchObject({ key: "expediente", n: 8, anclaje: "nuevo-expediente", ir: NUEVO });
   });
-  it("7: el expediente real — «Cliente nuevo» señalado y, ya dentro, tarjeta flotante sin botón", () => {
-    const hecho = { ...base, ejemploFormulariosGenerados: true }; const t = { vistos: 5 };
-    expect(pasoDeGuia(hecho, "/app", t)).toMatchObject({ key: "expediente", n: 7, cta: "Nuevo expediente" });
+  it("8: el expediente real — «Cliente nuevo» señalado y, ya dentro, tarjeta flotante sin botón; nunca pide teclear al cliente aparte", () => {
+    const hecho = { ...base, ejemploFormulariosGenerados: true }; const t = { vistos: 6 };
+    expect(pasoDeGuia(hecho, "/app", t)).toMatchObject({ key: "expediente", n: 8, cta: "Nuevo expediente" });
     const enForm = pasoDeGuia(hecho, NUEVO, t)!;
-    expect(enForm).toMatchObject({ key: "crear-expediente", n: 7, anclajes: ["cliente-nuevo"], cta: "" });
+    expect(enForm).toMatchObject({ key: "crear-expediente", n: 8, anclajes: ["cliente-nuevo"], cta: "" });
     expect(enForm.textos?.["cliente-nuevo"]?.titulo).toBe("Pulsa «Cliente nuevo»");
-    // no pide teclear al cliente ni subir su pasaporte
     expect(pasoDeGuia({ ...hecho, clientes: 1, documentosPropios: 0 }, "/app", t)?.key).toBe("expediente");
   });
-  it("8: enviar el enlace cierra la guía con el botón; después, nada", () => {
-    const con = { ...base, ejemploFormulariosGenerados: true, expedientes: 1, enlacesEnviados: 1 }; const t = { vistos: 5 };
-    expect(pasoDeGuia(con, NUEVO, t)).toMatchObject({ key: "enviar-enlace", n: 8, anclaje: "enviar-enlace", termina: true, cta: "Terminar la guía" });
-    expect(pasoDeGuia(con, "/app", t)).toMatchObject({ key: "enlace", n: 8, termina: true });
-    expect(pasoDeGuia(con, "/app", { ...t, enlaceVisto: true })).toBeNull();
+  it("9: copiar el enlace (campo señalado, se confirma con el botón) → qué hará el cliente → fin", () => {
+    const con = { ...base, ejemploFormulariosGenerados: true, expedientes: 1, enlacesEnviados: 1 }; const t = { vistos: 6 };
+    expect(pasoDeGuia(con, NUEVO, t)).toMatchObject({ key: "copiar-enlace", n: 9, anclaje: "enlace-portal", copia: true, cta: "Ya se lo he enviado" });
+    expect(pasoDeGuia(con, "/app", t)).toMatchObject({ key: "enlace", n: 9, copia: true });
+    expect(pasoDeGuia(con, NUEVO, { ...t, enlaceCopiado: true })).toMatchObject({ key: "fin", n: 9, termina: true, cta: "Terminar la guía" });
+    expect(pasoDeGuia(con, "/app", { ...t, enlaceCopiado: true, enlaceVisto: true })).toBeNull();
   });
   it("la progresión es monótona de principio a fin", () => {
     const hecho = { ...base, ejemploFormulariosGenerados: true };
-    const ns = [pasoDeGuia(base, "/app")!, pasoDeGuia(base, FICHA)!, pasoDeGuia(base, FICHA, { vistos: 2 })!, pasoDeGuia(base, FICHA, { vistos: 3 })!, pasoDeGuia(base, FICHA, { vistos: 4 })!, pasoDeGuia(base, FICHA, { vistos: 5 })!, pasoDeGuia(base, FORMS, { vistos: 5 })!, pasoDeGuia(hecho, FORMS, { vistos: 5 })!, pasoDeGuia(hecho, NUEVO, { vistos: 5 })!, pasoDeGuia({ ...hecho, expedientes: 1 }, NUEVO, { vistos: 5 })!].map((p) => p.n);
-    expect(ns).toEqual([1, 2, 3, 4, 5, 6, 6, 7, 7, 8]);
+    const ns = [pasoDeGuia(base, "/app")!, pasoDeGuia(base, TABLERO)!, pasoDeGuia(base, FICHA)!, pasoDeGuia(base, FICHA, { vistos: 3 })!, pasoDeGuia(base, FICHA, { vistos: 4 })!, pasoDeGuia(base, FICHA, { vistos: 5 })!, pasoDeGuia(base, FICHA, { vistos: 6 })!, pasoDeGuia(base, FORMS, { vistos: 6 })!, pasoDeGuia(hecho, FORMS, { vistos: 6 })!, pasoDeGuia(hecho, NUEVO, { vistos: 6 })!, pasoDeGuia({ ...hecho, expedientes: 1 }, NUEVO, { vistos: 6 })!, pasoDeGuia({ ...hecho, expedientes: 1 }, NUEVO, { vistos: 6, enlaceCopiado: true })!].map((p) => p.n);
+    expect(ns).toEqual([1, 2, 3, 4, 5, 6, 7, 7, 8, 8, 9, 9]);
   });
   it("si el gestor borra el ejemplo a mitad de visita, no se insiste: sigue con lo real", () => {
-    expect(pasoDeGuia({ ...base, ejemploId: null }, "/app", { vistos: 3 })?.key).toBe("expediente");
+    expect(pasoDeGuia({ ...base, ejemploId: null }, "/app", { vistos: 4 })?.key).toBe("expediente");
   });
 });

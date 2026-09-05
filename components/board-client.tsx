@@ -73,7 +73,7 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
     // Todas las tarjetas MIDEN LO MISMO (pedido de Matthias): nombre y servicio en una
     // sola línea (truncados, el completo en title); anillo/chip y avatar a la DERECHA, a
     // la altura del nombre — sin fila inferior (03/09).
-    <Link href={`/app/expedientes/${e.id}`} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
+    <Link href={`/app/expedientes/${e.id}`} data-guia={e.referencia === "EJEMPLO" ? "tarjeta-ejemplo" : undefined} className="group relative block cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition hover:border-aproba-500 hover:shadow-card">
       <button
         onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onArchive(e); }}
         aria-label={t("Archivar")}

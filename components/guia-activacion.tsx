@@ -23,6 +23,7 @@ const EVENTO_ESTADO = "aproba:guia"; // lo dispara la guía al pasar a activa/in
 // Lo mirado del ejemplo va ligado a SU id: si se borra y se vuelve a sembrar, la visita empieza de cero.
 const claveTour = (ejemploId: string | null | undefined) => `aproba.guia.tour.${ejemploId ?? "sin-ejemplo"}`;
 const claveFin = (ejemploId: string | null | undefined) => `aproba.guia.fin.${ejemploId ?? "sin-ejemplo"}`; // último paso, confirmado con el botón
+const claveCopia = (ejemploId: string | null | undefined) => `aproba.guia.copiado.${ejemploId ?? "sin-ejemplo"}`; // enlace ya enviado, confirmado con el botón
 
 type Caja = { left: number; top: number; width: number; height: number; right: number; bottom: number };
 const mismaCaja = (a: Caja | null, b: Caja | null) =>
@@ -70,9 +71,10 @@ export function GuiaActivacion() {
   const ejemploId = datos?.ejemploId ?? null;
   useEffect(() => {
     if (!datos) return;
-    try { const v = Number(localStorage.getItem(claveTour(ejemploId)) ?? "0"); setTour({ vistos: Number.isFinite(v) ? v : 0, enlaceVisto: localStorage.getItem(claveFin(ejemploId)) === "1" }); } catch { setTour(TOUR_INICIAL); }
+    try { const v = Number(localStorage.getItem(claveTour(ejemploId)) ?? "0"); setTour({ vistos: Number.isFinite(v) ? v : 0, enlaceCopiado: localStorage.getItem(claveCopia(ejemploId)) === "1", enlaceVisto: localStorage.getItem(claveFin(ejemploId)) === "1" }); } catch { setTour(TOUR_INICIAL); }
   }, [datos, ejemploId]);
   const guardarTour = (vistos: number) => { setTour((t0) => ({ ...t0, vistos })); try { localStorage.setItem(claveTour(ejemploId), String(vistos)); } catch { /* */ } };
+  const guardarCopia = () => { setTour((t0) => ({ ...t0, enlaceCopiado: true })); try { localStorage.setItem(claveCopia(ejemploId), "1"); } catch { /* */ } };
   // Fin de la guía: se recuerda y se abre la ventana Aproba Despegue con los datos de la sesión.
   const terminar = async () => {
     setTour((t0) => ({ ...t0, enlaceVisto: true })); try { localStorage.setItem(claveFin(ejemploId), "1"); } catch { /* */ }
@@ -119,7 +121,7 @@ export function GuiaActivacion() {
         if (d !== ultimoDialogo) { ultimoDialogo = d; setDialogo(d); }
       }
       let el: HTMLElement | null = null, nombre: string | null = null;
-      for (const a of anclajes) { const e = document.querySelector<HTMLElement>(`[data-guia="${a}"]`); if (e) { el = e; nombre = a; break; } }
+      for (const a of anclajes) { const e = [...document.querySelectorAll<HTMLElement>(`[data-guia="${a}"]`)].find((x) => x.getClientRects().length > 0); if (e) { el = e; nombre = a; break; } }
       if (el && nombre !== preparadoPara) {
         preparadoPara = nombre;
         // Abrir la sección plegable que toca (la ficha las trae plegadas) y, un poco después
@@ -151,6 +153,7 @@ export function GuiaActivacion() {
   const saltar = () => { try { localStorage.setItem(KEY, "1"); } catch { /* */ } setCerrada(true); };
   const accion = () => {
     if (paso.avanza) guardarTour(paso.avanza); // paso de «mirar»: confirmado
+    if (paso.copia) { guardarCopia(); return; }   // enlace enviado: confirmado
     if (paso.termina) { void terminar(); return; }  // fin de la guía → Aproba Despegue
     if (paso.ir) { router.push(paso.ir); return; }
     // «Entendido» sobre un elemento: no hay destino; el usuario actúa sobre él.
@@ -158,20 +161,20 @@ export function GuiaActivacion() {
   };
   const textoPaso = (rect && ancla && paso.textos?.[ancla]) || { titulo: paso.titulo, texto: paso.texto };
 
+  const conBoton = Boolean(paso.cta) && (paso.avanza || paso.copia || paso.termina || !rect || (Boolean(paso.ir) && !paso.ctaSoloSinAncla));
   const Tarjeta = (
-    <div className="w-[300px] rounded-2xl border border-aproba-200 bg-white p-4 shadow-xl">
+    <div className="w-[360px] rounded-2xl border border-aproba-200 bg-white p-5 shadow-xl">
       <div className="flex items-center gap-1.5">
         {Array.from({ length: TOTAL_PASOS }, (_, i) => (
-          <span key={i} className={`h-1.5 rounded-full transition-all ${i + 1 === paso.n ? "w-5 bg-aproba-600" : i + 1 < paso.n ? "w-1.5 bg-aproba-400" : "w-1.5 bg-slate-200"}`} />
+          <span key={i} className={`h-2 rounded-full transition-all ${i + 1 === paso.n ? "w-6 bg-aproba-600" : i + 1 < paso.n ? "w-2 bg-aproba-400" : "w-2 bg-slate-200"}`} />
         ))}
-        <span className="ml-auto text-[11px] font-medium text-slate-400">{paso.n}/{TOTAL_PASOS}</span>
       </div>
-      <p className="mt-2.5 text-base font-bold tracking-tight text-slate-900">{t(textoPaso.titulo)}</p>
-      <p className="mt-1 text-sm leading-snug text-slate-600">{t(textoPaso.texto)}</p>
-      <div className="mt-3.5 flex items-center justify-between gap-3">
-        <button type="button" onClick={saltar} className="text-xs font-medium text-slate-400 hover:text-slate-600">{t("Saltar la guía")}</button>
-        {paso.cta && (paso.ir || paso.avanza || paso.termina || !rect) ? (
-          <button type="button" onClick={accion} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700">{t(paso.cta)}</button>
+      <p className="mt-3 text-lg font-bold tracking-tight text-slate-900">{t(textoPaso.titulo)}</p>
+      <p className="mt-1 text-[15px] leading-snug text-slate-600">{t(textoPaso.texto)}</p>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <button type="button" onClick={saltar} className="text-[13px] font-medium text-slate-400 hover:text-slate-600">{t("Saltar la guía")}</button>
+        {conBoton ? (
+          <button type="button" onClick={accion} className="rounded-lg bg-aproba-600 px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-aproba-700">{t(paso.cta)}</button>
         ) : null}
       </div>
     </div>
@@ -182,7 +185,7 @@ export function GuiaActivacion() {
   // visible, sin oscurecer nada) y la tarjeta al lado si cabe, si no debajo o encima.
   // Sin elemento: tarjeta flotante abajo a la derecha.
   if (rect) {
-    const ALTO = 170, ANCHO = 300;
+    const ALTO = 200, ANCHO = 360;
     const altoFoco = Math.min(rect.height, window.innerHeight * 0.5);
     const encima = rect.top > 64; // flecha encima apuntando abajo; si no hay sitio, debajo apuntando arriba
     const flechaX = rect.left + Math.min(rect.width / 2, 140) - 14;
@@ -195,18 +198,33 @@ export function GuiaActivacion() {
         </svg>
       </div>
     );
+    // 1) En el hueco vacío a la izquierda de la columna de contenido (pedido de Matthias):
+    //    entre la barra lateral y la columna, a la altura del elemento. Sin tapar nada.
+    const barra = document.querySelector<HTMLElement>("aside");
+    const barraDerecha = barra && barra.getClientRects().length > 0 ? barra.getBoundingClientRect().right : 0;
+    const ancla = anclajes.map((a) => [...document.querySelectorAll<HTMLElement>(`[data-guia="${a}"]`)].find((x) => x.getClientRects().length > 0)).find(Boolean) ?? null;
+    const columna = ancla?.closest<HTMLElement>("main > *") ?? null;
+    const columnaIzq = columna ? columna.getBoundingClientRect().left : null;
+    const hueco = columnaIzq !== null ? columnaIzq - barraDerecha : 0;
+    if (hueco >= ANCHO + 32) {
+      const left = barraDerecha + (hueco - ANCHO) / 2;
+      const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
+      return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{Tarjeta}</div></>);
+    }
+    // 2) Al lado del elemento si es pequeño y cabe a su derecha.
     const aLaDerecha = altoFoco < 220 && rect.right + 16 + ANCHO + 12 <= window.innerWidth;
     if (aLaDerecha) {
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
       return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left: rect.right + 16, top }}>{Tarjeta}</div></>);
     }
-    const abajo = rect.top + altoFoco + 12 + ALTO < window.innerHeight;
+    // 3) Debajo (dejando hueco a la flecha si esta va debajo) o, si no cabe, encima (dejando hueco a la flecha).
+    const huecoFlecha = encima ? 0 : 44;
+    const abajo = rect.top + altoFoco + 12 + huecoFlecha + ALTO < window.innerHeight;
     // Si la tarjeta cae en la esquina inferior derecha (donde vive «Ayuda»), se corre a la izquierda.
-    const bordeInferior = abajo ? rect.top + altoFoco + 14 + ALTO : rect.top - 14;
+    const bordeInferior = abajo ? rect.top + altoFoco + 14 + huecoFlecha + ALTO : rect.top - 14;
     const esquinaAyuda = bordeInferior > window.innerHeight - 100;
-    const left = Math.max(12, Math.min(rect.left, window.innerWidth - 312 - (esquinaAyuda ? 140 : 0)));
-    // Encima del elemento, la tarjeta deja hueco para la flecha (que rebota entre ambos).
-    return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top: abajo ? rect.top + altoFoco + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 58 }}>{Tarjeta}</div></>);
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - ANCHO - 12 - (esquinaAyuda ? 140 : 0)));
+    return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top: abajo ? rect.top + altoFoco + 14 + huecoFlecha : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 58 }}>{Tarjeta}</div></>);
   }
   return (<>{ventana}<div className="fixed bottom-24 right-4 z-[45] md:bottom-6 md:right-28">{Tarjeta}</div></>);
 }

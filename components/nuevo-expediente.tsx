@@ -490,7 +490,7 @@ export function NuevoExpediente() {
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-left">
             <p className="text-sm font-semibold text-slate-800">{t("Enlace para tu cliente")}</p>
             <p className="mt-1 text-xs text-slate-500">{t("Envíaselo por WhatsApp. Elegirá su trámite y subirá sus datos y documentos sin instalar nada.")}</p>
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-cream-50 px-3 py-2.5">
+            <div data-guia="enlace-portal" className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-cream-50 px-3 py-2.5">
               {/* input readonly y no <span>: si el portapapeles falla, el gestor todavía
                   puede seleccionarlo entero y copiarlo a mano. */}
               <input
