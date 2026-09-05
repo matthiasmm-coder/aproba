@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { PLAN_IDS, TIPOS, puedeGestionarEquipo } from "@/lib/planes";
+import { sembrarEjemplo } from "@/lib/ejemplo";
 
 // Crea el despacho en el PRIMER paso del alta (05/09/2026), no en el último.
 //
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
     // La RPC usa auth.uid(): se llama con el cliente de SESIÓN, nunca con el admin.
     const { data: wsId, error } = await supabase.rpc("create_workspace", { p_nombre: nombre, p_tipo: tipo, p_plan: plan });
     if (error || !wsId) return NextResponse.json({ error: error?.message ?? "No se pudo crear el espacio." }, { status: 500 });
+    // El expediente de ejemplo (lib/ejemplo.ts): el «ajá» de los primeros diez minutos.
+    // Mejor esfuerzo — si fallara, el alta sigue y /app/ejemplo lo siembra al primer clic.
+    try { await sembrarEjemplo(admin, String(wsId), user.id); } catch (e) { console.error("[onboarding] ejemplo:", e instanceof Error ? e.message : e); }
     return NextResponse.json({ ok: true, creado: true, workspaceId: String(wsId) });
   }
 

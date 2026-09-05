@@ -9,10 +9,26 @@ const t = (s: string) => s;
 const hecho = (d: DatosActivacion, k: string) => construirChecklist(d, t).find((i) => i.key === k)!.done;
 
 describe("checklist de activación", () => {
-  it("el camino crítico va ANTES que la administración", () => {
+  it("la primera sesión va antes que el camino crítico, y este antes que la administración", () => {
     const claves = construirChecklist(base, t).map((i) => i.key);
-    expect(claves.slice(0, 4)).toEqual(["clientes", "expediente", "enlace", "documento"]);
+    expect(claves.slice(0, 6)).toEqual(["ejemplo", "clientes", "documento_propio", "expediente", "enlace", "documento"]);
     expect(claves.indexOf("servicios")).toBeGreaterThan(claves.indexOf("documento"));
+  });
+
+  // 05/09/2026: el primer paso enseña lo que hace la IA sin depender de ningún cliente.
+  it("el ejemplo se da por hecho cuando se generan sus formularios, y lleva a él si existe", () => {
+    const sin = construirChecklist(base, t).find((i) => i.key === "ejemplo")!;
+    expect(sin.done).toBe(false);
+    expect(sin.href).toBe("/app/ejemplo"); // despacho anterior al ejemplo: se siembra al clic
+    const con = construirChecklist({ ...base, ejemploId: "abc", ejemploFormulariosGenerados: true }, t).find((i) => i.key === "ejemplo")!;
+    expect(con.done).toBe(true);
+    expect(con.href).toBe("/app/expedientes/abc");
+  });
+
+  it("subir un documento propio cuenta en su paso, pero NO como subida del cliente", () => {
+    const d = { ...base, documentosPropios: 1 };
+    expect(hecho(d, "documento_propio")).toBe(true);
+    expect(hecho(d, "documento")).toBe(false);
   });
 
   // El fallo medido en Gesnet: 7 expedientes en PRESENTADO daban «enlace enviado»

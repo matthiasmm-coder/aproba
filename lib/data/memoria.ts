@@ -1,5 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { construirMemoria, type FilaEvento, type FilaExpediente, type Memoria } from "@/lib/memoria";
+import { REFERENCIA_EJEMPLO } from "@/lib/ejemplo-marca";
 
 // Lectura de la memoria de actividad (art. 8.1.f). Todo pasa por createSupabaseServer:
 // la RLS acota al workspace del usuario, incluidos los eventos (evt_tenant cuelga de
@@ -17,11 +18,11 @@ export type MemoriaConAviso = Memoria & { truncada: boolean };
 // Cadena de replis: servicioClave y oficinaId son migraciones posteriores al esquema
 // inicial; sin ellas la memoria sale igual, solo que agrupada por el tipo oficial.
 const SELECTS = [
-  "id, createdAt, tipo, servicioClave, estado, salida, fechaPresentacion, clienteId, oficinaId, cliente:Cliente(nacionalidad)",
-  "id, createdAt, tipo, servicioClave, estado, fechaPresentacion, clienteId, oficinaId, cliente:Cliente(nacionalidad)",
-  "id, createdAt, tipo, servicioClave, estado, fechaPresentacion, clienteId, cliente:Cliente(nacionalidad)",
-  "id, createdAt, tipo, estado, fechaPresentacion, clienteId, cliente:Cliente(nacionalidad)",
-  "id, createdAt, tipo, estado, fechaPresentacion, clienteId",
+  "id, referencia, createdAt, tipo, servicioClave, estado, salida, fechaPresentacion, clienteId, oficinaId, cliente:Cliente(nacionalidad)",
+  "id, referencia, createdAt, tipo, servicioClave, estado, fechaPresentacion, clienteId, oficinaId, cliente:Cliente(nacionalidad)",
+  "id, referencia, createdAt, tipo, servicioClave, estado, fechaPresentacion, clienteId, cliente:Cliente(nacionalidad)",
+  "id, referencia, createdAt, tipo, estado, fechaPresentacion, clienteId, cliente:Cliente(nacionalidad)",
+  "id, referencia, createdAt, tipo, estado, fechaPresentacion, clienteId",
 ];
 
 type Cru = Record<string, unknown> & { cliente?: { nacionalidad?: string | null } | { nacionalidad?: string | null }[] | null };
@@ -36,6 +37,10 @@ export async function fetchMemoria(desde: string, hasta: string): Promise<Memori
   }
   const truncada = filas.length > TOPE_MEMORIA;
   if (truncada) filas = filas.slice(0, TOPE_MEMORIA);
+  // El expediente de EJEMPLO es una demostración, no actividad: nunca entra en un
+  // documento que va a la Administración. Sus eventos se descartan más abajo por id.
+  const idsEjemplo = new Set(filas.filter((f) => f.referencia === REFERENCIA_EJEMPLO).map((f) => String(f.id)));
+  filas = filas.filter((f) => !idsEjemplo.has(String(f.id)));
 
   const expedientes: FilaExpediente[] = filas.map((f) => {
     const cRaw = f.cliente;
@@ -66,7 +71,7 @@ export async function fetchMemoria(desde: string, hasta: string): Promise<Memori
     supabase.from("Oficina").select("id"),
   ]);
 
-  const eventos: FilaEvento[] = (evRes.data ?? []).map((v) => ({
+  const eventos: FilaEvento[] = (evRes.data ?? []).filter((v) => !idsEjemplo.has(String((v as { expedienteId: string }).expedienteId))).map((v) => ({
     expedienteId: String((v as { expedienteId: string }).expedienteId),
     tipo: String((v as { tipo: string }).tipo),
     createdAt: String((v as { createdAt: string }).createdAt),

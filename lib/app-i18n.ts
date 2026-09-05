@@ -1679,6 +1679,16 @@ export const CA: Record<string, string> = {
   // ── Alta: despacho creado en el paso 1 (05/09/2026) ──
   "Creando tu despacho…": "Creant el teu despatx…",
   "Tu despacho ya está creado. Lo que sigue es opcional: puedes configurarlo ahora o más tarde en Ajustes.": "El teu despatx ja està creat. El que segueix és opcional: pots configurar-ho ara o més tard a Ajustos.",
+  // ── Expediente de ejemplo + checklist de la primera sesión (05/09/2026) ──
+  "Abre el expediente de ejemplo y genera sus formularios": "Obre l'expedient d'exemple i genera els seus formularis",
+  "Sube el pasaporte de un cliente que ya tengas y mira cómo lo valida la IA": "Puja el passaport d'un client que ja tinguis i mira com el valida la IA",
+  "Empieza por aquí": "Comença per aquí",
+  "El primer paso te enseña en dos minutos lo que hace la IA.": "El primer pas t'ensenya en dos minuts què fa la IA.",
+  "Expediente de ejemplo": "Expedient d'exemple",
+  "Los cuatro documentos ya están validados por la IA y la ficha está completa: pulsa «Generar formularios» y verás el EX-17 y la tasa 790 rellenados. Cuando ya lo hayas visto, bórralo.": "Els quatre documents ja estan validats per la IA i la fitxa està completa: prem «Generar formularis» i veuràs l'EX-17 i la taxa 790 emplenats. Quan ja ho hagis vist, esborra'l.",
+  "Borrar el ejemplo": "Esborrar l'exemple",
+  "Borrando…": "Esborrant…",
+  "No se pudo borrar el ejemplo.": "No s'ha pogut esborrar l'exemple.",
 };
 
 export function translate(lang: Lang, es: string): string {

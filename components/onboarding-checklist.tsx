@@ -24,8 +24,8 @@ export function OnboardingChecklist({ items, esperandoAlCliente = false }: { ite
     <div className="mb-6 rounded-2xl border border-aproba-200 bg-aproba-50/60 p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">{t("Termina de configurar tu despacho")}</h2>
-          <p className="mt-0.5 text-xs text-slate-500">{hechos} {t("de")} {items.length} {hechos === 1 ? t("completado") : t("completados")}. {t("Te llevará un par de minutos.")}</p>
+          <h2 className="text-sm font-bold text-slate-900">{t("Empieza por aquí")}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">{hechos} {t("de")} {items.length} {hechos === 1 ? t("completado") : t("completados")}. {t("El primer paso te enseña en dos minutos lo que hace la IA.")}</p>
         </div>
         <button onClick={() => { localStorage.setItem(KEY, "1"); setDismissed(true); }} aria-label={t("Ocultar")} className="rounded-md p-1 text-slate-400 transition hover:bg-white hover:text-slate-600">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>

@@ -27,23 +27,35 @@ export const MARCA_ENLACE = "nlace"; // «Enlace del portal generado…», «Enl
 export type ChecklistItem = { key: string; label: string; href: string; done: boolean };
 
 export type DatosActivacion = {
-  clientes: number;
-  expedientes: number;
+  clientes: number;            // sin contar el cliente del ejemplo
+  expedientes: number;         // sin contar el ejemplo
   enlacesEnviados: number;
   subidasDeCliente: number;
   servicios: number;
   cuentas: number;
   miembros: number;
   plan: string;
+  // 05/09/2026 — la primera sesión. Ver el comentario de construirChecklist.
+  ejemploId?: string | null;             // expediente de ejemplo del despacho (si existe)
+  ejemploFormulariosGenerados?: boolean; // ya pulsó «Generar formularios» en el ejemplo
+  documentosPropios?: number;            // documentos subidos POR EL DESPACHO fuera del ejemplo
 };
 
-// Orden DELIBERADO: primero el camino crítico (cliente → expediente → enlace →
-// documento), después la administración. Configurar servicios y cuenta bancaria no
-// compromete a nadie —el catálogo ya trae 5 servicios activos— y ponerlo primero
-// retrasa el único momento que decide la adopción.
+// Orden DELIBERADO, en dos tiempos (05/09/2026):
+//  1. La PRIMERA SESIÓN — lo que el gestor puede hacer solo, en diez minutos, y que le
+//     enseña lo que hace la IA: abrir el expediente de ejemplo (cuatro documentos ya
+//     validados) y generar sus formularios; después subir ÉL un pasaporte de un cliente
+//     que ya tenga. Medido en 75 días de altas: cinco de nueve prospectos crearon un
+//     expediente el día 1, vieron una lista de documentos vacía que esperaba a un cliente
+//     inexistente, y no volvieron. La lista anterior empezaba justo por ese punto muerto.
+//  2. La SEMANA UNO — el camino crítico de la adopción (cliente → expediente → enlace →
+//     documento subido POR EL CLIENTE), que sigue siendo el umbral real.
+//  3. La administración, al final: configurar servicios y cuenta no compromete a nadie.
 export function construirChecklist(d: DatosActivacion, t: (s: string) => string): ChecklistItem[] {
   const items: ChecklistItem[] = [
+    { key: "ejemplo", label: t("Abre el expediente de ejemplo y genera sus formularios"), href: d.ejemploId ? `/app/expedientes/${d.ejemploId}` : "/app/ejemplo", done: Boolean(d.ejemploFormulariosGenerados) },
     { key: "clientes", label: t("Da de alta a tu primer cliente"), href: "/app/clientes/nuevo", done: d.clientes > 0 },
+    { key: "documento_propio", label: t("Sube el pasaporte de un cliente que ya tengas y mira cómo lo valida la IA"), href: "/app/clientes", done: (d.documentosPropios ?? 0) > 0 },
     { key: "expediente", label: t("Ábrele su primer expediente"), href: "/app/expedientes/nuevo", done: d.expedientes > 0 },
     { key: "enlace", label: t("Envíale el enlace de su portal"), href: "/app/expedientes", done: d.enlacesEnviados > 0 },
     { key: "documento", label: t("Recibe su primer documento"), href: "/app/expedientes", done: d.subidasDeCliente > 0 },
