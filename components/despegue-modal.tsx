@@ -29,6 +29,7 @@ const IconoEquipo = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const IconoSoporte = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></svg>;
 
 function Pregunta({ onSi, onNo, coheteUrl }: { onSi: () => void; onNo: () => void; coheteUrl: string | null }) {
+  const [pngOk, setPngOk] = useState(true); // repli SVG si el PNG no existe
   const t = useT();
   useScrollBloqueado();
   const beneficios: { icono: React.ReactNode; titulo: string; detalle: string }[] = [
@@ -41,7 +42,7 @@ function Pregunta({ onSi, onNo, coheteUrl }: { onSi: () => void; onNo: () => voi
     <div role="dialog" aria-modal="true" aria-labelledby="despegue-titulo" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={onNo}>
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-4 bg-gradient-to-br from-aproba-50 to-white px-6 pt-6 sm:px-8">
-          {coheteUrl ? <img src={coheteUrl} alt="" className="h-24 w-24 shrink-0 object-contain" /> : <Cohete className="h-20 w-20 shrink-0" />}
+          {coheteUrl && pngOk ? <img src={coheteUrl} alt="" onError={() => setPngOk(false)} className="h-24 w-24 shrink-0 object-contain" /> : <Cohete className="h-20 w-20 shrink-0" />}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-aproba-700">Aproba Despegue</p>
             <h2 id="despegue-titulo" className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{t("Rápido y sin errores")}</h2>

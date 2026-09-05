@@ -70,8 +70,9 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
       despegue = { nombre: nombre ?? "", apellidos: resto.join(" "), despacho: d.nombre === "Mi despacho" ? "" : d.nombre, email: user?.email ?? "" };
     } catch { despegue = { nombre: "", apellidos: "", despacho: "", email: "" }; }
   }
-  // Cohete IA (scripts/imagen-despegue.mjs) si está generado; si no, el SVG.
-  let coheteUrl: string | null = null;
-  try { const { existsSync } = await import("node:fs"); if (existsSync("public/despegue-cohete.png")) coheteUrl = "/despegue-cohete.png"; } catch { /* */ }
+  // Cohete IA (scripts/imagen-despegue.mjs → public/despegue-cohete.png). Se pasa la URL
+  // siempre: en Vercel la función no ve public/ (existsSync devolvería false aunque el
+  // fichero esté en el CDN); si el PNG falta, la ventana repliega al SVG con onError.
+  const coheteUrl = "/despegue-cohete.png";
   return <FormulariosView despegue={despegue} coheteUrl={coheteUrl} faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }
