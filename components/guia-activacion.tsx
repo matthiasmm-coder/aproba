@@ -208,9 +208,9 @@ export function GuiaActivacion() {
     const columna = ancla?.closest<HTMLElement>("main > *") ?? null;
     const columnaIzq = columna ? columna.getBoundingClientRect().left : null;
     const hueco = columnaIzq !== null ? columnaIzq - barraDerecha : 0;
-    const ANCHO_MIN = 260;
-    if (hueco >= ANCHO_MIN + 16) {
-      const ancho = Math.min(ANCHO, hueco - 16);
+    const ANCHO_MIN = 248;
+    if (hueco >= ANCHO_MIN + 12) {
+      const ancho = Math.min(ANCHO, hueco - 12);
       const left = hueco >= ancho + 32 ? barraDerecha + (hueco - ancho) / 2 : barraDerecha + 8;
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
       return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{tarjeta(ancho)}</div></>);
