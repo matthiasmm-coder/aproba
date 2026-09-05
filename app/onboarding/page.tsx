@@ -8,14 +8,32 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 export const metadata = { title: "Configura tu despacho" };
 
 // Étape post-inscription : l'utilisateur est authentifié mais n'a pas encore de
-// workspace. S'il en a déjà un (membre), on le renvoie vers l'app.
+// workspace. S'il en a déjà un (membre), on le renvoie vers l'app…
+// …SAUF (05/09/2026) si ce workspace vient d'être créé à l'étape 1 du wizard et que
+// l'essai n'a pas encore de carte : on REPREND le wizard à l'étape 2 avec ce qui est
+// déjà en base, au lieu de renvoyer vers l'app et son mur de paiement. Un testeur
+// (modoPrueba) ou un despacho avec client Stripe a fini son alta → l'app, comme avant.
 export default async function Onboarding() {
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: mem } = await supabase.from("Membership").select("id").limit(1).maybeSingle();
-  if (mem) redirect("/app");
+  const { data: mem } = await supabase
+    .from("Membership")
+    .select("role, Workspace(nombre, tipo), Subscription:Workspace(Subscription(plan, estado, stripeCustomerId, modoPrueba))")
+    .limit(1).maybeSingle();
+  let existente: { nombre: string; tipo: string; plan: string } | null = null;
+  if (mem) {
+    type Sub = { plan?: string; estado?: string; stripeCustomerId?: string | null; modoPrueba?: boolean | null };
+    const wsRaw = (mem as { Workspace?: { nombre?: string; tipo?: string } | { nombre?: string; tipo?: string }[] }).Workspace;
+    const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
+    const subWrap = (mem as { Subscription?: { Subscription?: Sub | Sub[] } | { Subscription?: Sub | Sub[] }[] }).Subscription;
+    const subW = Array.isArray(subWrap) ? subWrap[0] : subWrap;
+    const sub = Array.isArray(subW?.Subscription) ? subW?.Subscription[0] : subW?.Subscription;
+    const enAlta = sub?.estado === "TRIAL" && !sub?.stripeCustomerId && !sub?.modoPrueba && ["OWNER", "ADMIN"].includes(String(mem.role));
+    if (!enAlta) redirect("/app");
+    existente = { nombre: ws?.nombre ?? "", tipo: ws?.tipo ?? "GESTORIA", plan: sub?.plan ?? "STARTER" };
+  }
 
   const nombre = (user.user_metadata?.nombre as string) || user.email || "";
   const primerNombre = nombre.split(" ")[0];
@@ -40,7 +58,7 @@ export default async function Onboarding() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
-          <OnboardingForm defaultNombre={nombre} />
+          <OnboardingForm defaultNombre={nombre} existente={existente} />
         </div>
       </main>
     </div>

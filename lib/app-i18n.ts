@@ -1676,6 +1676,9 @@ export const CA: Record<string, string> = {
   "No hay actividad registrada en este período.": "No hi ha activitat registrada en aquest període.",
   "Tu histórico supera el máximo de esta consulta: acorta el período para obtener cifras completas.": "El teu historial supera el màxim d'aquesta consulta: escurça el període per obtenir xifres completes.",
   "El PDF solo lleva cifras agregadas: ningún dato personal de las personas atendidas.": "El PDF només porta xifres agregades: cap dada personal de les persones ateses.",
+  // ── Alta: despacho creado en el paso 1 (05/09/2026) ──
+  "Creando tu despacho…": "Creant el teu despatx…",
+  "Tu despacho ya está creado. Lo que sigue es opcional: puedes configurarlo ahora o más tarde en Ajustes.": "El teu despatx ja està creat. El que segueix és opcional: pots configurar-ho ara o més tard a Ajustos.",
 };
 
 export function translate(lang: Lang, es: string): string {

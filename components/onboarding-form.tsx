@@ -16,17 +16,22 @@ type Banco = { titular: string; iban: string; banco: string };
 type Invitado = { email: string; nombre: string; role: RolId };
 type Mandatario = { activa: boolean; nombre: string; dni: string; colegiado: string; colegio: string };
 
-export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string }) {
+// `existente` (05/09/2026): el despacho ya se creó en el paso 1 y el usuario vuelve
+// (recarga, cierre del navegador, el enlace del mail de bienvenida). Se retoma en el
+// paso 2 con nombre/tipo/plan de la base, en vez de empezar de cero.
+export function OnboardingForm({ defaultNombre = "", existente = null }: { defaultNombre?: string; existente?: { nombre: string; tipo: string; plan: string } | null }) {
   const t = useT();
   const router = useRouter();
 
-  // ── Datos collectés (tout en mémoire jusqu'à la création finale) ──
-  const [nombre, setNombre] = useState("");
+  // ── Datos collectés (en mémoire ; le despacho lui-même est créé dès l'étape 1) ──
+  const [nombre, setNombre] = useState(existente?.nombre ?? "");
   const [nif, setNif] = useState("");
   const [domicilio, setDomicilio] = useState("");
   const [emailFact, setEmailFact] = useState("");
-  const [tipo, setTipo] = useState("GESTORIA");
-  const [plan, setPlan] = useState<PlanId>("PRO");
+  const [tipo, setTipo] = useState(existente?.tipo ?? "GESTORIA");
+  const [plan, setPlan] = useState<PlanId>((existente?.plan as PlanId) ?? "PRO");
+  // Workspace ya creado (paso 1 o reanudación). finalizar() NO vuelve a crearlo.
+  const [wsCreado, setWsCreado] = useState<boolean>(Boolean(existente));
   // Hoja de encargo + mandato de representación (feature clave para abogados/gestores).
   // Se pre-rellena el nombre del profesional con el del titular de la cuenta.
   const [mandatario, setMandatario] = useState<Mandatario>({ activa: false, nombre: defaultNombre, dni: "", colegiado: "", colegio: "" });
@@ -62,7 +67,7 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
   // «Clientes y equipo». Mismos campos y misma persistencia — solo menos pantallas.
   const PASOS = ["despacho", "servicios", "cobros", "clientes", "pago"] as const;
   type Paso = (typeof PASOS)[number];
-  const [paso, setPaso] = useState<Paso>("despacho");
+  const [paso, setPaso] = useState<Paso>(existente ? "servicios" : "despacho");
   const idx = PASOS.indexOf(paso);
   const ir = (p: Paso) => { setError(null); setPaso(p); };
   const siguiente = () => ir(PASOS[Math.min(idx + 1, PASOS.length - 1)]);
@@ -159,15 +164,50 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
     setInvitados((l) => l.map((x, j) => (j === i ? { ...x, ...p } : x)));
   }
 
-  // ── Création finale : workspace + toutes les données collectées + checkout ──
+  // ── Paso 1 → 2 : el despacho se crea AQUÍ (05/09/2026) ──
+  // Antes se creaba en finalizar(): quien abandonaba en el paso 2-4 perdía todo y se
+  // quedaba sin workspace (3 de 13 altas reales en 45 días). Ahora, con un nombre, el
+  // despacho existe; lo demás es configuración y se puede completar en Ajustes.
+  // La ruta es idempotente: «Atrás» + «Continuar» actualiza, no duplica.
+  async function crearDespacho() {
+    if (nombre.trim().length < 2) { setError(t("Indica el nombre de tu despacho.")); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/onboarding/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre.trim(), tipo, plan }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? t("No se pudo crear el espacio.")); return; }
+      // Datos fiscales del paso 1: se guardan ya, no al final.
+      if (nif.trim() || domicilio.trim() || emailFact.trim()) {
+        try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim(), domicilio: domicilio.trim(), emailFacturacion: emailFact.trim() }) }); } catch { /* */ }
+      }
+      // Línea base del despacho recién creado: los mismos servicios (a 0 €) y avisos que
+      // sembraría finalizar(). Así quien abandone aquí tiene lo mismo que quien termina.
+      if (data.creado) {
+        try { await guardarServicios(servicios, []); } catch { /* */ }
+        try { await guardarAvisos(DEFAULT_AVISOS); } catch { /* */ }
+      }
+      setWsCreado(true);
+      siguiente();
+    } catch {
+      setError(t("No se pudo crear el espacio."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Création finale : toutes les données collectées + checkout ──
   async function finalizar() {
     if (nombre.trim().length < 2) { ir("despacho"); setError(t("Indica el nombre de tu despacho.")); return; }
     setError(null);
     setLoading(true);
     const supabase = createSupabaseBrowser();
 
-    const { error: rpcError } = await supabase.rpc("create_workspace", { p_nombre: nombre.trim(), p_tipo: tipo, p_plan: plan });
-    if (rpcError) { setLoading(false); setError(rpcError.message ?? t("No se pudo crear el espacio.")); return; }
+    // Repli: si por lo que sea el paso 1 no llegó a crear el despacho, se crea aquí como antes.
+    if (!wsCreado) {
+      const { error: rpcError } = await supabase.rpc("create_workspace", { p_nombre: nombre.trim(), p_tipo: tipo, p_plan: plan });
+      if (rpcError) { setLoading(false); setError(rpcError.message ?? t("No se pudo crear el espacio.")); return; }
+    }
 
     // NIF (route admin — table Workspace verrouillée côté client).
     if (nif.trim() || domicilio.trim() || emailFact.trim()) { try { await fetch("/api/onboarding/despacho", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nif: nif.trim(), domicilio: domicilio.trim(), emailFacturacion: emailFact.trim() }) }); } catch { /* */ } }
@@ -363,13 +403,18 @@ export function OnboardingForm({ defaultNombre = "" }: { defaultNombre?: string 
             </div>
           </div>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <button type="button" onClick={() => { if (nombre.trim().length < 2) { setError(t("Indica el nombre de tu despacho.")); return; } siguiente(); }} className="block w-full rounded-lg bg-aproba-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Continuar")}</button>
+          <button type="button" onClick={crearDespacho} disabled={loading} className="block w-full rounded-lg bg-aproba-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">{loading ? t("Creando tu despacho…") : t("Continuar")}</button>
         </div>
       )}
 
       {/* ── Servicios ── */}
       {paso === "servicios" && (
         <div className="space-y-5">
+          {wsCreado && (
+            <p className="rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-800">
+              ✓ {t("Tu despacho ya está creado. Lo que sigue es opcional: puedes configurarlo ahora o más tarde en Ajustes.")}
+            </p>
+          )}
           <p className="text-sm text-slate-500">{t("Activa los trámites que ofreces y su precio. Es lo que verá tu cliente. Puedes borrar los que no ofrezcas, ordenarlos y cambiarlo todo después en Ajustes.")}</p>
           <datalist id="aproba-temas-onb">{temasUsados(servicios, packs).map((x) => <option key={x} value={x} />)}</datalist>
           <div className="space-y-3">
