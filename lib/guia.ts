@@ -23,6 +23,7 @@ export type PasoGuia = {
   texto: string;    // UNA línea
   cta: string;      // etiqueta del botón
   anclaje?: string; // data-guia del elemento a señalar en ESTA página
+  anclajes?: string[]; // alternativas por orden: se señala el PRIMER data-guia presente (p. ej. lista de clientes → botón crear)
   abrir?: string;   // id de sección plegable de la ficha que hay que abrir (evento abrir-seccion)
   ir?: string;      // destino del botón cuando el elemento no está en esta página
   avanza?: number;  // paso de «mirar»: el botón lo confirma y deja vistos = avanza
@@ -85,7 +86,8 @@ export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemp
     return R({ key: "subir-ir", n: 2, titulo: "Sube su pasaporte", texto: "Desde su ficha: la IA lo lee y rellena los datos.", ir: fichaCliente, cta: d.primerClienteId ? "Ir a su ficha" : "Ir a clientes" });
   }
   if (d.expedientes === 0) {
-    if (pathname === "/app/expedientes/nuevo") return R({ key: "crear-expediente", n: 3, anclaje: "crear-expediente", titulo: "Elige a tu cliente y crea el expediente", texto: "Sus documentos ya están en su ficha.", cta: "Entendido" });
+    // Mientras no haya cliente elegido, el formulario marca su lista (elegir-cliente); al elegir, queda el botón.
+    if (pathname === "/app/expedientes/nuevo") return R({ key: "crear-expediente", n: 3, anclaje: "crear-expediente", anclajes: ["elegir-cliente", "crear-expediente"], titulo: "Elige a tu cliente y crea el expediente", texto: "Sus documentos ya están en su ficha.", cta: "Entendido" });
     return R({ key: "expediente", n: 3, anclaje: "nuevo-expediente", titulo: "Ábrele su primer expediente", texto: "Elige el trámite: sus documentos ya están.", ir: "/app/expedientes/nuevo", cta: "Nuevo expediente" });
   }
   if (!tour.enlaceVisto) {

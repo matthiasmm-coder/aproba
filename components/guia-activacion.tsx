@@ -88,12 +88,14 @@ export function GuiaActivacion() {
   // (requestAnimationFrame: sigue el scroll suave sin saltos) pero SOLO se actualiza el
   // estado cuando la posición cambia de verdad, así el resto del tiempo no hay renders.
   const hayPaso = Boolean(paso);
-  const anclaje = paso?.anclaje ?? null;
+  const anclajes = useMemo(() => (paso ? (paso.anclajes ?? (paso.anclaje ? [paso.anclaje] : [])) : []), [paso]);
+  const claveAnclajes = anclajes.join("|");
   const abrir = paso?.abrir ?? null;
   const pasoKey = paso?.key ?? null;
   useEffect(() => {
     if (!hayPaso) { setRect(null); return; }
-    let vivo = true, primero = true, preparado = false, tick = 0;
+    let vivo = true, primero = true, tick = 0;
+    let preparadoPara: string | null = null; // anclaje ya abierto/llevado a la vista (puede cambiar dentro del mismo paso)
     let ultimo: Caja | null = null, ultimoDialogo: boolean | null = null;
     const mide = () => {
       if (!vivo) return;
@@ -102,9 +104,10 @@ export function GuiaActivacion() {
         const d = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].some((x) => x.getClientRects().length > 0 && !x.hasAttribute("data-guia-propia"));
         if (d !== ultimoDialogo) { ultimoDialogo = d; setDialogo(d); }
       }
-      const el = anclaje ? document.querySelector<HTMLElement>(`[data-guia="${anclaje}"]`) : null;
-      if (el && !preparado) {
-        preparado = true;
+      let el: HTMLElement | null = null, nombre: string | null = null;
+      for (const a of anclajes) { const e = document.querySelector<HTMLElement>(`[data-guia="${a}"]`); if (e) { el = e; nombre = a; break; } }
+      if (el && nombre !== preparadoPara) {
+        preparadoPara = nombre;
         // Abrir la sección plegable que toca (la ficha las trae plegadas) y, un poco después
         // (tras una navegación suave Next vuelve arriba y anulaba un scroll inmediato: el
         // elemento quedaba bajo el borde y la tarjeta caía sobre el botón «Ayuda»), llevar
@@ -125,7 +128,7 @@ export function GuiaActivacion() {
     };
     const raf = requestAnimationFrame(mide);
     return () => { vivo = false; cancelAnimationFrame(raf); };
-  }, [hayPaso, anclaje, abrir, pasoKey, pathname]);
+  }, [hayPaso, anclajes, claveAnclajes, abrir, pasoKey, pathname]);
 
   if (!paso || dialogo) return null;
 
@@ -135,7 +138,7 @@ export function GuiaActivacion() {
     if (paso.termina) { terminar(); return; }  // fin de la fase real
     if (paso.ir) { router.push(paso.ir); return; }
     // «Entendido» sobre un elemento: no hay destino; el usuario actúa sobre él.
-    if (!paso.avanza && rect) { const el = document.querySelector<HTMLElement>(`[data-guia="${paso.anclaje}"]`); el?.focus(); }
+    if (!paso.avanza && rect) { for (const a of anclajes) { const el = document.querySelector<HTMLElement>(`[data-guia="${a}"]`); if (el) { el.focus(); break; } } }
   };
   const etiquetaFase = paso.fase === "ejemplo" ? "El ejemplo" : "Tu primer expediente real";
   const fase = t(etiquetaFase);

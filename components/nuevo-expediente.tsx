@@ -304,7 +304,7 @@ export function NuevoExpediente() {
           </div>
 
           {!modoNuevo ? (
-            <div className="mt-4">
+            <div className="mt-4" data-guia={!seleccionado && !familiaSel ? "elegir-cliente" : undefined}>
               {/* La oficina del expediente, visible DESDE EL PRINCIPIO (≥2 oficinas):
                   cliente/familia ya anclados → su sede manda y se enseña bloqueada;
                   sin selección o selección sin sede → selector (la elegida ADOPTA). */}

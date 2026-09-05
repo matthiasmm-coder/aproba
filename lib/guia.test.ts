@@ -69,7 +69,7 @@ describe("guía interactiva · fase «tu primer expediente real» (4 pasos, señ
   it("3: el expediente — señala «+ Nuevo expediente» y, en el formulario, «Crear expediente»", () => {
     const con = { ...real, clientes: 1, documentosPropios: 1 };
     expect(pasoDeGuia(con, "/app", t)).toMatchObject({ key: "expediente", anclaje: "nuevo-expediente", n: 3, ir: "/app/expedientes/nuevo" });
-    expect(pasoDeGuia(con, "/app/expedientes/nuevo", t)).toMatchObject({ key: "crear-expediente", anclaje: "crear-expediente", n: 3 });
+    expect(pasoDeGuia(con, "/app/expedientes/nuevo", t)).toMatchObject({ key: "crear-expediente", anclajes: ["elegir-cliente", "crear-expediente"], n: 3 });
   });
   it("4: enviar el enlace — crear ya lo genera; se señala WhatsApp en la pantalla de éxito y se cierra con el botón", () => {
     const con = { ...real, clientes: 1, documentosPropios: 1, expedientes: 1, enlacesEnviados: 1 };
