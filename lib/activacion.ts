@@ -39,8 +39,20 @@ export type DatosActivacion = {
   ejemploId?: string | null;             // expediente de ejemplo del despacho (si existe)
   ejemploFormulariosGenerados?: boolean; // ya pulsó «Generar formularios» en el ejemplo
   documentosPropios?: number;            // documentos subidos POR EL DESPACHO fuera del ejemplo
-  creadoEn?: string | null;              // Workspace.createdAt (UTC): la guía solo acompaña a las cuentas nacidas con ella
+  creadoEn?: string | null;              // Workspace.createdAt (UTC): guía y ejemplo solo para las cuentas nacidas con ellos
 };
+
+// La guía y el expediente de ejemplo nacieron el 05/09/2026 (bfa522c, en producción a las
+// 17:29 UTC) junto con el alta en una sola pantalla. Solo acompañan a las cuentas creadas
+// desde entonces: un despacho anterior ya conoce el producto y vería un «tu primer
+// expediente ya está hecho» absurdo sobre decenas de expedientes reales (visto en la demo).
+// Sin fecha (columna no leída) → cuenta antigua: mejor callar que equivocarse.
+export const GUIA_DESDE = "2026-09-05T17:00:00";
+export function cuentaNueva(d: Pick<DatosActivacion, "creadoEn">): boolean {
+  const c = d.creadoEn;
+  if (!c) return false;
+  return c.slice(0, 19) >= GUIA_DESDE; // ambos en UTC, formato ISO → comparación lexicográfica
+}
 
 // Orden DELIBERADO, en dos tiempos (05/09/2026):
 //  1. La PRIMERA SESIÓN — lo que el gestor puede hacer solo, en diez minutos, y que le
@@ -54,7 +66,9 @@ export type DatosActivacion = {
 //  3. La administración, al final: configurar servicios y cuenta no compromete a nadie.
 export function construirChecklist(d: DatosActivacion, t: (s: string) => string): ChecklistItem[] {
   const items: ChecklistItem[] = [
-    { key: "ejemplo", label: t("Abre el expediente de ejemplo y genera sus formularios"), href: d.ejemploId ? `/app/expedientes/${d.ejemploId}` : "/app/ejemplo", done: Boolean(d.ejemploFormulariosGenerados) },
+    // El ejemplo solo se ofrece a las cuentas nacidas con él (ver cuentaNueva): a un despacho
+    // con años de expedientes no se le propone «abrir su primer expediente».
+    ...(cuentaNueva(d) ? [{ key: "ejemplo", label: t("Abre el expediente de ejemplo y genera sus formularios"), href: d.ejemploId ? `/app/expedientes/${d.ejemploId}` : "/app/ejemplo", done: Boolean(d.ejemploFormulariosGenerados) }] : []),
     { key: "clientes", label: t("Da de alta a tu primer cliente"), href: "/app/clientes/nuevo", done: d.clientes > 0 },
     { key: "documento_propio", label: t("Sube el pasaporte de un cliente que ya tengas y mira cómo lo valida la IA"), href: "/app/clientes", done: (d.documentosPropios ?? 0) > 0 },
     { key: "expediente", label: t("Ábrele su primer expediente"), href: "/app/expedientes/nuevo", done: d.expedientes > 0 },

@@ -4,6 +4,7 @@ import { construirChecklist, esperandoAlCliente, type DatosActivacion } from "./
 const base: DatosActivacion = {
   clientes: 0, expedientes: 0, enlacesEnviados: 0, subidasDeCliente: 0,
   servicios: 0, cuentas: 0, miembros: 1, plan: "PRO",
+  creadoEn: "2026-09-06T09:00:00", // cuenta nacida con la guía y el ejemplo
 };
 const t = (s: string) => s;
 const hecho = (d: DatosActivacion, k: string) => construirChecklist(d, t).find((i) => i.key === k)!.done;
@@ -19,10 +20,19 @@ describe("checklist de activación", () => {
   it("el ejemplo se da por hecho cuando se generan sus formularios, y lleva a él si existe", () => {
     const sin = construirChecklist(base, t).find((i) => i.key === "ejemplo")!;
     expect(sin.done).toBe(false);
-    expect(sin.href).toBe("/app/ejemplo"); // despacho anterior al ejemplo: se siembra al clic
+    expect(sin.href).toBe("/app/ejemplo"); // cuenta nueva sin ejemplo (siembra fallida): se siembra al clic
     const con = construirChecklist({ ...base, ejemploId: "abc", ejemploFormulariosGenerados: true }, t).find((i) => i.key === "ejemplo")!;
     expect(con.done).toBe(true);
     expect(con.href).toBe("/app/expedientes/abc");
+  });
+
+  it("a las cuentas anteriores al 05/09/2026 no se les ofrece el ejemplo; el resto de la lista sigue igual", () => {
+    for (const creadoEn of ["2026-07-07T11:23:16.47", "2026-09-05T16:59:59", null, undefined]) {
+      const claves = construirChecklist({ ...base, creadoEn }, t).map((i) => i.key);
+      expect(claves).not.toContain("ejemplo");
+      expect(claves.slice(0, 5)).toEqual(["clientes", "documento_propio", "expediente", "enlace", "documento"]);
+    }
+    expect(construirChecklist({ ...base, creadoEn: "2026-09-05T17:29:00.123" }, t)[0].key).toBe("ejemplo");
   });
 
   it("subir un documento propio cuenta en su paso, pero NO como subida del cliente", () => {
