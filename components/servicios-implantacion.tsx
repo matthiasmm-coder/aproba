@@ -99,7 +99,7 @@ export function PresupuestoModal({ onClose, prefill = {}, origen, sinPrecio = fa
   return (
     // En el móvil, a lo ancho de la pantalla (sin margen lateral que desencuadre);
     // de sm en adelante, la misma tarjeta centrada de siempre.
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !enviando && onClose()}>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !enviando && onClose()}>
       <div className="mt-4 w-full max-w-xl rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:my-6 sm:rounded-2xl sm:p-7" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
