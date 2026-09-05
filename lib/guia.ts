@@ -24,6 +24,7 @@ export type PasoGuia = {
   anclajes?: string[]; // alternativas por orden: se señala el PRIMER data-guia presente
   textos?: Record<string, { titulo: string; texto: string }>; // título/texto según el anclaje señalado
   abrir?: string;   // id de sección plegable de la ficha que hay que abrir (evento abrir-seccion)
+  debajoDe?: string; // data-guia de un bloque: la tarjeta va DEBAJO de él (no tapa sus botones) si no cabe en el hueco izquierdo
   ir?: string;      // destino del botón
   ctaSoloSinAncla?: boolean; // el botón solo sale si el elemento NO está en pantalla (si está, basta la flecha)
   avanza?: number;  // paso de «mirar»: el botón lo confirma y deja vistos = avanza
@@ -73,7 +74,7 @@ export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemp
       return volver(6, "Cobro y factura", "Vuelve al ejemplo para verlo.");
     }
     // 7 · formularios generados de verdad (hecho: la descarga los registra)
-    if (enFormularios) return P({ key: "descargar", n: 7, anclaje: "descargar", titulo: "Descarga el EX-17 relleno", texto: "Se genera con los datos de la ficha. Ábrelo y compruébalo.", cta: "" });
+    if (enFormularios) return P({ key: "descargar", n: 7, anclaje: "descargar", debajoDe: "formularios-bloque", titulo: "Descarga el EX-17 relleno", texto: "Se genera con los datos de la ficha. Ábrelo y compruébalo.", cta: "" });
     if (enFicha) return P({ key: "generar", n: 7, anclaje: "generar", titulo: "Ahora, los formularios", texto: "El EX-17 y la tasa 790 salen rellenados.", ir: `${ficha}/formularios`, cta: "Ir a formularios" });
     return volver(7, "Ahora, los formularios", "Vuelve al ejemplo para generarlos.");
   }

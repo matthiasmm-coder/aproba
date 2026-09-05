@@ -206,18 +206,24 @@ export function GuiaActivacion() {
     const columna = ancla?.closest<HTMLElement>("main > *") ?? null;
     const columnaIzq = columna ? columna.getBoundingClientRect().left : null;
     const hueco = columnaIzq !== null ? columnaIzq - barraDerecha : 0;
-    if (hueco >= ANCHO + 32) {
-      const left = barraDerecha + (hueco - ANCHO) / 2;
+    if (hueco >= ANCHO + 16) {
+      const left = hueco >= ANCHO + 32 ? barraDerecha + (hueco - ANCHO) / 2 : barraDerecha + 8;
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
       return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{Tarjeta}</div></>);
     }
-    // 2) Al lado del elemento si es pequeño y cabe a su derecha.
+    // 2) Debajo del bloque indicado por el paso (p. ej. los formularios): nunca tapa sus botones.
+    const bloque = paso.debajoDe ? [...document.querySelectorAll<HTMLElement>(`[data-guia="${paso.debajoDe}"]`)].find((x) => x.getClientRects().length > 0) ?? null : null;
+    if (bloque) {
+      const b = bloque.getBoundingClientRect();
+      if (b.bottom + 14 + ALTO <= window.innerHeight) return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left: Math.max(12, b.left), top: b.bottom + 14 }}>{Tarjeta}</div></>);
+    }
+    // 3) Al lado del elemento si es pequeño y cabe a su derecha.
     const aLaDerecha = altoFoco < 220 && rect.right + 16 + ANCHO + 12 <= window.innerWidth;
     if (aLaDerecha) {
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
       return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left: rect.right + 16, top }}>{Tarjeta}</div></>);
     }
-    // 3) Debajo (dejando hueco a la flecha si esta va debajo) o, si no cabe, encima (dejando hueco a la flecha).
+    // 4) Debajo (dejando hueco a la flecha si esta va debajo) o, si no cabe, encima (dejando hueco a la flecha).
     const huecoFlecha = encima ? 0 : 44;
     const abajo = rect.top + altoFoco + 12 + huecoFlecha + ALTO < window.innerHeight;
     // Si la tarjeta cae en la esquina inferior derecha (donde vive «Ayuda»), se corre a la izquierda.

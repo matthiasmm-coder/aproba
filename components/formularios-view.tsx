@@ -137,7 +137,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div data-guia="formularios-bloque" className="rounded-xl border border-slate-200 bg-white p-5">
         <p className="text-sm font-semibold text-slate-800">{t("Modelos del Ministerio, rellenados con los datos del expediente")}</p>
         <p className="mt-1 text-xs text-slate-500">
           {esFamilia
