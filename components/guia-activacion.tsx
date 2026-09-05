@@ -17,6 +17,7 @@ const EVENTO = "aproba:activacion"; // lo disparan las acciones que cambian el e
 const EVENTO_ESTADO = "aproba:guia"; // lo dispara la guía al pasar a activa/inactiva
 // Lo mirado del ejemplo va ligado a SU id: si se borra y se vuelve a sembrar, la visita empieza de cero.
 const claveTour = (ejemploId: string | null | undefined) => `aproba.guia.tour.${ejemploId ?? "sin-ejemplo"}`;
+const CLAVE_ENLACE = "aproba.guia.real.enlace"; // último paso de la fase real, confirmado con el botón
 
 type Caja = { left: number; top: number; width: number; height: number; right: number; bottom: number };
 const mismaCaja = (a: Caja | null, b: Caja | null) =>
@@ -62,9 +63,10 @@ export function GuiaActivacion() {
   const ejemploId = datos?.ejemploId ?? null;
   useEffect(() => {
     if (!datos) return;
-    try { const v = Number(localStorage.getItem(claveTour(ejemploId)) ?? "0"); setTour({ vistos: Number.isFinite(v) ? v : 0 }); } catch { setTour(TOUR_INICIAL); }
+    try { const v = Number(localStorage.getItem(claveTour(ejemploId)) ?? "0"); setTour({ vistos: Number.isFinite(v) ? v : 0, enlaceVisto: localStorage.getItem(CLAVE_ENLACE) === "1" }); } catch { setTour(TOUR_INICIAL); }
   }, [datos, ejemploId]);
-  const guardarTour = (vistos: number) => { setTour({ vistos }); try { localStorage.setItem(claveTour(ejemploId), String(vistos)); } catch { /* */ } };
+  const guardarTour = (vistos: number) => { setTour((t0) => ({ ...t0, vistos })); try { localStorage.setItem(claveTour(ejemploId), String(vistos)); } catch { /* */ } };
+  const terminar = () => { setTour((t0) => ({ ...t0, enlaceVisto: true })); try { localStorage.setItem(CLAVE_ENLACE, "1"); } catch { /* */ } };
 
   // Memoizado: pasoDeGuia devuelve un objeto nuevo en cada render y, como dependencia de un
   // efecto, lo rearmaba en bucle (render → medir → setRect → render…). Ese bucle hacía
@@ -130,6 +132,7 @@ export function GuiaActivacion() {
   const saltar = () => { try { localStorage.setItem(KEY, "1"); } catch { /* */ } setCerrada(true); };
   const accion = () => {
     if (paso.avanza) guardarTour(paso.avanza); // paso de «mirar»: confirmado
+    if (paso.termina) { terminar(); return; }  // fin de la fase real
     if (paso.ir) { router.push(paso.ir); return; }
     // «Entendido» sobre un elemento: no hay destino; el usuario actúa sobre él.
     if (!paso.avanza && rect) { const el = document.querySelector<HTMLElement>(`[data-guia="${paso.anclaje}"]`); el?.focus(); }
@@ -149,7 +152,7 @@ export function GuiaActivacion() {
       <p className="mt-1 text-sm leading-snug text-slate-600">{t(paso.texto)}</p>
       <div className="mt-3.5 flex items-center justify-between gap-3">
         <button type="button" onClick={saltar} className="text-xs font-medium text-slate-400 hover:text-slate-600">{t("Saltar la guía")}</button>
-        {(paso.ir || paso.avanza || !rect) ? (
+        {(paso.ir || paso.avanza || paso.termina || !rect) ? (
           <button type="button" onClick={accion} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700">{t(paso.cta)}</button>
         ) : (
           <span className="text-xs font-semibold text-aproba-700">{t("↓ Aquí")}</span>

@@ -13,6 +13,7 @@ import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 import { TelefonoInput } from "@/components/telefono-input";
+import { avisarGuia } from "@/components/guia-activacion";
 
 // Nuevo expediente — RÉEL : choisir un client existant (individu OU famille) ou en créer un
 // (individual OU familia), créer l'expediente en base (referencia + token de portail),
@@ -223,6 +224,7 @@ export function NuevoExpediente() {
       setUsados((u) => (u ?? 0) + 1);
       setStep(1);
       router.refresh();
+      avisarGuia(); // la guía pasa a «envíale el enlace» sin cambiar de página
     } catch (err) {
       console.error("[nuevo-expediente]", err);
       setError(err instanceof Error ? err.message : t("No se pudo crear el expediente. Vuelve a intentarlo."));
@@ -422,7 +424,7 @@ export function NuevoExpediente() {
           <button
             disabled={!canCrear}
             onClick={crear}
-            className="mt-6 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
+            data-guia="crear-expediente" className="mt-6 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400"
           >
             {creando ? t("Creando…") : (familiaSel || (modoNuevo && tipoNuevo === "familia")) ? t("Crear expediente familiar") : t("Crear expediente")}
           </button>
@@ -524,7 +526,7 @@ export function NuevoExpediente() {
             )}
 
             <div className="mt-3 flex gap-2">
-              <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">
+              <a href={waLink} target="_blank" rel="noopener noreferrer" data-guia="enviar-enlace" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.4-.5-.6-.5h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.2-.1-.5-.2zM12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2z" /></svg>
                 {t("Enviar por WhatsApp")}
               </a>

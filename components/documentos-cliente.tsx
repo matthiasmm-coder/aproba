@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DOC_LABEL } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { avisarGuia } from "@/components/guia-activacion";
 
 export type DocSuelto = { id: string; tipo: string; nombreArchivo: string | null; createdAt: string };
 
@@ -32,7 +33,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
       const res = await fetch(`/api/clientes/${clienteId}/documentos`, { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo subir el documento."));
-      router.refresh();
+      router.refresh(); avisarGuia(); // la guía pasa al expediente sin cambiar de página
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo subir el documento."));
     } finally {

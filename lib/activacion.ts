@@ -40,6 +40,7 @@ export type DatosActivacion = {
   ejemploFormulariosGenerados?: boolean; // ya pulsó «Generar formularios» en el ejemplo
   documentosPropios?: number;            // documentos subidos POR EL DESPACHO fuera del ejemplo
   creadoEn?: string | null;              // Workspace.createdAt (UTC): guía y ejemplo solo para las cuentas nacidas con ellos
+  primerClienteId?: string | null;       // un cliente real (no el del ejemplo): la guía lleva a su ficha para subir el pasaporte
 };
 
 // La guía y el expediente de ejemplo nacieron el 05/09/2026 (bfa522c, en producción a las
