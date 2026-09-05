@@ -66,7 +66,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
     imagenAlt:
-      "Gráfico: la cifra 498 junto a un diagrama de barras con las provincias con más entidades colaboradoras acreditadas, Madrid y Barcelona en cabeza.",
+      "Ilustración: un registro abierto sobre una mesa de madera, un sello de latón encima, y la silueta de España dibujada con cientos de puntos de luz verde flotando sobre las páginas.",
     bloques: [
       { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
       {
