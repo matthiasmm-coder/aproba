@@ -13,6 +13,16 @@ import type { DatosActivacion } from "@/lib/activacion";
 // cuenta, la guía lo sigue. Se cierra con «Saltar» y no vuelve (localStorage).
 const KEY = "aproba.guia.cerrada";
 const EVENTO = "aproba:activacion"; // lo disparan las acciones que cambian el estado
+const EVENTO_ESTADO = "aproba:guia"; // lo dispara la guía al pasar a activa/inactiva
+
+// Estado publicado en <html data-guia="activa|inactiva"> para que otros bloques (la
+// checklist del panel) se retiren mientras la guía lleva la mano, sin acoplarse a ella.
+// Ausente = todavía no se sabe (localStorage o /api/activacion pendientes).
+export type EstadoGuia = "activa" | "inactiva";
+export const EVENTO_GUIA = EVENTO_ESTADO;
+export function estadoGuia(): EstadoGuia | null {
+  try { const v = document.documentElement.dataset.guia; return v === "activa" || v === "inactiva" ? v : null; } catch { return null; }
+}
 
 export function GuiaActivacion() {
   const t = useT();
@@ -20,16 +30,18 @@ export function GuiaActivacion() {
   const pathname = usePathname();
   const [datos, setDatos] = useState<DatosActivacion | null>(null);
   const [cerrada, setCerrada] = useState(true); // sin parpadeo antes de leer localStorage
+  const [leida, setLeida] = useState(false); // localStorage ya consultado
+  const [fallo, setFallo] = useState(false); // /api/activacion no respondió: la guía calla, la checklist puede salir
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [dialogo, setDialogo] = useState(false);
 
-  useEffect(() => { try { setCerrada(localStorage.getItem(KEY) === "1"); } catch { setCerrada(false); } }, []);
+  useEffect(() => { try { setCerrada(localStorage.getItem(KEY) === "1"); } catch { setCerrada(false); } setLeida(true); }, []);
 
   const cargar = useCallback(async () => {
     try {
       const r = await fetch("/api/activacion", { cache: "no-store" });
-      if (r.ok) setDatos(await r.json());
-    } catch { /* la guía nunca rompe la página */ }
+      if (r.ok) setDatos(await r.json()); else setFallo(true);
+    } catch { setFallo(true); /* la guía nunca rompe la página */ }
   }, []);
   useEffect(() => { if (!cerrada) void cargar(); }, [cerrada, pathname, cargar]);
   useEffect(() => {
@@ -39,6 +51,16 @@ export function GuiaActivacion() {
   }, [cargar]);
 
   const paso: PasoGuia | null = datos && !cerrada ? pasoDeGuia(datos, pathname) : null;
+
+  // Publicar el estado en cuanto se conoce (nunca antes: evitaría que la checklist
+  // apareciera un instante y se escondiera al cargar la guía).
+  const conocida = leida && (cerrada || datos !== null || fallo);
+  const activa = Boolean(paso);
+  useEffect(() => {
+    if (!conocida) return;
+    document.documentElement.dataset.guia = activa ? "activa" : "inactiva";
+    window.dispatchEvent(new Event(EVENTO_ESTADO));
+  }, [conocida, activa]);
 
   // Seguir al elemento señalado (scroll, resize, re-render) y ceder ante cualquier diálogo.
   useEffect(() => {

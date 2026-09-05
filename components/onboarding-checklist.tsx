@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
+import { estadoGuia, EVENTO_GUIA, type EstadoGuia } from "@/components/guia-activacion";
 
 import type { ChecklistItem } from "@/lib/activacion";
 export type { ChecklistItem };
@@ -10,15 +11,24 @@ export type { ChecklistItem };
 const KEY = "aproba.checklist.dismissed";
 
 // Checklist « termina de configurar tu despacho » sur le dashboard — rappelle les
-// étapes d'onboarding sautées (dérivées des données). Dismissable.
+// étapes d'onboarding sautées (dérivées des données). Dismissable. Se retire tant que la
+// guía interactive est active (un seul fil conducteur à l'écran) ; réapparaît dès que
+// la guía est sautée ou terminée.
 export function OnboardingChecklist({ items, esperandoAlCliente = false }: { items: ChecklistItem[]; esperandoAlCliente?: boolean }) {
   const t = useT();
   const [dismissed, setDismissed] = useState(true); // évite le flash avant hydratation
   useEffect(() => { setDismissed(localStorage.getItem(KEY) === "1"); }, []);
+  const [guia, setGuia] = useState<EstadoGuia | null>(null); // null = aún no se sabe → oculta
+  useEffect(() => {
+    const lee = () => setGuia(estadoGuia());
+    lee();
+    window.addEventListener(EVENTO_GUIA, lee);
+    return () => window.removeEventListener(EVENTO_GUIA, lee);
+  }, []);
 
   const pendientes = items.filter((i) => !i.done);
   const hechos = items.filter((i) => i.done).length;
-  if (dismissed || pendientes.length === 0) return null;
+  if (dismissed || guia !== "inactiva" || pendientes.length === 0) return null;
 
   return (
     <div className="mb-6 rounded-2xl border border-aproba-200 bg-aproba-50/60 p-5">
