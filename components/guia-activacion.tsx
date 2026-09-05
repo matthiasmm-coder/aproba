@@ -205,7 +205,8 @@ export function GuiaActivacion() {
     const bordeInferior = abajo ? rect.top + altoFoco + 14 + ALTO : rect.top - 14;
     const esquinaAyuda = bordeInferior > window.innerHeight - 100;
     const left = Math.max(12, Math.min(rect.left, window.innerWidth - 312 - (esquinaAyuda ? 140 : 0)));
-    return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top: abajo ? rect.top + altoFoco + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 14 }}>{Tarjeta}</div></>);
+    // Encima del elemento, la tarjeta deja hueco para la flecha (que rebota entre ambos).
+    return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top: abajo ? rect.top + altoFoco + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 58 }}>{Tarjeta}</div></>);
   }
   return (<>{ventana}<div className="fixed bottom-24 right-4 z-[45] md:bottom-6 md:right-28">{Tarjeta}</div></>);
 }
