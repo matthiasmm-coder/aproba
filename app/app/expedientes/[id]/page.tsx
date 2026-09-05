@@ -23,8 +23,6 @@ import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
 import { ExportarZipButton } from "@/components/exportar-zip-button";
-import { EliminarEjemploButton } from "@/components/eliminar-ejemplo-button";
-import { esEjemplo } from "@/lib/ejemplo-marca";
 import { DocumentoRow } from "@/components/documento-row";
 import { CobrosPanel } from "@/components/cobros-panel";
 import { CobroExternoLink } from "@/components/cobro-externo-link";
@@ -244,15 +242,6 @@ export default async function ExpedienteDetail({
         {/* Móvil: título a ancho completo y acciones debajo; ≥sm: título + acciones en una fila. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            {esEjemplo(e.referencia) && (
-              <aside className="mb-3 rounded-xl border border-aproba-200 bg-aproba-50/70 px-4 py-3 text-sm text-slate-700">
-                <p className="font-semibold text-aproba-800">{t("Expediente de ejemplo")}</p>
-                <p className="mt-0.5 leading-relaxed">
-                  {t("Los cuatro documentos ya están validados por la IA y la ficha está completa: pulsa «Generar formularios» y verás el EX-17 y la tasa 790 rellenados. Cuando ya lo hayas visto, bórralo.")}
-                </p>
-                <div className="mt-1.5"><EliminarEjemploButton /></div>
-              </aside>
-            )}
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>

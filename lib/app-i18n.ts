@@ -1722,6 +1722,8 @@ export const CA: Record<string, string> = {
   "Tu primer expediente ya está hecho": "El teu primer expedient ja està fet",
   "Ábrelo y mira lo que hace la IA.": "Obre'l i mira què fa la IA.",
   "Abrir el ejemplo": "Obrir l'exemple",
+  "Vuelve al ejemplo para verlas.": "Torna a l'exemple per veure-les.",
+  "Vuelve al ejemplo para verlo.": "Torna a l'exemple per veure'l.",
   "Ábrele un expediente: le enviarás un enlace y subirá sus documentos.": "Obre-li un expedient: li enviaràs un enllaç i pujarà els seus documents.",
   "Pulsa «Cliente nuevo»": "Prem «Client nou»",
   "Nombre, apellidos y su WhatsApp. Nada más.": "Nom, cognoms i el seu WhatsApp. Res més.",

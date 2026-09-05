@@ -56,23 +56,5 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     if (campos.length) faltanPorPersona = [{ id: exp.clienteId ?? "titular", nombre: exp.clienteNombre, campos }];
   }
 
-  // Expediente de EJEMPLO: lo que la sesión ya sabe, para prellenar el presupuesto de
-  // Aproba Despegue si el prospecto acepta la ventana tras generar los formularios.
-  let despegue: { nombre: string; apellidos: string; despacho: string; email: string } | null = null;
-  if (exp.referencia === "EJEMPLO") {
-    try {
-      const { createSupabaseServer } = await import("@/lib/supabase/server");
-      const { fetchDespacho } = await import("@/lib/data/config");
-      const sb = await createSupabaseServer();
-      const [{ data: { user } }, d] = await Promise.all([sb.auth.getUser(), fetchDespacho()]);
-      const completo = String(user?.user_metadata?.nombre ?? "").trim();
-      const [nombre, ...resto] = completo.split(/\s+/);
-      despegue = { nombre: nombre ?? "", apellidos: resto.join(" "), despacho: d.nombre === "Mi despacho" ? "" : d.nombre, email: user?.email ?? "" };
-    } catch { despegue = { nombre: "", apellidos: "", despacho: "", email: "" }; }
-  }
-  // Cohete IA (scripts/imagen-despegue.mjs → public/despegue-cohete.png). Se pasa la URL
-  // siempre: en Vercel la función no ve public/ (existsSync devolvería false aunque el
-  // fichero esté en el CDN); si el PNG falta, la ventana repliega al SVG con onError.
-  const coheteUrl = "/despegue-cohete.png";
-  return <FormulariosView despegue={despegue} coheteUrl={coheteUrl} faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  return <FormulariosView faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

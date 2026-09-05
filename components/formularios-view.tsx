@@ -5,9 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Expediente } from "@/lib/types";
 import { useT } from "@/components/lang-provider";
-import { DespegueModal, despegueYaVisto } from "@/components/despegue-modal";
-import type { PresupuestoPrefill } from "@/components/servicios-implantacion";
-import { esEjemplo } from "@/lib/ejemplo-marca";
 import { avisarGuia } from "@/components/guia-activacion";
 import { Tasa790Modal } from "./tasa790-modal";
 import { Tasa790026Modal } from "./tasa790026-modal";
@@ -16,10 +13,8 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], despegue = null, coheteUrl = null }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [] }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
-  despegue?: PresupuestoPrefill | null; // solo en el expediente de EJEMPLO: datos de la sesión para la ventana Aproba Despegue
-  coheteUrl?: string | null;
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
@@ -30,9 +25,6 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
   const [errorMarcar, setErrorMarcar] = useState(false);
-  // Ventana «¿Quieres ir más rápido?» (Aproba Despegue): UNA vez, justo después de
-  // generar los formularios del expediente de EJEMPLO — el prospecto acaba de ver el producto.
-  const [despegueAbierto, setDespegueAbierto] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
   // Familia: selección POR miembro (modelos de SUS servicios); el añadido manual elige miembro.
   const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
@@ -70,7 +62,6 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
       });
       if (res.ok) {
         setMarcado(true); router.refresh(); avisarGuia();
-        if (despegue && esEjemplo(exp.referencia) && !despegueYaVisto()) setDespegueAbierto(true);
       } else { setErrorMarcar(true); }
     } catch {
       setErrorMarcar(true);
@@ -88,10 +79,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
       body: JSON.stringify({ anadir: { code: tipo, ...(clienteId ? { clienteId } : {}) } }),
     }).then((r) => {
       if (!r.ok) return;
-      router.refresh(); avisarGuia();
-      // El primer formulario generado DE VERDAD en el ejemplo es el momento «ajá»: ahí se
-      // ofrece Aproba Despegue (una vez), igual que al marcarlos como generados.
-      if (despegue && esEjemplo(exp.referencia) && !despegueYaVisto()) setDespegueAbierto(true);
+      router.refresh(); avisarGuia(); // la guía avanza sin cambiar de página
     });
   };
 
@@ -103,7 +91,6 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
 
   return (
     <>
-      {despegueAbierto && despegue && <DespegueModal prefill={despegue} coheteUrl={coheteUrl} onClose={() => setDespegueAbierto(false)} />}
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
         <Link href={`/app/expedientes/${exp.id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
