@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { pasoDeGuia, TOTAL_PASOS, type PasoGuia } from "@/lib/guia";
@@ -14,6 +14,10 @@ import type { DatosActivacion } from "@/lib/activacion";
 const KEY = "aproba.guia.cerrada";
 const EVENTO = "aproba:activacion"; // lo disparan las acciones que cambian el estado
 const EVENTO_ESTADO = "aproba:guia"; // lo dispara la guía al pasar a activa/inactiva
+
+type Caja = { left: number; top: number; width: number; height: number; right: number; bottom: number };
+const mismaCaja = (a: Caja | null, b: Caja | null) =>
+  (!a && !b) || Boolean(a && b && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5);
 
 // Estado publicado en <html data-guia="activa|inactiva"> para que otros bloques (la
 // checklist del panel) se retiren mientras la guía lleva la mano, sin acoplarse a ella.
@@ -32,7 +36,7 @@ export function GuiaActivacion() {
   const [cerrada, setCerrada] = useState(true); // sin parpadeo antes de leer localStorage
   const [leida, setLeida] = useState(false); // localStorage ya consultado
   const [fallo, setFallo] = useState(false); // /api/activacion no respondió: la guía calla, la checklist puede salir
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [rect, setRect] = useState<Caja | null>(null);
   const [dialogo, setDialogo] = useState(false);
 
   useEffect(() => { try { setCerrada(localStorage.getItem(KEY) === "1"); } catch { setCerrada(false); } setLeida(true); }, []);
@@ -50,7 +54,11 @@ export function GuiaActivacion() {
     return () => window.removeEventListener(EVENTO, h);
   }, [cargar]);
 
-  const paso: PasoGuia | null = datos && !cerrada ? pasoDeGuia(datos, pathname) : null;
+  // Memoizado: pasoDeGuia devuelve un objeto nuevo en cada render y, como dependencia de un
+  // efecto, lo rearmaba en bucle (render → medir → setRect → render…). Ese bucle hacía
+  // temblar el foco y, peor, dejaba sin terminar la navegación de router.push (una
+  // transición de React que las actualizaciones continuas interrumpen sin parar).
+  const paso: PasoGuia | null = useMemo(() => (datos && !cerrada ? pasoDeGuia(datos, pathname) : null), [datos, cerrada, pathname]);
 
   // Publicar el estado en cuanto se conoce (nunca antes: evitaría que la checklist
   // apareciera un instante y se escondiera al cargar la guía).
@@ -62,20 +70,31 @@ export function GuiaActivacion() {
     window.dispatchEvent(new Event(EVENTO_ESTADO));
   }, [conocida, activa]);
 
-  // Seguir al elemento señalado (scroll, resize, re-render) y ceder ante cualquier diálogo.
+  // Seguir al elemento señalado y ceder ante cualquier diálogo. Se mide en cada frame
+  // (requestAnimationFrame: sigue el scroll suave sin saltos) pero SOLO se actualiza el
+  // estado cuando la posición cambia de verdad, así el resto del tiempo no hay renders.
+  const hayPaso = Boolean(paso);
+  const anclaje = paso?.anclaje ?? null;
   useEffect(() => {
-    if (!paso) { setRect(null); return; }
+    if (!hayPaso) { setRect(null); return; }
+    let vivo = true, primero = true, tick = 0;
+    let ultimo: Caja | null = null, ultimoDialogo: boolean | null = null;
     const mide = () => {
-      // Solo diálogos VISIBLES: algunos componentes montan el suyo cerrado.
-      setDialogo([...document.querySelectorAll<HTMLElement>('[role="dialog"]')].some((d) => d.getClientRects().length > 0 && !d.hasAttribute("data-guia-propia")));
-      const el = paso.anclaje ? document.querySelector<HTMLElement>(`[data-guia="${paso.anclaje}"]`) : null;
-      setRect(el ? el.getBoundingClientRect() : null);
+      if (!vivo) return;
+      if (tick++ % 10 === 0) {
+        // Solo diálogos VISIBLES: algunos componentes montan el suyo cerrado. No hace falta cada frame.
+        const d = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].some((x) => x.getClientRects().length > 0 && !x.hasAttribute("data-guia-propia"));
+        if (d !== ultimoDialogo) { ultimoDialogo = d; setDialogo(d); }
+      }
+      const el = anclaje ? document.querySelector<HTMLElement>(`[data-guia="${anclaje}"]`) : null;
+      const r = el ? el.getBoundingClientRect() : null;
+      const caja: Caja | null = r ? { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
+      if (primero || !mismaCaja(caja, ultimo)) { primero = false; ultimo = caja; setRect(caja); }
+      requestAnimationFrame(mide);
     };
-    mide();
-    const id = window.setInterval(mide, 600);
-    window.addEventListener("scroll", mide, true); window.addEventListener("resize", mide);
-    return () => { window.clearInterval(id); window.removeEventListener("scroll", mide, true); window.removeEventListener("resize", mide); };
-  }, [paso]);
+    const raf = requestAnimationFrame(mide);
+    return () => { vivo = false; cancelAnimationFrame(raf); };
+  }, [hayPaso, anclaje, pathname]);
 
   useEffect(() => {
     // Al llegar a la página del elemento, llevarlo a la vista.
@@ -88,8 +107,7 @@ export function GuiaActivacion() {
 
   const saltar = () => { try { localStorage.setItem(KEY, "1"); } catch { /* */ } setCerrada(true); };
   const accion = () => {
-    if (paso.ir && !rect) { router.push(paso.ir); return; }
-    if (paso.ir && rect) { router.push(paso.ir); return; }
+    if (paso.ir) { router.push(paso.ir); return; }
     // «Entendido» sobre un elemento: no hay destino; el usuario actúa sobre él.
     if (rect) { const el = document.querySelector<HTMLElement>(`[data-guia="${paso.anclaje}"]`); el?.focus(); }
   };
@@ -123,7 +141,7 @@ export function GuiaActivacion() {
     const left = Math.max(12, Math.min(rect.left, window.innerWidth - 312));
     return (
       <>
-        <div aria-hidden className="pointer-events-none fixed z-40 rounded-xl ring-2 ring-aproba-500 transition-all duration-300" style={{ left: rect.left - m, top: rect.top - m, width: rect.width + 2 * m, height: rect.height + 2 * m, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
+        <div aria-hidden className="pointer-events-none fixed z-40 rounded-xl ring-2 ring-aproba-500" style={{ left: rect.left - m, top: rect.top - m, width: rect.width + 2 * m, height: rect.height + 2 * m, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
         <div className="fixed z-40" style={{ left, top: abajo ? rect.bottom + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 14 }}>{Tarjeta}</div>
       </>
     );
