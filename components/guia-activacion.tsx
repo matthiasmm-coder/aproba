@@ -77,7 +77,7 @@ export function GuiaActivacion() {
   const anclaje = paso?.anclaje ?? null;
   useEffect(() => {
     if (!hayPaso) { setRect(null); return; }
-    let vivo = true, primero = true, tick = 0;
+    let vivo = true, primero = true, tick = 0, desplazado = false;
     let ultimo: Caja | null = null, ultimoDialogo: boolean | null = null;
     const mide = () => {
       if (!vivo) return;
@@ -89,19 +89,21 @@ export function GuiaActivacion() {
       const el = anclaje ? document.querySelector<HTMLElement>(`[data-guia="${anclaje}"]`) : null;
       const r = el ? el.getBoundingClientRect() : null;
       const caja: Caja | null = r ? { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
+      if (el && r && !desplazado) {
+        // Llevar el elemento a la vista UNA vez por paso, solo si queda fuera, y un poco
+        // después: tras una navegación suave Next vuelve arriba y anulaba el scroll
+        // inmediato (el elemento quedaba justo bajo el borde y la tarjeta caía en la
+        // esquina del botón «Ayuda», que se llevaba el clic).
+        desplazado = true;
+        const fuera = r.top < 72 || r.bottom > window.innerHeight - 190;
+        if (fuera) window.setTimeout(() => { if (vivo) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 350);
+      }
       if (primero || !mismaCaja(caja, ultimo)) { primero = false; ultimo = caja; setRect(caja); }
       requestAnimationFrame(mide);
     };
     const raf = requestAnimationFrame(mide);
     return () => { vivo = false; cancelAnimationFrame(raf); };
   }, [hayPaso, anclaje, pathname]);
-
-  useEffect(() => {
-    // Al llegar a la página del elemento, llevarlo a la vista.
-    if (!paso?.anclaje) return;
-    const el = document.querySelector<HTMLElement>(`[data-guia="${paso.anclaje}"]`);
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [paso?.key, paso?.anclaje]);
 
   if (!paso || dialogo) return null;
 
@@ -135,18 +137,22 @@ export function GuiaActivacion() {
 
   // Con elemento en pantalla: foco recortado (sombra gigante alrededor del rect) y
   // tarjeta debajo (o encima si no cabe). Sin elemento: tarjeta flotante abajo a la derecha.
+  // z-[45]: por encima del lanzador «Ayuda» (z-40), por debajo de banners y diálogos (z-50).
   if (rect) {
-    const m = 8;
-    const abajo = rect.bottom + 12 + 170 < window.innerHeight;
-    const left = Math.max(12, Math.min(rect.left, window.innerWidth - 312));
+    const m = 8, ALTO = 170;
+    const abajo = rect.bottom + 12 + ALTO < window.innerHeight;
+    // Si la tarjeta cae en la esquina inferior derecha (donde vive «Ayuda»), se corre a la izquierda.
+    const bordeInferior = abajo ? rect.bottom + 14 + ALTO : rect.top - 14;
+    const esquinaAyuda = bordeInferior > window.innerHeight - 100;
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - 312 - (esquinaAyuda ? 140 : 0)));
     return (
       <>
-        <div aria-hidden className="pointer-events-none fixed z-40 rounded-xl ring-2 ring-aproba-500" style={{ left: rect.left - m, top: rect.top - m, width: rect.width + 2 * m, height: rect.height + 2 * m, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
-        <div className="fixed z-40" style={{ left, top: abajo ? rect.bottom + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 14 }}>{Tarjeta}</div>
+        <div aria-hidden className="pointer-events-none fixed z-[45] rounded-xl ring-2 ring-aproba-500" style={{ left: rect.left - m, top: rect.top - m, width: rect.width + 2 * m, height: rect.height + 2 * m, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
+        <div className="fixed z-[45]" style={{ left, top: abajo ? rect.bottom + 14 : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 14 }}>{Tarjeta}</div>
       </>
     );
   }
-  return <div className="fixed bottom-24 right-4 z-40 md:bottom-6 md:right-28">{Tarjeta}</div>;
+  return <div className="fixed bottom-24 right-4 z-[45] md:bottom-6 md:right-28">{Tarjeta}</div>;
 }
 
 // Para que las acciones avisen a la guía sin acoplarse a ella.
