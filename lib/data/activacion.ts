@@ -9,7 +9,7 @@ import { REFERENCIA_EJEMPLO, EMAIL_CLIENTE_EJEMPLO } from "@/lib/ejemplo-marca";
 export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<DatosActivacion> {
   const cnt = (tabla: string) => supabase.from(tabla).select("id", { count: "exact", head: true });
   const evento = (marca: string) => supabase.from("ExpedienteEvento").select("id", { count: "exact", head: true }).like("descripcion", `%${marca}%`);
-  const [svc, cta, cli, mem, sub, exp, enlaces, subidas, ejemplo, docsExp, docsCli] = await Promise.all([
+  const [svc, cta, cli, mem, sub, exp, enlaces, subidas, ejemplo, docsExp, docsCli, ws] = await Promise.all([
     cnt("ServicioConfig"), cnt("CuentaBancaria"),
     cnt("Cliente").or(`email.is.null,email.neq.${EMAIL_CLIENTE_EJEMPLO}`),
     cnt("Membership"),
@@ -18,6 +18,7 @@ export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<Da
     supabase.from("Expediente").select("id, formulariosGenerados").eq("referencia", REFERENCIA_EJEMPLO).maybeSingle(),
     supabase.from("Documento").select("expedienteId").not("storagePath", "is", null),
     supabase.from("DocumentoCliente").select("id", { count: "exact", head: true }),
+    supabase.from("Workspace").select("createdAt").order("createdAt", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const ej = ejemplo.data as { id: string; formulariosGenerados?: string[] | null } | null;
   const propiosExp = (docsExp.data ?? []).filter((d) => (d as { expedienteId: string }).expedienteId !== ej?.id).length;
@@ -29,5 +30,6 @@ export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<Da
     ejemploId: ej?.id ?? null,
     ejemploFormulariosGenerados: (ej?.formulariosGenerados ?? []).length > 0,
     documentosPropios: propiosExp + (docsCli.error ? 0 : (docsCli.count ?? 0)),
+    creadoEn: (ws.data as { createdAt?: string } | null)?.createdAt ?? null,
   };
 }

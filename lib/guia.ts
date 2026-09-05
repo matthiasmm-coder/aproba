@@ -18,7 +18,20 @@ export type PasoGuia = {
 };
 export const TOTAL_PASOS = 5;
 
+// La guía nació el 05/09/2026 (bfa522c, en producción a las 17:29 UTC) junto con el alta en
+// una sola pantalla y el expediente de ejemplo sembrado. Solo acompaña a las cuentas creadas
+// desde entonces: un despacho anterior ya conoce el producto y vería un «tu primer
+// expediente ya está hecho» absurdo sobre decenas de expedientes reales (visto en la demo).
+// Sin fecha (columna no leída) → sin guía: mejor callar que equivocarse.
+export const GUIA_DESDE = "2026-09-05T17:00:00";
+export function cuentaNueva(d: Pick<DatosActivacion, "creadoEn">): boolean {
+  const c = d.creadoEn;
+  if (!c) return false;
+  return c.slice(0, 19) >= GUIA_DESDE; // ambos en UTC, formato ISO → comparación lexicográfica
+}
+
 export function pasoDeGuia(d: DatosActivacion, pathname: string): PasoGuia | null {
+  if (!cuentaNueva(d)) return null;
   const ej = d.ejemploId;
   const enFichaEjemplo = Boolean(ej) && pathname === `/app/expedientes/${ej}`;
   const enFormulariosEjemplo = Boolean(ej) && pathname === `/app/expedientes/${ej}/formularios`;

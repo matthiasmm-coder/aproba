@@ -39,6 +39,7 @@ export type DatosActivacion = {
   ejemploId?: string | null;             // expediente de ejemplo del despacho (si existe)
   ejemploFormulariosGenerados?: boolean; // ya pulsó «Generar formularios» en el ejemplo
   documentosPropios?: number;            // documentos subidos POR EL DESPACHO fuera del ejemplo
+  creadoEn?: string | null;              // Workspace.createdAt (UTC): la guía solo acompaña a las cuentas nacidas con ella
 };
 
 // Orden DELIBERADO, en dos tiempos (05/09/2026):
