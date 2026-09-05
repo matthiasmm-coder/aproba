@@ -4,6 +4,7 @@ import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { SidebarNav, MobileNav } from "@/components/sidebar-nav";
 import { MercurioSync } from "@/components/mercurio-sync";
 import { LogoutButton } from "@/components/logout-button";
+import { GuiaActivacion } from "@/components/guia-activacion";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { AsistenteWidget } from "@/components/asistente-widget";
 import { ConfirmHost } from "@/components/confirm-dialog";
@@ -119,13 +120,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{ctx.plan}</span>
             {/* Multi-oficina : n'apparaît qu'à partir de 2 sedes (le composant s'efface seul). */}
           </div>
-          <Link href="/app/expedientes/nuevo" className="rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 sm:px-4">
+          <Link href="/app/expedientes/nuevo" data-guia="nuevo-expediente" className="rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 sm:px-4">
             <span className="sm:hidden">{t("+ Nuevo")}</span><span className="hidden sm:inline">{t("+ Nuevo expediente")}</span>
           </Link>
         </header>
         <main className="p-4 pb-24 sm:p-6 md:pb-6 print:p-0">{children}</main>
       </div>
 
+      {/* Guía interactiva de activación (un paso a la vez, sobre el elemento real) */}
+      <GuiaActivacion />
       {/* Bouton de feedback flottant (beta) */}
       <AsistenteWidget />
       {/* Aplica las marcas «presentado en Mercurio» que la extensión dejó en cola */}

@@ -38,7 +38,7 @@ export function OnboardingChecklist({ items, esperandoAlCliente = false }: { ite
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         {pendientes.map((i) => (
-          <Link key={i.key} href={i.href} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-aproba-300 hover:text-aproba-700">
+          <Link key={i.key} href={i.href} data-guia={i.key === "ejemplo" ? "ejemplo" : undefined} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-aproba-300 hover:text-aproba-700">
             <span className="flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] text-slate-300">+</span>
             {t(i.label)}
           </Link>

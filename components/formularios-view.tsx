@@ -8,6 +8,7 @@ import { useT } from "@/components/lang-provider";
 import { DespegueModal, despegueYaVisto } from "@/components/despegue-modal";
 import type { PresupuestoPrefill } from "@/components/servicios-implantacion";
 import { esEjemplo } from "@/lib/ejemplo-marca";
+import { avisarGuia } from "@/components/guia-activacion";
 import { Tasa790Modal } from "./tasa790-modal";
 import { Tasa790026Modal } from "./tasa790026-modal";
 
@@ -15,9 +16,10 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], despegue = null }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], despegue = null, coheteUrl = null }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   despegue?: PresupuestoPrefill | null; // solo en el expediente de EJEMPLO: datos de la sesión para la ventana Aproba Despegue
+  coheteUrl?: string | null;
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
@@ -67,7 +69,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipos: union, ...(applicants.length ? { porMiembro: selMiembro } : {}) }),
       });
       if (res.ok) {
-        setMarcado(true); router.refresh();
+        setMarcado(true); router.refresh(); avisarGuia();
         if (despegue && esEjemplo(exp.referencia) && !despegueYaVisto()) setDespegueAbierto(true);
       } else { setErrorMarcar(true); }
     } catch {
@@ -95,7 +97,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
 
   return (
     <>
-      {despegueAbierto && despegue && <DespegueModal prefill={despegue} onClose={() => setDespegueAbierto(false)} />}
+      {despegueAbierto && despegue && <DespegueModal prefill={despegue} coheteUrl={coheteUrl} onClose={() => setDespegueAbierto(false)} />}
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
         <Link href={`/app/expedientes/${exp.id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
@@ -258,7 +260,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           ) : (
             <div className="flex items-center justify-end gap-3">
               {errorMarcar && <p role="alert" className="text-xs text-red-600">{t("No se pudo guardar. Reintenta con el botón.")}</p>}
-              <button onClick={marcarGenerados} disabled={marcando} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">
+              <button data-guia="marcar" onClick={marcarGenerados} disabled={marcando} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:border-aproba-400 hover:text-aproba-700 disabled:opacity-60">
                 {marcando ? t("Guardando…") : t("Marcar como generados")}
               </button>
             </div>

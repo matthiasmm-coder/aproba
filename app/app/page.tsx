@@ -6,43 +6,16 @@ import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { construirChecklist, esperandoAlCliente, MARCA_ENLACE, MARCA_SUBIDA_CLIENTE, type ChecklistItem } from "@/lib/activacion";
-import { REFERENCIA_EJEMPLO, EMAIL_CLIENTE_EJEMPLO } from "@/lib/ejemplo-marca";
+import { construirChecklist, esperandoAlCliente, type ChecklistItem } from "@/lib/activacion";
+import { fetchDatosActivacion } from "@/lib/data/activacion";
 import { getT } from "@/lib/app-lang";
 
 export const metadata = { title: "Inicio" };
 
-// État d'avancement de la configuration du despacho (pour la checklist du dashboard).
+// État d'avancement (checklist du dashboard) — même source que la guía interactiva.
 async function fetchChecklist(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, t: (s: string) => string): Promise<{ items: ChecklistItem[]; esperando: boolean }> {
   try {
-    const cnt = (tabla: string) => supabase.from(tabla).select("id", { count: "exact", head: true });
-    // El diario lleva su propia RLS (evt_tenant): filtra por despacho sin pasarle ids.
-    const evento = (marca: string) =>
-      supabase.from("ExpedienteEvento").select("id", { count: "exact", head: true }).like("descripcion", `%${marca}%`);
-    // El EJEMPLO (lib/ejemplo.ts) no cuenta: ni su cliente, ni su expediente, ni sus
-    // documentos. Si contara, la checklist daría «primer cliente» y «primer expediente»
-    // por hechos sin que el despacho hubiera tocado nada suyo — el fallo de Gesnet, otra vez.
-    const [svc, cta, cli, mem, sub, exp, enlaces, subidas, ejemplo, docsExp, docsCli] = await Promise.all([
-      cnt("ServicioConfig"), cnt("CuentaBancaria"),
-      cnt("Cliente").or(`email.is.null,email.neq.${EMAIL_CLIENTE_EJEMPLO}`),
-      cnt("Membership"),
-      supabase.from("Subscription").select("plan").limit(1).maybeSingle(),
-      cnt("Expediente").neq("referencia", REFERENCIA_EJEMPLO), evento(MARCA_ENLACE), evento(MARCA_SUBIDA_CLIENTE),
-      supabase.from("Expediente").select("id, formulariosGenerados").eq("referencia", REFERENCIA_EJEMPLO).maybeSingle(),
-      supabase.from("Documento").select("expedienteId").not("storagePath", "is", null),
-      supabase.from("DocumentoCliente").select("id", { count: "exact", head: true }),
-    ]);
-    const ej = ejemplo.data as { id: string; formulariosGenerados?: string[] | null } | null;
-    const propiosExp = (docsExp.data ?? []).filter((d) => (d as { expedienteId: string }).expedienteId !== ej?.id).length;
-    const datos = {
-      clientes: cli.count ?? 0, expedientes: exp.count ?? 0,
-      enlacesEnviados: enlaces.count ?? 0, subidasDeCliente: subidas.count ?? 0,
-      servicios: svc.count ?? 0, cuentas: cta.count ?? 0, miembros: mem.count ?? 0,
-      plan: (sub.data as { plan?: string } | null)?.plan ?? "STARTER",
-      ejemploId: ej?.id ?? null,
-      ejemploFormulariosGenerados: (ej?.formulariosGenerados ?? []).length > 0,
-      documentosPropios: propiosExp + (docsCli.error ? 0 : (docsCli.count ?? 0)),
-    };
+    const datos = await fetchDatosActivacion(supabase);
     return { items: construirChecklist(datos, t), esperando: esperandoAlCliente(datos) };
   } catch {
     return { items: [], esperando: false };

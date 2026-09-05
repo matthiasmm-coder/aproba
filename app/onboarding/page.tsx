@@ -18,22 +18,8 @@ export default async function Onboarding() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: mem } = await supabase
-    .from("Membership")
-    .select("role, Workspace(nombre, tipo), Subscription:Workspace(Subscription(plan, estado, stripeCustomerId, modoPrueba))")
-    .limit(1).maybeSingle();
-  let existente: { nombre: string; tipo: string; plan: string } | null = null;
-  if (mem) {
-    type Sub = { plan?: string; estado?: string; stripeCustomerId?: string | null; modoPrueba?: boolean | null };
-    const wsRaw = (mem as { Workspace?: { nombre?: string; tipo?: string } | { nombre?: string; tipo?: string }[] }).Workspace;
-    const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
-    const subWrap = (mem as { Subscription?: { Subscription?: Sub | Sub[] } | { Subscription?: Sub | Sub[] }[] }).Subscription;
-    const subW = Array.isArray(subWrap) ? subWrap[0] : subWrap;
-    const sub = Array.isArray(subW?.Subscription) ? subW?.Subscription[0] : subW?.Subscription;
-    const enAlta = sub?.estado === "TRIAL" && !sub?.stripeCustomerId && !sub?.modoPrueba && ["OWNER", "ADMIN"].includes(String(mem.role));
-    if (!enAlta) redirect("/app");
-    existente = { nombre: ws?.nombre ?? "", tipo: ws?.tipo ?? "GESTORIA", plan: sub?.plan ?? "STARTER" };
-  }
+  const { data: mem } = await supabase.from("Membership").select("id").limit(1).maybeSingle();
+  if (mem) redirect("/app");
 
   const nombre = (user.user_metadata?.nombre as string) || user.email || "";
   const primerNombre = nombre.split(" ")[0];
@@ -51,14 +37,14 @@ export default async function Onboarding() {
       <main className="mx-auto max-w-3xl px-6 pb-20 pt-6">
         <div className="mb-8">
           <p className="text-sm font-semibold text-aproba-700">Casi listo{primerNombre ? `, ${primerNombre}` : ""} 👋</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900 sm:text-3xl">Configura tu despacho</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900 sm:text-3xl">Crea tu despacho</h1>
           <p className="mt-2 text-slate-500">
-            Serás el <strong className="font-semibold text-slate-700">administrador</strong> de este espacio: podrás invitar a tu equipo y asignar roles cuando quieras.
+            Un minuto. Todo lo demás lo harás dentro, paso a paso, con un expediente de ejemplo ya resuelto esperándote.
           </p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
-          <OnboardingForm defaultNombre={nombre} existente={existente} />
+          <OnboardingForm defaultNombre={nombre} />
         </div>
       </main>
     </div>

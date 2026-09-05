@@ -389,6 +389,7 @@ export default async function ExpedienteDetail({
         )}
 
         {/* Documentos */}
+        <div data-guia="documentos">
         <SeccionPlegable
           id="documentos"
           completa={progresoExp.docs.completo}
@@ -513,6 +514,7 @@ export default async function ExpedienteDetail({
           />
           {!familia && <SubirDocumentoGestor expedienteId={e.id} />}
         </SeccionPlegable>
+        </div>
 
         {/* Formularios */}
         <SeccionPlegable
@@ -521,7 +523,7 @@ export default async function ExpedienteDetail({
           titulo={t("Formularios")}
           resumen={e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? `${e.formularios.length + (e.tieneTasa ? 1 : 0) + tasaMiembrosIds.length} PDF` : t("Sin generar")}
           right={
-            <Link href={`/app/expedientes/${e.id}/formularios`} className="-my-2 py-2 text-xs font-semibold text-aproba-700 hover:underline sm:my-0 sm:py-0">
+            <Link href={`/app/expedientes/${e.id}/formularios`} data-guia="generar" className="-my-2 py-2 text-xs font-semibold text-aproba-700 hover:underline sm:my-0 sm:py-0">
               {e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? t("Ver / imprimir →") : t("Generar →")}
             </Link>
           }

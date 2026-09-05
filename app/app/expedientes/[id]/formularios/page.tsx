@@ -70,5 +70,8 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
       despegue = { nombre: nombre ?? "", apellidos: resto.join(" "), despacho: d.nombre === "Mi despacho" ? "" : d.nombre, email: user?.email ?? "" };
     } catch { despegue = { nombre: "", apellidos: "", despacho: "", email: "" }; }
   }
-  return <FormulariosView despegue={despegue} faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Cohete IA (scripts/imagen-despegue.mjs) si está generado; si no, el SVG.
+  let coheteUrl: string | null = null;
+  try { const { existsSync } = await import("node:fs"); if (existsSync("public/despegue-cohete.png")) coheteUrl = "/despegue-cohete.png"; } catch { /* */ }
+  return <FormulariosView despegue={despegue} coheteUrl={coheteUrl} faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

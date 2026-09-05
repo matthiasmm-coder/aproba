@@ -92,7 +92,7 @@ export function DocumentosCliente({ clienteId, docs }: { clienteId: string; docs
         <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600">
           {TIPOS.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
         </select>
-        <button onClick={() => fileRef.current?.click()} disabled={subiendo} className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
+        <button onClick={() => fileRef.current?.click()} disabled={subiendo} data-guia="subir" className="inline-flex items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
           {subiendo ? t("Subiendo…") : t("Subir documento")}
         </button>
