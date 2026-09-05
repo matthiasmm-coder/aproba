@@ -51,7 +51,7 @@ function Pregunta({ onSi, onNo, coheteUrl }: { onSi: () => void; onNo: () => voi
         </div>
         <div className="grid grid-cols-2 gap-2.5 px-6 pt-5 sm:px-8">
           {beneficios.map((b) => (
-            <div key={b.titulo} className="rounded-xl border border-slate-200 bg-cream-50/60 p-3">
+            <div key={b.titulo} className="flex flex-col items-center rounded-xl border border-slate-200 bg-cream-50/60 p-3 text-center">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aproba-100 text-aproba-700">{b.icono}</span>
               <p className="mt-2 text-sm font-bold text-slate-900">{b.titulo}</p>
               <p className="text-xs text-slate-500">{b.detalle}</p>
