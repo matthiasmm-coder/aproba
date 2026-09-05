@@ -4,7 +4,7 @@ import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
-import { DemoButton } from "@/components/solicitar-demo";
+import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 
 const PAINS = [
   "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",
@@ -186,12 +186,15 @@ export default function Landing() {
               antes de presentarlo y vigila cada renovación. Lo que te llevaba 3 horas, en 30 minutos.
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
-              <DemoButton className="w-full px-6 py-3 sm:w-auto" />
+              <PruebaButton className="w-full px-6 py-3 sm:w-auto" />
               <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
                 Descubrir en 90s
               </a>
             </div>
-            <p className="mt-4 text-xs text-slate-500">Demo online de 20–30 min · después, 15 días de prueba gratis sin tarjeta</p>
+            <p className="mt-4 text-xs text-slate-500">
+              Sin tarjeta · entras con un expediente de ejemplo ya resuelto ·{" "}
+              <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2 hover:text-aproba-800">¿prefieres una demo de 20 min?</a>
+            </p>
           </div>
 
           {/* Animation */}
@@ -277,7 +280,7 @@ export default function Landing() {
             <span className="font-semibold text-slate-900"> Importa tu lista y Aproba te avisa de cada una a tiempo.</span>
           </p>
           <div className="mt-6">
-            <DemoButton className="px-6 py-3" />
+            <PruebaButton className="px-6 py-3" />
           </div>
         </div>
       </section>
@@ -377,7 +380,7 @@ export default function Landing() {
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>
-                <DemoButton variant={p.destacado ? "primary" : "outline"} className="mt-7 w-full px-4 py-2.5" />
+                <PruebaButton variant={p.destacado ? "primary" : "outline"} className="mt-7 w-full px-4 py-2.5" />
               </div>
               </Reveal>
             ))}
@@ -409,9 +412,12 @@ export default function Landing() {
       <section className="border-t border-slate-200 bg-aproba-600">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
-          <p className="mx-auto mt-3 max-w-lg text-aproba-100">Ve Aproba con tus propios casos, en 20 minutos y sin compromiso.</p>
-          <DemoButton variant="invert" className="mt-8 px-6 py-3" />
-          <p className="mt-4 text-xs text-aproba-200">Eliges tú el día y la hora · confirmación al instante</p>
+          <p className="mx-auto mt-3 max-w-lg text-aproba-100">Entra hoy: un expediente de ejemplo ya resuelto te espera dentro. Sin tarjeta.</p>
+          <PruebaButton variant="invert" className="mt-8 px-6 py-3" />
+          <p className="mt-4 text-xs text-aproba-200">
+            ¿Prefieres que te lo enseñe?{" "}
+            <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-white underline decoration-aproba-300 underline-offset-2">Reserva 20 minutos</a>
+          </p>
         </div>
       </section>
 

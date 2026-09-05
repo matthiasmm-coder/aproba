@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { TelefonoInput } from "@/components/telefono-input";
 
 // CTA «Solicita una demo» + modal con el formulario.
@@ -34,6 +35,17 @@ export function DemoButton({ variant = "primary", className = "", children }: { 
     </a>
   );
 }
+
+// CTA único de la landing (05/09/2026): el ensayo. Medido en 75 días: 21 altas de 21 por
+// «Prueba 15 días gratis», 0 por la demo. El enlace de Calendly queda como secundario.
+export function PruebaButton({ variant = "primary", className = "", children }: { variant?: keyof typeof VARIANTES; className?: string; children?: React.ReactNode }) {
+  return (
+    <Link href="/signup?modo=prueba" className={`inline-block whitespace-nowrap rounded-lg text-center text-sm font-semibold transition ${VARIANTES[variant]} ${className}`}>
+      {children ?? "Prueba 15 días gratis"}
+    </Link>
+  );
+}
+export const DEMO_URL = CALENDLY_URL;
 
 const VOLUMENES = ["1–10", "10–30", "30–100", "Más de 100"];
 
