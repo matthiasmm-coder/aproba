@@ -1650,7 +1650,7 @@ export const CA: Record<string, string> = {
   "Descartado": "Descartat",
   "Bandeja de entrada": "Safata d'entrada",
   "Integraciones": "Integracions",
-  "Recibir documentos por email · bandeja de entrada": "Rebre documents per correu electrònic · safata d'entrada",
+  "Email entrante · bandeja · Google Meet": "Correu entrant · safata · Google Meet",
   "Documentos recibidos por email que esperan a que digas de qué cliente son.": "Documents rebuts per correu que esperen que diguis de quin client són.",
   "Mi dirección de recepción": "La meva adreça de recepció",
   "La recepción por email estará disponible cuando se aplique la migración de la base de datos.": "La recepció per correu estarà disponible quan s'apliqui la migració de la base de dades.",

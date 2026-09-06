@@ -288,7 +288,7 @@ export default async function Ajustes() {
           title={t("Integraciones")}
           subtitle={bandeja.pendientes.length > 0
             ? `${bandeja.pendientes.length} ${bandeja.pendientes.length === 1 ? t("email por asignar") : t("emails por asignar")}`
-            : t("Recibir documentos por email · bandeja de entrada")}
+            : t("Email entrante · bandeja · Google Meet")}
           icon={IconIntegraciones}
         >
           <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={bandeja.pendientes.length} />
@@ -301,6 +301,13 @@ export default async function Ajustes() {
               <BandejaEntrada pendientes={bandeja.pendientes} recientes={bandeja.recientes} clientes={bandeja.clientes} expedientes={bandeja.expedientes} />
             )}
           </div>
+
+          {/* Videollamadas (Google Meet): conectar la cuenta de Google es administración. */}
+          {puedeEditar && (
+            <div className="mt-8 border-t border-slate-200 pt-4">
+              <GoogleCalendarConfig />
+            </div>
+          )}
         </AjustesSection>
 
         {puedeEditar && (
@@ -518,8 +525,6 @@ export default async function Ajustes() {
             </div>
           )}
 
-          {/* Integración de videollamadas (Google Meet) — cierra la sección. */}
-          {puedeEditar && <GoogleCalendarConfig />}
 
         </AjustesSection>
       </div>
