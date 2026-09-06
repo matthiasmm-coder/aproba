@@ -54,8 +54,10 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     subject = `Re: ${asuntoBase}`;
     if (o.creado) {
       titulo = `He creado a ${o.clienteNombre ?? "el cliente"} y guardado sus documentos`;
-      cuerpo = `<p>No lo tenía: he creado a <b>${esc(o.clienteNombre ?? "")}</b> con lo que dice su documento de identidad${o.creado.length ? ` (${o.creado.map(esc).join(", ")})` : ""} y ${o.nAdjuntos} documento(s) en su ficha${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
-        + `<p>Revisa la ficha por si algo está mal leído. Cuando le abras un expediente, estos documentos caerán en sus casillas.</p>`;
+      const origen = o.creado.length ? `con lo que dice su documento de identidad (${o.creado.map(esc).join(", ")})` : "con el nombre que me has dado";
+      const docs = o.nAdjuntos > 0 ? ` y ${o.nAdjuntos} documento(s) en su ficha${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}` : "";
+      cuerpo = `<p>No lo tenía: he creado a <b>${esc(o.clienteNombre ?? "")}</b> ${origen}${docs}.</p>`
+        + (o.creado.length ? `<p>Revisa la ficha por si algo está mal leído. ` : `<p>Completa su ficha cuando tengas su pasaporte: reenvíamelo y la relleno. `) + `Cuando le abras un expediente, sus documentos caerán en sus casillas.</p>`;
     } else {
       titulo = `Guardado en la ficha de ${o.clienteNombre ?? "el cliente"}`;
       cuerpo = `<p>${o.nAdjuntos} documento(s) guardado(s) en la ficha de <b>${esc(o.clienteNombre ?? "")}</b>${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
