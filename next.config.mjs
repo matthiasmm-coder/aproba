@@ -14,6 +14,13 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // La bandeja de entrada vive en Ajustes → Integraciones desde el 06/09/2026; la ruta
+  // antigua (emails ya enviados, marcadores) redirige a la sección abierta. Redirección
+  // HTTP real (307): un redirect() en la página llegaba tras el streaming del layout y
+  // se convertía en un <meta refresh> de 1 s.
+  async redirects() {
+    return [{ source: "/app/bandeja", destination: "/app/ajustes?abrir=integraciones", permanent: false }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

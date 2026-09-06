@@ -47,7 +47,7 @@ COBROS: por transferencia (aparece tu IBAN en la factura) o con tarjeta (Stripe)
 
 HOJA DE ENCARGO Y MANDATO: si lo activas en Ajustes, se generan automáticamente y el cliente los firma desde su enlace.
 
-AJUSTES: servicios y tarifas (anticipo/resto, documentos requeridos, suplidos, qué NO incluye), cuenta bancaria, datos de facturación, notificaciones al cliente (ver AVISOS AL CLIENTE), equipo (invitar compañeros y roles), plan y suscripción, idioma de la interfaz (español/català) e instalar la app.
+AJUSTES: servicios y tarifas (anticipo/resto, documentos requeridos, suplidos, qué NO incluye), cuenta bancaria, datos de facturación, notificaciones al cliente (ver AVISOS AL CLIENTE), integraciones (la dirección docs-…@in.aproba-software.com a la que el despacho reenvía los emails de clientes con documentos —entran solos en la ficha o el expediente— y, debajo, la bandeja de entrada con los emails que Aproba no supo de quién eran, para asignarlos en un clic; ya no hay pestaña «Bandeja» en el menú), equipo (invitar compañeros y roles), plan y suscripción, idioma de la interfaz (español/català) e instalar la app.
 
 PROBLEMAS FRECUENTES
 - «El cliente no recibe / ha perdido su enlace»: usa «Recordar al cliente» (ficha del expediente) o «Recordar» en la tarjeta del tablero; comprueba que el email del cliente es correcto en su ficha y dile que revise su carpeta de spam. También puedes copiar el enlace y mandárselo tú por WhatsApp.

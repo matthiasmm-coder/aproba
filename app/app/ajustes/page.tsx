@@ -28,27 +28,58 @@ import { getT } from "@/lib/app-lang";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { RecibirDocumentosConfig } from "@/components/recibir-documentos-config";
+import { BandejaEntrada, type FilaBandeja, type ClienteOpcion, type ExpedienteOpcion } from "@/components/bandeja-entrada";
 import { direccionEntrante, generarTokenEntrante } from "@/lib/email-entrante";
 
 // Dirección de recepción de documentos por email del despacho (03/09/2026): el token
 // vive en Workspace.emailEntranteToken; si la migración lo dejó vacío, se genera aquí
 // una sola vez. Sin la columna (migración pendiente) → null y el bloque lo dice.
-async function direccionRecepcion(): Promise<{ direccion: string | null; pendientes: number }> {
+async function direccionRecepcion(): Promise<{ direccion: string | null }> {
   try {
     const supabase = await createSupabaseServer();
     const { data: m, error } = await supabase.from("Membership").select("workspaceId, Workspace(emailEntranteToken)").limit(1).maybeSingle();
-    if (error || !m) return { direccion: null, pendientes: 0 };
+    if (error || !m) return { direccion: null };
     const wsRaw = (m as { Workspace?: { emailEntranteToken?: string | null } | { emailEntranteToken?: string | null }[] }).Workspace;
     const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
     let token = ws?.emailEntranteToken ?? null;
     if (!token) {
       token = generarTokenEntrante();
       const { error: eUp } = await createSupabaseAdmin().from("Workspace").update({ emailEntranteToken: token }).eq("id", m.workspaceId as string);
-      if (eUp) return { direccion: null, pendientes: 0 };
+      if (eUp) return { direccion: null };
     }
-    const { count } = await supabase.from("BandejaEntrada").select("id", { count: "exact", head: true }).eq("estado", "PENDIENTE");
-    return { direccion: direccionEntrante(token), pendientes: count ?? 0 };
-  } catch { return { direccion: null, pendientes: 0 }; }
+    return { direccion: direccionEntrante(token) };
+  } catch { return { direccion: null }; }
+}
+
+// Bandeja de entrada (Ajustes → Integraciones, 06/09/2026): emails con documentos que
+// Aproba no ha podido atribuir a un cliente, más los últimos colocados. Todo bajo RLS.
+// Los selectores de asignación (clientes + expedientes vivos) solo se cargan si hay
+// algo pendiente: en un despacho grande son miles de filas para una sección plegada.
+type Bandeja = { faltaMigracion: boolean; pendientes: FilaBandeja[]; recientes: FilaBandeja[]; clientes: ClienteOpcion[]; expedientes: ExpedienteOpcion[] };
+async function fetchBandeja(): Promise<Bandeja> {
+  const vacia: Bandeja = { faltaMigracion: false, pendientes: [], recientes: [], clientes: [], expedientes: [] };
+  try {
+    const supabase = await createSupabaseServer();
+    const cols = "id, remitente, remitenteNombre, asunto, texto, recibidoAt, adjuntos, clienteId, expedienteId, estado, motivo";
+    const [pend, rec] = await Promise.all([
+      supabase.from("BandejaEntrada").select(cols).eq("estado", "PENDIENTE").order("recibidoAt", { ascending: false }).limit(100),
+      supabase.from("BandejaEntrada").select(cols).neq("estado", "PENDIENTE").order("updatedAt", { ascending: false }).limit(15),
+    ]);
+    if (pend.error) return { ...vacia, faltaMigracion: /BandejaEntrada|relation|schema cache/i.test(pend.error.message) };
+    const pendientes = (pend.data ?? []) as FilaBandeja[];
+    const recientes = (rec.data ?? []) as FilaBandeja[];
+    if (pendientes.length > 0) {
+      const [cli, exps] = await Promise.all([
+        supabase.from("Cliente").select("id, nombre, apellidos").order("nombre", { ascending: true }).limit(2000),
+        supabase.from("Expediente").select("id, clienteId, referencia, tipo, archivadoAt").is("archivadoAt", null).limit(2000),
+      ]);
+      const expedientes = ((exps.data ?? []) as (ExpedienteOpcion & { archivadoAt: string | null })[]).filter((e) => e.clienteId);
+      return { faltaMigracion: false, pendientes, recientes, clientes: (cli.data ?? []) as ClienteOpcion[], expedientes };
+    }
+    const ids = [...new Set(recientes.map((r) => r.clienteId).filter((x): x is string => Boolean(x)))];
+    const cli = ids.length ? await supabase.from("Cliente").select("id, nombre, apellidos").in("id", ids) : { data: [] as ClienteOpcion[] };
+    return { faltaMigracion: false, pendientes, recientes, clientes: (cli.data ?? []) as ClienteOpcion[], expedientes: [] };
+  } catch { return vacia; }
 }
 
 export const metadata = { title: "Ajustes" };
@@ -96,6 +127,15 @@ const IconFacturacion = (
   </svg>
 );
 
+const IconIntegraciones = (
+  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22v-5" />
+    <path d="M9 8V2" />
+    <path d="M15 8V2" />
+    <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+  </svg>
+);
+
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
   // ⚠️ Promise.all : UN SEUL rejet tue la page entière. Les cinq autres appels
@@ -114,6 +154,7 @@ export default async function Ajustes() {
   const { servicios } = srv;
   const { avisos } = avs;
   const recepcion = await direccionRecepcion();
+  const bandeja = await fetchBandeja();
   // Si la lecture a échoué, on montre les valeurs par DÉFAUT : enregistrer à ce
   // moment-là écraserait la configuration réelle du despacho. On le dit.
   const configNoCargada = Boolean(srv.fallo || avs.fallo);
@@ -235,7 +276,31 @@ export default async function Ajustes() {
               />
             )}
           </fieldset>
-          <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={recepcion.pendientes} />
+        </AjustesSection>
+
+        {/* Integraciones — lo que entra en Aproba sin pasar por la app (06/09/2026): la
+            dirección de recepción de documentos por email y la bandeja con los emails que
+            Aproba no supo de quién eran. Antes: tarjeta dentro de Notificaciones + pestaña
+            «Bandeja» del menú (retirada; /app/bandeja redirige aquí). Visible para todo el
+            equipo: asignar un email es trabajo de gestor, no de administración. */}
+        <AjustesSection
+          id="integraciones"
+          title={t("Integraciones")}
+          subtitle={bandeja.pendientes.length > 0
+            ? `${bandeja.pendientes.length} ${bandeja.pendientes.length === 1 ? t("email por asignar") : t("emails por asignar")}`
+            : t("Recibir documentos por email · bandeja de entrada")}
+          icon={IconIntegraciones}
+        >
+          <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={bandeja.pendientes.length} />
+          <div id="bandeja" className="mt-8 border-t border-slate-200 pt-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Bandeja de entrada")}</h3>
+            <p className="mb-4 mt-1 text-xs text-slate-500">{t("Documentos recibidos por email que esperan a que digas de qué cliente son.")}</p>
+            {bandeja.faltaMigracion ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("La recepción por email estará disponible cuando se aplique la migración de la base de datos.")}</p>
+            ) : (
+              <BandejaEntrada pendientes={bandeja.pendientes} recientes={bandeja.recientes} clientes={bandeja.clientes} expedientes={bandeja.expedientes} />
+            )}
+          </div>
         </AjustesSection>
 
         {puedeEditar && (

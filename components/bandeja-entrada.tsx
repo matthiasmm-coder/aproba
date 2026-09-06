@@ -75,7 +75,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
           <p className="text-sm font-medium text-slate-700">{t("Nada por asignar.")}</p>
           <p className="mt-1 text-xs text-slate-500">{t("Los emails que reenvíes a tu dirección de recepción y que Aproba no sepa de quién son aparecerán aquí.")}</p>
-          <Link href="/app/ajustes?abrir=notificaciones" className="mt-3 inline-block text-xs font-medium text-aproba-700 underline underline-offset-2">{t("Ver mi dirección de recepción")}</Link>
+          <Link href="#recepcion" className="mt-3 inline-block text-xs font-medium text-aproba-700 underline underline-offset-2">{t("Ver mi dirección de recepción")}</Link>
         </div>
       ) : pendientes.map((fila) => {
         const s = estadoDe(fila.id, fila);

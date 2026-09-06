@@ -235,8 +235,8 @@ async function avisarDespacho(resend: Resend, o: { para: string; gestoria: strin
   const detalle = o.pendiente
     ? `<p>Ha llegado un email de <b>${escapar(o.remitente)}</b>${o.asunto ? ` («${escapar(o.asunto)}»)` : ""} con ${o.nAdjuntos} adjunto(s) y no hemos podido saber de qué cliente es. Asígnalo desde la bandeja.</p>`
     : `<p>${escapar(o.cliente ?? "")} ha enviado ${o.nAdjuntos} documento(s) por email${o.referencia ? `, guardados en el expediente <b>${escapar(o.referencia)}</b>` : ", guardados en su ficha"}.</p>`;
-  const html = emailLayout({ gestoria: o.gestoria, titulo, cuerpoHtml: detalle, cta: { url: `${o.baseUrl}/app/bandeja`, label: o.pendiente ? "Asignar en la bandeja" : "Ver la bandeja" } });
-  const { error } = await resend.emails.send({ from, to: o.para, subject: titulo, html, text: `${titulo}. ${o.baseUrl}/app/bandeja` });
+  const html = emailLayout({ gestoria: o.gestoria, titulo, cuerpoHtml: detalle, cta: { url: `${o.baseUrl}/app/ajustes?abrir=integraciones`, label: o.pendiente ? "Asignar en la bandeja" : "Ver la bandeja" } });
+  const { error } = await resend.emails.send({ from, to: o.para, subject: titulo, html, text: `${titulo}. ${o.baseUrl}/app/ajustes?abrir=integraciones` });
   if (error) console.error("[email entrante] aviso al despacho:", error.message);
 }
 

@@ -49,7 +49,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     cuerpo = `<p>Guardé ${o.nAdjuntos} adjunto(s) del email «${esc(o.asunto)}».</p>`
       + (lista.length ? `<p>Podría ser uno de estos clientes: <b>${lista.map(esc).join("</b>, <b>")}</b>.</p>` : "")
       + `<p><b>Responde a este email con el nombre completo del cliente</b> (o su NIE, pasaporte o teléfono) y lo coloco en su expediente. Si es un cliente nuevo, dímelo también y lo creo.</p>`;
-    cta = { url: `${o.baseUrl}/app/bandeja`, label: "O asignarlo en la bandeja" };
+    cta = { url: `${o.baseUrl}/app/ajustes?abrir=integraciones`, label: "O asignarlo en la bandeja" };
   } else if (!o.expedienteId) {
     subject = `Re: ${asuntoBase}`;
     if (o.creado) {
