@@ -9,6 +9,8 @@ import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { construirChecklist, type ChecklistItem } from "@/lib/activacion";
 import { fetchDatosActivacion } from "@/lib/data/activacion";
 import { getT } from "@/lib/app-lang";
+import { MemoriaActividadCard } from "@/components/memoria-actividad-card";
+import { puedeGestionarEquipo } from "@/lib/planes";
 
 export const metadata = { title: "Inicio" };
 
@@ -47,9 +49,12 @@ export default async function Dashboard() {
   // llevan nada), no los de Zaragoza. Los admins no están anclados: aparecen solo
   // si llevan carga en la vista. RLS enseña todas las membresías del despacho.
   let equipo: { nombre: string; esAdmin: boolean; sedes: string[] }[] = [];
+  // Mi rol: la memoria de actividad (documento institucional) solo se enseña a la administración.
+  let miRol: string | null = null;
   try {
-    let res = await supabase.from("Membership").select("role, oficinaId, oficinaIds, user:User(nombre)");
-    if (res.error) res = await supabase.from("Membership").select("role, oficinaId, user:User(nombre)") as typeof res;
+    let res = await supabase.from("Membership").select("userId, role, oficinaId, oficinaIds, user:User(nombre)");
+    if (res.error) res = await supabase.from("Membership").select("userId, role, oficinaId, user:User(nombre)") as typeof res;
+    miRol = ((res.data ?? []) as { userId?: string; role?: string }[]).find((m) => m.userId === user?.id)?.role ?? null;
     equipo = (res.data ?? []).flatMap((m) => {
       const fila = m as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null; user?: { nombre: string | null } | { nombre: string | null }[] | null };
       const u = Array.isArray(fila.user) ? fila.user[0] : fila.user;
@@ -61,6 +66,7 @@ export default async function Dashboard() {
       }];
     });
   } catch { equipo = []; }
+  const esAdmin = miRol ? puedeGestionarEquipo(miRol) : true;
   const sedesVista = activa ? [activa] : filtroSede.sedes;
   const items: DashItem[] = expedientes.map((e) => ({
     id: e.id,
@@ -88,6 +94,8 @@ export default async function Dashboard() {
       <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
+      {/* Memoria de actividad (art. 8.1.f): cierra el Inicio de los administradores. */}
+      {esAdmin && <MemoriaActividadCard />}
     </>
   );
 }

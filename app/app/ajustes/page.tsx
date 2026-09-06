@@ -18,7 +18,6 @@ import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
 import { EquipoManager } from "@/components/equipo-manager";
 import { OficinasManager } from "@/components/oficinas-manager";
-import { MemoriaActividad } from "@/components/memoria-actividad";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { FotoPerfil } from "@/components/foto-perfil";
@@ -513,17 +512,6 @@ export default async function Ajustes() {
           <div className="mt-4">
             <InstallPWA />
           </div>
-
-          {/* Memoria de actividad — art. 8.1.f de la Orden ISM/164/2026. Las entidades
-              inscritas en el Registro de Colaboradores de Extranjería deben aportarla al
-              renovar su inscripción; el resto de despachos la usa como memoria anual.
-              Solo administración: es un documento institucional de la entidad entera. */}
-          {puedeEditar && (
-            <div id="memoria" className="mt-4 rounded-xl border border-slate-200 bg-white p-5 text-center">
-              <p className="text-sm font-semibold text-slate-800">{t("Memoria de actividad")}</p>
-              <MemoriaActividad />
-            </div>
-          )}
 
 
         </AjustesSection>

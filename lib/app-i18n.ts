@@ -1661,7 +1661,7 @@ export const CA: Record<string, string> = {
   // ── Memoria de actividad (art. 8.1.f Orden ISM/164/2026) ──
   "Memoria de actividad": "Memòria d'activitat",
   "Informe del período para la prórroga como entidad colaboradora": "Informe del període per a la pròrroga com a entitat col·laboradora",
-  "Resume tu actividad en un período: expedientes tramitados, procedimientos, actuaciones y recursos empleados. Es lo que pide el artículo 8.1.f de la Orden ISM/164/2026 a las entidades colaboradoras de extranjería al renovar su inscripción.": "Resumeix la teva activitat en un període: expedients tramitats, procediments, actuacions i recursos emprats. És el que demana l'article 8.1.f de l'Ordre ISM/164/2026 a les entitats col·laboradores d'estrangeria en renovar la seva inscripció.",
+  "Expedientes, procedimientos y actuaciones de un período, en un PDF. Es lo que pide el artículo 8.1.f de la Orden ISM/164/2026 al renovar la inscripción como entidad colaboradora.": "Expedients, procediments i actuacions d'un període, en un PDF. És el que demana l'article 8.1.f de l'Ordre ISM/164/2026 en renovar la inscripció com a entitat col·laboradora.",
   "Descargar memoria en PDF": "Descarregar memòria en PDF",
   "No se pudo calcular la memoria.": "No s'ha pogut calcular la memòria.",
   "No se pudo generar la memoria.": "No s'ha pogut generar la memòria.",
