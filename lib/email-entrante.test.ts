@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import { MARCADOR, marcadorDeAsunto, sinTextoCitado,
   direccionEntrante, tokenDeDireccion, tokenDeDestinatarios, direccionDe, nombreDe, limpiarCuerpo,
   extraerPistas, emparejarCliente, extensionAdmitida, nombreArchivoSeguro, generarTokenEntrante, type ClienteCandidato,
 } from "./email-entrante";
@@ -93,5 +93,21 @@ describe("adjuntos", () => {
   it("normaliza el nombre del archivo", () => {
     expect(nombreArchivoSeguro("Pasaporte Fátima (2026).pdf", "pdf", 0)).toBe("Pasaporte-Fatima-2026.pdf");
     expect(nombreArchivoSeguro(null, "jpg", 2)).toBe("adjunto-3.jpg");
+  });
+});
+
+
+describe("hilo de respuesta · marcador y texto propio", () => {
+  it("el marcador viaja en el asunto y se recupera de un «Re:»", () => {
+    const m = MARCADOR("3f2a9c1e-77b1-4c4d-9c1a-0f0e1d2c3b4a");
+    expect(m).toBe("[APROBA-3f2a9c1e]");
+    expect(marcadorDeAsunto(`Re: Fwd: Documentos · ¿de quién es? ${m}`)).toBe("3f2a9c1e");
+    expect(marcadorDeAsunto("Fwd: Documentos de Fatima")).toBeNull();
+  });
+  it("solo cuenta lo que escribió el gestor, no la cita del email anterior", () => {
+    const cuerpo = "Es de Fatima El Amrani\n\nEl 6 sept 2026, a las 10:02, Gestoría escribió:\n> Ha llegado un email…\n> con 2 adjuntos";
+    expect(sinTextoCitado(cuerpo)).toBe("Es de Fatima El Amrani");
+    expect(sinTextoCitado("De: Aproba <avisos@aproba-software.com>\nHola")).toBe("");
+    expect(sinTextoCitado("> cita\nRespuesta")).toBe("Respuesta");
   });
 });

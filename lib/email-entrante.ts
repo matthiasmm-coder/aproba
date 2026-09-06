@@ -164,3 +164,26 @@ export function nombreArchivoSeguro(nombre: string | null | undefined, ext: stri
 }
 
 function uniq<T>(xs: T[]): T[] { return Array.from(new Set(xs)); }
+
+
+// ── Hilo de respuesta (06/09/2026) ─────────────────────────────────────────────
+// Cuando no se sabe de qué cliente es un email, Aproba responde al gestor con un marcador
+// en el asunto; si el gestor contesta «es de Fulano», el marcador identifica la fila
+// pendiente y el nombre la resuelve, sin abrir la app.
+export const MARCADOR = (filaId: string): string => `[APROBA-${filaId.replace(/-/g, "").slice(0, 8)}]`;
+export function marcadorDeAsunto(asunto: string | null | undefined): string | null {
+  const m = /\[APROBA-([0-9a-f]{8})\]/i.exec(asunto ?? "");
+  return m ? m[1].toLowerCase() : null;
+}
+// Solo lo que ESCRIBIÓ el gestor: fuera las líneas citadas y todo lo que sigue a la cabecera
+// de cita («El … escribió:», «On … wrote:», «-----Original Message-----», «De: …»).
+export function sinTextoCitado(cuerpo: string | null | undefined): string {
+  const lineas = (cuerpo ?? "").split(/\r?\n/);
+  const out: string[] = [];
+  for (const l of lineas) {
+    if (/^\s*>/.test(l)) continue;
+    if (/^(El .{3,80} escribi[oó]:|On .{3,80} wrote:|-{2,}\s*(Original Message|Mensaje original)\s*-{2,}|De:\s.+|From:\s.+|Le .{3,80} a écrit\s*:)\s*$/i.test(l.trim())) break;
+    out.push(l);
+  }
+  return out.join("\n").trim();
+}

@@ -7,9 +7,11 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsDeExpediente, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { clasificarDeteccion, DOC_LABEL } from "@/lib/tramites";
 import { emailLayout } from "@/lib/notificaciones";
+import { responderAlGestor } from "@/lib/email-respuesta";
 import {
   tokenDeDestinatarios, direccionDe, nombreDe, limpiarCuerpo, extraerPistas, emparejarCliente,
   extensionAdmitida, mimeDeExtension, nombreArchivoSeguro, type ClienteCandidato,
+  marcadorDeAsunto, sinTextoCitado,
 } from "@/lib/email-entrante";
 
 // RECEPCIÓN DE DOCUMENTOS POR EMAIL — parte con red (Resend + Supabase).
@@ -39,7 +41,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   const token = tokenDeDestinatarios([mail.to, mail.cc, extra, [headers["delivered-to"] ?? "", headers["x-original-to"] ?? "", headers["to"] ?? ""]]);
   if (!token) return { ok: false, motivo: "sin token de despacho en el destinatario" };
 
-  const { data: ws } = await admin.from("Workspace").select("id, nombre").eq("emailEntranteToken", token).maybeSingle();
+  const { data: ws } = await admin.from("Workspace").select("id, nombre, emailEntranteToken").eq("emailEntranteToken", token).maybeSingle();
   if (!ws) return { ok: false, motivo: "token desconocido" };
 
   // Miembros del despacho: sus emails no son pistas de cliente (es quien reenvía).
@@ -56,27 +58,39 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   const esMiembro = emailsMiembros.has(remitente);
 
   // Adjuntos admitidos → bucket privado bajo bandeja/<ws>/<email>/.
-  const lista = await resend.emails.receiving.attachments.list({ emailId });
-  const adjuntos: AdjuntoBandeja[] = [];
-  let i = 0;
-  for (const a of lista.data?.data ?? []) {
-    const ext = extensionAdmitida({ filename: a.filename ?? null, content_type: a.content_type, size: a.size, content_disposition: a.content_disposition ?? null, content_id: a.content_id ?? null });
-    if (!ext) continue;
-    const res = await fetch(a.download_url).catch(() => null);
-    if (!res || !res.ok) continue;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const nombre = nombreArchivoSeguro(a.filename, ext, i);
-    const storagePath = `bandeja/${ws.id}/${emailId}/${i}-${nombre}`;
-    const mime = mimeDeExtension(ext);
-    const up = await admin.storage.from("documentos").upload(storagePath, buffer, { contentType: mime, upsert: true });
-    if (up.error) { console.error("[email entrante] storage:", up.error.message); continue; }
-    adjuntos.push({ nombre, mime, size: buffer.length, storagePath });
-    i++;
-  }
+  const adjuntos = await guardarAdjuntos(resend, admin, ws.id as string, emailId);
 
   const cuerpo = limpiarCuerpo(mail.text, mail.html);
   const { data: cli } = await admin.from("Cliente").select("id, nombre, apellidos, email, telefono, numeroDocumento").eq("workspaceId", ws.id);
   const clientes = (cli ?? []) as ClienteCandidato[];
+  const nombreCliente = (id: string | null | undefined) => { const c = clientes.find((x) => x.id === id); return c ? `${c.nombre} ${c.apellidos ?? ""}`.trim() : null; };
+  const userIdRemitente = esMiembro ? await userIdDe(admin, remitente) : null;
+  const tokenBandeja = ws.emailEntranteToken as string;
+
+  // ── Respuesta del gestor a un «¿de quién es?»: el marcador del asunto identifica la fila
+  //    pendiente; lo que escribió (sin la cita) resuelve el cliente. Sin abrir la app.
+  const marcador = marcadorDeAsunto(mail.subject);
+  if (marcador && esMiembro) {
+    const { data: pend } = await admin.from("BandejaEntrada").select("id, adjuntos, asunto").eq("workspaceId", ws.id).eq("estado", "PENDIENTE").like("id", `${marcador}%`).maybeSingle();
+    if (pend) {
+      const propio = sinTextoCitado(cuerpo);
+      const pistasR = extraerPistas(`${propio}\n${adjuntos.map((a) => a.nombre).join("\n")}`, emailsMiembros);
+      const empR = emparejarCliente(clientes, pistasR);
+      const previos = (pend.adjuntos ?? []) as AdjuntoBandeja[];
+      if (adjuntos.length) await admin.from("BandejaEntrada").update({ adjuntos: [...previos, ...adjuntos] }).eq("id", pend.id);
+      const total = previos.length + adjuntos.length;
+      if (empR.cliente) {
+        let r: Awaited<ReturnType<typeof asignarBandeja>> | null = null;
+        try { r = await asignarBandeja(admin, { filaId: pend.id as string, clienteId: empR.cliente.id, expedienteId: null, baseUrl, motivo: `respuesta del gestor (${empR.motivo})` }); }
+        catch (err) { console.error("[email entrante] asignación por respuesta fallida:", err instanceof Error ? err.message : err); }
+        const { data: filaR } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", pend.id).maybeSingle();
+        await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], clienteId: r ? empR.cliente.id : null, clienteNombre: nombreCliente(empR.cliente.id), expedienteId: (filaR?.expedienteId as string | null) ?? null, userId: userIdRemitente });
+        return { ok: true, motivo: r ? `asignado por respuesta (${empR.motivo})` : "respuesta: asignación fallida", filaId: pend.id as string };
+      }
+      await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: [], clienteId: null, clienteNombre: null, expedienteId: null, candidatos: empR.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), userId: userIdRemitente });
+      return { ok: true, motivo: `respuesta sin resolver (${empR.motivo})`, filaId: pend.id as string };
+    }
+  }
   const texto = `${esMiembro ? "" : mail.from}\n${mail.subject ?? ""}\n${cuerpo}\n${adjuntos.map((a) => a.nombre).join("\n")}`;
   const pistas = extraerPistas(texto, emailsMiembros);
   const emp = emparejarCliente(clientes, pistas);
@@ -100,10 +114,15 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
     }
   }
 
-  // Aviso al despacho: siempre que quede algo por decidir, y cuando escribe el propio
-  // cliente (el gestor no lo ha visto). Si el gestor reenvió y todo cayó en su sitio, silencio.
+  // Al gestor que reenvió: SIEMPRE una respuesta en el hilo con lo que se hizo (documentos
+  // colocados, lo que falta, formularios adjuntos) o con la pregunta «¿de quién es?».
+  // Al owner: solo cuando escribe el propio cliente (el gestor no lo ha visto).
   const pendiente = !resultado;
-  if (emailOwner && (pendiente || !esMiembro)) {
+  if (esMiembro) {
+    const { data: filaA } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", filaId).maybeSingle();
+    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], clienteId: resultado ? (emp.cliente?.id ?? null) : null, clienteNombre: nombreCliente(emp.cliente?.id), expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), userId: userIdRemitente });
+  }
+  if (emailOwner && !esMiembro) {
     await avisarDespacho(resend, { para: emailOwner, gestoria: ws.nombre as string, baseUrl, remitente, asunto: mail.subject ?? "", nAdjuntos: adjuntos.length, pendiente, cliente: emp.cliente ? `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() : null, referencia: resultado?.referencia ?? null });
   }
   return { ok: true, motivo: resultado ? `asignado (${emp.motivo})` : emp.motivo, filaId };
@@ -203,4 +222,32 @@ async function avisarDespacho(resend: Resend, o: { para: string; gestoria: strin
 
 function escapar(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c] as string));
+}
+
+
+// Adjuntos admitidos de un email recibido → bucket privado bajo bandeja/<ws>/<email>/.
+async function guardarAdjuntos(resend: Resend, admin: Admin, wsId: string, emailId: string): Promise<AdjuntoBandeja[]> {
+  const lista = await resend.emails.receiving.attachments.list({ emailId });
+  const adjuntos: AdjuntoBandeja[] = [];
+  let i = 0;
+  for (const a of lista.data?.data ?? []) {
+    const ext = extensionAdmitida({ filename: a.filename ?? null, content_type: a.content_type, size: a.size, content_disposition: a.content_disposition ?? null, content_id: a.content_id ?? null });
+    if (!ext) continue;
+    const res = await fetch(a.download_url).catch(() => null);
+    if (!res || !res.ok) continue;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const nombre = nombreArchivoSeguro(a.filename, ext, i);
+    const storagePath = `bandeja/${wsId}/${emailId}/${i}-${nombre}`;
+    const mime = mimeDeExtension(ext);
+    const up = await admin.storage.from("documentos").upload(storagePath, buffer, { contentType: mime, upsert: true });
+    if (up.error) { console.error("[email entrante] storage:", up.error.message); continue; }
+    adjuntos.push({ nombre, mime, size: buffer.length, storagePath });
+    i++;
+  }
+  return adjuntos;
+}
+
+async function userIdDe(admin: Admin, email: string): Promise<string | null> {
+  const { data } = await admin.from("User").select("id").ilike("email", email).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
 }

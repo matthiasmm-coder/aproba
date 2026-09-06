@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { direccionEntrante } from "@/lib/email-entrante";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
@@ -242,12 +243,14 @@ export async function dispararAviso(
 
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("referencia, portalToken, Cliente(nombre, email, telefono), Workspace(nombre)")
+      .select("referencia, portalToken, Cliente(nombre, email, telefono), Workspace(nombre, emailEntranteToken)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
     const exp = expRaw as ExpRow | null;
     const cliente = uno(exp?.Cliente ?? null);
     const gestoria = uno(exp?.Workspace ?? null)?.nombre ?? "Tu gestoría";
+    const tokenBandeja = (uno(exp?.Workspace ?? null) as { emailEntranteToken?: string | null } | null)?.emailEntranteToken ?? null;
+    const bandeja = tokenBandeja ? direccionEntrante(tokenBandeja) : null;
     const nombre = cliente?.nombre ?? "cliente";
     const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
@@ -268,6 +271,8 @@ export async function dispararAviso(
         const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
           from, to: destino, subject: mensaje.evento,
+          // El cliente puede RESPONDER con una foto mejor: cae en la bandeja del despacho (06/09).
+          ...(bandeja ? { replyTo: bandeja } : {}),
           html: emailLayout({
             avatarUrl: foto,
             gestoria, titulo: mensaje.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
