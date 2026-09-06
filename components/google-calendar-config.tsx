@@ -55,7 +55,7 @@ export function GoogleCalendarConfig() {
         <div className="max-w-xl">
           <p className="text-sm font-semibold text-slate-800">{t("Videollamadas · Google Meet")}</p>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            {t("Conecta la cuenta de Google del despacho para crear la reunión de Meet automáticamente al guardar una cita: el evento entra en tu calendario y el cliente recibe el enlace. Sin conexión, siempre puedes pegar el enlace a mano.")}
+            {t("Conecta la cuenta de Google del despacho y cada cita creará su Meet automáticamente. Sin conexión, pega el enlace a mano.")}
           </p>
         </div>
         {estado === null ? (

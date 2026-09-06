@@ -1132,7 +1132,7 @@ export const CA: Record<string, string> = {
   "Comprobar la web oficial →": "Comprovar el web oficial →",
   "Comunes de la familia": "Comuns de la família",
   "Condiciones, forma de pago, observaciones…": "Condicions, forma de pagament, observacions…",
-  "Conecta la cuenta de Google del despacho para crear la reunión de Meet automáticamente al guardar una cita: el evento entra en tu calendario y el cliente recibe el enlace. Sin conexión, siempre puedes pegar el enlace a mano.": "Connecta el compte de Google del despatx per crear la reunió de Meet automàticament en desar una cita: l'esdeveniment entra al teu calendari i el client rep l'enllaç. Sense connexió, sempre pots enganxar l'enllaç a mà.",
+  "Conecta la cuenta de Google del despacho y cada cita creará su Meet automáticamente. Sin conexión, pega el enlace a mano.": "Connecta el compte de Google del despatx i cada cita crearà el seu Meet automàticament. Sense connexió, enganxa l'enllaç a mà.",
   "Conecta tu cuenta de Google en": "Connecta el teu compte de Google a",
   "Conectado": "Connectat",
   "Conectar con Google": "Connectar amb Google",

@@ -96,14 +96,6 @@ const IconFacturacion = (
   </svg>
 );
 
-const IconMemoria = (
-  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-    <path d="M14 2v6h6" />
-    <path d="M8 17v-3M12 17v-6M16 17v-4" />
-  </svg>
-);
-
 export default async function Ajustes() {
   // Config réelle du workspace (Supabase, RLS) — defaults si pas encore configuré.
   // ⚠️ Promise.all : UN SEUL rejet tue la page entière. Les cinq autres appels
@@ -408,21 +400,6 @@ export default async function Ajustes() {
           </AjustesSection>
         )}
 
-        {/* Memoria de actividad — art. 8.1.f de la Orden ISM/164/2026. Las entidades
-            inscritas en el Registro de Colaboradores de Extranjería deben aportarla al
-            renovar su inscripción; el resto de despachos la usa como memoria anual.
-            Solo administración: es un documento institucional de la entidad entera. */}
-        {puedeEditar && (
-          <AjustesSection
-            id="memoria"
-            title={t("Memoria de actividad")}
-            subtitle={t("Informe del período para la prórroga como entidad colaboradora")}
-            icon={IconMemoria}
-          >
-            <MemoriaActividad />
-          </AjustesSection>
-        )}
-
         <AjustesSection
           id="despacho"
           title={t("Despacho y cuenta")}
@@ -464,6 +441,17 @@ export default async function Ajustes() {
           <div className="mt-4">
             <InstallPWA />
           </div>
+
+          {/* Memoria de actividad — art. 8.1.f de la Orden ISM/164/2026. Las entidades
+              inscritas en el Registro de Colaboradores de Extranjería deben aportarla al
+              renovar su inscripción; el resto de despachos la usa como memoria anual.
+              Solo administración: es un documento institucional de la entidad entera. */}
+          {puedeEditar && (
+            <div id="memoria" className="mt-4 rounded-xl border border-slate-200 bg-white p-5">
+              <p className="text-sm font-semibold text-slate-800">{t("Memoria de actividad")}</p>
+              <MemoriaActividad />
+            </div>
+          )}
 
           {/* Integración de videollamadas (Google Meet) — cierra la sección. */}
           {puedeEditar && <GoogleCalendarConfig />}

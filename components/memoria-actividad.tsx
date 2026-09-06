@@ -89,7 +89,7 @@ export function MemoriaActividad() {
 
   return (
     <div>
-      <p className="text-sm leading-relaxed text-slate-600">
+      <p className="mt-1 text-xs leading-relaxed text-slate-500">
         {t("Resume tu actividad en un período: expedientes tramitados, procedimientos, actuaciones y recursos empleados. Es lo que pide el artículo 8.1.f de la Orden ISM/164/2026 a las entidades colaboradoras de extranjería al renovar su inscripción.")}
       </p>
 
