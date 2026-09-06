@@ -8,6 +8,8 @@ import { docsDeExpediente, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { clasificarDeteccion, DOC_LABEL } from "@/lib/tramites";
 import { emailLayout } from "@/lib/notificaciones";
 import { responderAlGestor } from "@/lib/email-respuesta";
+import { crearClienteDesdeAdjuntos } from "@/lib/email-cliente-nuevo";
+import { pideClienteNuevo, nombreEscrito } from "@/lib/ficha-extraccion";
 import {
   tokenDeDestinatarios, direccionDe, nombreDe, limpiarCuerpo, extraerPistas, emparejarCliente,
   extensionAdmitida, mimeDeExtension, nombreArchivoSeguro, type ClienteCandidato,
@@ -87,6 +89,16 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
         await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], clienteId: r ? empR.cliente.id : null, clienteNombre: nombreCliente(empR.cliente.id), expedienteId: (filaR?.expedienteId as string | null) ?? null, userId: userIdRemitente });
         return { ok: true, motivo: r ? `asignado por respuesta (${empR.motivo})` : "respuesta: asignación fallida", filaId: pend.id as string };
       }
+      if (pideClienteNuevo(propio)) {
+        const nuevo = await crearClienteDesdeAdjuntos(admin, { workspaceId: ws.id as string, adjuntos: [...previos, ...adjuntos], nombreEscrito: nombreEscrito(propio) });
+        if (nuevo) {
+          let r: Awaited<ReturnType<typeof asignarBandeja>> | null = null;
+          try { r = await asignarBandeja(admin, { filaId: pend.id as string, clienteId: nuevo.clienteId, expedienteId: null, baseUrl, motivo: nuevo.creado ? "cliente nuevo creado desde el email" : "respuesta del gestor (documento)" }); }
+          catch (err) { console.error("[email entrante] asignación al cliente nuevo fallida:", err instanceof Error ? err.message : err); }
+          await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], clienteId: r ? nuevo.clienteId : null, clienteNombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim(), expedienteId: null, creado: nuevo.creado ? nuevo.campos : undefined, userId: userIdRemitente });
+          return { ok: true, motivo: nuevo.creado ? "cliente nuevo creado (respuesta)" : "asignado por documento (respuesta)", filaId: pend.id as string };
+        }
+      }
       await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: [], clienteId: null, clienteNombre: null, expedienteId: null, candidatos: empR.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), userId: userIdRemitente });
       return { ok: true, motivo: `respuesta sin resolver (${empR.motivo})`, filaId: pend.id as string };
     }
@@ -105,12 +117,20 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   if (ins.error) throw new Error(faltaMigracion(ins.error.message) ? "Falta la migración supabase/email-entrante.sql" : ins.error.message);
 
   let resultado: Awaited<ReturnType<typeof asignarBandeja>> | null = null;
-  if (emp.cliente) {
+  let creadoCampos: string[] | undefined; // cliente creado desde el documento de identidad del email
+  let clienteFinal = emp.cliente ? { id: emp.cliente.id, nombre: `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() } : null;
+  if (!emp.cliente && esMiembro && adjuntos.length && emp.candidatos.length === 0) {
+    // Nadie coincide y el gestor reenvió a propósito: si un adjunto es un documento de
+    // identidad legible, el cliente se crea con su ficha y los documentos van a ella.
+    const nuevo = await crearClienteDesdeAdjuntos(admin, { workspaceId: ws.id as string, adjuntos });
+    if (nuevo) { clienteFinal = { id: nuevo.clienteId, nombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim() }; if (nuevo.creado) creadoCampos = nuevo.campos; }
+  }
+  if (clienteFinal) {
     try {
-      resultado = await asignarBandeja(admin, { filaId, clienteId: emp.cliente.id, expedienteId: null, baseUrl, motivo: emp.motivo });
+      resultado = await asignarBandeja(admin, { filaId, clienteId: clienteFinal.id, expedienteId: null, baseUrl, motivo: creadoCampos ? "cliente nuevo creado desde el email" : emp.motivo });
     } catch (err) {
       console.error("[email entrante] asignación automática fallida:", err instanceof Error ? err.message : err);
-      await admin.from("BandejaEntrada").update({ clienteId: emp.cliente.id, motivo: `${emp.motivo} · asignación pendiente: ${err instanceof Error ? err.message : "error"}` }).eq("id", filaId);
+      await admin.from("BandejaEntrada").update({ clienteId: clienteFinal.id, motivo: `${emp.motivo} · asignación pendiente: ${err instanceof Error ? err.message : "error"}` }).eq("id", filaId);
     }
   }
 
@@ -120,12 +140,12 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   const pendiente = !resultado;
   if (esMiembro) {
     const { data: filaA } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", filaId).maybeSingle();
-    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], clienteId: resultado ? (emp.cliente?.id ?? null) : null, clienteNombre: nombreCliente(emp.cliente?.id), expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), userId: userIdRemitente });
+    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
   }
   if (emailOwner && !esMiembro) {
     await avisarDespacho(resend, { para: emailOwner, gestoria: ws.nombre as string, baseUrl, remitente, asunto: mail.subject ?? "", nAdjuntos: adjuntos.length, pendiente, cliente: emp.cliente ? `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() : null, referencia: resultado?.referencia ?? null });
   }
-  return { ok: true, motivo: resultado ? `asignado (${emp.motivo})` : emp.motivo, filaId };
+  return { ok: true, motivo: resultado ? (creadoCampos ? "cliente nuevo creado desde el email" : `asignado (${emp.motivo})`) : emp.motivo, filaId };
 }
 
 // Asigna una fila de la bandeja a un cliente (y, si procede, a uno de sus expedientes

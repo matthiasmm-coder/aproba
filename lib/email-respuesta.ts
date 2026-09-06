@@ -30,6 +30,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
   nAdjuntos: number; etiquetas: string[];
   clienteId: string | null; clienteNombre: string | null; expedienteId: string | null;
   candidatos?: string[]; // nombres posibles cuando la pista es ambigua
+  creado?: string[]; // cliente CREADO desde el email: campos de la ficha leídos del documento
   userId?: string | null; // gestor que reenvió (para el diario)
 }): Promise<ResultadoRespuesta> {
   const from = `"${o.gestoria.replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
@@ -51,10 +52,16 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     cta = { url: `${o.baseUrl}/app/bandeja`, label: "O asignarlo en la bandeja" };
   } else if (!o.expedienteId) {
     subject = `Re: ${asuntoBase}`;
-    titulo = `Guardado en la ficha de ${o.clienteNombre ?? "el cliente"}`;
-    cuerpo = `<p>${o.nAdjuntos} documento(s) guardado(s) en la ficha de <b>${esc(o.clienteNombre ?? "")}</b>${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
-      + `<p>No tiene ningún expediente abierto: cuando le abras uno, estos documentos caerán en sus casillas.</p>`;
-    cta = { url: `${o.baseUrl}/app/clientes/${o.clienteId}`, label: "Abrir su ficha" };
+    if (o.creado) {
+      titulo = `He creado a ${o.clienteNombre ?? "el cliente"} y guardado sus documentos`;
+      cuerpo = `<p>No lo tenía: he creado a <b>${esc(o.clienteNombre ?? "")}</b> con lo que dice su documento de identidad${o.creado.length ? ` (${o.creado.map(esc).join(", ")})` : ""} y ${o.nAdjuntos} documento(s) en su ficha${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
+        + `<p>Revisa la ficha por si algo está mal leído. Cuando le abras un expediente, estos documentos caerán en sus casillas.</p>`;
+    } else {
+      titulo = `Guardado en la ficha de ${o.clienteNombre ?? "el cliente"}`;
+      cuerpo = `<p>${o.nAdjuntos} documento(s) guardado(s) en la ficha de <b>${esc(o.clienteNombre ?? "")}</b>${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
+        + `<p>No tiene ningún expediente abierto: cuando le abras uno, estos documentos caerán en sus casillas.</p>`;
+    }
+    cta = { url: `${o.baseUrl}/app/clientes/${o.clienteId}`, label: o.creado ? "Revisar su ficha" : "Abrir su ficha" };
   } else {
     // Expediente: lo que se colocó, lo que falta y, si se puede, los formularios rellenados.
     const d = await detalleParaRespuesta(admin, o.expedienteId, o.userId ?? null);
