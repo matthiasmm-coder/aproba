@@ -89,11 +89,11 @@ export function MemoriaActividad() {
 
   return (
     <div>
-      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+      <p className="mx-auto mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
         {t("Resume tu actividad en un período: expedientes tramitados, procedimientos, actuaciones y recursos empleados. Es lo que pide el artículo 8.1.f de la Orden ISM/164/2026 a las entidades colaboradoras de extranjería al renovar su inscripción.")}
       </p>
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      <div className="mt-4 flex flex-wrap items-end justify-center gap-3">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-slate-500">{t("Desde")}</span>
           <input

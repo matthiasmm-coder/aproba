@@ -447,7 +447,7 @@ export default async function Ajustes() {
               renovar su inscripción; el resto de despachos la usa como memoria anual.
               Solo administración: es un documento institucional de la entidad entera. */}
           {puedeEditar && (
-            <div id="memoria" className="mt-4 rounded-xl border border-slate-200 bg-white p-5">
+            <div id="memoria" className="mt-4 rounded-xl border border-slate-200 bg-white p-5 text-center">
               <p className="text-sm font-semibold text-slate-800">{t("Memoria de actividad")}</p>
               <MemoriaActividad />
             </div>
