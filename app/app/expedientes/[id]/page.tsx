@@ -19,7 +19,7 @@ import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServic
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
-import { EnviarPresupuestoButton } from "@/components/enviar-presupuesto-button";
+import { EnviarDocButton } from "@/components/enviar-doc-button";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
@@ -402,12 +402,14 @@ export default async function ExpedienteDetail({
                   que aún no ha encargado nada. Por eso va primero, y con su propia frase. */}
               <a href={`/api/expedientes/${e.id}/encargo?doc=presupuesto`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("presupuesto (PDF)")}</a>
               {" · "}
-              <EnviarPresupuestoButton expedienteId={e.id} />
+              <EnviarDocButton expedienteId={e.id} doc="presupuesto" />
               {" · "}
               {t("Para firmar:")}{" "}
               <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
               {" · "}
               <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
+              {" · "}
+              <EnviarDocButton expedienteId={e.id} doc="encargo" />
             </p>
           )}
           {/* Las casillas del trámite SIEMPRE a la vista, en su orden, tenga o no el
