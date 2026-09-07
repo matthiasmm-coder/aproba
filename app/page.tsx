@@ -16,7 +16,7 @@ const PAINS = [
 const STATS = [
   { n: "3 h → 30 min", l: "por expediente", icon: "time" },
   { n: "−80 %", l: "errores administrativos", icon: "shield" },
-  { n: "15", l: "formularios y tasas oficiales en un clic", icon: "file" },
+  { n: "28", l: "formularios y tasas oficiales en un clic", icon: "file" },
   { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe" },
 ];
 
