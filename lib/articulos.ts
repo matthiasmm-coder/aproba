@@ -57,6 +57,114 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    slug: "silencio-administrativo-extranjeria-plazos-2026",
+    titulo: "Silencio administrativo en extranjería: el plazo de cada trámite",
+    descripcion:
+      "Plazo de resolución y sentido del silencio de cada trámite de extranjería en 2026, con su artículo del RD 1155/2024, y qué hacer el día que vence sin respuesta.",
+    fecha: "2026-09-08",
+    tema: "Procedimiento",
+    entradilla:
+      "«¿Y si no contestan?» es la pregunta que más se repite en un despacho de extranjería, y la respuesta cambia según el trámite: en unos el silencio concede, en otros deniega, y en la nacionalidad se tarda un año en saberlo. Esta es la tabla completa, con las fuentes oficiales y lo que conviene hacer el día que vence el plazo.",
+    imagenAlt:
+      "Un reloj de arena de latón con la arena cayendo, junto a un expediente cerrado con cinta verde y sello de lacre y una campanilla de latón en silencio, sobre un escritorio de nogal.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Cada solicitud de extranjería tiene un **plazo máximo de resolución** y un **sentido del silencio**: lo que ocurre si ese plazo pasa sin respuesta. La regla general la fija la **disposición adicional primera de la Ley Orgánica 4/2000**: tres meses y silencio negativo, salvo para prórrogas, renovaciones y larga duración, donde el silencio concede. El Reglamento aprobado por el **Real Decreto 1155/2024**, en vigor desde el 20 de mayo de 2025, concreta el plazo de cada trámite, y las hojas informativas del Ministerio lo repiten una a una.",
+      },
+      { t: "h2", texto: "La tabla que conviene tener a mano" },
+      {
+        t: "tabla",
+        titulo: "Plazo de resolución y sentido del silencio por trámite",
+        encabezados: ["Trámite", "Plazo", "Silencio", "Base"],
+        filas: [
+          ["Autorización inicial de residencia y trabajo por cuenta ajena", "**3 meses**", "Negativo", "RD 1155/2024, arts. 72-79"],
+          ["Reagrupación familiar (autorización inicial)", "**2 meses**", "Negativo", "RD 1155/2024, arts. 65-68"],
+          ["Arraigos: social, sociolaboral, familiar, socioformativo y de segunda oportunidad", "**3 meses**", "Negativo", "RD 1155/2024, arts. 124-132"],
+          ["Modificación de autorizaciones", "**3 meses**", "Negativo", "RD 1155/2024, art. 191"],
+          ["Renovación de residencia y trabajo por cuenta ajena", "**3 meses**", "**Positivo**", "RD 1155/2024, arts. 80-81"],
+          ["Renovación por reagrupación familiar", "**3 meses**", "**Positivo**", "RD 1155/2024, art. 71"],
+          ["Renovación de residencia no lucrativa", "**3 meses**", "**Positivo**", "RD 1155/2024, art. 64"],
+          ["Residencia de larga duración", "**3 meses**", "**Positivo**", "RD 1155/2024, arts. 182-185"],
+          ["Nacionalidad por residencia", "**1 año**", "Negativo", "RD 1004/2015, art. 11"],
+        ],
+        nota:
+          "Los plazos cuentan desde el día siguiente a la entrada de la solicitud en el registro del órgano competente. Fuente: hojas informativas del Ministerio de Inclusión, Seguridad Social y Migraciones (números 7, 8, 10, 12, 13, 28, 49 y 55), consultadas en septiembre de 2026. El visado de corta duración sigue el Código de visados de la UE: 15 días naturales, ampliables a 45.",
+      },
+      {
+        t: "p",
+        texto:
+          "Dos lecturas rápidas. La primera: **el nuevo reglamento no cambió la lógica**, solo los artículos. Donde el cliente pide algo nuevo, el silencio deniega; donde pide continuar lo que ya tenía, el silencio concede. La segunda: la reagrupación familiar es el único trámite ordinario con **dos meses**, no tres.",
+      },
+      { t: "h2", texto: "Cuándo empieza a contar y qué lo detiene" },
+      {
+        t: "p",
+        texto:
+          "El plazo arranca **el día siguiente a la entrada en el registro del órgano competente**: no el día en que el cliente firmó, ni el día en que se presentó en una oficina que no era la competente. Y se **suspende** cuando la Administración requiere una subsanación: el reloj se para desde la notificación del requerimiento hasta que se cumple o, si no se cumple, hasta que vence el plazo concedido (**art. 22.1.a de la Ley 39/2015**). Un expediente con [dos requerimientos de diez días](/articulos/subsanacion-regularizacion-plazo) puede tardar cuatro meses y seguir dentro de plazo.",
+      },
+      {
+        t: "p",
+        texto:
+          "La segunda trampa es la notificación electrónica. Si el interesado eligió ese canal o está obligado a usarlo, la resolución se publica en la sede y **se da por notificada a los diez días hábiles**, la haya abierto alguien o no. El silencio que el despacho cree estar esperando puede ser una denegación ya notificada que nadie leyó, con el plazo de recurso corriendo. [Los errores de seguimiento](/articulos/errores-documentales-retrasan-expediente-extranjeria), no los jurídicos, son los que más expedientes cuestan.",
+      },
+      { t: "h2", texto: "El día que vence el plazo" },
+      { t: "h3", texto: "Si el silencio es positivo" },
+      {
+        t: "p",
+        texto:
+          "La renovación o la larga duración están **concedidas por ministerio de la ley**. El órgano debe expedir de oficio el **certificado acreditativo del silencio en quince días** (**art. 24.4 de la Ley 39/2015**), y el interesado puede pedirlo en cualquier momento. Con ese certificado se solicita la tarjeta. Si después llega una resolución expresa, solo puede ser **confirmatoria** (art. 24.3.a): la Administración ya no puede denegar lo que el silencio concedió.",
+      },
+      { t: "h3", texto: "Si el silencio es negativo" },
+      {
+        t: "p",
+        texto:
+          "Todavía no se ha perdido nada: la Administración **sigue obligada a resolver** (art. 21.1) y puede estimar más tarde sin quedar vinculada por el silencio (art. 24.3.b). El despacho tiene tres caminos: esperar, interponer **recurso de reposición** (un mes para presentarlo y un mes para que lo resuelvan, art. 124) o acudir al **contencioso-administrativo**. Frente a una resolución expresa, el plazo es de **dos meses** (art. 46.1 de la LJCA). Frente al silencio negativo, el Tribunal Constitucional fijó en la **STC 52/2014** que el plazo de seis meses no corre: se puede recurrir mientras la Administración no resuelva. En [nacionalidad](/articulos/nacionalidad-por-residencia-plazos-tasas-2026), donde el año legal se convierte en dos, es la vía habitual para desbloquear el expediente.",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Dos meses antes", titulo: "Se abre la ventana de renovación", texto: "También se admite hasta tres meses después de la caducidad, con posible sanción." },
+          { fecha: "Día 0", titulo: "Entrada en el registro competente", texto: "Empieza el plazo de tres meses." },
+          { fecha: "Requerimiento", titulo: "El reloj se para", texto: "Desde la notificación hasta la subsanación o hasta que vence el plazo concedido." },
+          { fecha: "Mes 3", titulo: "Silencio positivo", texto: "La renovación se entiende concedida.", destacado: true },
+          { fecha: "Quince días después", titulo: "Certificado de oficio", texto: "Acredita el silencio y abre la solicitud de la tarjeta." },
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Cada expediente en Aproba guarda la fecha de presentación en su historial y [Vigía](/#como-funciona) lleva los vencimientos de las renovaciones antes de que caduquen. Anotar la fecha de silencio el día del registro convierte la espera en una fecha.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Qué silencio tiene la renovación de la residencia?",
+            a: "Positivo. Pasados tres meses desde la entrada en el registro sin resolución notificada, la renovación se entiende concedida (disposición adicional primera de la LO 4/2000 y hojas informativas 7, 10 y 13). Conviene pedir el certificado acreditativo del silencio para solicitar la tarjeta.",
+          },
+          {
+            q: "¿Y el arraigo social?",
+            a: "Negativo. El plazo es de tres meses y, si vence sin respuesta, la solicitud puede entenderse desestimada (Hoja 28; arts. 124 a 132 del RD 1155/2024). La Administración sigue obligada a resolver y puede conceder después.",
+          },
+          {
+            q: "¿Cuánto tarda la reagrupación familiar?",
+            a: "El plazo legal es de dos meses, con silencio negativo (Hoja 8; arts. 65 a 68 del RD 1155/2024).",
+          },
+          {
+            q: "¿Qué es el certificado acreditativo del silencio?",
+            a: "El documento que prueba que el plazo venció sin resolución. El órgano competente debe expedirlo de oficio en quince días desde el vencimiento (art. 24.4 de la Ley 39/2015), y el interesado puede solicitarlo en cualquier momento. En los silencios positivos es la llave para la tarjeta.",
+          },
+          {
+            q: "¿Hay plazo para recurrir un silencio negativo?",
+            a: "El recurso de reposición se interpone en un mes. Para el contencioso-administrativo, la STC 52/2014 estableció que el plazo de seis meses del art. 46.1 de la LJCA no se aplica al silencio negativo: cabe recurrir mientras la Administración no resuelva. Si llega resolución expresa, el plazo pasa a ser de dos meses.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: "entidades-colaboradoras-extranjeria-registro-2026",
     titulo: "Entidades colaboradoras de extranjería: las 498 acreditadas y qué cambia para tu despacho",
     descripcion:

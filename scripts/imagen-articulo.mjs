@@ -17,6 +17,8 @@ if (!KEY) { console.error("✗ Falta OPENAI_API_KEY (entorno o .env.local)"); pr
 // bodegón fotográfico, luz de estudio, fondo verde muy oscuro, latón y papel crema, un
 // acento de luz verde. Nada de texto ni banderas.
 const PROMPTS = {
+  "silencio-administrativo-extranjeria-plazos-2026":
+    "Ultra-premium editorial still life, cinematic macro photography, studio lighting. On a dark walnut desk: a tall brass hourglass with pale sand mid-flow, beside a closed cream-colored dossier folder tied with a dark green ribbon and a brass wax seal, and a small antique brass desk bell resting silent. Deep bottle-green background fading to black, a single soft emerald light rim-lighting the glass of the hourglass, shallow depth of field, subtle film grain, hyper-detailed textures of brass, glass, paper and wood, 3:2 composition with the hourglass slightly left of center. No text, no letters, no numbers, no flags, no people.",
   "entidades-colaboradoras-extranjeria-registro-2026":
     "Ultra-premium editorial still life, cinematic macro photography. On a dark walnut desk, an open leather-bound registry ledger with cream pages; resting on it, a heavy brass seal stamp. Hovering just above the page, hundreds of tiny glowing emerald-green pins of light form the unmistakable silhouette of the map of Spain, denser over Madrid and the Mediterranean coast, casting soft green light on the paper. Deep dark green background fading to black, shallow depth of field, gentle volumetric haze, brass and cream palette with one emerald accent. No text, no letters, no logos, no flags, photorealistic, 8k, Hasselblad look.",
 };
