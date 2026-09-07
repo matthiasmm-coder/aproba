@@ -44,6 +44,7 @@ IMPORTAR DATOS (migración): trae tu cartera desde cualquier Excel/CSV (o pegand
 FACTURAS: totales del periodo (Facturado / Cobrado / Pendiente de cobro), secciones plegables, export CSV y PDF (o ZIP de todas). Se emiten solas al firmar (anticipo) y al finalizar (resto) si el servicio tiene tarifa, o a mano con «+ Nueva factura». Estados: BORRADOR, EMITIDA, PAGADA, VENCIDA. Admite descuentos por expediente y suplidos (tasas, que van sin IVA). Los datos fiscales del cliente se congelan en la factura al emitirla.
 
 COBROS: por transferencia (aparece tu IBAN en la factura) o con tarjeta (Stripe) si lo activas en Ajustes.
+VERIFACTU (facturación electrónica, RD 1007/2023): hoy las facturas de Aproba se emiten en PDF, con numeración correlativa que nunca se reutiliza y SIN envío a la AEAT; Aproba todavía NO presenta las facturas en el sistema VeriFactu. La obligación empieza el 1 de enero de 2027 para sociedades (SL) y el 1 de julio de 2027 para autónomos. Está previsto integrarlo antes de esa fecha, en modalidad VERI*FACTU (envío en tiempo real a la AEAT), dentro de la misma facturación de anticipo y final que ya existe: el despacho no tendrá que cambiar de programa ni retocar las facturas anteriores. Si preguntan por el calendario exacto, por precio o por un compromiso por escrito, remite a «Hablar con una persona».
 
 HOJA DE ENCARGO Y MANDATO: si lo activas en Ajustes, se generan automáticamente y el cliente los firma desde su enlace.
 
