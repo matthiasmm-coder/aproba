@@ -66,7 +66,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "«¿Y si no contestan?» es la pregunta que más se repite en un despacho de extranjería, y la respuesta cambia según el trámite: en unos el silencio concede, en otros deniega, y en la nacionalidad se tarda un año en saberlo. Esta es la tabla completa, con las fuentes oficiales y lo que conviene hacer el día que vence el plazo.",
     imagenAlt:
-      "Un reloj de arena de latón con la arena cayendo, junto a un expediente cerrado con cinta verde y sello de lacre y una campanilla de latón en silencio, sobre un escritorio de nogal.",
+      "Un reloj de arena de latón con la arena cayendo, junto a un expediente cerrado con cinta verde y sello de lacre y una campanilla de latón en silencio, sobre un escritorio de madera clara a la luz de una ventana.",
     bloques: [
       {
         t: "p",
@@ -174,7 +174,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
     imagenAlt:
-      "Ilustración: un registro abierto sobre una mesa de madera, un sello de latón encima, y la silueta de España dibujada con cientos de puntos de luz verde flotando sobre las páginas.",
+      "Un registro encuadernado en cuero abierto sobre un escritorio de madera clara, con un sello de latón sobre la página derecha y un puñado de chinchetas de latón sobre la izquierda.",
     bloques: [
       { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
       {
@@ -343,7 +343,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La nacionalidad por residencia es el trámite que más ha crecido en los últimos años y el que peor fama tiene de plazos. Estos son los números oficiales, el coste real para el cliente y las tres cosas que hacen que un expediente tarde el doble.",
     imagenAlt:
-      "Un pasaporte granate abierto sobre un escritorio de nogal, con una estela de luz verde que se eleva de sus páginas hacia un reloj de arena de latón cuya arena cae lentamente.",
+      "Un pasaporte granate abierto sobre un escritorio de madera clara y, detrás, un reloj de arena de latón con la arena cayendo, a la luz de una ventana.",
     bloques: [
       {
         t: "p",
@@ -594,7 +594,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
     imagenAlt:
-      "Una factura de papel sobre un escritorio de cuero verde cuya mitad derecha se disuelve en trazos luminosos y un mosaico tipo QR.",
+      "Una factura de papel en blanco con un pequeño mosaico tipo QR en la esquina, sobre una carpeta de cuero verde, con una pluma de latón encima.",
     bloques: [
       {
         t: "p",
@@ -688,7 +688,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La regularización extraordinaria de 2026 no termina cuando se resuelve el último expediente: empieza otra vez doce meses después. Estos son los números y lo que un despacho puede hacer hoy.",
     imagenAlt:
-      "Ilustración: una ola inmensa formada por miles de expedientes de papel avanza hacia una mesa pequeña con un calendario.",
+      "Una ola inmensa de carpetas de papel crema se curva sobre una mesa pequeña donde solo hay un calendario de sobremesa de latón en blanco y una pluma.",
     bloques: [
       { t: "h2", texto: "Qué pasó en 2026" },
       {
@@ -792,7 +792,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La fase de subsanación de la regularización extraordinaria afecta a cientos de miles de expedientes y se cierra el 30 de septiembre de 2026. El plazo que circula por el sector no siempre es el correcto.",
     imagenAlt:
-      "Ilustración: un calendario con una fecha rodeada en verde, un reloj de arena casi vacío y un sobre cerrado.",
+      "Un calendario de sobremesa con una casilla rodeada en verde, un reloj de arena de latón casi vacío y un sobre cerrado con sello de lacre.",
     bloques: [
       { t: "h2", texto: "El plazo: 15 días, no 10" },
       {
@@ -851,7 +851,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Casi ningún requerimiento llega por el fondo del asunto. Llega porque falta una hoja, porque una fecha no cuadra o porque la foto del móvil no se lee. Estos son los siete casos más repetidos.",
     imagenAlt:
-      "Ilustración cenital: documentos en blanco y un pasaporte sobre una mesa, con una lupa que destaca el detalle marcado por una pestaña ámbar.",
+      "Vista cenital: documentos en blanco y un pasaporte granate sobre una mesa de madera clara, con una lupa de latón sobre uno de ellos y una pestaña ámbar que marca el detalle.",
     bloques: [
       { t: "h2", texto: "1. El documento ilegible" },
       {
