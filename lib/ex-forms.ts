@@ -15,6 +15,10 @@ import { readFileSync } from "node:fs";
 // « M », « X* » s'appelle « H » — pareil pour estado civil). Ne jamais se fier au nom.
 
 const TINTA = rgb(0.06, 0.09, 0.28); // bleu encre, distinct du formulaire
+// Fondo de los campos VACÍOS de texto (modo editable): azul muy claro, para que se VEA dónde
+// se puede escribir en cualquier visor (Vista Previa no resalta los campos sin borde: el
+// gestor no sabía que existían, 08/09/2026). Los campos con valor y las casillas van sin fondo.
+const FONDO_VACIO = rgb(0.93, 0.96, 1);
 const limpiar = (s: string) =>
   String(s ?? "").replace(/€/g, " EUR").replace(/[—–]/g, "-").replace(/[’‘]/g, "'").replace(/[^\x00-\xFF]/g, "");
 
@@ -655,7 +659,7 @@ export async function rellenarOficial(
     f.addToPage(pg, {
       x: o.x, y: o.y, width: o.w, height: o.h,
       font, textColor: TINTA,
-      borderWidth: 0, backgroundColor: undefined, borderColor: undefined,
+      borderWidth: 0, backgroundColor: !o.valor && !o.centrar ? FONDO_VACIO : undefined, borderColor: undefined,
     });
     f.setFontSize(o.size);
   };

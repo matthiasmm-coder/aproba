@@ -97,7 +97,9 @@ function marcarRadio(pdf: PDFDocument, form: PDFForm, nombre: string, col: numbe
 
 // Rellena el ejemplar oficial. Campos críticos ausentes → error (una tasa a medias en
 // la ventanilla del banco es peor que un fallo claro aquí).
-export async function rellenarTasa026(plantilla: Uint8Array, c: Campos026): Promise<Uint8Array> {
+// opts.editable: se devuelve el impreso con sus campos AcroForm VIVOS (el gestor corrige en
+// cualquier visor); sin él, aplanado (copia para el cliente y el archivo del expediente).
+export async function rellenarTasa026(plantilla: Uint8Array, c: Campos026, opts?: { editable?: boolean }): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(plantilla, { ignoreEncryption: true });
   const form = pdf.getForm();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -175,6 +177,6 @@ export async function rellenarTasa026(plantilla: Uint8Array, c: Campos026): Prom
   marcarRadio(pdf, form, "TipoPago", 0);
 
   form.updateFieldAppearances(font);
-  form.flatten();
+  if (!opts?.editable) form.flatten();
   return pdf.save();
 }

@@ -38,8 +38,12 @@ export async function POST(req: Request) {
     );
   }
 
+  // Dos ejemplares: EDITABLE para el gestor (los 62 campos oficiales siguen vivos: corrige en
+  // cualquier visor) y APLANADO para el archivo del expediente y el portal del cliente.
   let buf: Uint8Array;
+  let editable: Uint8Array;
   try {
+    editable = await rellenarTasa026(plantilla, c as Campos026, { editable: true });
     buf = await rellenarTasa026(plantilla, c as Campos026);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "No se pudo rellenar el impreso." }, { status: 502 });
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
     } catch (e) { console.warn("[tasa790026] no se pudo guardar la tasa:", e instanceof Error ? e.message : e); }
   }
 
-  return new Response(Buffer.from(buf), {
+  return new Response(Buffer.from(editable), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": 'attachment; filename="tasa-790-026.pdf"',

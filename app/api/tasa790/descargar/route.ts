@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { tasaEditable } from "@/lib/tasa-editable";
 
 // Proxy 790-012 — étape 2 : on renvoie au générateur officiel TOUS les champs +
 // le captcha tapé par le gestor, avec la même session, et on récupère le PDF
@@ -94,7 +95,15 @@ export async function POST(req: Request) {
     } catch (e) { console.warn("[tasa790] no se pudo guardar la tasa:", e instanceof Error ? e.message : e); }
   }
 
-  return new Response(buf, {
+  // Para el gestor, los datos personales quedan EDITABLES (campos sobre el texto impreso,
+  // uno por dato y copia); el archivo del expediente y el portal del cliente reciben el
+  // impreso oficial tal cual. Importe, justificante y código de barras no se tocan.
+  const { pdf: editable } = await tasaEditable(new Uint8Array(buf), {
+    nif: form.nif, nombre: form.nombre, calle: form.calle, via: form.via, numero: form.numero, piso: form.piso,
+    municipio: form.municipio, provincia: form.provincia, codigoPostal: form.codigoPostal, telefono: form.telefono,
+    localidad: form.localidad, fecha: form.fecha,
+  });
+  return new Response(Buffer.from(editable), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": 'attachment; filename="tasa-790-012.pdf"',

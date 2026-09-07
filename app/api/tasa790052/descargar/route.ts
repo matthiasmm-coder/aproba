@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { BASE_052, UA_052, cuerpoLatin1, decodificarLatin1, fechaLarga052, importe052, type Epigrafe052 } from "@/lib/tasa790052";
+import { tasaEditable } from "@/lib/tasa-editable";
 
 // Tasa 790-052 — paso 3: se reenvían a la Sede TODOS los campos del impreso oficial con
 // la misma sesión, el justificante asignado y el captcha tecleado por el gestor, y se
@@ -102,7 +103,16 @@ export async function POST(req: Request) {
     } catch (err) { console.warn("[tasa790052] no se pudo guardar la tasa:", err instanceof Error ? err.message : err); }
   }
 
-  return new Response(buf, {
+  // Datos personales EDITABLES para el gestor (campos sobre el texto impreso, en cada copia);
+  // el archivo y el portal reciben el impreso oficial tal cual. Importe y justificante intactos.
+  const { pdf: editable } = await tasaEditable(new Uint8Array(buf), {
+    nif: form.Ctrl_NIFRem, apellido1: form.Ctrl_Apellido1, apellido2: form.Ctrl_Apellido2, nombre: form.Ctrl_NombreRem,
+    apellidosNombre: [`${form.Ctrl_Apellido1} ${form.Ctrl_Apellido2}`.trim(), `${form.Ctrl_Apellido1} ${form.Ctrl_Apellido2}, ${form.Ctrl_NombreRem}`.replace(/\s+,/, ","), `${form.Ctrl_Apellido1} ${form.Ctrl_Apellido2} ${form.Ctrl_NombreRem}`.replace(/\s+/g, " ")],
+    nacionalidad: form.Ctrl_Nacionalidad, tipoVia: form.Ctrl_TipoViaDom, via: form.Ctrl_ViaDom, numero: form.Ctrl_NumeroDom, piso: form.Ctrl_PisoDom,
+    municipio: form.Ctrl_MunicipioDom, provincia: form.Ctrl_ProvinciaDom, cp: form.Ctrl_CPostalDom, telefono: form.Ctrl_TelefonoDom,
+    ciudad: form.Ctrl_Ciudad, numExpediente: form.Ctrl_NumExpediente,
+  });
+  return new Response(Buffer.from(editable), {
     headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="tasa-790-052.pdf"', "Cache-Control": "no-store" },
   });
 }
