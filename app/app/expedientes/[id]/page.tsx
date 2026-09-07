@@ -397,6 +397,10 @@ export default async function ExpedienteDetail({
         >
           {despachoEncargo && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">
+              {/* El presupuesto es la misma hoja ANTES de la firma: se manda al cliente
+                  que aún no ha encargado nada. Por eso va primero, y con su propia frase. */}
+              <a href={`/api/expedientes/${e.id}/encargo?doc=presupuesto`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("presupuesto (PDF)")}</a>
+              {" · "}
               {t("Para firmar:")}{" "}
               <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
               {" · "}

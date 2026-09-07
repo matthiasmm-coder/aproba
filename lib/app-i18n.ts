@@ -49,6 +49,7 @@ export const CA: Record<string, string> = {
   "P. ej.: recursos administrativos o judiciales, trámites de otros organismos, desplazamientos…": "P. ex.: recursos administratius o judicials, tràmits d'altres organismes, desplaçaments…",
   "Aparece en el apartado «Servicios no incluidos» de la hoja de encargo de este servicio.": "Apareix a l'apartat «Serveis no inclosos» del full d'encàrrec d'aquest servei.",
   "Para firmar:": "Per signar:",
+  "presupuesto (PDF)": "pressupost (PDF)",
   "hoja de encargo (PDF)": "full d'encàrrec (PDF)",
   "mandato (PDF)": "mandat (PDF)",
   "Guardar": "Desar",

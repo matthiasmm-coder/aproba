@@ -9,7 +9,9 @@ import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const doc = new URL(req.url).searchParams.get("doc") === "mandato" ? "mandato" : "hoja";
+  const q = new URL(req.url).searchParams.get("doc");
+  // «presupuesto» = la misma hoja antes de la firma (sin cláusulas ni firmas).
+  const doc = q === "mandato" ? "mandato" : q === "presupuesto" ? "presupuesto" : "hoja";
 
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -75,13 +77,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   let bytes: Uint8Array;
   try {
-    bytes = doc === "mandato" ? await generarMandato(datos) : await generarHojaEncargo(datos);
+    bytes = doc === "mandato" ? await generarMandato(datos) : await generarHojaEncargo(datos, doc === "presupuesto" ? "presupuesto" : "encargo");
   } catch (e) {
     // Un dato con carácter no imprimible no debe romper la descarga con un 500 opaco.
     console.error("[encargo] generación PDF", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "No se pudo generar el documento. Revisa que los datos no contengan caracteres extraños." }, { status: 500 });
   }
-  const nombre = doc === "mandato" ? `mandato-${exp.referencia}.pdf` : `hoja-de-encargo-${exp.referencia}.pdf`;
+  const nombre = doc === "mandato" ? `mandato-${exp.referencia}.pdf`
+    : doc === "presupuesto" ? `presupuesto-${exp.referencia}.pdf`
+    : `hoja-de-encargo-${exp.referencia}.pdf`;
   return new Response(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",

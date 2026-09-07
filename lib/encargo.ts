@@ -27,7 +27,7 @@ export type DatosEncargo = {
     telefono: string; email: string;
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
-  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
+  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; precioOculto?: boolean; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
   // Override manual de tasas/suplidos del expediente (si el gestor los ajustó): lista PLANA
   // que sustituye a los suplidos por servicio en §5. null = usar los de cada servicio.
   suplidosOverride: { concepto: string; importe: number }[] | null;
@@ -199,6 +199,8 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
         anticipo: conAsignacion ? r2n(sv.anticipo) : sv.anticipo,
         resto: conAsignacion ? r2n(sv.resto) : sv.resto,
         noIncluye: s((sv as { noIncluye?: string }).noIncluye),
+        // «Precio a consultar»: el presupuesto no puede imprimir un total (mentiría).
+        precioOculto: Boolean((sv as { precioOculto?: boolean }).precioOculto) || undefined,
         suplidos: (sv.suplidos ?? []).filter((x) => x.concepto && x.importe > 0)
           .map((x) => (conAsignacion && n > 1 ? { concepto: `${x.concepto} (×${n})`, importe: r2n(x.importe) } : x)),
         // Honorarios variables (% sobre una base): van al contrato tal cual, el
@@ -344,11 +346,24 @@ class Maqueta {
 
 // ── 1) HOJA DE ENCARGO ──────────────────────────────────────────────────────
 
-export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
+// El PRESUPUESTO es este mismo documento antes de la firma: mismos servicios, mismos
+// importes, mismos suplidos — una sola fuente de precios, para que lo presupuestado y lo
+// facturado no puedan divergir. Cambia el título, añade validez y quita lo contractual
+// (encargo, protección de datos y firmas). Pedido por un despacho el 08/09/2026.
+export type ModoEncargo = "encargo" | "presupuesto";
+const DIAS_VALIDEZ = 30;
+
+export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "encargo"): Promise<Uint8Array> {
+  const esPres = modo === "presupuesto";
+  const alInicio = esPres ? "Al inicio" : "Al inicio (a la firma)";
   const m = await Maqueta.crear(d.despacho.logo);
   m.cabecera(d.despacho.nombre, d.referencia);
-  m.titulo("HOJA DE ENCARGO PROFESIONAL");
+  m.titulo(esPres ? "PRESUPUESTO" : "HOJA DE ENCARGO PROFESIONAL");
   m.parrafo(`Fecha: ${fechaLarga(d.fecha)}`, { size: 8.5, color: GRIS });
+  if (esPres) {
+    const hasta = new Date(d.fecha.getTime() + DIAS_VALIDEZ * 86400000);
+    m.parrafo(`Válido hasta el ${fechaLarga(hasta)}`, { size: 8.5, color: GRIS });
+  }
   m.espacio(4);
 
   m.seccion("1. EL PROFESIONAL");
@@ -372,12 +387,12 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.fila("Domicilio", [d.cliente.domicilio, d.cliente.cp, d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ") || o("", 40));
   m.fila("Contacto", [d.cliente.telefono, d.cliente.email].filter(Boolean).join(" / ") || o("", 30));
 
-  m.seccion("3. OBJETO DEL ENCARGO — SERVICIOS INCLUIDOS");
-  m.parrafo(`El cliente encarga al profesional la tramitación de: ${d.servicios.map((sv) => sv.label).join(" + ")}.`, { bold: true });
+  m.seccion(esPres ? "3. SERVICIOS PRESUPUESTADOS" : "3. OBJETO DEL ENCARGO — SERVICIOS INCLUIDOS");
+  m.parrafo(`${esPres ? "Servicios presupuestados" : "El cliente encarga al profesional la tramitación de"}: ${d.servicios.map((sv) => sv.label).join(" + ")}.`, { bold: true });
   for (const sv of d.servicios) {
     if (sv.desc) m.parrafo(d.servicios.length > 1 ? `${sv.label}: ${sv.desc}` : sv.desc);
   }
-  m.parrafo(`El encargo incluye la preparación y revisión de la documentación, la cumplimentación de los formularios oficiales ${d.servicios.length > 1 ? "de los trámites indicados" : "del trámite"}, su presentación ante el órgano competente y el seguimiento del expediente hasta su resolución.`);
+  m.parrafo(`${esPres ? "El servicio incluye" : "El encargo incluye"} la preparación y revisión de la documentación, la cumplimentación de los formularios oficiales ${d.servicios.length > 1 ? "de los trámites indicados" : "del trámite"}, su presentación ante el órgano competente y el seguimiento del expediente hasta su resolución.`);
 
   m.seccion("4. SERVICIOS NO INCLUIDOS");
   // Exclusiones ATRIBUIDAS a su servicio cuando hay varios: un «no incluye X» del
@@ -399,7 +414,16 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
   m.seccion("5. HONORARIOS");
   const anticipoTotal = d.servicios.reduce((a, sv) => a + sv.anticipo, 0);
   const restoTotal = d.servicios.reduce((a, sv) => a + sv.resto, 0);
-  if (anticipoTotal > 0 || restoTotal > 0) {
+  // Si algún servicio es «precio a consultar», un total sería falso: se listan los
+  // servicios, el que no tiene precio dice «A consultar» y NO se imprime ningún total
+  // (misma regla que el carrito del portal del cliente).
+  const hayOculto = esPres && d.servicios.some((sv) => sv.precioOculto);
+  if (hayOculto) {
+    for (const sv of d.servicios) {
+      m.fila(sv.label, sv.precioOculto ? "A consultar" : `${eur(sv.anticipo + sv.resto)} + IVA (21%)`);
+    }
+    m.parrafo("Alguno de los servicios tiene precio a consultar: el importe total se confirmará antes de iniciar el trámite.", { size: 8.5, color: GRIS });
+  } else if (anticipoTotal > 0 || restoTotal > 0) {
     // Desglose por servicio cuando hay más de uno (el contrato debe cuadrar con la factura).
     if (d.servicios.length > 1) {
       for (const sv of d.servicios) {
@@ -416,7 +440,7 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
       const reb = aplicarDescuento({ anticipo: anticipoTotal, resto: restoTotal }, 1, dHoja);
       m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
       m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `${etiquetaDescuento(dHoja)}`);
-      if (reb.anticipo > 0) m.fila("Al inicio (a la firma)", `${eur(reb.anticipo)} + IVA (21%)`);
+      if (reb.anticipo > 0) m.fila(alInicio, `${eur(reb.anticipo)} + IVA (21%)`);
       if (reb.resto > 0) m.fila("Al finalizar el trámite", `${eur(reb.resto)} + IVA (21%)`);
       m.fila("Total con descuento", `${eur(Math.round((reb.anticipo + reb.resto) * 100) / 100)} + IVA (21%)`);
     } else if (dHoja?.tipo === "PORCENTAJE") {
@@ -425,11 +449,11 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
       const resReb = Math.round(restoTotal * f * 100) / 100;
       m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
       m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `${etiquetaDescuento(dHoja)}`);
-      if (antReb > 0) m.fila("Al inicio (a la firma)", `${eur(antReb)} + IVA (21%)`);
+      if (antReb > 0) m.fila(alInicio, `${eur(antReb)} + IVA (21%)`);
       if (resReb > 0) m.fila("Al finalizar el trámite", `${eur(resReb)} + IVA (21%)`);
       m.fila("Total con descuento", `${eur(antReb + resReb)} + IVA (21%)`);
     } else {
-      if (anticipoTotal > 0) m.fila("Al inicio (a la firma)", `${eur(anticipoTotal)} + IVA (21%)`);
+      if (anticipoTotal > 0) m.fila(alInicio, `${eur(anticipoTotal)} + IVA (21%)`);
       if (restoTotal > 0) m.fila("Al finalizar el trámite", `${eur(restoTotal)} + IVA (21%)`);
       m.fila("Total honorarios", `${eur(anticipoTotal + restoTotal)} + IVA (21%)`);
       if (dHoja?.tipo === "IMPORTE") m.fila(`Descuento${dHoja.motivo ? ` (${dHoja.motivo})` : ""}`, `−${eur(dHoja.valor)} (sobre el total del expediente)`);
@@ -479,6 +503,12 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
           : "El pago se acuerda según el presupuesto aceptado, previa emisión de la factura correspondiente.",
   );
   for (const medio of d.medios) m.parrafo(`- ${medio}`, { sangria: 8 });
+
+  if (esPres) {
+    m.espacio(8);
+    m.parrafo("Este presupuesto es informativo y no supone encargo. Al aceptarlo se emite la hoja de encargo profesional, que recoge estas mismas condiciones.", { size: 9 });
+    return m.bytes();
+  }
 
   m.seccion("7. PROTECCIÓN DE DATOS");
   m.parrafo(`Los datos personales del cliente serán tratados por ${d.despacho.nombre} como responsable del tratamiento, con la única finalidad de prestar los servicios objeto de este encargo y cumplir las obligaciones legales derivadas. El cliente puede ejercer sus derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad dirigiéndose al despacho en los datos de contacto indicados. Conforme al RGPD (UE) 2016/679 y la LO 3/2018.`, { size: 8.5, color: GRIS });
