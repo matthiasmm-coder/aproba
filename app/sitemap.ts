@@ -17,8 +17,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { ruta: "/legal/dpa", prioridad: 0.2 },
     { ruta: "/legal/extension", prioridad: 0.2 },
   ];
+  // El índice /articulos CAMBIA cada vez que se publica un artículo (una tarjeta más).
+  // Sin <lastmod> el buscador no tiene ninguna señal de que ha cambiado, y el índice es
+  // justo el camino por el que descubre el artículo nuevo: se fecha con el artículo más
+  // reciente. Las demás páginas fijas no llevan fecha a propósito (no cambian).
+  const masReciente = ARTICULOS.map((a) => a.actualizado ?? a.fecha).sort().at(-1);
   const fijas: MetadataRoute.Sitemap = paginas.map((p) => ({
     url: `${base}${p.ruta}`,
+    ...(p.ruta === "/articulos" && masReciente ? { lastModified: new Date(masReciente) } : {}),
     changeFrequency: p.ruta === "/" ? "weekly" : "monthly",
     priority: p.prioridad,
   }));
