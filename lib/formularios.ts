@@ -222,7 +222,8 @@ export function formularioParaMiembro(
   if (tipo === "EX-02") {
     return { datos: datosTitular, extra: { reagrupado: datosMiembro, menorRepresentado: esMenorFecha(fechaNacimientoMiembro) } };
   }
-  if ((tipo === "EX-31" || tipo === "EX-32") && esMenorFecha(fechaNacimientoMiembro)) {
+  // EX-25 (menores): el menor es el solicitante y el titular firma como representante legal.
+  if ((tipo === "EX-31" || tipo === "EX-32" || tipo === "EX-25") && esMenorFecha(fechaNacimientoMiembro)) {
     return { datos: datosMiembro, extra: { padreTutor: datosTitular } };
   }
   return { datos: datosMiembro };

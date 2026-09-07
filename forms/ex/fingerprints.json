@@ -76,5 +76,77 @@
     "paginas": 7,
     "ancho": 595,
     "alto": 842
+  },
+  "EX-00": {
+    "sha256": "dc2837160d9c7f9852ba96b77685d05ade830ad99a41e324a913aba1e8c4c95a",
+    "paginas": 4,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-04": {
+    "sha256": "ee68e581b245ce1ba20e039c0890a90d25d400aa4c6184d17e068bc0edc10572",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-06": {
+    "sha256": "e40fd50c5d44cc017912d30f4c3ce9b00bd2daa958002d4cdf197d12eb869a06",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-07": {
+    "sha256": "c489bc5b659e51fa31576d5dbe8d65e40111ae4655a49da467f0dddc9c4f7320",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-09": {
+    "sha256": "fb9239aa423bfc68ad0c893271d3505080f81b858dc8c7bbfcb856e3a51a9a25",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-16": {
+    "sha256": "3f98b95be0655b22c4bd0727a00f73c66017fae55bf80c826ffea07f9bb6a8ff",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-19": {
+    "sha256": "233fe7d753723a65ef2ee1d3eceb98f2bdb81e5dd86be8e81c061f157ceebae7",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-20": {
+    "sha256": "da510793db4785a875dd2d23ad275826dc593b179e621c93ed73a180ed2257be",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-24": {
+    "sha256": "5fff7465f370dc46d61f9b8fa9318ec2413be0c112422800ceac8877a09b05cb",
+    "paginas": 5,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-25": {
+    "sha256": "a6dd6ebbade2fe43dc98aa726dd29b15d6caa5f498cf13410cd6a08e70a446ab",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-28": {
+    "sha256": "b421dc71aaf62ae986f244dab5f8c145e1f4f056f01b2d8928b226c53705f511",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-29": {
+    "sha256": "129f544ca52a7cdbe4d0489c5d00b45598d8a14eef9fd61074cabdc22b40aa2a",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
   }
 }

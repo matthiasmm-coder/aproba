@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, StandardFonts, rgb, TextAlignment, PDFName, PDFString, PDFTextField, type PDFForm } from "pdf-lib";
 import type { DatosForm } from "./formularios";
+import { readFileSync } from "node:fs";
 
 // Remplissage des PDF officiels EX avec les données de l'expediente. Deux modes :
 //  • acroform : le modèle a des champs remplissables (on les remplit par nom).
@@ -24,6 +25,8 @@ type MapaAcro = {
   checks?: { sexoX?: string; sexoH?: string; sexoM?: string };
   estadoCivil?: Record<string, string>; // S|C|V|D|Sp → nom du champ case
   tramiteChecks?: Record<string, string[]>; // tipoEnum → cases à cocher (pág.2)
+  // EX-25 : « Representante legal, en su caso » (nom + DNI/NIE/PAS) = padre/madre/tutor du mineur.
+  representante?: { nombre: string; documento: string };
 };
 type MapaOverlay = {
   modo: "overlay";
@@ -130,6 +133,48 @@ export const FORMS: Record<string, Mapa> = {
   "EX-26": vec({ P: 675.4, A: 657.3, N: 638.7, F: 620.4, NAC: 601.8, D: 565.6, L: 547.3, T: 529.2 }, [639, 458, 495, 519], [604, 399, 427, 456, 485, 514], [583.7, 51, 300], { marcas: { sexo: [477.4, 507.6, 538.2], ec: [415.7, 444.5, 473, 502.2, 529.3] }, marcasY: { sexo: 643.6, ec: 606.9 } }),
   // EX-32 (7 pág., familia DA): etiquetas desplazadas +5 (x=56); fecha/piso a calibrar al render.
   "EX-32": vec({ P: 670.2, A: 652.1, N: 633.6, F: 615.5, NAC: 596.8, D: 560.5, L: 542.4, T: 524.4 }, [634, 461, 501, 525], [599, 404, 433, 461, 490, 519], [578.6, 56, 305], { fx: [152, 179, 205], pisoX: 542, nie: [327, 359.4, 363.8, 513.5, 515.7], limites: { numeroX: 492, numeroW: 30, fechaAW: 28 }, marcas: { sexo: [480.1, 513.2, 543.9], ec: [421.4, 450.1, 478.7, 507.8, 535] }, marcasY: { sexo: 638.6, ec: 601.7 } }),
+
+  // ── 11 modelos añadidos el 08/09/2026 (RD 1155/2024) ─────────────────────────
+  // Geometría DERIVADA de los propios PDF, no calibrada a ojo: filas = rótulos pdfjs
+  // (offsets medidos sobre los 12 modelos anteriores, |Δ| ≤ 0,3 pt), cuadrados Sexo /
+  // Estado civil = rectángulos vectoriales de la operator list (|Δ| ≤ 0,5 pt frente a
+  // las medidas al ráster de arriba), tramos N.I.E. = separadores «-» impresos.
+  // Scripts: scratchpad gen-vec.mjs / probe-cajas.mjs (misma familia de plantilla que
+  // EX-01; EX-28 es la familia EX-02: «2º Apellido» a 292 y Sexo a 336).
+  "EX-00": vec({ P: 674.6, A: 656.4, N: 637.9, F: 619.7, NAC: 601.1, D: 564.8, L: 546.5, T: 528.5 }, [639, 454, 493, 519], [603, 399, 427, 456, 485, 514], [582.9, 47, 300], { nie: [328.6, 358.7, 360.9, 507.7, 509.9], marcas: { sexo: [472.8, 507.2, 537.9], ec: [415.4, 444.1, 472.7, 501.7, 528.9] }, marcasY: { sexo: 643.1, ec: 606.1 } }),
+  "EX-04": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 459, 495, 519], [596, 398, 427, 456, 485, 514], [576, 51, 299], { nie: [328.3, 358.4, 360.6, 507.5, 509.7], marcas: { sexo: [475, 507, 537.7], ec: [415.3, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 636.1, ec: 599.3 } }),
+  "EX-06": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 456, 496, 520], [596, 400, 428, 457, 486, 515], [576, 51, 300], { nie: [322.1, 354.5, 358.8, 508.8, 511], marcas: { sexo: [474.5, 508.4, 539], ec: [416.3, 445.2, 473.9, 502.9, 530.1] }, marcasY: { sexo: 636.3, ec: 599.3 } }),
+  "EX-07": vec({ P: 681.5, A: 663.3, N: 644.8, F: 626.7, NAC: 608, D: 571.8, L: 553.5, T: 535.5 }, [645, 459, 495, 519], [610, 399, 427, 456, 485, 514], [589.8, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510], marcas: { sexo: [474.4, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 650.1, ec: 613.1 } }),
+  "EX-09": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 457, 495, 519], [596, 399, 427, 456, 485, 514], [576, 51, 300], { nie: [319.3, 353.8, 358.1, 507.8, 510], marcas: { sexo: [475.2, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 636.1, ec: 599.3 } }),
+  "EX-16": vec({ P: 640.2, A: 622.1, N: 603.5, F: 585.3, NAC: 566.7, D: 530.5, L: 512.3, T: 494.1 }, [604, 458, 495, 519], [569, 399, 427, 456, 485, 514], [548.5, 51, 300], { nie: [321.4, 353.8, 358.1, 507.8, 510], marcas: { sexo: [474.9, 507.4, 541.7], ec: [415.5, 444.2, 472.9, 501.9, 532.2] }, marcasY: { sexo: 608.5, ec: 571.8 } }),
+  // EX-19 (tarjeta de familiar de ciudadano UE): plantilla en disco desde junio, nunca mapeada.
+  "EX-19": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 459, 495, 519], [596, 399, 427, 456, 485, 514], [576, 51, 300], { nie: [321.4, 353.8, 358.1, 507.8, 510], marcas: { sexo: [474.4, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 636.2, ec: 599.3 } }),
+  "EX-20": vec({ P: 654, A: 635.9, N: 617.2, F: 599.1, NAC: 580.5, D: 544.2, L: 525.9, T: 507.9 }, [618, 457, 495, 519], [582, 399, 427, 456, 485, 514], [562.3, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510], marcas: { sexo: [474.8, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 622.3, ec: 585.6 } }),
+  // EX-24 (familiar de español, 5 pág.): el bloque 1 es la persona extranjera; el bloque
+  // «datos del ciudadano español» (p.1, y≈444) queda para el modo editable (blanks genéricos).
+  "EX-24": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 455, 495, 519], [596, 399, 427, 456, 486, 515], [576, 51, 300], { nie: [321.4, 353.8, 358.1, 507.8, 510], marcas: { sexo: [474.5, 507.4, 538], ec: [415.5, 444.2, 473.9, 502.9, 530.1] }, marcasY: { sexo: 636.3, ec: 599.3 } }),
+  "EX-28": vec({ P: 686.2, A: 668, N: 649.3, F: 631.3, NAC: 612.7, D: 576.3, L: 558.1, T: 540.1 }, [648, 336, 372, 400], [614, 396, 424, 452, 483, 512], [594.3, 51, 297], { nie: [325.3, 357.1, 359.3, 505.8, 508], limites: { numeroX: 488, numeroW: 25, nombreW: 195 }, ajustes: { apellido1: { w: 175 }, apellido2: { x: 332, w: 220 } }, marcas: { sexo: [358.7, 387.7, 416.3], ec: [410.1, 438.5, 470.7, 499, 529.4] }, marcasY: { sexo: 654.4, ec: 617.7 } }),
+  "EX-29": vec({ P: 674.7, A: 656.5, N: 637.9, F: 619.8, NAC: 601.2, D: 564.9, L: 546.6, T: 528.6 }, [639, 454, 493, 519], [603, 399, 427, 456, 485, 514], [582.9, 47, 300], { nie: [328.6, 358.7, 360.9, 507.7, 509.9], marcas: { sexo: [472.8, 507.2, 537.9], ec: [415.4, 444.1, 472.7, 501.7, 528.9] }, marcasY: { sexo: 643, ec: 606.2 } }),
+
+  // ── EX-25 (menores): AcroForm de 104 campos «TextoNNN» — mapeados por POSICIÓN del
+  // widget sobre el impreso renderizado (scratchpad probe-ex25.mjs), no por nombre. Sin
+  // estado civil (es un menor). Las casillas Sexo son las únicas de la p.1 (235/236/237,
+  // en el orden impreso X* / H / M). La línea «lugar y fecha» y el pie ya son campos nativos.
+  "EX-25": {
+    modo: "acroform",
+    texto: {
+      pasaporte: "Texto157", nie1: "Texto158", nie2: "Texto159", nie3: "Texto160",
+      apellido1: "Texto161", apellido2: "Texto162", nombre: "Texto163",
+      fechaD: "Texto164", fechaM: "Texto165", fechaA: "Texto166",
+      lugarNac: "Texto167", paisNac: "Texto168", nacionalidad: "Texto169",
+      nombrePadre: "Texto170", nombreMadre: "Texto171",
+      domicilio: "Texto172", numero: "Texto173", piso: "Texto174",
+      localidad: "Texto175", cp: "Texto177", provincia: "Texto178",
+      telefono: "Texto176", email: "Texto179",
+    },
+    checks: { sexoX: "Casilla de verificación235", sexoH: "Casilla de verificación236", sexoM: "Casilla de verificación237" },
+    representante: { nombre: "Texto180", documento: "Texto181" },
+  },
 
   // ── EX-10 : AcroForm (noms trompeurs, mapping par probe visuel) ─────────────
   "EX-10": {
@@ -356,6 +401,13 @@ const LUGAR_FECHA: Record<string, { x0: number; y: number; corto?: boolean }> = 
   "EX-02": { x0: 259.7, y: 211.6, corto: true }, "EX-10": { x0: 282.1, y: 89.6 }, "EX-15": { x0: 256, y: 337.2 },
   "EX-17": { x0: 256, y: 494.2 }, "EX-18": { x0: 256, y: 200.1 }, "EX-19": { x0: 256, y: 308 },
   "EX-31": { x0: 282.1, y: 542.1 }, "EX-32": { x0: 282.1, y: 449 },
+  // Resto de modelos (08/09/2026): y = base pdfjs del ítem «………, a … de … de …» + 2,9,
+  // el mismo offset que reproduce las 8 entradas calibradas a mano de arriba (±0,1).
+  "EX-01": { x0: 256, y: 206.7 }, "EX-03": { x0: 256, y: 210.2 }, "EX-11": { x0: 256, y: 394.2 }, "EX-13": { x0: 256, y: 376.3 },
+  "EX-23": { x0: 256, y: 447.6 }, "EX-26": { x0: 282.6, y: 182.3 },
+  "EX-00": { x0: 256, y: 264.7 }, "EX-04": { x0: 256, y: 329.6 }, "EX-06": { x0: 282.1, y: 601.5 }, "EX-07": { x0: 256, y: 494.9 },
+  "EX-09": { x0: 256, y: 528.8 }, "EX-16": { x0: 256, y: 363.5 }, "EX-20": { x0: 256, y: 180.1 }, "EX-24": { x0: 282.1, y: 471.8 },
+  "EX-28": { x0: 259.7, y: 207.5, corto: true }, "EX-29": { x0: 256, y: 486.2 },
 };
 // Offsets relevés au repère visuel sur EX-18 (ligne identique sur EX-10/15/17/31/32,
 // largeur 261,7 pt). Avant, « día » commençait sur le « a » de « , a » : le texte tapé
@@ -368,6 +420,29 @@ function camposLugarFecha(code: string): Blank[] {
   const b = (name: string, dx: number, w: number, size = 9): Blank => ({ name, x: x0 + dx, y: y - CAJA_DY, w, h: size === 8 ? 13 : 14, size, page: 1 });
   // Lieu en corps 8 : le créneau imprimé fait 96 pt et « Hospitalet de Llobregat » en fait 97 en corps 9.
   return [b("lf_lugar", 0, 96 - d, 8), b("lf_dia", 109 - d, 17), b("lf_mes", 139 - d, 78), b("lf_ano", 230 - d, 40)];
+}
+
+// ── Blanks GENÉRICOS (08/09/2026): casillas □ y conduites de TODAS las páginas de TODOS los
+// modelos overlay, extraídos del propio PDF por scripts/gen-blanks.mjs → forms/ex/blanks.json.
+// Complementan (nunca sustituyen) los calibrados a mano de arriba: en modo editable se
+// crean solo donde no haya ya un campo (solape con cualquier widget creado antes).
+// Formato: c = [página, x, y del glifo □] · t = [página, x, y (base del texto), ancho].
+type BlanksGenericos = Record<string, { c: [number, number, number][]; t: [number, number, number, number][] }>;
+// Se lee del disco como las plantillas (misma carpeta, mismo trazado en Vercel), una sola vez.
+let BLANKS_CACHE: BlanksGenericos | null = null;
+function blanksGenericos(code: string): Blank[] {
+  if (!BLANKS_CACHE) {
+    try { BLANKS_CACHE = JSON.parse(readFileSync(path.join(process.cwd(), "forms", "ex", "blanks.json"), "utf8")) as BlanksGenericos; }
+    catch { BLANKS_CACHE = {}; }
+  }
+  const b = BLANKS_CACHE[code];
+  if (!b) return [];
+  const out: Blank[] = [];
+  // Casilla genérica 9×9 (no 11×11): el «□» impreso mide 7,2 pt y a veces el texto le sigue
+  // a 2 pt — con 11 pt la caja mordía la primera letra («□Autorización», EX-03 p.2).
+  b.c.forEach(([page, gx, gy], i) => out.push({ name: `g${i}`, x: gx + CAJA_W / 2 - 4.5, y: gy + CAJA_H / 2 - 4.5, w: 9, h: 9, size: 8, page, centrar: true }));
+  b.t.forEach(([page, x, y, w], i) => out.push({ name: `gt${i}`, x, y: y - CAJA_DY, w, h: 14, size: w < 20 ? 7 : 9, page }));
+  return out;
 }
 
 export const formularioOficialDisponible = (code: string) => code in FORMS;
@@ -388,6 +463,18 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-23": "Tarjeta Acuerdo de Retirada (Brexit)",
   "EX-26": "Modificación de autorización",
   "EX-32": "Arraigo DA 21ª (RD 1155/2024)",
+  "EX-00": "Estancia de larga duración (estudios…)",
+  "EX-04": "Residencia para prácticas",
+  "EX-06": "Residencia y trabajo de temporada",
+  "EX-07": "Residencia y trabajo por cuenta propia",
+  "EX-09": "Residencia con excepción de trabajo",
+  "EX-16": "Cédula de inscripción / título de viaje",
+  "EX-19": "Tarjeta de familiar de ciudadano UE",
+  "EX-20": "Documento art. 50 TUE (Reino Unido)",
+  "EX-24": "Familiar de persona española",
+  "EX-25": "Menores (residencia / desplazamiento)",
+  "EX-28": "Disposición transitoria 2ª (RD 1155/2024)",
+  "EX-29": "Prórroga de estancia de corta duración",
 };
 export const formulariosDisponibles = (): { code: string; label: string }[] =>
   Object.keys(FORMS).sort().map((code) => ({ code, label: FORM_LABEL[code] ?? code }));
@@ -404,9 +491,11 @@ const TRAMITE_FORMS: Record<string, string[]> = {
 // TipoTramite del enum: su tipo queda en OTRO, así que sus modelos se resuelven por la
 // clave del servicio. Tiene PRIORIDAD sobre TRAMITE_FORMS. Conservar estas claves.
 const SERVICIO_FORMS: Record<string, string[]> = {
-  residencia_ue: ["EX-18"],
+  // «Residencia ciudadano UE» = tarjeta de FAMILIAR de ciudadano UE (EX-19) antes que el
+  // registro del propio ciudadano (EX-18): así lo describe el servicio del catálogo.
+  residencia_ue: ["EX-19", "EX-18"],
   autorizacion_regreso: ["EX-13"], regreso: ["EX-13"],
-  brexit: ["EX-23"],
+  brexit: ["EX-23", "EX-20"],
   modificacion: ["EX-26"],
   arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
 };
@@ -497,6 +586,16 @@ export async function rellenarOficial(
     if (datos.sexo === "M") marcar(mapa.checks?.sexoM);
     if (datos.estadoCivil) marcar(mapa.estadoCivil?.[datos.estadoCivil]);
     if (tramite && mapa.tramiteChecks?.[tramite]) for (const n of mapa.tramiteChecks[tramite]) marcar(n);
+    // EX-25: « Representante legal, en su caso » = padre/madre/tutor (expediente familiar).
+    if (mapa.representante && extra?.padreTutor) {
+      const pt = extra.padreTutor;
+      const nombreRep = [pt.nombre, pt.apellido1, pt.apellido2].map((v) => (v ?? "").trim()).filter(Boolean).join(" ");
+      const docRep = pt.nie1 ? `${pt.nie1}${pt.nie2}${pt.nie3}` : pt.pasaporte;
+      for (const [campo, valor] of [[mapa.representante.nombre, nombreRep], [mapa.representante.documento, docRep]] as const) {
+        if (!valor) continue;
+        try { const f = form.getTextField(campo); f.setText(limpiar(valor)); f.setFontSize(9); } catch { /* campo ausente */ }
+      }
+    }
     // p.2 «Nombre y apellidos del titular» (se repite): campo AcroForm existente, sin rellenar.
     // Pedido por Juan — se rellena con el nombre del interesado (queda editable, como todo acroform).
     const nombreTitular = [datos.nombre, datos.apellido1, datos.apellido2].map((v) => (v ?? "").trim()).filter(Boolean).join(" ");
@@ -540,9 +639,14 @@ export async function rellenarOficial(
   };
   // Posiciones donde ya se estampó una marca X (para no superponer un campo vacío encima).
   const marcasPuestas: { page: number; cx: number; cy: number }[] = [];
+  // Rectángulos de TODOS los campos creados (por página): los blanks genéricos no se posan encima.
+  const rectsCreados: { page: number; x: number; y: number; w: number; h: number }[] = [];
+  const solapa = (page: number, x: number, y: number, w: number, h: number) =>
+    rectsCreados.some((r) => r.page === page && x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y);
   // Campo AcroForm SIN borde ni fondo: las claves deben estar PRESENTES (aunque sea
   // undefined) — si faltan, pdf-lib pone fondo blanco y borde negro (PDFTextField.addToPage).
   const crearCampo = (pg: (typeof pages)[number], name: string, o: { x: number; y: number; w: number; h: number; size: number; valor?: string; centrar?: boolean }) => {
+    rectsCreados.push({ page: pages.indexOf(pg), x: o.x, y: o.y, w: o.w, h: o.h });
     const f = form!.createTextField(uniq(name));
     if (o.centrar) f.setAlignment(TextAlignment.Center);
     if (o.valor) f.setText(o.valor);
@@ -657,6 +761,16 @@ export async function rellenarOficial(
       // Une casilla vide n'est pas créée là où la croix du trámite est déjà posée (même centre à 3 pt près).
       if (b.centrar && marcasPuestas.some((m) => m.page === (b.page ?? 1) && Math.abs(m.cx - (b.x + b.w / 2)) < 3 && Math.abs(m.cy - (b.y + (b.h ?? 14) / 2)) < 3)) continue;
       crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h: b.h ?? 14, size: b.size ?? 9, centrar: b.centrar });
+    }
+    // Genéricos (todas las páginas): solo donde no haya ya un campo. Así el resto del
+    // impreso —secciones 2/3/4 de la p.1, casillas y líneas de la p.2 y siguientes— se
+    // puede rellenar en cualquier visor, también en los modelos sin calibración manual.
+    for (const b of blanksGenericos(code)) {
+      const pg = pages[b.page ?? 1];
+      if (!pg) continue;
+      const h = b.h ?? 14;
+      if (solapa(b.page ?? 1, b.x, b.y, b.w, h)) continue;
+      crearCampo(pg, `b_${b.name}`, { x: b.x, y: b.y, w: b.w, h, size: b.size ?? 9, centrar: b.centrar });
     }
     try { form.updateFieldAppearances(font); } catch { /* ignore */ }
     sellarDA(form);

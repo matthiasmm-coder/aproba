@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useT } from "@/components/lang-provider";
 import { Tasa790Modal } from "@/components/tasa790-modal";
 import { Tasa790026Modal } from "@/components/tasa790026-modal";
+import { Tasa790052Modal } from "@/components/tasa790052-modal";
 
 // Génère un formulaire officiel autorrellené avec les données de CE client,
 // indépendamment d'un expediente/service. Catalogue passé depuis le serveur.
@@ -44,12 +45,13 @@ export function ClienteFormularios({ clienteId, formularios }: { clienteId: stri
           Pedido por Gesadmbcn el 20/08/2026. */}
       <div className="mt-3 border-t border-slate-100 pt-3 text-center">
         <p className="mb-2 text-xs text-slate-500">
-          {t("Las tasas se generan con los datos de este cliente ya rellenados: la 790-012 en la Sede de la Policía Nacional, la 790-026 (nacionalidad) en la del Ministerio de Justicia.")}
+          {t("Las tasas se generan con los datos de este cliente ya rellenados: la 790-012 en la Sede de la Policía Nacional, la 790-052 (autorizaciones de residencia) en la de Administraciones Públicas y la 790-026 (nacionalidad) en la del Ministerio de Justicia.")}
         </p>
         {/* Los modales traen su propio botón: se centran desde el contenedor (flex), no
             tocando los componentes, que se reutilizan en la vista de formularios. */}
         <div className="flex flex-wrap justify-center gap-2">
           <Tasa790Modal clienteId={clienteId} etiqueta={t("Tasa 790-012")} />
+          <Tasa790052Modal clienteId={clienteId} etiqueta={t("Tasa 790-052 (residencia)")} />
           <Tasa790026Modal clienteId={clienteId} etiqueta={t("Tasa 790-026 (nacionalidad)")} />
         </div>
       </div>

@@ -29,7 +29,7 @@ export function Seguimiento({
 }: {
   token: string; gestoria: string; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
-  // «Tasa 790-026» cuando lo guardado es la de nacionalidad (por defecto: 790-012).
+  // «Tasa 790-026» (nacionalidad) o «Tasa 790-052» (residencia) cuando lo guardado no es la 012.
   tasaEtiqueta?: string;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
   miembros?: { id: string; nombre: string; tieneTasa: boolean; tasaEtiqueta?: string; formularios?: string[] }[];

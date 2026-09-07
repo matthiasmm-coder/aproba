@@ -37,7 +37,7 @@ function StatIcon({ name }: { name: string }) {
 // El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación.
 const MODULOS = [
   { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
-  { titulo: "Formularios en un clic", desc: "13 modelos EX y las tasas 790-012 y 790-026, rellenados solos. Sin teclear, sin erratas.", icon: "doc" },
+  { titulo: "Formularios en un clic", desc: "26 modelos EX y las tasas 790-012, 790-052 y 790-026, rellenados solos y editables. Sin teclear, sin erratas.", icon: "doc" },
   { titulo: "Revisión «como Extranjería»", desc: "La IA repasa el expediente igual que el funcionario, antes de presentarlo.", icon: "eye" },
   { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
   { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },

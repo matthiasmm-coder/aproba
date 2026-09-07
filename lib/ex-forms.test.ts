@@ -47,21 +47,24 @@ describe("EX · integridad de las plantillas oficiales (tripwire)", () => {
   });
 });
 
-describe("EX-10 (AcroForm) · los campos del mapeo existen en el PDF", () => {
-  it("ningún nombre de campo referenciado falta en EX-10.pdf", async () => {
-    const mapa = FORMS["EX-10"];
+// Modelos AcroForm (EX-10, EX-25): cada nombre de campo del mapeo debe existir en el PDF.
+const ACRO = CODES.filter((c) => FORMS[c].modo === "acroform");
+describe.each(ACRO)("%s (AcroForm) · los campos del mapeo existen en el PDF", (code) => {
+  it(`ningún nombre de campo referenciado falta en ${code}.pdf`, async () => {
+    const mapa = FORMS[code];
     expect(mapa.modo).toBe("acroform");
     if (mapa.modo !== "acroform") return;
-    const pdf = await PDFDocument.load(await readFile(tpl("EX-10")), { ignoreEncryption: true });
+    const pdf = await PDFDocument.load(await readFile(tpl(code)), { ignoreEncryption: true });
     const present = new Set(pdf.getForm().getFields().map((f) => f.getName()));
     const refs = [
       ...Object.values(mapa.texto),
       ...Object.values(mapa.checks ?? {}),
       ...Object.values(mapa.estadoCivil ?? {}),
       ...Object.values(mapa.tramiteChecks ?? {}).flat(),
+      ...Object.values(mapa.representante ?? {}),
     ].filter(Boolean) as string[];
     const faltan = [...new Set(refs)].filter((n) => !present.has(n));
-    expect(faltan, `campos del mapeo ausentes en EX-10.pdf (relleno silenciosamente perdido): ${faltan.join(" · ")}`).toEqual([]);
+    expect(faltan, `campos del mapeo ausentes en ${code}.pdf (relleno silenciosamente perdido): ${faltan.join(" · ")}`).toEqual([]);
   });
 });
 
@@ -111,16 +114,58 @@ describe("EX · modo editable (campos AcroForm en lugar de texto plano)", () => 
   });
 });
 
-describe("EX-10 (AcroForm) · los datos se escriben en sus casillas", () => {
-  it("nombre, apellido y documento quedan en sus campos", async () => {
-    const mapa = FORMS["EX-10"];
+describe.each(ACRO)("%s (AcroForm) · los datos se escriben en sus casillas", (code) => {
+  it("nombre, apellido, documento y sexo quedan en sus campos", async () => {
+    const mapa = FORMS[code];
     if (mapa.modo !== "acroform") return;
-    const out = await rellenarOficial("EX-10", SAMPLE);
+    const out = await rellenarOficial(code, SAMPLE);
     const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
     const read = (f?: string) => { try { return f ? (form.getTextField(f).getText() ?? "") : null; } catch { return null; } };
     expect(read(mapa.texto.nombre)).toBe("JULIA");
     expect(read(mapa.texto.apellido1)).toBe("MENDOZA");
     expect(read(mapa.texto.pasaporte)).toBe("AY0429317");
+    expect(read(mapa.texto.cp)).toBe("08036");
+    if (mapa.checks?.sexoM) expect(form.getCheckBox(mapa.checks.sexoM).isChecked()).toBe(true);
+    if (mapa.checks?.sexoH) expect(form.getCheckBox(mapa.checks.sexoH).isChecked()).toBe(false);
+  });
+});
+
+// EX-25: el padre/madre/tutor del expediente familiar firma como «Representante legal».
+describe("EX-25 · representante legal desde el titular", () => {
+  it("nombre y documento del titular van a Texto180/181", async () => {
+    const titular = { ...SAMPLE, nombre: "ANA", apellido1: "RESTREPO", apellido2: "", pasaporte: "", nie1: "Y", nie2: "1234567", nie3: "Z" };
+    const out = await rellenarOficial("EX-25", SAMPLE, undefined, { padreTutor: titular });
+    const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
+    expect(form.getTextField("Texto180").getText()).toBe("ANA RESTREPO");
+    expect(form.getTextField("Texto181").getText()).toBe("Y1234567Z");
+  });
+});
+
+// Blanks genéricos (08/09/2026): en modo editable TODOS los modelos overlay llevan campos
+// vacíos en cada página y ningún campo se posa encima de otro.
+describe("modo editable · blanks genéricos en todos los modelos", () => {
+  it.each(CODES.filter((c) => FORMS[c].modo === "overlay"))("%s · campos en cada página, sin solapes", async (code) => {
+    const out = await rellenarOficial(code, SAMPLE, undefined, undefined, { editable: true });
+    const pdf = await PDFDocument.load(out!);
+    const porPagina = new Map<number, { x: number; y: number; w: number; h: number; n: string }[]>();
+    const refs = pdf.getPages().map((p) => p.ref.toString());
+    for (const f of pdf.getForm().getFields()) {
+      for (const w of f.acroField.getWidgets()) {
+        const r = w.getRectangle(); const p = refs.indexOf(String(w.P()));
+        if (!porPagina.has(p)) porPagina.set(p, []);
+        porPagina.get(p)!.push({ x: r.x, y: r.y, w: r.width, h: r.height, n: f.getName() });
+      }
+    }
+    // Casillas y líneas en la p.1 y la p.2 al menos (los modelos tienen ≥ 3 páginas).
+    expect(porPagina.get(0)?.length ?? 0, `${code}: p.1 sin campos`).toBeGreaterThan(20);
+    expect(porPagina.get(1)?.length ?? 0, `${code}: p.2 sin campos`).toBeGreaterThan(3);
+    const solapes: string[] = [];
+    for (const [p, rects] of porPagina) for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i], b = rects[j];
+      const ix = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), iy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (ix > 2 && iy > 2) solapes.push(`p${p} ${a.n}×${b.n}`);
+    }
+    expect(solapes, `${code}: campos superpuestos: ${solapes.slice(0, 5).join(" · ")}`).toEqual([]);
   });
 });
 

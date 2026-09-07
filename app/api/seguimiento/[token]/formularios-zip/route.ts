@@ -87,12 +87,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   // nunca escribe tasaPath) — se incluye la primera que haya, con su nombre real.
   try {
     const rutas = clienteId && exp.familiaId
-      ? [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`]
-      : [...(tasaPath ? [tasaPath] : []), `${exp.id}/tasa-790-026.pdf`];
+      ? [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-052-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`]
+      : [...(tasaPath ? [tasaPath] : []), `${exp.id}/tasa-790-052.pdf`, `${exp.id}/tasa-790-026.pdf`];
     for (const ruta of rutas) {
       const { data: blob } = await admin.storage.from("documentos").download(ruta);
       if (blob) {
-        const base = /026/.test(ruta.split("/").pop() ?? "") ? "tasa-790-026.pdf" : "tasa-790-012.pdf";
+        const nombre = ruta.split("/").pop() ?? "";
+        const base = /026/.test(nombre) ? "tasa-790-026.pdf" : /052/.test(nombre) ? "tasa-790-052.pdf" : "tasa-790-012.pdf";
         entries.push({ name: base, data: new Uint8Array(await blob.arrayBuffer()) });
         break;
       }

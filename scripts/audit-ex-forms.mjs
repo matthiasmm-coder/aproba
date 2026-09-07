@@ -1,7 +1,7 @@
 // Audit automatique des formulaires officiels : remplit chaque modèle avec des sentinelles,
 // extrait les positions du texte (pdfjs) et vérifie que chaque valeur est sur la ligne de
 // son libellé (|dy| <= 6) et à sa droite (0 < dx < 420).
-import { rellenarOficial, formulariosOficiales } from "../lib/ex-forms.ts";
+import { rellenarOficial, formulariosOficiales, FORMS } from "../lib/ex-forms.ts";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const S = {
@@ -22,7 +22,7 @@ const S2 = { ...S,
 };
 
 const LABELS = {
-  pasaporte: ["PASAPORTE"], nie1: ["N.I.E."], nie2: ["N.I.E."], nie3: ["N.I.E."],
+  pasaporte: ["PASAPORTE"], nie1: ["N.I.E.", "N.I.E"], nie2: ["N.I.E.", "N.I.E"], nie3: ["N.I.E.", "N.I.E"], // EX-09 imprime «N.I.E» sin punto final
   apellido1: ["1er Apellido"], apellido2: ["2º Apellido"], nombre: ["Nombre"],
   fechaD: ["Fecha de nacimiento"], fechaM: ["Fecha de nacimiento"], fechaA: ["Fecha de nacimiento"],
   lugarNac: ["Lugar"], paisNac: ["País"], nacionalidad: ["Nacionalidad"],
@@ -74,7 +74,7 @@ function auditMark(tag, sexo, ec, blank, filled, fails) {
 const { readFile } = await import("node:fs/promises");
 let totalFails = 0;
 for (const code of formulariosOficiales()) {
-  if (code === "EX-10") continue; // acroform → audité à part
+  if (FORMS[code].modo === "acroform") continue; // acroform → audité à part
   const fails = [];
   const blankBytes = new Uint8Array(await readFile(`forms/ex/${code}.pdf`));
   const blank = await textItems(blankBytes, 1);
@@ -105,28 +105,28 @@ for (const code of formulariosOficiales()) {
   fails.forEach((f) => console.log(`   ${f}`));
   totalFails += fails.length;
 }
-// EX-10 acroform: relire les champs remplis
-{
+// AcroForm (EX-10, EX-25): relire les champs remplis
+for (const code of formulariosOficiales().filter((c) => FORMS[c].modo === "acroform")) {
   const { PDFDocument } = await import("pdf-lib");
-  const out = await rellenarOficial("EX-10", S, "ARRAIGO_SOCIAL");
+  const mapa = FORMS[code];
+  const tramite = Object.keys(mapa.tramiteChecks ?? {})[0];
+  const out = await rellenarOficial(code, S, tramite);
   const fails = [];
   if (out) {
     const pdf = await PDFDocument.load(out, { ignoreEncryption: true });
     const form = pdf.getForm();
-    const { FORMS } = await import("../lib/ex-forms.ts");
-    const mapa = FORMS["EX-10"];
     for (const [k, fieldName] of Object.entries(mapa.texto)) {
       const v = S[k];
       if (!v) continue;
-      try { const got = form.getTextField(fieldName).getText(); if (got !== v) fails.push(`EX-10 ${k}: "${got}" != "${v}"`); }
-      catch { fails.push(`EX-10 ${k}: champ "${fieldName}" absent`); }
+      try { const got = form.getTextField(fieldName).getText(); if (got !== v) fails.push(`${code} ${k}: "${got}" != "${v}"`); }
+      catch { fails.push(`${code} ${k}: champ "${fieldName}" absent`); }
     }
-    const cb = (n, want, tag) => { try { if (form.getCheckBox(n).isChecked() !== want) fails.push(`EX-10 ${tag}: case ${n} != ${want}`); } catch { fails.push(`EX-10 ${tag}: case ${n} absente`); } };
+    const cb = (n, want, tag) => { try { if (form.getCheckBox(n).isChecked() !== want) fails.push(`${code} ${tag}: case ${n} != ${want}`); } catch { fails.push(`${code} ${tag}: case ${n} absente`); } };
     cb(mapa.checks.sexoM, true, "sexo M"); cb(mapa.checks.sexoH, false, "sexo H");
-    cb(mapa.estadoCivil.D, true, "estadoCivil D");
-    for (const n of mapa.tramiteChecks.ARRAIGO_SOCIAL) cb(n, true, "tramite");
-  } else fails.push("EX-10: NULL");
-  console.log(fails.length ? `❌ EX-10: ${fails.length} problème(s)` : `✅ EX-10: OK`);
+    if (mapa.estadoCivil) cb(mapa.estadoCivil.D, true, "estadoCivil D");
+    if (tramite) for (const n of mapa.tramiteChecks[tramite]) cb(n, true, "tramite");
+  } else fails.push(`${code}: NULL`);
+  console.log(fails.length ? `❌ ${code}: ${fails.length} problème(s)` : `✅ ${code}: OK`);
   fails.forEach((f) => console.log(`   ${f}`));
   totalFails += fails.length;
 }

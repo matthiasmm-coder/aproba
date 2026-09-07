@@ -33,9 +33,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   if (clienteId && exp.familiaId) {
     const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
     if (!m) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-    candidatas = [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`];
+    candidatas = [`${exp.id}/tasa-790-012-${clienteId}.pdf`, `${exp.id}/tasa-790-052-${clienteId}.pdf`, `${exp.id}/tasa-790-026-${clienteId}.pdf`];
   } else {
-    candidatas = [...(exp.tasaPath ? [exp.tasaPath] : []), `${exp.id}/tasa-790-026.pdf`];
+    candidatas = [...(exp.tasaPath ? [exp.tasaPath] : []), `${exp.id}/tasa-790-052.pdf`, `${exp.id}/tasa-790-026.pdf`];
   }
 
   let blob: Blob | null = null;
