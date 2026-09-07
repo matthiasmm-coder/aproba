@@ -1,5 +1,7 @@
 import "server-only";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { embeberLogo, medidasLogo } from "./pdf-logo";
+import type { PDFImage } from "pdf-lib";
 import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, type Descuento as DescuentoExp } from "@/lib/multi-servicio";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchServiciosDeWorkspace } from "./data/config";
@@ -17,7 +19,7 @@ import { TIPO_A_SERVICIO } from "./tramites";
 export type DatosEncargo = {
   referencia: string;
   fecha: Date;
-  despacho: { nombre: string; nif: string; domicilio: string; email: string };
+  despacho: { nombre: string; nif: string; domicilio: string; email: string; logo?: string | null };
   mandatario: { nombre: string; dni: string; colegiado: string; colegio: string };
   cliente: {
     nombre: string; apellidos: string; nie: string; pasaporte: string; nacionalidad: string;
@@ -70,7 +72,7 @@ type ExpRow = {
 export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<DatosEncargo | null> {
   // Workspace: datos del despacho + mandatario. Replis si la migración no está aplicada.
   let wsRes = await admin.from("Workspace")
-    .select("nombre, nif, domicilio, emailFacturacion, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
+    .select("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
     .eq("id", exp.workspaceId).maybeSingle();
   if (wsRes.error) wsRes = await admin.from("Workspace")
     .select("nombre, nif, domicilio, emailFacturacion, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio")
@@ -157,12 +159,14 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
 
   // multi-oficina: si la sede del expediente es otra EMPRESA (razón social/NIF propios),
   // la hoja de encargo debe emitirse a su nombre — el contrato lo firma la empresa real.
-  let despachoDoc = { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilio), email: s(ws.emailFacturacion) };
+  let despachoDoc: DatosEncargo["despacho"] = { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilio), email: s(ws.emailFacturacion), logo: s(ws.logoUrl) || null };
   if (exp.oficinaId) {
     try {
       const { emisorParaOficina } = await import("./facturacion-oficina");
       const em = await emisorParaOficina(admin, exp.workspaceId, exp.oficinaId);
-      if (em.deOficina) despachoDoc = { nombre: em.nombre, nif: s(em.nif), domicilio: s(em.domicilio), email: s(em.email) };
+      // El logo sigue a la sede aunque el bloque fiscal no cambie (emisorParaOficina ya lo resuelve).
+      despachoDoc = { ...despachoDoc, logo: s(em.logo) || despachoDoc.logo };
+      if (em.deOficina) despachoDoc = { ...despachoDoc, nombre: em.nombre, nif: s(em.nif), domicilio: s(em.domicilio), email: s(em.email) };
     } catch { /* migración fase 6 ausente → datos del despacho */ }
   }
 
@@ -224,9 +228,11 @@ const VERDE = rgb(0.055, 0.55, 0.37);
 class Maqueta {
   doc!: PDFDocument; page!: PDFPage; y = 0;
   font!: PDFFont; bold!: PDFFont;
-  static async crear(): Promise<Maqueta> {
+  logo: PDFImage | null = null;
+  static async crear(logoUrl?: string | null): Promise<Maqueta> {
     const m = new Maqueta();
     m.doc = await PDFDocument.create();
+    m.logo = await embeberLogo(m.doc, logoUrl);
     m.font = await m.doc.embedFont(StandardFonts.Helvetica);
     m.bold = await m.doc.embedFont(StandardFonts.HelveticaBold);
     m.nuevaPagina();
@@ -320,10 +326,18 @@ class Maqueta {
   cabecera(despacho: string, referencia: string) {
     this.hdr = { despacho, ref: referencia }; // reutilizado en nuevaPagina() (págs. 2+)
     this.page.drawRectangle({ x: 0, y: A4[1] - 4, width: A4[0], height: 4, color: VERDE });
-    this.page.drawText(limpiar(despacho), { x: MARGEN, y: A4[1] - 34, size: 11, font: this.bold, color: TINTA });
+    // Con logo, el nombre del despacho baja debajo de él (las páginas 2+ no lo llevan:
+    // es una cabecera de continuación, no la portada).
+    let yNombre = A4[1] - 34;
+    if (this.logo) {
+      const { ancho, alto } = medidasLogo(this.logo, 140, 34);
+      this.page.drawImage(this.logo, { x: MARGEN, y: A4[1] - 22 - alto, width: ancho, height: alto });
+      yNombre = A4[1] - 34 - alto;
+    }
+    this.page.drawText(limpiar(despacho), { x: MARGEN, y: yNombre, size: 11, font: this.bold, color: TINTA });
     const ref = limpiar(`Expediente ${referencia}`);
     this.page.drawText(ref, { x: A4[0] - MARGEN - this.font.widthOfTextAtSize(ref, 8), y: A4[1] - 34, size: 8, font: this.font, color: GRIS });
-    this.y = A4[1] - 58;
+    this.y = yNombre - 24;
   }
   async bytes(): Promise<Uint8Array> { return this.doc.save(); }
 }
@@ -331,7 +345,7 @@ class Maqueta {
 // ── 1) HOJA DE ENCARGO ──────────────────────────────────────────────────────
 
 export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
-  const m = await Maqueta.crear();
+  const m = await Maqueta.crear(d.despacho.logo);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo("HOJA DE ENCARGO PROFESIONAL");
   m.parrafo(`Fecha: ${fechaLarga(d.fecha)}`, { size: 8.5, color: GRIS });
@@ -479,7 +493,7 @@ export async function generarHojaEncargo(d: DatosEncargo): Promise<Uint8Array> {
 // ── 2) MANDATO DE REPRESENTACIÓN (modelo Consejo GA, adaptado a extranjería) ─
 
 export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
-  const m = await Maqueta.crear();
+  const m = await Maqueta.crear(d.despacho.logo);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo("MANDATO CON REPRESENTACIÓN");
   m.espacio(2);

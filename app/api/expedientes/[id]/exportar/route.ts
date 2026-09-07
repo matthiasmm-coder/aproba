@@ -172,14 +172,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     for (const f of facturas) if (!f.clienteDatos && mDatos.has(f.id)) f.clienteDatos = mDatos.get(f.id)!;
     if (facturas.length) {
       const d = await fetchDespacho();
-      let emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion };
+      let emisor: { nombre: string; nif: string | null; domicilio: string | null; email: string | null; logo: string | null } =
+        { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
       try {
         // fase 6: todas las facturas del ZIP son de ESTE expediente → una sola sede.
         const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
         const sede = await oficinaDeFacturaFila(supabase, { expedienteId: id });
         if (sede) {
-          const em = emisorDesdeFiscal(emisor, await fiscalDeOficina(supabase, sede));
-          if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email };
+          const fiscal = await fiscalDeOficina(supabase, sede);
+          const em = emisorDesdeFiscal(emisor, fiscal);
+          const logo = (fiscal?.logoUrl ?? "").trim() || emisor.logo;
+          emisor = em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo } : { ...emisor, logo };
         }
       } catch { /* sin migrar */ }
       for (const f of facturas) {

@@ -1,12 +1,13 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { eur, IVA, totalesFactura, type Factura } from "@/lib/facturas";
+import { embeberLogo, medidasLogo } from "@/lib/pdf-logo";
 
 // PDF de factura para el export ZIP (pdf-lib reproduce components/factura-view.tsx).
 // pdf-lib + StandardFont solo codifica WinAnsi → saneamos lo que no entra (nombres no
 // latinos, p.ej. chino/árabe, salen como '?'; el importe/nº se conservan siempre).
 
-export type EmisorPdf = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null };
+export type EmisorPdf = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
 const WIN_EXTRA = "€…‚ƒ„†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
 const safe = (s: string) =>
@@ -45,6 +46,14 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8
   };
   const line = (x1: number, x2: number, yy: number, w = 0.5, color = grey) => page.drawLine({ start: { x: x1, y: yy }, end: { x: x2, y: yy }, thickness: w, color });
   const saltoSi = (min = 70) => { if (y < min) { page = doc.addPage(A4); y = 800; } };
+
+  // Logo del despacho arriba del todo: baja el bloque entero, las dos columnas a la vez.
+  const logo = await embeberLogo(doc, emisor.logo);
+  if (logo) {
+    const { ancho, alto } = medidasLogo(logo, 150, 36);
+    page.drawImage(logo, { x: M, y: y - alto + 12, width: ancho, height: alto });
+    y -= alto + 4;
+  }
 
   // Cabecera: emisor (izq) + FACTURA nº (der)
   text(emisor.nombre || "Mi despacho", M, 15, bold);

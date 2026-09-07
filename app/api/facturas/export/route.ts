@@ -27,7 +27,7 @@ export async function GET() {
     return NextResponse.json({ error: "No hay facturas emitidas o pagadas para exportar." }, { status: 404 });
   }
 
-  const emisorBase = { nombre: despacho.nombre, nif: despacho.nif, domicilio: despacho.domicilio, email: despacho.emailFacturacion };
+  const emisorBase = { nombre: despacho.nombre, nif: despacho.nif, domicilio: despacho.domicilio, email: despacho.emailFacturacion, logo: despacho.logoUrl };
   // fase 6: cada factura sale con el emisor de SU sede. Memo por oficina — un ZIP puede
   // llevar decenas de facturas y solo hay 2-3 sedes.
   const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
@@ -39,7 +39,9 @@ export async function GET() {
       if (!sede) return emisorBase;
       if (!memoFiscal.has(sede)) memoFiscal.set(sede, await fiscalDeOficina(supa, sede));
       const em = emisorDesdeFiscal(emisorBase, memoFiscal.get(sede) ?? null);
-      return em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email } : emisorBase;
+      // El logo puede ser el de la sede aunque el bloque fiscal siga siendo el del despacho.
+      const logo = em.logo || emisorBase.logo;
+      return em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo } : { ...emisorBase, logo };
     } catch { return emisorBase; }
   };
   const entries: ZipEntry[] = [];
