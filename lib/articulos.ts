@@ -66,7 +66,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "«¿Y si no contestan?» es la pregunta que más se repite en un despacho de extranjería, y la respuesta cambia según el trámite: en unos el silencio concede, en otros deniega, y en la nacionalidad se tarda un año en saberlo. Esta es la tabla completa, con las fuentes oficiales y lo que conviene hacer el día que vence el plazo.",
     imagenAlt:
-      "Un reloj de arena de latón cuya arena se convierte en cubos de píxeles verdes al caer, junto a un expediente cerrado con cinta verde, sobre un escritorio claro.",
+      "Un reloj de arena de latón con la arena cayendo, junto a un expediente cerrado con cinta verde y sello de lacre y una campanilla de latón en silencio, sobre un escritorio de nogal.",
     bloques: [
       {
         t: "p",
@@ -174,7 +174,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
     imagenAlt:
-      "Un registro abierto sobre mármol blanco con un sello de latón al lado y, flotando sobre las páginas, un mapa de España dibujado como una red de nodos verdes unidos por líneas.",
+      "Ilustración: un registro abierto sobre una mesa de madera, un sello de latón encima, y la silueta de España dibujada con cientos de puntos de luz verde flotando sobre las páginas.",
     bloques: [
       { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
       {
@@ -343,7 +343,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La nacionalidad por residencia es el trámite que más ha crecido en los últimos años y el que peor fama tiene de plazos. Estos son los números oficiales, el coste real para el cliente y las tres cosas que hacen que un expediente tarde el doble.",
     imagenAlt:
-      "Un pasaporte abierto sobre mármol blanco atravesado por una línea de escaneo verde que convierte la página en bloques de píxeles que ascienden hacia un reloj de arena de latón.",
+      "Un pasaporte granate abierto sobre un escritorio de nogal, con una estela de luz verde que se eleva de sus páginas hacia un reloj de arena de latón cuya arena cae lentamente.",
     bloques: [
       {
         t: "p",
@@ -485,7 +485,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Es la pregunta que todo despacho se hace y casi nadie responde por escrito: qué cobrar por un arraigo, una renovación o una nacionalidad. Aquí están los rangos que se observan en el mercado, el porqué de que no haya tarifa oficial, y cómo estructurar el precio para no perder dinero por el camino.",
     imagenAlt:
-      "Balanza de latón sobre mármol blanco: en un platillo, documentos con sello de lacre; en el otro, monedas; al lado flota un gráfico de barras verde proyectado en el aire.",
+      "Balanza de latón sobre un escritorio de despacho: en un platillo, documentos oficiales con sello de lacre; en el otro, monedas.",
     bloques: [
       {
         t: "p",
@@ -594,7 +594,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
     imagenAlt:
-      "Una hoja de papel en blanco sobre un escritorio claro cuya parte derecha se convierte en un circuito impreso de trazos verdes, del que se despegan cuadros de píxeles luminosos.",
+      "Una factura de papel sobre un escritorio de cuero verde cuya mitad derecha se disuelve en trazos luminosos y un mosaico tipo QR.",
     bloques: [
       {
         t: "p",
