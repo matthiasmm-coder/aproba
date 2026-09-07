@@ -174,7 +174,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
     imagenAlt:
-      "Un registro abierto sobre una mesa de mármol blanco, un sello de latón al lado, y la silueta de España dibujada con cientos de puntos de luz verde flotando sobre las páginas.",
+      "Un registro abierto sobre mármol blanco, un sello de latón al lado, y una cinta de luz verde que se eleva de sus páginas y traza de un solo trazo el contorno de la península ibérica.",
     bloques: [
       { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
       {
@@ -343,7 +343,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La nacionalidad por residencia es el trámite que más ha crecido en los últimos años y el que peor fama tiene de plazos. Estos son los números oficiales, el coste real para el cliente y las tres cosas que hacen que un expediente tarde el doble.",
     imagenAlt:
-      "Un pasaporte granate abierto sobre mármol blanco, con una estela de luz verde que se eleva de sus páginas hacia un reloj de bolsillo de latón.",
+      "Un pasaporte granate abierto sobre mármol blanco del que sale una cinta continua de luz verde que se curva en el aire hasta rodear un reloj de bolsillo de latón.",
     bloques: [
       {
         t: "p",
@@ -594,7 +594,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
     imagenAlt:
-      "Una factura de papel sobre una carpeta de cuero verde claro cuya mitad derecha se disuelve en partículas de luz verde que forman un mosaico tipo QR luminoso.",
+      "Una factura de papel sobre mármol blanco de la que se eleva una cinta continua de luz verde que dibuja en el aire un cuadrado luminoso.",
     bloques: [
       {
         t: "p",
