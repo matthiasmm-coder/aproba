@@ -41,6 +41,7 @@ IMPORTAR DATOS (migración): trae tu cartera desde cualquier Excel/CSV (o pegand
 - Crea clientes, familias, el historial de servicios y los vencimientos de Vigía. NO crea expedientes activos (el pasado no ensucia tu tablero) y NO consume tu cuota mensual.
 - Reimportar el mismo archivo no duplica nada.
 
+LOGO DEL DESPACHO: se sube en Ajustes → Facturación y métodos de pago y aparece en la vista de la factura, en los PDF de factura (descarga y export ZIP) y en la hoja de encargo y el mandato. Formatos JPG, PNG o WebP, máximo 2 MB. Si una oficina tiene su propio logo, sus documentos salen con el suyo. No hay plantilla de factura personalizable más allá de esto: el diseño es el de la plataforma.
 FACTURAS: totales del periodo (Facturado / Cobrado / Pendiente de cobro), secciones plegables, export CSV y PDF (o ZIP de todas). Se emiten solas al firmar (anticipo) y al finalizar (resto) si el servicio tiene tarifa, o a mano con «+ Nueva factura». Estados: BORRADOR, EMITIDA, PAGADA, VENCIDA. Admite descuentos por expediente y suplidos (tasas, que van sin IVA). Los datos fiscales del cliente se congelan en la factura al emitirla.
 
 COBROS: por transferencia (aparece tu IBAN en la factura) o con tarjeta (Stripe) si lo activas en Ajustes.
