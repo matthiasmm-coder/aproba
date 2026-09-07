@@ -174,7 +174,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Desde marzo de 2026 el Ministerio acredita a ONG y sindicatos para representar a personas extranjeras sin cobrar. Ya son 498. Dónde están, qué les exige la norma y qué significa para quien vive de tramitar.",
     imagenAlt:
-      "Un registro encuadernado en cuero abierto sobre un escritorio de madera clara, con un sello de latón sobre la página derecha y un puñado de chinchetas de latón sobre la izquierda.",
+      "Un registro abierto sobre una mesa de mármol blanco, un sello de latón al lado, y la silueta de España dibujada con cientos de puntos de luz verde flotando sobre las páginas.",
     bloques: [
       { t: "h2", texto: "Qué es el Registro de Colaboradores de Extranjería" },
       {
@@ -343,7 +343,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La nacionalidad por residencia es el trámite que más ha crecido en los últimos años y el que peor fama tiene de plazos. Estos son los números oficiales, el coste real para el cliente y las tres cosas que hacen que un expediente tarde el doble.",
     imagenAlt:
-      "Un pasaporte granate abierto sobre un escritorio de madera clara y, detrás, un reloj de arena de latón con la arena cayendo, a la luz de una ventana.",
+      "Un pasaporte granate abierto sobre mármol blanco, con una estela de luz verde que se eleva de sus páginas hacia un reloj de bolsillo de latón.",
     bloques: [
       {
         t: "p",
@@ -485,7 +485,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Es la pregunta que todo despacho se hace y casi nadie responde por escrito: qué cobrar por un arraigo, una renovación o una nacionalidad. Aquí están los rangos que se observan en el mercado, el porqué de que no haya tarifa oficial, y cómo estructurar el precio para no perder dinero por el camino.",
     imagenAlt:
-      "Balanza de latón sobre un escritorio de despacho: en un platillo, documentos oficiales con sello de lacre; en el otro, monedas.",
+      "Balanza de latón sobre mármol blanco ante un fondo de lino verde claro: en un platillo, documentos con cinta verde y sello de lacre; en el otro, monedas.",
     bloques: [
       {
         t: "p",
@@ -594,7 +594,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
     imagenAlt:
-      "Una factura de papel en blanco con un pequeño mosaico tipo QR en la esquina, sobre una carpeta de cuero verde, con una pluma de latón encima.",
+      "Una factura de papel sobre una carpeta de cuero verde claro cuya mitad derecha se disuelve en partículas de luz verde que forman un mosaico tipo QR luminoso.",
     bloques: [
       {
         t: "p",
@@ -688,7 +688,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La regularización extraordinaria de 2026 no termina cuando se resuelve el último expediente: empieza otra vez doce meses después. Estos son los números y lo que un despacho puede hacer hoy.",
     imagenAlt:
-      "Una ola inmensa de carpetas de papel crema se curva sobre una mesa pequeña donde solo hay un calendario de sobremesa de latón en blanco y una pluma.",
+      "Ilustración: una ola inmensa formada por miles de expedientes de papel avanza hacia una mesa pequeña con un calendario.",
     bloques: [
       { t: "h2", texto: "Qué pasó en 2026" },
       {
@@ -792,7 +792,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "La fase de subsanación de la regularización extraordinaria afecta a cientos de miles de expedientes y se cierra el 30 de septiembre de 2026. El plazo que circula por el sector no siempre es el correcto.",
     imagenAlt:
-      "Un calendario de sobremesa con una casilla rodeada en verde, un reloj de arena de latón casi vacío y un sobre cerrado con sello de lacre.",
+      "Ilustración: un calendario con una fecha rodeada en verde, un reloj de arena casi vacío y un sobre cerrado.",
     bloques: [
       { t: "h2", texto: "El plazo: 15 días, no 10" },
       {
@@ -851,7 +851,7 @@ export const ARTICULOS: Articulo[] = [
     entradilla:
       "Casi ningún requerimiento llega por el fondo del asunto. Llega porque falta una hoja, porque una fecha no cuadra o porque la foto del móvil no se lee. Estos son los siete casos más repetidos.",
     imagenAlt:
-      "Vista cenital: documentos en blanco y un pasaporte granate sobre una mesa de madera clara, con una lupa de latón sobre uno de ellos y una pestaña ámbar que marca el detalle.",
+      "Ilustración cenital: documentos en blanco y un pasaporte sobre una mesa, con una lupa que destaca el detalle marcado por una pestaña ámbar.",
     bloques: [
       { t: "h2", texto: "1. El documento ilegible" },
       {
