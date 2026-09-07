@@ -19,6 +19,7 @@ import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServic
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
+import { EnviarPresupuestoButton } from "@/components/enviar-presupuesto-button";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
@@ -400,6 +401,8 @@ export default async function ExpedienteDetail({
               {/* El presupuesto es la misma hoja ANTES de la firma: se manda al cliente
                   que aún no ha encargado nada. Por eso va primero, y con su propia frase. */}
               <a href={`/api/expedientes/${e.id}/encargo?doc=presupuesto`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("presupuesto (PDF)")}</a>
+              {" · "}
+              <EnviarPresupuestoButton expedienteId={e.id} />
               {" · "}
               {t("Para firmar:")}{" "}
               <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
