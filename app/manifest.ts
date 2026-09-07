@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Aproba — Expedientes de extranjería",
     short_name: "Aproba",
-    description: "Valida documentos con IA, genera los 26 formularios EX y las tasas 790 y haz el seguimiento de tus expedientes.",
+    description: "Valida documentos con IA, genera los 25 formularios EX y las tasas 790 y haz el seguimiento de tus expedientes.",
     start_url: "/app",
     scope: "/",
     display: "standalone",

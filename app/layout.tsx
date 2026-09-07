@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s · Aproba",
   },
   description:
-    "Aproba valida documentos con IA, genera los 26 formularios EX y las tasas 790 (012, 052, 026), y hace el seguimiento de tus expedientes. Para gestorías y abogados de extranjería en España.",
+    "Aproba valida documentos con IA, genera los 25 formularios EX y las tasas 790 (012, 052, 026), y hace el seguimiento de tus expedientes. Para gestorías y abogados de extranjería en España.",
   applicationName: "Aproba",
   // Tarjeta al compartir el enlace (WhatsApp, LinkedIn, email…) — antes el enlace salía desnudo.
   openGraph: {
