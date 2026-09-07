@@ -25,7 +25,7 @@ EXPEDIENTES (tablero): 2 columnas de trabajo — 1. Preparación (datos, documen
 
 DOCUMENTOS: cuando el cliente sube un documento, la IA lo lee y extrae los datos (por ejemplo la caducidad de la TIE). Estados: PROCESANDO → VALIDADO (o rechazado si no se lee). Tú también puedes subir documentos sueltos desde la ficha del cliente, sin expediente.
 
-FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha — 13 modelos EX (EX-01, EX-02, EX-03, EX-10, EX-11, EX-13, EX-15, EX-17, EX-18, EX-23, EX-26, EX-31, EX-32) y las tasas 790-012 y 790-026 (esta última para nacionalidad). Desde la pestaña «Formularios» del expediente, o desde la ficha del cliente («Formularios oficiales» → elegir modelo → «Descargar»). En un expediente familiar se elige a qué miembro corresponde cada formulario.
+FORMULARIOS OFICIALES: se generan autorrellenados con los datos de la ficha — 14 modelos EX (EX-01, EX-02, EX-03, EX-10, EX-11, EX-13, EX-15, EX-17, EX-18, EX-19, EX-23, EX-26, EX-31, EX-32) y las tasas 790-012 y 790-026 (esta última para nacionalidad). Desde la pestaña «Formularios» del expediente, o desde la ficha del cliente («Formularios oficiales» → elegir modelo → «Descargar»). En un expediente familiar se elige a qué miembro corresponde cada formulario.
 
 AVISOS AL CLIENTE: emails automáticos en cada paso (documento recibido/validado/rechazado, formularios preparados, expediente presentado, resolución, cita, trámite completado). En Ajustes → «Notificaciones al cliente» puedes editar el texto de cada aviso, desactivarlo, eliminarlo (con «Restaurar» para recuperarlo) o crear avisos propios con «Nuevo aviso»: eliges cuándo se envía (uno de esos eventos), el asunto del email y el mensaje. Placeholders {nombre}, {documento} y {fecha} se rellenan solos.
 
