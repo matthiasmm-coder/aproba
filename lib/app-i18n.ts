@@ -1867,6 +1867,15 @@ export const CA: Record<string, string> = {
   "empresa": "empresa",
   "empresas": "empreses",
   "Trabajador de": "Treballador de",
+
+  // Logo del despacho en Despacho y cuenta (09/09/2026); la foto del usuario, en la barra lateral.
+  "No se pudo subir el logo.": "No s'ha pogut pujar el logotip.",
+  "No se pudo quitar el logo.": "No s'ha pogut treure el logotip.",
+  "Logo del despacho": "Logotip del despatx",
+  "Tus clientes lo ven en su portal, en los emails que les envías, en la vista previa del enlace y en tus facturas. JPG, PNG o WebP · máx. 2 MB.": "Els teus clients el veuen al seu portal, als emails que els envies, a la vista prèvia de l'enllaç i a les teves factures. JPG, PNG o WebP · màx. 2 MB.",
+  "Solo un administrador puede cambiarlo.": "Només un administrador pot canviar-lo.",
+  "Tu foto de perfil se cambia pulsando tu círculo en la barra lateral (abajo a la izquierda).": "La teva foto de perfil es canvia prement el teu cercle a la barra lateral (a baix a l'esquerra).",
+  "Aparecen en la cabecera de tus facturas (PDF). El logo se cambia en Despacho y cuenta.": "Apareixen a la capçalera de les teves factures (PDF). El logotip es canvia a Despatx i compte.",
 };
 
 export function translate(lang: Lang, es: string): string {

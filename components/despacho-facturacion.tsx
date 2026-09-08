@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import type { Despacho } from "@/lib/data/config";
 
-// Ajustes › datos de facturación del despacho (encabezado de la factura) + logo.
+// Ajustes › datos de facturación del despacho (encabezado de la factura).
 // Lo que se rellena aquí aparece en la cabecera de cada factura (PDF/impresión).
+// El LOGO ya no se sube aquí: vive en Despacho y cuenta (components/logo-despacho.tsx),
+// porque es la marca de todo lo que ve el cliente, no solo de la factura.
 export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
   const t = useT();
   const router = useRouter();
@@ -17,35 +19,18 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
   // el presupuesto y el mandato. La factura lleva SIEMPRE el fiscal (documento tributario).
   const [domicilioActividad, setDomicilioActividad] = useState(inicial.domicilioActividad ?? "");
   const [email, setEmail] = useState(inicial.emailFacturacion ?? "");
-  const [logoUrl, setLogoUrl] = useState<string | null>(inicial.logoUrl);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(inicial.logoUrl);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-
-  function elegirLogo(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setLogoFile(f);
-    setPreview(URL.createObjectURL(f));
-  }
-  function quitar() {
-    setLogoFile(null); setPreview(null); setLogoUrl(null);
-    if (fileRef.current) fileRef.current.value = "";
-  }
 
   async function guardar() {
     setEstado("saving"); setError(null);
     try {
       const fd = new FormData();
       fd.set("nombre", nombre); fd.set("nif", nif); fd.set("domicilio", domicilio); fd.set("domicilioActividad", domicilioActividad); fd.set("emailFacturacion", email);
-      if (logoFile) fd.set("logo", logoFile);
-      else if (!preview && logoUrl === null) fd.set("quitarLogo", "1");
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
-      setLogoUrl(d.logoUrl ?? null); setLogoFile(null);
+      void d;
       setEstado("saved"); window.setTimeout(() => setEstado((s) => (s === "saved" ? "idle" : s)), 1500);
       router.refresh();
     } catch (e) {
@@ -63,26 +48,9 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
           {estado === "saving" ? t("Guardando…") : estado === "saved" ? t("Guardado ✓") : estado === "error" ? t("Error") : ""}
         </span>
       </div>
-      <p className="mt-0.5 text-xs text-slate-500">{t("Aparecen en la cabecera de tus facturas (PDF).")}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{t("Aparecen en la cabecera de tus facturas (PDF). El logo se cambia en Despacho y cuenta.")}</p>
 
       <div className="mt-4 flex items-start gap-4">
-        {/* Logo */}
-        <div className="shrink-0">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="logo" className="h-full w-full object-contain" />
-            ) : (
-              <span className="text-[10px] text-slate-300">{t("Sin logo")}</span>
-            )}
-          </div>
-          <div className="mt-1.5 flex flex-col gap-0.5">
-            <button onClick={() => fileRef.current?.click()} className="text-[11px] font-semibold text-aproba-700 hover:underline">{preview ? t("Cambiar") : t("Subir logo")}</button>
-            {preview && <button onClick={quitar} className="text-[11px] text-slate-400 hover:text-red-500">{t("Quitar")}</button>}
-          </div>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={elegirLogo} />
-        </div>
-
         {/* Datos */}
         <div className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-2">
           <div className="sm:col-span-2">

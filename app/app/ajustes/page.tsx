@@ -20,7 +20,7 @@ import { EquipoManager } from "@/components/equipo-manager";
 import { OficinasManager } from "@/components/oficinas-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
-import { FotoPerfil } from "@/components/foto-perfil";
+import { LogoDespacho } from "@/components/logo-despacho";
 import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
@@ -490,6 +490,7 @@ export default async function Ajustes() {
                 <div className="flex justify-between"><span className="text-slate-500">{t("Tipo")}</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Plan")}</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
               </div>
+              <LogoDespacho logoUrl={despacho.logoUrl} puedeEditar={puedeEditar} />
             </div>
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Cuenta")}</h3>
@@ -497,9 +498,9 @@ export default async function Ajustes() {
                 <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Email")}</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
               </div>
-              {/* Foto de perfil: aquí es visible y usable también en el móvil, donde
-                  el avatar de la barra lateral ni se ve ni tiene hover. */}
-              <FotoPerfil nombre={yo?.nombre ?? ""} avatarUrl={yo?.avatarUrl} />
+              {/* La foto del USUARIO se cambia desde su círculo en la barra lateral (abajo a la
+                  izquierda); aquí solo se recuerda dónde. El logo del despacho va en la otra columna. */}
+              <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-slate-500">{t("Tu foto de perfil se cambia pulsando tu círculo en la barra lateral (abajo a la izquierda).")}</p>
             </div>
           </div>
 

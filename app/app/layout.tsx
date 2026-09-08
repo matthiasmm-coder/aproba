@@ -116,6 +116,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-cream-50/80 px-4 backdrop-blur sm:px-6 print:hidden">
           <div className="flex items-center gap-2">
             <Link href="/" className="md:hidden"><AprobaMark size={24} /></Link>
+            {/* Móvil: sin barra lateral, el círculo del usuario (su foto) vive aquí. */}
+            <span className="md:hidden"><AvatarUploader iniciales={ctx.iniciales} avatarUrl={ctx.avatarUrl} /></span>
             <span className="hidden text-sm font-semibold text-slate-800 sm:inline">{ctx.workspace}</span>
             <span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{ctx.plan}</span>
             {/* Multi-oficina : n'apparaît qu'à partir de 2 sedes (le composant s'efface seul). */}
