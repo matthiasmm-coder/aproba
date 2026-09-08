@@ -12,5 +12,11 @@ export const contentType = "image/png";
 export default async function Image({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const marca = await marcaPorPortalToken(createSupabaseAdmin(), token).catch(() => null);
-  return tarjetaPortal(marca, TEXTOS_PORTAL.s.titulo);
+  try {
+    return await tarjetaPortal(marca, TEXTOS_PORTAL.s.titulo);
+  } catch (err) {
+    // Sin tarjeta no se rompe nada (el enlace sigue funcionando): se deja el motivo legible.
+    console.error("[og portal]", err instanceof Error ? err.message : err);
+    return new Response(`og: ${err instanceof Error ? err.message : "error"}`, { status: 500, headers: { "content-type": "text/plain" } });
+  }
 }

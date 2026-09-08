@@ -17,6 +17,13 @@ const nextConfig = {
   // pdfjs-dist (lib/tasa-editable.ts) no se empaqueta: su build legacy trae polyfills de
   // navegador que rompen al minificar; Node lo carga tal cual desde node_modules.
   serverExternalPackages: ["pdfjs-dist"],
+  // Fuentes de las tarjetas OG del portal (lib/og-portal.tsx): next/og no trae ninguna
+  // en el runtime Node y el trazado no las detectaba en Vercel (500 «No fonts are loaded»).
+  outputFileTracingIncludes: {
+    "/j/[token]/opengraph-image": ["./lib/og/*.ttf"],
+    "/s/[token]/opengraph-image": ["./lib/og/*.ttf"],
+    "/c/[token]/opengraph-image": ["./lib/og/*.ttf"],
+  },
   // La bandeja de entrada vive en Ajustes → Integraciones desde el 06/09/2026; la ruta
   // antigua (emails ya enviados, marcadores) redirige a la sección abierta. Redirección
   // HTTP real (307): un redirect() en la página llegaba tras el streaming del layout y
