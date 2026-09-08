@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { logoDelWorkspace } from "@/lib/marca";
+import { logoDelWorkspace, marcaPorEspacioToken } from "@/lib/marca";
+import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
+import type { Metadata } from "next";
 import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { EspacioCliente, type EspacioExp, type EspacioServicio } from "@/components/espacio-cliente";
@@ -10,8 +12,13 @@ import { EspacioCliente, type EspacioExp, type EspacioServicio } from "@/compone
 // terminados e histórico pre-migración) y permite SOLICITAR un trámite nuevo, que
 // aparece al instante en el tablero del gestor (+ email).
 
-// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
-export const metadata = { robots: { index: false, follow: false } };
+// <head> con la marca del DESPACHO (pestaña, tarjeta al compartir, favicon); los
+// enlaces del portal llevan el token en la URL y nunca se indexan (metadataPortal).
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const marca = await marcaPorEspacioToken(createSupabaseAdmin(), token).catch(() => null);
+  return metadataPortal(marca, TEXTOS_PORTAL.c);
+}
 // Datos SIEMPRE frescos (mismo criterio que /s): sin esto Vercel cachea la lista.
 export const dynamic = "force-dynamic";
 

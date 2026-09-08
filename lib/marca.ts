@@ -26,3 +26,37 @@ export async function logoDelExpediente(cli: Cli, expedienteId: string | null | 
     return logoDelWorkspace(cli, e.workspaceId, e.oficinaId ?? null);
   } catch { return null; }
 }
+
+// ── Marca del despacho para un enlace de portal (título de la pestaña, tarjeta al
+// compartir por WhatsApp/email, favicon). El token ES el enlace que recibe el cliente:
+// /j y /s llevan Expediente.portalToken; /c lleva Cliente.espacioToken.
+export type MarcaPortal = { gestoria: string; logoUrl: string | null };
+
+async function marcaDeWorkspace(cli: Cli, workspaceId: string, oficinaId: string | null): Promise<MarcaPortal> {
+  const { data } = await cli.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
+  const gestoria = String((data as { nombre?: string } | null)?.nombre ?? "").trim() || "Tu gestoría";
+  return { gestoria, logoUrl: await logoDelWorkspace(cli, workspaceId, oficinaId) };
+}
+
+export async function marcaPorPortalToken(cli: Cli, token: string): Promise<MarcaPortal | null> {
+  if (!token) return null;
+  try {
+    let res = await cli.from("Expediente").select("workspaceId, oficinaId").eq("portalToken", token).maybeSingle();
+    if (res.error) res = await cli.from("Expediente").select("workspaceId").eq("portalToken", token).maybeSingle();
+    const e = res.data as { workspaceId?: string; oficinaId?: string | null } | null;
+    if (!e?.workspaceId) return null;
+    return marcaDeWorkspace(cli, e.workspaceId, e.oficinaId ?? null);
+  } catch { return null; }
+}
+
+export async function marcaPorEspacioToken(cli: Cli, token: string): Promise<MarcaPortal | null> {
+  if (!token) return null;
+  try {
+    let res = await cli.from("Cliente").select("workspaceId, oficinaId").eq("espacioToken", token).maybeSingle();
+    if (res.error) res = await cli.from("Cliente").select("workspaceId").eq("espacioToken", token).maybeSingle();
+    const c = res.data as { workspaceId?: string; oficinaId?: string | null } | null;
+    if (!c?.workspaceId) return null;
+    return marcaDeWorkspace(cli, c.workspaceId, c.oficinaId ?? null);
+  } catch { return null; }
+}
+

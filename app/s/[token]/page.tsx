@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { logoDelWorkspace } from "@/lib/marca";
+import { logoDelWorkspace, marcaPorPortalToken } from "@/lib/marca";
+import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
+import type { Metadata } from "next";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
@@ -9,8 +11,13 @@ import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 import { asegurarEspacioToken } from "@/lib/espacio";
 
-// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
-export const metadata = { robots: { index: false, follow: false } };
+// <head> con la marca del DESPACHO (pestaña, tarjeta al compartir, favicon); los
+// enlaces del portal llevan el token en la URL y nunca se indexan (metadataPortal).
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const marca = await marcaPorPortalToken(createSupabaseAdmin(), token).catch(() => null);
+  return metadataPortal(marca, TEXTOS_PORTAL.s);
+}
 
 
 // Estados en los que los formularios ya están generados (se exponen al cliente).

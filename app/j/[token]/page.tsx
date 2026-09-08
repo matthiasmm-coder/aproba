@@ -2,7 +2,9 @@ import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { logoDelWorkspace } from "@/lib/marca";
+import { logoDelWorkspace, marcaPorPortalToken } from "@/lib/marca";
+import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
+import type { Metadata } from "next";
 import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
@@ -12,8 +14,13 @@ import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import type { MiembroInicial } from "@/components/datos-familia";
 
-// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
-export const metadata = { robots: { index: false, follow: false } };
+// <head> con la marca del DESPACHO (pestaña, tarjeta al compartir, favicon); los
+// enlaces del portal llevan el token en la URL y nunca se indexan (metadataPortal).
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const marca = await marcaPorPortalToken(createSupabaseAdmin(), token).catch(() => null);
+  return metadataPortal(marca, TEXTOS_PORTAL.j);
+}
 
 
 // Lien WhatsApp du client : /j/{token} → résout l'expediente réel (cliente,
