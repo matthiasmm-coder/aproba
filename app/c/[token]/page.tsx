@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { logoDelWorkspace } from "@/lib/marca";
 import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { EspacioCliente, type EspacioExp, type EspacioServicio } from "@/components/espacio-cliente";
@@ -67,6 +68,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
   } catch { /* tabla aún no migrada */ }
 
   const servicios = await fetchServiciosDeWorkspace(admin, cliente.workspaceId, (cliente as { oficinaId?: string | null }).oficinaId ?? null);
+  const logoUrl = await logoDelWorkspace(admin, cliente.workspaceId, (cliente as { oficinaId?: string | null }).oficinaId ?? null);
   const labelDe = (clave: string | null, tipo: string) =>
     servicios.find((s) => s.id === (clave ?? TIPO_A_SERVICIO[tipo]))?.label ?? TIPO_LABEL[tipo] ?? tipo;
 
@@ -100,6 +102,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
     <EspacioCliente
       token={token}
       gestoria={gestoria}
+      logoUrl={logoUrl}
       nombre={cliente.nombre ?? ""}
       idioma={cliente.idioma ?? "es"}
       enCurso={items.filter((i) => i.enCurso)}

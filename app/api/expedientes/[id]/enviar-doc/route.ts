@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo";
 import { emailLayout } from "@/lib/notificaciones";
+import { logoDelWorkspace } from "@/lib/marca";
 import { direccionEntrante } from "@/lib/email-entrante";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
@@ -20,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const { data: own } = await supabase.from("Expediente")
-    .select("id, referencia, workspaceId, portalToken, Cliente(nombre, apellidos, email)")
+    .select("id, referencia, workspaceId, oficinaId, portalToken, Cliente(nombre, apellidos, email)")
     .eq("id", id).maybeSingle();
   if (!own) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
@@ -69,6 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...(token ? { replyTo: direccionEntrante(token) } : {}),
     html: emailLayout({
       gestoria, titulo, cuerpoHtml: cuerpo,
+      logoUrl: await logoDelWorkspace(admin, own.workspaceId as string, ((own as { oficinaId?: string | null }).oficinaId ?? null)),
       preheader: doc === "presupuesto" ? "Presupuesto adjunto en PDF" : "Hoja de encargo y mandato adjuntos",
       // Solo en el encargo: el enlace lleva justo a donde se suben los firmados.
       cta: doc === "encargo" && portal ? { url: `${baseUrlFromRequest(req)}/j/${portal}`, label: "Subir los documentos firmados" } : null,

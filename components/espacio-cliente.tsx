@@ -26,8 +26,8 @@ export type EspacioPack = { id: string; nombre: string; desc: string; servicioId
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
 
-export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, terminados, servicios, packs = [] }: {
-  token: string; gestoria: string; nombre: string; idioma: string;
+export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma, enCurso, terminados, servicios, packs = [] }: {
+  token: string; gestoria: string; logoUrl?: string | null; nombre: string; idioma: string;
   enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[]; packs?: EspacioPack[];
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
@@ -151,7 +151,10 @@ export function EspacioCliente({ token, gestoria, nombre, idioma, enCurso, termi
         {/* Cabecera: gestoría + idioma */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-aproba-700">{gestoria}</p>
+            {logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={logoUrl} alt={gestoria} className="h-10 w-auto max-w-[200px] object-contain" />
+              : <p className="text-sm font-semibold text-aproba-700">{gestoria}</p>}
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">
               {nombre ? `${t("esp.titulo")} · ${nombre.split(" ")[0]}` : t("esp.titulo")}
             </h1>

@@ -59,6 +59,7 @@ export function ClientPortal({
   clienteNombre,
   clienteFicha,
   gestoria,
+  logoUrl = null,
   token,
   tarjetaActiva,
   encargoActivo,
@@ -77,6 +78,7 @@ export function ClientPortal({
   clienteNombre?: string;
   clienteFicha?: ClienteFicha;
   gestoria?: string;
+  logoUrl?: string | null; // logo del despacho (cabecera); sin él, las iniciales
   token?: string;
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
   encargoActivo?: boolean; // hoja de encargo + mandato: descarga y firma en el portal
@@ -650,8 +652,11 @@ export function ClientPortal({
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>
-            <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>
+            {logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={logoUrl} alt={nombreGestoria} className="h-8 w-auto max-w-[150px] object-contain" />
+              : <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>}
+            {!logoUrl && <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>}
           </div>
           <div className="flex items-center gap-2.5">
             {/* Idioma SIEMPRE accesible (antes solo vivía en el paso 0: un migrante que

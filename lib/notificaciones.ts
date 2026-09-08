@@ -9,6 +9,7 @@ import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, whatsappDisponible, can
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente } from "@/lib/multi-servicio";
+import { logoDelExpediente } from "@/lib/marca";
 
 // Avisos automáticos au client — email (Resend) et/ou WhatsApp (Twilio) selon le canal
 // choisi par le workspace (Ajustes → Notificaciones al cliente : EMAIL | WHATSAPP | AMBOS).
@@ -83,14 +84,19 @@ export function emailLayout(opts: {
   cta?: { url: string; label: string } | null;
   footerNota?: string;
   avatarUrl?: string | null; // foto del gestor a cargo; sin ella, las iniciales
+  logoUrl?: string | null; // logo del despacho (Ajustes › Facturación): manda sobre la foto
   preheader?: string;
 }): string {
   const { gestoria, titulo, cuerpoHtml, cta, footerNota, preheader, avatarUrl } = opts;
+  const logoUrl = (opts.logoUrl ?? "").trim() || null;
   const ini = inicialesDe(gestoria);
-  // Foto del gestor que lleva el expediente (bucket público `avatares`), con las
-  // iniciales del despacho de repli. Sin border-radius en Outlook: se verá cuadrada,
-  // no rota — preferible a no enseñarla.
-  const marca = avatarUrl
+  // Cabecera: el LOGO del despacho si lo tiene (pedido de Asenjo Global, 08/09/2026) —
+  // altura fija, anchura proporcional —; si no, la foto del gestor que lleva el
+  // expediente (bucket público `avatares`), y de repli las iniciales del despacho.
+  // Sin border-radius en Outlook: se verá cuadrada, no rota — preferible a no enseñarla.
+  const marca = logoUrl
+    ? `<td align="center" valign="middle" style="padding:0"><img src="${logoUrl}" height="44" alt="${gestoria.replace(/"/g, "&quot;")}" style="display:block;height:44px;max-height:44px;max-width:240px;width:auto;border:0" /></td>`
+    : avatarUrl
     ? `<td width="52" height="52" align="center" valign="middle" style="width:52px;height:52px"><img src="${avatarUrl}" width="52" height="52" alt="" style="width:52px;height:52px;border-radius:14px;display:block;object-fit:cover;border:0" /></td>`
     : `<td width="52" height="52" align="center" valign="middle" bgcolor="#ECFDF5" style="width:52px;height:52px;border-radius:14px;font-family:${FUENTE};font-size:18px;font-weight:700;color:#0D6E4D">${ini}</td>`;
   const boton = cta
@@ -105,8 +111,8 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:al
     <tr><td align="center" style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0;text-align:center">
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr>
         ${marca}
-        <td style="width:12px">&nbsp;</td>
-        <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>
+        ${logoUrl ? "" : `<td style="width:12px">&nbsp;</td>
+        <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>`}
       </tr></table>
     </td></tr>
     <tr><td style="padding:28px 30px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -257,6 +263,7 @@ export async function dispararAviso(
     // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
     const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
     const foto = await fotoDelExpediente(admin, opts.expedienteId);
+    const logo = await logoDelExpediente(admin, opts.expedienteId);
 
     for (const mensaje of mensajes) {
     const cuerpo = render(mensaje.template, { nombre: primerNombre(nombre), ...(opts.vars ?? {}) });
@@ -274,7 +281,7 @@ export async function dispararAviso(
           // El cliente puede RESPONDER con una foto mejor: cae en la bandeja del despacho (06/09).
           ...(bandeja ? { replyTo: bandeja } : {}),
           html: emailLayout({
-            avatarUrl: foto,
+            avatarUrl: foto, logoUrl: logo,
             gestoria, titulo: mensaje.evento, cuerpoHtml: `<p style="margin:0">${cuerpo.replace(/\n/g, "<br>")}</p>`,
             cta: portalUrl ? { url: portalUrl, label: "Ver mi expediente" } : null,
             footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
@@ -394,7 +401,7 @@ export async function enviarSeguimiento(
         estadoEmail = "SIN_CONTACTO";
       } else if (resendDisponible() && link) {
         const html = emailLayout({
-          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
           gestoria,
           titulo,
           cuerpoHtml: `<p style="margin:0">${cuerpo}</p>`,
@@ -519,7 +526,7 @@ export async function enviarSolicitudPago(
       ${botonTarjeta}`;
 
     const html = emailLayout({
-      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: "Tu factura está lista",
       cuerpoHtml,
@@ -683,7 +690,7 @@ export async function enviarFinalizacion(
       : "";
 
     const html = emailLayout({
-      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: denegado ? "Tu expediente ha quedado cerrado" : "Tu trámite ha finalizado",
       cuerpoHtml: `<p style="margin:0 0 2px">Hola ${nombre},</p>
@@ -797,7 +804,7 @@ export async function enviarEncargoManual(
       : "";
 
     const html = emailLayout({
-      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: "Hemos puesto en marcha tu trámite",
       cuerpoHtml: `<p style="margin:0 0 2px">Hola ${nombre},</p>
@@ -886,7 +893,7 @@ export async function enviarConfirmacionPago(
     const cuerpoHtml = `<p style="margin:0 0 2px">Hola ${nombre},</p>
       <p style="margin:0">hemos recibido tu pago${via} de la factura <strong>${opts.numero}</strong> (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.</p>`;
     const html = emailLayout({
-      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: "Pago recibido ✓",
       cuerpoHtml,
@@ -969,6 +976,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
   actualizada?: boolean; // true → email "Tu cita ha sido modificada" (mismos datos, otro wording)
   videoProveedor?: "meet" | "teams" | "otro" | null; videoEnlace?: string | null; citaId?: string | null;
   avatarUrl?: string | null; // foto del gestor que creó la cita
+  logoUrl?: string | null; // logo del despacho (manda sobre la foto)
   // Cobro de la cita (opt-in del gestor): el email deja de ser solo informativo y
   // explica CÓMO pagar — IBAN y/o botón de tarjeta. Mismo bloque visual que el
   // email de factura, para que el cliente reconozca el circuito.
@@ -1035,6 +1043,7 @@ export async function enviarConfirmacionCitaPrevia(opts: {
       ${botonVideo}${bloquePago}`;
     const html = emailLayout({
       avatarUrl: opts.avatarUrl ?? null,
+      logoUrl: opts.logoUrl ?? null,
       gestoria: opts.gestoria,
       titulo: mod ? "Tu cita ha sido modificada" : "Tu cita está confirmada",
       cuerpoHtml,
@@ -1146,7 +1155,7 @@ export async function enviarRecordatorioDocs(
           <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr><td style="text-align:left"><ul style="margin:0;padding-left:20px;font-family:${FUENTE};font-size:15px;color:#1e293b">${lista}</ul></td></tr></table>
           <p style="margin:14px 0 0">${t("notif.recDocs.outro")}</p>`;
         const html = emailLayout({
-          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+          avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
           gestoria,
           titulo: t("notif.recDocs.titulo"),
           cuerpoHtml,
@@ -1229,7 +1238,7 @@ export async function enviarAvisoRenovacion(
       : t("notif.renov.bodySinFecha", { nombre, tipo, gestoria });
 
     const html = emailLayout({
-      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId),
+      avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
       titulo: t("notif.renov.titulo"),
       cuerpoHtml: `<p style="margin:0">${body}</p>`,

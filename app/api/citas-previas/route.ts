@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { enviarConfirmacionCitaPrevia } from "@/lib/notificaciones";
+import { logoDelWorkspace } from "@/lib/marca";
 import { crearReunionMeet, actualizarReunionMeet, borrarReunionMeet } from "@/lib/google-calendar";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
@@ -295,7 +296,8 @@ export async function POST(req: Request) {
   let avisado = false;
   if (body.notificar && fila.email) {
     const avatarUrl = await fotoDeUsuario(createSupabaseAdmin(), user.id);
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro, avatarUrl });
+    const logoUrl = await logoDelWorkspace(createSupabaseAdmin(), String(mem.workspaceId), sedeExplicita);
+    avisado = await enviarConfirmacionCitaPrevia({ logoUrl, nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro, avatarUrl });
   }
   return NextResponse.json({ ok: true, id: fila.id, avisado, facturaEmitida: Boolean(cobro) });
 }
@@ -469,7 +471,8 @@ export async function PUT(req: Request) {
     const { data: asg } = await supabase.from("CitaPrevia").select("asignadoAId").eq("id", id).maybeSingle();
     const dueno = (asg as { asignadoAId?: string | null } | null)?.asignadoAId ?? user.id;
     const avatarUrl = await fotoDeUsuario(admin, dueno);
-    avisado = await enviarConfirmacionCitaPrevia({ nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id, cobro, avatarUrl });
+    const logoUrl = await logoDelWorkspace(admin, String(mem.workspaceId), null);
+    avisado = await enviarConfirmacionCitaPrevia({ logoUrl, nombre, email: patch.email, gestoria, fecha, hora: patch.hora, duracion: patch.duracion, precio: patch.precio, lugar: patch.lugar, motivo: patch.motivo, actualizada: true, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: id, cobro, avatarUrl });
   }
   return NextResponse.json({ ok: true, avisado, facturaEmitida: Boolean(cobro) });
 }

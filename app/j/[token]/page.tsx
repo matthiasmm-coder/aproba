@@ -2,6 +2,7 @@ import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { logoDelWorkspace } from "@/lib/marca";
 import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
@@ -50,6 +51,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   let clienteNombre: string | undefined;
   let clienteFicha: ClienteFicha | undefined;
   let gestoria: string | undefined;
+  let logoUrl: string | null = null;
   let portalToken: string | undefined;
   let completado = false;
   let valido = false;
@@ -93,6 +95,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       clienteNombre = exp.cliente?.nombre;
       clienteFicha = fichaDe(exp.cliente);
       gestoria = exp.workspace.nombre;
+      logoUrl = await logoDelWorkspace(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
       portalToken = token;
       clienteIdioma = exp.cliente?.idioma ?? "es";
       servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
@@ -206,7 +209,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
   // Lien initial déjà utilisé jusqu'au bout → on ne rejoue pas l'onboarding.
   if (completado && portalToken) {
-    return <PortalCompletado token={portalToken} gestoria={gestoria ?? "Tu gestoría"} idioma={clienteIdioma} pago={pagoPendiente} />;
+    return <PortalCompletado token={portalToken} gestoria={gestoria ?? "Tu gestoría"} logoUrl={logoUrl} idioma={clienteIdioma} pago={pagoPendiente} />;
   }
 
   return (
@@ -217,6 +220,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
       clienteNombre={clienteNombre}
       clienteFicha={clienteFicha}
       gestoria={gestoria}
+      logoUrl={logoUrl}
       token={portalToken}
       tarjetaActiva={tarjetaActiva}
       encargoActivo={encargoActivo}

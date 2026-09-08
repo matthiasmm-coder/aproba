@@ -25,9 +25,9 @@ function Download({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, tasaEtiqueta, miembros, gruposDocs,
+  token, gestoria, logoUrl = null, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, tasaEtiqueta, miembros, gruposDocs,
 }: {
-  token: string; gestoria: string; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
+  token: string; gestoria: string; logoUrl?: string | null; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
   // «Tasa 790-026» (nacionalidad) o «Tasa 790-052» (residencia) cuando lo guardado no es la 012.
   tasaEtiqueta?: string;
@@ -196,8 +196,11 @@ export function Seguimiento({
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicial}</span>
-            <span className="text-sm font-semibold text-slate-800">{gestoria}</span>
+            {logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={logoUrl} alt={gestoria} className="h-8 w-auto max-w-[150px] object-contain" />
+              : <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicial}</span>}
+            {!logoUrl && <span className="text-sm font-semibold text-slate-800">{gestoria}</span>}
           </div>
           <select
             value={lang}

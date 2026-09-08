@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { logoDelWorkspace } from "@/lib/marca";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DOC_LABEL, TIPO_A_SERVICIO, labelADocTipo } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente, citaDeServicios, asignacionValida } from "@/lib/multi-servicio";
@@ -65,6 +66,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   const cliente = uno(exp.cliente ?? null);
   const servicios = await fetchServiciosDeWorkspace(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+  const logoUrl = await logoDelWorkspace(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
   // Multi-servicio: principal + extras → unión de docs, cita fusionada (mismas reglas
   // que la ficha del gestor y la API — la timeline no debe prometer otra cosa).
   const serviciosExp = serviciosDeExpediente(exp, servicios);
@@ -188,6 +190,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     <Seguimiento
       token={token}
       gestoria={ws.nombre}
+      logoUrl={logoUrl}
       espacioUrl={espacioToken ? `/c/${espacioToken}` : null}
       clienteNombre={cliente?.nombre ?? ""}
       idioma={cliente?.idioma ?? "es"}
