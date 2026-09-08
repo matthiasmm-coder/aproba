@@ -10,6 +10,10 @@ export const LANGS: { code: Lang; label: string }[] = [
 
 // Traductions catalanes. Clé = chaîne espagnole exacte telle qu'écrite dans le code.
 export const CA: Record<string, string> = {
+  "Rellenar con los documentos": "Omplir amb els documents",
+  "Rellenando…": "Omplint…",
+  "No se pudo completar la ficha.": "No s'ha pogut completar la fitxa.",
+  "Los documentos subidos no traen esos datos: hay que escribirlos a mano.": "Els documents pujats no porten aquestes dades: cal escriure-les a mà.",
   // ── Vigía (vencimientos/renovaciones) + UX 2026-07 ──
   "Vencimientos": "Venciments",
   "Las tarjetas de tus clientes que caducan pronto. Inicia la renovación con un clic: se crea el expediente y se avisa al cliente en su idioma.": "Les targetes dels teus clients que caduquen aviat. Inicia la renovació amb un clic: es crea l'expedient i s'avisa el client en el seu idioma.",

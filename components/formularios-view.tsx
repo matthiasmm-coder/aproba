@@ -28,6 +28,22 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
   // Familia: selección POR miembro (modelos de SUS servicios); el añadido manual elige miembro.
+  // «Rellenar con los documentos»: vuelca a la ficha lo que la IA ya leyó (solo huecos).
+  const [completando, setCompletando] = useState(false);
+  const [avisoFicha, setAvisoFicha] = useState<string | null>(null);
+  async function completarDesdeDocs() {
+    setCompletando(true); setAvisoFicha(null);
+    try {
+      const r = await fetch(`/api/expedientes/${exp.id}/completar-ficha`, { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? t("No se pudo completar la ficha."));
+      if (!j.rellenados) setAvisoFicha(t("Los documentos subidos no traen esos datos: hay que escribirlos a mano."));
+      else router.refresh();
+    } catch (e) {
+      setAvisoFicha(e instanceof Error ? e.message : t("No se pudo completar la ficha."));
+    } finally { setCompletando(false); }
+  }
+
   const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
   const union = applicants.length ? [...new Set(Object.values(selMiembro).flat())] : seleccion;
   // Casilla de trámite de la p.2 elegida por modelo ("" = automático, según el trámite).
@@ -120,6 +136,16 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               </li>
             ))}
           </ul>
+          {/* Los datos que la IA ya leyó en los documentos de este expediente: un clic y
+              entran en la ficha (rellena solo lo vacío). Para los expedientes anteriores
+              al 08/09/2026, cuando la subida todavía no lo hacía sola. */}
+          <button onClick={completarDesdeDocs} disabled={completando}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-60">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+            {completando ? t("Rellenando…") : t("Rellenar con los documentos")}
+          </button>
+          {avisoFicha && <p className="mt-2 text-sm text-amber-900">{avisoFicha}</p>}
+
           {faltanPorPersona.length === 1 && faltanPorPersona[0].id !== "titular" ? (
             // ?editar=1 : la ficha llega con el diálogo «Editar cliente» YA abierto —
             // el gestor viene a rellenar huecos, no a buscar el botón Editar.
