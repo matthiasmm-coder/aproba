@@ -654,7 +654,7 @@ export function ClientPortal({
           <div className="flex items-center gap-2">
             {logoUrl
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={logoUrl} alt={nombreGestoria} className="h-8 w-auto max-w-[150px] object-contain" />
+              ? <img src={logoUrl} alt={nombreGestoria} className="h-[38px] w-auto max-w-[180px] object-contain" />
               : <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>}
             {!logoUrl && <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>}
           </div>

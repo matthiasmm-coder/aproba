@@ -95,7 +95,7 @@ export function emailLayout(opts: {
   // expediente (bucket público `avatares`), y de repli las iniciales del despacho.
   // Sin border-radius en Outlook: se verá cuadrada, no rota — preferible a no enseñarla.
   const marca = logoUrl
-    ? `<td align="center" valign="middle" style="padding:0"><img src="${logoUrl}" height="44" alt="${gestoria.replace(/"/g, "&quot;")}" style="display:block;height:44px;max-height:44px;max-width:240px;width:auto;border:0" /></td>`
+    ? `<td align="center" valign="middle" style="padding:0"><img src="${logoUrl}" height="52" alt="${gestoria.replace(/"/g, "&quot;")}" style="display:block;height:52px;max-height:52px;max-width:280px;width:auto;border:0" /></td>`
     : avatarUrl
     ? `<td width="52" height="52" align="center" valign="middle" style="width:52px;height:52px"><img src="${avatarUrl}" width="52" height="52" alt="" style="width:52px;height:52px;border-radius:14px;display:block;object-fit:cover;border:0" /></td>`
     : `<td width="52" height="52" align="center" valign="middle" bgcolor="#ECFDF5" style="width:52px;height:52px;border-radius:14px;font-family:${FUENTE};font-size:18px;font-weight:700;color:#0D6E4D">${ini}</td>`;
