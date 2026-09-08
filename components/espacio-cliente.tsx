@@ -151,10 +151,13 @@ export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma
         {/* Cabecera: gestoría + idioma */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            {logoUrl
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={logoUrl} alt={gestoria} className="h-12 w-auto max-w-[240px] object-contain" />
-              : <p className="text-sm font-semibold text-aproba-700">{gestoria}</p>}
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="h-12 w-auto max-w-[240px] object-contain" />
+              )}
+              <p className="text-sm font-semibold text-aproba-700">{gestoria}</p>
+            </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">
               {nombre ? `${t("esp.titulo")} · ${nombre.split(" ")[0]}` : t("esp.titulo")}
             </h1>

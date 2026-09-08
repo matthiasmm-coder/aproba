@@ -91,8 +91,9 @@ export function emailLayout(opts: {
   const logoUrl = (opts.logoUrl ?? "").trim() || null;
   const ini = inicialesDe(gestoria);
   // Cabecera: el LOGO del despacho si lo tiene (pedido de Asenjo Global, 08/09/2026) —
-  // altura fija, anchura proporcional —; si no, la foto del gestor que lleva el
-  // expediente (bucket público `avatares`), y de repli las iniciales del despacho.
+  // altura fija, anchura proporcional — SIEMPRE con el nombre del despacho al lado
+  // (Matthias, 09/09); si no hay logo, la foto del gestor que lleva el expediente
+  // (bucket público `avatares`), y de repli las iniciales del despacho.
   // Sin border-radius en Outlook: se verá cuadrada, no rota — preferible a no enseñarla.
   const marca = logoUrl
     ? `<td align="center" valign="middle" style="padding:0"><img src="${logoUrl}" height="52" alt="${gestoria.replace(/"/g, "&quot;")}" style="display:block;height:52px;max-height:52px;max-width:280px;width:auto;border:0" /></td>`
@@ -111,8 +112,8 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:al
     <tr><td align="center" style="padding:22px 30px 18px;border-bottom:1px solid #eef1f0;text-align:center">
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto"><tr>
         ${marca}
-        ${logoUrl ? "" : `<td style="width:12px">&nbsp;</td>
-        <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>`}
+        <td style="width:12px">&nbsp;</td>
+        <td valign="middle" style="font-family:${FUENTE};font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${gestoria}</td>
       </tr></table>
     </td></tr>
     <tr><td style="padding:28px 30px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">

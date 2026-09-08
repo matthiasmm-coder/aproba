@@ -6,12 +6,12 @@ import { emailLayout } from "./notificaciones";
 const base = { gestoria: "Gestoría Vallès", titulo: "Documento recibido", cuerpoHtml: "<p>Hola</p>" };
 
 describe("emailLayout · logo del despacho", () => {
-  it("con logo, la cabecera lleva el logo y no las iniciales ni la foto", () => {
+  it("con logo, la cabecera lleva el logo y el nombre, sin iniciales ni foto", () => {
     const html = emailLayout({ ...base, logoUrl: "https://cdn.example.com/avatares/logo-ws.png?v=1", avatarUrl: "https://cdn.example.com/avatares/u1.jpg" });
     expect(html).toContain('<img src="https://cdn.example.com/avatares/logo-ws.png?v=1"');
     expect(html).not.toContain("avatares/u1.jpg");
     expect(html).not.toMatch(/>GV</);
-    expect(html).not.toContain("letter-spacing:-0.01em\">Gestoría Vallès</td>"); // el logo ya lleva el nombre
+    expect(html).toContain("letter-spacing:-0.01em\">Gestoría Vallès</td>"); // el nombre siempre al lado del logo
     expect(html).toContain('alt="Gestoría Vallès"');
   });
   it("sin logo, foto del gestor si la hay; si no, iniciales", () => {

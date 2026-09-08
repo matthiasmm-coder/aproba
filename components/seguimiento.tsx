@@ -200,7 +200,7 @@ export function Seguimiento({
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={logoUrl} alt={gestoria} className="h-[38px] w-auto max-w-[180px] object-contain" />
               : <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicial}</span>}
-            {!logoUrl && <span className="text-sm font-semibold text-slate-800">{gestoria}</span>}
+            <span className="text-sm font-semibold text-slate-800">{gestoria}</span>
           </div>
           <select
             value={lang}
