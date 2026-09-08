@@ -26,6 +26,9 @@ type Row = {
   familiaId?: string | null;
   oficinaId?: string | null; // multi-oficina (ausente si la migración no está aplicada)
   familia?: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
+  // Cliente-empresa: el trabajador cuelga de la empresa que contrata (ausente sin migración).
+  empresaId?: string | null;
+  empresa?: { id: string; razonSocial: string; nif: string | null } | { id: string; razonSocial: string; nif: string | null }[] | null;
   expedientes: { tipo: string; createdAt: string }[];
   // Trámites del PASADO traídos por la migración: no son expedientes, pero son lo único
   // que tiene una cartera recién importada. Sin ellos la columna «Último trámite» sale
@@ -54,7 +57,8 @@ export default async function Clientes() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (base as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
   };
-  let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  let res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), empresaId, empresa:Empresa(id, razonSocial, nif), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, oficinaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, parentesco, familiaId, familia:Familia(id, nombre), expedientes:Expediente(tipo, createdAt)");
   if (res.error) res = await q("id, nombre, apellidos, nacionalidad, expedientes:Expediente(tipo, createdAt)");
@@ -82,11 +86,18 @@ export default async function Clientes() {
   };
 
   // Regroupe les membres par famille ; les clients sans famille restent des entrées simples.
+  // Les trabajadores d'une EMPRESA sont regroupés de la même façon sous la empresa.
   const individuales: Cli[] = [];
   const familias = new Map<string, { nombre: string; miembros: (ReturnType<typeof aCli> & { parentesco: string | null })[] }>();
+  const empresas = new Map<string, { nombre: string; nif: string | null; miembros: ReturnType<typeof aCli>[] }>();
   for (const c of rows) {
     const fam = uno(c.familia);
-    if (c.familiaId && fam) {
+    const emp = uno(c.empresa);
+    if (c.empresaId && emp) {
+      const g = empresas.get(emp.id) ?? { nombre: emp.razonSocial || "Empresa", nif: emp.nif ?? null, miembros: [] };
+      g.miembros.push(aCli(c));
+      empresas.set(emp.id, g);
+    } else if (c.familiaId && fam) {
       const g = familias.get(fam.id) ?? { nombre: fam.nombre || "Familia", miembros: [] };
       g.miembros.push({ ...aCli(c), parentesco: c.parentesco ?? null });
       familias.set(fam.id, g);
@@ -110,7 +121,21 @@ export default async function Clientes() {
     };
   });
 
-  const lista: Cli[] = [...individuales, ...entradasFamilia].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const entradasEmpresa: Cli[] = [...empresas.entries()].map(([id, g]) => {
+    const miembros = g.miembros.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const masReciente = [...miembros].sort((a, b) => b._ultimoAt.localeCompare(a._ultimoAt))[0];
+    return {
+      id,
+      nombre: g.nombre,
+      nacionalidad: g.nif ?? "—", // en la fila de la empresa, la «nacionalidad» es su CIF
+      expedientes: miembros.reduce((n, m) => n + m.expedientes, 0),
+      ultimo: masReciente && masReciente._ultimoAt ? masReciente.ultimo : "—",
+      empresa: true,
+      miembros: miembros.map((m) => ({ id: m.id, nombre: m.nombre, parentesco: null, nacionalidad: m.nacionalidad, expedientes: m.expedientes, oficinaId: m.oficinaId })),
+    };
+  });
+
+  const lista: Cli[] = [...individuales, ...entradasFamilia, ...entradasEmpresa].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   // Vaciado en masa: mismas reglas que el borrado unitario — solo administradores, y solo
   // fichas sin expedientes y fuera de una familia. Se cuentan aquí porque la página ya tiene
@@ -125,7 +150,7 @@ export default async function Clientes() {
   const { data: ofis } = await supabase.from("Oficina").select("id, nombre").order("orden");
   const oficinas = (ofis ?? []) as { id: string; nombre: string }[];
   const conExpedientes = rows.filter((c) => (c.expedientes?.length ?? 0) > 0).length;
-  const enFamilia = rows.filter((c) => c.familiaId && (c.expedientes?.length ?? 0) === 0).length;
+  const enFamilia = rows.filter((c) => (c.familiaId || c.empresaId) && (c.expedientes?.length ?? 0) === 0).length;
   const borrables = rows.length - conExpedientes - enFamilia;
 
   return (
@@ -140,6 +165,7 @@ export default async function Clientes() {
           <p className="text-sm text-slate-500">
             {individuales.length} {individuales.length === 1 ? t("cliente") : t("clientes")}
             {entradasFamilia.length > 0 && <> · {entradasFamilia.length} {entradasFamilia.length === 1 ? t("familia") : t("familias")}</>}
+            {entradasEmpresa.length > 0 && <> · {entradasEmpresa.length} {entradasEmpresa.length === 1 ? t("empresa") : t("empresas")}</>}
             <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{t("datos reales")}</span>
           </p>
         </div>

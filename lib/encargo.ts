@@ -1,5 +1,6 @@
 import "server-only";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { clienteEncargoDeEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { embeberLogo, medidasLogo } from "./pdf-logo";
 import type { PDFImage } from "pdf-lib";
 import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, miembrosDeServicio, type Descuento as DescuentoExp } from "@/lib/multi-servicio";
@@ -35,6 +36,12 @@ export type DatosEncargo = {
   // Familiar → la hoja es POR PERSONA y no conoce N: el IMPORTE fijo se muestra como
   // línea informativa. Sin familia (N=1) los plazos se calculan exactos (aplicarDescuento).
   esFamiliar: boolean;
+  // Cliente-EMPRESA: el bloque `cliente` es la empresa (contrata y paga) y aquí va la
+  // persona extranjera del expediente, que la hoja nombra como beneficiaria.
+  trabajador?: string;
+  // …y la persona completa, para el MANDATO: el poder de representación lo otorga quien es
+  // representado ante la Administración (la persona extranjera), no la empresa que paga.
+  persona?: DatosEncargo["cliente"];
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
 };
 
@@ -177,6 +184,23 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   }
 
   const c = exp.cliente ?? {};
+  // Cliente-EMPRESA (columna opcional, lectura tolerante): la hoja y el presupuesto se
+  // emiten a la empresa; la persona del expediente figura como trabajador/beneficiario.
+  const empresa = await (async (): Promise<EmpresaFiscal | null> => {
+    try {
+      const { data: x } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle();
+      const eid = (x as { empresaId?: string | null } | null)?.empresaId; if (!eid) return null;
+      const { data: em } = await admin.from("Empresa").select("razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
+      return (em as EmpresaFiscal | null) ?? null;
+    } catch { return null; }
+  })();
+  const clientePersona = {
+    nombre: s(c.nombre), apellidos: s(c.apellidos), nie: s(c.numeroDocumento), pasaporte: s(c.pasaporte), nacionalidad: s(c.nacionalidad),
+    domicilio: [s(c.via), s(c.numeroVia), s(c.piso)].filter(Boolean).join(", "),
+    municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
+    telefono: s(c.telefono), email: s(c.email),
+  };
+  const trabajadorTxt = [`${clientePersona.nombre} ${clientePersona.apellidos}`.trim(), clientePersona.nie || clientePersona.pasaporte].filter(Boolean).join(" · ");
   return {
     referencia: exp.referencia,
     fecha: new Date(),
@@ -185,12 +209,8 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       nombre: s(ws.mandatarioNombre), dni: s(ws.mandatarioDni),
       colegiado: s(ws.mandatarioColegiado), colegio: s(ws.mandatarioColegio),
     },
-    cliente: {
-      nombre: s(c.nombre), apellidos: s(c.apellidos), nie: s(c.numeroDocumento), pasaporte: s(c.pasaporte), nacionalidad: s(c.nacionalidad),
-      domicilio: [s(c.via), s(c.numeroVia), s(c.piso)].filter(Boolean).join(", "),
-      municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
-      telefono: s(c.telefono), email: s(c.email),
-    },
+    cliente: empresa ? clienteEncargoDeEmpresa(empresa) : clientePersona,
+    ...(empresa ? { trabajador: trabajadorTxt, persona: clientePersona } : {}),
     servicios: listaServicios.map((sv) => {
       // Familia heterogénea: cada servicio ×SUS miembros asignados, con los nombres en el
       // label — el contrato dice quién lleva qué y los importes son ABSOLUTOS (no por
@@ -380,8 +400,13 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   m.fila("Contacto", o(d.despacho.email, 30));
 
   m.seccion("2. EL CLIENTE");
-  m.fila("Nombre completo", o(`${d.cliente.nombre} ${d.cliente.apellidos}`.trim(), 30));
-  if (d.cliente.nie && d.cliente.pasaporte) {
+  if (d.trabajador !== undefined) {
+    // Cliente-empresa: quien contrata es la empresa; la persona extranjera es la beneficiaria.
+    m.fila("Empresa", o(d.cliente.nombre, 30));
+    m.fila("CIF/NIF", o(d.cliente.nie, 14));
+    m.fila("Trabajador / beneficiario", o(d.trabajador, 30));
+  } else m.fila("Nombre completo", o(`${d.cliente.nombre} ${d.cliente.apellidos}`.trim(), 30));
+  if (d.trabajador !== undefined) { /* documento de la empresa ya impreso arriba */ } else if (d.cliente.nie && d.cliente.pasaporte) {
     m.fila("NIE", d.cliente.nie);
     m.fila("Pasaporte", d.cliente.pasaporte);
   } else {
@@ -389,8 +414,8 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
     const docLabel = d.cliente.pasaporte ? "Pasaporte" : d.cliente.nie ? "NIE" : "NIE / Pasaporte";
     m.fila(docLabel, o(d.cliente.nie || d.cliente.pasaporte));
   }
-  m.fila("Nacionalidad", o(d.cliente.nacionalidad));
-  m.fila("Domicilio", [d.cliente.domicilio, d.cliente.cp, d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ") || o("", 40));
+  if (d.trabajador === undefined) m.fila("Nacionalidad", o(d.cliente.nacionalidad));
+  m.fila(d.trabajador !== undefined ? "Domicilio fiscal" : "Domicilio", [d.cliente.domicilio, d.cliente.cp, d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ") || o("", 40));
   m.fila("Contacto", [d.cliente.telefono, d.cliente.email].filter(Boolean).join(" / ") || o("", 30));
 
   m.seccion(esPres ? "3. SERVICIOS PRESUPUESTADOS" : "3. OBJETO DEL ENCARGO — SERVICIOS INCLUIDOS");
@@ -534,10 +559,12 @@ export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
   m.titulo("MANDATO CON REPRESENTACIÓN");
   m.espacio(2);
 
-  const mandante = `${d.cliente.nombre} ${d.cliente.apellidos}`.trim();
-  const notif = [d.cliente.domicilio, d.cliente.cp ? `CP ${d.cliente.cp}` : "", d.cliente.municipio, d.cliente.provincia].filter(Boolean).join(", ");
+  // Cliente-empresa: el mandante sigue siendo la PERSONA (es a ella a quien se representa).
+  const pm = d.persona ?? d.cliente;
+  const mandante = `${pm.nombre} ${pm.apellidos}`.trim();
+  const notif = [pm.domicilio, pm.cp ? `CP ${pm.cp}` : "", pm.municipio, pm.provincia].filter(Boolean).join(", ");
 
-  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE/Pasaporte ${o(d.cliente.nie || d.cliente.pasaporte, 14)}, y domicilio a efectos de notificaciones en ${o(notif, 50)}, en concepto de MANDANTE, dice y otorga:`);
+  m.parrafo(`D./Dna. ${o(mandante, 40)}, con DNI/NIE/Pasaporte ${o(pm.nie || pm.pasaporte, 14)}, y domicilio a efectos de notificaciones en ${o(notif, 50)}, en concepto de MANDANTE, dice y otorga:`);
   m.espacio(4);
   // Cláusula de colegiación SOLO si el gestor la configuró: un abogado no colegiado
   // como GA no debe quedar afiliado falsamente a un Colegio de Gestores.

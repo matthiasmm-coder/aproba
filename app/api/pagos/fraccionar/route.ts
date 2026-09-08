@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { r2, ivaDe, datosFiscalesDeCliente } from "@/lib/facturas";
+import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -58,8 +59,18 @@ export async function POST(req: Request) {
   type Cli = { nombre?: string | null; apellidos?: string | null } & Parameters<typeof datosFiscalesDeCliente>[0];
   const cliRaw = exp.cliente as unknown as Cli | Cli[] | null;
   const cli = Array.isArray(cliRaw) ? cliRaw[0] : cliRaw;
-  const clienteNombre = `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente";
-  const clienteDatos = datosFiscalesDeCliente(cli);
+  // Cliente-EMPRESA: las cuotas se facturan a la empresa (razón social + CIF + domicilio fiscal).
+  const empresa = await (async (): Promise<(EmpresaFiscal & { id: string }) | null> => {
+    try {
+      const { data: x } = await supa.from("Expediente").select("empresaId").eq("id", expedienteId).maybeSingle();
+      const eid = (x as { empresaId?: string | null } | null)?.empresaId; if (!eid) return null;
+      const { data: em } = await supa.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
+      return (em as (EmpresaFiscal & { id: string }) | null) ?? null;
+    } catch { return null; }
+  })();
+  const trabajador = `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim();
+  const clienteNombre = empresa ? nombreEmpresa(empresa) : (trabajador || "Cliente");
+  const clienteDatos = empresa ? datosFiscalesDeEmpresa(empresa) : datosFiscalesDeCliente(cli);
   const tramiteLabel = TIPO_LABEL[exp.tipo as string] ?? String(exp.tipo);
 
   // Reparto: n-1 cuotas iguales redondeadas; la última absorbe el resto (Σ bases = baseTotal).

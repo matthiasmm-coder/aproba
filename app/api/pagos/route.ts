@@ -5,6 +5,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { serviciosDeExpediente, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
+import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
@@ -183,7 +184,13 @@ export async function POST(req: Request) {
 
   const etiqueta = momento === "ANTICIPO" ? "Anticipo" : "Liquidación final";
   const familiaSufijo = exp.familiaId && nMiembros > 1 && !fac ? ` · familia, ${nMiembros} miembros` : "";
-  const concepto = fac?.concepto?.trim() || `${etiqueta} — ${etiquetaServicios} (${exp.referencia})${familiaSufijo}`;
+  // Cliente-empresa: el concepto nombra al trabajador (la empresa recibe varias facturas).
+  const empresaIdConcepto = await (async () => {
+    try { const { data } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle(); return (data as { empresaId?: string | null } | null)?.empresaId ?? null; }
+    catch { return null; }
+  })();
+  const trabajadorSufijo = (() => { const c = exp.cliente as { nombre?: string; apellidos?: string } | null; const n = `${c?.nombre ?? ""} ${c?.apellidos ?? ""}`.trim(); return empresaIdConcepto && n ? ` · trabajador: ${n}` : ""; })();
+  const concepto = fac?.concepto?.trim() || `${etiqueta} — ${etiquetaServicios} (${exp.referencia})${familiaSufijo}${trabajadorSufijo}`;
 
   // Guarda simétrica al fraccionado: con un plan de cuotas activo, el pago FINAL sería un
   // doble cobro del mismo resto (fraccionar ya bloquea en sentido inverso).
@@ -236,16 +243,31 @@ export async function POST(req: Request) {
   let numero = fac?.numero?.trim() || "";
   if (!numero) numero = await siguienteNumero(admin, exp.workspaceId, year, await prefijoDeExpediente(admin, exp.id));
 
+  // Cliente-EMPRESA: la factura va a quien contrata y paga (razón social + CIF + domicilio
+  // fiscal), no al trabajador del expediente. Se lee aquí (columna opcional, repli null).
+  let empresa: (EmpresaFiscal & { id: string }) | null = null;
+  // Columna opcional (supabase/empresa.sql): consulta aparte y tolerante, para no meterla
+  // en la cadena de selects del expediente (un error ahí degradaría otras columnas).
+  const empresaIdExp = await (async () => {
+    try { const { data } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle(); return (data as { empresaId?: string | null } | null)?.empresaId ?? null; }
+    catch { return null; }
+  })();
+  if (empresaIdExp) {
+    const { data: em } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", empresaIdExp).maybeSingle();
+    empresa = (em as (EmpresaFiscal & { id: string }) | null) ?? null;
+  }
   const cliente = exp.cliente as { nombre?: string; apellidos?: string } | null;
-  const clienteAuto = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim() || "Cliente";
+  const trabajador = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim();
+  const clienteAuto = empresa ? nombreEmpresa(empresa) : (trabajador || "Cliente");
   const clienteNombre = fac?.clienteNombre?.trim() || clienteAuto;
 
   // La facture est ÉMISE (pas payée) : le client paie par virement. Échéance à 14 jours.
   const ahora = new Date();
   const vencimiento = new Date(ahora.getTime() + 14 * 864e5);
   const facturaId = uuid();
-  // Snapshot fiscal del cliente (documento + dirección), congelado al emitir.
-  const clienteDatos = datosFiscalesDeCliente(exp.cliente as Parameters<typeof datosFiscalesDeCliente>[0]);
+  // Snapshot fiscal del cliente (documento + dirección), congelado al emitir. Con
+  // empresa: el CIF y el domicilio fiscal de la empresa.
+  const clienteDatos = empresa ? datosFiscalesDeEmpresa(empresa) : datosFiscalesDeCliente(exp.cliente as Parameters<typeof datosFiscalesDeCliente>[0]);
   const payloadBase = {
     id: facturaId,
     workspaceId: exp.workspaceId,
@@ -274,7 +296,18 @@ export async function POST(req: Request) {
     ...(exp.clienteId ? { clienteId: exp.clienteId } : {}),
     ...(clienteDatos ? { clienteDatos } : {}),
     ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
+    ...(empresa ? { empresaId: empresa.id } : {}),
   });
+  // Repli: columna Factura.empresaId sin migrar → sin el vínculo (la factura no se pierde).
+  if (e4 && empresa && /empresaId/i.test(e4.message)) {
+    const retry = await admin.from("Factura").insert({
+      ...payloadBase,
+      ...(exp.clienteId ? { clienteId: exp.clienteId } : {}),
+      ...(clienteDatos ? { clienteDatos } : {}),
+      ...(exp.familiaId ? { familiaId: exp.familiaId } : {}),
+    });
+    e4 = retry.error;
+  }
   // Repli: si la migración factura-cliente-id.sql no está ejecutada, reintenta sin la FK.
   if (e4 && exp.clienteId && /clienteId/i.test(e4.message)) {
     const retry = await admin.from("Factura").insert({

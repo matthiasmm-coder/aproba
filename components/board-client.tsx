@@ -16,6 +16,7 @@ export type BoardItem = {
   referencia: string;
   clienteNombre: string;
   clienteNacionalidad: string;
+  empresaNombre?: string | null; // cliente-empresa: la tarjeta lo enseña bajo el nombre
   tipoLabel: string;
   extrasLabels?: string[];
   estado: ExpedienteEstado;
@@ -89,6 +90,12 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
             <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
             {e.fechaLimite && !preparado && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
           </div>
+          {e.empresaNombre && (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-[12px] font-medium text-slate-600" title={e.empresaNombre}>
+              <svg className="h-3 w-3 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></svg>
+              <span className="truncate">{e.empresaNombre}</span>
+            </p>
+          )}
           <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
         </div>
 

@@ -8,12 +8,16 @@ import { useT } from "@/components/lang-provider";
 
 export type CliMiembro = { id: string; nombre: string; parentesco: string | null; nacionalidad: string; expedientes: number; oficinaId?: string | null };
 // miembros presente → entrée FAMILLE (dépliable), sinon client individuel.
-export type Cli = { id: string; nombre: string; nacionalidad: string; expedientes: number; ultimo: string; miembros?: CliMiembro[]; oficinaId?: string | null };
+// empresa: true → entrée EMPRESA (sus miembros son los trabajadores; `nacionalidad` lleva el CIF).
+export type Cli = { id: string; nombre: string; nacionalidad: string; expedientes: number; ultimo: string; miembros?: CliMiembro[]; oficinaId?: string | null; empresa?: boolean };
 export type OficinaLite = { id: string; nombre: string };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
+function EmpIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></svg>;
+}
 function FamIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>;
 }
@@ -22,7 +26,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
   const t = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [pestana, setPestana] = useState<"individuales" | "familias">("individuales");
+  type Pestana = "individuales" | "familias" | "empresas";
+  const [pestana, setPestana] = useState<Pestana>("individuales");
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
   // Multi-oficina : sélection multiple pour réaffecter en masse. N'existe qu'à partir
@@ -55,8 +60,9 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
     router.refresh();
   }
 
-  // Una entrada con `miembros` ES una familia (lo decide la página al agrupar).
-  const casa = (c: Cli) => (c.miembros ? "familias" : "individuales");
+  // Una entrada con `miembros` ES una familia (lo decide la página al agrupar) — o una
+  // empresa, si además lleva `empresa` (sus miembros son los trabajadores).
+  const casa = (c: Cli): Pestana => (c.empresa ? "empresas" : c.miembros ? "familias" : "individuales");
 
   const coincide = (c: Cli, nq: string) =>
     !nq ||
@@ -64,25 +70,29 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
     // Una familia coincide también por el nombre de SUS MIEMBROS.
     (c.miembros ?? []).some((m) => norm(m.nombre).includes(nq) || norm(m.nacionalidad).includes(nq));
 
-  const { filtrados, nOtra, totales } = useMemo(() => {
+  const { filtrados, nOtra, otraPestana, totales } = useMemo(() => {
     const nq = norm(q.trim());
     const coincidencias = lista.filter((c) => coincide(c, nq));
+    // Cuántos resultados hay en OTRA pestaña: buscar «García» estando en
+    // Individuales y no ver nada, cuando existe la familia García, sería un
+    // callejón sin salida — se ofrece saltar a la primera pestaña con resultados.
+    const otras = (["individuales", "familias", "empresas"] as Pestana[]).filter((p) => p !== pestana);
+    const otraPestana = otras.find((p) => coincidencias.some((c) => casa(c) === p)) ?? null;
     return {
       filtrados: coincidencias.filter((c) => casa(c) === pestana),
-      // Cuántos resultados hay en la OTRA pestaña: buscar «García» estando en
-      // Individuales y no ver nada, cuando existe la familia García, sería un
-      // callejón sin salida — se ofrece saltar.
-      nOtra: coincidencias.filter((c) => casa(c) !== pestana).length,
+      nOtra: otraPestana ? coincidencias.filter((c) => casa(c) === otraPestana).length : 0,
+      otraPestana,
       totales: {
-        individuales: lista.filter((c) => !c.miembros).length,
-        familias: lista.filter((c) => c.miembros).length,
+        individuales: lista.filter((c) => casa(c) === "individuales").length,
+        familias: lista.filter((c) => casa(c) === "familias").length,
+        empresas: lista.filter((c) => casa(c) === "empresas").length,
       },
     };
   }, [q, lista, pestana]);
 
   const toggle = (id: string) => setAbiertas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  const pest = (id: "individuales" | "familias", etiqueta: string, n: number) => (
+  const pest = (id: Pestana, etiqueta: string, n: number) => (
     <button
       type="button"
       onClick={() => setPestana(id)}
@@ -101,6 +111,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
       <div className="mb-4 flex gap-5 border-b border-slate-200">
         {pest("individuales", t("Clientes individuales"), totales.individuales)}
         {pest("familias", t("Familias"), totales.familias)}
+        {/* La pestaña Empresas solo aparece cuando el despacho tiene alguna: no todos trabajan con empresas. */}
+        {(totales.empresas > 0 || pestana === "empresas") && pest("empresas", t("Empresas"), totales.empresas)}
       </div>
 
       {/* Barre de recherche */}
@@ -151,8 +163,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="hidden border-b border-slate-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:flex">
-          <span className="flex-1">{pestana === "familias" ? t("Familia") : t("Cliente")}</span>
-          <span className="w-32">{t("Nacionalidad")}</span>
+          <span className="flex-1">{pestana === "familias" ? t("Familia") : pestana === "empresas" ? t("Empresa") : t("Cliente")}</span>
+          <span className="w-32">{pestana === "empresas" ? t("CIF / NIF") : t("Nacionalidad")}</span>
           <span className="w-40">{t("Último trámite")}</span>
           <span className="w-20 text-right">{t("Exp.")}</span>
         </div>
@@ -184,7 +196,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
               </div>
             );
           }
-          // Entrée FAMILLE : une ligne, dépliable vers ses membres.
+          // Entrée FAMILLE (ou EMPRESA) : une ligne, dépliable vers ses membres.
+          const esEmp = Boolean(c.empresa);
           const abierta = abiertas.has(c.id) || Boolean(q.trim()); // recherche active → membres visibles
           const idsFam = c.miembros.map((m) => m.id);
           const todosMarcados = idsFam.length > 0 && idsFam.every((id) => sel.has(id));
@@ -196,17 +209,17 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
                 <label className="flex cursor-pointer items-center pl-5 pt-3">
                   <input type="checkbox" checked={todosMarcados}
                     onChange={(e) => marcar(idsFam, e.target.checked)}
-                    aria-label={`${t("Seleccionar la familia")} ${c.nombre}`}
+                    aria-label={`${esEmp ? t("Seleccionar la empresa") : t("Seleccionar la familia")} ${c.nombre}`}
                     className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
-                  <span className="ml-2 text-[11px] text-slate-400">{t("Toda la familia")}</span>
+                  <span className="ml-2 text-[11px] text-slate-400">{esEmp ? t("Toda la empresa") : t("Toda la familia")}</span>
                 </label>
               )}
               <button onClick={() => toggle(c.id)} className="flex w-full items-center px-5 py-3 text-left transition hover:bg-cream-50" aria-expanded={abierta}>
                 <span className="flex flex-1 items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700"><FamIcon className="h-4 w-4" /></span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700">{esEmp ? <EmpIcon className="h-4 w-4" /> : <FamIcon className="h-4 w-4" />}</span>
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-slate-800">{c.nombre}</span>
-                    <span className="block text-xs text-slate-400">{c.miembros.length} {c.miembros.length === 1 ? t("miembro") : t("miembros")}</span>
+                    <span className="block text-xs text-slate-400">{c.miembros.length} {esEmp ? (c.miembros.length === 1 ? t("trabajador") : t("trabajadores")) : (c.miembros.length === 1 ? t("miembro") : t("miembros"))}</span>
                   </span>
                   <svg className={`h-4 w-4 shrink-0 text-slate-300 transition ${abierta ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                 </span>
@@ -243,16 +256,16 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
         {filtrados.length === 0 && (
           q.trim() ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-sm text-slate-400">{t("Sin resultados para")} «{q}»{pestana === "familias" ? ` ${t("en Familias")}` : ` ${t("en Clientes individuales")}`}.</p>
-              {/* Callejón sin salida evitado: si lo buscado está en la otra pestaña, se ofrece ir. */}
-              {nOtra > 0 && (
+              <p className="text-sm text-slate-400">{t("Sin resultados para")} «{q}»{pestana === "familias" ? ` ${t("en Familias")}` : pestana === "empresas" ? ` ${t("en Empresas")}` : ` ${t("en Clientes individuales")}`}.</p>
+              {/* Callejón sin salida evitado: si lo buscado está en otra pestaña, se ofrece ir. */}
+              {nOtra > 0 && otraPestana && (
                 <button
                   type="button"
-                  onClick={() => setPestana(pestana === "familias" ? "individuales" : "familias")}
+                  onClick={() => setPestana(otraPestana)}
                   className="mt-2 text-sm font-semibold text-aproba-700 hover:underline"
                 >
                   {nOtra === 1 ? t("Hay 1 resultado en") : `${t("Hay")} ${nOtra} ${t("resultados en")}`}{" "}
-                  {pestana === "familias" ? t("Clientes individuales") : t("Familias")} →
+                  {otraPestana === "familias" ? t("Familias") : otraPestana === "empresas" ? t("Empresas") : t("Clientes individuales")} →
                 </button>
               )}
             </div>
@@ -262,6 +275,13 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes familias")}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Agrupa a varios clientes en una familia: expedientes juntos, documentos compartidos y una sola factura. Se crea desde «Nuevo cliente» o desde la ficha de un cliente.")}</p>
               <Link href="/app/clientes/nuevo" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva familia")}</Link>
+            </div>
+          ) : pestana === "empresas" ? (
+            <div className="px-5 py-12 text-center">
+              <p className="text-3xl">🏢</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes empresas")}</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cuando tu cliente es una empresa que contrata a un trabajador extranjero: la empresa figura en la hoja de encargo y en las facturas, y el expediente se abre a nombre del trabajador. Se crea desde «Nuevo cliente» o «Nuevo expediente».")}</p>
+              <Link href="/app/clientes/nuevo?modo=empresa" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva empresa")}</Link>
             </div>
           ) : (
             // Día 1: sin clientes ≠ búsqueda sin resultados — aquí toca invitar, no un «para ""».

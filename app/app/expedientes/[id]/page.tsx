@@ -11,6 +11,8 @@ import { CitasPanel } from "@/components/citas-panel";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchFamiliaDetalle, fetchFacturaFamiliaPrefill, fetchFacturasDeFamilia } from "@/lib/data/familias";
 import { FamiliaExpedienteSection } from "@/components/familia-expediente-section";
+import { fetchEmpresaDetalle } from "@/lib/data/empresas";
+import { EmpresaExpedienteSection } from "@/components/empresa-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
@@ -85,6 +87,8 @@ export default async function ExpedienteDetail({
   const [familia, famPrefill, famFacturas] = e.familiaId
     ? await Promise.all([fetchFamiliaDetalle(e.familiaId), fetchFacturaFamiliaPrefill(e.familiaId), fetchFacturasDeFamilia(e.familiaId)])
     : [null, null, []];
+  // Cliente-EMPRESA (Expediente.empresaId): la que contrata y paga; el titular sigue siendo la persona.
+  const empresa = e.empresaId ? await fetchEmpresaDetalle(e.empresaId) : null;
   // Multi-servicio: principal (servicioClave, repli por tipo) + extras. Docs = unión,
   // tarifa = suma, cita = OR (gestor gana) — mismas reglas que la API y el portal.
   // ⚠️ CATÁLOGO POR SEDE PRIMERO (catalogoDeSede): con claves duplicadas entre sedes,
@@ -363,6 +367,13 @@ export default async function ExpedienteDetail({
           />
         </SeccionPlegable>
         </div>
+        )}
+
+        {/* Empresa contratante (cliente-empresa): datos fiscales + trabajadores */}
+        {empresa && (
+          <SeccionPlegable id="empresa" titulo={t("Empresa")} resumen={empresa.razonSocial}>
+            <EmpresaExpedienteSection empresa={empresa} expedienteId={e.id} />
+          </SeccionPlegable>
         )}
 
         {/* Familia (expediente familiar): miembros + facturación familiar */}

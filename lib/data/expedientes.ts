@@ -23,6 +23,7 @@ export type ExpedienteResumen = {
   referencia: string;
   clienteNombre: string;
   clienteNacionalidad: string;
+  empresaNombre?: string | null; // cliente-empresa: quien contrata y paga (la tarjeta lo enseña)
   tipoLabel: string;
   extrasLabels?: string[]; // multi-servicio: labels de los adicionales (tooltip + búsqueda)
   estado: ExpedienteEstado;
@@ -142,7 +143,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   }
 
   const unoFam = (v: { nombre: string } | { nombre: string }[] | null | undefined) => (Array.isArray(v) ? v[0] ?? null : v ?? null);
-  return filas.map((e) => ({
+  const lista: ExpedienteResumen[] = filas.map((e) => ({
     id: e.id,
     referencia: e.referencia,
     // Expediente familiar → la tarjeta lleva el nombre de la FAMILIA (el dossier avanza
@@ -173,6 +174,8 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     total: (e.documentos ?? []).length,
     progreso: progresoDeExpediente({ ...e, cliente: (Array.isArray(e.cliente) ? e.cliente[0] : e.cliente) as Record<string, unknown> | null }, catalogoDeSede(filasCatalogo, (e as unknown as { oficinaId?: string | null }).oficinaId ?? null)),
   }));
+  await adjuntarEmpresas(supabase, lista);
+  return lista;
 }
 
 type ExtractionRow = {
@@ -243,6 +246,10 @@ export type ExpedienteDetalle = ExpedienteUI & {
   fechaPresentacion?: string | null; // sellada al marcar «presentado»
   portalToken: string | null;
   familiaId: string | null; // si presente → expediente familiar
+  // Cliente-empresa (quien contrata y paga; el titular sigue siendo la persona).
+  // null = expediente ordinario. Carga tolerante: sin la migración `empresa.sql` queda null.
+  empresaId: string | null;
+  empresa: EmpresaDeExpediente | null;
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null; quien: string | null };
 };
 
@@ -271,6 +278,71 @@ const DETALLE_SELECT =
    documentos:Documento(id, tipo, etiqueta, clienteId, estado, nombreArchivo, storagePath, extraction:Extraction(tipoDetectado, confianzaGlobal, legibilidad, datos, alertas)),
    eventos:ExpedienteEvento(tipo, descripcion, createdAt, user:User(nombre)),
    facturas:Factura(id, numero, total, baseImponible, estado, origen, momento, metodoPago)`;
+
+export type EmpresaDeExpediente = {
+  id: string;
+  razonSocial: string;
+  nif: string | null;
+  contactoNombre: string | null;
+  contactoEmail: string | null;
+  contactoTelefono: string | null;
+};
+
+// Empresa contratante del expediente, en consulta APARTE y tolerante: si la tabla o la
+// columna no existen (migración pendiente) devuelve null sin romper el detalle.
+async function empresaDeExpediente(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  expedienteId: string,
+): Promise<{ empresaId: string | null; empresa: EmpresaDeExpediente | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("Expediente")
+      .select("empresaId, empresa:Empresa(id, razonSocial, nif, contactoNombre, contactoEmail, contactoTelefono)")
+      .eq("id", expedienteId)
+      .maybeSingle();
+    if (error || !data?.empresaId) return { empresaId: null, empresa: null };
+    const e = Array.isArray(data.empresa) ? data.empresa[0] ?? null : data.empresa ?? null;
+    return {
+      empresaId: String(data.empresaId),
+      empresa: e ? {
+        id: String(e.id),
+        razonSocial: String(e.razonSocial ?? "").trim() || "Empresa",
+        nif: e.nif ?? null,
+        contactoNombre: e.contactoNombre ?? null,
+        contactoEmail: e.contactoEmail ?? null,
+        contactoTelefono: e.contactoTelefono ?? null,
+      } : null,
+    };
+  } catch {
+    return { empresaId: null, empresa: null };
+  }
+}
+
+// Nombre de la empresa contratante sobre las tarjetas del tablero. Una sola consulta
+// tolerante (RLS acota al despacho; solo las filas con empresa): sin migración, nada.
+async function adjuntarEmpresas(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  lista: ExpedienteResumen[],
+): Promise<void> {
+  if (!lista.length) return;
+  try {
+    const { data, error } = await supabase
+      .from("Expediente")
+      .select("id, empresa:Empresa(razonSocial)")
+      .not("empresaId", "is", null)
+      .limit(2000);
+    if (error || !data) return;
+    const nombres = new Map<string, string>();
+    for (const f of data as { id: string; empresa: { razonSocial?: string } | { razonSocial?: string }[] | null }[]) {
+      const e = Array.isArray(f.empresa) ? f.empresa[0] : f.empresa;
+      const n = String(e?.razonSocial ?? "").trim();
+      if (n) nombres.set(f.id, n);
+    }
+    for (const e of lista) { const n = nombres.get(e.id); if (n) e.empresaNombre = n; }
+  } catch { /* migración pendiente → tarjetas sin línea de empresa */ }
+}
 
 function mapearDetalle(data: unknown): ExpedienteDetalle {
   const e = data as unknown as DetalleRow;
@@ -360,6 +432,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     formulariosPorMiembro: (() => { const v = (e as { formulariosPorMiembro?: unknown }).formulariosPorMiembro; return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, string[]> : null; })(),
     portalToken: e.portalToken ?? null,
     familiaId: (e as { familiaId?: string | null }).familiaId ?? null,
+    empresaId: null, // se rellena aparte (empresaDeExpediente) en fetchExpedienteDetalle
+    empresa: null,
     cita: { fecha: e.fechaCita ?? null, hora: e.citaHora ?? null, lugar: e.citaLugar ?? null, notas: e.citaNotas ?? null, quien: ((e as unknown as { citaQuien?: string | null }).citaQuien) ?? null },
     facturasPago: (e.facturas ?? []).map((f) => ({
       id: f.id,
@@ -404,7 +478,10 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
-  return data ? mapearDetalle(data) : null;
+  if (!data) return null;
+  const det = mapearDetalle(data);
+  Object.assign(det, await empresaDeExpediente(supabase, id));
+  return det;
 }
 
 // Variante por token (página de seguimiento del cliente, sin sesión): el portalToken ES
