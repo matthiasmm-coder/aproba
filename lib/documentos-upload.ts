@@ -5,8 +5,7 @@ import { dispararAviso } from "@/lib/notificaciones";
 import { labelADocTipo, clasificarDeteccion, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
 import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { sembrarVencimiento, fechaCaducidadISO, tipoVencimientoDeDocumento } from "@/lib/vencimientos";
-import { esDocumentoDeIdentidad, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
-import { FICHA_CAMPOS, FICHA_KEYS } from "@/lib/ficha";
+import { completarFichaDesdeExtraccion } from "@/lib/ficha-sync";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -15,7 +14,7 @@ export type ExpParaSubida = {
   oficinaId?: string | null; // multi-oficina: catálogo (docs por servicio) de SU sede
 };
 
-type Resultado = { ok: true; estado: string; campos?: unknown; alertas: string[]; confianza?: number };
+type Resultado = { ok: true; estado: string; campos?: unknown; alertas: string[]; confianza?: number; fichaCampos?: string[] };
 
 // Pipeline COMÚN de subida de un documento a un expediente — reutilizado por el portal
 // del cliente (/api/portal/documentos, token) y por el gestor (/api/expedientes/[id]/documentos,
@@ -171,23 +170,12 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
   // subidos a su expediente»). Solo se rellenan los campos VACÍOS: lo que escribió una
   // persona no se toca nunca. Queda constancia en el historial: nada cambia en silencio.
   const duenoFicha = clienteId || (exp.clienteId as string | null);
-  if (resultado.estado === "VALIDADO" && duenoFicha && esDocumentoDeIdentidad(resultado.tipoDetectado)) {
-    try {
-      const { data: fila } = await admin.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", duenoFicha).maybeSingle();
-      const huecos = huecosDeFicha(fila as Record<string, unknown> | null, fichaDesdeCampos(resultado.campos));
-      const claves = Object.keys(huecos);
-      if (claves.length) {
-        const { error: eFicha } = await admin.from("Cliente").update(huecos).eq("id", duenoFicha);
-        if (eFicha) console.warn("[ficha desde extracción]", eFicha.message);
-        else {
-          const etiquetas = claves.map((k) => FICHA_CAMPOS.find((c) => c.k === k)?.label ?? k);
-          await admin.from("ExpedienteEvento").insert({
-            id: uuid(), expedienteId: exp.id, tipo: "DOC_VALIDADO",
-            descripcion: `Ficha del cliente completada desde ${docLabel}: ${etiquetas.join(", ")}`,
-          });
-        }
-      }
-    } catch (err) { console.warn("[ficha desde extracción]", err instanceof Error ? err.message : err); }
+  const fichaCampos = await completarFichaDesdeExtraccion(admin, duenoFicha, resultado);
+  if (fichaCampos.length) {
+    await admin.from("ExpedienteEvento").insert({
+      id: uuid(), expedienteId: exp.id, tipo: "DOC_VALIDADO",
+      descripcion: `Ficha del cliente completada desde ${docLabel}: ${fichaCampos.join(", ")}`,
+    });
   }
 
   // ── VIGÍA: documento de identidad validado → sembrar su vencimiento ──
@@ -213,7 +201,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     clave: resultado.estado === "VALIDADO" ? "doc_validado" : "doc_rechazado", vars: { documento: docLabel }, baseUrl,
   });
 
-  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal, tipo: docTipo, label };
+  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal, tipo: docTipo, label, ...(fichaCampos.length ? { fichaCampos } : {}) };
 }
 
 // ── Reconciliación de estado según los documentos requeridos: YA NO EXISTE ──

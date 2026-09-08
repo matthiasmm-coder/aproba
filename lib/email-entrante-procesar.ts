@@ -10,6 +10,7 @@ import { emailLayout } from "@/lib/notificaciones";
 import { responderAlGestor } from "@/lib/email-respuesta";
 import { crearClienteDesdeAdjuntos } from "@/lib/email-cliente-nuevo";
 import { pideClienteNuevo, nombreEscrito } from "@/lib/ficha-extraccion";
+import { completarFichaDesdeExtraccion } from "@/lib/ficha-sync";
 import {
   tokenDeDestinatarios, direccionDe, nombreDe, limpiarCuerpo, extraerPistas, emparejarCliente,
   extensionAdmitida, mimeDeExtension, nombreArchivoSeguro, type ClienteCandidato,
@@ -86,7 +87,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
         try { r = await asignarBandeja(admin, { filaId: pend.id as string, clienteId: empR.cliente.id, expedienteId: null, baseUrl, motivo: `respuesta del gestor (${empR.motivo})` }); }
         catch (err) { console.error("[email entrante] asignación por respuesta fallida:", err instanceof Error ? err.message : err); }
         const { data: filaR } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", pend.id).maybeSingle();
-        await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], clienteId: r ? empR.cliente.id : null, clienteNombre: nombreCliente(empR.cliente.id), expedienteId: (filaR?.expedienteId as string | null) ?? null, userId: userIdRemitente });
+        await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], fichaCampos: r?.fichaCampos ?? [], clienteId: r ? empR.cliente.id : null, clienteNombre: nombreCliente(empR.cliente.id), expedienteId: (filaR?.expedienteId as string | null) ?? null, userId: userIdRemitente });
         return { ok: true, motivo: r ? `asignado por respuesta (${empR.motivo})` : "respuesta: asignación fallida", filaId: pend.id as string };
       }
       if (pideClienteNuevo(propio)) {
@@ -95,7 +96,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
           let r: Awaited<ReturnType<typeof asignarBandeja>> | null = null;
           try { r = await asignarBandeja(admin, { filaId: pend.id as string, clienteId: nuevo.clienteId, expedienteId: null, baseUrl, motivo: nuevo.creado ? "cliente nuevo creado desde el email" : "respuesta del gestor (documento)" }); }
           catch (err) { console.error("[email entrante] asignación al cliente nuevo fallida:", err instanceof Error ? err.message : err); }
-          await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], clienteId: r ? nuevo.clienteId : null, clienteNombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim(), expedienteId: null, creado: nuevo.creado ? nuevo.campos : undefined, userId: userIdRemitente });
+          await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: r?.etiquetas ?? [], fichaCampos: r?.fichaCampos ?? [], clienteId: r ? nuevo.clienteId : null, clienteNombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim(), expedienteId: null, creado: nuevo.creado ? nuevo.campos : undefined, userId: userIdRemitente });
           return { ok: true, motivo: nuevo.creado ? "cliente nuevo creado (respuesta)" : "asignado por documento (respuesta)", filaId: pend.id as string };
         }
       }
@@ -140,7 +141,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   const pendiente = !resultado;
   if (esMiembro) {
     const { data: filaA } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", filaId).maybeSingle();
-    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
+    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], fichaCampos: resultado?.fichaCampos ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
   }
   if (emailOwner && !esMiembro) {
     await avisarDespacho(resend, { para: emailOwner, gestoria: ws.nombre as string, baseUrl, remitente, asunto: mail.subject ?? "", nAdjuntos: adjuntos.length, pendiente, cliente: emp.cliente ? `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() : null, referencia: resultado?.referencia ?? null });
@@ -151,7 +152,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
 // Asigna una fila de la bandeja a un cliente (y, si procede, a uno de sus expedientes
 // vivos): los adjuntos pasan a ser documentos reales. Lo llama la recepción automática
 // y el botón «Asignar» de la bandeja.
-export async function asignarBandeja(admin: Admin, opts: { filaId: string; clienteId: string; expedienteId: string | null; baseUrl: string; motivo?: string }): Promise<{ destino: "expediente" | "cliente"; referencia: string | null; documentos: number; etiquetas: string[] }> {
+export async function asignarBandeja(admin: Admin, opts: { filaId: string; clienteId: string; expedienteId: string | null; baseUrl: string; motivo?: string }): Promise<{ destino: "expediente" | "cliente"; referencia: string | null; documentos: number; etiquetas: string[]; fichaCampos: string[] }> {
   const { filaId, clienteId, baseUrl } = opts;
   const { data: fila, error } = await admin.from("BandejaEntrada").select("id, workspaceId, adjuntos, remitente, asunto, estado").eq("id", filaId).maybeSingle();
   if (error || !fila) throw new Error("Email no encontrado en la bandeja.");
@@ -178,46 +179,62 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
   }
 
   const adjuntos = (fila.adjuntos ?? []) as AdjuntoBandeja[];
-  const etiquetas: string[] = [];
-  for (const a of adjuntos) {
-    if (a.docId) { etiquetas.push(a.etiqueta ?? a.nombre); continue; } // ya colocado (reintento)
+  // Cada adjunto = una pasada de Vision (varios segundos). En serie, ocho documentos
+  // rozaban el tope de la función (60 s) y el email se quedaba PENDIENTE sin aviso
+  // (Asenjo Global, 08/09/2026). Se colocan de tres en tres, conservando el orden.
+  const colocarUno = async (a: AdjuntoBandeja): Promise<{ etiqueta: string | null; ficha: string[] }> => {
+    if (a.docId) return { etiqueta: a.etiqueta ?? a.nombre, ficha: [] }; // ya colocado (reintento)
     const dl = await admin.storage.from("documentos").download(a.storagePath);
-    if (dl.error || !dl.data) { console.error("[bandeja] adjunto no descargable:", a.storagePath); continue; }
+    if (dl.error || !dl.data) { console.error("[bandeja] adjunto no descargable:", a.storagePath); return { etiqueta: null, ficha: [] }; }
     const buffer = Buffer.from(await dl.data.arrayBuffer());
     const ext = a.nombre.split(".").pop() ?? "pdf";
     const file = new File([buffer], a.nombre, { type: a.mime });
-    let colocado = false;
     if (exp) {
       try {
         const r = await procesarSubidaDocumento(admin, {
           exp: { id: exp.id, workspaceId: exp.workspaceId, clienteId: exp.clienteId, tipo: exp.tipo, estado: exp.estado, familiaId: exp.familiaId, oficinaId: exp.oficinaId },
           label: "", clienteId: null, file, buffer, ext, baseUrl, origen: "gestor", auto: true, docsRequeridos,
         });
-        a.destino = "expediente"; a.docId = "expediente"; a.etiqueta = r.label ?? a.nombre; etiquetas.push(a.etiqueta);
-        colocado = true;
+        a.destino = "expediente"; a.docId = "expediente"; a.etiqueta = r.label ?? a.nombre;
+        return { etiqueta: a.etiqueta, ficha: r.fichaCampos ?? [] };
       } catch (err) {
         console.error("[bandeja] subida al expediente fallida, cae en la ficha:", err instanceof Error ? err.message : err);
       }
     }
-    if (!colocado) {
-      // Documento suelto en la ficha del cliente, con el tipo que reconozca la IA (o «Otro documento»).
-      let tipo = DOC_LABEL.OTRO;
-      try { const det = await extraerDocumento(buffer, a.mime); tipo = clasificarDeteccion(det.tipoDetectado, []).label; } catch { /* sin IA: Otro documento */ }
-      const docId = uuid();
-      const storagePath = `clientes/${clienteId}/${docId}.${ext}`;
-      const up = await admin.storage.from("documentos").upload(storagePath, buffer, { contentType: a.mime, upsert: false });
-      if (up.error) throw new Error(`Storage: ${up.error.message}`);
-      const ins = await admin.from("DocumentoCliente").insert({ id: docId, clienteId, workspaceId: fila.workspaceId, tipo, nombreArchivo: a.nombre, storagePath, mimeType: a.mime, sizeBytes: buffer.length });
-      if (ins.error) throw new Error(ins.error.message);
-      a.destino = "cliente"; a.docId = docId; a.etiqueta = tipo; etiquetas.push(tipo);
-    }
-  }
+    // Documento suelto en la ficha del cliente, con el tipo que reconozca la IA (o «Otro
+    // documento»). La MISMA lectura rellena los huecos de la ficha: antes solo servía
+    // para clasificar y «Información» seguía vacía aunque el pasaporte estuviera ahí.
+    let tipo = DOC_LABEL.OTRO;
+    let det: Awaited<ReturnType<typeof extraerDocumento>> | null = null;
+    try { det = await extraerDocumento(buffer, a.mime); tipo = clasificarDeteccion(det.tipoDetectado, []).label; } catch { /* sin IA: Otro documento */ }
+    const docId = uuid();
+    const storagePath = `clientes/${clienteId}/${docId}.${ext}`;
+    const up = await admin.storage.from("documentos").upload(storagePath, buffer, { contentType: a.mime, upsert: false });
+    if (up.error) throw new Error(`Storage: ${up.error.message}`);
+    const ins = await admin.from("DocumentoCliente").insert({ id: docId, clienteId, workspaceId: fila.workspaceId, tipo, nombreArchivo: a.nombre, storagePath, mimeType: a.mime, sizeBytes: buffer.length });
+    if (ins.error) throw new Error(ins.error.message);
+    a.destino = "cliente"; a.docId = docId; a.etiqueta = tipo;
+    const ficha = det ? await completarFichaDesdeExtraccion(admin, clienteId, det) : [];
+    return { etiqueta: tipo, ficha };
+  };
+  const resultados = await enParalelo(adjuntos, 3, colocarUno);
+  const etiquetas = resultados.map((r) => r.etiqueta).filter((x): x is string => Boolean(x));
+  const fichaCampos = [...new Set(resultados.flatMap((r) => r.ficha))];
 
   if (exp) {
     await admin.from("ExpedienteEvento").insert({ id: uuid(), expedienteId: exp.id, tipo: "COMENTARIO", descripcion: `📥 Email de ${fila.remitente}${fila.asunto ? ` · «${String(fila.asunto).slice(0, 80)}»` : ""} · ${adjuntos.length} adjunto(s) colocado(s) desde la bandeja` });
   }
   await admin.from("BandejaEntrada").update({ estado: "ASIGNADO", clienteId, expedienteId: exp?.id ?? null, adjuntos, motivo: opts.motivo ?? "manual", updatedAt: new Date().toISOString() }).eq("id", filaId);
-  return { destino: exp ? "expediente" : "cliente", referencia: exp?.referencia ?? null, documentos: etiquetas.length, etiquetas };
+  return { destino: exp ? "expediente" : "cliente", referencia: exp?.referencia ?? null, documentos: etiquetas.length, etiquetas, fichaCampos };
+}
+
+// Ejecuta `fn` sobre los elementos con como mucho `n` en vuelo; resultados en el orden de entrada.
+async function enParalelo<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let siguiente = 0;
+  const obrero = async () => { while (siguiente < items.length) { const k = siguiente++; out[k] = await fn(items[k]); } };
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, obrero));
+  return out;
 }
 
 export async function descartarBandeja(admin: Admin, filaId: string): Promise<void> {

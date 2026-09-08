@@ -31,6 +31,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
   clienteId: string | null; clienteNombre: string | null; expedienteId: string | null;
   candidatos?: string[]; // nombres posibles cuando la pista es ambigua
   creado?: string[]; // cliente CREADO desde el email: campos de la ficha leídos del documento
+  fichaCampos?: string[]; // campos de la ficha rellenados con lo leído en los documentos recibidos
   userId?: string | null; // gestor que reenvió (para el diario)
 }): Promise<ResultadoRespuesta> {
   const from = `"${o.gestoria.replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
@@ -61,6 +62,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     } else {
       titulo = `Guardado en la ficha de ${o.clienteNombre ?? "el cliente"}`;
       cuerpo = `<p>${o.nAdjuntos} documento(s) guardado(s) en la ficha de <b>${esc(o.clienteNombre ?? "")}</b>${o.etiquetas.length ? ` (${o.etiquetas.map(esc).join(", ")})` : ""}.</p>`
+        + (o.fichaCampos?.length ? `<p><b>Ficha completada</b> con lo que dicen sus documentos: ${o.fichaCampos.map(esc).join(", ")}.</p>` : "")
         + `<p>No tiene ningún expediente abierto: cuando le abras uno, estos documentos caerán en sus casillas.</p>`;
     }
     cta = { url: `${o.baseUrl}/app/clientes/${o.clienteId}`, label: o.creado ? "Revisar su ficha" : "Abrir su ficha" };
@@ -72,6 +74,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     subject = `Re: ${asuntoBase}`;
     titulo = `${o.clienteNombre ?? "Cliente"} · ${d.referencia ?? "expediente"}: ${o.nAdjuntos} documento(s) colocado(s)`;
     cuerpo = `<p>Colocado en el expediente <b>${esc(d.referencia ?? "")}</b>${o.etiquetas.length ? `: ${o.etiquetas.map(esc).join(", ")}` : ""}.</p>`;
+    if (o.fichaCampos?.length) cuerpo += `<p><b>Ficha completada</b> con lo que dicen sus documentos: ${o.fichaCampos.map(esc).join(", ")}.</p>`;
     if (d.docsFaltan.length) cuerpo += `<p><b>Todavía falta:</b> ${d.docsFaltan.map(esc).join(", ")}.</p>`;
     else cuerpo += `<p><b>Documentación completa.</b></p>`;
     if (d.formularios.length) cuerpo += `<p><b>Formularios rellenados y adjuntos</b> (${d.formularios.map((f) => esc(f.code)).join(", ")}): ábrelos, revísalos y firma antes de presentar.</p>`;
