@@ -34,6 +34,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     referencia: e.referencia,
     clienteNombre: e.clienteNombre,
     clienteNacionalidad: e.clienteNacionalidad,
+    empresaNombre: e.empresaNombre ?? null, // cliente-empresa: la tarjeta enseña quién contrata
     tipoLabel: e.tipoLabel,
     extrasLabels: e.extrasLabels,
     estado: e.estado,
