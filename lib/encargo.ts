@@ -72,6 +72,9 @@ type ExpRow = {
 export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<DatosEncargo | null> {
   // Workspace: datos del despacho + mandatario. Replis si la migración no está aplicada.
   let wsRes = await admin.from("Workspace")
+    .select("nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
+    .eq("id", exp.workspaceId).maybeSingle();
+  if (wsRes.error) wsRes = await admin.from("Workspace")
     .select("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
     .eq("id", exp.workspaceId).maybeSingle();
   if (wsRes.error) wsRes = await admin.from("Workspace")
@@ -159,14 +162,17 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
 
   // multi-oficina: si la sede del expediente es otra EMPRESA (razón social/NIF propios),
   // la hoja de encargo debe emitirse a su nombre — el contrato lo firma la empresa real.
-  let despachoDoc: DatosEncargo["despacho"] = { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilio), email: s(ws.emailFacturacion), logo: s(ws.logoUrl) || null };
+  // DOMICILIO: en este documento manda el de ACTIVIDAD (donde se presta el servicio) si el
+  // despacho lo ha declarado distinto del fiscal; si no, el fiscal de siempre. La FACTURA no
+  // pasa por aquí: sigue llevando el fiscal (petición de Asenjo Global, 08/09/2026).
+  let despachoDoc: DatosEncargo["despacho"] = { nombre: s(ws.nombre), nif: s(ws.nif), domicilio: s(ws.domicilioActividad) || s(ws.domicilio), email: s(ws.emailFacturacion), logo: s(ws.logoUrl) || null };
   if (exp.oficinaId) {
     try {
       const { emisorParaOficina } = await import("./facturacion-oficina");
       const em = await emisorParaOficina(admin, exp.workspaceId, exp.oficinaId);
       // El logo sigue a la sede aunque el bloque fiscal no cambie (emisorParaOficina ya lo resuelve).
       despachoDoc = { ...despachoDoc, logo: s(em.logo) || despachoDoc.logo };
-      if (em.deOficina) despachoDoc = { ...despachoDoc, nombre: em.nombre, nif: s(em.nif), domicilio: s(em.domicilio), email: s(em.email) };
+      if (em.deOficina) despachoDoc = { ...despachoDoc, nombre: em.nombre, nif: s(em.nif), domicilio: s(em.domicilioActividad) || s(em.domicilio), email: s(em.email) };
     } catch { /* migración fase 6 ausente → datos del despacho */ }
   }
 

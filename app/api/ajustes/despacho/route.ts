@@ -131,6 +131,7 @@ export async function POST(req: Request) {
     nombre: str("nombre") || "Mi despacho",
     nif: str("nif") || null,
     domicilio: str("domicilio") || null,
+    domicilioActividad: str("domicilioActividad") || null,
     emailFacturacion: str("emailFacturacion") || null,
   };
 
@@ -149,7 +150,12 @@ export async function POST(req: Request) {
     patch.logoUrl = null;
   }
 
-  const { error } = await r.admin.from("Workspace").update(patch).eq("id", r.workspaceId);
+  let { error } = await r.admin.from("Workspace").update(patch).eq("id", r.workspaceId);
+  // Sin la migración del domicilio de actividad, se guarda el resto igual (no se pierde nada).
+  if (error && /domicilioActividad/i.test(error.message)) {
+    const { domicilioActividad: _omit, ...sinActividad } = patch; void _omit;
+    ({ error } = await r.admin.from("Workspace").update(sinActividad).eq("id", r.workspaceId));
+  }
   if (error) {
     const falta = /logoUrl|schema cache|column/i.test(error.message);
     return NextResponse.json({ error: falta ? "Falta la migración del logo (supabase/workspace-logo.sql)." : error.message }, { status: 500 });

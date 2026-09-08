@@ -5,6 +5,8 @@ import { dispararAviso } from "@/lib/notificaciones";
 import { labelADocTipo, clasificarDeteccion, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
 import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { sembrarVencimiento, fechaCaducidadISO, tipoVencimientoDeDocumento } from "@/lib/vencimientos";
+import { esDocumentoDeIdentidad, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
+import { FICHA_CAMPOS, FICHA_KEYS } from "@/lib/ficha";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -161,6 +163,32 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     tipo: resultado.estado === "VALIDADO" ? "DOC_VALIDADO" : "DOC_RECHAZADO",
     descripcion: resultado.estado === "VALIDADO" ? `IA validó: ${docLabel} (${pct} %)` : `IA rechazó: ${docLabel} — ${alertas[0] ?? "ilegible"}`,
   });
+
+  // ── FICHA DEL CLIENTE: lo que la IA acaba de leer entra en su ficha ──────────────
+  // Antes, los datos extraídos se quedaban en el expediente y la ficha seguía vacía: los
+  // formularios EX y las tasas salían con huecos y el gestor los copiaba a mano (queja de
+  // Asenjo Global Consulting, 08/09/2026 — «en su ficha no me crea los campos… si están
+  // subidos a su expediente»). Solo se rellenan los campos VACÍOS: lo que escribió una
+  // persona no se toca nunca. Queda constancia en el historial: nada cambia en silencio.
+  const duenoFicha = clienteId || (exp.clienteId as string | null);
+  if (resultado.estado === "VALIDADO" && duenoFicha && esDocumentoDeIdentidad(resultado.tipoDetectado)) {
+    try {
+      const { data: fila } = await admin.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", duenoFicha).maybeSingle();
+      const huecos = huecosDeFicha(fila as Record<string, unknown> | null, fichaDesdeCampos(resultado.campos));
+      const claves = Object.keys(huecos);
+      if (claves.length) {
+        const { error: eFicha } = await admin.from("Cliente").update(huecos).eq("id", duenoFicha);
+        if (eFicha) console.warn("[ficha desde extracción]", eFicha.message);
+        else {
+          const etiquetas = claves.map((k) => FICHA_CAMPOS.find((c) => c.k === k)?.label ?? k);
+          await admin.from("ExpedienteEvento").insert({
+            id: uuid(), expedienteId: exp.id, tipo: "DOC_VALIDADO",
+            descripcion: `Ficha del cliente completada desde ${docLabel}: ${etiquetas.join(", ")}`,
+          });
+        }
+      }
+    } catch (err) { console.warn("[ficha desde extracción]", err instanceof Error ? err.message : err); }
+  }
 
   // ── VIGÍA: documento de identidad validado → sembrar su vencimiento ──
   // Antes solo el TIE. Los clientes suben sobre todo el pasaporte, cuya fecha la IA

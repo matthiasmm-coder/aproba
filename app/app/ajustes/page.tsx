@@ -146,7 +146,7 @@ export default async function Ajustes() {
     fetchAvisosConfig().catch(() => ({ avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true })),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
   ]);
@@ -424,7 +424,7 @@ export default async function Ajustes() {
                       nota: `${t("Configuración de")} ${o.nombre}: ${t("sus facturas, su hoja de encargo y los cobros de sus clientes usarán estos datos. Lo que dejes vacío cae en los datos de la gestoría.")}`,
                       panel: <>
                         <OficinaFacturacion oficinaId={o.id} nombre={o.nombre} logoInicial={o.logoUrl} inicial={{
-                          razonSocial: o.razonSocial ?? "", nif: o.nif ?? "", domicilio: o.domicilio ?? "",
+                          razonSocial: o.razonSocial ?? "", nif: o.nif ?? "", domicilio: o.domicilio ?? "", domicilioActividad: o.domicilioActividad ?? "",
                           emailFacturacion: o.emailFacturacion ?? "", prefijoSerie: o.prefijoSerie ?? "",
                         }} />
                         <CuentasBancarias inicial={cuentas.filter((c) => c.oficinaId === o.id)} oficinaId={o.id} />

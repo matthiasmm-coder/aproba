@@ -16,6 +16,9 @@ export type Oficina = {
   razonSocial: string | null;
   nif: string | null;
   domicilio: string | null;
+  // Domicilio de actividad de la sede (supabase/domicilio-actividad.sql): hoja de encargo,
+  // presupuesto y mandato. La factura lleva SIEMPRE el fiscal.
+  domicilioActividad: string | null;
   emailFacturacion: string | null;
   prefijoSerie: string | null;
   logoUrl: string | null; // logo de facturación propio (null → el del despacho)
@@ -44,13 +47,14 @@ export async function fetchOficinas(): Promise<Oficina[]> {
   const ws = (myMem as { workspaceId: string }).workspaceId;
 
   const q = (cols: string) => supabase.from("Oficina").select(cols).eq("workspaceId", ws).order("orden", { ascending: true });
-  let res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, emailFacturacion, prefijoSerie, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago, avisosComoOficinaId, encargoComoOficinaId");
+  let res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, domicilioActividad, emailFacturacion, prefijoSerie, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago, avisosComoOficinaId, encargoComoOficinaId");
+  if (res.error) res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, emailFacturacion, prefijoSerie, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago, avisosComoOficinaId, encargoComoOficinaId") as typeof res; // sin domicilio de actividad aún
   if (res.error) res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, emailFacturacion, prefijoSerie, logoUrl") as typeof res; // config-por-oficina sin migrar
   if (res.error) res = await q("id, nombre, direccion, telefono, orden, razonSocial, nif, domicilio, emailFacturacion, prefijoSerie") as typeof res; // sin logo aún
   if (res.error) res = await q("id, nombre, direccion, telefono, orden") as typeof res; // fase 6 sin migrar
   if (res.error || !res.data) return [];
 
-  type Fila = { id: string; nombre: string; direccion: string | null; telefono: string | null; orden: number; razonSocial?: string | null; nif?: string | null; domicilio?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null; logoUrl?: string | null; hojaEncargoActiva?: boolean | null; mandatarioNombre?: string | null; mandatarioDni?: string | null; mandatarioColegiado?: string | null; mandatarioColegio?: string | null; encargoFormasPago?: string | null; avisosComoOficinaId?: string | null; encargoComoOficinaId?: string | null };
+  type Fila = { id: string; nombre: string; direccion: string | null; telefono: string | null; orden: number; razonSocial?: string | null; nif?: string | null; domicilio?: string | null; domicilioActividad?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null; logoUrl?: string | null; hojaEncargoActiva?: boolean | null; mandatarioNombre?: string | null; mandatarioDni?: string | null; mandatarioColegiado?: string | null; mandatarioColegio?: string | null; encargoFormasPago?: string | null; avisosComoOficinaId?: string | null; encargoComoOficinaId?: string | null };
   const filas = res.data as unknown as Fila[];
   if (!filas.length) return [];
 
@@ -71,6 +75,7 @@ export async function fetchOficinas(): Promise<Oficina[]> {
     razonSocial: o.razonSocial ?? null,
     nif: o.nif ?? null,
     domicilio: o.domicilio ?? null,
+    domicilioActividad: o.domicilioActividad ?? null,
     emailFacturacion: o.emailFacturacion ?? null,
     prefijoSerie: o.prefijoSerie ?? null,
     logoUrl: o.logoUrl ?? null,

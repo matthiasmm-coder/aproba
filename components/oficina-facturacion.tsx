@@ -6,7 +6,7 @@ import { useT } from "@/components/lang-provider";
 // Identidad fiscal de UNA oficina (fase 6): razón social, NIF, domicilio, email y
 // prefijo de serie. Si razón social o NIF están rellenos, las facturas de esta sede
 // salen con ESTE bloque completo (nunca se mezclan campos de dos empresas).
-type Datos = { razonSocial: string; nif: string; domicilio: string; emailFacturacion: string; prefijoSerie: string };
+type Datos = { razonSocial: string; nif: string; domicilio: string; domicilioActividad: string; emailFacturacion: string; prefijoSerie: string };
 
 export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = null }: { oficinaId: string; nombre: string; inicial: Datos; logoInicial?: string | null }) {
   const t = useT();
@@ -90,6 +90,9 @@ export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = n
           <input value={d.nif} onChange={(e) => setD({ ...d, nif: e.target.value })} maxLength={20} className={inp} /></div>
         <div className="sm:col-span-2"><label className={lbl}>{t("Domicilio fiscal")}</label>
           <input value={d.domicilio} onChange={(e) => setD({ ...d, domicilio: e.target.value })} maxLength={200} placeholder={t("Calle, nº, CP, ciudad")} className={inp} /></div>
+        <div className="sm:col-span-2"><label className={lbl}>{t("Domicilio de actividad")} <span className="font-normal text-slate-400">({t("opcional")})</span></label>
+          <input value={d.domicilioActividad} onChange={(e) => setD({ ...d, domicilioActividad: e.target.value })} maxLength={200} placeholder={t("Solo si atiendes en otra dirección")} className={inp} />
+          <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en la hoja de encargo, el presupuesto y el mandato. Las facturas llevan siempre el domicilio fiscal.")}</p></div>
         <div><label className={lbl}>{t("Email de facturación")}</label>
           <input value={d.emailFacturacion} onChange={(e) => setD({ ...d, emailFacturacion: e.target.value })} maxLength={120} type="email" className={inp} /></div>
         <div><label className={lbl}>{t("Prefijo de serie")} <span className="font-normal text-slate-400">({t("opcional")})</span></label>

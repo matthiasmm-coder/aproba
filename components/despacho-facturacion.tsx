@@ -13,6 +13,9 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
   const [nombre, setNombre] = useState(inicial.nombre === "Mi despacho" ? "" : inicial.nombre);
   const [nif, setNif] = useState(inicial.nif ?? "");
   const [domicilio, setDomicilio] = useState(inicial.domicilio ?? "");
+  // Domicilio donde se presta el servicio, si no es el fiscal: solo va a la hoja de encargo,
+  // el presupuesto y el mandato. La factura lleva SIEMPRE el fiscal (documento tributario).
+  const [domicilioActividad, setDomicilioActividad] = useState(inicial.domicilioActividad ?? "");
   const [email, setEmail] = useState(inicial.emailFacturacion ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(inicial.logoUrl);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -36,7 +39,7 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
     setEstado("saving"); setError(null);
     try {
       const fd = new FormData();
-      fd.set("nombre", nombre); fd.set("nif", nif); fd.set("domicilio", domicilio); fd.set("emailFacturacion", email);
+      fd.set("nombre", nombre); fd.set("nif", nif); fd.set("domicilio", domicilio); fd.set("domicilioActividad", domicilioActividad); fd.set("emailFacturacion", email);
       if (logoFile) fd.set("logo", logoFile);
       else if (!preview && logoUrl === null) fd.set("quitarLogo", "1");
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
@@ -95,8 +98,14 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Domicilio")}</label>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Domicilio fiscal")}</label>
             <input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} placeholder={t("Calle, nº, CP, ciudad")} className={inp} />
+            <p className="mt-1 text-[11px] text-slate-400">{t("El que aparece en tus facturas.")}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Domicilio de actividad")}</label>
+            <input value={domicilioActividad} onChange={(e) => setDomicilioActividad(e.target.value)} placeholder={t("Solo si atiendes en otra dirección")} className={inp} />
+            <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en la hoja de encargo, el presupuesto y el mandato. Si lo dejas vacío, se usa el domicilio fiscal.")}</p>
           </div>
         </div>
       </div>

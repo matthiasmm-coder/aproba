@@ -217,14 +217,21 @@ export async function POST(req: Request) {
         .eq("workspaceId", ws).eq("prefijoSerie", prefijo).neq("id", o.id).limit(1);
       if ((chocan ?? []).length) return fail("Ese prefijo de serie ya lo usa otra oficina.", 409);
     }
-    const { error } = await admin.from("Oficina").update({
+    const campos = {
       razonSocial: limpio(body.razonSocial, 160),
       nif: limpio(body.nif, 20),
       domicilio: limpio(body.domicilio, 200),
+      domicilioActividad: limpio(body.domicilioActividad, 200),
       emailFacturacion: limpio(body.emailFacturacion, 120),
       prefijoSerie: prefijo,
       updatedAt: new Date().toISOString(),
-    }).eq("id", o.id);
+    };
+    let { error } = await admin.from("Oficina").update(campos).eq("id", o.id);
+    // Sin la migración del domicilio de actividad, se guarda el resto igual.
+    if (error && /domicilioActividad/i.test(error.message)) {
+      const { domicilioActividad: _omit, ...resto } = campos; void _omit;
+      ({ error } = await admin.from("Oficina").update(resto).eq("id", o.id));
+    }
     if (error) {
       return fail(/razonSocial|prefijoSerie|column|schema cache|does not exist/i.test(error.message)
         ? "Falta la migración: ejecuta supabase/oficinas-facturacion.sql en Supabase." : error.message, 500);

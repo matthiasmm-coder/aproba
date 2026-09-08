@@ -49,6 +49,27 @@ export function fichaDesdeCampos(campos: { label: string; value: string }[]): Fi
   const cp = get("Código postal"); if (cp && /^\d{5}$/.test(cp)) f.codigoPostal = cp;
   return f;
 }
+// ── Huecos de la ficha: qué campos rellenar SIN pisar nada ──────────────────────────
+// Los datos que la IA lee en un documento vivían solo en el expediente: la ficha del
+// cliente seguía vacía, los formularios EX y las tasas salían con huecos y el gestor
+// tenía que copiarlos a mano (queja de Asenjo Global Consulting, 08/09/2026).
+// Regla: solo se rellena lo que está VACÍO. Lo que escribió una persona —gestor o
+// cliente— manda siempre, aunque la IA lea otra cosa: un OCR no corrige a un humano.
+export function huecosDeFicha(
+  actual: Record<string, unknown> | null | undefined,
+  nueva: FichaNueva,
+): Partial<FichaNueva> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(nueva)) {
+    if (!v) continue;
+    const previo = actual?.[k];
+    if (typeof previo === "string" && previo.trim()) continue; // ya hay dato humano
+    if (previo != null && typeof previo !== "string") continue; // otro tipo: no tocar
+    out[k] = v as string;
+  }
+  return out as Partial<FichaNueva>;
+}
+
 // «Es nuevo», «cliente nuevo», «créalo», «no lo tengo» → el gestor pide crear el cliente.
 export function pideClienteNuevo(texto: string | null | undefined): boolean {
   return /\b(cliente\s+nuevo|es\s+nuev[oa]|nuev[oa]\s+cliente|cr[eé]alo|cr[eé]ala|crear(lo|la)?|no\s+lo\s+tengo|no\s+existe)\b/i.test(texto ?? "");

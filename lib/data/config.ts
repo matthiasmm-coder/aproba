@@ -219,6 +219,9 @@ export type CuentaBancaria = {
 // nombre+nif si les colonnes domicilio/emailFacturacion ne sont pas encore migrées.
 export type Despacho = {
   nombre: string; nif: string | null; domicilio: string | null; emailFacturacion: string | null; logoUrl: string | null;
+  // Domicilio donde se presta el servicio, cuando no es el fiscal (supabase/domicilio-actividad.sql).
+  // Solo lo usan la hoja de encargo, el presupuesto y el mandato; las facturas llevan SIEMPRE el fiscal.
+  domicilioActividad: string | null;
   // Hoja de encargo + mandato (supabase/hoja-encargo.sql) — false/null pre-migración.
   hojaEncargoActiva: boolean;
   mandatarioNombre: string | null; mandatarioDni: string | null;
@@ -235,7 +238,7 @@ export async function fetchDespacho(): Promise<Despacho> {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
   // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
-  let res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago, mandatoPropioPath");
+  let res = await q("nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago, mandatoPropioPath");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
   // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
@@ -249,6 +252,7 @@ export async function fetchDespacho(): Promise<Despacho> {
     nombre: (ws.nombre as string) ?? "Mi despacho",
     nif: (ws.nif as string | null) ?? null,
     domicilio: (ws.domicilio as string | null) ?? null,
+    domicilioActividad: (ws.domicilioActividad as string | null) ?? null,
     emailFacturacion: (ws.emailFacturacion as string | null) ?? null,
     logoUrl: (ws.logoUrl as string | null) ?? null,
     hojaEncargoActiva: Boolean(ws.hojaEncargoActiva),
