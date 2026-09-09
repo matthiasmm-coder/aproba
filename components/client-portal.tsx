@@ -9,7 +9,7 @@ import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, etiquetaDescuento, suplidosAsignados, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
-import { dedupDocs, labelADocTipo, emparejarDocs, unirDocsPedidos } from "@/lib/tramites";
+import { DOC_LABEL, dedupDocs, emparejarDocs, labelADocTipo, unirDocsPedidos } from "@/lib/tramites";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import {
   LANGS, makeT, detectarLang, fieldLabel, grupoLabel, sexoLabel, estadoCivilLabel,
@@ -139,8 +139,12 @@ export function ClientPortal({
   const [docInfo, setDocInfo] = useState<number | null>(null); // quel doc affiche son infobulle
   // Reprise: los documentos YA subidos aparecen con su estado real (validado/analizando/
   // alerta) en vez de «pendiente» — el migrante no vuelve a subir lo que ya envió.
-  const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>(() => {
-    if (!servicioInicial || !docsSubidos?.length) return {};
+  // Reparto de lo YA subido: qué documento ocupa cada casilla, y cuáles quedan como
+  // PIEZAS APARTE (papeles del caso que el trámite no pide: apostillas, CCSE, NIE…).
+  // Sin este segundo grupo, el cliente que vuelve al enlace no veía que sí estaban.
+  const repartoInicial = (() => {
+    const vacio = { casillas: {} as Record<number, { status: DocStatus; attempts: number }>, sueltos: [] as { label: string }[] };
+    if (!servicioInicial || !docsSubidos?.length) return vacio;
     const catalogo = serviciosProp ?? DEFAULT_SERVICIOS;
     const svc = catalogo.find((s) => s.id === servicioInicial);
     const m: Record<number, { status: DocStatus; attempts: number }> = {};
@@ -157,11 +161,19 @@ export function ClientPortal({
     const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
     // Emparejado ÚNICO (lib/tramites): un documento llena UNA casilla. Antes casaba
     // por tipo y dos documentos propios (los dos OTRO) marcaban las dos casillas.
-    emparejarDocs(labels, docsSubidos).forEach((row, i) => {
+    const casados = emparejarDocs(labels, docsSubidos);
+    casados.forEach((row, i) => {
       if (row) m[i] = { status: row.estado === "VALIDADO" ? "validado" : row.estado === "PROCESANDO" ? "analyzing" : "alerta", attempts: 1 };
     });
-    return m;
-  });
+    const usados = new Set(casados.filter(Boolean));
+    const sueltos = docsSubidos
+      .filter((d) => !usados.has(d) && d.estado !== "PENDIENTE")
+      .map((d) => ({ label: (d.etiqueta ?? "").trim() || DOC_LABEL[d.tipo] || DOC_LABEL.OTRO }));
+    return { casillas: m, sueltos };
+  })();
+  const [docs, setDocs] = useState<Record<number, { status: DocStatus; attempts: number }>>(() => repartoInicial.casillas);
+  // Piezas guardadas fuera de las casillas del trámite (subida en lote o por email).
+  const [extras, setExtras] = useState<{ label: string }[]>(() => repartoInicial.sueltos);
   const [prog, setProg] = useState<Record<number, number>>({}); // % de progreso por documento (subida + análisis)
   const [servicios, setServicios] = useState<Servicio[]>(() => (serviciosProp ?? DEFAULT_SERVICIOS).filter((s) => s.active && s.label.trim()));
   const [pagando, setPagando] = useState(false);
@@ -462,8 +474,7 @@ export function ClientPortal({
       : { nombre: f.name, fase: "esperando", prog: 0 });
     setLote(base);
     setLoteEnCurso(true);
-    for (let i = 0; i < files.length; i++) {
-      if (base[i].fase === "error") continue;
+    const uno = async (i: number) => {
       patchLote(i, { fase: "subiendo", prog: 0 });
       try {
         const { ok, data } = await subirConProgreso({
@@ -473,10 +484,23 @@ export function ClientPortal({
           errorRed: t("s2.errorSubir"),
         });
         if (!ok || !data) throw new Error(data?.error ?? t("s2.errorSubir"));
-        const d = data as typeof data & { tipo?: string; label?: string };
-        const slot = d.tipo ? requiredDocs.findIndex((l) => labelADocTipo(l) === d.tipo) : -1;
-        if (d.estado === "NO_RECONOCIDO" || slot < 0) {
+        const d = data as typeof data & { tipo?: string; label?: string; requerido?: boolean };
+        // La casilla se busca por ETIQUETA (la que devuelve el servidor) y solo de repli
+        // por tipo: los documentos sin enum propio (nacimiento, CCSE…) son todos OTRO.
+        const etiqueta = (d.label ?? "").trim().toLowerCase();
+        const slot = d.requerido === false ? -1
+          : (() => {
+              const porEtiqueta = etiqueta ? requiredDocs.findIndex((l) => l.trim().toLowerCase() === etiqueta) : -1;
+              if (porEtiqueta >= 0) return porEtiqueta;
+              return d.tipo ? requiredDocs.findIndex((l) => labelADocTipo(l) === d.tipo) : -1;
+            })();
+        if (d.estado === "NO_RECONOCIDO") {
           patchLote(i, { fase: "hecho", prog: 100, okDoc: false, texto: t("s2.lote.noReconocido") });
+        } else if (slot < 0) {
+          // Guardado igualmente, fuera de las casillas del trámite: el gestor lo verá.
+          const label = (d.label ?? "").trim() || files[i].name;
+          setExtras((xs) => (xs.some((x) => x.label === label) ? xs : [...xs, { label }]));
+          patchLote(i, { fase: "hecho", prog: 100, okDoc: true, texto: t("s2.lote.aparte", { doc: label }) });
         } else {
           aplicarEnCasilla(slot, d);
           patchLote(i, { fase: "hecho", prog: 100, okDoc: d.estado === "VALIDADO", texto: etiquetaDoc(requiredDocs[slot]) });
@@ -484,7 +508,14 @@ export function ClientPortal({
       } catch (err) {
         patchLote(i, { fase: "error", prog: 0, texto: err instanceof Error ? err.message : t("s2.errorSubir") });
       }
-    }
+    };
+    // De TRES en tres: cada archivo es una pasada de visión de 10 a 20 segundos. En
+    // serie, ocho documentos tenían al cliente esperando varios minutos con la página
+    // abierta y el último rozaba el límite del servidor (Asenjo Global, 08/09/2026).
+    const pendientes = files.map((_, i) => i).filter((i) => base[i].fase !== "error");
+    let siguiente = 0;
+    const obrero = async () => { while (siguiente < pendientes.length) await uno(pendientes[siguiente++]); };
+    await Promise.all(Array.from({ length: Math.min(3, pendientes.length) }, obrero));
     setLoteEnCurso(false);
   }
 
@@ -1300,6 +1331,23 @@ export function ClientPortal({
                 );
               })}
             </div>
+
+            {/* Piezas guardadas fuera de las casillas del trámite: el cliente tiene que ver
+                que SÍ están (si no, las vuelve a subir o cree que se han perdido). */}
+            {extras.length > 0 && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-800">{t("s2.otros.titulo")}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t("s2.otros.desc")}</p>
+                <ul className="mt-2.5 space-y-1.5">
+                  {extras.map((x) => (
+                    <li key={x.label} className="flex items-center gap-2 text-sm text-slate-700">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-aproba-100 text-aproba-600"><Check className="h-3 w-3" /></span>
+                      <span className="min-w-0 truncate">{x.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* État du dépôt : encadré jaune dès le début si incomplet (envoyer / continuer
                 à téléverser), sinon confirmation verte. Le bouton Retour reste dans les deux cas. */}

@@ -21,6 +21,10 @@ TIPOS DE DOCUMENTO QUE PUEDES RECIBIR:
 - certificado_bancario (saldo, extracto, certificado de cuenta)
 - libro_familia
 - titulo_estudios
+- certificado_nacimiento (partida/acta/certificado de nacimiento, español o extranjero, traducido o no)
+- certificado_matrimonio (certificado o acta de matrimonio)
+- ccse_dele (diploma o certificado CCSE, o diploma DELE de español)
+- apostilla (la hoja de Apostilla de La Haya que acompaña a otro documento, cuando viene sola)
 - otro / desconocido (si no encaja o no se distingue)
 
 REGLAS DE EXTRACCIÓN (estrictas):
@@ -48,7 +52,7 @@ REGLA ABSOLUTA: devuelve el JSON SIEMPRE, también cuando la imagen esté vacía
 // union (nullable) imposée par l'API de sortie structurée. Opus respecte ce
 // gabarit très fidèlement, et on valide/parse le résultat côté serveur.
 const PLANTILLA_JSON = `{
-  "tipo_documento": "uno de: pasaporte | tarjeta_residencia_tie | certificado_nie | empadronamiento | contrato_trabajo | nomina | antecedentes_penales | certificado_bancario | libro_familia | titulo_estudios | otro | desconocido",
+  "tipo_documento": "uno de: pasaporte | tarjeta_residencia_tie | certificado_nie | empadronamiento | contrato_trabajo | nomina | antecedentes_penales | certificado_bancario | libro_familia | titulo_estudios | certificado_nacimiento | certificado_matrimonio | ccse_dele | apostilla | otro | desconocido",
   "confianza_clasificacion": 0.0,
   "nombre": null, "apellidos": null, "nombre_completo": null,
   "sexo": null, "nacionalidad": null, "fecha_nacimiento": null, "lugar_nacimiento": null,

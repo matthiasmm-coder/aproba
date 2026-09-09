@@ -22,8 +22,9 @@ export async function POST(req: Request) {
   const token = String(form?.get("token") ?? "").trim();
   const label = String(form?.get("label") ?? "").trim();
   // auto=1: «sube todos tus documentos de una vez» — la IA clasifica y cada archivo cae
-  // en su casilla. SOLO tipos requeridos por el servicio: lo demás vuelve NO_RECONOCIDO
-  // (el cliente no debe poder sembrar el expediente de archivos sueltos).
+  // en su casilla. Lo que no encaja en ninguna se guarda igualmente como pieza aparte
+  // (el gestor la ve en el expediente); solo se descarta lo que la IA no puede leer, para
+  // que el cliente no siembre el expediente de fotos ilegibles.
   const auto = String(form?.get("auto") ?? "") === "1";
   const clienteId = String(form?.get("clienteId") ?? "").trim() || null; // expediente familiar: doc de un miembro
   const file = form?.get("file");

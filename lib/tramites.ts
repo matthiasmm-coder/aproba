@@ -103,17 +103,52 @@ const TIPO_IA_A_DOC: Record<string, string> = Object.fromEntries(
   Object.entries(DOC_A_TIPO_IA).map(([doc, ia]) => [ia, doc]),
 );
 
+// Tipos que la IA sabe distinguir pero que NO existen en el enum DocumentoTipo de
+// Postgres (añadir uno exige migración). Se guardan como OTRO y es su ETIQUETA la que
+// encuentra la casilla: emparejarDocs mira la etiqueta antes que el tipo. Las palabras
+// son las que deben aparecer en la etiqueta requerida para considerarlo esa casilla.
+export const IA_SIN_ENUM: Record<string, { label: string; palabras: string[] }> = {
+  certificado_nacimiento: { label: "Certificado de nacimiento", palabras: ["nacimiento"] },
+  certificado_matrimonio: { label: "Certificado de matrimonio", palabras: ["matrimonio"] },
+  ccse_dele: { label: "Certificado CCSE o DELE", palabras: ["ccse", "dele"] },
+  apostilla: { label: "Apostilla de La Haya", palabras: ["apostilla"] },
+};
+
+const normTexto = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
 export function clasificarDeteccion(
   tipoDetectado: string,
   docsRequeridos: string[],
 ): { docTipo: string; label: string; requerido: boolean } {
   const docTipo = TIPO_IA_A_DOC[tipoDetectado] ?? "OTRO";
-  const requerido = docsRequeridos.find((l) => labelADocTipo(l) === docTipo);
-  return {
-    docTipo,
-    label: requerido ?? DOC_LABEL[docTipo] ?? "Otro documento",
-    requerido: Boolean(requerido),
-  };
+  if (docTipo !== "OTRO") {
+    const requerido = docsRequeridos.find((l) => labelADocTipo(l) === docTipo);
+    return { docTipo, label: requerido ?? DOC_LABEL[docTipo] ?? "Otro documento", requerido: Boolean(requerido) };
+  }
+  // Tipo sin enum propio: se busca la casilla por PALABRA de su etiqueta.
+  const suave = IA_SIN_ENUM[tipoDetectado];
+  if (suave) {
+    const requerido = docsRequeridos.find((l) => labelADocTipo(l) === "OTRO" && suave.palabras.some((p) => normTexto(l).includes(p)));
+    return { docTipo: "OTRO", label: requerido ?? suave.label, requerido: Boolean(requerido) };
+  }
+  // «otro» / «desconocido»: NO se adivina casilla. Antes, cualquier papel no identificado
+  // caía en la primera casilla libre de tipo OTRO — en un expediente de nacionalidad, el
+  // certificado de nacimiento, su apostilla y el CCSE acababan los tres en «Certificado de
+  // nacimiento» y solo sobrevivía el último (Asenjo Global, 08/09/2026).
+  return { docTipo: "OTRO", label: DOC_LABEL.OTRO, requerido: false };
+}
+
+// Etiqueta libre para un documento que llega en automático: si la casilla ya tiene uno
+// bueno, el nuevo entra AL LADO con su propio nombre en vez de pisarlo. `ocupadas` son las
+// etiquetas de los documentos ya validados o en curso de esa misma casilla.
+export function siguienteEtiquetaLibre(ocupadas: string[], label: string): string {
+  const set = new Set(ocupadas.map(normTexto));
+  if (!set.has(normTexto(label))) return label;
+  for (let n = 2; n <= 20; n++) {
+    const cand = `${label} (${n})`;
+    if (!set.has(normTexto(cand))) return cand;
+  }
+  return `${label} (${Date.now().toString(36).slice(-4)})`;
 }
 
 export const FORM_LABEL: Record<string, string> = {

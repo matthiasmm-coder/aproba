@@ -2,7 +2,7 @@ import type { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { extraerDocumento } from "@/lib/extraction";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
-import { labelADocTipo, clasificarDeteccion, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
+import { labelADocTipo, clasificarDeteccion, siguienteEtiquetaLibre, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
 import { docsDeServicios, serviciosDeExpediente } from "@/lib/multi-servicio";
 import { sembrarVencimiento, fechaCaducidadISO, tipoVencimientoDeDocumento } from "@/lib/vencimientos";
 import { completarFichaDesdeExtraccion } from "@/lib/ficha-sync";
@@ -42,6 +42,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
   let resultadoPrevio: Awaited<ReturnType<typeof extraerDocumento>> | null = null;
   let label = opts.label;
   let docTipo: string;
+  let esExtra = false; // documento del caso que no ocupa ninguna casilla del trámite
   if (opts.auto) {
     try {
       resultadoPrevio = await extraerDocumento(buffer, file.type);
@@ -50,11 +51,19 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
       throw new Error("La validación automática no está disponible en este momento. Vuelve a intentarlo en unos minutos.");
     }
     const cls = clasificarDeteccion(resultadoPrevio.tipoDetectado, opts.docsRequeridos ?? []);
-    if (opts.soloRequeridos && !cls.requerido) {
-      return { ok: true, estado: "NO_RECONOCIDO", campos: [], alertas: [], tipo: cls.docTipo, label: cls.label, requerido: false };
+    esExtra = !cls.requerido;
+    // Lo que no encaja en ninguna casilla YA NO se tira. En un expediente de nacionalidad
+    // la mitad de los papeles (NIE, apostillas, CCSE) no está en la lista del trámite: el
+    // cliente los subía y no tenían dónde caer (Asenjo Global, 08/09/2026). Se guardan
+    // como pieza aparte, visibles para el gestor. Solo se descarta lo que la IA no
+    // consigue leer: una foto borrosa o algo que no es un documento no siembra nada.
+    if (esExtra && opts.soloRequeridos && resultadoPrevio.estado !== "VALIDADO") {
+      return { ok: true, estado: "NO_RECONOCIDO", campos: [], alertas: resultadoPrevio.alertas ?? [], tipo: cls.docTipo, label: cls.label, requerido: false };
     }
     docTipo = cls.docTipo;
-    label = cls.label;
+    // Nunca pisar un documento ya bueno: si esa casilla ya tiene uno validado (o en
+    // curso), este entra al lado con su propio nombre.
+    label = await etiquetaLibreEnExpediente(admin, exp.id, clienteId, cls.docTipo, cls.label);
   } else {
     docTipo = labelADocTipo(label);
   }
@@ -201,7 +210,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     clave: resultado.estado === "VALIDADO" ? "doc_validado" : "doc_rechazado", vars: { documento: docLabel }, baseUrl,
   });
 
-  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal, tipo: docTipo, label, ...(fichaCampos.length ? { fichaCampos } : {}) };
+  return { ok: true, estado: resultado.estado, campos: resultado.campos, alertas, confianza: resultado.confianzaGlobal, tipo: docTipo, label, ...(opts.auto ? { requerido: !esExtra } : {}), ...(fichaCampos.length ? { fichaCampos } : {}) };
 }
 
 // ── Reconciliación de estado según los documentos requeridos: YA NO EXISTE ──
@@ -216,5 +225,30 @@ export async function reconciliarProgresoDocs(_admin: Admin, _expedienteId: stri
   // por igual y sin escribir nada: un estado que se recalcula no puede mentir.
   // Se conserva la firma porque tres rutas la llaman; se retirará cuando se limpien.
   return;
+}
+
+// Etiqueta con la que guardar un documento clasificado en automático, sin pisar nada:
+// mira las etiquetas YA ocupadas de esa misma casilla (validadas o en curso) en este
+// expediente. Best-effort: si la consulta falla, se devuelve la etiqueta tal cual.
+async function etiquetaLibreEnExpediente(
+  admin: Admin,
+  expedienteId: string,
+  clienteId: string | null,
+  docTipo: string,
+  label: string,
+): Promise<string> {
+  try {
+    let q = admin.from("Documento").select("etiqueta, estado").eq("expedienteId", expedienteId).eq("tipo", docTipo);
+    if (clienteId) q = q.eq("clienteId", clienteId);
+    const { data, error } = await q;
+    if (error || !data) return label;
+    const ocupadas = (data as { etiqueta?: string | null; estado?: string | null }[])
+      .filter((d) => d.estado === "VALIDADO" || d.estado === "PROCESANDO")
+      // Fila antigua sin etiqueta: ocupa la casilla con el nombre por defecto de su tipo.
+      .map((d) => (d.etiqueta ?? "").trim() || DOC_LABEL[docTipo] || "");
+    return siguienteEtiquetaLibre(ocupadas, label);
+  } catch {
+    return label;
+  }
 }
 
