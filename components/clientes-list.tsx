@@ -111,8 +111,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
       <div className="mb-4 flex gap-5 border-b border-slate-200">
         {pest("individuales", t("Clientes individuales"), totales.individuales)}
         {pest("familias", t("Familias"), totales.familias)}
-        {/* La pestaña Empresas solo aparece cuando el despacho tiene alguna: no todos trabajan con empresas. */}
-        {(totales.empresas > 0 || pestana === "empresas") && pest("empresas", t("Empresas"), totales.empresas)}
+        {/* Siempre visible, como Familias: si no está, nadie descubre que existe (Matthias, 09/09). */}
+        {pest("empresas", t("Empresas"), totales.empresas)}
       </div>
 
       {/* Barre de recherche */}
