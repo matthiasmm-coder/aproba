@@ -174,10 +174,15 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     } else {
       // ⚠️ el SELECT debe traer oficinaId — sin la columna, «sin sede» sería indistinguible.
-      let cRes = await admin.from("Cliente").select("id, oficinaId").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
+      let cRes = await admin.from("Cliente").select("id, oficinaId, empresaId").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
+      if (cRes.error) cRes = await admin.from("Cliente").select("id, oficinaId").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle() as typeof cRes;
       if (cRes.error) cRes = await admin.from("Cliente").select("id").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle() as typeof cRes;
-      const c = cRes.data as { id: string; oficinaId?: string | null } | null;
+      const c = cRes.data as { id: string; oficinaId?: string | null; empresaId?: string | null } | null;
       if (!c) return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
+      // Trabajador de una EMPRESA elegido como cliente suelto (ficha, API, búsqueda): el
+      // expediente hereda la empresa igualmente — se factura a quien contrata, nunca al
+      // migrante (regla Matthias 09/09/2026). Solo la ruta explícita de empresa lo fija a mano.
+      if (c.empresaId) expedienteEmpresaId = c.empresaId;
       // Cliente existente SIN oficina: la sede del contexto/selector lo ADOPTA (el
       // expediente hereda). Desde «Todas» sin elegir → 400, como el resto de creaciones.
       if (!c.oficinaId && "oficinaId" in (c as object)) {

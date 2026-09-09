@@ -7,6 +7,7 @@ import { logoDelWorkspace } from "@/lib/marca";
 import { crearReunionMeet, actualizarReunionMeet, borrarReunionMeet } from "@/lib/google-calendar";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
+import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
 
@@ -78,6 +79,20 @@ async function emitirFacturaCita(
       .eq("id", o.clienteId).maybeSingle();
     clienteDatos = datosFiscalesDeCliente(cli as Parameters<typeof datosFiscalesDeCliente>[0]);
   }
+  // Cliente-EMPRESA: la cita de un trabajador se factura a la empresa que lo contrata
+  // (razón social + CIF + domicilio fiscal), nunca al migrante. Consulta tolerante.
+  let empresaCita: (EmpresaFiscal & { id: string }) | null = null;
+  if (o.clienteId) {
+    try {
+      const { data: ce } = await admin.from("Cliente").select("empresaId").eq("id", o.clienteId).maybeSingle();
+      const eid = (ce as { empresaId?: string | null } | null)?.empresaId;
+      if (eid) {
+        const { data: em } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
+        empresaCita = (em as (EmpresaFiscal & { id: string }) | null) ?? null;
+      }
+    } catch { empresaCita = null; }
+  }
+  if (empresaCita) clienteDatos = datosFiscalesDeEmpresa(empresaCita);
 
   const facturaId = crypto.randomUUID();
   const ahora = new Date();
@@ -85,7 +100,8 @@ async function emitirFacturaCita(
     id: facturaId, workspaceId: o.workspaceId, expedienteId: null,
     ...(o.clienteId ? { clienteId: o.clienteId } : {}),
     ...(oficinaCita ? { oficinaId: oficinaCita } : {}),
-    numero, clienteNombre: o.nombre, concepto,
+    numero, clienteNombre: empresaCita ? nombreEmpresa(empresaCita) : o.nombre, concepto,
+    ...(empresaCita ? { empresaId: empresaCita.id } : {}),
     baseImponible: base, iva, total,
     estado: "EMITIDA", origen: "MANUAL", momento: null, metodoPago: "TRANSFERENCIA",
     fechaEmision: ahora.toISOString(), fechaVencimiento: new Date(ahora.getTime() + 14 * 864e5).toISOString(),
@@ -94,6 +110,7 @@ async function emitirFacturaCita(
   };
   // Replis por migración ausente, uno a uno (nunca se pierde la factura entera).
   let { error } = await admin.from("Factura").insert(fila);
+  if (error && fila.empresaId && /empresaId/i.test(error.message)) { delete fila.empresaId; ({ error } = await admin.from("Factura").insert(fila)); }
   if (error && fila.clienteDatos && /clienteDatos/i.test(error.message)) {
     delete fila.clienteDatos;
     ({ error } = await admin.from("Factura").insert(fila));

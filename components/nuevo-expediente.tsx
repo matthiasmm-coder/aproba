@@ -21,7 +21,7 @@ import { avisarGuia } from "@/components/guia-activacion";
 // Famille : UN seul expediente couvre toute la famille ; le client remplit la ficha de
 // chaque membre et téléverse les documents (les communs une seule fois).
 
-type ClienteRow = { id: string; nombre: string; apellidos: string | null; telefono: string | null; nacionalidad: string | null; oficinaId?: string | null };
+type ClienteRow = { id: string; nombre: string; apellidos: string | null; telefono: string | null; nacionalidad: string | null; oficinaId?: string | null; empresaId?: string | null };
 type FamiliaRow = { id: string; nombre: string; miembros: number; oficinaId: string | null };
 // Cliente-empresa: la empresa contrata y paga; el expediente se abre a nombre de UN
 // trabajador (persona extranjera), que es quien recibe el enlace y sube sus documentos.
@@ -118,7 +118,8 @@ export function NuevoExpediente() {
   useEffect(() => {
     (async () => {
       const supabase = createSupabaseBrowser();
-      let cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad, oficinaId").order("nombre");
+      let cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad, oficinaId, empresaId").order("nombre");
+      if (cliRes.error) cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad, oficinaId").order("nombre") as typeof cliRes;
       if (cliRes.error) cliRes = await supabase.from("Cliente").select("id, nombre, apellidos, telefono, nacionalidad").order("nombre") as typeof cliRes;
       const { data: mem } = await supabase.from("Membership").select("Workspace(nombre)").limit(1).maybeSingle();
       setClientes((cliRes.data ?? []) as ClienteRow[]);
@@ -180,8 +181,11 @@ export function NuevoExpediente() {
 
   const filtrados = useMemo(() => {
     const nq = norm(q.trim());
-    if (!nq) return clientes;
-    return clientes.filter((c) => norm(`${c.nombre} ${c.apellidos ?? ""}`).includes(nq) || norm(c.nacionalidad ?? "").includes(nq));
+    // Los trabajadores de una empresa se eligen DESDE su empresa (sección Empresas, que
+    // también responde a su nombre): listarlos aquí abría un expediente facturado al migrante.
+    const sueltos = clientes.filter((c) => !c.empresaId);
+    if (!nq) return sueltos;
+    return sueltos.filter((c) => norm(`${c.nombre} ${c.apellidos ?? ""}`).includes(nq) || norm(c.nacionalidad ?? "").includes(nq));
   }, [q, clientes]);
   const famFiltradas = useMemo(() => {
     const nq = norm(q.trim());

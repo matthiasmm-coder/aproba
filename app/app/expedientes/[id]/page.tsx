@@ -622,7 +622,9 @@ export default async function ExpedienteDetail({
           anticipo={tarifaExp.anticipo}
           resto={tarifaExp.resto}
           facturas={e.facturasPago}
-          clienteNombre={e.clienteNombre === "—" ? undefined : e.clienteNombre}
+          // Cliente-empresa: la factura se emite a la EMPRESA, no al trabajador — el popup
+          // manual debe proponer su razón social (el servidor ya pone el CIF y el domicilio).
+          clienteNombre={empresa ? empresa.razonSocial : e.clienteNombre === "—" ? undefined : e.clienteNombre}
           conceptoFinal={`Liquidación final — ${etiquetaServicios} (${e.referencia})`}
           conceptoAnticipo={`Anticipo — ${etiquetaServicios} (${e.referencia})`}
           suplidos={suplidosExp}

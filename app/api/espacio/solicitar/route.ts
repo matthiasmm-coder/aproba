@@ -62,6 +62,12 @@ export async function POST(req: Request) {
     const { data: cs } = await admin.from("Cliente").select("oficinaId").eq("id", cliente.id).maybeSingle();
     sedeCliente = ((cs as { oficinaId?: string | null } | null)?.oficinaId ?? null) || null;
   } catch { sedeCliente = null; }
+  // Cliente-empresa: lo que pide un trabajador desde su espacio se factura a su empresa.
+  let empresaCliente: string | null = null;
+  try {
+    const { data: ce } = await admin.from("Cliente").select("empresaId").eq("id", cliente.id).maybeSingle();
+    empresaCliente = ((ce as { empresaId?: string | null } | null)?.empresaId ?? null) || null;
+  } catch { empresaCliente = null; }
   const catalogo = await fetchServiciosDeWorkspace(admin, workspaceId, sedeCliente);
   const activos = new Map(catalogo.filter((s) => s.active).map((s) => [s.id, s] as const));
   const servicios = pedidos.filter((s) => activos.has(s));
@@ -108,8 +114,10 @@ export async function POST(req: Request) {
       ...(extras.length ? { serviciosExtra: extras } : {}),
       ...(descuentoPack ? { descuento: descuentoPack } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
+      ...(empresaCliente ? { empresaId: empresaCliente } : {}),
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
+    if (eExp && fila.empresaId && /empresaId/i.test(eExp.message)) { delete fila.empresaId; ({ error: eExp } = await admin.from("Expediente").insert(fila)); }
     // Repli si falta alguna columna (migraciones multi-servicio / descuento / oficina):
     // el trámite se crea igual, sin el extra que la base no conoce.
     if (eExp && (extras.length || descuentoPack || oficinaId) && /serviciosExtra|descuento|oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {

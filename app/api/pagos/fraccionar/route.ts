@@ -62,8 +62,12 @@ export async function POST(req: Request) {
   // Cliente-EMPRESA: las cuotas se facturan a la empresa (razón social + CIF + domicilio fiscal).
   const empresa = await (async (): Promise<(EmpresaFiscal & { id: string }) | null> => {
     try {
-      const { data: x } = await supa.from("Expediente").select("empresaId").eq("id", expedienteId).maybeSingle();
-      const eid = (x as { empresaId?: string | null } | null)?.empresaId; if (!eid) return null;
+      const { data: x } = await supa.from("Expediente").select("empresaId, clienteId").eq("id", expedienteId).maybeSingle();
+      const xx = x as { empresaId?: string | null; clienteId?: string | null } | null;
+      let eid = xx?.empresaId ?? null;
+      // Expediente sin empresa pero cuyo cliente es trabajador de una: las cuotas van a la empresa igual.
+      if (!eid && xx?.clienteId) { const { data: c } = await supa.from("Cliente").select("empresaId").eq("id", xx.clienteId).maybeSingle(); eid = (c as { empresaId?: string | null } | null)?.empresaId ?? null; }
+      if (!eid) return null;
       const { data: em } = await supa.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
       return (em as (EmpresaFiscal & { id: string }) | null) ?? null;
     } catch { return null; }

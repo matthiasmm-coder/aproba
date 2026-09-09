@@ -249,8 +249,14 @@ export async function POST(req: Request) {
   // Columna opcional (supabase/empresa.sql): consulta aparte y tolerante, para no meterla
   // en la cadena de selects del expediente (un error ahí degradaría otras columnas).
   const empresaIdExp = await (async () => {
-    try { const { data } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle(); return (data as { empresaId?: string | null } | null)?.empresaId ?? null; }
-    catch { return null; }
+    try {
+      const { data } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", exp.id).maybeSingle();
+      const x = data as { empresaId?: string | null; clienteId?: string | null } | null;
+      if (x?.empresaId) return x.empresaId;
+      // Expediente sin empresa pero cuyo cliente es trabajador de una: se factura a la empresa igual.
+      if (x?.clienteId) { const { data: c } = await admin.from("Cliente").select("empresaId").eq("id", x.clienteId).maybeSingle(); return (c as { empresaId?: string | null } | null)?.empresaId ?? null; }
+      return null;
+    } catch { return null; }
   })();
   if (empresaIdExp) {
     const { data: em } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", empresaIdExp).maybeSingle();

@@ -43,6 +43,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const workspaceId = String(venc.workspaceId);
   const clienteId = String(venc.clienteId);
+  // Cliente-empresa: la renovación de un trabajador se factura a su empresa, como el original.
+  let empresaCliente: string | null = null;
+  try {
+    const { data: ce } = await admin.from("Cliente").select("empresaId").eq("id", clienteId).maybeSingle();
+    empresaCliente = ((ce as { empresaId?: string | null } | null)?.empresaId ?? null) || null;
+  } catch { empresaCliente = null; }
   let oficinaId = await oficinaDelCliente(admin, clienteId); // multi-oficina
   // Cliente SIN oficina: la renovación lo ADOPTA en la sede elegida (body.oficinaId,
   // mandado por la UI) o en la pastilla activa. Desde «Todas» con ≥2 oficinas → 400:
@@ -98,8 +104,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       tipo: "RENOVACION", estado: "EN_PREPARACION", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(servicioClave ? { servicioClave } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
+      ...(empresaCliente ? { empresaId: empresaCliente } : {}),
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
+    if (eExp && fila.empresaId && /empresaId/i.test(eExp.message)) { delete fila.empresaId; ({ error: eExp } = await admin.from("Expediente").insert(fila)); }
     // Repli si oficinaId no está migrada: la renovación se crea igual.
     if (eExp && oficinaId && /oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {
       delete fila.oficinaId;
