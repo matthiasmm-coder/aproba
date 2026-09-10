@@ -50,7 +50,7 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
   const router = useRouter();
   const [miembros, setMiembros] = useState<Miembro[]>(inicial.miembros);
   const [plan, setPlan] = useState<string>(inicial.plan);
-  const { miRol, estado, trialEndsAt, currentPeriodEnd, suscripcionStripe, billingDisponible, tarjeta } = inicial;
+  const { miRol, estado, trialEndsAt, currentPeriodEnd, suscripcionStripe, billingDisponible, tarjeta, precios, precioHeredado } = inicial;
 
   const puedeGestionar = puedeGestionarEquipo(miRol);
   const max = plyMax(plan);
@@ -211,8 +211,13 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
   // «2 meses gratis»). Con suscripción activa se mantiene €/mes (no conocemos aquí
   // el ciclo real de Stripe y el toggle no se muestra).
   const eligeCiclo = puedeGestionar && billingDisponible && !tarjeta && !suscripcionStripe;
-  const precioCiclo = (mensual: number) =>
-    eligeCiclo && intervalo === "anual" ? `${mensual * 10} ${t("€/año")} + IVA` : `${mensual} ${t("€/mes")} + IVA`;
+  // Los importes vienen del servidor (`precios`: la etiqueta Stripe DE ESTE despacho,
+  // heredada o pública). Aquí no se calcula ningún precio: un heredado veía 79/149/299.
+  const precioCiclo = (id: string) => {
+    const p = precios[id as keyof typeof precios];
+    if (!p) return "";
+    return eligeCiclo && intervalo === "anual" ? `${p.anual} ${t("€/año")} + IVA` : `${p.mensual} ${t("€/mes")} + IVA`;
+  };
 
   return (
     <div className="space-y-6">
@@ -222,8 +227,11 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Plan")}</h3>
             <p className="mt-1 text-lg font-bold text-slate-900">
-              {t(planLabel(plan))} <span className="text-sm font-medium text-slate-400">· {precioCiclo(PLANES[plan as keyof typeof PLANES]?.precio ?? 0)}</span>
+              {t(planLabel(plan))} <span className="text-sm font-medium text-slate-400">· {precioCiclo(plan)}</span>
             </p>
+            {precioHeredado && (
+              <p className="mt-1 text-xs font-medium text-aproba-700">{t("Son los precios de tu alta: la subida de tarifa no te afecta.")}</p>
+            )}
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className={`rounded-full px-2 py-0.5 font-semibold ${estadoSub.pill}`}>{t(estadoSub.label)}</span>
               {estado === "TRIAL" && diasPrueba !== null && (
@@ -350,7 +358,7 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
                   >
                     <span className="font-semibold text-slate-800">{t(p.label)}</span>
                     <span className="block text-xs text-slate-500">
-                      {precioCiclo(p.precio)} · {p.maxUsuarios === Infinity ? t("∞ usuarios") : `${p.maxUsuarios} ${p.maxUsuarios > 1 ? t("usuarios") : t("usuario")}`}
+                      {precioCiclo(id)} · {p.maxUsuarios === Infinity ? t("∞ usuarios") : `${p.maxUsuarios} ${p.maxUsuarios > 1 ? t("usuarios") : t("usuario")}`}
                     </span>
                     {activo && <span className="text-[11px] font-semibold text-aproba-700">{t("Plan actual")}</span>}
                   </button>
@@ -361,7 +369,7 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
             {planPendiente && (
               <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm">
                 <span className="text-slate-700">
-                  {t("Cambiar a")} <strong>{t(planLabel(planPendiente))}</strong> ({precioCiclo(PLANES[planPendiente as keyof typeof PLANES]?.precio ?? 0)})
+                  {t("Cambiar a")} <strong>{t(planLabel(planPendiente))}</strong> ({precioCiclo(planPendiente)})
                   {suscripcionStripe && <span className="text-slate-500"> {t("— se aplicará prorrateo en tu próxima factura")}</span>}
                 </span>
                 <div className="ml-auto flex gap-2">

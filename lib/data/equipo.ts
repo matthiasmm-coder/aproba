@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { getStripe, stripeDisponible } from "@/lib/billing";
-import type { RolId } from "@/lib/planes";
+import { getStripe, stripeDisponible, tienePrecioHeredado, importesDeStripe } from "@/lib/billing";
+import { preciosPantalla, type RolId, type PreciosPlan } from "@/lib/planes";
 
 export type Miembro = {
   membershipId: string;
@@ -29,6 +29,11 @@ export type Equipo = {
   cancelAtPeriodEnd: boolean; // résiliation programmée à la fin de période
   billingDisponible: boolean; // STRIPE_SECRET_KEY présente côté serveur
   tarjeta: { brand: string; last4: string } | null; // carte de paiement (admin)
+  // Precios que se ENSEÑAN a este despacho (su etiqueta Stripe, heredada o pública):
+  // el bloque Plan de Ajustes nunca debe pintar PLANES.precio a secas — un heredado
+  // leía «Business · 299 €/mes» justo después de pagar 199 € (Jennifer, 10/09/2026).
+  precios: PreciosPlan;
+  precioHeredado: boolean;
   miembros: Miembro[];
 };
 
@@ -53,13 +58,16 @@ export async function fetchEquipo(): Promise<Equipo | null> {
   // `oficinaId` n'existe qu'après supabase/oficinas.sql : repli sur le select
   // historique tant que la migration n'est pas passée (même patron que partout).
   const miembrosQ = (cols: string) => supabase.from("Membership").select(cols).eq("workspaceId", ws);
-  const [{ data: wsRow }, { data: sub }, memsRes] = await Promise.all([
+  const precioHeredado = tienePrecioHeredado(ws);
+  const [{ data: wsRow }, { data: sub }, memsRes, importes] = await Promise.all([
     supabase.from("Workspace").select("nombre, tipo").eq("id", ws).maybeSingle(),
     supabase.from("Subscription").select("*").eq("workspaceId", ws).maybeSingle(),
     miembrosQ("id, role, userId, oficinaId, oficinaIds, User(nombre, email, avatarUrl)")
       .then((r) => (r.error ? miembrosQ("id, role, userId, oficinaId, User(nombre, email, avatarUrl)") : r))
       .then((r) => (r.error ? miembrosQ("id, role, userId, User(nombre, email, avatarUrl)") : r)),
+    importesDeStripe(ws), // nunca lanza: null → tabla del despacho
   ]);
+  const precios = preciosPantalla(precioHeredado, importes);
   const mems = memsRes.data;
 
   type Row = { id: string; role: string; userId: string; oficinaId?: string | null; oficinaIds?: string[] | null; User: { nombre: string | null; email: string | null; avatarUrl: string | null } | { nombre: string | null; email: string | null; avatarUrl: string | null }[] | null };
@@ -139,6 +147,8 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     cancelAtPeriodEnd: suscripcionViva ? suscripcionViva.cancelAtPeriodEnd : Boolean(s?.cancelAtPeriodEnd),
     billingDisponible: Boolean(process.env.STRIPE_SECRET_KEY),
     tarjeta,
+    precios,
+    precioHeredado,
     miembros,
   };
 }
