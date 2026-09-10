@@ -110,9 +110,6 @@ export const SUFIJO_HEREDADO = "_v1";
 export const WS_PRECIO_HEREDADO: Record<string, string> = {
   "f8b46f76-d577-435f-b49b-76e1747838a8": "Juan · GESTORIA EXTRANJERIA VALENCIA (49/99/199 desde 06/2026)",
   "65bc1e7e-1477-4ced-aace-ec9fecc1c5cf": "Jennifer · Gesnet Asesoria y Gestion (tarifa vista en su prueba)",
-  // TEMPORAL (10/09/2026): Varent = ws de test de Matthias, solo para verificar el checkout
-  // LIVE de un heredado sin tocar la cuenta de Jennifer. Se retira en el commit siguiente.
-  "40b0012c-e706-4016-9586-4454d17634c8": "TEMP Varent (ws de test) — verificación checkout live",
 };
 export function tienePrecioHeredado(workspaceId?: string | null): boolean {
   return Boolean(workspaceId && Object.hasOwn(WS_PRECIO_HEREDADO, workspaceId));
