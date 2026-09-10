@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type Stripe from "stripe";
-import { mapEstadoStripe, patchDesdeStripe, lookupDePlan, LOOKUP_PLAN, TODOS_LOOKUPS } from "./billing";
+import { mapEstadoStripe, patchDesdeStripe, lookupDePlan, LOOKUP_PLAN, TODOS_LOOKUPS, importesDeStripe } from "./billing";
 
 // Blindaje del paso essai-testeur → pago. El 29/08/2026, Juan (primer cliente) llevaba
 // DOS meses cobrados con modoPrueba=true heredado de su essai de junio: lib/overage.ts
@@ -97,5 +97,20 @@ describe("precio heredado", () => {
     expect(TODOS_LOOKUPS).toContain("aproba_pro_mensual");
     expect(TODOS_LOOKUPS).toContain("aproba_pro_mensual_v1");
     expect(TODOS_LOOKUPS).toHaveLength(12);
+  });
+});
+
+// El muro de pago pregunta a Stripe los importes que ENSEÑA. Sin clave (entorno sin
+// facturación) la respuesta es null y la pantalla usa la tabla — nunca una excepción
+// que tumbe la página justo cuando alguien viene a pagar.
+describe("importesDeStripe · sin Stripe", () => {
+  it("devuelve null (no lanza) cuando no hay STRIPE_SECRET_KEY", async () => {
+    const antes = process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_SECRET_KEY;
+    try {
+      await expect(importesDeStripe("65bc1e7e-1477-4ced-aace-ec9fecc1c5cf")).resolves.toBeNull();
+    } finally {
+      if (antes !== undefined) process.env.STRIPE_SECRET_KEY = antes;
+    }
   });
 });

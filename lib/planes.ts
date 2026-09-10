@@ -49,6 +49,46 @@ export const PLAN_IDS: PlanId[] = ["STARTER", "PRO", "BUSINESS"];
 // Coste por expediente por encima del límite mensual del plan (no aplica en prueba gratuita).
 export const PRECIO_EXPEDIENTE_EXTRA = 3; // €/expediente
 
+// ── Precios que se ENSEÑAN en el muro de pago ────────────────────────────────
+// Tarifa anterior a la subida del 04/09/2026 (49/99/199). La conservan de por vida los
+// despachos de WS_PRECIO_HEREDADO (lib/billing): a ellos la pantalla debe enseñarles SU
+// tarifa, no la pública. Jennifer (10/09) leyó «299 €/mes» cuando el checkout le iba a
+// cobrar 199 €, y escribió para preguntar dónde estaba su precio.
+// Esta tabla es solo REPLI de pantalla: el cobro real sale siempre de la etiqueta «_v1»
+// de Stripe (precioDePlan) y, cuando Stripe responde, la pantalla enseña ESE importe.
+export const PRECIOS_HEREDADOS: Record<PlanId, number> = { STARTER: 49, PRO: 99, BUSINESS: 199 };
+
+export type PreciosPlan = Record<PlanId, { mensual: number; anual: number }>;
+export type ImportesStripe = Partial<Record<PlanId, Partial<{ mensual: number; anual: number }>>>;
+
+// Importes de tabla (anual = 10 × mensual, «2 meses gratis», como en la landing).
+export function preciosDeTabla(heredado: boolean): PreciosPlan {
+  const out = {} as PreciosPlan;
+  for (const id of PLAN_IDS) {
+    const mensual = heredado ? PRECIOS_HEREDADOS[id] : PLANES[id].precio;
+    out[id] = { mensual, anual: mensual * 10 };
+  }
+  return out;
+}
+
+const esImporte = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+
+// Lo que ve el despacho: el importe real de Stripe cuando lo hay, la tabla si no —
+// plan por plan y ciclo por ciclo. Puro: lo comparten la page (servidor) y el test.
+export function preciosPantalla(heredado: boolean, stripe?: ImportesStripe | null): PreciosPlan {
+  const tabla = preciosDeTabla(heredado);
+  if (!stripe) return tabla;
+  const out = {} as PreciosPlan;
+  for (const id of PLAN_IDS) {
+    const s = stripe[id];
+    out[id] = {
+      mensual: esImporte(s?.mensual) ? s.mensual : tabla[id].mensual,
+      anual: esImporte(s?.anual) ? s.anual : tabla[id].anual,
+    };
+  }
+  return out;
+}
+
 // Límite mensual de expedientes del plan (repli STARTER si el plan es desconocido).
 export function limiteExpedientes(plan: string | null | undefined): number {
   return PLANES[plan as PlanId]?.maxExpedientes ?? PLANES.STARTER.maxExpedientes;

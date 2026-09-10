@@ -5,7 +5,8 @@ import { LogoutButton } from "@/components/logout-button";
 import { ActivarPrueba } from "@/components/activar-prueba";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { reconciliarSuscripcion } from "@/lib/billing";
+import { reconciliarSuscripcion, tienePrecioHeredado, importesDeStripe } from "@/lib/billing";
+import { preciosPantalla } from "@/lib/planes";
 
 // Le titre suit le cas : dire « Activa tu prueba » à quelqu'un dont l'essai vient
 // d'expirer contredit l'écran lui-même (il ne commence rien, il continue).
@@ -43,6 +44,20 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
     stripeCustomerId = sub?.stripeCustomerId ?? null;
     stripeSubscriptionId = sub?.stripeSubscriptionId ?? null;
   } catch { /* écran générique */ }
+
+  // Le plan stocké est ce que l'écran présélectionne et marque « Tu plan » : s'il ne
+  // remonte pas sous RLS, on le lit en service_role sur le despacho déjà résolu — sans
+  // lui, le sélecteur retombait sur PRO pour tout le monde (Jennifer, Business, 10/09).
+  if (workspaceId && !plan) {
+    const { data: s } = await createSupabaseAdmin().from("Subscription").select("plan").eq("workspaceId", workspaceId).maybeSingle();
+    if (s?.plan) plan = String(s.plan);
+  }
+
+  // Precios que se ENSEÑAN = los que se cobran: la etiqueta Stripe del despacho (heredada
+  // «_v1» o pública) y, si Stripe no responde, la tabla que le corresponde. Un heredado
+  // veía 79/149/299 en pantalla mientras el checkout le cobraba 49/99/199.
+  const heredado = tienePrecioHeredado(workspaceId);
+  const precios = preciosPantalla(heredado, await importesDeStripe(workspaceId));
 
   // ── Auto-réparation du décalage webhook ──────────────────────────────────────
   // Stripe renvoie l'utilisateur dans l'app avant, parfois, d'avoir livré
@@ -92,7 +107,7 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
             </>
           )}
           <div className="mt-6">
-            <ActivarPrueba expirada={expirada} plan={plan} />
+            <ActivarPrueba expirada={expirada} plan={plan} precios={precios} heredado={heredado} />
           </div>
           <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>

@@ -1,7 +1,7 @@
 import "server-only";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PRECIO_EXPEDIENTE_EXTRA, type PlanId } from "@/lib/planes";
+import { PRECIO_EXPEDIENTE_EXTRA, PLAN_IDS, type PlanId, type ImportesStripe } from "@/lib/planes";
 
 // Facturation SaaS (abonnement du despacho à Aproba) via Stripe.
 // Tout est conçu en « repli propre » : sans STRIPE_SECRET_KEY, l'app garde le
@@ -27,6 +27,7 @@ export function getStripe(): Stripe {
     cliente = new Stripe(key, { maxNetworkRetries: 2 });
     claveCacheada = key;
     precios.clear();
+    listado = false;
     ivaCacheado = null;
   }
   return cliente;
@@ -132,23 +133,50 @@ export const LOOKUP_PLAN: Record<string, PlanId> = Object.fromEntries(
   ] as [string, PlanId][]).flatMap(([lk, plan]) => [[lk, plan], [`${lk}${SUFIJO_HEREDADO}`, plan]]),
 ) as Record<string, PlanId>;
 
-// Cache module : lookup_key → price id (une seule liste par process).
-const precios = new Map<string, string>();
-export async function precioDePlan(plan: PlanId, intervalo: Intervalo = "mensual", workspaceId?: string | null): Promise<string> {
-  const lk = lookupDePlan(plan, intervalo, workspaceId);
-  if (!precios.has(lk)) {
-    // Stripe limita `lookup_keys` a 10 por petición: con las heredadas son 12, así que
-    // se pide por tandas (pedirlas todas de golpe devolvía un 400 y ningún precio).
-    for (let i = 0; i < TODOS_LOOKUPS.length; i += 10) {
-      const res = await getStripe().prices.list({ lookup_keys: TODOS_LOOKUPS.slice(i, i + 10), limit: 20 });
-      for (const p of res.data) if (p.lookup_key) precios.set(p.lookup_key, p.id);
+// Cache module : lookup_key → { price id, importe € } (une seule liste par process).
+const precios = new Map<string, { id: string; importe: number | null }>();
+let listado = false; // true = la liste a été chargée au moins une fois pour cette clé
+async function cargarPrecios(): Promise<void> {
+  // Stripe limita `lookup_keys` a 10 por petición: con las heredadas son 12, así que
+  // se pide por tandas (pedirlas todas de golpe devolvía un 400 y ningún precio).
+  for (let i = 0; i < TODOS_LOOKUPS.length; i += 10) {
+    const res = await getStripe().prices.list({ lookup_keys: TODOS_LOOKUPS.slice(i, i + 10), limit: 20 });
+    for (const p of res.data) {
+      if (p.lookup_key) precios.set(p.lookup_key, { id: p.id, importe: typeof p.unit_amount === "number" ? p.unit_amount / 100 : null });
     }
   }
-  const id = precios.get(lk);
+  listado = true;
+}
+export async function precioDePlan(plan: PlanId, intervalo: Intervalo = "mensual", workspaceId?: string | null): Promise<string> {
+  const lk = lookupDePlan(plan, intervalo, workspaceId);
+  if (!precios.has(lk)) await cargarPrecios();
+  const id = precios.get(lk)?.id;
   // Un heredado sin su precio «_v1» en Stripe NO debe caer en la tarifa nueva sin avisar:
   // se corta y se dice, antes que cobrarle de más en silencio.
   if (!id) throw new Error(`No existe el precio Stripe '${lk}'. Ejecuta: node scripts/stripe-subir-precios.mjs`);
   return id;
+}
+
+// Importes (€ sin IVA) que Stripe cobraría a ESTE despacho por cada plan y ciclo, con la
+// etiqueta que le toca (heredada o no): la MISMA que precioDePlan() factura. Es lo que el
+// muro de pago debe enseñar — lo que se ve = lo que se cobra. Nunca lanza: sin Stripe, o
+// si falla, devuelve null y la pantalla recurre a la tabla (lib/planes: preciosPantalla).
+export async function importesDeStripe(workspaceId?: string | null): Promise<ImportesStripe | null> {
+  if (!stripeDisponible()) return null;
+  try {
+    if (!listado) await cargarPrecios();
+    const out: ImportesStripe = {};
+    for (const plan of PLAN_IDS) {
+      for (const intervalo of ["mensual", "anual"] as const) {
+        const importe = precios.get(lookupDePlan(plan, intervalo, workspaceId))?.importe;
+        if (typeof importe === "number") (out[plan] ??= {})[intervalo] = importe;
+      }
+    }
+    return out;
+  } catch (e) {
+    console.error("[billing/importesDeStripe]", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 // Cobro de un expediente POR ENCIMA del límite mensual del plan: añade una línea de

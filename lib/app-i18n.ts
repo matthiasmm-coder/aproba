@@ -826,6 +826,8 @@ export const CA: Record<string, string> = {
   "— Ignorar —": "— Ignora —",
   "— Sin expediente —": "— Sense expedient —",
   "… y {n} más": "… i {n} més",
+  "Tu plan": "El teu pla",
+  "Son los precios de tu alta: la subida de tarifa no te afecta.": "Són els preus de la teva alta: la pujada de tarifa no t'afecta.",
   "¿Tienes un código promocional? Podrás introducirlo en la página de pago.": "Tens un codi promocional? Podràs introduir-lo a la pàgina de pagament.",
   "Multi-oficina · expedientes ilimitados": "Multioficina · expedients il·limitats",
   "Expedientes ilimitados": "Expedients il·limitats",
