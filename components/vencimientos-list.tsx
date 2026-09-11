@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { VencimientoRow } from "@/lib/data/vencimientos";
@@ -8,13 +8,105 @@ import { fmtFechaCorta } from "@/lib/tramites";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
+import { eur } from "@/lib/facturas";
+import { TIPO_VENCIMIENTO_LABEL } from "@/lib/renovacion-servicio";
 
 // VIGÍA — lista agrupada de vencimientos + acción «Iniciar renovación».
-// Al iniciar: (1) POST /api/vencimientos/[id]/renovar → expediente nuevo + aviso al
-// cliente en su idioma; (2) POST /api/pagos ANTICIPO (mejor esfuerzo: si el servicio
-// no tiene anticipo configurado, se ignora — la lógica financiera vive en /api/pagos).
+// Al iniciar: (0) GET /api/vencimientos/[id]/renovar → servicios elegibles + sugerencia,
+// que el gestor confirma o cambia en el diálogo (el precio se ve ANTES de avisar a
+// nadie); (1) POST → expediente nuevo CON servicio + aviso al cliente en su idioma;
+// (2) POST /api/pagos ANTICIPO (mejor esfuerzo: si el servicio no tiene anticipo
+// configurado, se ignora — la lógica financiera vive en /api/pagos).
 
 type Grupo = { key: string; titulo: string; tono: string; items: VencimientoRow[] };
+
+type ServicioOpcion = { id: string; label: string; precioOculto: boolean; total: number | null; anticipo: number | null };
+type Propuesta = { tipo: string; fecha: string; clienteNombre: string; sugerido: string | null; servicios: ServicioOpcion[] };
+
+// Diálogo «Iniciar renovación»: el gestor ve QUÉ trámite se va a abrir y a qué precio,
+// y lo cambia si la sugerencia no es la buena. Sin servicio elegido no hay botón:
+// antes un pasaporte caducado abría una «Renovación de TIE» y, sin ese servicio, el
+// cliente recibía un aviso de renovación sin saber de qué (11/09/2026).
+function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCerrar }: {
+  v: VencimientoRow; propuesta: Propuesta | null; cargando: boolean; adoptaEn: string | null;
+  onConfirmar: (servicioClave: string) => void; onCerrar: () => void;
+}) {
+  const t = useT();
+  const ref = useRef<HTMLDialogElement>(null);
+  const [clave, setClave] = useState<string>("");
+  useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
+  useEffect(() => { if (propuesta) setClave(propuesta.sugerido ?? ""); }, [propuesta]);
+  const elegido = propuesta?.servicios.find((s) => s.id === clave) ?? null;
+  const cerrar = () => { ref.current?.close(); onCerrar(); };
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="renov-titulo"
+      onCancel={(e) => { e.preventDefault(); cerrar(); }}
+      onClick={(e) => { if (e.target === ref.current) cerrar(); }}
+      className="w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm"
+    >
+      <div className="p-5">
+        <h2 id="renov-titulo" className="text-base font-bold text-slate-900">{t("Iniciar renovación")}</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          <span className="font-semibold text-slate-800">{v.clienteNombre}</span> · {TIPO_VENCIMIENTO_LABEL[v.tipo] ?? v.tipo} · {fmtFechaCorta(v.fecha)}
+        </p>
+
+        {cargando || !propuesta ? (
+          <p className="mt-4 text-sm text-slate-500">{t("Cargando servicios…")}</p>
+        ) : propuesta.servicios.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {t("No tienes ningún servicio activo. Configura uno en Ajustes › Servicios antes de iniciar la renovación.")}
+          </p>
+        ) : (
+          <>
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="renov-servicio">{t("Servicio de la renovación")}</label>
+            <select
+              id="renov-servicio"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[16px] sm:text-sm text-slate-800 outline-none focus:border-aproba-600"
+            >
+              <option value="">{t("— Elige el servicio —")}</option>
+              {propuesta.servicios.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}{s.precioOculto ? ` · ${t("precio a consultar")}` : s.total != null ? ` · ${eur(s.total)}` : ""}</option>
+              ))}
+            </select>
+            {!propuesta.sugerido && (
+              <p className="mt-1.5 text-xs text-amber-700">{t("Ningún servicio del catálogo corresponde a este vencimiento: elige el que vas a tramitar.")}</p>
+            )}
+            {elegido && (
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {elegido.precioOculto
+                  ? t("Precio a consultar: el cliente no verá importes.")
+                  : elegido.total != null
+                    ? <>{t("El cliente verá")} <strong>{eur(elegido.total)}</strong> {t("(IVA incluido)")}{elegido.anticipo != null ? <> · {t("anticipo")} <strong>{eur(elegido.anticipo)}</strong></> : null}.</>
+                    : t("Este servicio no tiene tarifa: el cliente no verá importes.")}
+              </p>
+            )}
+          </>
+        )}
+
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          {t("Se creará el expediente, se avisará a {nombre} en su idioma con el trámite y el precio y, si el servicio tiene anticipo, se emitirá la factura.").replace("{nombre}", v.clienteNombre)}
+          {adoptaEn ? " " + t("El cliente no tiene oficina: se asignará a «{oficina}».").replace("{oficina}", adoptaEn) : ""}
+        </p>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={cerrar} className="min-h-[44px] rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-400">{t("Cancelar")}</button>
+          <button
+            type="button"
+            disabled={!elegido}
+            onClick={() => elegido && onConfirmar(elegido.id)}
+            className="min-h-[44px] rounded-lg bg-aproba-600 px-4 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+          >
+            {t("Iniciar renovación")}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
 
 export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRow[] }) {
   const t = useT();
@@ -27,6 +119,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   // Cliente sin oficina + despacho multi-oficina: «Iniciar renovación» lo ADOPTA en la
   // pastilla activa (anunciado en el confirm) — y desde «Todas» se pide elegir antes.
   const [sedeCtx, setSedeCtx] = useState<{ multi: boolean; activa: string | null; nombreActiva: string | null }>({ multi: false, activa: null, nombreActiva: null });
+  const [dialogo, setDialogo] = useState<{ v: VencimientoRow; propuesta: Propuesta | null; cargando: boolean } | null>(null);
   useEffect(() => {
     (async () => {
       try {
@@ -63,19 +156,31 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       });
       return;
     }
+    // El clic abre el diálogo: servicio (sugerido o elegido) y precio se ven ANTES de
+    // que nada salga hacia el cliente — un mis-tap en el móvil no debe notificar a nadie.
+    setError(null);
+    setDialogo({ v, propuesta: null, cargando: true });
+    try {
+      const res = await fetch(`/api/vencimientos/${v.id}/renovar`);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo iniciar la renovación."));
+      setDialogo({ v, propuesta: d as Propuesta, cargando: false });
+    } catch (e) {
+      setDialogo(null);
+      setError(e instanceof Error ? e.message : t("No se pudo iniciar la renovación."));
+    }
+  }
+
+  async function lanzar(v: VencimientoRow, servicioClave: string) {
     const adopta = v.clienteSinSede && sedeCtx.multi && sedeCtx.activa;
-    // El clic dispara 3 efectos reales (expediente + aviso al cliente + anticipo):
-    // se anuncian ANTES — un mis-tap en el móvil no debe notificar a un cliente.
-    if (!(await confirmar(
-      t("Se creará el expediente de renovación, se avisará a {nombre} en su idioma y, si el servicio tiene tarifa, se emitirá la factura de anticipo. ¿Continuar?").replace("{nombre}", v.clienteNombre)
-      + (adopta ? " " + t("El cliente no tiene oficina: se asignará a «{oficina}».").replace("{oficina}", sedeCtx.nombreActiva ?? "") : ""),
-    ))) return;
+    setDialogo(null);
     setLanzando(v.id);
     setError(null);
     try {
       const res = await fetch(`/api/vencimientos/${v.id}/renovar`, {
         method: "POST",
-        ...(adopta ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ oficinaId: sedeCtx.activa }) } : {}),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ servicioClave, ...(adopta ? { oficinaId: sedeCtx.activa } : {}) }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo iniciar la renovación."));
@@ -148,6 +253,17 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
         className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
       />
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {dialogo && (
+        <RenovacionDialog
+          key={dialogo.v.id}
+          v={dialogo.v}
+          propuesta={dialogo.propuesta}
+          cargando={dialogo.cargando}
+          adoptaEn={dialogo.v.clienteSinSede && sedeCtx.multi && sedeCtx.activa ? (sedeCtx.nombreActiva ?? "") : null}
+          onConfirmar={(clave) => lanzar(dialogo.v, clave)}
+          onCerrar={() => setDialogo(null)}
+        />
+      )}
       {creado && (
         <p className="mt-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-700">
           ✓ {t("Renovación iniciada")} — <Link href={`/app/expedientes/${creado.expedienteId}`} className="font-semibold underline">{creado.referencia || t("ver expediente")}</Link>. {t("El cliente ha recibido el enlace para revisar sus datos.")}{" "}

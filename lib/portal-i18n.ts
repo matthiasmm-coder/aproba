@@ -440,6 +440,37 @@ export const UI: Record<string, Tr> = {
     it: "Ciao {nombre}, la tua {tipo} scade presto. {gestoria} ha già avviato il tuo rinnovo: premi il pulsante, controlla i tuoi dati e carica i documenti richiesti.",
     de: "Hallo {nombre}, deine {tipo} läuft bald ab. {gestoria} hat deine Verlängerung bereits gestartet: Tippe auf die Schaltfläche, prüfe deine Daten und lade die angeforderten Dokumente hoch.",
   },
+  "notif.renov.tituloServicio": {
+    es: "Renovación en marcha: {servicio}",
+    en: "Renewal underway: {servicio}",
+    fr: "Renouvellement lancé : {servicio}",
+    it: "Rinnovo avviato: {servicio}",
+    de: "Verlängerung gestartet: {servicio}",
+  },
+  "notif.renov.tramite": {
+    es: "Trámite: {servicio}.",
+    en: "Procedure: {servicio}.",
+    fr: "Démarche : {servicio}.",
+    it: "Pratica: {servicio}.",
+    de: "Verfahren: {servicio}.",
+  },
+  "notif.renov.honorarios": {
+    es: "Honorarios: {importe} (IVA incluido).",
+    en: "Fees: {importe} (VAT included).",
+    fr: "Honoraires : {importe} (TVA incluse).",
+    it: "Onorari: {importe} (IVA inclusa).",
+    de: "Honorar: {importe} (inkl. MwSt.).",
+  },
+  "notif.renov.anticipo": {
+    es: "Anticipo para empezar: {importe}. Te enviaremos la factura por separado.",
+    en: "Deposit to get started: {importe}. We will send you the invoice separately.",
+    fr: "Acompte pour démarrer : {importe}. Nous t'enverrons la facture séparément.",
+    it: "Acconto per iniziare: {importe}. Ti invieremo la fattura separatamente.",
+    de: "Anzahlung zum Start: {importe}. Die Rechnung senden wir dir separat zu.",
+  },
+  "notif.renov.tipo.TIE": { es: "TIE", en: "TIE", fr: "TIE", it: "TIE", de: "TIE" },
+  "notif.renov.tipo.NIE": { es: "NIE", en: "NIE", fr: "NIE", it: "NIE", de: "NIE" },
+  "notif.renov.tipo.PASAPORTE": { es: "pasaporte", en: "passport", fr: "passeport", it: "passaporto", de: "Reisepass" },
   "notif.renov.boton": { es: "Empezar mi renovación", en: "Start my renewal", fr: "Commencer mon renouvellement", it: "Inizia il mio rinnovo", de: "Verlängerung starten" },
 
   // ── Vue « ya completado » (lien initial /j après l'onboarding) ─────────────

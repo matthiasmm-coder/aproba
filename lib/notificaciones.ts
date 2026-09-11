@@ -2,7 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import { direccionEntrante } from "@/lib/email-entrante";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { makeT, type Lang, esLangSoportada } from "@/lib/portal-i18n";
+import { makeT, type Lang, esLangSoportada, servicioLabel } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, whatsappDisponible, canalesEfectivos, type CanalAvisos } from "@/lib/whatsapp";
@@ -472,6 +472,8 @@ export async function fotoDelExpediente(admin: SupabaseClient, expedienteId: str
 // concept, le nº de facture et les coordonnées bancaires (IBAN) du despacho — pas de
 // carte, pas de débit automatique. Ne casse jamais le flux appelant.
 const fmtEur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
+// Texto del gestor (nombre de un servicio propio) dentro de HTML de email.
+const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export async function enviarSolicitudPago(
   admin: SupabaseClient,
@@ -1210,7 +1212,11 @@ export async function enviarRecordatorioDocs(
 // sus datos y sube los documentos). Mejor esfuerzo: nunca lanza.
 export async function enviarAvisoRenovacion(
   admin: SupabaseClient,
-  opts: { expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl?: string },
+  opts: {
+    expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl?: string;
+    // Trámite de la renovación + importes que verá el cliente (con IVA; null = «a consultar»).
+    servicio?: { id: string; label: string; total: number | null; anticipo: number | null } | null;
+  },
 ): Promise<{ enviado: boolean; motivo?: "sin_email" | "sin_telefono" | "sin_contacto" | "simulado" | "error" }> {
   try {
     const { data: expRaw } = await admin
@@ -1231,21 +1237,37 @@ export async function enviarAvisoRenovacion(
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
-    const tipo = opts.tipoVencimiento ?? "TIE";
+    // «tu TIE» / «tu pasaporte» en la lengua del cliente; un tipo sin traducción se enseña tal cual.
+    const tipoBruto = opts.tipoVencimiento ?? "TIE";
+    const tipoTr = t(`notif.renov.tipo.${tipoBruto}`);
+    const tipo = tipoTr === `notif.renov.tipo.${tipoBruto}` ? tipoBruto : tipoTr;
     // dd/mm/aaaa en la lengua del cliente (fecha ISO → local es suficiente aquí).
     const fecha = opts.fechaCaducidad ? new Date(opts.fechaCaducidad).toLocaleDateString(lang === "en" ? "en-GB" : lang) : null;
     const body = fecha
       ? t("notif.renov.body", { nombre, tipo, fecha, gestoria })
       : t("notif.renov.bodySinFecha", { nombre, tipo, gestoria });
+    // Qué trámite y cuánto cuesta — el cliente no tiene que preguntarlo ni entrar al portal.
+    const sv = opts.servicio ?? null;
+    const svNombre = sv ? servicioLabel(sv.id, sv.label, lang) : null;
+    const lineasServicio: string[] = [];
+    if (sv && svNombre) {
+      lineasServicio.push(t("notif.renov.tramite", { servicio: svNombre }));
+      if (sv.total != null) lineasServicio.push(t("notif.renov.honorarios", { importe: fmtEur(sv.total) }));
+      if (sv.anticipo != null) lineasServicio.push(t("notif.renov.anticipo", { importe: fmtEur(sv.anticipo) }));
+    }
+    const detalleHtml = lineasServicio.length
+      ? `<p style="margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f1f5f9;color:#0f172a">${lineasServicio.map((l) => escapeHtml(l)).join("<br>")}</p>`
+      : "";
+    const titulo = svNombre ? t("notif.renov.tituloServicio", { servicio: svNombre }) : t("notif.renov.titulo");
 
     const html = emailLayout({
       avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria,
-      titulo: t("notif.renov.titulo"),
-      cuerpoHtml: `<p style="margin:0">${body}</p>`,
+      titulo,
+      cuerpoHtml: `<p style="margin:0">${body}</p>${detalleHtml}`,
       cta: link ? { url: link, label: t("notif.renov.boton") } : null,
       footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
-      preheader: t("notif.renov.titulo"),
+      preheader: titulo,
     });
 
     const ws = uno(exp.Workspace);
@@ -1261,7 +1283,7 @@ export async function enviarAvisoRenovacion(
         const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
           from, to: destino, subject: t("notif.renov.subject", { gestoria }), html,
-          text: `${body} ${link ?? ""}`,
+          text: [body, ...lineasServicio, link ?? ""].filter(Boolean).join("\n"),
         });
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[avisoRenovacion email]", error.message ?? error);

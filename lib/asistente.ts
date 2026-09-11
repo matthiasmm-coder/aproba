@@ -33,7 +33,7 @@ AVISOS AL CLIENTE: emails automáticos en cada paso (documento recibido/validado
 
 
 VENCIMIENTOS (Vigía): el radar de caducidades y renovaciones. Se llena solo (al validar un TIE, al finalizar un trámite o al importar tu cartera). Agrupa en «Ya caducadas», «Caducan en menos de 60 días» y «Más adelante» (todo lo que caduca en más de 60 días); en Inicio, la carta «Por fase» cuenta además las renovaciones que caducan en menos de 6 meses.
-- «Iniciar renovación»: crea el expediente de renovación, avisa al cliente en su idioma y, si el servicio tiene tarifa, emite la factura de anticipo.
+- «Iniciar renovación»: abre un diálogo donde eliges el SERVICIO de la renovación (viene sugerido según el vencimiento: un TIE propone «Renovación de TIE»; un pasaporte solo propone un servicio propio que lo nombre; si ninguno encaja, lo eliges tú) y ves el precio que verá el cliente. Al confirmar: crea el expediente con ese servicio, avisa al cliente en su idioma indicando el trámite y los honorarios (con IVA, y el anticipo si lo hay) y, si el servicio tiene anticipo, emite la factura. Nunca se crea una renovación sin servicio.
 - Para quitar un aviso que no toca: icono de papelera de esa línea (borra SOLO la alerta, no el cliente ni su expediente).
 - También puedes registrar a mano la caducidad de la TIE desde la ficha del cliente.
 

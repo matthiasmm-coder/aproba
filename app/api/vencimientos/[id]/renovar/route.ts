@@ -6,6 +6,8 @@ import { cobrarOverageSiProcede } from "@/lib/overage";
 import { oficinaDelCliente, contextoDeCreacion, sedeElegible } from "@/lib/oficinas-server";
 import { enviarAvisoRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { sugerirServicioRenovacion, serviciosElegibles } from "@/lib/renovacion-servicio";
+import { totalDe, r2 } from "@/lib/facturas";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -15,22 +17,67 @@ const uuid = () => crypto.randomUUID();
 // marca el vencimiento TRAMITANDO. La factura de anticipo la pide la UI después vía
 // POST /api/pagos (misma lógica financiera de siempre, sin duplicarla aquí).
 //
+// SERVICIO (11/09/2026): la renovación nace SIEMPRE con un servicio del catálogo —
+// el que manda el gestor (body.servicioClave, elegido en el diálogo) o la sugerencia
+// por tipo de vencimiento (lib/renovacion-servicio). Sin ninguno → 400 y el gestor
+// elige; nunca se crea un expediente «sin trámite» que el cliente no sabe qué es.
+// GET devuelve lo que el diálogo necesita: servicios elegibles + sugerencia.
+//
 // Autorización: el vencimiento se resuelve BAJO SESIÓN (RLS) — si el usuario no es
 // miembro del workspace, no existe (anti-IDOR). Solo después se usa el admin.
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+const SELECT_VENC = "id, workspaceId, clienteId, fecha, tipo, estado, expedienteRenovacionId";
 
+async function vencimientoBajoSesion(id: string) {
   const supa = await createSupabaseServer();
   const { data: { user } } = await supa.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  if (!user) return { user: null, venc: null, error: NextResponse.json({ error: "No autenticado." }, { status: 401 }) };
+  const { data: venc, error: eV } = await supa.from("Vencimiento").select(SELECT_VENC).eq("id", id).maybeSingle();
+  if (eV) return { user, venc: null, error: NextResponse.json({ error: eV.message }, { status: 500 }) };
+  if (!venc) return { user, venc: null, error: NextResponse.json({ error: "Vencimiento no encontrado." }, { status: 404 }) };
+  return { user, venc, error: null };
+}
 
-  const { data: venc, error: eV } = await supa
-    .from("Vencimiento")
-    .select("id, workspaceId, clienteId, fecha, tipo, estado, expedienteRenovacionId")
-    .eq("id", id)
-    .maybeSingle();
-  if (eV) return NextResponse.json({ error: eV.message }, { status: 500 });
-  if (!venc) return NextResponse.json({ error: "Vencimiento no encontrado." }, { status: 404 });
+// Catálogo de la SEDE del cliente (cascade multi-oficina), solo servicios activos.
+async function catalogoDelCliente(admin: ReturnType<typeof createSupabaseAdmin>, workspaceId: string, clienteId: string) {
+  const oficinaId = await oficinaDelCliente(admin, clienteId);
+  const servicios = await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []);
+  return { oficinaId, servicios: serviciosElegibles(servicios) };
+}
+
+// Importes que verá el cliente: honorarios CON IVA (misma cuenta que el portal /j:
+// IVA sobre cada pago) + tasas/suplidos (sin IVA). «Precio a consultar» → sin importes.
+function importesParaCliente(s: { precio: number; anticipo: number; resto: number; precioOculto?: boolean; suplidos?: { importe: number }[] }) {
+  if (s.precioOculto) return { total: null, anticipo: null };
+  const tasas = (s.suplidos ?? []).reduce((a, x) => a + (Number(x.importe) || 0), 0);
+  const total = r2(totalDe(s.anticipo) + totalDe(s.resto) + tasas);
+  // Servicio sin tarifa (0 €) → sin importes: «0,00 €» en un email es peor que nada.
+  if (total <= 0) return { total: null, anticipo: null };
+  const anticipo = s.anticipo > 0 && s.resto > 0 ? r2(totalDe(s.anticipo) + tasas) : null;
+  return { total, anticipo };
+}
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { venc, error } = await vencimientoBajoSesion(id);
+  if (error || !venc) return error;
+  const admin = createSupabaseAdmin();
+  const { servicios } = await catalogoDelCliente(admin, String(venc.workspaceId), String(venc.clienteId));
+  const { data: cli } = await admin.from("Cliente").select("nombre, apellidos").eq("id", String(venc.clienteId)).maybeSingle();
+  return NextResponse.json({
+    tipo: venc.tipo, fecha: venc.fecha,
+    clienteNombre: [cli?.nombre, cli?.apellidos].filter(Boolean).join(" "),
+    sugerido: sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios),
+    servicios: servicios.map((s) => ({ id: s.id, label: s.label, precioOculto: Boolean(s.precioOculto), ...importesParaCliente(s) })),
+  });
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  // El body se lee UNA vez (antes se leía dentro de la rama de oficina).
+  const body = (await req.json().catch(() => ({}))) as { oficinaId?: unknown; servicioClave?: unknown };
+
+  const { user, venc, error } = await vencimientoBajoSesion(id);
+  if (error || !venc || !user) return error;
 
   // Idempotencia: si ya hay una renovación en marcha, devolvemos esa (doble clic, recarga…).
   if (venc.expedienteRenovacionId) {
@@ -54,11 +101,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // mandado por la UI) o en la pastilla activa. Desde «Todas» con ≥2 oficinas → 400:
   // el expediente y la factura de anticipo no deben nacer sin sede por accidente.
   if (!oficinaId) {
-    let sedeExplicita: string | null = null;
-    try {
-      const body = await req.json().catch(() => ({}));
-      if (typeof body?.oficinaId === "string" && body.oficinaId.trim()) sedeExplicita = body.oficinaId.trim();
-    } catch { sedeExplicita = null; }
+    const sedeExplicita: string | null = typeof body.oficinaId === "string" && body.oficinaId.trim() ? body.oficinaId.trim() : null;
     if (sedeExplicita && !(await sedeElegible(admin, user.id, sedeExplicita, workspaceId))) {
       return NextResponse.json({ error: "Esa oficina no es válida para tu usuario." }, { status: 400 });
     }
@@ -74,13 +117,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const expedienteId = uuid();
 
-  // Servicio «Renovación de TIE» del workspace (si está activo) → tarifa/docs correctos
-  // desde el primer momento. Repli: tipo RENOVACION sin clave (el cliente elige en /j).
-  let servicioClave: string | null = null;
-  try {
-    const servicios = await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId);
-    if (servicios.some((s) => s.id === "renovacion_tie" && s.active)) servicioClave = "renovacion_tie";
-  } catch { /* repli */ }
+  // SERVICIO de la renovación: el elegido por el gestor (validado contra el catálogo
+  // activo de la sede) o la sugerencia por tipo. Sin ninguno → 400 y el diálogo pide
+  // elegir. Un pasaporte YA NO cae en «Renovación de TIE», y nada nace sin trámite.
+  const servicios = serviciosElegibles(await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []));
+  const pedido = typeof body.servicioClave === "string" && body.servicioClave.trim() ? body.servicioClave.trim() : null;
+  if (pedido && !servicios.some((s) => s.id === pedido)) {
+    return NextResponse.json({ error: "Ese servicio no está activo en el catálogo de esta oficina.", requiereServicio: true }, { status: 400 });
+  }
+  const servicioClave = pedido ?? sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
+  if (!servicioClave) {
+    return NextResponse.json({ error: "Elige el servicio de la renovación: ninguno del catálogo corresponde a este vencimiento.", requiereServicio: true }, { status: 400 });
+  }
+  const servicio = servicios.find((s) => s.id === servicioClave)!;
 
   // (1) Crear el expediente PRIMERO (la FK de Vencimiento.expedienteRenovacionId exige que
   // exista). Mismo patrón que POST /api/expedientes: referencia secuencial con reintento,
@@ -102,7 +151,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const fila: Record<string, unknown> = {
       id: expedienteId, workspaceId, clienteId, referencia, portalToken,
       tipo: "RENOVACION", estado: "EN_PREPARACION", asignadoAId: user.id, updatedAt: new Date().toISOString(),
-      ...(servicioClave ? { servicioClave } : {}),
+      servicioClave,
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
       ...(empresaCliente ? { empresaId: empresaCliente } : {}),
     };
@@ -152,7 +201,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     tipoVencimiento: String(venc.tipo ?? "TIE"),
     fechaCaducidad: venc.fecha as string,
     baseUrl: baseUrlFromRequest(req),
+    // El cliente lee QUÉ trámite es y CUÁNTO cuesta (antes: «tu TIE caduca», sin más).
+    servicio: { id: servicio.id, label: servicio.label, ...importesParaCliente(servicio) },
   });
 
-  return NextResponse.json({ ok: true, expedienteId, referencia, extra, avisoEnviado: aviso.enviado });
+  return NextResponse.json({ ok: true, expedienteId, referencia, extra, avisoEnviado: aviso.enviado, servicioClave });
 }
