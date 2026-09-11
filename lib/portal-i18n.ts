@@ -534,6 +534,8 @@ export const UI: Record<string, Tr> = {
   },
   "notif.doc.boton": { es: "Subir el documento nuevo", en: "Upload the new document", fr: "Envoyer le nouveau document", it: "Carica il nuovo documento", de: "Neues Dokument hochladen" },
   "notif.prop.dudas": { es: "¿Tienes dudas? Escribe o llama a {gestoria}:", en: "Any questions? Write to or call {gestoria}:", fr: "Des questions ? Écris ou appelle {gestoria} :", it: "Hai dubbi? Scrivi o chiama {gestoria}:", de: "Fragen? Schreib an oder ruf {gestoria} an:" },
+  "wa.recibidoExp": { es: "✅ Recibido: {docs}. Guardado en tu expediente {referencia}.", en: "✅ Received: {docs}. Saved to your file {referencia}.", fr: "✅ Reçu : {docs}. Enregistré dans ton dossier {referencia}.", it: "✅ Ricevuto: {docs}. Salvato nella tua pratica {referencia}.", de: "✅ Erhalten: {docs}. In deiner Akte {referencia} gespeichert.", ar: "✅ تم الاستلام: {docs}. تم حفظه في ملفك {referencia}.", ro: "✅ Primit: {docs}. Salvat în dosarul tău {referencia}.", zh: "✅ 已收到：{docs}。已保存到你的档案 {referencia}。" },
+  "wa.recibidoFicha": { es: "✅ Recibido: {docs}. Guardado en tu ficha.", en: "✅ Received: {docs}. Saved to your file.", fr: "✅ Reçu : {docs}. Enregistré dans ta fiche.", it: "✅ Ricevuto: {docs}. Salvato nella tua scheda.", de: "✅ Erhalten: {docs}. In deinem Profil gespeichert.", ar: "✅ تم الاستلام: {docs}. تم حفظه في ملفك.", ro: "✅ Primit: {docs}. Salvat în fișa ta.", zh: "✅ 已收到：{docs}。已保存到你的资料。" },
   "notif.renov.boton": { es: "Empezar mi renovación", en: "Start my renewal", fr: "Commencer mon renouvellement", it: "Inizia il mio rinnovo", de: "Verlängerung starten" },
 
   // ── Vue « ya completado » (lien initial /j après l'onboarding) ─────────────

@@ -27,6 +27,7 @@ import { getT } from "@/lib/app-lang";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { RecibirDocumentosConfig } from "@/components/recibir-documentos-config";
+import { WhatsAppConectar } from "@/components/whatsapp-conectar";
 import { BandejaEntrada, type FilaBandeja, type ClienteOpcion, type ExpedienteOpcion } from "@/components/bandeja-entrada";
 import { direccionEntrante, generarTokenEntrante } from "@/lib/email-entrante";
 
@@ -291,9 +292,10 @@ export default async function Ajustes() {
           icon={IconIntegraciones}
         >
           <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={bandeja.pendientes.length} />
+          <WhatsAppConectar oficinas={oficinas.map((o) => ({ id: o.id, nombre: o.nombre }))} />
           <div id="bandeja" className="mt-8 border-t border-slate-200 pt-6">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Bandeja de entrada")}</h3>
-            <p className="mb-4 mt-1 text-xs text-slate-500">{t("Documentos recibidos por email que esperan a que digas de qué cliente son.")}</p>
+            <p className="mb-4 mt-1 text-xs text-slate-500">{t("Documentos recibidos por email o WhatsApp que esperan a que digas de qué cliente son.")}</p>
             {bandeja.faltaMigracion ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("La recepción por email estará disponible cuando se aplique la migración de la base de datos.")}</p>
             ) : (

@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeT, type Lang, esLangSoportada, servicioLabel } from "@/lib/portal-i18n";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
-import { enviarWhatsApp, fetchCanalAvisos, telefonoE164, whatsappDisponible, canalesEfectivos, type CanalAvisos } from "@/lib/whatsapp";
+import { enviarWhatsApp, telefonoE164, canalesDelWorkspace } from "@/lib/whatsapp";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente } from "@/lib/multi-servicio";
@@ -24,7 +24,6 @@ type Estado = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";
 
 // ── Canal del workspace: qué canales intentar y cómo journaliser el resultado ──
 // Repli si WhatsApp no está disponible en la plataforma: ver canalesEfectivos (lib/whatsapp).
-const quiereCanales = (canal: CanalAvisos) => canalesEfectivos(canal, whatsappDisponible());
 
 // Estado global de un envío multi-canal (para los retornos {enviado, motivo} al gestor):
 // basta con que UN canal haya salido para considerarlo enviado. ERROR pesa más que
@@ -262,7 +261,7 @@ export async function dispararAviso(
     const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
 
     // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
-    const canal = quiereCanales(await fetchCanalAvisos(admin, opts.workspaceId));
+    const canal = await canalesDelWorkspace(admin, opts.workspaceId);
     const foto = await fotoDelExpediente(admin, opts.expedienteId);
     const logo = await logoDelExpediente(admin, opts.expedienteId);
 
@@ -299,7 +298,7 @@ export async function dispararAviso(
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link: portalUrl });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link: portalUrl, workspaceId: opts.workspaceId, admin });
       console.log(`[aviso ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${mensaje.evento}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -392,7 +391,7 @@ export async function enviarSeguimiento(
     const cuerpo = faltanDocs ? t("notif.seg.bodyFaltan", { nombre }) : t("notif.seg.body", { nombre });
     const boton = faltanDocs ? t("notif.seg.botonSubir") : t("notif.seg.boton");
 
-    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
+    const canal = await canalesDelWorkspace(admin, ws?.id);
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -421,7 +420,7 @@ export async function enviarSeguimiento(
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
-        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link }) : "SIMULADO";
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo, link, workspaceId: ws?.id ?? null, idioma: cliente?.idioma ?? null, admin }) : "SIMULADO";
       console.log(`[seguimiento ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | ${link ?? ""}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -540,7 +539,7 @@ export async function enviarSolicitudPago(
       preheader: `Factura ${opts.numero} · ${fmtEur(opts.total)}`,
     });
 
-    const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
+    const canal = await canalesDelWorkspace(admin, exp.workspaceId);
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -569,7 +568,7 @@ export async function enviarSolicitudPago(
           : "Tu gestoría te facilitará los datos para realizar el pago.",
         ...(tarjetaOn ? [`Pagar con tarjeta: ${opts.baseUrl}/api/pagos/checkout?f=${opts.facturaId}`] : []),
       ].join("\n");
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: lineas });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: lineas, workspaceId: exp.workspaceId, admin });
       console.log(`[solicitudPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -905,7 +904,7 @@ export async function enviarConfirmacionPago(
       preheader: `Pago recibido · factura ${opts.numero} · ${fmtEur(opts.total)}`,
     });
 
-    const canal = quiereCanales(await fetchCanalAvisos(admin, exp.workspaceId));
+    const canal = await canalesDelWorkspace(admin, exp.workspaceId);
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -928,7 +927,7 @@ export async function enviarConfirmacionPago(
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       const texto = `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.`;
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link });
+      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link, workspaceId: exp.workspaceId, admin });
       console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
@@ -1144,7 +1143,7 @@ export async function enviarRecordatorioDocs(
       faltantes = docsFaltantes(requeridos, exp.documentos ?? []);
     }
     if (!faltantes.length) return { enviado: false, faltan: 0, motivo: "sin_faltan" };
-    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
+    const canal = await canalesDelWorkspace(admin, ws?.id);
 
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
@@ -1181,7 +1180,7 @@ export async function enviarRecordatorioDocs(
     if (canal.whatsapp) {
       const texto = `${t("notif.recDocs.intro", { nombre })}\n• ${faltantes.join("\n• ")}\n${t("notif.recDocs.outro")}`;
       estadoWa = telefonoE164(cliente?.telefono) === null ? "SIN_CONTACTO"
-        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link }) : "SIMULADO";
+        : link ? await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link, workspaceId: ws?.id ?? null, idioma: cliente?.idioma ?? null, admin }) : "SIMULADO";
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email

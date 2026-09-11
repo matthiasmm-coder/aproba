@@ -41,17 +41,9 @@ export const canalesEfectivos = (canal: CanalAvisos, waDisponible: boolean) => (
 
 export type EstadoWhatsApp = "ENVIADO" | "SIMULADO" | "SIN_CONTACTO" | "ERROR";
 
-// Normaliza a E.164: quita separadores, convierte «00…» en «+…» y añade +34 a un móvil
-// español de 9 cifras (empiezan por 6 o 7 — los fijos no tienen WhatsApp). Devuelve null
-// si el número no parece utilizable.
-export function telefonoE164(telefono: string | null | undefined): string | null {
-  const limpio = (telefono ?? "").replace(/[\s\-().]/g, "");
-  if (!limpio) return null;
-  const conPrefijo = limpio.startsWith("00") ? `+${limpio.slice(2)}` : limpio;
-  if (/^\+\d{8,15}$/.test(conPrefijo)) return conPrefijo;
-  if (/^[67]\d{8}$/.test(conPrefijo)) return `+34${conPrefijo}`;
-  return null;
-}
+// telefonoE164 vive ahora en lib/whatsapp-util (puro, compartido con la recepción Meta).
+export { telefonoE164 } from "@/lib/whatsapp-util";
+import { telefonoE164 } from "@/lib/whatsapp-util";
 
 // Variable de plantilla: Meta rechaza saltos de línea/tabs y variables enormes.
 const varPlantilla = (s: string, max = 640) =>
@@ -62,11 +54,22 @@ export async function enviarWhatsApp(opts: {
   gestoria: string;          // remitente lógico (el número central es de Aproba)
   cuerpo: string;            // texto del aviso (puede llevar saltos de línea)
   link?: string | null;      // enlace del portal, si lo hay
+  // WhatsApp DEL DESPACHO (Meta, 12/09/2026): con workspaceId se busca su número conectado
+  // y el aviso sale desde ÉL — dentro de la ventana de 24 h como texto, fuera como plantilla
+  // aprobada en el idioma del cliente. Sin cuenta → transporte de plataforma (Twilio) como antes.
+  workspaceId?: string | null;
+  oficinaId?: string | null;
+  idioma?: string | null;
+  admin?: SupabaseClient;
 }): Promise<EstadoWhatsApp> {
   const to = telefonoE164(opts.telefono);
   if (!to) return "SIN_CONTACTO";
   const gestoria = opts.gestoria.replace(/[*\r\n]/g, " ").trim() || "Tu gestoría";
   const textoLibre = `*${gestoria}*\n${opts.cuerpo}${opts.link ? `\n\n${opts.link}` : ""}`;
+  if (opts.workspaceId && opts.admin) {
+    const meta = await enviarPorMeta(opts.admin, { workspaceId: opts.workspaceId, oficinaId: opts.oficinaId ?? null, to, gestoria, cuerpo: opts.cuerpo, link: opts.link ?? null, idioma: opts.idioma ?? null, textoLibre });
+    if (meta !== null) return meta; // había cuenta del despacho: su resultado manda
+  }
   if (!whatsappDisponible()) {
     console.log(`[whatsapp SIMULADO] → ${to} | ${textoLibre.replace(/\n/g, " · ")}`);
     return "SIMULADO";
@@ -120,4 +123,46 @@ export async function fetchCanalAvisos(admin: SupabaseClient, workspaceId: strin
   } catch {
     return "EMAIL";
   }
+}
+
+// ── WhatsApp DEL DESPACHO (Meta Cloud API) ─────────────────────────────────────
+import { cuentaDelWorkspace, enviarTexto, enviarPlantilla } from "@/lib/whatsapp-meta";
+import { dentroDeVentana } from "@/lib/whatsapp-util";
+import { PLANTILLA_AVISO, plantillaAprobada } from "@/lib/whatsapp-plantillas";
+
+// null = este despacho no tiene número conectado (que decida el transporte de plataforma).
+async function enviarPorMeta(admin: SupabaseClient, o: { workspaceId: string; oficinaId: string | null; to: string; gestoria: string; cuerpo: string; link: string | null; idioma: string | null; textoLibre: string }): Promise<EstadoWhatsApp | null> {
+  const cuenta = await cuentaDelWorkspace(admin, o.workspaceId, o.oficinaId);
+  if (!cuenta) return null;
+  try {
+    // Ventana de 24 h: último mensaje ENTRANTE de ese teléfono a este número.
+    const { data: ult } = await admin.from("WhatsAppMensaje").select("timestamp").eq("cuentaId", cuenta.id).eq("telefono", o.to).eq("direccion", "IN").order("timestamp", { ascending: false }).limit(1).maybeSingle();
+    const abierta = dentroDeVentana((ult as { timestamp?: string } | null)?.timestamp ?? null);
+    let id = "", tipo = "text", texto = o.textoLibre;
+    if (abierta) {
+      ({ id } = await enviarTexto(cuenta, o.to, o.textoLibre, { previewUrl: Boolean(o.link) }));
+    } else {
+      const lang = plantillaAprobada(cuenta.plantillas, (o.idioma ?? "es").slice(0, 2));
+      if (!lang) { console.error(`[whatsapp meta] sin plantilla aprobada para ${cuenta.telefono ?? cuenta.phoneNumberId} (${o.idioma ?? "es"})`); return "ERROR"; }
+      const enlace = o.link ?? (process.env.NEXT_PUBLIC_APP_URL ?? "https://aproba-software.com").replace(/\/$/, "");
+      ({ id } = await enviarPlantilla(cuenta, o.to, PLANTILLA_AVISO, lang, [varPlantilla(o.gestoria, 80), varPlantilla(o.cuerpo), varPlantilla(enlace, 300)]));
+      tipo = "template"; texto = `[${PLANTILLA_AVISO}/${lang}] ${o.cuerpo}`;
+    }
+    if (id) await admin.from("WhatsAppMensaje").insert({ id, workspaceId: o.workspaceId, cuentaId: cuenta.id, telefono: o.to, direccion: "OUT", tipo, texto: texto.slice(0, 4000), estado: "sent", timestamp: new Date().toISOString() }).then(() => {}, () => {});
+    return "ENVIADO";
+  } catch (e) {
+    console.error("[whatsapp meta]", e instanceof Error ? e.message : e);
+    return "ERROR";
+  }
+}
+
+// ¿Puede este despacho enviar WhatsApp? Su número conectado (Meta) o el transporte de plataforma.
+export async function whatsappDisponibleParaWorkspace(admin: SupabaseClient, workspaceId: string, oficinaId: string | null = null): Promise<boolean> {
+  if (whatsappDisponible()) return true;
+  return Boolean(await cuentaDelWorkspace(admin, workspaceId, oficinaId));
+}
+// Canales efectivos de un despacho: su preferencia (Workspace.canalAvisos) × lo que puede enviar de verdad.
+export async function canalesDelWorkspace(admin: SupabaseClient, workspaceId: string | null | undefined, oficinaId: string | null = null): Promise<{ email: boolean; whatsapp: boolean }> {
+  if (!workspaceId) return { email: true, whatsapp: false };
+  return canalesEfectivos(await fetchCanalAvisos(admin, workspaceId), await whatsappDisponibleParaWorkspace(admin, workspaceId, oficinaId));
 }
