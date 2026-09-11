@@ -51,7 +51,7 @@ function DocumentosPedidos({ token, pedidos, lang }: { token: string; pedidos: D
   }
   if (!pedidos.length) return null;
   return (
-    <div id="documentos-pedidos" className="mt-7 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+    <div id="documentos-pedidos" className="mt-7 rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-center">
       <h2 className="text-base font-bold tracking-tightest text-slate-900">{t("esp.docTitulo")}</h2>
       <div className="mt-3 space-y-3">
         {pedidos.map((p) => {
@@ -64,13 +64,13 @@ function DocumentosPedidos({ token, pedidos, lang }: { token: string; pedidos: D
               ) : st.fase === "revisar" ? (
                 <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">✓ {t("esp.docOkRevisar")}</p>
               ) : (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <label className={`inline-flex min-h-[44px] cursor-pointer items-center rounded-lg px-4 text-sm font-semibold text-white transition ${st.fase === "subiendo" ? "bg-slate-300" : "bg-aproba-600 hover:bg-aproba-700"}`}>
+                <div className="mt-3 flex flex-col items-center gap-2">
+                  <label className={`inline-flex min-h-[44px] cursor-pointer items-center rounded-lg px-6 text-sm font-semibold text-white transition ${st.fase === "subiendo" ? "bg-slate-300" : "bg-aproba-600 hover:bg-aproba-700"}`}>
                     {st.fase === "subiendo" ? t("esp.docSubiendo") : t("esp.docSubir")}
                     <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" disabled={st.fase === "subiendo"} onChange={(e) => subir(p, e.target.files?.[0])} />
                   </label>
                   <span className="text-xs text-slate-400">{t("esp.docFormato")}</span>
-                  {st.fase === "error" && <span role="alert" className="basis-full text-sm text-red-700">{st.error}</span>}
+                  {st.fase === "error" && <span role="alert" className="text-sm text-red-700">{st.error}</span>}
                 </div>
               )}
             </div>
