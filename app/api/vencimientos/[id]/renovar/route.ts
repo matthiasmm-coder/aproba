@@ -118,6 +118,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const servicio = servicios.find((s) => s.id === servicioClave)!;
 
+  // Sin email no hay propuesta: no se crea expediente ni se marca nada (el cliente no
+  // podría aceptar ni rechazar lo que no recibe).
+  const { data: cliEmail } = await admin.from("Cliente").select("email").eq("id", clienteId).maybeSingle();
+  if (!(cliEmail as { email?: string | null } | null)?.email?.trim()) {
+    return NextResponse.json({ error: "El cliente no tiene email: añádelo en su ficha y vuelve a intentarlo. No se ha propuesto nada.", sinEmail: true }, { status: 400 });
+  }
+
   // (1) Crear el expediente PRIMERO (la FK de Vencimiento.expedienteRenovacionId exige que
   // exista). Mismo patrón que POST /api/expedientes: referencia secuencial con reintento,
   // portalToken de 128 bits. Aún sin efectos visibles para el cliente (eventos/aviso después).
@@ -197,5 +204,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     servicio: { id: servicio.id, label: servicio.label, ...importesParaCliente(servicio) },
   });
 
+  if (!aviso.enviado && aviso.motivo !== "simulado") {
+    // El cliente no ha recibido nada → se deshace la propuesta entera (aún sin factura ni
+    // overage): fuera el expediente y sus eventos, el vencimiento vuelve a como estaba.
+    await admin.from("ExpedienteEvento").delete().eq("expedienteId", expedienteId);
+    await admin.from("Vencimiento").update({ estado: String(venc.estado), expedienteRenovacionId: null, propuestaAt: null, updatedAt: new Date().toISOString() }).eq("id", venc.id).eq("expedienteRenovacionId", expedienteId);
+    await admin.from("Expediente").delete().eq("id", expedienteId);
+    return NextResponse.json({ error: aviso.motivo === "sin_email" ? "El cliente no tiene email: añádelo en su ficha y vuelve a intentarlo. No se ha propuesto nada." : "No se pudo enviar la propuesta al cliente. No se ha propuesto nada: inténtalo de nuevo.", sinEmail: aviso.motivo === "sin_email" }, { status: aviso.motivo === "sin_email" ? 400 : 502 });
+  }
   return NextResponse.json({ ok: true, propuesta: true, expedienteId, referencia, avisoEnviado: aviso.enviado, motivoAviso: aviso.motivo ?? null, servicioClave });
 }

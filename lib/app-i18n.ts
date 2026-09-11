@@ -53,6 +53,7 @@ export const CA: Record<string, string> = {
   "Pedir el documento nuevo": "Demanar el document nou",
   "Se enviará la propuesta a {nombre} con el trámite y el precio; podrá aceptarla o rechazarla. No se emite ninguna factura hasta que acepte.": "S'enviarà la proposta a {nombre} amb el tràmit i el preu; podrà acceptar-la o rebutjar-la. No s'emet cap factura fins que accepti.",
   "Enviar la propuesta": "Enviar la proposta",
+  "(email simulado: sin servicio de correo en este entorno)": "(email simulat: sense servei de correu en aquest entorn)",
   "Iniciar renovación": "Iniciar renovació",
   "Iniciando…": "Iniciant…",
   "Renovación iniciada": "Renovació iniciada",

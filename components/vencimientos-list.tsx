@@ -117,7 +117,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   const [lanzando, setLanzando] = useState<string | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-    const [creado, setCreado] = useState<{ vencId: string; expedienteId: string | null; referencia: string; modo: "propuesta" | "documento"; aviso: "ok" | "sin_email" | "fallo" } | null>(null);
+    const [creado, setCreado] = useState<{ vencId: string; expedienteId: string | null; referencia: string; modo: "propuesta" | "documento"; aviso: "ok" | "simulado" } | null>(null);
   // Cliente sin oficina + despacho multi-oficina: «Iniciar renovación» lo ADOPTA en la
   // pastilla activa (anunciado en el confirm) — y desde «Todas» se pide elegir antes.
   const [sedeCtx, setSedeCtx] = useState<{ multi: boolean; activa: string | null; nombreActiva: string | null }>({ multi: false, activa: null, nombreActiva: null });
@@ -185,7 +185,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
         return;
       }
       if (!res.ok) throw new Error(d.error ?? t("No se pudo proponer la renovación."));
-      setCreado({ vencId: v.id, expedienteId: d.expedienteId, referencia: d.referencia ?? "", modo: "propuesta", aviso: d.avisoEnviado ? "ok" : d.motivoAviso === "sin_email" ? "sin_email" : "fallo" });
+      setCreado({ vencId: v.id, expedienteId: d.expedienteId, referencia: d.referencia ?? "", modo: "propuesta", aviso: d.avisoEnviado ? "ok" : "simulado" });
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo proponer la renovación."));
@@ -202,7 +202,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       const res = await fetch(`/api/vencimientos/${v.id}/solicitar-documento`, { method: "POST" });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo pedir el documento."));
-      setCreado({ vencId: v.id, expedienteId: null, referencia: "", modo: "documento", aviso: d.avisoEnviado ? "ok" : d.motivoAviso === "sin_email" ? "sin_email" : "fallo" });
+      setCreado({ vencId: v.id, expedienteId: null, referencia: "", modo: "documento", aviso: d.avisoEnviado ? "ok" : "simulado" });
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo pedir el documento."));
@@ -273,8 +273,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
           ) : (
             <>✓ {t("Documento pedido al cliente")}. {t("Cuando lo suba, la fecha se actualizará sola y lo verás aquí.")}</>
           )}
-          {creado.aviso === "sin_email" && <span className="font-semibold text-amber-700"> {t("⚠ El cliente no tiene email: añádelo en su ficha y vuelve a enviar.")}</span>}
-          {creado.aviso === "fallo" && <span className="font-semibold text-amber-700"> {t("⚠ El email no se pudo enviar.")}</span>}
+          {creado.aviso === "simulado" && <span className="text-slate-500"> {t("(email simulado: sin servicio de correo en este entorno)")}</span>}
         </p>
       )}
 
