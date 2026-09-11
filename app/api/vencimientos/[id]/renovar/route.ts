@@ -2,26 +2,22 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
-import { cobrarOverageSiProcede } from "@/lib/overage";
 import { oficinaDelCliente, contextoDeCreacion, sedeElegible } from "@/lib/oficinas-server";
-import { enviarAvisoRenovacion } from "@/lib/notificaciones";
+import { enviarPropuestaRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
-import { sugerirServicioRenovacion, serviciosElegibles } from "@/lib/renovacion-servicio";
-import { totalDe, r2 } from "@/lib/facturas";
+import { sugerirServicioRenovacion, serviciosElegibles, esVencimientoDeServicio, importesParaCliente, ESTADOS_EN_VUELO } from "@/lib/renovacion-servicio";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
 
-// VIGÍA — «Iniciar renovación»: a partir de un vencimiento, crea el expediente de
-// renovación pre-anclado al cliente + avisa al cliente EN SU IDIOMA (enlace /j) +
-// marca el vencimiento TRAMITANDO. La factura de anticipo la pide la UI después vía
-// POST /api/pagos (misma lógica financiera de siempre, sin duplicarla aquí).
-//
-// SERVICIO (11/09/2026): la renovación nace SIEMPRE con un servicio del catálogo —
-// el que manda el gestor (body.servicioClave, elegido en el diálogo) o la sugerencia
-// por tipo de vencimiento (lib/renovacion-servicio). Sin ninguno → 400 y el gestor
-// elige; nunca se crea un expediente «sin trámite» que el cliente no sabe qué es.
-// GET devuelve lo que el diálogo necesita: servicios elegibles + sugerencia.
+// VIGÍA — «Proponer renovación» (11/09/2026): a partir de un vencimiento de SERVICIO
+// (TIE), crea el expediente de renovación con el servicio del catálogo (sugerido por
+// tipo o elegido por el gestor si ninguno encaja), marca el vencimiento PROPUESTA y
+// envía al cliente la propuesta con el trámite, el precio y dos botones (aceptar /
+// rechazar). NO se emite ninguna factura ni se cobra overage hasta que el cliente
+// acepte (app/api/portal/renovacion). Un vencimiento de DOCUMENTO (pasaporte, NIE) no
+// pasa por aquí: se pide el documento nuevo (…/solicitar-documento).
+// GET devuelve lo que el diálogo necesita cuando hay que elegir: servicios + sugerencia.
 //
 // Autorización: el vencimiento se resuelve BAJO SESIÓN (RLS) — si el usuario no es
 // miembro del workspace, no existe (anti-IDOR). Solo después se usa el admin.
@@ -42,18 +38,6 @@ async function catalogoDelCliente(admin: ReturnType<typeof createSupabaseAdmin>,
   const oficinaId = await oficinaDelCliente(admin, clienteId);
   const servicios = await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []);
   return { oficinaId, servicios: serviciosElegibles(servicios) };
-}
-
-// Importes que verá el cliente: honorarios CON IVA (misma cuenta que el portal /j:
-// IVA sobre cada pago) + tasas/suplidos (sin IVA). «Precio a consultar» → sin importes.
-function importesParaCliente(s: { precio: number; anticipo: number; resto: number; precioOculto?: boolean; suplidos?: { importe: number }[] }) {
-  if (s.precioOculto) return { total: null, anticipo: null };
-  const tasas = (s.suplidos ?? []).reduce((a, x) => a + (Number(x.importe) || 0), 0);
-  const total = r2(totalDe(s.anticipo) + totalDe(s.resto) + tasas);
-  // Servicio sin tarifa (0 €) → sin importes: «0,00 €» en un email es peor que nada.
-  if (total <= 0) return { total: null, anticipo: null };
-  const anticipo = s.anticipo > 0 && s.resto > 0 ? r2(totalDe(s.anticipo) + tasas) : null;
-  return { total, anticipo };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -78,9 +62,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { user, venc, error } = await vencimientoBajoSesion(id);
   if (error || !venc || !user) return error;
+  if (!esVencimientoDeServicio(String(venc.tipo))) {
+    return NextResponse.json({ error: "Este vencimiento es un documento del cliente (no un trámite): pídele el documento renovado.", esDocumento: true }, { status: 400 });
+  }
 
-  // Idempotencia: si ya hay una renovación en marcha, devolvemos esa (doble clic, recarga…).
-  if (venc.expedienteRenovacionId) {
+  // Idempotencia: propuesta ya enviada o renovación en marcha → devolvemos esa (doble clic, recarga…).
+  if (venc.expedienteRenovacionId && (ESTADOS_EN_VUELO as readonly string[]).includes(String(venc.estado))) {
     return NextResponse.json({ ok: true, yaExistia: true, expedienteId: venc.expedienteRenovacionId });
   }
   if (venc.estado === "HECHO") {
@@ -168,18 +155,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // (2) CLAIM ATÓMICO anti-carrera: solo UNA petición concurrente consigue enlazar su
-  // expediente (las demás ven expedienteRenovacionId ya puesto). Cubre el caso "TRAMITANDO
-  // huérfano" (expediente borrado → SetNull): vuelve a ser reclamable.
-  const { data: claim, error: eClaim } = await admin
+  // expediente. Se reclama desde PENDIENTE/AVISADO, desde RECHAZADA (proponer de nuevo:
+  // el expediente anterior quedó archivado y desenlazado) y desde un PROPUESTA/TRAMITANDO
+  // huérfano (expediente borrado → SetNull).
+  const ahora = new Date().toISOString();
+  const claimar = (conColumnas: boolean) => admin
     .from("Vencimiento")
-    .update({ estado: "TRAMITANDO", expedienteRenovacionId: expedienteId, updatedAt: new Date().toISOString() })
+    .update(conColumnas ? { estado: "PROPUESTA", expedienteRenovacionId: expedienteId, propuestaAt: ahora, respuestaCliente: null, respondidoAt: null, updatedAt: ahora } : { estado: "PROPUESTA", expedienteRenovacionId: expedienteId, updatedAt: ahora })
     .eq("id", venc.id)
     .is("expedienteRenovacionId", null)
-    .neq("estado", "HECHO")
+    .not("estado", "in", "(HECHO,TRAMITANDO)")
     .select("id");
+  let { data: claim, error: eClaim } = await claimar(true);
+  if (eClaim && /propuestaAt|respuestaCliente|respondidoAt|column|schema cache/i.test(eClaim.message)) {
+    // Sin la migración no hay dónde guardar la respuesta del cliente: se corta y se dice.
+    await admin.from("Expediente").delete().eq("id", expedienteId);
+    return NextResponse.json({ error: "Falta la migración supabase/vigia-propuesta.sql (respuesta del cliente a la renovación)." }, { status: 500 });
+  }
   if (eClaim || !claim?.length) {
     // Perdimos la carrera (u otro error): retiramos el expediente recién creado, aún sin
-    // eventos ni cobros ni emails, y devolvemos la renovación del ganador.
+    // eventos ni emails, y devolvemos la propuesta del ganador.
     await admin.from("Expediente").delete().eq("id", expedienteId);
     if (eClaim) return NextResponse.json({ error: eClaim.message }, { status: 500 });
     const { data: otro } = await admin.from("Vencimiento").select("expedienteRenovacionId").eq("id", venc.id).maybeSingle();
@@ -188,22 +183,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const fechaTxt = new Date(venc.fecha as string).toLocaleDateString("es-ES");
   await admin.from("ExpedienteEvento").insert([
-    { id: uuid(), expedienteId, tipo: "COMENTARIO", descripcion: `🔄 Renovación iniciada desde Vigía (${venc.tipo} caduca el ${fechaTxt})`, userId: user.id },
+    { id: uuid(), expedienteId, tipo: "COMENTARIO", descripcion: `🔄 Renovación propuesta desde Vigía (${venc.tipo} caduca el ${fechaTxt}) · pendiente de que el cliente acepte`, userId: user.id },
     { id: uuid(), expedienteId, tipo: "NOTIFICACION_ENVIADA", descripcion: "Enlace del portal generado para el cliente", userId: user.id },
   ]);
 
-  // La renovación es un expediente normal: cuenta para la cuota mensual (overage compartido).
-  const extra = await cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia });
-
-  // Aviso al cliente en su idioma (mejor esfuerzo — sin email no rompe).
-  const aviso = await enviarAvisoRenovacion(admin, {
+  // Propuesta al cliente en su idioma: trámite, precio y botones aceptar/rechazar.
+  // Ni factura ni overage aquí: llegan cuando ACEPTA (app/api/portal/renovacion).
+  const aviso = await enviarPropuestaRenovacion(admin, {
     expedienteId,
     tipoVencimiento: String(venc.tipo ?? "TIE"),
     fechaCaducidad: venc.fecha as string,
     baseUrl: baseUrlFromRequest(req),
-    // El cliente lee QUÉ trámite es y CUÁNTO cuesta (antes: «tu TIE caduca», sin más).
     servicio: { id: servicio.id, label: servicio.label, ...importesParaCliente(servicio) },
   });
 
-  return NextResponse.json({ ok: true, expedienteId, referencia, extra, avisoEnviado: aviso.enviado, servicioClave });
+  return NextResponse.json({ ok: true, propuesta: true, expedienteId, referencia, avisoEnviado: aviso.enviado, motivoAviso: aviso.motivo ?? null, servicioClave });
 }

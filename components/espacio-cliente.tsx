@@ -26,9 +26,64 @@ export type EspacioPack = { id: string; nombre: string; desc: string; servicioId
 const LANG_KEY = "aproba.portal.lang";
 const fmtEur = (n: number) => `${(Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ","))} €`;
 
-export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma, enCurso, terminados, servicios, packs = [] }: {
+// Documento renovado que la gestoría ha pedido (Vigía): pasaporte, certificado de NIE…
+export type DocumentoPedido = { id: string; tipo: string; fecha: string };
+
+// Bloque «Documentos que te pedimos»: un vencimiento SOLICITADO = una casilla para subir
+// el documento nuevo. La IA lee la caducidad; si es posterior, el aviso desaparece solo.
+function DocumentosPedidos({ token, pedidos, lang }: { token: string; pedidos: DocumentoPedido[]; lang: Lang }) {
+  const t = makeT(lang);
+  const [estado, setEstado] = useState<Record<string, { fase: "idle" | "subiendo" | "ok" | "revisar" | "error"; fecha?: string | null; error?: string }>>({});
+  const nombreDoc = (tipo: string) => (t(`notif.renov.tipo.${tipo}`) === `notif.renov.tipo.${tipo}` ? tipo : t(`notif.renov.tipo.${tipo}`));
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : lang);
+  async function subir(p: DocumentoPedido, file: File | null | undefined) {
+    if (!file) return;
+    setEstado((e) => ({ ...e, [p.id]: { fase: "subiendo" } }));
+    try {
+      const fd = new FormData(); fd.set("token", token); fd.set("vencimientoId", p.id); fd.set("file", file);
+      const res = await fetch("/api/espacio/documento", { method: "POST", body: fd });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("esp.docError"));
+      setEstado((e) => ({ ...e, [p.id]: d.reconocido ? { fase: "ok", fecha: d.fechaNueva ?? null } : { fase: "revisar" } }));
+    } catch (err) {
+      setEstado((e) => ({ ...e, [p.id]: { fase: "error", error: err instanceof Error ? err.message : t("esp.docError") } }));
+    }
+  }
+  if (!pedidos.length) return null;
+  return (
+    <div id="documentos-pedidos" className="mt-7 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+      <h2 className="text-base font-bold tracking-tightest text-slate-900">{t("esp.docTitulo")}</h2>
+      <div className="mt-3 space-y-3">
+        {pedidos.map((p) => {
+          const st = estado[p.id] ?? { fase: "idle" as const };
+          return (
+            <div key={p.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-sm text-slate-700">{t("esp.docCaduca", { documento: nombreDoc(p.tipo), fecha: fmt(p.fecha) })}</p>
+              {st.fase === "ok" ? (
+                <p className="mt-2 rounded-lg bg-aproba-50 px-3 py-2 text-sm font-medium text-aproba-700">✓ {st.fecha ? t("esp.docOk", { fecha: fmt(st.fecha) }) : t("esp.docOkRevisar")}</p>
+              ) : st.fase === "revisar" ? (
+                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">✓ {t("esp.docOkRevisar")}</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <label className={`inline-flex min-h-[44px] cursor-pointer items-center rounded-lg px-4 text-sm font-semibold text-white transition ${st.fase === "subiendo" ? "bg-slate-300" : "bg-aproba-600 hover:bg-aproba-700"}`}>
+                    {st.fase === "subiendo" ? t("esp.docSubiendo") : t("esp.docSubir")}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" disabled={st.fase === "subiendo"} onChange={(e) => subir(p, e.target.files?.[0])} />
+                  </label>
+                  <span className="text-xs text-slate-400">{t("esp.docFormato")}</span>
+                  {st.fase === "error" && <span role="alert" className="basis-full text-sm text-red-700">{st.error}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma, enCurso, terminados, servicios, packs = [], documentosPedidos = [] }: {
   token: string; gestoria: string; logoUrl?: string | null; nombre: string; idioma: string;
-  enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[]; packs?: EspacioPack[];
+  enCurso: EspacioExp[]; terminados: EspacioExp[]; servicios: EspacioServicio[]; packs?: EspacioPack[]; documentosPedidos?: DocumentoPedido[];
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -172,6 +227,9 @@ export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
           </select>
         </div>
+
+        {/* Documentos renovados que pide la gestoría (Vigía) — antes que nada: es lo que le trajo aquí. */}
+        <DocumentosPedidos token={token} pedidos={documentosPedidos} lang={lang} />
 
         {/* En curso */}
         <h2 className="mt-7 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("esp.encurso")} ({enCurso.length})</h2>

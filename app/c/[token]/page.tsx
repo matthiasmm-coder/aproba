@@ -74,6 +74,13 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
     if (!eh) historicos = (hs ?? []) as typeof historicos;
   } catch { /* tabla aún no migrada */ }
 
+  // Documentos renovados que su gestoría le ha PEDIDO (Vigía, vencimientos SOLICITADO).
+  let documentosPedidos: { id: string; tipo: string; fecha: string }[] = [];
+  try {
+    const { data: vs, error: ev } = await admin.from("Vencimiento").select("id, tipo, fecha").eq("clienteId", cliente.id).eq("estado", "SOLICITADO").order("fecha");
+    if (!ev) documentosPedidos = ((vs ?? []) as { id: string; tipo: string; fecha: string }[]).map((v) => ({ id: v.id, tipo: v.tipo, fecha: v.fecha }));
+  } catch { /* tabla sin migrar */ }
+
   const servicios = await fetchServiciosDeWorkspace(admin, cliente.workspaceId, (cliente as { oficinaId?: string | null }).oficinaId ?? null);
   const logoUrl = await logoDelWorkspace(admin, cliente.workspaceId, (cliente as { oficinaId?: string | null }).oficinaId ?? null);
   const labelDe = (clave: string | null, tipo: string) =>
@@ -116,6 +123,7 @@ export default async function EspacioPage({ params }: { params: Promise<{ token:
       terminados={[...items.filter((i) => !i.enCurso), ...historial]}
       servicios={activos}
       packs={packs}
+      documentosPedidos={documentosPedidos}
     />
   );
 }

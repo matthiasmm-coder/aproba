@@ -18,6 +18,7 @@ const esFaltaMigracion = (msg: string) => /relation .*Vencimiento.* does not exi
 // lib/validez.ts (módulo puro, compartido con el motor de importación que corre también en
 // el cliente). Se re-exporta aquí para los importadores existentes (avanzar/route.ts…).
 export { MESES_VALIDEZ } from "@/lib/validez";
+import { ESTADOS_ABIERTOS, ESTADOS_EN_VUELO } from "@/lib/renovacion-servicio";
 
 // Días de antelación con la que el cron avisa al gestor.
 export const DIAS_AVISO = 60;
@@ -68,26 +69,31 @@ export async function sembrarVencimiento(
       .select("id, fecha, estado")
       .eq("clienteId", opts.clienteId)
       .eq("tipo", tipo)
-      .in("estado", ["PENDIENTE", "AVISADO", "TRAMITANDO"])
+      .in("estado", [...ESTADOS_ABIERTOS])
       .limit(5);
     if (e1) throw e1;
     const activos = (filas ?? []) as { id: string; fecha: string; estado: string }[];
-    if (activos.some((a) => a.estado === "TRAMITANDO")) return; // renovación ya en marcha
+    if (activos.some((a) => (ESTADOS_EN_VUELO as readonly string[]).includes(a.estado))) return; // renovación propuesta o en marcha
     const activo = activos[0] ?? null;
 
     const ahora = new Date().toISOString();
     if (activo) {
       if (fuente === "ESTIMADA") return; // no pisar una fecha (posiblemente real) con una estimación
       const cambia = Math.abs(new Date(activo.fecha).getTime() - new Date(opts.fecha).getTime()) > 864e5;
-      await admin
-        .from("Vencimiento")
-        .update({
-          fecha: opts.fecha,
-          ...(cambia ? { estado: "PENDIENTE" } : {}), // fecha nueva → re-avisar en su momento
-          ...(opts.expedienteId ? { expedienteId: opts.expedienteId } : {}),
-          updatedAt: ahora,
-        })
-        .eq("id", activo.id);
+      // Documento renovado PEDIDO al cliente (SOLICITADO) y llega una fecha posterior:
+      // la petición queda cumplida — vuelve a PENDIENTE con la fecha nueva y se anota
+      // cuándo llegó (la lista lo enseña como «documento nuevo recibido»).
+      const recibido = activo.estado === "SOLICITADO" && new Date(opts.fecha).getTime() > new Date(activo.fecha).getTime();
+      const patch: Record<string, unknown> = {
+        fecha: opts.fecha,
+        ...(cambia || recibido ? { estado: "PENDIENTE" } : {}), // fecha nueva → re-avisar en su momento
+        ...(opts.expedienteId ? { expedienteId: opts.expedienteId } : {}),
+        updatedAt: ahora,
+      };
+      let { error: eUp } = await admin.from("Vencimiento").update(recibido ? { ...patch, solicitadoAt: null, recibidoAt: ahora } : patch).eq("id", activo.id);
+      // Columnas de vigia-propuesta.sql aún sin migrar → mismo update sin ellas.
+      if (eUp && recibido && /solicitadoAt|recibidoAt|column|schema cache/i.test(eUp.message)) ({ error: eUp } = await admin.from("Vencimiento").update(patch).eq("id", activo.id));
+      if (eUp) throw eUp;
     } else {
       await admin.from("Vencimiento").insert({
         id: uuid(),
@@ -118,7 +124,7 @@ export async function cerrarCicloRenovacion(
       .from("Vencimiento")
       .update({ estado: "HECHO", updatedAt: new Date().toISOString() })
       .eq("expedienteRenovacionId", opts.expedienteRenovacionId)
-      .in("estado", ["PENDIENTE", "AVISADO", "TRAMITANDO"]);
+      .in("estado", [...ESTADOS_ABIERTOS]);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (!esFaltaMigracion(msg)) console.error("[vigia cerrar-ciclo]", msg);
@@ -184,7 +190,7 @@ export async function escanearVencimientos(admin: SupabaseClient): Promise<{ avi
       const cuando = dias < 0 ? `caducó hace ${-dias} días` : `caduca en ${dias} días`;
       lineas.push(`• ${nombre} — ${v.tipo} ${cuando} (${new Date(v.fecha).toLocaleDateString("es-ES")})`);
       if (v.expedienteId) {
-        eventos.push({ expedienteId: v.expedienteId, descripcion: `⏰ Vigía: la ${v.tipo} de ${nombre} ${cuando}. Inicia la renovación desde Vencimientos.` });
+        eventos.push({ expedienteId: v.expedienteId, descripcion: `⏰ Vigía: la ${v.tipo} de ${nombre} ${cuando}. Propón la renovación (o pide el documento nuevo) desde Vencimientos.` });
       }
     }
 

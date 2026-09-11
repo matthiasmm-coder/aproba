@@ -1,5 +1,7 @@
 import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
+import { PropuestaRenovacion, type ServicioPropuesto } from "@/components/propuesta-renovacion";
+import { importesParaCliente } from "@/lib/renovacion-servicio";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { logoDelWorkspace, marcaPorPortalToken } from "@/lib/marca";
@@ -49,8 +51,10 @@ const fichaDe = (c: Record<string, string | null> | null): ClienteFicha => {
 // respuesta (incl. hojaEncargoActiva, estados de documentos) y sirve versiones viejas.
 export const dynamic = "force-dynamic";
 
-export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function JoinPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams?: Promise<{ r?: string }> }) {
   const { token } = await params;
+  const rParam = (await searchParams)?.r;
+  const preseleccion = rParam === "aceptar" || rParam === "rechazar" ? rParam : null;
 
   let servicios: Servicio[] = DEFAULT_SERVICIOS;
   let packs: Pack[] = [];
@@ -78,6 +82,10 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   // Factura EMITIDA pendiente (para que el «enlace ya usado» no esconda el pago:
   // quien canceló en Stripe y vuelve aquí debe poder pagar por tarjeta o virement).
   let pagoPendiente: { numero: string; total: number; checkoutUrl: string | null; cuenta: { titular: string; iban: string; banco: string | null } | null } | null = null;
+  // Renovación PROPUESTA desde Vigía y aún sin respuesta (o rechazada): el enlace enseña la
+  // propuesta con sus dos botones, no el flujo de documentos. Al aceptar, vuelve aquí y
+  // encuentra el portal normal.
+  let propuesta: { estado: "PROPUESTA" | "RECHAZADA"; tipo: string; fecha: string | null; servicio: ServicioPropuesto | null } | null = null;
 
   try {
     const admin = createSupabaseAdmin();
@@ -124,6 +132,13 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
             .sort((a, b) => ordenParentesco(a.parentesco) - ordenParentesco(b.parentesco)),
         };
       }
+      try {
+        const { data: v } = await admin.from("Vencimiento").select("estado, tipo, fecha").eq("expedienteRenovacionId", exp.id).in("estado", ["PROPUESTA", "RECHAZADA"]).limit(1).maybeSingle();
+        if (v) {
+          const sv = servicios.find((x) => x.id === exp.servicioClave) ?? null;
+          propuesta = { estado: v.estado as "PROPUESTA" | "RECHAZADA", tipo: String(v.tipo), fecha: (v.fecha as string) ?? null, servicio: sv ? { id: sv.id, label: sv.label, ...importesParaCliente(sv) } : null };
+        }
+      } catch { /* tabla sin migrar → sin propuesta */ }
       // REPRISE: servicio ya elegido (clave guardada, o derivado del tipo — p. ej. una
       // renovación creada desde Vigía llega con el trámite ya fijado) + docs ya subidos
       // (individuales; los de la familia van por su propio componente).
@@ -212,6 +227,10 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
         <p className="mt-6 flex items-center gap-1 text-xs text-slate-400">con <AprobaMark size={13} /> aproba</p>
       </div>
     );
+  }
+
+  if (propuesta && portalToken) {
+    return <PropuestaRenovacion token={portalToken} gestoria={gestoria ?? "Tu gestoría"} logoUrl={logoUrl} idioma={clienteIdioma} tipo={propuesta.tipo} fecha={propuesta.fecha} servicio={propuesta.servicio} preseleccion={preseleccion} estado={propuesta.estado} />;
   }
 
   // Lien initial déjà utilisé jusqu'au bout → on ne rejoue pas l'onboarding.

@@ -1207,114 +1207,179 @@ export async function enviarRecordatorioDocs(
   }
 }
 
-// ── VIGÍA: la gestoría inicia una renovación → aviso al cliente EN SU IDIOMA ──
-// Enlace al portal /j del expediente de renovación recién creado (el cliente revisa
-// sus datos y sube los documentos). Mejor esfuerzo: nunca lanza.
-export async function enviarAvisoRenovacion(
+// ── VIGÍA · PROPUESTA de renovación (11/09/2026) ──────────────────────────────
+// La gestoría PROPONE la renovación de un trámite: el cliente lee qué trámite es y cuánto
+// cuesta y decide con dos botones (Aceptar / Rechazar → /j/<token>?r=…, que solo PINTA:
+// los escáneres de enlaces de los buzones corporativos siguen los GET, y una respuesta no
+// puede quedar registrada sin un clic real en la página). Ninguna factura sale antes de
+// que acepte. Mejor esfuerzo: nunca lanza.
+type ServicioPropuesta = { id: string; label: string; total: number | null; anticipo: number | null };
+
+const nombreTipoVenc = (t: (k: string, v?: Record<string, string | number>) => string, tipoBruto: string) => {
+  const tr = t(`notif.renov.tipo.${tipoBruto}`);
+  return tr === `notif.renov.tipo.${tipoBruto}` ? tipoBruto : tr;
+};
+const fechaEnLengua = (iso: string | null | undefined, lang: Lang) =>
+  iso ? new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : lang) : null;
+
+// Dos botones de email, mismo estilo que el CTA de emailLayout (tabla, sin CSS externo).
+const botonesEmail = (a: { url: string; label: string }, b: { url: string; label: string }) =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:22px auto 0"><tr>` +
+  `<td bgcolor="#0E8C5F" style="border-radius:10px"><a href="${a.url}" target="_blank" style="display:inline-block;padding:13px 24px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px">${escapeHtml(a.label)}</a></td>` +
+  `<td width="12" style="width:12px">&nbsp;</td>` +
+  `<td style="border-radius:10px;border:1px solid #cbd5e1"><a href="${b.url}" target="_blank" style="display:inline-block;padding:12px 22px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#334155;text-decoration:none;border-radius:10px">${escapeHtml(b.label)}</a></td>` +
+  `</tr></table>`;
+
+export async function enviarPropuestaRenovacion(
   admin: SupabaseClient,
-  opts: {
-    expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl?: string;
-    // Trámite de la renovación + importes que verá el cliente (con IVA; null = «a consultar»).
-    servicio?: { id: string; label: string; total: number | null; anticipo: number | null } | null;
-  },
-): Promise<{ enviado: boolean; motivo?: "sin_email" | "sin_telefono" | "sin_contacto" | "simulado" | "error" }> {
+  opts: { expedienteId: string; tipoVencimiento?: string; fechaCaducidad?: string | null; baseUrl: string; servicio: ServicioPropuesta },
+): Promise<{ enviado: boolean; motivo?: "sin_email" | "sin_contacto" | "simulado" | "error" }> {
   try {
     const { data: expRaw } = await admin
       .from("Expediente")
-      .select("portalToken, Cliente(nombre, email, telefono, idioma), Workspace(id, nombre)")
+      .select("portalToken, Cliente(nombre, email, idioma), Workspace(id, nombre)")
       .eq("id", opts.expedienteId)
       .maybeSingle();
-    const exp = expRaw as {
-      portalToken: string | null;
-      Cliente: { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; telefono?: string | null; idioma?: string | null }[] | null;
-      Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null;
-    } | null;
-    if (!exp) return { enviado: false, motivo: "error" };
+    const exp = expRaw as { portalToken: string | null; Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null; Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null } | null;
+    if (!exp?.portalToken) return { enviado: false, motivo: "error" };
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
     const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);
     const nombre = primerNombre(cliente?.nombre ?? "cliente");
-    const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
-
-    // «tu TIE» / «tu pasaporte» en la lengua del cliente; un tipo sin traducción se enseña tal cual.
-    const tipoBruto = opts.tipoVencimiento ?? "TIE";
-    const tipoTr = t(`notif.renov.tipo.${tipoBruto}`);
-    const tipo = tipoTr === `notif.renov.tipo.${tipoBruto}` ? tipoBruto : tipoTr;
-    // dd/mm/aaaa en la lengua del cliente (fecha ISO → local es suficiente aquí).
-    const fecha = opts.fechaCaducidad ? new Date(opts.fechaCaducidad).toLocaleDateString(lang === "en" ? "en-GB" : lang) : null;
-    const body = fecha
-      ? t("notif.renov.body", { nombre, tipo, fecha, gestoria })
-      : t("notif.renov.bodySinFecha", { nombre, tipo, gestoria });
-    // Qué trámite y cuánto cuesta — el cliente no tiene que preguntarlo ni entrar al portal.
-    const sv = opts.servicio ?? null;
-    const svNombre = sv ? servicioLabel(sv.id, sv.label, lang) : null;
-    const lineasServicio: string[] = [];
-    if (sv && svNombre) {
-      lineasServicio.push(t("notif.renov.tramite", { servicio: svNombre }));
-      if (sv.total != null) lineasServicio.push(t("notif.renov.honorarios", { importe: fmtEur(sv.total) }));
-      if (sv.anticipo != null) lineasServicio.push(t("notif.renov.anticipo", { importe: fmtEur(sv.anticipo) }));
-    }
-    const detalleHtml = lineasServicio.length
-      ? `<p style="margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f1f5f9;color:#0f172a">${lineasServicio.map((l) => escapeHtml(l)).join("<br>")}</p>`
-      : "";
-    const titulo = svNombre ? t("notif.renov.tituloServicio", { servicio: svNombre }) : t("notif.renov.titulo");
-
+    const tipo = nombreTipoVenc(t, opts.tipoVencimiento ?? "TIE");
+    const fecha = fechaEnLengua(opts.fechaCaducidad, lang);
+    const svNombre = servicioLabel(opts.servicio.id, opts.servicio.label, lang);
+    const body = fecha ? t("notif.prop.body", { nombre, tipo, fecha, gestoria }) : t("notif.prop.bodySinFecha", { nombre, tipo, gestoria });
+    const lineas = [t("notif.renov.tramite", { servicio: svNombre })];
+    if (opts.servicio.total != null) lineas.push(t("notif.renov.honorarios", { importe: fmtEur(opts.servicio.total) }));
+    if (opts.servicio.anticipo != null) lineas.push(t("notif.renov.anticipo", { importe: fmtEur(opts.servicio.anticipo) }));
+    const urlBase = `${opts.baseUrl}/j/${exp.portalToken}`;
+    const titulo = t("notif.prop.titulo", { servicio: svNombre });
     const html = emailLayout({
       avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
-      gestoria,
-      titulo,
-      cuerpoHtml: `<p style="margin:0">${body}</p>${detalleHtml}`,
-      cta: link ? { url: link, label: t("notif.renov.boton") } : null,
+      gestoria, titulo, preheader: titulo,
+      cuerpoHtml: `<p style="margin:0">${escapeHtml(body)}</p>` +
+        `<p style="margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f1f5f9;color:#0f172a">${lineas.map(escapeHtml).join("<br>")}</p>` +
+        botonesEmail({ url: `${urlBase}?r=aceptar`, label: t("notif.prop.aceptar") }, { url: `${urlBase}?r=rechazar`, label: t("notif.prop.rechazar") }) +
+        `<p style="margin:14px 0 0;font-size:13px;color:#64748b">${escapeHtml(t("notif.prop.nota"))}</p>`,
+      cta: null,
       footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
-      preheader: titulo,
     });
-
-    const ws = uno(exp.Workspace);
-    const canal = quiereCanales(ws?.id ? await fetchCanalAvisos(admin, ws.id) : "EMAIL");
-
-    let estadoEmail: Estado | null = null;
-    const enviarEmailAviso = async () => {
-      estadoEmail = "SIMULADO";
-      const destino = cliente?.email ?? "";
-      if (!destino) {
-        estadoEmail = "SIN_CONTACTO";
-      } else if (resendDisponible()) {
-        const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
-        const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-          from, to: destino, subject: t("notif.renov.subject", { gestoria }), html,
-          text: [body, ...lineasServicio, link ?? ""].filter(Boolean).join("\n"),
-        });
-        estadoEmail = error ? "ERROR" : "ENVIADO";
-        if (error) console.error("[avisoRenovacion email]", error.message ?? error);
-      }
-    };
-    if (canal.email) await enviarEmailAviso();
-
-    let estadoWa: Estado | null = null;
-    if (canal.whatsapp) {
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: body, link });
+    const destino = cliente?.email ?? "";
+    let estado: Estado = "SIMULADO";
+    if (!destino) estado = "SIN_CONTACTO";
+    else if (resendDisponible()) {
+      const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+        from, to: destino, subject: t("notif.prop.subject", { gestoria }), html,
+        text: [body, ...lineas, `${t("notif.prop.aceptar")}: ${urlBase}?r=aceptar`, `${t("notif.prop.rechazar")}: ${urlBase}?r=rechazar`].join("\n"),
+      });
+      estado = error ? "ERROR" : "ENVIADO";
+      if (error) console.error("[propuestaRenovacion email]", error.message ?? error);
     }
-    // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
-    // a secas): el cliente no puede quedarse sin su aviso → repli por email
-    // (caso real Gestoría S&D: Twilio en sandbox, envíos reales en error).
-    if ((estadoWa === "ERROR" || estadoWa === "SIN_CONTACTO") && estadoEmail === null) await enviarEmailAviso();
-
-    // Sin ningún contacto utilizable → mismo retorno que antes (sin evento).
-    const global = estadoGlobal([estadoEmail, estadoWa]);
-    if (global === "SIN_CONTACTO") return { enviado: false, motivo: motivoSinContacto(estadoEmail, estadoWa) };
-
-    const { icono, sufijo } = iconoYSufijo(estadoEmail, estadoWa);
+    if (estado === "SIN_CONTACTO") return { enviado: false, motivo: "sin_email" };
     await admin.from("ExpedienteEvento").insert({
-      id: crypto.randomUUID(),
-      expedienteId: opts.expedienteId,
-      tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `${icono} Aviso de renovación enviado al cliente${sufijo}`,
+      id: crypto.randomUUID(), expedienteId: opts.expedienteId, tipo: "NOTIFICACION_ENVIADA",
+      descripcion: `${estado === "ENVIADO" ? "📧" : estado === "ERROR" ? "⚠️" : "🧪"} Propuesta de renovación enviada al cliente (${svNombre}${opts.servicio.total != null ? `, ${fmtEur(opts.servicio.total)}` : ""})${estado === "ERROR" ? " · error de envío" : estado === "SIMULADO" ? " · simulado" : ""}`,
     });
-    if (global === "ERROR") return { enviado: false, motivo: "error" };
-    return { enviado: global === "ENVIADO", motivo: global === "SIMULADO" ? "simulado" : undefined };
+    if (estado === "ERROR") return { enviado: false, motivo: "error" };
+    return { enviado: estado === "ENVIADO", motivo: estado === "SIMULADO" ? "simulado" : undefined };
   } catch (e) {
-    console.error("[enviarAvisoRenovacion]", e instanceof Error ? e.message : e);
+    console.error("[enviarPropuestaRenovacion]", e instanceof Error ? e.message : e);
     return { enviado: false, motivo: "error" };
   }
+}
+
+// ── VIGÍA · documento renovado PEDIDO al cliente (pasaporte, NIE…) ─────────────
+// No hay trámite ni factura: solo «súbenos el nuevo» con enlace a su espacio /c.
+export async function enviarSolicitudDocumento(
+  admin: SupabaseClient,
+  opts: { workspaceId: string; clienteId: string; tipoVencimiento: string; fechaCaducidad?: string | null; espacioToken: string; vencimientoId: string; baseUrl: string },
+): Promise<{ enviado: boolean; motivo?: "sin_email" | "simulado" | "error" }> {
+  try {
+    const [{ data: cli }, { data: ws }] = await Promise.all([
+      admin.from("Cliente").select("nombre, email, idioma, oficinaId").eq("id", opts.clienteId).maybeSingle(),
+      admin.from("Workspace").select("nombre").eq("id", opts.workspaceId).maybeSingle(),
+    ]);
+    const c = cli as { nombre: string | null; email: string | null; idioma?: string | null; oficinaId?: string | null } | null;
+    const gestoria = (ws as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
+    const lang = (esLangSoportada(c?.idioma) ? c!.idioma : "es") as Lang;
+    const t = makeT(lang);
+    const nombre = primerNombre(c?.nombre ?? "cliente");
+    const documento = nombreTipoVenc(t, opts.tipoVencimiento);
+    const fecha = fechaEnLengua(opts.fechaCaducidad, lang);
+    const body = fecha ? t("notif.doc.body", { nombre, documento, fecha, gestoria }) : t("notif.doc.bodySinFecha", { nombre, documento, gestoria });
+    const titulo = t("notif.doc.titulo", { documento });
+    const link = `${opts.baseUrl}/c/${opts.espacioToken}?doc=${opts.vencimientoId}`;
+    const { logoDelWorkspace } = await import("@/lib/marca");
+    const html = emailLayout({
+      avatarUrl: await fotoDelOwner(admin, opts.workspaceId), logoUrl: await logoDelWorkspace(admin, opts.workspaceId, c?.oficinaId ?? null),
+      gestoria, titulo, preheader: titulo,
+      cuerpoHtml: `<p style="margin:0">${escapeHtml(body)}</p>`,
+      cta: { url: link, label: t("notif.doc.boton") },
+      footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
+    });
+    const destino = c?.email ?? "";
+    if (!destino) return { enviado: false, motivo: "sin_email" };
+    if (!resendDisponible()) { console.log(`[solicitudDocumento SIMULADO] → ${destino} | ${body} ${link}`); return { enviado: false, motivo: "simulado" }; }
+    const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+    const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: destino, subject: t("notif.doc.subject", { documento, gestoria }), html, text: `${body}\n${link}` });
+    if (error) { console.error("[solicitudDocumento email]", error.message ?? error); return { enviado: false, motivo: "error" }; }
+    return { enviado: true };
+  } catch (e) {
+    console.error("[enviarSolicitudDocumento]", e instanceof Error ? e.message : e);
+    return { enviado: false, motivo: "error" };
+  }
+}
+
+// ── Avisos al DESPACHO (owner), en español ─────────────────────────────────────
+export async function emailDelOwner(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
+  try {
+    const { data } = await admin.from("Membership").select("role, user:User(email)").eq("workspaceId", workspaceId).eq("role", "OWNER").limit(1).maybeSingle();
+    const u = (Array.isArray((data as { user?: unknown } | null)?.user) ? (data as { user: { email?: string }[] }).user[0] : (data as { user?: { email?: string } } | null)?.user) as { email?: string } | undefined;
+    return u?.email ?? null;
+  } catch { return null; }
+}
+
+async function enviarAlDespacho(admin: SupabaseClient, o: { workspaceId: string; titulo: string; cuerpoHtml: string; texto: string; cta: { url: string; label: string } }): Promise<void> {
+  try {
+    const para = await emailDelOwner(admin, o.workspaceId);
+    if (!para || !resendDisponible()) return;
+    const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", o.workspaceId).maybeSingle();
+    const gestoria = (ws as { nombre?: string } | null)?.nombre ?? "Aproba";
+    const from = `"${gestoria.replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
+    const html = emailLayout({ gestoria, titulo: o.titulo, cuerpoHtml: o.cuerpoHtml, cta: o.cta, avatarUrl: await fotoDelOwner(admin, o.workspaceId), preheader: o.titulo });
+    const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to: para, subject: o.titulo, html, text: `${o.texto}\n${o.cta.url}` });
+    if (error) console.error("[aviso despacho]", error.message ?? error);
+  } catch (e) { console.error("[enviarAlDespacho]", e instanceof Error ? e.message : e); }
+}
+
+// El cliente respondió a la propuesta: el gestor lo ve en Vencimientos y, además, en su buzón.
+export async function avisarRespuestaRenovacion(admin: SupabaseClient, o: { workspaceId: string; expedienteId: string; referencia: string; clienteNombre: string; respuesta: "ACEPTADA" | "RECHAZADA"; baseUrl: string }): Promise<void> {
+  const acepta = o.respuesta === "ACEPTADA";
+  await enviarAlDespacho(admin, {
+    workspaceId: o.workspaceId,
+    titulo: acepta ? `${o.clienteNombre} ha aceptado la renovación (${o.referencia})` : `${o.clienteNombre} ha rechazado la renovación (${o.referencia})`,
+    cuerpoHtml: acepta
+      ? `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha aceptado la propuesta de renovación. El expediente <b>${escapeHtml(o.referencia)}</b> ya está en marcha: si el servicio tiene anticipo, la factura se ha emitido y enviado al cliente.</p>`
+      : `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha rechazado la propuesta de renovación. El expediente <b>${escapeHtml(o.referencia)}</b> queda archivado; en Vencimientos puedes proponerla de nuevo más adelante.</p>`,
+    texto: acepta ? `${o.clienteNombre} ha aceptado la renovación (${o.referencia}).` : `${o.clienteNombre} ha rechazado la renovación (${o.referencia}).`,
+    cta: acepta ? { url: `${o.baseUrl}/app/expedientes/${o.expedienteId}`, label: "Ver el expediente" } : { url: `${o.baseUrl}/app/vencimientos`, label: "Ver Vencimientos" },
+  });
+}
+
+// El cliente subió el documento renovado desde su espacio.
+export async function avisarDocumentoRecibido(admin: SupabaseClient, o: { workspaceId: string; clienteId: string; clienteNombre: string; tipoVencimiento: string; reconocido: boolean; fechaNueva: string | null; baseUrl: string }): Promise<void> {
+  const doc = ({ PASAPORTE: "pasaporte", NIE: "certificado de NIE", TIE: "TIE" } as Record<string, string>)[o.tipoVencimiento] ?? o.tipoVencimiento;
+  const fecha = o.fechaNueva ? new Date(o.fechaNueva).toLocaleDateString("es-ES") : null;
+  await enviarAlDespacho(admin, {
+    workspaceId: o.workspaceId,
+    titulo: o.reconocido ? `${o.clienteNombre} ha subido su ${doc} nuevo` : `${o.clienteNombre} ha subido un documento (revísalo)`,
+    cuerpoHtml: o.reconocido
+      ? `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha subido su ${doc} renovado${fecha ? `, válido hasta el <b>${fecha}</b>` : ""}. El vencimiento se ha actualizado solo y el documento está en su ficha.</p>`
+      : `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha subido un documento en respuesta a la petición del ${doc} renovado, pero no parece ser ese documento (o no se ha podido leer). Está guardado en su ficha: revísalo y, si hace falta, vuelve a pedírselo desde Vencimientos.</p>`,
+    texto: o.reconocido ? `${o.clienteNombre} ha subido su ${doc} nuevo${fecha ? ` (caduca el ${fecha})` : ""}.` : `${o.clienteNombre} ha subido un documento que no parece el ${doc} nuevo.`,
+    cta: { url: `${o.baseUrl}/app/clientes/${o.clienteId}`, label: "Ver la ficha del cliente" },
+  });
 }
