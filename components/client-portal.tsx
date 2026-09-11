@@ -71,6 +71,7 @@ export function ClientPortal({
   asignacion = null,
   docsSubidos,
   docsExtra = [],
+  servicioFijado = false,
 }: {
   servicios?: Servicio[];
   packs?: Pack[];
@@ -87,6 +88,9 @@ export function ClientPortal({
   // REPRISE DE SESSION: servicio ya elegido + documentos ya subidos (el migrante que
   // vuelve al enlace NO empieza de cero — retoma en el primer paso incompleto).
   servicioInicial?: string | null;
+  // Renovación ACEPTADA desde una propuesta de Vigía: el trámite lo fijó la gestoría. El
+  // cliente lo ve (nombre + precio) sin poder cambiarlo y pasa a datos y documentos.
+  servicioFijado?: boolean;
   serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   descuento?: Descuento | null;
@@ -95,13 +99,15 @@ export function ClientPortal({
   docsExtra?: string[]; // documentos pedidos a mano por el gestor en este expediente
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
+  // Renovación ACEPTADA (servicioFijado): empieza en el paso 0 para que el cliente VEA el
+  // trámite que fijó su gestoría antes de seguir — no es una sesión interrumpida.
   const [step, setStep] = useState(() => {
-    if (!token || !servicioInicial) return 0;
+    if (!token || !servicioInicial || servicioFijado) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
     const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
     return fichaCompleta ? 2 : (familia ? 0 : 1);
   });
-  const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial));
+  const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial && !servicioFijado));
   const [lang, setLang] = useState<Lang>("es");
   const [tramiteId, setTramiteId] = useState<string | null>(servicioInicial ?? null);
   // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
@@ -756,7 +762,8 @@ export function ClientPortal({
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("s0.hola", { nombre: nombreCliente })}</h1>
-            <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
+            {/* Con el trámite FIJADO (renovación aceptada) la pregunta «¿cuál necesitas?» sobra. */}
+            {!(servicioFijado && tramite) && <p className="mt-2 text-slate-600">{t("s0.intro")}</p>}
             {/* Servicios adicionales puestos por LA GESTORÍA: el precio de las tarjetas
                 subiría «sin explicación» en el pago — se anuncian ANTES de elegir.
                 Solo los del gestor: desde que el cliente elige varios servicios, los
@@ -787,6 +794,29 @@ export function ClientPortal({
                   onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); if (serviciosFijados) { void continuarConTramiteFijado(); } else { setStep(1); } }}
                 />
               </div>
+            ) : servicioFijado && tramite ? (
+              /* ── Renovación aceptada: trámite FIJADO por la gestoría, sin selector. ── */
+              <>
+                <p className="mt-4 rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3 text-sm text-aproba-800">{t("s0.fijado")}</p>
+                <div className="mt-4 rounded-xl border-2 border-aproba-600 bg-white p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <p className="font-semibold text-slate-900">{servicioLabel(tramite.id, tramite.label, lang)}</p>
+                    {!tramite.precioOculto && (() => {
+                      const reb = aplicarDescuento(tarifaAsignada([tramite, ...extrasServicios], asig, nMiembros), 1, descuentoVivo);
+                      const total = r2(totalDe(reb.anticipo) + totalDe(reb.resto)) + (suplidosUnitTotal ?? [tramite, ...extrasServicios].reduce((a, sv) => a + suplidosUnit(sv), 0)) * nMiembros;
+                      return <p className="text-lg font-bold text-slate-900">{eur(total)}</p>;
+                    })()}
+                  </div>
+                  <p className="text-sm text-slate-500">{servicioDesc(tramite.id, tramite.desc, lang)}</p>
+                </div>
+                <button
+                  onClick={confirmarTramite}
+                  disabled={guardandoDatos}
+                  className="mt-4 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
+                >
+                  {t("common.continuar")}
+                </button>
+              </>
             ) : (
             <>
             <div className="mt-6 space-y-3">

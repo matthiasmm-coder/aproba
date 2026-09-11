@@ -1209,10 +1209,11 @@ export async function enviarRecordatorioDocs(
 
 // ── VIGÍA · PROPUESTA de renovación (11/09/2026) ──────────────────────────────
 // La gestoría PROPONE la renovación de un trámite: el cliente lee qué trámite es y cuánto
-// cuesta y decide con dos botones (Aceptar / Rechazar → /j/<token>?r=…, que solo PINTA:
-// los escáneres de enlaces de los buzones corporativos siguen los GET, y una respuesta no
-// puede quedar registrada sin un clic real en la página). Ninguna factura sale antes de
-// que acepte. Mejor esfuerzo: nunca lanza.
+// cuesta y decide con dos botones (Aceptar / Rechazar → /j/<token>?r=…). UN clic en el
+// email basta (decisión Matthias): la página registra la respuesta al abrirse (POST desde
+// el navegador, no en el GET — así un escáner de enlaces que solo sigue la URL no responde
+// por el cliente). Lleva además el contacto del despacho para quien tenga dudas.
+// Ninguna factura sale antes de que acepte. Mejor esfuerzo: nunca lanza.
 type ServicioPropuesta = { id: string; label: string; total: number | null; anticipo: number | null };
 
 const nombreTipoVenc = (t: (k: string, v?: Record<string, string | number>) => string, tipoBruto: string) => {
@@ -1256,13 +1257,21 @@ export async function enviarPropuestaRenovacion(
     if (opts.servicio.anticipo != null) lineas.push(t("notif.renov.anticipo", { importe: fmtEur(opts.servicio.anticipo) }));
     const urlBase = `${opts.baseUrl}/j/${exp.portalToken}`;
     const titulo = t("notif.prop.titulo", { servicio: svNombre });
+    // ¿Dudas? → email/teléfono del despacho (sede del expediente → despacho → owner).
+    const { contactoDelExpediente } = await import("@/lib/marca");
+    const contacto = await contactoDelExpediente(admin, opts.expedienteId);
+    const contactoHtml = contacto.email || contacto.telefono
+      ? `<p style="margin:16px 0 0;font-size:13px;color:#475569">${escapeHtml(t("notif.prop.dudas", { gestoria }))} ` +
+        [contacto.email ? `<a href="mailto:${escapeHtml(contacto.email)}" style="color:#0E8C5F;font-weight:600">${escapeHtml(contacto.email)}</a>` : "", contacto.telefono ? `<a href="tel:${escapeHtml(contacto.telefono.replace(/\s+/g, ""))}" style="color:#0E8C5F;font-weight:600">${escapeHtml(contacto.telefono)}</a>` : ""].filter(Boolean).join(" · ") + `</p>`
+      : "";
+    const contactoTxt = contacto.email || contacto.telefono ? `${t("notif.prop.dudas", { gestoria })} ${[contacto.email, contacto.telefono].filter(Boolean).join(" · ")}` : "";
     const html = emailLayout({
       avatarUrl: await fotoDelExpediente(admin, opts.expedienteId), logoUrl: await logoDelExpediente(admin, opts.expedienteId),
       gestoria, titulo, preheader: titulo,
       cuerpoHtml: `<p style="margin:0">${escapeHtml(body)}</p>` +
         `<p style="margin:14px 0 0;padding:12px 14px;border-radius:10px;background:#f1f5f9;color:#0f172a">${lineas.map(escapeHtml).join("<br>")}</p>` +
         botonesEmail({ url: `${urlBase}?r=aceptar`, label: t("notif.prop.aceptar") }, { url: `${urlBase}?r=rechazar`, label: t("notif.prop.rechazar") }) +
-        `<p style="margin:14px 0 0;font-size:13px;color:#64748b">${escapeHtml(t("notif.prop.nota"))}</p>`,
+        `<p style="margin:14px 0 0;font-size:13px;color:#64748b">${escapeHtml(t("notif.prop.nota"))}</p>` + contactoHtml,
       cta: null,
       footerNota: `Mensaje automático de ${gestoria}. Por favor, no respondas a este correo.`,
     });
@@ -1273,7 +1282,7 @@ export async function enviarPropuestaRenovacion(
       const from = `"${String(gestoria).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from, to: destino, subject: t("notif.prop.subject", { gestoria }), html,
-        text: [body, ...lineas, `${t("notif.prop.aceptar")}: ${urlBase}?r=aceptar`, `${t("notif.prop.rechazar")}: ${urlBase}?r=rechazar`].join("\n"),
+        text: [body, ...lineas, `${t("notif.prop.aceptar")}: ${urlBase}?r=aceptar`, `${t("notif.prop.rechazar")}: ${urlBase}?r=rechazar`, contactoTxt].filter(Boolean).join("\n"),
       });
       estado = error ? "ERROR" : "ENVIADO";
       if (error) console.error("[propuestaRenovacion email]", error.message ?? error);

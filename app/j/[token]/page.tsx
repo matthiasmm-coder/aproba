@@ -4,7 +4,7 @@ import { PropuestaRenovacion, type ServicioPropuesto } from "@/components/propue
 import { importesParaCliente } from "@/lib/renovacion-servicio";
 import { AprobaMark } from "@/components/logo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { logoDelWorkspace, marcaPorPortalToken } from "@/lib/marca";
+import { logoDelWorkspace, marcaPorPortalToken, contactoDelDespacho, type ContactoDespacho } from "@/lib/marca";
 import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
 import type { Metadata } from "next";
 import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
@@ -86,6 +86,10 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   // propuesta con sus dos botones, no el flujo de documentos. Al aceptar, vuelve aquí y
   // encuentra el portal normal.
   let propuesta: { estado: "PROPUESTA" | "RECHAZADA"; tipo: string; fecha: string | null; servicio: ServicioPropuesto | null } | null = null;
+  let contacto: ContactoDespacho | null = null;
+  // Renovación ACEPTADA desde una propuesta: el trámite lo fijó la gestoría — el cliente lo
+  // ve pero no lo cambia, y pasa directo a sus datos y documentos.
+  let servicioFijado = false;
 
   try {
     const admin = createSupabaseAdmin();
@@ -133,10 +137,13 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
         };
       }
       try {
-        const { data: v } = await admin.from("Vencimiento").select("estado, tipo, fecha").eq("expedienteRenovacionId", exp.id).in("estado", ["PROPUESTA", "RECHAZADA"]).limit(1).maybeSingle();
-        if (v) {
+        const { data: v } = await admin.from("Vencimiento").select("estado, tipo, fecha").eq("expedienteRenovacionId", exp.id).in("estado", ["PROPUESTA", "RECHAZADA", "TRAMITANDO"]).limit(1).maybeSingle();
+        if (v && (v.estado === "PROPUESTA" || v.estado === "RECHAZADA")) {
           const sv = servicios.find((x) => x.id === exp.servicioClave) ?? null;
           propuesta = { estado: v.estado as "PROPUESTA" | "RECHAZADA", tipo: String(v.tipo), fecha: (v.fecha as string) ?? null, servicio: sv ? { id: sv.id, label: sv.label, ...importesParaCliente(sv) } : null };
+          contacto = await contactoDelDespacho(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+        } else if (v && v.estado === "TRAMITANDO" && exp.servicioClave) {
+          servicioFijado = true;
         }
       } catch { /* tabla sin migrar → sin propuesta */ }
       // REPRISE: servicio ya elegido (clave guardada, o derivado del tipo — p. ej. una
@@ -230,7 +237,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   }
 
   if (propuesta && portalToken) {
-    return <PropuestaRenovacion token={portalToken} gestoria={gestoria ?? "Tu gestoría"} logoUrl={logoUrl} idioma={clienteIdioma} tipo={propuesta.tipo} fecha={propuesta.fecha} servicio={propuesta.servicio} preseleccion={preseleccion} estado={propuesta.estado} />;
+    return <PropuestaRenovacion token={portalToken} gestoria={gestoria ?? "Tu gestoría"} logoUrl={logoUrl} idioma={clienteIdioma} tipo={propuesta.tipo} fecha={propuesta.fecha} servicio={propuesta.servicio} preseleccion={preseleccion} estado={propuesta.estado} contacto={contacto} />;
   }
 
   // Lien initial déjà utilisé jusqu'au bout → on ne rejoue pas l'onboarding.
@@ -258,6 +265,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       asignacion={asignacionExp}
       docsSubidos={docsSubidos}
       docsExtra={docsExtraExp}
+      servicioFijado={servicioFijado}
     />
   );
 }
