@@ -120,7 +120,7 @@ function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCre
         )}
 
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
-          {t("Se enviará la propuesta a {nombre} con el trámite y el precio; podrá aceptarla o rechazarla. No se emite ninguna factura hasta que acepte.").replace("{nombre}", v.clienteNombre)}
+          {t("Se enviará la propuesta a {nombre} con el trámite y el precio; podrá aceptarla o rechazarla. La factura del anticipo se emitirá cuando complete su expediente, como siempre.").replace("{nombre}", v.clienteNombre)}
           {adoptaEn ? " " + t("El cliente no tiene oficina: se asignará a «{oficina}».").replace("{oficina}", adoptaEn) : ""}
         </p>
 
@@ -308,7 +308,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       {creado && (
         <p className="mt-3 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-700">
           {creado.modo === "propuesta" ? (
-            <>✓ {t("Propuesta enviada")} — {creado.expedienteId && <Link href={`/app/expedientes/${creado.expedienteId}`} className="font-semibold underline">{creado.referencia || t("ver expediente")}</Link>}. {t("Verás aquí si el cliente acepta o rechaza. No se emite ninguna factura hasta que acepte.")}</>
+            <>✓ {t("Propuesta enviada")} — {creado.expedienteId && <Link href={`/app/expedientes/${creado.expedienteId}`} className="font-semibold underline">{creado.referencia || t("ver expediente")}</Link>}. {t("Verás aquí si el cliente acepta o rechaza. La factura del anticipo se emitirá cuando complete su expediente, como siempre.")}</>
           ) : (
             <>✓ {t("Documento pedido al cliente")}. {t("Cuando lo suba, la fecha se actualizará sola y lo verás aquí.")}</>
           )}

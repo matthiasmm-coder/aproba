@@ -1371,7 +1371,7 @@ export async function avisarRespuestaRenovacion(admin: SupabaseClient, o: { work
     workspaceId: o.workspaceId,
     titulo: acepta ? `${o.clienteNombre} ha aceptado la renovación (${o.referencia})` : `${o.clienteNombre} ha rechazado la renovación (${o.referencia})`,
     cuerpoHtml: acepta
-      ? `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha aceptado la propuesta de renovación. El expediente <b>${escapeHtml(o.referencia)}</b> ya está en marcha: si el servicio tiene anticipo, la factura se ha emitido y enviado al cliente.</p>`
+      ? `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha aceptado la propuesta de renovación. El expediente <b>${escapeHtml(o.referencia)}</b> ya está en marcha: el cliente pasa ahora a revisar sus datos y subir sus documentos. La factura del anticipo se emitirá cuando complete su expediente, como en cualquier trámite.</p>`
       : `<p style="margin:0">${escapeHtml(o.clienteNombre)} ha rechazado la propuesta de renovación. El expediente <b>${escapeHtml(o.referencia)}</b> queda archivado; en Vencimientos puedes proponerla de nuevo más adelante.</p>`,
     texto: acepta ? `${o.clienteNombre} ha aceptado la renovación (${o.referencia}).` : `${o.clienteNombre} ha rechazado la renovación (${o.referencia}).`,
     cta: acepta ? { url: `${o.baseUrl}/app/expedientes/${o.expedienteId}`, label: "Ver el expediente" } : { url: `${o.baseUrl}/app/vencimientos`, label: "Ver Vencimientos" },

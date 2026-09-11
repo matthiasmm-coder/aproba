@@ -9,9 +9,10 @@ const uuid = () => crypto.randomUUID();
 
 // PORTAL — respuesta del cliente a la PROPUESTA de renovación (11/09/2026).
 // Autorización = el portalToken del expediente de renovación (misma familia que /j).
-//  · ACEPTADA → el vencimiento pasa a TRAMITANDO, se cobra el overage si procede y se
-//    emite la factura de anticipo por la ruta de siempre (/api/pagos con token, idempotente
-//    por expediente+momento, que además envía la solicitud de pago al cliente).
+//  · ACEPTADA → el vencimiento pasa a TRAMITANDO y se cobra el overage si procede. NADA
+//    más: la factura de anticipo la emite el portal cuando el cliente llega al paso de
+//    pago, tras sus datos y documentos — como en cualquier expediente (Matthias, 12/09:
+//    al aceptar llegaban «tu factura está lista» y «faltan documentos» antes de empezar).
 //  · RECHAZADA → el vencimiento queda RECHAZADA, el expediente se archiva (fuera del tablero)
 //    y se desenlaza, para que el gestor pueda proponer de nuevo más adelante.
 // En ambos casos el gestor lo ve en Vencimientos y recibe un email.
@@ -46,12 +47,6 @@ export async function POST(req: Request) {
     // La renovación es ya un expediente de verdad: cuenta para la cuota mensual.
     await cobrarOverageSiProcede(admin, { workspaceId, expedienteId: exp.id as string, referencia: String(exp.referencia) });
     after(async () => {
-      // Factura de anticipo por la ruta auditada (idempotente por expediente+momento; envía la
-      // solicitud de pago). Sin tarifa → 400 «no tiene pago configurado»: no pasa nada.
-      try {
-        const r = await fetch(`${baseUrl}/api/pagos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, momento: "ANTICIPO" }) });
-        if (!r.ok) { const d = await r.json().catch(() => ({})); if (!/no tiene pago configurado/i.test(String(d.error ?? ""))) console.error("[renovacion aceptada] anticipo:", d.error ?? r.status); }
-      } catch (e) { console.error("[renovacion aceptada] anticipo:", e instanceof Error ? e.message : e); }
       await avisarRespuestaRenovacion(admin, { workspaceId, expedienteId: exp.id as string, referencia: String(exp.referencia), clienteNombre, respuesta: "ACEPTADA", baseUrl });
     });
     return NextResponse.json({ ok: true, respuesta: "ACEPTADA" });
