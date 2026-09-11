@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { esVencimientoDeServicio } from "@/lib/renovacion-servicio";
+import { esDocumentoPropio } from "@/lib/renovacion-servicio";
 
 // VIGÍA — data layer de la pantalla Vencimientos. Lectura BAJO SESIÓN (RLS):
 // el tenant lo filtra la policy venc_tenant, no el código. Repli propre: si la
@@ -13,7 +13,7 @@ export type VencimientoRow = {
   fecha: string; // ISO
   dias: number; // días hasta caducar (negativo = ya caducó)
   estado: string; // PENDIENTE | AVISADO | PROPUESTA | TRAMITANDO | RECHAZADA | SOLICITADO | HECHO
-  esServicio: boolean; // TIE: se propone un trámite · pasaporte/NIE: se pide el documento nuevo
+  documentoPropio: boolean; // pasaporte/NIE: el cliente podría renovarlo solo → opción secundaria «pedir solo el documento»
   clienteSinSede: boolean; // «Proponer renovación» debe pedir oficina (adopción del cliente)
   renovacion: { id: string; referencia: string } | null; // expediente de renovación (propuesto o en marcha)
   propuestaAt: string | null;
@@ -69,7 +69,7 @@ export async function fetchVencimientos(sedes?: string[] | null, incluirSinSede 
         dias: Math.ceil((new Date(v.fecha).getTime() - ahora) / 864e5),
         clienteSinSede: !c?.oficinaId,
         estado,
-        esServicio: esVencimientoDeServicio(v.tipo),
+        documentoPropio: esDocumentoPropio(v.tipo),
         renovacion,
         propuestaAt: v.propuestaAt ?? null,
         respuestaCliente: v.respuestaCliente === "ACEPTADA" || v.respuestaCliente === "RECHAZADA" ? v.respuestaCliente : null,

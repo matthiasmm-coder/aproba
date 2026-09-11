@@ -3,16 +3,16 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { asegurarEspacioToken } from "@/lib/espacio";
 import { enviarSolicitudDocumento } from "@/lib/notificaciones";
-import { esVencimientoDeServicio } from "@/lib/renovacion-servicio";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
 export const runtime = "nodejs";
 
-// VIGÍA — «Pedir el documento nuevo» (11/09/2026): un vencimiento de DOCUMENTO (pasaporte,
-// certificado de NIE…) no es un trámite del despacho: no hay servicio, ni expediente, ni
-// factura. Se pide al cliente el documento renovado (email + su espacio /c) y el
-// vencimiento queda SOLICITADO; cuando lo suba con una fecha posterior, sembrarVencimiento
-// lo devuelve a PENDIENTE con la fecha nueva y anota recibidoAt.
+// VIGÍA — «Pedir solo el documento nuevo» (camino SECUNDARIO del diálogo de renovación,
+// 11/09/2026): el despacho NO va a tramitar la renovación (p. ej. el cliente renueva su
+// pasaporte por su cuenta) y solo quiere el documento nuevo cuando lo tenga. Sin
+// servicio, sin expediente, sin factura: email + su espacio /c; el vencimiento queda
+// SOLICITADO y, cuando suba el documento con fecha posterior, vuelve a PENDIENTE con la
+// fecha nueva (recibidoAt).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supa = await createSupabaseServer();
@@ -22,9 +22,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: venc, error: eV } = await supa.from("Vencimiento").select("id, workspaceId, clienteId, fecha, tipo, estado").eq("id", id).maybeSingle();
   if (eV) return NextResponse.json({ error: eV.message }, { status: 500 });
   if (!venc) return NextResponse.json({ error: "Vencimiento no encontrado." }, { status: 404 });
-  if (esVencimientoDeServicio(String(venc.tipo))) {
-    return NextResponse.json({ error: "Este vencimiento es un trámite del despacho: propón la renovación.", esServicio: true }, { status: 400 });
-  }
   if (venc.estado === "HECHO") return NextResponse.json({ error: "Este vencimiento ya está cerrado." }, { status: 409 });
 
   const admin = createSupabaseAdmin();

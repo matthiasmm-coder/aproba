@@ -27,30 +27,45 @@ const PALABRAS_POR_TIPO: Record<string, RegExp> = {
 
 export const serviciosElegibles = <S extends ServicioRenovable>(catalogo: S[]): S[] => catalogo.filter((s) => s.active);
 
-// Mejor servicio ACTIVO para renovar `tipo`, o null si el catálogo no tiene ninguno
-// que encaje — en ese caso el gestor debe elegir a mano, nunca se adivina.
-export function sugerirServicioRenovacion(tipo: string | null | undefined, catalogo: ServicioRenovable[]): string | null {
+// Mejor servicio ACTIVO para renovar `tipo`, con su grado de certeza:
+//  · "seguro": correspondencia del catálogo por defecto (TIE → Renovación de TIE) → la
+//    propuesta sale sola, sin diálogo.
+//  · "probable": un servicio PROPIO del gestor cuyo nombre encaja (p. ej. «Renovación de
+//    pasaporte») → se preselecciona, pero el gestor lo VALIDA antes de enviar.
+//  · null: nada encaja → el gestor elige o crea el servicio en el diálogo.
+export type Sugerencia = { id: string; certeza: "seguro" | "probable" } | null;
+export function sugerirServicioRenovacion(tipo: string | null | undefined, catalogo: ServicioRenovable[]): Sugerencia {
   const t = String(tipo ?? "").toUpperCase();
   const activos = serviciosElegibles(catalogo);
-  for (const id of CANDIDATOS_POR_TIPO[t] ?? []) if (activos.some((s) => s.id === id)) return id;
+  for (const id of CANDIDATOS_POR_TIPO[t] ?? []) if (activos.some((s) => s.id === id)) return { id, certeza: "seguro" };
   const re = PALABRAS_POR_TIPO[t];
   if (re) {
     const propio = activos.find((s) => s.id.startsWith("srv_") && re.test(s.label));
-    if (propio) return propio.id;
+    if (propio) return { id: propio.id, certeza: "probable" };
   }
   return null;
 }
 
+// Nombre por defecto del servicio que el gestor puede CREAR desde el diálogo cuando el
+// catálogo no tiene nada para este vencimiento (queda guardado para la próxima vez).
+export const NOMBRE_SERVICIO_NUEVO: Record<string, string> = {
+  TIE: "Renovación de TIE",
+  RENOVACION: "Renovación de TIE",
+  PASAPORTE: "Renovación de pasaporte",
+  NIE: "Renovación del certificado de NIE",
+};
+
 // Nombre legible del tipo de vencimiento para el gestor (la lista lo enseña tal cual).
 export const TIPO_VENCIMIENTO_LABEL: Record<string, string> = { TIE: "TIE", PASAPORTE: "Pasaporte", NIE: "NIE", RENOVACION: "Renovación" };
 
-// ── Dos naturalezas de vencimiento (Matthias, 11/09/2026) ─────────────────────
-// SERVICIO: lo que caduca es una autorización que el despacho renueva como trámite
-// (TIE). Se PROPONE al cliente (expediente + precio, sin factura hasta que acepte).
-// DOCUMENTO: lo que caduca es un papel que el cliente renueva por su cuenta (pasaporte,
-// certificado de NIE). No hay servicio ni expediente: se le PIDE el documento nuevo.
-const TIPOS_SERVICIO = new Set(["TIE", "RENOVACION"]);
-export const esVencimientoDeServicio = (tipo: string | null | undefined): boolean => TIPOS_SERVICIO.has(String(tipo ?? "").toUpperCase());
+// ── Todo vencimiento se PROPONE como trámite (Matthias, 11/09/2026, 2.ª vuelta) ──
+// Un pasaporte caducado también es un trámite que el despacho ofrece (renovación en el
+// consulado): la única diferencia es que el servicio no está en el catálogo por defecto,
+// así que el gestor lo valida —o lo crea— en el diálogo. «Pedir solo el documento nuevo»
+// queda como camino SECUNDARIO en ese diálogo, para los tipos que el cliente puede
+// renovar por su cuenta (pasaporte, certificado de NIE), nunca para el TIE.
+const TIPOS_DOCUMENTO_PROPIO = new Set(["PASAPORTE", "NIE"]);
+export const esDocumentoPropio = (tipo: string | null | undefined): boolean => TIPOS_DOCUMENTO_PROPIO.has(String(tipo ?? "").toUpperCase());
 
 // Estados del vencimiento (texto en base, ver supabase/vigia-propuesta.sql).
 export const ESTADOS_ABIERTOS = ["PENDIENTE", "AVISADO", "PROPUESTA", "TRAMITANDO", "RECHAZADA", "SOLICITADO"] as const;

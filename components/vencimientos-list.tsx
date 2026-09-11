@@ -11,34 +11,43 @@ import { contextoDeTrabajoBrowser } from "@/lib/oficinas-browser";
 import { eur } from "@/lib/facturas";
 import { TIPO_VENCIMIENTO_LABEL } from "@/lib/renovacion-servicio";
 
-// VIGÍA — lista agrupada de vencimientos (11/09/2026, dos naturalezas):
-//  · SERVICIO (TIE): «Proponer renovación» = un clic → POST …/renovar resuelve el servicio
-//    solo (sugerencia por tipo); solo si NINGUNO encaja (400 requiereServicio) se abre el
-//    diálogo para elegirlo. El cliente recibe la propuesta con precio y responde con dos
-//    botones; NINGUNA factura sale hasta que acepte (la emite /api/portal/renovacion).
-//    Su respuesta se ve aquí: propuesta enviada / aceptada / rechazada.
-//  · DOCUMENTO (pasaporte, NIE): «Pedir el documento nuevo» → POST …/solicitar-documento;
-//    sin servicio, sin expediente, sin factura. Cuando lo suba, la fecha se actualiza sola.
+// VIGÍA — lista agrupada de vencimientos (11/09/2026). Una sola acción para todos:
+// «Proponer renovación» → POST …/renovar. Si el servicio se resuelve con certeza (TIE →
+// Renovación de TIE) la propuesta sale sola; si no (pasaporte, NIE, servicio propio que
+// encaja por nombre) llega 400 requiereServicio y se abre el diálogo: el gestor VALIDA,
+// elige o CREA el servicio (nombre + anticipo/resto) y entonces se envía. El cliente
+// recibe la propuesta con precio y responde con dos botones; NINGUNA factura sale hasta
+// que acepte. Su respuesta se ve aquí: propuesta enviada / aceptada / rechazada.
+// Camino secundario, solo en el diálogo y solo para pasaporte/NIE: «pedir solo el
+// documento nuevo» (el despacho no tramita, el cliente lo renueva por su cuenta).
 
 type Grupo = { key: string; titulo: string; tono: string; items: VencimientoRow[] };
 
 type ServicioOpcion = { id: string; label: string; precioOculto: boolean; total: number | null; anticipo: number | null };
-type Propuesta = { tipo: string; fecha: string; clienteNombre: string; sugerido: string | null; servicios: ServicioOpcion[] };
+type Propuesta = { tipo: string; fecha: string; clienteNombre: string; sugerido: string | null; certeza: "seguro" | "probable" | null; nombreNuevo: string; servicios: ServicioOpcion[] };
+type NuevoServicio = { label: string; anticipo: number; resto: number };
+const NUEVO = "__nuevo__";
 
 // Diálogo «Iniciar renovación»: el gestor ve QUÉ trámite se va a abrir y a qué precio,
 // y lo cambia si la sugerencia no es la buena. Sin servicio elegido no hay botón:
 // antes un pasaporte caducado abría una «Renovación de TIE» y, sin ese servicio, el
 // cliente recibía un aviso de renovación sin saber de qué (11/09/2026).
-function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCerrar }: {
+function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCrear, onSoloDocumento, onCerrar }: {
   v: VencimientoRow; propuesta: Propuesta | null; cargando: boolean; adoptaEn: string | null;
-  onConfirmar: (servicioClave: string) => void; onCerrar: () => void;
+  onConfirmar: (servicioClave: string) => void; onCrear: (nuevo: NuevoServicio) => void; onSoloDocumento: () => void; onCerrar: () => void;
 }) {
   const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const [clave, setClave] = useState<string>("");
+  const [nuevo, setNuevo] = useState<{ label: string; anticipo: string; resto: string }>({ label: "", anticipo: "", resto: "" });
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
-  useEffect(() => { if (propuesta) setClave(propuesta.sugerido ?? ""); }, [propuesta]);
+  // Sin sugerencia: se abre directamente en «crear servicio» con el nombre propuesto — el
+  // caso típico del pasaporte la primera vez (el gestor puede cambiar a uno existente).
+  useEffect(() => { if (propuesta) { setClave(propuesta.sugerido ?? NUEVO); setNuevo((n) => ({ ...n, label: n.label || propuesta.nombreNuevo })); } }, [propuesta]);
   const elegido = propuesta?.servicios.find((s) => s.id === clave) ?? null;
+  const creando = clave === NUEVO;
+  const nuevoOk = creando && nuevo.label.trim().length > 0;
+  const nuevoImportes = creando ? (() => { const a = Number(nuevo.anticipo) || 0, r = Number(nuevo.resto) || 0; const tot = Math.round((a * 1.21 + r * 1.21) * 100) / 100; return tot > 0 ? { total: tot, anticipo: a > 0 && r > 0 ? Math.round(a * 1.21 * 100) / 100 : null } : null; })() : null;
   const cerrar = () => { ref.current?.close(); onCerrar(); };
   return (
     <dialog
@@ -56,10 +65,6 @@ function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCer
 
         {cargando || !propuesta ? (
           <p className="mt-4 text-sm text-slate-500">{t("Cargando servicios…")}</p>
-        ) : propuesta.servicios.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {t("No tienes ningún servicio activo. Configura uno en Ajustes › Servicios antes de iniciar la renovación.")}
-          </p>
         ) : (
           <>
             <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="renov-servicio">{t("Servicio de la renovación")}</label>
@@ -73,17 +78,42 @@ function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCer
               {propuesta.servicios.map((s) => (
                 <option key={s.id} value={s.id}>{s.label}{s.precioOculto ? ` · ${t("precio a consultar")}` : s.total != null ? ` · ${eur(s.total)}` : ""}</option>
               ))}
+              <option value={NUEVO}>{t("+ Crear un servicio nuevo…")}</option>
             </select>
-            {!propuesta.sugerido && (
-              <p className="mt-1.5 text-xs text-amber-700">{t("Ningún servicio del catálogo corresponde a este vencimiento: elige el que vas a tramitar.")}</p>
+            {propuesta.certeza === "probable" && elegido && (
+              <p className="mt-1.5 text-xs text-slate-500">{t("Sugerido por su nombre: confirma que es el trámite correcto.")}</p>
             )}
-            {elegido && (
+            {!propuesta.sugerido && !creando && (
+              <p className="mt-1.5 text-xs text-amber-700">{t("Ningún servicio del catálogo corresponde a este vencimiento: elige el que vas a tramitar o crea uno.")}</p>
+            )}
+            {creando && (
+              <div className="mt-3 space-y-2 rounded-lg border border-aproba-200 bg-aproba-50/50 p-3">
+                <p className="text-xs text-slate-600">{t("Se guardará en tu catálogo (Ajustes › Servicios): la próxima vez saldrá solo.")}</p>
+                <input value={nuevo.label} onChange={(e) => setNuevo({ ...nuevo, label: e.target.value })} placeholder={t("Nombre del servicio")} maxLength={80}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-800 outline-none focus:border-aproba-600" />
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs text-slate-500">{t("Anticipo (€ sin IVA)")}
+                    <input type="number" min="0" step="0.01" inputMode="decimal" value={nuevo.anticipo} onChange={(e) => setNuevo({ ...nuevo, anticipo: e.target.value })} placeholder="0"
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-800 outline-none focus:border-aproba-600" />
+                  </label>
+                  <label className="text-xs text-slate-500">{t("Resto al finalizar (€ sin IVA)")}
+                    <input type="number" min="0" step="0.01" inputMode="decimal" value={nuevo.resto} onChange={(e) => setNuevo({ ...nuevo, resto: e.target.value })} placeholder="0"
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-800 outline-none focus:border-aproba-600" />
+                  </label>
+                </div>
+              </div>
+            )}
+            {(elegido || creando) && (
               <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {elegido.precioOculto
-                  ? t("Precio a consultar: el cliente no verá importes.")
-                  : elegido.total != null
-                    ? <>{t("El cliente verá")} <strong>{eur(elegido.total)}</strong> {t("(IVA incluido)")}{elegido.anticipo != null ? <> · {t("anticipo")} <strong>{eur(elegido.anticipo)}</strong></> : null}.</>
-                    : t("Este servicio no tiene tarifa: el cliente no verá importes.")}
+                {creando
+                  ? (nuevoImportes
+                      ? <>{t("El cliente verá")} <strong>{eur(nuevoImportes.total)}</strong> {t("(IVA incluido)")}{nuevoImportes.anticipo != null ? <> · {t("anticipo")} <strong>{eur(nuevoImportes.anticipo)}</strong></> : null}.</>
+                      : t("Este servicio no tiene tarifa: el cliente no verá importes."))
+                  : elegido!.precioOculto
+                    ? t("Precio a consultar: el cliente no verá importes.")
+                    : elegido!.total != null
+                      ? <>{t("El cliente verá")} <strong>{eur(elegido!.total)}</strong> {t("(IVA incluido)")}{elegido!.anticipo != null ? <> · {t("anticipo")} <strong>{eur(elegido!.anticipo)}</strong></> : null}.</>
+                      : t("Este servicio no tiene tarifa: el cliente no verá importes.")}
               </p>
             )}
           </>
@@ -98,13 +128,20 @@ function RenovacionDialog({ v, propuesta, cargando, adoptaEn, onConfirmar, onCer
           <button type="button" onClick={cerrar} className="min-h-[44px] rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-400">{t("Cancelar")}</button>
           <button
             type="button"
-            disabled={!elegido}
-            onClick={() => elegido && onConfirmar(elegido.id)}
+            disabled={!(elegido || nuevoOk)}
+            onClick={() => { if (creando) { if (nuevoOk) onCrear({ label: nuevo.label.trim(), anticipo: Number(nuevo.anticipo) || 0, resto: Number(nuevo.resto) || 0 }); } else if (elegido) onConfirmar(elegido.id); }}
             className="min-h-[44px] rounded-lg bg-aproba-600 px-4 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
           >
-            {t("Enviar la propuesta")}
+            {creando ? t("Crear y enviar la propuesta") : t("Enviar la propuesta")}
           </button>
         </div>
+        {/* Camino secundario: el despacho NO tramita (el cliente renueva su pasaporte por su cuenta). */}
+        {v.documentoPropio && (
+          <p className="mt-4 border-t border-slate-100 pt-3 text-center text-xs text-slate-500">
+            {t("¿El despacho no va a tramitarlo?")}{" "}
+            <button type="button" onClick={onSoloDocumento} className="font-semibold text-aproba-700 underline">{t("Pedir solo el documento nuevo")}</button>
+          </p>
+        )}
       </div>
     </dialog>
   );
@@ -161,7 +198,7 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   }
 
   // SERVICIO: proponer la renovación. Un clic; el diálogo solo aparece si ningún servicio encaja.
-  async function proponer(v: VencimientoRow, servicioClave?: string) {
+  async function proponer(v: VencimientoRow, servicioClave?: string, nuevoServicio?: NuevoServicio) {
     if (sinSedeDesdeTodas(v)) { await avisarSede(v); return; }
     const adopta = v.clienteSinSede && sedeCtx.multi && sedeCtx.activa;
     setDialogo(null);
@@ -171,10 +208,10 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       const res = await fetch(`/api/vencimientos/${v.id}/renovar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...(servicioClave ? { servicioClave } : {}), ...(adopta ? { oficinaId: sedeCtx.activa } : {}) }),
+        body: JSON.stringify({ ...(servicioClave ? { servicioClave } : {}), ...(nuevoServicio ? { nuevoServicio } : {}), ...(adopta ? { oficinaId: sedeCtx.activa } : {}) }),
       });
       const d = await res.json().catch(() => ({}));
-      if (res.status === 400 && d.requiereServicio && !servicioClave) {
+      if (res.status === 400 && d.requiereServicio && !servicioClave && !nuevoServicio) {
         // Ningún servicio del catálogo corresponde: que el gestor elija (GET = servicios + sugerencia).
         setLanzando(null);
         setDialogo({ v, propuesta: null, cargando: true });
@@ -263,6 +300,8 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
           cargando={dialogo.cargando}
           adoptaEn={dialogo.v.clienteSinSede && sedeCtx.multi && sedeCtx.activa ? (sedeCtx.nombreActiva ?? "") : null}
           onConfirmar={(clave) => proponer(dialogo.v, clave)}
+          onCrear={(nuevo) => proponer(dialogo.v, undefined, nuevo)}
+          onSoloDocumento={() => { const v = dialogo.v; setDialogo(null); pedirDocumento(v); }}
           onCerrar={() => setDialogo(null)}
         />
       )}
@@ -318,11 +357,11 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
                           {v.estado === "RECHAZADA" && <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">{t("Rechazada por el cliente")}{v.respondidoAt ? ` · ${fmtFechaCorta(v.respondidoAt)}` : ""}</span>}
                           {v.recibidoAt && v.estado === "PENDIENTE" && <span className="rounded-full bg-aproba-100 px-2.5 py-1 text-xs font-semibold text-aproba-700">{t("Documento nuevo recibido")} · {fmtFechaCorta(v.recibidoAt)}</span>}
                           <button
-                            onClick={() => (v.esServicio ? proponer(v) : pedirDocumento(v))}
+                            onClick={() => proponer(v)}
                             disabled={lanzando === v.id}
                             className="min-h-[40px] rounded-lg bg-aproba-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-300"
                           >
-                            {lanzando === v.id ? t("Enviando…") : v.esServicio ? (v.estado === "RECHAZADA" ? t("Proponer de nuevo") : t("Proponer renovación")) : t("Pedir el documento nuevo")}
+                            {lanzando === v.id ? t("Enviando…") : v.estado === "RECHAZADA" ? t("Proponer de nuevo") : t("Proponer renovación")}
                           </button>
                         </>
                       )}

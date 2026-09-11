@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sugerirServicioRenovacion, serviciosElegibles, esVencimientoDeServicio, importesParaCliente } from "./renovacion-servicio";
+import { sugerirServicioRenovacion, serviciosElegibles, esDocumentoPropio, importesParaCliente, NOMBRE_SERVICIO_NUEVO } from "./renovacion-servicio";
 
 // Vigía (11/09/2026): «Iniciar renovación» clavaba «renovacion_tie» para cualquier
 // vencimiento y, sin ese servicio, creaba una renovación sin trámite ni precio.
@@ -7,20 +7,20 @@ const cat = (over: Partial<{ id: string; label: string; active: boolean }>[]) =>
   over.map((o, i) => ({ id: o.id ?? `srv_${i}`, label: o.label ?? "", active: o.active ?? true }));
 
 describe("sugerirServicioRenovacion", () => {
-  it("TIE → Renovación de TIE si está activa", () => {
-    expect(sugerirServicioRenovacion("TIE", cat([{ id: "renovacion_tie" }, { id: "nie" }]))).toBe("renovacion_tie");
+  it("TIE → Renovación de TIE si está activa, con certeza (sale sola)", () => {
+    expect(sugerirServicioRenovacion("TIE", cat([{ id: "renovacion_tie" }, { id: "nie" }]))).toEqual({ id: "renovacion_tie", certeza: "seguro" });
   });
   it("TIE sin renovacion_tie → larga duración como segunda opción", () => {
-    expect(sugerirServicioRenovacion("TIE", cat([{ id: "renovacion_tie", active: false }, { id: "larga_duracion" }]))).toBe("larga_duracion");
+    expect(sugerirServicioRenovacion("TIE", cat([{ id: "renovacion_tie", active: false }, { id: "larga_duracion" }]))).toEqual({ id: "larga_duracion", certeza: "seguro" });
   });
   it("un PASAPORTE nunca cae en Renovación de TIE", () => {
     expect(sugerirServicioRenovacion("PASAPORTE", cat([{ id: "renovacion_tie" }, { id: "arraigo_social" }]))).toBeNull();
   });
-  it("PASAPORTE → servicio propio del gestor que lo nombra", () => {
-    expect(sugerirServicioRenovacion("PASAPORTE", cat([{ id: "renovacion_tie" }, { id: "srv_ab12", label: "Renovación de pasaporte" }]))).toBe("srv_ab12");
+  it("PASAPORTE → servicio propio que lo nombra, pero solo «probable» (el gestor valida)", () => {
+    expect(sugerirServicioRenovacion("PASAPORTE", cat([{ id: "renovacion_tie" }, { id: "srv_ab12", label: "Renovación de pasaporte" }]))).toEqual({ id: "srv_ab12", certeza: "probable" });
   });
   it("NIE → servicio nie", () => {
-    expect(sugerirServicioRenovacion("NIE", cat([{ id: "nie" }]))).toBe("nie");
+    expect(sugerirServicioRenovacion("NIE", cat([{ id: "nie" }]))).toEqual({ id: "nie", certeza: "seguro" });
   });
   it("servicio desactivado no cuenta; catálogo vacío → null (el gestor elige)", () => {
     expect(sugerirServicioRenovacion("TIE", cat([{ id: "renovacion_tie", active: false }]))).toBeNull();
@@ -35,17 +35,21 @@ describe("sugerirServicioRenovacion", () => {
   });
 });
 
-// Dos naturalezas (11/09/2026): un TIE se PROPONE como trámite; un pasaporte se PIDE como documento.
-describe("esVencimientoDeServicio", () => {
-  it("TIE y RENOVACION son trámites del despacho", () => {
-    expect(esVencimientoDeServicio("TIE")).toBe(true);
-    expect(esVencimientoDeServicio("RENOVACION")).toBe(true);
-    expect(esVencimientoDeServicio("tie")).toBe(true);
+// Todo vencimiento se propone como trámite; «pedir solo el documento» es secundario y solo
+// tiene sentido para lo que el cliente puede renovar por su cuenta.
+describe("esDocumentoPropio", () => {
+  it("pasaporte y certificado de NIE: el cliente puede renovarlos solo", () => {
+    expect(esDocumentoPropio("PASAPORTE")).toBe(true);
+    expect(esDocumentoPropio("nie")).toBe(true);
   });
-  it("PASAPORTE y NIE son documentos que renueva el cliente", () => {
-    expect(esVencimientoDeServicio("PASAPORTE")).toBe(false);
-    expect(esVencimientoDeServicio("NIE")).toBe(false);
-    expect(esVencimientoDeServicio(null)).toBe(false);
+  it("el TIE nunca: solo se obtiene con el trámite", () => {
+    expect(esDocumentoPropio("TIE")).toBe(false);
+    expect(esDocumentoPropio("RENOVACION")).toBe(false);
+    expect(esDocumentoPropio(null)).toBe(false);
+  });
+  it("hay un nombre por defecto para crear el servicio que falta", () => {
+    expect(NOMBRE_SERVICIO_NUEVO.PASAPORTE).toBe("Renovación de pasaporte");
+    expect(NOMBRE_SERVICIO_NUEVO.TIE).toBe("Renovación de TIE");
   });
 });
 

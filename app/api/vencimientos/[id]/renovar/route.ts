@@ -5,19 +5,21 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { oficinaDelCliente, contextoDeCreacion, sedeElegible } from "@/lib/oficinas-server";
 import { enviarPropuestaRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
-import { sugerirServicioRenovacion, serviciosElegibles, esVencimientoDeServicio, importesParaCliente, ESTADOS_EN_VUELO } from "@/lib/renovacion-servicio";
+import { sugerirServicioRenovacion, serviciosElegibles, importesParaCliente, ESTADOS_EN_VUELO, NOMBRE_SERVICIO_NUEVO } from "@/lib/renovacion-servicio";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
 
-// VIGÍA — «Proponer renovación» (11/09/2026): a partir de un vencimiento de SERVICIO
-// (TIE), crea el expediente de renovación con el servicio del catálogo (sugerido por
-// tipo o elegido por el gestor si ninguno encaja), marca el vencimiento PROPUESTA y
-// envía al cliente la propuesta con el trámite, el precio y dos botones (aceptar /
-// rechazar). NO se emite ninguna factura ni se cobra overage hasta que el cliente
-// acepte (app/api/portal/renovacion). Un vencimiento de DOCUMENTO (pasaporte, NIE) no
-// pasa por aquí: se pide el documento nuevo (…/solicitar-documento).
-// GET devuelve lo que el diálogo necesita cuando hay que elegir: servicios + sugerencia.
+// VIGÍA — «Proponer renovación» (11/09/2026): a partir de CUALQUIER vencimiento (TIE,
+// pasaporte, NIE…), crea el expediente de renovación con un servicio del catálogo,
+// marca el vencimiento PROPUESTA y envía al cliente la propuesta con el trámite, el
+// precio y dos botones (aceptar / rechazar). NO se emite ninguna factura ni se cobra
+// overage hasta que el cliente acepte (app/api/portal/renovacion).
+// El servicio: sugerencia «segura» del catálogo por defecto (TIE → Renovación de TIE)
+// → sale sola; sugerencia «probable» (servicio propio que encaja por nombre) o ninguna
+// → 400 requiereServicio y el gestor VALIDA, elige o CREA el servicio en el diálogo
+// (body.servicioClave, o body.nuevoServicio {label, anticipo, resto} → ServicioConfig).
+// GET devuelve lo que el diálogo necesita: servicios, sugerencia y nombre propuesto.
 //
 // Autorización: el vencimiento se resuelve BAJO SESIÓN (RLS) — si el usuario no es
 // miembro del workspace, no existe (anti-IDOR). Solo después se usa el admin.
@@ -47,10 +49,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const { servicios } = await catalogoDelCliente(admin, String(venc.workspaceId), String(venc.clienteId));
   const { data: cli } = await admin.from("Cliente").select("nombre, apellidos").eq("id", String(venc.clienteId)).maybeSingle();
+  const sug = sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
   return NextResponse.json({
     tipo: venc.tipo, fecha: venc.fecha,
     clienteNombre: [cli?.nombre, cli?.apellidos].filter(Boolean).join(" "),
-    sugerido: sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios),
+    sugerido: sug?.id ?? null,
+    certeza: sug?.certeza ?? null,
+    nombreNuevo: NOMBRE_SERVICIO_NUEVO[String(venc.tipo ?? "").toUpperCase()] ?? "Renovación",
     servicios: servicios.map((s) => ({ id: s.id, label: s.label, precioOculto: Boolean(s.precioOculto), ...importesParaCliente(s) })),
   });
 }
@@ -58,13 +63,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // El body se lee UNA vez (antes se leía dentro de la rama de oficina).
-  const body = (await req.json().catch(() => ({}))) as { oficinaId?: unknown; servicioClave?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { oficinaId?: unknown; servicioClave?: unknown; nuevoServicio?: { label?: unknown; anticipo?: unknown; resto?: unknown } };
 
   const { user, venc, error } = await vencimientoBajoSesion(id);
   if (error || !venc || !user) return error;
-  if (!esVencimientoDeServicio(String(venc.tipo))) {
-    return NextResponse.json({ error: "Este vencimiento es un documento del cliente (no un trámite): pídele el documento renovado.", esDocumento: true }, { status: 400 });
-  }
 
   // Idempotencia: propuesta ya enviada o renovación en marcha → devolvemos esa (doble clic, recarga…).
   if (venc.expedienteRenovacionId && (ESTADOS_EN_VUELO as readonly string[]).includes(String(venc.estado))) {
@@ -107,14 +109,43 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // SERVICIO de la renovación: el elegido por el gestor (validado contra el catálogo
   // activo de la sede) o la sugerencia por tipo. Sin ninguno → 400 y el diálogo pide
   // elegir. Un pasaporte YA NO cae en «Renovación de TIE», y nada nace sin trámite.
-  const servicios = serviciosElegibles(await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []));
-  const pedido = typeof body.servicioClave === "string" && body.servicioClave.trim() ? body.servicioClave.trim() : null;
+  let servicios = serviciosElegibles(await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []));
+
+  // Servicio NUEVO creado desde el diálogo (p. ej. «Renovación de pasaporte», 60 + 40 €):
+  // se guarda en el catálogo de la sede como un servicio más — la próxima vez saldrá solo.
+  let pedido = typeof body.servicioClave === "string" && body.servicioClave.trim() ? body.servicioClave.trim() : null;
+  const nuevo = body.nuevoServicio && typeof body.nuevoServicio === "object" ? body.nuevoServicio : null;
+  if (nuevo) {
+    const label = String(nuevo.label ?? "").trim().slice(0, 80);
+    const anticipo = Math.max(0, Math.round((Number(nuevo.anticipo) || 0) * 100) / 100);
+    const resto = Math.max(0, Math.round((Number(nuevo.resto) || 0) * 100) / 100);
+    if (!label) return NextResponse.json({ error: "Ponle un nombre al servicio nuevo.", requiereServicio: true }, { status: 400 });
+    const clave = "srv_" + Math.random().toString(36).slice(2, 9);
+    const fila: Record<string, unknown> = {
+      id: oficinaId ? `svc_${workspaceId}_${oficinaId}_${clave}` : `svc_${workspaceId}_${clave}`, // mismo id determinista que Ajustes (lib/config-browser)
+      ...(oficinaId ? { oficinaId } : {}), workspaceId, clave, label, descripcion: null, docs: [], active: true, anticipo, resto,
+      citaPresencial: false, citaQuien: null, noIncluye: null, suplidos: [], porcentaje: null, porcentajeSobre: null, precioOculto: false, categoria: null,
+      orden: servicios.length, updatedAt: new Date().toISOString(),
+    };
+    let { error: eSv } = await admin.from("ServicioConfig").insert(fila);
+    if (eSv && /categoria|column|schema cache/i.test(eSv.message)) { const { categoria: _c, ...sinCat } = fila; void _c; ({ error: eSv } = await admin.from("ServicioConfig").insert(sinCat)); }
+    if (eSv) return NextResponse.json({ error: `No se pudo crear el servicio: ${eSv.message}` }, { status: 500 });
+    servicios = serviciosElegibles(await fetchServiciosDeWorkspace(admin, workspaceId, oficinaId).catch(() => []));
+    pedido = clave;
+  }
+
   if (pedido && !servicios.some((s) => s.id === pedido)) {
     return NextResponse.json({ error: "Ese servicio no está activo en el catálogo de esta oficina.", requiereServicio: true }, { status: 400 });
   }
-  const servicioClave = pedido ?? sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
+  // Sin clave del gestor: solo una sugerencia SEGURA sale sola. Una «probable» (servicio
+  // propio que encaja por nombre) o ninguna → el gestor la valida en el diálogo.
+  const sug = pedido ? null : sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
+  const servicioClave = pedido ?? (sug?.certeza === "seguro" ? sug.id : null);
   if (!servicioClave) {
-    return NextResponse.json({ error: "Elige el servicio de la renovación: ninguno del catálogo corresponde a este vencimiento.", requiereServicio: true }, { status: 400 });
+    return NextResponse.json({
+      error: sug ? "Confirma el servicio de la renovación." : "Elige o crea el servicio de la renovación: ninguno del catálogo corresponde a este vencimiento.",
+      requiereServicio: true, sugerido: sug?.id ?? null,
+    }, { status: 400 });
   }
   const servicio = servicios.find((s) => s.id === servicioClave)!;
 
