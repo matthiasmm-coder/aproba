@@ -10,14 +10,15 @@ export type FilaBandeja = {
   id: string; remitente: string; remitenteNombre: string | null; asunto: string | null; texto: string | null; recibidoAt: string;
   adjuntos: { nombre: string; mime: string; size: number; destino?: string; etiqueta?: string }[];
   clienteId: string | null; expedienteId: string | null; estado: string; motivo: string | null;
+  canal?: string | null; remitenteTelefono?: string | null; // whatsapp (12/09/2026) | email (por defecto)
 };
 export type ClienteOpcion = { id: string; nombre: string; apellidos: string | null };
 export type ExpedienteOpcion = { id: string; clienteId: string; referencia: string; tipo: string };
 
-// Bandeja de entrada: emails con documentos que Aproba no ha podido atribuir solo
-// (o que el gestor quiere revisar). Asignar = los adjuntos pasan al expediente vivo
-// del cliente (o a su ficha); descartar = fuera.
-export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }: { pendientes: FilaBandeja[]; recientes: FilaBandeja[]; clientes: ClienteOpcion[]; expedientes: ExpedienteOpcion[] }) {
+// Bandeja de entrada: emails (y, con el número del despacho conectado, WhatsApp) con
+// documentos que Aproba no ha podido atribuir solo (o que el gestor quiere revisar).
+// Asignar = los adjuntos pasan al expediente vivo del cliente (o a su ficha); descartar = fuera.
+export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, whatsappConectado = false }: { pendientes: FilaBandeja[]; recientes: FilaBandeja[]; clientes: ClienteOpcion[]; expedientes: ExpedienteOpcion[]; whatsappConectado?: boolean }) {
   const t = useT();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
   }
 
   async function descartar(fila: FilaBandeja) {
-    if (!(await confirmar(t("¿Descartar este email? Sus adjuntos no se guardarán."))) ) return;
+    if (!(await confirmar(esWa(fila) ? t("¿Descartar este WhatsApp? Sus adjuntos no se guardarán.") : t("¿Descartar este email? Sus adjuntos no se guardarán.")))) return;
     setBusy(fila.id); setError(null);
     try {
       const res = await fetch(`/api/bandeja/${fila.id}`, { method: "DELETE" });
@@ -64,6 +65,14 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
     } finally { setBusy(null); }
   }
 
+  const esWa = (f: FilaBandeja) => f.canal === "whatsapp";
+  const conWa = whatsappConectado || pendientes.some(esWa) || recientes.some(esWa);
+  const ChipWa = (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#25D366]/15 px-2 py-0.5 text-[11px] font-semibold text-[#128C7E]" title="WhatsApp">
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z"/></svg>
+      WhatsApp
+    </span>
+  );
   const fecha = (s: string) => new Date(s).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const kb = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 
@@ -74,7 +83,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
       {pendientes.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
           <p className="text-sm font-medium text-slate-700">{t("Nada por asignar.")}</p>
-          <p className="mt-1 text-xs text-slate-500">{t("Los emails que reenvíes a tu dirección de recepción y que Aproba no sepa de quién son aparecerán aquí.")}</p>
+          <p className="mt-1 text-xs text-slate-500">{conWa ? t("Los emails que reenvíes a tu dirección de recepción y los WhatsApp con documentos de números que Aproba no conozca aparecerán aquí.") : t("Los emails que reenvíes a tu dirección de recepción y que Aproba no sepa de quién son aparecerán aquí.")}</p>
           <Link href="#recepcion" className="mt-3 inline-block text-xs font-medium text-aproba-700 underline underline-offset-2">{t("Ver mi dirección de recepción")}</Link>
         </div>
       ) : pendientes.map((fila) => {
@@ -87,8 +96,11 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
           <article key={fila.id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{fila.remitenteNombre ? `${fila.remitenteNombre} · ` : ""}<span className="font-mono text-xs font-medium text-slate-500">{fila.remitente}</span></p>
-                <p className="truncate text-sm text-slate-700">{fila.asunto || <span className="text-slate-400">{t("(sin asunto)")}</span>}</p>
+                <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900">
+                  {esWa(fila) && ChipWa}
+                  <span className="truncate">{fila.remitenteNombre ? `${fila.remitenteNombre} · ` : ""}<span className="font-mono text-xs font-medium text-slate-500">{fila.remitenteTelefono ?? fila.remitente}</span></span>
+                </p>
+                <p className="truncate text-sm text-slate-700">{fila.asunto || <span className="text-slate-400">{esWa(fila) ? t("(sin texto)") : t("(sin asunto)")}</span>}</p>
               </div>
               <span className="text-xs text-slate-400">{fecha(fila.recibidoAt)}</span>
             </header>
@@ -134,11 +146,11 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes }:
 
       {recientes.length > 0 && (
         <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Últimos emails colocados")}</h2>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{conWa ? t("Últimos mensajes colocados") : t("Últimos emails colocados")}</h2>
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {recientes.map((fila) => (
               <li key={fila.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
-                <span className="min-w-0 truncate text-slate-700">{fila.asunto || fila.remitente} <span className="text-slate-400">· {fila.adjuntos.length} {t("adjunto(s)")}</span></span>
+                <span className="flex min-w-0 items-center gap-2 text-slate-700">{esWa(fila) && ChipWa}<span className="truncate">{fila.asunto || fila.remitenteTelefono || fila.remitente} <span className="text-slate-400">· {fila.adjuntos.length} {t("adjunto(s)")}</span></span></span>
                 <span className="text-xs text-slate-500">
                   {fila.estado === "DESCARTADO" ? t("Descartado") : fila.clienteId ? <Link href={`/app/clientes/${fila.clienteId}`} className="font-medium text-aproba-700 hover:underline">{nombreCliente[fila.clienteId] ?? t("cliente")}</Link> : ""}
                   {fila.expedienteId && <> · <Link href={`/app/expedientes/${fila.expedienteId}`} className="font-medium text-aproba-700 hover:underline">{t("expediente")}</Link></>}

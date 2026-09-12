@@ -30,6 +30,25 @@ import { RecibirDocumentosConfig } from "@/components/recibir-documentos-config"
 import { WhatsAppConectar } from "@/components/whatsapp-conectar";
 import { BandejaEntrada, type FilaBandeja, type ClienteOpcion, type ExpedienteOpcion } from "@/components/bandeja-entrada";
 import { direccionEntrante, generarTokenEntrante } from "@/lib/email-entrante";
+import { whatsappDisponible } from "@/lib/whatsapp";
+import { PLANTILLA_AVISO } from "@/lib/whatsapp-plantillas";
+
+// WhatsApp del despacho (Meta, 12/09/2026): su número conectado, si lo hay — decide si
+// Notificaciones enseña el selector Email/WhatsApp/Ambos y qué dice la bandera. Lectura
+// bajo RLS (política de solo lectura; el token cifrado no se selecciona). Sin la tabla
+// (migración pendiente) → null: la pantalla es la de siempre.
+type WhatsAppConectado = { telefono: string | null; plantillaAprobada: boolean };
+async function fetchWhatsAppConectado(): Promise<WhatsAppConectado | null> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase.from("WhatsAppCuenta").select("telefono, plantillas, oficinaId, createdAt").eq("estado", "CONECTADA").order("createdAt").limit(10);
+    if (error || !data?.length) return null;
+    const filas = data as { telefono: string | null; plantillas: Record<string, string> | null; oficinaId: string | null }[];
+    const c = filas.find((f) => !f.oficinaId) ?? filas[0];
+    const plantillas = c.plantillas ?? {};
+    return { telefono: c.telefono, plantillaAprobada: Object.entries(plantillas).some(([k, v]) => k.startsWith(`${PLANTILLA_AVISO}:`) && v === "APPROVED") };
+  } catch { return null; }
+}
 
 // Dirección de recepción de documentos por email del despacho (03/09/2026): el token
 // vive en Workspace.emailEntranteToken; si la migración lo dejó vacío, se genera aquí
@@ -60,14 +79,17 @@ async function fetchBandeja(): Promise<Bandeja> {
   const vacia: Bandeja = { faltaMigracion: false, pendientes: [], recientes: [], clientes: [], expedientes: [] };
   try {
     const supabase = await createSupabaseServer();
-    const cols = "id, remitente, remitenteNombre, asunto, texto, recibidoAt, adjuntos, clienteId, expedienteId, estado, motivo";
-    const [pend, rec] = await Promise.all([
+    const base = "id, remitente, remitenteNombre, asunto, texto, recibidoAt, adjuntos, clienteId, expedienteId, estado, motivo";
+    // canal/remitenteTelefono llegan con supabase/whatsapp-meta.sql: sin ellas, la misma lectura de antes.
+    const leer = (cols: string) => Promise.all([
       supabase.from("BandejaEntrada").select(cols).eq("estado", "PENDIENTE").order("recibidoAt", { ascending: false }).limit(100),
       supabase.from("BandejaEntrada").select(cols).neq("estado", "PENDIENTE").order("updatedAt", { ascending: false }).limit(15),
     ]);
+    let [pend, rec] = await leer(`${base}, canal, remitenteTelefono`);
+    if (pend.error && /canal|remitenteTelefono/i.test(pend.error.message)) [pend, rec] = await leer(base);
     if (pend.error) return { ...vacia, faltaMigracion: /BandejaEntrada|relation|schema cache/i.test(pend.error.message) };
-    const pendientes = (pend.data ?? []) as FilaBandeja[];
-    const recientes = (rec.data ?? []) as FilaBandeja[];
+    const pendientes = (pend.data ?? []) as unknown as FilaBandeja[];
+    const recientes = (rec.data ?? []) as unknown as FilaBandeja[];
     if (pendientes.length > 0) {
       const [cli, exps] = await Promise.all([
         supabase.from("Cliente").select("id, nombre, apellidos").order("nombre", { ascending: true }).limit(2000),
@@ -155,6 +177,9 @@ export default async function Ajustes() {
   const { avisos } = avs;
   const recepcion = await direccionRecepcion();
   const bandeja = await fetchBandeja();
+  const whatsapp = await fetchWhatsAppConectado();
+  // Puede enviar WhatsApp de verdad: su número (Meta) o el transporte de plataforma (Twilio).
+  const envioWhatsAppActivo = Boolean(whatsapp) || whatsappDisponible();
   // Si la lecture a échoué, on montre les valeurs par DÉFAUT : enregistrer à ce
   // moment-là écraserait la configuration réelle du despacho. On le dit.
   const configNoCargada = Boolean(srv.fallo || avs.fallo);
@@ -238,15 +263,15 @@ export default async function Ajustes() {
         <AjustesSection
           id="notificaciones"
           title={t("Notificaciones al cliente")}
-          subtitle={`Email · ${t("avisos automáticos en cada paso")}`}
+          subtitle={`${envioWhatsAppActivo ? "Email · WhatsApp" : "Email"} · ${t("avisos automáticos en cada paso")}`}
           icon={IconAvisos}
         >
           <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
             {conPastillas ? (
               <FacturacionPorOficina
-                comun={<AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)} canalInicial={despacho.canalAvisos} />}
+                comun={<AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={envioWhatsAppActivo} whatsapp={whatsapp} canalInicial={despacho.canalAvisos} />}
                 oficinas={oficinas.map((o) => o.orden === -1
-                  ? { id: o.id, nombre: o.nombre, panel: <AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)} canalInicial={despacho.canalAvisos} /> }
+                  ? { id: o.id, nombre: o.nombre, panel: <AvisosManager inicial={avisos} envioEmailActivo={Boolean(process.env.RESEND_API_KEY)} envioWhatsAppActivo={envioWhatsAppActivo} whatsapp={whatsapp} canalInicial={despacho.canalAvisos} /> }
                   : {
                       id: o.id,
                       nombre: o.nombre,
@@ -271,7 +296,7 @@ export default async function Ajustes() {
               <AvisosManager
                 inicial={avisos}
                 envioEmailActivo={Boolean(process.env.RESEND_API_KEY)}
-                envioWhatsAppActivo={Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM)}
+                envioWhatsAppActivo={envioWhatsAppActivo} whatsapp={whatsapp}
                 canalInicial={despacho.canalAvisos}
               />
             )}
@@ -288,7 +313,7 @@ export default async function Ajustes() {
           title={t("Integraciones")}
           subtitle={bandeja.pendientes.length > 0
             ? `${bandeja.pendientes.length} ${bandeja.pendientes.length === 1 ? t("email por asignar") : t("emails por asignar")}`
-            : t("Email entrante · bandeja · Google Meet")}
+            : whatsapp ? t("Email entrante · WhatsApp · bandeja · Google Meet") : t("Email entrante · bandeja · Google Meet")}
           icon={IconIntegraciones}
         >
           <RecibirDocumentosConfig direccion={recepcion.direccion} pendientes={bandeja.pendientes.length} />
@@ -299,7 +324,7 @@ export default async function Ajustes() {
             {bandeja.faltaMigracion ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("La recepción por email estará disponible cuando se aplique la migración de la base de datos.")}</p>
             ) : (
-              <BandejaEntrada pendientes={bandeja.pendientes} recientes={bandeja.recientes} clientes={bandeja.clientes} expedientes={bandeja.expedientes} />
+              <BandejaEntrada pendientes={bandeja.pendientes} recientes={bandeja.recientes} clientes={bandeja.clientes} expedientes={bandeja.expedientes} whatsappConectado={Boolean(whatsapp)} />
             )}
           </div>
 

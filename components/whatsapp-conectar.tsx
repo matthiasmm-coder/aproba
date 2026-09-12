@@ -118,6 +118,11 @@ export function WhatsAppConectar({ oficinas = [] }: { oficinas?: { id: string; n
               <button type="button" disabled={ocupado} onClick={() => desconectar(c)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-red-300 hover:text-red-700 disabled:opacity-50">{t("Desconectar")}</button>
             </li>
           ))}
+          {/* Los avisos salientes siguen el canal elegido en Notificaciones (Email por defecto). */}
+          <li className="text-xs text-slate-500">
+            {t("Los documentos que te manden por WhatsApp entran solos. Para que los avisos también salgan por WhatsApp, elige el canal en")}{" "}
+            <a href="#notificaciones" className="font-medium text-aproba-700 underline underline-offset-2">{t("Notificaciones al cliente")}</a>.
+          </li>
         </ul>
       ) : !disponible || !APP_ID || !CONFIG_ID ? (
         <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{t("La conexión con WhatsApp está en preparación (pendiente de la verificación de Meta). Mientras tanto, reenvía los documentos a tu dirección de email de Aproba.")}</p>

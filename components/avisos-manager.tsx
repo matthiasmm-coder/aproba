@@ -8,18 +8,50 @@ import { useT } from "@/components/lang-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+// Opciones del canal global (label = clave i18n, salvo la marca WhatsApp).
+const CANALES: [CanalAvisos, string][] = [["EMAIL", "Email"], ["WHATSAPP", "WhatsApp"], ["AMBOS", "Ambos"]];
+
 // Avisos automáticos al cliente — el gestor activa/desactiva cada aviso y edita su texto.
-// El canal es ÚNICO en la plataforma: email. El selector Email/WhatsApp/Ambos se retiró
-// (2026-07-26, WhatsApp apagado por coste/complejidad — ver WHATSAPP_PLATAFORMA en
-// lib/whatsapp.ts); Workspace.canalAvisos sigue en base para el día que vuelva.
-export function AvisosManager({ inicial, envioEmailActivo = false, oficinaId = null }: {
+// El selector Email/WhatsApp/Ambos (Workspace.canalAvisos, honrado por lib/notificaciones)
+// solo aparece cuando el despacho PUEDE enviar WhatsApp de verdad: su número conectado
+// (Meta, 12/09/2026) o el transporte de plataforma. Sin eso, el canal es email y no se
+// enseña nada que no exista (retirado el 26/07 por ese motivo; vuelve con el número propio).
+export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsAppActivo = false, canalInicial = "EMAIL", whatsapp = null, oficinaId = null }: {
   inicial: Aviso[]; envioEmailActivo?: boolean; envioWhatsAppActivo?: boolean; canalInicial?: CanalAvisos; oficinaId?: string | null;
+  // Número del despacho conectado (Ajustes › Integraciones): teléfono y si Meta ya aprobó la plantilla.
+  whatsapp?: { telefono: string | null; plantillaAprobada: boolean } | null;
 }) {
   const t = useT();
   // On force le canal (legacy per-aviso) email — le canal réel est global au workspace.
   const [avisos, setAvisos] = useState<Aviso[]>(inicial.map((a) => ({ ...a, canal: "email" })));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const mounted = useRef(false);
+
+  // Canal global del workspace — guardado inmediato (sin debounce: un clic = una elección).
+  const [canal, setCanal] = useState<CanalAvisos>(envioWhatsAppActivo ? canalInicial : "EMAIL");
+  const [canalState, setCanalState] = useState<SaveState>("idle");
+  const [canalError, setCanalError] = useState<string | null>(null);
+  async function elegirCanal(c: CanalAvisos) {
+    if (c === canal || canalState === "saving") return;
+    const prev = canal;
+    setCanal(c); setCanalState("saving"); setCanalError(null);
+    try {
+      const fd = new FormData();
+      fd.set("soloCanal", "1");
+      fd.set("canalAvisos", c);
+      const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar el canal."));
+      setCanalState("saved");
+      window.setTimeout(() => setCanalState((s) => (s === "saved" ? "idle" : s)), 1500);
+    } catch (e) {
+      setCanal(prev);
+      setCanalState("error");
+      setCanalError(e instanceof Error ? e.message : t("No se pudo guardar el canal."));
+    }
+  }
+  const conEmail = canal !== "WHATSAPP";
+  const conWhatsApp = envioWhatsAppActivo && canal !== "EMAIL";
 
   // Persister en base (Supabase, RLS) — debounce 600 ms.
   useEffect(() => {
@@ -82,14 +114,67 @@ export function AvisosManager({ inicial, envioEmailActivo = false, oficinaId = n
     </div>
   );
 
+  const telefonoWa = whatsapp?.telefono ? `+${whatsapp.telefono.replace(/^\+/, "")}` : null;
+
   return (
     <div>
-      {/* Estado de envío : real vs simulación (email — único canal de la plataforma) */}
+      {/* Canal de entrega — Email / WhatsApp / Ambos (Workspace.canalAvisos). Solo si el
+          despacho puede enviar WhatsApp: su número conectado en Integraciones. */}
+      {envioWhatsAppActivo && (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{t("Canal de los avisos")}</p>
+              <p className="text-xs text-slate-500">{telefonoWa ? `${t("Cómo recibe el cliente estos mensajes.")} ${t("WhatsApp sale desde tu número")} ${telefonoWa}.` : t("Cómo recibe el cliente estos mensajes.")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-medium transition-opacity duration-300 ${canalState === "idle" ? "opacity-0" : "opacity-100"} ${canalState === "error" ? "text-red-600" : "text-aproba-700"}`}>
+                {canalState === "saving" ? t("Guardando…") : canalState === "saved" ? t("Guardado") : canalState === "error" ? t("Error al guardar — reintenta") : ""}
+              </span>
+              <div
+                className="flex divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300"
+                role="radiogroup"
+                aria-label={t("Canal de los avisos")}
+                onKeyDown={(e) => {
+                  // Patrón radio WAI-ARIA: las flechas mueven selección + foco (roving tabindex).
+                  const delta = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+                  if (!delta || canalState === "saving") return;
+                  e.preventDefault();
+                  const idx = CANALES.findIndex(([c]) => c === canal);
+                  const next = (idx + delta + CANALES.length) % CANALES.length;
+                  void elegirCanal(CANALES[next][0]);
+                  e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+                }}
+              >
+                {CANALES.map(([c, labelKey]) => (
+                  <button key={c} type="button" role="radio" aria-checked={canal === c} tabIndex={canal === c ? 0 : -1}
+                    onClick={() => elegirCanal(c)} aria-disabled={canalState === "saving"}
+                    className={`px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900 ${canal === c ? "bg-aproba-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                    {labelKey === "WhatsApp" ? labelKey : t(labelKey)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {canalError && <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{canalError}</p>}
+        </div>
+      )}
+
+      {/* Estado de envío por canal: real vs simulación */}
       <div className="mb-4 space-y-2">
-        {bandera(
+        {conEmail && bandera(
           envioEmailActivo,
           envioEmailActivo ? t("Envíos por email activos.") : t("Modo simulación."),
           envioEmailActivo ? t("Tus clientes reciben estos avisos por correo automáticamente.") : t("Los avisos se registran en el historial del expediente pero todavía no se envían (falta configurar el envío por email)."),
+        )}
+        {/* WhatsApp: fuera de la ventana de 24 h Meta solo entrega plantillas APROBADAS; hasta
+            entonces el servidor reenvía por email (repli de lib/notificaciones) — se dice aquí. */}
+        {conWhatsApp && bandera(
+          whatsapp ? whatsapp.plantillaAprobada : true,
+          whatsapp && !whatsapp.plantillaAprobada ? t("WhatsApp activo · plantilla pendiente de Meta.") : t("Envíos por WhatsApp activos."),
+          whatsapp && !whatsapp.plantillaAprobada
+            ? t("Si el cliente te ha escrito en las últimas 24 horas el aviso sale por WhatsApp; si no, sale por email hasta que Meta apruebe la plantilla (normalmente 1-2 días).")
+            : telefonoWa ? `${t("Tus clientes reciben estos avisos en WhatsApp desde")} ${telefonoWa}.` : t("Tus clientes reciben estos avisos por WhatsApp."),
         )}
       </div>
 

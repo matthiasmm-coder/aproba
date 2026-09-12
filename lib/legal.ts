@@ -21,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "3 de septiembre de 2026";
+export const ULTIMA_ACTUALIZACION = "12 de septiembre de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {
@@ -69,6 +69,18 @@ export const SUBENCARGADOS: Subencargado[] = [
     finalidad: "Alojamiento y entrega de la aplicación web.",
     ubicacion: "EE. UU. con red de distribución global (edge).",
     garantia: "SCC de la UE.",
+  },
+  {
+    nombre: "Google (Google Ireland Ltd.) — Calendar y Meet",
+    finalidad: "Solo si el despacho conecta su cuenta de Google: creación de las citas con enlace de videollamada en el calendario del despacho (fecha, hora y dirección de email del cliente invitado).",
+    ubicacion: "Irlanda (UE) y EE. UU.",
+    garantia: "SCC de la UE y Marco de Privacidad de Datos UE-EE. UU. El despacho puede desconectar su cuenta en cualquier momento desde Ajustes.",
+  },
+  {
+    nombre: "Meta (Meta Platforms Ireland Ltd.) — WhatsApp Business Platform",
+    finalidad: "Solo si el despacho conecta su número de WhatsApp: recepción de los mensajes y documentos que sus clientes le envían a ese número y envío de los avisos del expediente desde él. La cuenta de WhatsApp Business es del despacho; Aproba accede por su cuenta.",
+    ubicacion: "Irlanda (UE) y EE. UU.",
+    garantia: "SCC de la UE y Marco de Privacidad de Datos UE-EE. UU. Los documentos recibidos se guardan en el almacenamiento de la UE; el despacho puede desconectar su número en cualquier momento.",
   },
   {
     nombre: "Cloudflare (Cloudflare, Inc.)",
