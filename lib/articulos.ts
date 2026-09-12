@@ -57,6 +57,122 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    slug: "notificaciones-electronicas-extranjeria-quien-recibe-10-dias",
+    titulo: "Notificaciones en extranjería: quién las recibe y los 10 días",
+    descripcion:
+      "Quién recibe las notificaciones de un expediente de extranjería, la regla de los diez días naturales, la sentencia del Supremo de 2026 y cómo organizarlo.",
+    fecha: "2026-09-12",
+    tema: "Procedimiento",
+    entradilla:
+      "Un requerimiento que nadie abre acaba en desistimiento; una denegación que nadie lee se vuelve firme. En extranjería la notificación es el punto donde se pierden expedientes bien preparados, y quién la recibe no lo decide la oficina: lo decide una casilla del formulario.",
+    imagenAlt:
+      "Un sobre de papel crema con lacre verde sobre un escritorio de mármol blanco; de él se eleva una red de líneas y nodos de luz verde esmeralda que dibuja la silueta de una campana de notificación, con luz de estudio clara.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "La Administración notifica cada acto que afecta a un expediente: el requerimiento, la audiencia, la resolución. La **Ley 39/2015** fija cómo se practica y, sobre todo, **cuándo se entiende hecha aunque nadie la haya leído**. Con clientes que cambian de teléfono, de piso y a veces de país, esa regla decide más expedientes que cualquier requisito de fondo.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "10 días", etiqueta: "naturales para abrir una notificación electrónica antes de que se entienda rechazada (art. 43.2)" },
+          { valor: "1 mes", etiqueta: "para recurrir una denegación en vía administrativa, aunque nadie la haya leído" },
+          { valor: "7 tipos", etiqueta: "de solicitud cuya obligación electrónica anuló el Supremo el 8 de julio de 2026" },
+          { valor: "11/07/2027", etiqueta: "vencen los convenios de gestores administrativos y graduados sociales" },
+        ],
+      },
+      { t: "h2", texto: "El campo que decide quién recibe la notificación" },
+      {
+        t: "p",
+        texto:
+          "Los formularios EX tienen tres bloques de identidad: el solicitante, el representante a efectos de presentación y el **domicilio a efectos de notificaciones**. Solo el tercero decide adónde va cada notificación. Presentar desde la puerta «Gestoría» o «Abogacía» de Mercurio acredita quién presenta, pero **no desvía las notificaciones al despacho**. Si en ese bloque figura el NIF del profesional, le llegan a él, y solo en electrónico (**art. 14.2.c y d**: profesión colegiada, y representante de un obligado). Si figura el extranjero, le llegan a él: en papel, o en la **Dirección Electrónica Habilitada única (DEHú)** si marcó la casilla.",
+      },
+      {
+        t: "esquema",
+        titulo: "Un mismo bloque, tres buzones",
+        nodos: [
+          { titulo: "NIF del despacho", texto: "Electrónica obligatoria, en la sede o la DEHú del profesional. Comparece con su certificado.", destacado: true },
+          { titulo: "El extranjero, sin casilla DEHú", texto: "Papel, al domicilio que conste, aunque se haya mudado sin avisar." },
+          { titulo: "El extranjero, con casilla DEHú", texto: "Puesta a disposición en su DEHú. Diez días naturales para acceder." },
+        ],
+        destino: { titulo: "Un solo reloj", texto: "Desde que la notificación se entiende practicada o rechazada corren los diez días de subsanación, el mes del recurso o los dos meses del contencioso." },
+        nota: "Art. 41.3 de la Ley 39/2015: en los procedimientos a solicitud del interesado, la notificación se practica por el medio señalado en la solicitud.",
+      },
+      { t: "h2", texto: "Los diez días naturales" },
+      {
+        t: "p",
+        texto:
+          "Una notificación electrónica se entiende **practicada cuando se accede a su contenido**. Si es obligatoria o el interesado la eligió y pasan **diez días naturales desde la puesta a disposición sin acceder, se entiende rechazada** (art. 43.2): cuentan sábados, domingos y festivos. El aviso al correo o al móvil es una cortesía: **su falta no impide que la notificación sea válida** (art. 41.6). Si el acto llega por dos cauces, vale la primera (art. 41.7).",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Día 0", titulo: "Puesta a disposición", texto: "En la sede o la DEHú; con ella la Administración ya ha notificado en plazo (art. 43.3). Llega un aviso al correo o al móvil comunicados." },
+          { fecha: "Días 1 a 10", titulo: "Ventana de acceso", texto: "En cuanto alguien identificado abre el contenido, la notificación se entiende practicada ese día." },
+          { fecha: "Día 10 sin acceso", titulo: "Rechazada", texto: "Se hace constar y el procedimiento sigue como si se hubiera recibido (art. 41.5).", destacado: true },
+          { fecha: "Desde ahí", titulo: "Corren los plazos", texto: "Subsanación, recurso o contencioso: los de la tabla siguiente." },
+        ],
+      },
+      { t: "h2", texto: "Qué se pierde cuando nadie la abre" },
+      {
+        t: "tabla",
+        titulo: "Cuatro notificaciones habituales y su coste",
+        encabezados: ["Notificación", "Plazo que arranca", "Si no se atiende"],
+        filas: [
+          ["Requerimiento de subsanación", "**10 días** (art. 68.1)", "Desistimiento, previa resolución"],
+          ["Trámite de audiencia", "**10 a 15 días** (art. 82.2)", "Se resuelve sin alegaciones"],
+          ["Resolución denegatoria, vía administrativa", "**1 mes**: alzada o reposición (arts. 122 y 124)", "La denegación gana firmeza"],
+          ["Resolución denegatoria, vía judicial", "**2 meses** (art. 46.1 LJCA)", "Se cierra también el contencioso"],
+        ],
+        nota: "Días hábiles salvo mención expresa; los diez del art. 43.2 son naturales. En la regularización de 2026 la subsanación fue de [quince días](/articulos/subsanacion-regularizacion-plazo), y la causa más frecuente del requerimiento sigue siendo [un error documental](/articulos/errores-documentales-retrasan-expediente-extranjeria).",
+      },
+      { t: "h2", texto: "La sentencia del Supremo: qué cambia y qué no" },
+      {
+        t: "p",
+        texto:
+          "El **art. 197.2 del Reglamento de Extranjería** (RD 1155/2024) obligaba a las personas físicas a tramitar electrónicamente siete tipos de solicitud, entre ellos la autorización inicial por cuenta ajena y varias renovaciones. La **sentencia 868/2026 del Tribunal Supremo, de 8 de julio** (Sección Quinta, recurso 19/2025), lo anuló: el Reglamento no justificó, como exige el art. 14.3 de la Ley 39/2015, que esas personas dispusieran de los medios necesarios. A la fecha de este artículo el **texto consolidado del BOE aún no recoge la anulación** (última modificación, 15 de abril de 2026) y las oficinas tramitan como antes.",
+      },
+      {
+        t: "tabla",
+        titulo: "Tras la sentencia, ¿quién sigue obligado al canal electrónico?",
+        encabezados: ["Quién presenta", "Canal", "Por qué"],
+        filas: [
+          ["El extranjero, por sí mismo", "El que elija", "Persona física no obligada; el art. 197.2 está anulado"],
+          ["Abogado, gestor administrativo o graduado social", "**Electrónico, obligatorio**", "Profesión colegiada (14.2.c) y representante de un obligado (14.2.d)"],
+          ["Entidad colaboradora inscrita", "**Electrónico, obligatorio**", "Persona jurídica (14.2.a)"],
+        ],
+        nota: "Para un despacho cambia poco: con un profesional en el expediente, el canal es electrónico.",
+      },
+      { t: "h2", texto: "Cómo organizarlo en el despacho" },
+      {
+        t: "ol",
+        items: [
+          "**Decidir en cada expediente quién recibe**, y escribirlo en el bloque 3 del formulario: el NIF del profesional, o el domicilio real del cliente y, solo si va a mirarla, la casilla DEHú.",
+          "**Si recibe el despacho, turno de comparecencia** cada dos o tres días laborables con el certificado: diez días naturales incluyen fines de semana y puentes.",
+          "**Si recibe el cliente, enseñarle a acceder** antes de presentar, y comprobar que el correo y el móvil comunicados son los suyos.",
+          "**Anotar la fecha de acceso** el mismo día: es la que abre el plazo.",
+          "**Tener el poder inscrito**: apoderamiento notarial o apud acta en el Registro Electrónico de Apoderamientos (art. 5.4 de la Ley 39/2015; art. 197.4 del Reglamento).",
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Los formularios EX que genera Aproba dejan editables el bloque «Domicilio a efectos de notificaciones» y la casilla DEHú, para decidirlo expediente a expediente. Requerimientos, citas y plazos se anotan en la ficha, con recordatorios al cliente en su idioma. Aproba no accede a la DEHú ni a la sede: la comparecencia es del profesional, con su certificado.",
+      },
+      {
+        t: "faq",
+        items: [
+          { q: "¿Los diez días son hábiles o naturales?", a: "Naturales: el art. 43.2 lo dice expresamente. Una notificación puesta a disposición un jueves de puente se entiende rechazada el domingo de la semana siguiente." },
+          { q: "No me llegó el aviso al correo. ¿La notificación es válida?", a: "Sí. El aviso es una cortesía del art. 41.6: cuentan la puesta a disposición y el acceso, no el aviso." },
+          { q: "Presenté desde Mercurio como gestoría. ¿Las notificaciones me llegan a mí?", a: "No por ese hecho. Van a quien figure en el bloque «Domicilio a efectos de notificaciones» del formulario." },
+          { q: "¿Puedo abrir la notificación de mi cliente con mi certificado?", a: "Solo con representación acreditada: apoderamiento notarial o apud acta inscrito. Sin ella, la sede o la DEHú no te la mostrarán aunque hayas presentado el expediente." },
+        ],
+      },
+    ],
+  },
+  {
     slug: "silencio-administrativo-extranjeria-plazos-2026",
     titulo: "Silencio administrativo en extranjería: el plazo de cada trámite",
     descripcion:
