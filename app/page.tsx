@@ -358,7 +358,7 @@ export default function Landing() {
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {PLANES.map((p, i) => (
               <Reveal key={p.nombre} delay={i * 90}>
-              <div className={`relative flex h-full flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${p.destacado ? "border-aproba-600 bg-cream-50 shadow-card hover:shadow-float" : "border-slate-200 bg-white hover:border-aproba-300 hover:shadow-card"}`}>
+              <div className={`relative flex h-full flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${p.destacado ? "border-aproba-600 bg-white shadow-card hover:shadow-float" : "border-slate-200 bg-white hover:border-aproba-300 hover:shadow-card"}`}>
                 {p.destacado && <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
                 <h3 className="text-center text-lg font-semibold text-slate-900">{p.nombre}</h3>
                 <p className="mt-1 text-center text-sm text-slate-500">{p.para}</p>
