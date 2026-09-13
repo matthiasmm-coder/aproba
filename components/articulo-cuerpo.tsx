@@ -34,7 +34,7 @@ function Leyenda({ children }: { children: React.ReactNode }) {
     </figcaption>
   );
 }
-const NotaFigura = ({ texto }: { texto?: string }) => (texto ? <p className="mt-3 text-xs leading-relaxed text-slate-400">{conFormato(texto)}</p> : null);
+const NotaFigura = ({ texto }: { texto?: string }) => (texto ? <p className="mt-3 text-xs leading-relaxed text-slate-500">{conFormato(texto)}</p> : null);
 const dosCifras = (n: number) => String(n + 1).padStart(2, "0");
 
 export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
@@ -169,7 +169,7 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                       <span aria-hidden className={`absolute left-[7px] top-3.5 h-[9px] w-[9px] rounded-full ring-2 ring-white sm:hidden ${nd.destacado ? "bg-aproba-600" : "bg-slate-300"}`} />
                       <div className={`h-full rounded-xl border p-4 ${nd.destacado ? "border-aproba-300 bg-aproba-50/50" : "border-slate-200 bg-white"}`}>
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className={`text-[10.5px] font-semibold tabular-nums tracking-[0.1em] ${nd.destacado ? "text-aproba-700" : "text-slate-400"}`}>{dosCifras(j)}</span>
+                          <span className={`text-[10.5px] font-semibold tabular-nums tracking-[0.1em] ${nd.destacado ? "text-aproba-700" : "text-slate-500"}`}>{dosCifras(j)}</span>
                           {nd.cifra && <span className="whitespace-nowrap text-xs font-bold tabular-nums text-aproba-700">{nd.cifra}</span>}
                         </div>
                         <p className="mt-1.5 text-sm font-semibold leading-snug text-slate-900">{nd.titulo}</p>

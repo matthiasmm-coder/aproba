@@ -54,19 +54,19 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <nav aria-label="Migas de pan" className="text-xs text-slate-400">
-        <Link href="/" className="hover:text-slate-600">Inicio</Link>
+      <nav aria-label="Migas de pan" className="text-xs text-slate-500">
+        <Link href="/" className="hover:text-slate-800">Inicio</Link>
         <span className="mx-1.5">/</span>
         <span>{GRUPO_LABEL[grupo]}</span>
         <span className="mx-1.5">/</span>
-        <span className="text-slate-500">{b.tarjeta}</span>
+        <span className="text-slate-700">{b.tarjeta}</span>
       </nav>
 
       <article className="mt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-aproba-700">{GRUPO_LABEL[grupo]} · en la portada: «{b.tarjeta}»</p>
         <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tightest text-slate-900 sm:text-4xl">{b.h1}</h1>
         <p className="mt-3 text-lg leading-relaxed text-slate-600">{b.entradilla}</p>
-        <p className="mt-2 text-xs text-slate-400">Actualizado el {fechaLarga(b.actualizado)}</p>
+        <p className="mt-2 text-xs text-slate-500">Actualizado el {fechaLarga(b.actualizado)}</p>
 
         {/* Captura real de Aproba (cuenta demo): una por página, priority porque es el
             elemento grande de la mitad superior (LCP). */}
@@ -81,7 +81,7 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
               sizes="(max-width: 768px) 100vw, 768px"
               className="w-full rounded-2xl border border-slate-200 bg-white"
             />
-            <figcaption className="mt-2 text-xs leading-relaxed text-slate-500">{b.captura.pie}</figcaption>
+            <figcaption className="mt-2 text-xs leading-relaxed text-slate-600">{b.captura.pie}</figcaption>
           </figure>
         )}
 
@@ -91,7 +91,7 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
 
         {b.fuentes && b.fuentes.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Documentos citados</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Documentos citados</h2>
             <ul className="mt-2 space-y-1 text-sm">
               {b.fuentes.map((f) => (
                 <li key={f.url}><a href={f.url} target="_blank" rel="noopener noreferrer" className="font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2 hover:text-aproba-800">{f.nombre}</a></li>
@@ -109,7 +109,7 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
 
       {otras.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">{GRUPO_TITULO[grupo]}</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{GRUPO_TITULO[grupo]}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {otras.map((o) => (
               <Link key={o.slug} href={rutaDe(o)} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-300">
