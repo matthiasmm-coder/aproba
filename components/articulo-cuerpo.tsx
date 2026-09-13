@@ -191,13 +191,9 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                 </div>
                 {/* conector (móvil): bajada corta al destino */}
                 <div aria-hidden className="ml-[11px] h-5 w-px bg-aproba-600 sm:hidden" />
-                {/* Destino: panel claro con trama de puntos verde Aproba (13/09/2026, antes un
-                    bloque azul oscuro que rompía el lenguaje visual «paneles blancos, verde = resultado»). */}
-                <div
-                  className="mt-1 rounded-xl border border-aproba-200 bg-aproba-50 p-2.5 text-center sm:mt-2"
-                  style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(14,140,95,0.30) 1px, transparent 0)", backgroundSize: "10px 10px" }}
-                >
-                  {/* la trama solo se ve en el marco: el panel interior es blanco opaco y ocupa todo el ancho */}
+                {/* Destino: marco verde claro liso con el panel blanco dentro (13/09/2026; antes un
+                    bloque azul oscuro y, un rato, una trama de puntos — Matthias prefirió sin puntos). */}
+                <div className="mt-1 rounded-xl border border-aproba-200 bg-aproba-50 p-2.5 text-center sm:mt-2">
                   <div className="block w-full rounded-lg bg-white px-5 py-3">
                     <p className="text-sm font-bold text-aproba-700">{b.destino.titulo}</p>
                     {b.destino.texto && <p className="mt-1 text-xs leading-relaxed text-slate-700">{b.destino.texto}</p>}
