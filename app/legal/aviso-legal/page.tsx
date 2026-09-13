@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Dato } from "@/components/legal-dato";
 import { TITULAR, ULTIMA_ACTUALIZACION } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Aviso legal" };
+export const metadata: Metadata = { title: "Aviso legal", description: "Identificación del titular de aproba-software.com (ExpatfrancesCKNA07 S.L.), condiciones de uso del sitio y propiedad intelectual.", alternates: { canonical: "/legal/aviso-legal" } };
 
 export default function AvisoLegal() {
   return (

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TITULAR, ULTIMA_ACTUALIZACION, COOKIES } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Política de cookies" };
+export const metadata: Metadata = { title: "Política de cookies", description: "Qué cookies usa Aproba, para qué y cómo gestionarlas. Solo cookies técnicas necesarias para la sesión y las preferencias.", alternates: { canonical: "/legal/cookies" } };
 
 export default function Cookies() {
   return (

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { LoginForm } from "@/components/login-form";
 
-export const metadata = { title: "Entrar" };
+export const metadata = { title: "Entrar", alternates: { canonical: "/login" } };
 
 export default function Login() {
   // La cuenta de demostración solo se muestra en desarrollo o si se activa

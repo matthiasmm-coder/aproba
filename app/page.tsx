@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { rutaDeTarjeta } from "@/lib/beneficios";
@@ -7,6 +8,10 @@ import { Reveal } from "@/components/reveal";
 import { DiaNoche } from "@/components/dia-noche";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
+
+// Canónica de la portada (higiene del sitemap, 14/09/2026): título y descripción siguen
+// viniendo del layout raíz.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const PAINS = [
   "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",

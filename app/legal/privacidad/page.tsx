@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Dato } from "@/components/legal-dato";
 import { TITULAR, ULTIMA_ACTUALIZACION, AEPD, SUBENCARGADOS } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Política de privacidad" };
+export const metadata: Metadata = { title: "Política de privacidad", description: "Cómo trata Aproba los datos personales de los despachos y de sus clientes: finalidades, bases legales, conservación, subencargados y derechos.", alternates: { canonical: "/legal/privacidad" } };
 
 export default function Privacidad() {
   return (

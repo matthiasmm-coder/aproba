@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Dato } from "@/components/legal-dato";
 import { TITULAR, ULTIMA_ACTUALIZACION } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Términos y condiciones" };
+export const metadata: Metadata = { title: "Términos y condiciones", description: "Condiciones de uso de Aproba: prueba gratuita, planes y facturación, obligaciones de las partes, disponibilidad, responsabilidad y baja sin permanencia.", alternates: { canonical: "/legal/terminos" } };
 
 export default function Terminos() {
   return (

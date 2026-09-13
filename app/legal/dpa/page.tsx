@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Dato } from "@/components/legal-dato";
 import { TITULAR, ULTIMA_ACTUALIZACION, SUBENCARGADOS } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Encargado del tratamiento (DPA)" };
+export const metadata: Metadata = { title: "Encargado del tratamiento (DPA)", description: "Contrato de encargado del tratamiento de Aproba conforme al artículo 28 del RGPD: obligaciones, medidas de seguridad, subencargados y transferencias.", alternates: { canonical: "/legal/dpa" } };
 
 export default function DPA() {
   return (

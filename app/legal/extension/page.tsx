@@ -6,6 +6,7 @@ export const metadata = {
   title: "Privacidad de la extensión «Aproba para Mercurio»",
   description:
     "Política de privacidad de la extensión de navegador «Aproba para Mercurio»: qué datos trata, dónde se procesan y cómo se usan. Todo el tratamiento ocurre en tu dispositivo.",
+  alternates: { canonical: "/legal/extension" },
 } satisfies Metadata;
 
 const ACTUALIZACION = "22 de junio de 2026";

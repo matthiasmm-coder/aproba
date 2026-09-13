@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { SignupForm } from "@/components/signup-form";
 
-export const metadata = { title: "Empieza gratis" };
+export const metadata = { title: "Empieza gratis", alternates: { canonical: "/signup" } };
 
 export default function Signup() {
   return (
