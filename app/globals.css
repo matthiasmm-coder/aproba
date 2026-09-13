@@ -199,8 +199,13 @@ details[open] > .faq-body {
   transition: opacity 0.45s ease, transform 0.45s ease;
 }
 .dn-sin .dn-item { transition-delay: calc(var(--i) * 90ms); }
-.dn-con .dn-item { transform: translateX(10px); transition-delay: calc(1000ms + var(--i) * 130ms); }
-.dn-on .dn-item { opacity: 1; transform: none; }
+/* La tarjeta CON arranca con su propia clase (.dn-go): en escritorio llega a la vez que
+   la rejilla → espera 1 s a que termine el tachado; en móvil está bajo el pliegue y se
+   enciende al llegar a ella, casi sin espera. */
+.dn-con { --dn-espera: 150ms; }
+@media (min-width: 768px) { .dn-con { --dn-espera: 1000ms; } }
+.dn-con .dn-item { transform: translateX(10px); transition-delay: calc(var(--dn-espera) + var(--i) * 130ms); }
+.dn-on .dn-sin .dn-item, .dn-go .dn-item { opacity: 1; transform: none; }
 
 /* tachado: line-through que aparece por color (funciona en filas de varias líneas) */
 .dn-sin .dn-text {
@@ -219,16 +224,16 @@ details[open] > .faq-body {
 .dn-on .dn-arrow { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
 /* marca que se dibuja + destello de la fila */
-.dn-check path { stroke-dasharray: 26; stroke-dashoffset: 26; transition: stroke-dashoffset 0.4s ease; transition-delay: calc(1150ms + var(--i) * 130ms); }
-.dn-on .dn-check path { stroke-dashoffset: 0; }
-.dn-on .dn-con .dn-item { animation: dnflash 0.9s ease-out both; animation-delay: calc(1100ms + var(--i) * 130ms); }
+.dn-check path { stroke-dasharray: 26; stroke-dashoffset: 26; transition: stroke-dashoffset 0.4s ease; transition-delay: calc(var(--dn-espera) + 150ms + var(--i) * 130ms); }
+.dn-go .dn-check path { stroke-dashoffset: 0; }
+.dn-go .dn-item { animation: dnflash 0.9s ease-out both; animation-delay: calc(var(--dn-espera) + 100ms + var(--i) * 130ms); }
 @keyframes dnflash {
   0% { background-color: transparent; }
   35% { background-color: #ecfdf5; }
   100% { background-color: transparent; }
 }
 /* la tarjeta CON respira una vez cuando todo está encendido */
-.dn-on .dn-con-card { animation: dnglow 1.3s ease-out 1.9s 1; }
+.dn-go.dn-con-card { animation: dnglow 1.3s ease-out calc(var(--dn-espera) + 900ms) 1; }
 @keyframes dnglow {
   0%, 100% { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06); }
   50% { box-shadow: 0 0 0 8px rgb(16 176 131 / 0.16), 0 14px 36px rgb(14 140 95 / 0.2); }
@@ -237,5 +242,5 @@ details[open] > .faq-body {
   .dn-item, .dn-arrow { opacity: 1; transform: none; transition: none; }
   .dn-arrow { transform: translate(-50%, -50%); }
   .dn-check path { stroke-dashoffset: 0; }
-  .dn-on .dn-con .dn-item, .dn-on .dn-con-card { animation: none; }
+  .dn-go .dn-item, .dn-go.dn-con-card { animation: none; }
 }
