@@ -259,7 +259,7 @@ function DatosForm({ active }: { active: boolean }) {
 
   return (
     <div className="px-3 pb-3 pt-1">
-      <h1 className="text-[14px] font-bold tracking-tight text-slate-900">Tus datos</h1>
+      <p className="text-[14px] font-bold tracking-tight text-slate-900">Tus datos</p>
       <p className="mt-0.5 text-[9px] text-slate-500">Con estos datos preparamos tus formularios oficiales.</p>
       <p className="mb-1.5 mt-2.5 text-[7.5px] font-semibold uppercase tracking-wide text-slate-400">Identidad</p>
       <div className="grid grid-cols-2 gap-1.5">
@@ -330,7 +330,7 @@ function TramiteSelector({ active }: { active: boolean }) {
         <svg className="h-3 w-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
       </div>
 
-      <h1 className="mt-3 text-[14px] font-bold tracking-tight text-slate-900">Hola Julia 👋</h1>
+      <p className="mt-3 text-[14px] font-bold tracking-tight text-slate-900">Hola Julia 👋</p>
       <p className="mt-0.5 text-[9px] text-slate-500">Tu gestoría te ayuda con tu trámite. ¿Cuál necesitas?</p>
 
       <div className="mt-2 space-y-1.5">
@@ -409,7 +409,7 @@ function Documentos({ cur }: { cur: number }) {
 
   return (
     <div className="px-3 pb-3 pt-1">
-      <h1 className="text-[14px] font-bold tracking-tight text-slate-900">Documentos</h1>
+      <p className="text-[14px] font-bold tracking-tight text-slate-900">Documentos</p>
       <p className="mt-0.5 text-[9px] text-slate-500">Sube cada documento. La IA comprueba al instante que sea legible y esté vigente.</p>
       <div className="mt-2 space-y-1.5">
         {DOCS.map((d, i) => {

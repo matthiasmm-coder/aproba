@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
+import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
@@ -13,11 +14,12 @@ const PAINS = [
   "Un error administrativo y el expediente vuelve rechazado.",
 ];
 
+// Cada cifra enlaza a su página (lib/beneficios): qué significa y cómo la afirmamos.
 const STATS = [
-  { n: "3 h → 30 min", l: "por expediente", icon: "time" },
-  { n: "−80 %", l: "errores administrativos", icon: "shield" },
-  { n: "28", l: "formularios y tasas oficiales en un clic", icon: "file" },
-  { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe" },
+  { n: "3 h → 30 min", l: "por expediente", icon: "time", href: rutaDeTarjeta("3 h → 30 min por expediente") },
+  { n: "−80 %", l: "errores administrativos", icon: "shield", href: rutaDeTarjeta("−80 % errores administrativos") },
+  { n: "28", l: "formularios y tasas oficiales en un clic", icon: "file", href: rutaDeTarjeta("28 formularios y tasas oficiales en un clic") },
+  { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
 ];
 
 function StatIcon({ name }: { name: string }) {
@@ -34,15 +36,17 @@ function StatIcon({ name }: { name: string }) {
   }
 }
 
-// El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación.
+// El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación (orden
+// fijado por Matthias el 13/09/2026; «Revisión como Extranjería» salió del producto el
+// 22/08 y su sitio lo ocupa la facturación). Cada tarjeta enlaza a su página explicada.
 const MODULOS = [
   { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
   { titulo: "Formularios en un clic", desc: "25 modelos EX y las tasas 790-012, 790-052 y 790-026, rellenados solos y editables. Sin teclear, sin erratas.", icon: "doc" },
-  { titulo: "Revisión «como Extranjería»", desc: "La IA repasa el expediente igual que el funcionario, antes de presentarlo.", icon: "eye" },
-  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
   { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },
+  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
   { titulo: "Radar de renovaciones", desc: "Cada TIE vigilada. Un clic y la renovación en marcha: ese cliente vuelve a ti.", icon: "radar" },
-];
+  { titulo: "Facturas automáticas", desc: "Anticipo, resto y tasas como suplidos, emitidos desde el expediente. Sin copiar nada a otro programa.", icon: "invoice" },
+].map((m) => ({ ...m, href: rutaDeTarjeta(m.titulo) }));
 
 const SIN = [
   "Documentos por WhatsApp, email y papel, sin orden",
@@ -86,8 +90,8 @@ const GARANTIAS = [
   { titulo: "RGPD y DPA firmado", desc: "Cumplimos el RGPD y firmamos contigo el contrato de encargado de tratamiento, como con cualquier proveedor serio.", icon: "shield" },
   { titulo: "Datos alojados en la UE", desc: "Los expedientes de tus clientes viajan cifrados y se alojan en servidores de la Unión Europea.", icon: "eu" },
   { titulo: "Tus datos no entrenan IA", desc: "Los documentos de tus clientes nunca se usan para entrenar modelos de inteligencia artificial.", icon: "lock" },
-  { titulo: "Sin permanencia", desc: "Mes a mes, exportas todo a Excel cuando quieras. Si Aproba no te ahorra tiempo, te vas sin ataduras.", icon: "door" },
-];
+  { titulo: "Sin permanencia", desc: "Mes a mes, exportas tus expedientes y facturas cuando quieras. Si Aproba no te ahorra tiempo, te vas sin ataduras.", icon: "door" },
+].map((g) => ({ ...g, href: rutaDeTarjeta(g.titulo) }));
 
 function GarantiaIcon({ name }: { name: string }) {
   const c = "h-6 w-6 text-aproba-600";
@@ -103,6 +107,7 @@ function Icon({ name }: { name: string }) {
   if (name === "doc") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>;
   if (name === "eye") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>;
   if (name === "radar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>;
+  if (name === "invoice") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h4" /><path d="M14 9.5c-1.7 0-2.5.8-2.5 1.5s.8 1.5 2.5 1.5" opacity="0" /></svg>;
   if (name === "board") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="6" height="18" rx="1"/><rect x="10" y="3" width="6" height="11" rx="1"/><rect x="17" y="3" width="4" height="7" rx="1"/></svg>;
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
 }
@@ -228,13 +233,15 @@ export default function Landing() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-white/15">
             {STATS.map((s, i) => (
               <Reveal key={s.l} delay={i * 90}>
-                <div className="flex h-full flex-col items-center px-2 text-center text-white md:px-5">
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20">
+                {/* La cifra es un enlace: su página dice qué significa y cómo la afirmamos. */}
+                <Link href={s.href} className="group flex h-full flex-col items-center rounded-2xl px-2 py-2 text-center text-white transition hover:bg-white/10 md:px-5">
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20 transition group-hover:bg-white/20">
                     <StatIcon name={s.icon} />
                   </span>
                   <p className="text-2xl font-bold tracking-tightest md:text-3xl">{s.n}</p>
                   <p className="mt-1.5 text-sm font-medium text-aproba-100">{s.l}</p>
-                </div>
+                  <span className="mt-3 text-xs font-semibold text-white/70 underline decoration-white/40 underline-offset-2 transition group-hover:text-white">Cómo lo afirmamos →</span>
+                </Link>
               </Reveal>
             ))}
           </div>
@@ -295,14 +302,15 @@ export default function Landing() {
         <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
             <Reveal key={m.titulo} delay={(i % 3) * 90}>
-              <div className="group relative h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
+              <Link href={m.href} className="group relative block h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
                 {/* nº de paso: refuerza que el orden es el flujo del expediente */}
                 <span className="absolute right-5 top-5 font-mono text-xs font-semibold tabular-nums text-slate-300 transition-colors duration-300 group-hover:text-aproba-600">0{i + 1}</span>
                 <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-aproba-100"><Icon name={m.icon} /></div>
                 <h3 className="mt-4 text-center text-lg font-semibold text-slate-900">{m.titulo}</h3>
                 <span className="mx-auto mt-1.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" aria-hidden="true" />
                 <p className="mt-2.5 text-center text-[15px] leading-relaxed text-slate-600">{m.desc}</p>
-              </div>
+                <span className="mt-3 block text-center text-sm font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2">Qué significa y cómo lo hace →</span>
+              </Link>
             </Reveal>
           ))}
         </div>
@@ -346,11 +354,12 @@ export default function Landing() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {GARANTIAS.map((g, i) => (
               <Reveal key={g.titulo} delay={i * 90}>
-                <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card">
+                <Link href={g.href} className="block h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card transition hover:border-aproba-300 hover:shadow-float">
                   <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
                   <h3 className="mt-4 font-semibold text-slate-900">{g.titulo}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{g.desc}</p>
-                </div>
+                  <span className="mt-3 block text-sm font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2">Qué garantiza y cómo se comprueba →</span>
+                </Link>
               </Reveal>
             ))}
           </div>

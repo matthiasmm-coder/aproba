@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { ARTICULOS } from "@/lib/articulos";
+import { BENEFICIOS, rutaDe } from "@/lib/beneficios";
 
 // Sitemap mínimo: las páginas públicas indexables. Fechas fijas por página (se
 // actualizan cuando cambia el contenido de verdad, no en cada build).
@@ -35,5 +36,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly",
     priority: 0.7,
   }));
-  return [...fijas, ...articulos];
+  // Las páginas «beneficio explicado» de la portada (lib/beneficios): una por tarjeta.
+  const beneficios: MetadataRoute.Sitemap = BENEFICIOS.map((b) => ({
+    url: `${base}${rutaDe(b)}`,
+    lastModified: new Date(b.actualizado),
+    changeFrequency: "monthly",
+    priority: 0.8,
+  }));
+  return [...fijas, ...beneficios, ...articulos];
 }
