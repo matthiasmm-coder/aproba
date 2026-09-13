@@ -407,8 +407,11 @@ export function HeroAnimation() {
       {/* halo ambiant */}
       <div className="pointer-events-none absolute h-80 w-96 rounded-full bg-aproba-100/50 blur-3xl" />
 
-      {/* iPad */}
-      <div className="relative w-full max-w-[470px] animate-floaty">
+      {/* iPad. Escalado PROPORCIONAL con zoom (la maqueta está en px fijos): a partir de
+          1152 px la columna mide 536 px → 470 × 1,14 = 536, y el borde derecho de la
+          tableta queda alineado con el del botón «Prueba 15 días gratis» de la cabecera
+          (mismo contenedor max-w-6xl px-6). Paso intermedio en 1100-1151 px. */}
+      <div className="relative w-full max-w-[470px] animate-floaty min-[1100px]:[zoom:1.08] min-[1152px]:[zoom:1.14]">
         <div className="relative rounded-[1.4rem] border border-slate-700/40 bg-slate-900 p-2 shadow-float">
           {/* caméra */}
           <div className="absolute left-1/2 top-[3px] h-0.5 w-0.5 -translate-x-1/2 rounded-full bg-slate-600" />
