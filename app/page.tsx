@@ -368,7 +368,7 @@ export default function Landing() {
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
                 </ul>
-                <PruebaButton variant={p.destacado ? "primary" : "outline"} className="mt-7 w-full px-4 py-2.5" />
+                <PruebaButton variant="primary" className="mt-7 w-full px-4 py-2.5" />
               </div>
               </Reveal>
             ))}
