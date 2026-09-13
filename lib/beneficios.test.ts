@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { BENEFICIOS, rutaDe, rutaDeTarjeta } from "./beneficios";
 
 // Cada tarjeta de la portada tiene su página y cada página tiene una tarjeta: si alguien
@@ -22,6 +22,12 @@ describe("beneficios de la portada", () => {
       expect(b.descripcion.length, b.slug).toBeLessThanOrEqual(160);
       expect(b.faq.length, b.slug).toBeGreaterThanOrEqual(2);
       expect(b.significa.length + b.afirmamos.length, b.slug).toBeGreaterThan(1);
+    }
+  });
+  it("cada página tiene su captura en public/beneficios", () => {
+    for (const b of BENEFICIOS) {
+      expect(existsSync(`public/beneficios/${b.slug}.jpg`), b.slug).toBe(true);
+      expect(b.captura.alt.length, b.slug).toBeGreaterThan(20);
     }
   });
   it("los enlaces internos del contenido apuntan a páginas que existen", () => {

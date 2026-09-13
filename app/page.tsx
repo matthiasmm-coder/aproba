@@ -229,18 +229,17 @@ export default function Landing() {
 
       {/* Stats */}
       <section className="border-y border-aproba-700/40 bg-gradient-to-br from-aproba-600 to-aproba-700">
-        <div className="mx-auto max-w-6xl px-6 py-16">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-white/15">
+        <div className="mx-auto max-w-6xl px-6 py-9">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-white/15">
             {STATS.map((s, i) => (
               <Reveal key={s.l} delay={i * 90}>
                 {/* La cifra es un enlace: su página dice qué significa y cómo la afirmamos. */}
-                <Link href={s.href} className="group flex h-full flex-col items-center rounded-2xl px-2 py-2 text-center text-white transition hover:bg-white/10 md:px-5">
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20 transition group-hover:bg-white/20">
+                <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group flex h-full flex-col items-center rounded-2xl px-2 py-1 text-center text-white transition hover:bg-white/10 md:px-5">
+                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20 transition group-hover:bg-white/20">
                     <StatIcon name={s.icon} />
                   </span>
                   <p className="text-2xl font-bold tracking-tightest md:text-3xl">{s.n}</p>
-                  <p className="mt-1.5 text-sm font-medium text-aproba-100">{s.l}</p>
-                  <span className="mt-3 text-xs font-semibold text-white/70 underline decoration-white/40 underline-offset-2 transition group-hover:text-white">Cómo lo afirmamos →</span>
+                  <p className="mt-1 text-sm font-medium text-aproba-100">{s.l}</p>
                 </Link>
               </Reveal>
             ))}
@@ -302,14 +301,13 @@ export default function Landing() {
         <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
             <Reveal key={m.titulo} delay={(i % 3) * 90}>
-              <Link href={m.href} className="group relative block h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
+              <Link href={m.href} title="Qué significa y cómo lo hace" className="group relative block h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
                 {/* nº de paso: refuerza que el orden es el flujo del expediente */}
                 <span className="absolute right-5 top-5 font-mono text-xs font-semibold tabular-nums text-slate-300 transition-colors duration-300 group-hover:text-aproba-600">0{i + 1}</span>
                 <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50 transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-aproba-100"><Icon name={m.icon} /></div>
                 <h3 className="mt-4 text-center text-lg font-semibold text-slate-900">{m.titulo}</h3>
                 <span className="mx-auto mt-1.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" aria-hidden="true" />
                 <p className="mt-2.5 text-center text-[15px] leading-relaxed text-slate-600">{m.desc}</p>
-                <span className="mt-3 block text-center text-sm font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2">Qué significa y cómo lo hace →</span>
               </Link>
             </Reveal>
           ))}
@@ -354,11 +352,10 @@ export default function Landing() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {GARANTIAS.map((g, i) => (
               <Reveal key={g.titulo} delay={i * 90}>
-                <Link href={g.href} className="block h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card transition hover:border-aproba-300 hover:shadow-float">
+                <Link href={g.href} title="Qué garantiza y cómo se comprueba" className="block h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card transition hover:-translate-y-1 hover:border-aproba-300 hover:shadow-float">
                   <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
                   <h3 className="mt-4 font-semibold text-slate-900">{g.titulo}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{g.desc}</p>
-                  <span className="mt-3 block text-sm font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2">Qué garantiza y cómo se comprueba →</span>
                 </Link>
               </Reveal>
             ))}

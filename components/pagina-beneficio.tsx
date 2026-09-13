@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArticuloCuerpo } from "@/components/articulo-cuerpo";
 import { fechaLarga } from "@/lib/articulos";
@@ -23,8 +24,8 @@ export async function metadataDe(grupo: Grupo, params: Promise<{ slug: string }>
     title: { absolute: b.titulo },
     description: b.descripcion,
     alternates: { canonical: ruta },
-    openGraph: { type: "article", url: ruta, siteName: "Aproba", locale: "es_ES", title: b.titulo, description: b.descripcion, modifiedTime: b.actualizado, images: [{ url: "/og.png", width: 1200, height: 630, alt: "Aproba — automatiza tus expedientes de extranjería" }] },
-    twitter: { card: "summary_large_image", title: b.titulo, description: b.descripcion, images: ["/og.png"] },
+    openGraph: { type: "article", url: ruta, siteName: "Aproba", locale: "es_ES", title: b.titulo, description: b.descripcion, modifiedTime: b.actualizado, images: [{ url: `/beneficios/${b.slug}.jpg`, width: b.captura.w, height: b.captura.h, alt: b.captura.alt }] },
+    twitter: { card: "summary_large_image", title: b.titulo, description: b.descripcion, images: [`/beneficios/${b.slug}.jpg`] },
   };
 }
 
@@ -66,6 +67,22 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
         <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tightest text-slate-900 sm:text-4xl">{b.h1}</h1>
         <p className="mt-3 text-lg leading-relaxed text-slate-600">{b.entradilla}</p>
         <p className="mt-2 text-xs text-slate-400">Actualizado el {fechaLarga(b.actualizado)}</p>
+
+        {/* Captura real de Aproba (cuenta demo): una por página, priority porque es el
+            elemento grande de la mitad superior (LCP). */}
+        <figure className="mt-8">
+          <Image
+            src={`/beneficios/${b.slug}.jpg`}
+            alt={b.captura.alt}
+            width={b.captura.w}
+            height={b.captura.h}
+            priority
+            sizes="(max-width: 768px) 100vw, 768px"
+            className="w-full rounded-2xl border border-slate-200 bg-white"
+          />
+          <figcaption className="mt-2 text-xs leading-relaxed text-slate-500">{b.captura.pie}</figcaption>
+        </figure>
+
         <hr className="my-8 border-slate-200" />
 
         <ArticuloCuerpo bloques={[{ t: "h2", texto: "Qué significa" }, ...b.significa, { t: "h2", texto: "Cómo podemos afirmarlo" }, ...b.afirmamos, ...(b.limites ? [{ t: "h2" as const, texto: "Lo que no incluye" }, ...b.limites] : []), { t: "faq", items: b.faq }]} />
