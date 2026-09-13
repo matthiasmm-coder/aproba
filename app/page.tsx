@@ -4,6 +4,7 @@ import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
+import { DiaNoche } from "@/components/dia-noche";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 
@@ -318,28 +319,9 @@ export default function Landing() {
       <section className="border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">El día y la noche</h2>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <Reveal>
-            <div className="h-full rounded-2xl border border-slate-200 bg-cream-50 p-7">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Sin Aproba</h3>
-              <ul className="mt-5 space-y-3 text-slate-600">
-                {SIN.map((s) => (
-                  <li key={s} className="flex items-start gap-3"><Tick ok={false} />{s}</li>
-                ))}
-              </ul>
-            </div>
-            </Reveal>
-            <Reveal delay={150}>
-            <div className="h-full rounded-2xl border-2 border-aproba-600 bg-white p-7 shadow-card">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-aproba-700">Con Aproba</h3>
-              <ul className="mt-5 space-y-3 text-slate-700">
-                {CON.map((s) => (
-                  <li key={s} className="flex items-start gap-3"><Tick ok={true} />{s}</li>
-                ))}
-              </ul>
-            </div>
-            </Reveal>
-          </div>
+          {/* Animado al entrar en pantalla (components/dia-noche): lo de la izquierda se tacha,
+              lo de la derecha se enciende fila a fila. */}
+          <DiaNoche sin={SIN} con={CON} />
         </div>
       </section>
 

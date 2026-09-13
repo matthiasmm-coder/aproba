@@ -187,3 +187,55 @@ details[open] > .faq-body {
   .tabla-articulo td:first-child::before { content: none; }
   .tabla-articulo tr:last-child td:last-child { padding-bottom: 0.7rem; }
 }
+
+/* ── «El día y la noche» (components/dia-noche.tsx) ─────────────────────────
+   Una sola clase (.dn-on) dispara la secuencia; --i (índice de fila) escalona:
+   1) filas SIN aparecen (0-500 ms) y se tachan una a una (desde 700 ms);
+   2) flecha (900 ms); 3) filas CON entran con la marca dibujándose y un destello
+   (desde 1 000 ms); 4) la tarjeta CON respira una vez al final. */
+.dn-item {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.dn-sin .dn-item { transition-delay: calc(var(--i) * 90ms); }
+.dn-con .dn-item { transform: translateX(10px); transition-delay: calc(1000ms + var(--i) * 130ms); }
+.dn-on .dn-item { opacity: 1; transform: none; }
+
+/* tachado: line-through que aparece por color (funciona en filas de varias líneas) */
+.dn-sin .dn-text {
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  transition: text-decoration-color 0.4s ease, color 0.4s ease;
+  transition-delay: calc(700ms + var(--i) * 110ms);
+}
+.dn-on .dn-sin .dn-text { text-decoration-color: rgb(239 68 68 / 0.55); color: #94a3b8; }
+.dn-sin .dn-x { transition: transform 0.3s ease, color 0.3s ease; transition-delay: calc(700ms + var(--i) * 110ms); }
+.dn-on .dn-sin .dn-x { transform: scale(0.85); color: #fca5a5; }
+
+/* flecha */
+.dn-arrow { opacity: 0; transform: translate(-50%, -50%) scale(0.6); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); transition-delay: 900ms; }
+.dn-on .dn-arrow { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* marca que se dibuja + destello de la fila */
+.dn-check path { stroke-dasharray: 26; stroke-dashoffset: 26; transition: stroke-dashoffset 0.4s ease; transition-delay: calc(1150ms + var(--i) * 130ms); }
+.dn-on .dn-check path { stroke-dashoffset: 0; }
+.dn-on .dn-con .dn-item { animation: dnflash 0.9s ease-out both; animation-delay: calc(1100ms + var(--i) * 130ms); }
+@keyframes dnflash {
+  0% { background-color: transparent; }
+  35% { background-color: #ecfdf5; }
+  100% { background-color: transparent; }
+}
+/* la tarjeta CON respira una vez cuando todo está encendido */
+.dn-on .dn-con-card { animation: dnglow 1.3s ease-out 1.9s 1; }
+@keyframes dnglow {
+  0%, 100% { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06); }
+  50% { box-shadow: 0 0 0 8px rgb(16 176 131 / 0.16), 0 14px 36px rgb(14 140 95 / 0.2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dn-item, .dn-arrow { opacity: 1; transform: none; transition: none; }
+  .dn-arrow { transform: translate(-50%, -50%); }
+  .dn-check path { stroke-dashoffset: 0; }
+  .dn-on .dn-con .dn-item, .dn-on .dn-con-card { animation: none; }
+}
