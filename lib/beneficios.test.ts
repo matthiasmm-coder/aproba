@@ -24,10 +24,16 @@ describe("beneficios de la portada", () => {
       expect(b.significa.length + b.afirmamos.length, b.slug).toBeGreaterThan(1);
     }
   });
-  it("cada página tiene su captura en public/beneficios", () => {
+  it("solo las funciones llevan captura, y cada una tiene su fichero", () => {
     for (const b of BENEFICIOS) {
-      expect(existsSync(`public/beneficios/${b.slug}.jpg`), b.slug).toBe(true);
-      expect(b.captura.alt.length, b.slug).toBeGreaterThan(20);
+      if (b.grupo === "funciones") {
+        expect(b.captura, b.slug).toBeDefined();
+        expect(existsSync(`public/beneficios/${b.slug}.jpg`), b.slug).toBe(true);
+        expect(b.captura!.alt.length, b.slug).toBeGreaterThan(20);
+      } else {
+        expect(b.captura, b.slug).toBeUndefined();
+        expect(existsSync(`public/beneficios/${b.slug}.jpg`), b.slug).toBe(false);
+      }
     }
   });
   it("los enlaces internos del contenido apuntan a páginas que existen", () => {

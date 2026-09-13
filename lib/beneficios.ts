@@ -24,8 +24,9 @@ export type Beneficio = {
   limites?: Bloque[];     // «Lo que no incluye»
   faq: { q: string; a: string }[];
   fuentes?: { nombre: string; url: string }[]; // documentos externos citados
-  // Captura REAL de Aproba (cuenta demo) que ilustra el beneficio: public/beneficios/<slug>.jpg
-  captura: { w: number; h: number; alt: string; pie: string };
+  // Captura REAL de Aproba (cuenta demo) que ilustra el beneficio: public/beneficios/<slug>.jpg.
+  // Solo las seis FUNCIONES la llevan (decisión Matthias 13/09): cifras y garantías van sin captura.
+  captura?: { w: number; h: number; alt: string; pie: string };
 };
 
 export const GRUPO_LABEL: Record<Grupo, string> = { funciones: "Función", cifras: "Cifra", garantias: "Garantía" };
@@ -302,7 +303,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "3 h → 30 min por expediente: de dónde sale la cifra",
     entradilla: "No es una media de clientes ni un estudio independiente: es el desglose de un expediente tipo, tarea por tarea, con lo que Aproba quita de cada una. Lo publicamos para que se pueda discutir.",
     actualizado: "2026-09-13",
-    captura: { w: 1600, h: 800, alt: "Cabecera de un expediente en fase Preparado, con las secciones Notas, Información, Documentos y Formularios plegadas", pie: "Un expediente listo para presentar: la fase Preparado y, debajo, todo lo que antes vivía en carpetas y correos, en un solo sitio." },
     significa: [
       { t: "p", texto: "Tomamos como referencia una renovación de residencia temporal de una persona sola, con el cliente respondiendo el mismo día. Contamos solo el tiempo del despacho (no el del cliente ni el de la Administración) y solo hasta tener el expediente listo para presentar." },
       { t: "tabla", titulo: "Desglose de un expediente tipo (tiempo del despacho)", encabezados: ["Tarea", "A mano", "Con Aproba", "Qué cambia"], filas: [
@@ -341,7 +341,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "−80 % errores administrativos: cuáles son y por qué desaparecen",
     entradilla: "Un requerimiento de subsanación casi nunca viene del fondo del caso: viene de un dato mal tecleado, un documento caducado o una tasa equivocada. Estas son las causas y lo que Aproba hace con cada una.",
     actualizado: "2026-09-13",
-    captura: { w: 1600, h: 1013, alt: "Lista de documentos requeridos de un arraigo social: el pasaporte validado y las piezas que faltan marcadas como Falta", pie: "Lo que evita el error de forma: la lista exacta del trámite, con lo validado y lo que falta, antes de que el expediente llegue a «preparado»." },
     significa: [
       { t: "p", texto: "Llamamos error administrativo al defecto de forma que provoca un requerimiento o un retraso sin que el caso tenga ningún problema de fondo. En nuestra experiencia con despachos de extranjería se concentran en cinco causas." },
       { t: "tabla", titulo: "Las cinco causas y qué hace Aproba", encabezados: ["Causa del requerimiento", "Qué la provoca", "Con Aproba"], filas: [
@@ -378,7 +377,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "28 formularios y tasas oficiales: los 25 EX y las 3 tasas, uno por uno",
     entradilla: "Veinticinco son modelos EX de la serie vigente; tres son las tasas 790 de extranjería. Aquí está la lista completa, para que «28» no sea un número redondo sino una cuenta.",
     actualizado: "2026-09-13",
-    captura: { w: 1600, h: 1200, alt: "Selector «Añadir formulario» desplegado con los modelos EX y, debajo, los botones de las tasas 790-012, 790-052 y 790-026", pie: "En la página de formularios de un expediente: la lista de modelos EX para añadir y las tres tasas 790 que se generan con los datos del cliente." },
     significa: [
       { t: "datos", items: [
         { valor: "25", etiqueta: "modelos EX sobre el impreso oficial" },
@@ -412,7 +410,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "8 idiomas para tus clientes: cuáles, dónde y por qué esos",
     entradilla: "La mayoría de los clientes de extranjería no leen bien el español, y un formulario en español menos. El portal y sus notificaciones hablan el idioma del cliente. Estos son los ocho, dónde se aplican y dónde no.",
     actualizado: "2026-09-13",
-    captura: { w: 1600, h: 1216, alt: "Portal del cliente en árabe: formulario de datos de derecha a izquierda, con el selector de idioma arriba", pie: "El portal del cliente en árabe, escrito de derecha a izquierda, con el selector de idioma en la cabecera." },
     significa: [
       { t: "tabla", titulo: "Los ocho idiomas y a quién sirven", encabezados: ["Idioma", "Comunidades habituales en los despachos"], filas: [
         ["Español", "Latinoamérica (Colombia, Venezuela, Perú, Honduras…), la mayor parte de la cartera"],
@@ -456,7 +453,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "RGPD y DPA firmado: qué te garantiza y cómo se comprueba",
     entradilla: "Un despacho de extranjería trata pasaportes, antecedentes y datos de salud. Quien le da un software es encargado del tratamiento y responde por escrito. Esto es lo que firmamos y dónde está.",
     actualizado: "2026-09-13",
-    captura: { w: 1536, h: 1440, alt: "Página pública del contrato de encargado del tratamiento (DPA) de Aproba: objeto, roles y descripción del tratamiento", pie: "El DPA publicado en aproba-software.com/legal/dpa: se entiende aceptado desde el primer día de uso, prueba incluida." },
     significa: [
       { t: "p", texto: "El despacho es el **responsable** del tratamiento de los datos de sus clientes; Aproba es el **encargado** (artículo 28 del RGPD). Esa relación exige un contrato que fije qué hace Aproba con los datos, con qué medidas, con qué subencargados y qué pasa al terminar. Ese contrato es el DPA." },
       { t: "ul", items: [
@@ -493,7 +489,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "Datos alojados en la UE: dónde está exactamente cada cosa",
     entradilla: "«En la UE» es fácil de escribir. Aquí está el detalle: qué se guarda, dónde, con qué cifrado, y los dos casos en que un dato cruza una frontera y bajo qué garantía.",
     actualizado: "2026-09-13",
-    captura: { w: 1536, h: 1400, alt: "Tabla de encargados de la Política de privacidad: proveedor, finalidad, ubicación y garantía", pie: "La tabla pública de proveedores, con la ubicación de cada dato: base de datos y documentos en la Unión Europea." },
     significa: [
       { t: "tabla", titulo: "Qué dato, dónde", encabezados: ["Dato", "Dónde se guarda", "Proveedor", "Garantía"], filas: [
         ["Base de datos (clientes, expedientes, facturas)", "Unión Europea", "Supabase, región europea", "DPA del proveedor; cifrado en reposo y en tránsito"],
@@ -531,7 +526,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "Tus datos no entrenan IA: qué proveedor, qué condiciones, cómo verificarlo",
     entradilla: "Un pasaporte que entra en Aproba se lee para rellenar un expediente y para nada más. Ni Aproba ni el proveedor del modelo lo usan para entrenar. Esto es lo que lo garantiza y dónde está escrito.",
     actualizado: "2026-09-13",
-    captura: { w: 1536, h: 1280, alt: "Tabla de subencargados del DPA con la fila de Anthropic: no se usan los datos para entrenar modelos", pie: "La fila de Anthropic en el DPA: validación por IA de los documentos, sin uso para entrenar modelos y con retención limitada." },
     significa: [
       { t: "ul", items: [
         "**Quién lee.** Los documentos los lee un modelo de Anthropic (Claude) a través de su API comercial. No se usa ninguna cuenta de consumo ni herramienta gratuita.",
@@ -570,7 +564,6 @@ export const BENEFICIOS: Beneficio[] = [
     h1: "Sin permanencia: cómo te vas, qué te llevas y qué pasa con tus datos",
     entradilla: "Si Aproba no te ahorra tiempo, te vas. Sin llamadas, sin preaviso de tres meses, con tus datos. Estos son los pasos y lo que puedes exportar.",
     actualizado: "2026-09-13",
-    captura: { w: 1600, h: 626, alt: "Ajustes › Plan y equipo: plan Business activo y el selector para cambiar de plan", pie: "Ajustes › Plan y equipo: el plan actual, el método de pago y el cambio de plan en un clic. Sin permanencia." },
     significa: [
       { t: "ul", items: [
         "**Mes a mes.** La suscripción se renueva cada mes (o cada año, si elegiste el pago anual) y se cancela desde Ajustes › Plan; sigues teniendo acceso hasta el final del periodo pagado.",

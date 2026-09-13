@@ -24,8 +24,8 @@ export async function metadataDe(grupo: Grupo, params: Promise<{ slug: string }>
     title: { absolute: b.titulo },
     description: b.descripcion,
     alternates: { canonical: ruta },
-    openGraph: { type: "article", url: ruta, siteName: "Aproba", locale: "es_ES", title: b.titulo, description: b.descripcion, modifiedTime: b.actualizado, images: [{ url: `/beneficios/${b.slug}.jpg`, width: b.captura.w, height: b.captura.h, alt: b.captura.alt }] },
-    twitter: { card: "summary_large_image", title: b.titulo, description: b.descripcion, images: [`/beneficios/${b.slug}.jpg`] },
+    openGraph: { type: "article", url: ruta, siteName: "Aproba", locale: "es_ES", title: b.titulo, description: b.descripcion, modifiedTime: b.actualizado, images: [b.captura ? { url: `/beneficios/${b.slug}.jpg`, width: b.captura.w, height: b.captura.h, alt: b.captura.alt } : { url: "/og.png", width: 1200, height: 630, alt: "Aproba — automatiza tus expedientes de extranjería" }] },
+    twitter: { card: "summary_large_image", title: b.titulo, description: b.descripcion, images: [b.captura ? `/beneficios/${b.slug}.jpg` : "/og.png"] },
   };
 }
 
@@ -43,7 +43,7 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "FAQPage", mainEntity: b.faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: limpiar(f.a) } })) },
-      { "@type": "WebPage", "@id": `${BASE}${ruta}`, url: `${BASE}${ruta}`, name: b.titulo, description: b.descripcion, inLanguage: "es-ES", dateModified: b.actualizado, publisher: { "@type": "Organization", name: "Aproba", url: BASE } },
+      { "@type": "WebPage", "@id": `${BASE}${ruta}`, url: `${BASE}${ruta}`, name: b.titulo, description: b.descripcion, inLanguage: "es-ES", dateModified: b.actualizado, publisher: { "@type": "Organization", name: "Aproba", url: BASE }, ...(b.captura ? { primaryImageOfPage: { "@type": "ImageObject", url: `${BASE}/beneficios/${b.slug}.jpg`, width: b.captura.w, height: b.captura.h } } : {}) },
       { "@type": "BreadcrumbList", itemListElement: [
         { "@type": "ListItem", position: 1, name: "Inicio", item: BASE },
         { "@type": "ListItem", position: 2, name: b.tarjeta, item: `${BASE}${ruta}` },
@@ -70,18 +70,20 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
 
         {/* Captura real de Aproba (cuenta demo): una por página, priority porque es el
             elemento grande de la mitad superior (LCP). */}
-        <figure className="mt-8">
-          <Image
-            src={`/beneficios/${b.slug}.jpg`}
-            alt={b.captura.alt}
-            width={b.captura.w}
-            height={b.captura.h}
-            priority
-            sizes="(max-width: 768px) 100vw, 768px"
-            className="w-full rounded-2xl border border-slate-200 bg-white"
-          />
-          <figcaption className="mt-2 text-xs leading-relaxed text-slate-500">{b.captura.pie}</figcaption>
-        </figure>
+        {b.captura && (
+          <figure className="mt-8">
+            <Image
+              src={`/beneficios/${b.slug}.jpg`}
+              alt={b.captura.alt}
+              width={b.captura.w}
+              height={b.captura.h}
+              priority
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="w-full rounded-2xl border border-slate-200 bg-white"
+            />
+            <figcaption className="mt-2 text-xs leading-relaxed text-slate-500">{b.captura.pie}</figcaption>
+          </figure>
+        )}
 
         <hr className="my-8 border-slate-200" />
 
