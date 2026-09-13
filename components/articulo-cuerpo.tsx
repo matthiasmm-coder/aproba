@@ -191,9 +191,17 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                 </div>
                 {/* conector (móvil): bajada corta al destino */}
                 <div aria-hidden className="ml-[11px] h-5 w-px bg-aproba-600 sm:hidden" />
-                <div className="mt-1 rounded-xl bg-slate-900 px-5 py-4 text-center sm:mt-2">
-                  <p className="text-sm font-bold text-white">{b.destino.titulo}</p>
-                  {b.destino.texto && <p className="mt-1 text-xs leading-relaxed text-slate-300">{b.destino.texto}</p>}
+                {/* Destino: panel claro con trama de puntos verde Aproba (13/09/2026, antes un
+                    bloque azul oscuro que rompía el lenguaje visual «paneles blancos, verde = resultado»). */}
+                <div
+                  className="mt-1 rounded-xl border border-aproba-200 bg-aproba-50 p-3 text-center sm:mt-2"
+                  style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(14,140,95,0.30) 1px, transparent 0)", backgroundSize: "10px 10px" }}
+                >
+                  {/* el texto va sobre un fondo blanco casi opaco: la trama enmarca, no interfiere */}
+                  <div className="mx-auto inline-block max-w-full rounded-lg bg-white/90 px-5 py-3">
+                    <p className="text-sm font-bold text-aproba-700">{b.destino.titulo}</p>
+                    {b.destino.texto && <p className="mt-1 text-xs leading-relaxed text-slate-700">{b.destino.texto}</p>}
+                  </div>
                 </div>
                 <NotaFigura texto={b.nota} />
               </figure>
