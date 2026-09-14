@@ -9,7 +9,15 @@
 // peuvent lui échapper, compromis assumé).
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
-  import("@sentry/nextjs").then((Sentry) => Sentry.init({
+  // Les erreurs survenues avant l'arrivée du SDK sont mises en file et rejouées à l'init.
+  const cola: unknown[] = [];
+  const onError = (e: ErrorEvent) => { cola.push(e.error ?? e.message); };
+  const onRechazo = (e: PromiseRejectionEvent) => { cola.push(e.reason); };
+  window.addEventListener("error", onError);
+  window.addEventListener("unhandledrejection", onRechazo);
+  // webpackExports : sans lui, import() embarque TOUT l'espace de noms du SDK (replay,
+  // feedback, tracing… ~190 Ko gzip au lieu de ~90) — vu en prod le 14/09.
+  const cargar = () => import(/* webpackExports: ["init", "captureException"] */ "@sentry/nextjs").then((Sentry) => { Sentry.init({
     dsn,
     tracesSampleRate: 0.1,
     sendDefaultPii: false, // jamais de PII (le portail manie passeports/NIE)
@@ -35,5 +43,14 @@ if (dsn) {
       /^safari(-web)?-extension:\/\//i,
       /app:\/\/\/executors\//i, // script injecté vu en prod (aucun fichier de ce nom chez nous)
     ],
-  })).catch(() => {});
+  });
+    window.removeEventListener("error", onError);
+    window.removeEventListener("unhandledrejection", onRechazo);
+    for (const e of cola.splice(0)) Sentry.captureException(e);
+  }).catch(() => {});
+  // Chargé 2,5 s après `load`, dans un creux d'inactivité : lancé dès l'hydratation, le SDK
+  // partait avant le LCP observé et Lighthouse/PSI le comptait dans le LCP (3,5 s vs 1,3 s).
+  // Les erreurs de l'intervalle sont dans `cola` : rien n'est perdu.
+  const enHueco = () => window.setTimeout(() => { if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(cargar, { timeout: 5000 }); else cargar(); }, 2500);
+  if (document.readyState === "complete") enHueco(); else window.addEventListener("load", enHueco, { once: true });
 }

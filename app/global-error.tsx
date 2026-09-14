@@ -12,7 +12,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     console.error("[global error]", error.digest ?? "", error.message);
     // Import dinámico: con el import estático el SDK de Sentry (~100 KB) iba en el bundle
     // inicial de TODAS las páginas aunque no haya DSN. Solo se carga si de verdad hay un error.
-    import("@sentry/nextjs").then((Sentry) => Sentry.captureException(error)).catch(() => {});
+    import(/* webpackExports: ["captureException"] */ "@sentry/nextjs").then((Sentry) => Sentry.captureException(error)).catch(() => {});
   }, [error]);
 
   return (
