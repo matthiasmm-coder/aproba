@@ -49,7 +49,7 @@ export function CookieNotice() {
         </p>
         <button
           onClick={aceptar}
-          className="min-h-[44px] shrink-0 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700"
+          className="min-h-[44px] shrink-0 self-center rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 sm:self-auto"
         >
           {t("cookies.ok")}
         </button>
