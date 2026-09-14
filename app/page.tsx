@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import localFont from "next/font/local";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HowItWorks } from "@/components/demos";
@@ -8,6 +9,7 @@ import { Reveal } from "@/components/reveal";
 import { DiaNoche } from "@/components/dia-noche";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
+import { VideoDemo } from "@/components/video-demo";
 
 // Canónica de la portada (higiene del sitemap, 14/09/2026): título y descripción siguen
 // viniendo del layout raíz.
@@ -126,9 +128,14 @@ function Tick({ ok }: { ok: boolean }) {
   );
 }
 
+// Geist Mono recortada a ASCII (scripts/subset-geist-mono.mjs): la portada solo la usa para
+// cifras y referencias de las maquetas. Misma variable que la fuente completa del root layout,
+// redefinida en este árbol → aquí se descarga el fichero pequeño, no el de 70 KB.
+const GeistMonoLanding = localFont({ src: "./fonts/GeistMono-landing.woff2", variable: "--font-geist-mono", weight: "400 600", preload: false, adjustFontFallback: false, fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"] });
+
 export default function Landing() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-cream-50">
+    <div className={`min-h-screen overflow-x-clip bg-cream-50 ${GeistMonoLanding.variable}`}>
       {/* Sin JS, los <Reveal> quedarían en opacity-0: forzamos visible */}
       <noscript>
         <style>{`.opacity-0{opacity:1!important}.translate-y-4{transform:none!important}`}</style>
@@ -145,7 +152,7 @@ export default function Landing() {
             <Link href="/articulos" className="hover:text-slate-900">Artículos</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
+            <Link href="/login" prefetch={false} className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
               Entrar
             </Link>
             <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
@@ -156,6 +163,7 @@ export default function Landing() {
           </div>
         </div>
       </header>
+      <main>
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -272,10 +280,7 @@ export default function Landing() {
                   app.aproba-software.com
                 </span>
               </div>
-              <video controls preload="metadata" playsInline poster="/demo-poster.jpg" className="h-auto w-full bg-black">
-                <source src="/demo.mp4" type="video/mp4" />
-                Tu navegador no admite la reproducción de vídeo.
-              </video>
+              <VideoDemo />
             </div>
           </Reveal>
         </div>
@@ -415,6 +420,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
+      </main>
       <footer className="border-t border-slate-200 bg-cream-50">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-slate-500 md:flex-row">
           <div className="flex items-center gap-2"><AprobaMark size={24} /><span>© 2026 Aproba</span></div>

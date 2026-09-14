@@ -1,10 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import localFont from "next/font/local";
 import "./globals.css";
 import { CookieNotice } from "@/components/cookie-notice";
 import { PwaRegister } from "@/components/pwa-register";
 import { DomResiliente } from "@/components/dom-resiliente";
+
+// Geist Mono: el mismo fichero que exporta el paquete `geist`, pero SIN preload — el paquete lo
+// precarga siempre (70 KB en la ruta crítica de cada página) y en la portada solo lo usan las
+// cifras de las maquetas. Sigue definiendo --font-geist-mono, así que `font-mono` no cambia.
+const GeistMono = localFont({
+  src: "../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  preload: false,
+  adjustFontFallback: false,
+  fallback: ["ui-monospace", "SFMono-Regular", "Roboto Mono", "Menlo", "Monaco", "Liberation Mono", "DejaVu Sans Mono", "Courier New", "monospace"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://aproba-software.com"),

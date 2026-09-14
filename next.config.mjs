@@ -14,6 +14,9 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // CSS global (~14 KB) inline en el HTML: una petición bloqueante menos antes del primer
+  // pintado en móvil (PSI 14/09/2026). Si algún día el CSS crece mucho, reconsiderar.
+  experimental: { inlineCss: true },
   // pdfjs-dist (lib/tasa-editable.ts) no se empaqueta: su build legacy trae polyfills de
   // navegador que rompen al minificar; Node lo carga tal cual desde node_modules.
   serverExternalPackages: ["pdfjs-dist"],

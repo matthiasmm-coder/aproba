@@ -105,10 +105,19 @@ body {
   to { stroke-dashoffset: 0; }
 }
 
-/* Entrada en cascada del hero (server component: sin JS, solo CSS) */
+/* Entrada en cascada del hero (server component: sin JS, solo CSS).
+   La opacidad de partida es 0.01 y NO 0: Chrome no cuenta para el LCP un elemento pintado
+   con opacidad 0, y el texto del hero solo volvía a pintarse al llegar la fuente (~1,7 s
+   después del FCP en móvil) — el LCP marcaba 4 s con el texto ya visible desde hacía rato
+   (medido el 14/09/2026, PSI móvil 80). Con 0.01 el primer pintado ya cuenta y el fundido
+   se ve exactamente igual. */
+@keyframes hero-fadein {
+  from { opacity: 0.01; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .hero-stagger > * {
-  opacity: 0;
-  animation: fadein 0.6s ease-out forwards;
+  opacity: 0.01;
+  animation: hero-fadein 0.6s ease-out forwards;
 }
 .hero-stagger > *:nth-child(1) { animation-delay: 0.05s; }
 .hero-stagger > *:nth-child(2) { animation-delay: 0.15s; }

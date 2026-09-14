@@ -42,7 +42,7 @@ export function CookieNotice() {
       <div className="mx-auto flex max-w-3xl flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white/95 px-5 py-4 shadow-card backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">
           {t("cookies.texto")}{" "}
-          <Link href="/legal/cookies" className="font-medium text-aproba-700 underline underline-offset-2">
+          <Link href="/legal/cookies" prefetch={false} className="font-medium text-aproba-700 underline underline-offset-2">
             {t("cookies.politica")}
           </Link>
           .
