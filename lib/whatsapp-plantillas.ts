@@ -7,17 +7,19 @@ import { crearPlantilla, estadoPlantillas, type PlantillaDef } from "@/lib/whats
 // conectar (categoría UTILITY) y su estado llega por webhook (message_template_status_update).
 // UNA plantilla genérica de aviso con 3 variables — el mismo diseño que la de Twilio, para
 // que los 6 puntos de envío de lib/notificaciones no cambien: {{1}} despacho · {{2}} texto
-// · {{3}} enlace. Meta prohíbe saltos de línea DENTRO de las variables (se sanean a « · »).
+// · {{3}} enlace. Meta prohíbe saltos de línea DENTRO de las variables (se sanean a « · ») y
+// rechaza (code 100/2388299) toda plantilla que EMPIECE o TERMINE por una variable: el cuerpo
+// lleva texto antes de {{1}} y después de {{3}} — no lo quites.
 export const PLANTILLA_AVISO = "aproba_aviso";
 export const PLANTILLAS: PlantillaDef[] = [
   { name: PLANTILLA_AVISO, language: "es", category: "UTILITY",
-    body: "*{{1}}* — actualización sobre tu trámite de extranjería:\n\n{{2}}\n\nMás información y acceso a tu expediente:\n{{3}}",
+    body: "Mensaje de *{{1}}* sobre tu trámite de extranjería:\n\n{{2}}\n\nMás información y acceso a tu expediente:\n{{3}}\n\nSi tienes alguna duda, responde a este mensaje.",
     ejemplo: ["Gestoría Vallès", "Hemos recibido tu pasaporte y ya está validado.", "https://aproba-software.com/s/abc123"] },
   { name: PLANTILLA_AVISO, language: "en", category: "UTILITY",
-    body: "*{{1}}* — update on your immigration procedure:\n\n{{2}}\n\nMore information and access to your file:\n{{3}}",
+    body: "Message from *{{1}}* about your immigration procedure:\n\n{{2}}\n\nMore information and access to your file:\n{{3}}\n\nIf you have any questions, just reply to this message.",
     ejemplo: ["Gestoría Vallès", "We have received your passport and it is now validated.", "https://aproba-software.com/s/abc123"] },
   { name: PLANTILLA_AVISO, language: "fr", category: "UTILITY",
-    body: "*{{1}}* — mise à jour de ta démarche d'immigration :\n\n{{2}}\n\nPlus d'informations et accès à ton dossier :\n{{3}}",
+    body: "Message de *{{1}}* concernant ta démarche d'immigration :\n\n{{2}}\n\nPlus d'informations et accès à ton dossier :\n{{3}}\n\nPour toute question, réponds à ce message.",
     ejemplo: ["Gestoría Vallès", "Nous avons reçu ton passeport, il est validé.", "https://aproba-software.com/s/abc123"] },
 ];
 
