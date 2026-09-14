@@ -39,8 +39,10 @@ export function DemoButton({ variant = "primary", className = "", children }: { 
 // CTA único de la landing (05/09/2026): el ensayo. Medido en 75 días: 21 altas de 21 por
 // «Prueba 15 días gratis», 0 por la demo. El enlace de Calendly queda como secundario.
 export function PruebaButton({ variant = "primary", className = "", children }: { variant?: keyof typeof VARIANTES; className?: string; children?: React.ReactNode }) {
+  // prefetch={false}: sin prefetch al entrar en pantalla (en móvil competía con la carga de la
+  // portada); Next sigue precargando al pasar el ratón o al tocar, así que el clic no lo nota.
   return (
-    <Link href="/signup?modo=prueba" className={`inline-block whitespace-nowrap rounded-lg text-center text-sm font-semibold transition ${VARIANTES[variant]} ${className}`}>
+    <Link href="/signup?modo=prueba" prefetch={false} className={`inline-block whitespace-nowrap rounded-lg text-center text-sm font-semibold transition ${VARIANTES[variant]} ${className}`}>
       {children ?? "Prueba 15 días gratis"}
     </Link>
   );

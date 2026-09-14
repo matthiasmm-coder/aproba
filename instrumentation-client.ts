@@ -1,10 +1,15 @@
-import * as Sentry from "@sentry/nextjs";
-
 // Observabilité navigateur (Sentry). NO-OP tant que NEXT_PUBLIC_SENTRY_DSN n'est
 // pas défini. Installe les handlers globaux (window.onerror / unhandledrejection).
+//
+// Import DYNAMIQUE et conditionné au DSN (14/09/2026) : avec `import * as Sentry` en tête
+// de fichier, Next mettait tout le SDK (~70 Ko gzip) dans le chunk partagé de TOUTES les
+// pages, DSN ou pas — un tiers du JS initial de la landing pour un init qui ne tournait
+// jamais. Ici, sans DSN le code est mort et le SDK n'est jamais téléchargé ; avec DSN il
+// se charge juste après l'hydratation (les erreurs des toutes premières millisecondes
+// peuvent lui échapper, compromis assumé).
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
-  Sentry.init({
+  import("@sentry/nextjs").then((Sentry) => Sentry.init({
     dsn,
     tracesSampleRate: 0.1,
     sendDefaultPii: false, // jamais de PII (le portail manie passeports/NIE)
@@ -30,5 +35,5 @@ if (dsn) {
       /^safari(-web)?-extension:\/\//i,
       /app:\/\/\/executors\//i, // script injecté vu en prod (aucun fichier de ce nom chez nous)
     ],
-  });
+  })).catch(() => {});
 }

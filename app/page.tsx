@@ -155,7 +155,7 @@ export default function Landing() {
             <Link href="/login" prefetch={false} className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
               Entrar
             </Link>
-            <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
+            <Link href="/signup?modo=prueba" prefetch={false} className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
               <span className="min-[360px]:hidden">Prueba</span>
               <span className="hidden min-[360px]:inline sm:hidden">Prueba gratis</span>
               <span className="hidden sm:inline">Prueba 15 días gratis</span>

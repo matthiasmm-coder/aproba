@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
 import { esChunkPerimido, recargarPorChunkPerimido } from "@/lib/chunk-perimido";
 
 // Error boundary RACINE (remplace tout le document si le layout lui-même crashe).
@@ -11,7 +10,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   useEffect(() => {
     if (esChunkPerimido(error) && recargarPorChunkPerimido()) return;
     console.error("[global error]", error.digest ?? "", error.message);
-    Sentry.captureException(error);
+    // Import dinámico: con el import estático el SDK de Sentry (~100 KB) iba en el bundle
+    // inicial de TODAS las páginas aunque no haya DSN. Solo se carga si de verdad hay un error.
+    import("@sentry/nextjs").then((Sentry) => Sentry.captureException(error)).catch(() => {});
   }, [error]);
 
   return (

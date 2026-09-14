@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import * as Sentry from "@sentry/nextjs";
 import { esChunkPerimido, recargarPorChunkPerimido } from "@/lib/chunk-perimido";
 
 // Error boundary de segment (Next.js). Évite la page blanche sur un crash React :
@@ -13,7 +12,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     // fallo de la app y no debe asustar al gestor con «Algo ha fallado».
     if (esChunkPerimido(error) && recargarPorChunkPerimido()) { setRecargando(true); return; }
     console.error("[app error]", error.digest ?? "", error.message);
-    Sentry.captureException(error);
+    // Import dinámico: con el import estático el SDK de Sentry (~100 KB) iba en el bundle
+    // inicial de TODAS las páginas aunque no haya DSN. Solo se carga si de verdad hay un error.
+    import("@sentry/nextjs").then((Sentry) => Sentry.captureException(error)).catch(() => {});
   }, [error]);
 
   if (recargando) {
