@@ -34,7 +34,12 @@ const nextConfig = {
   // HTTP real (307): un redirect() en la página llegaba tras el streaming del layout y
   // se convertía en un <meta refresh> de 1 s.
   async redirects() {
-    return [{ source: "/app/bandeja", destination: "/app/ajustes?abrir=integraciones", permanent: false }];
+    return [
+      { source: "/app/bandeja", destination: "/app/ajustes?abrir=integraciones", permanent: false },
+      // La cifra de la portada pasó de 28 a 29 piezas al añadir la tasa 790-062 (14/09/2026):
+      // la URL antigua ya estaba indexada (IndexNow 13/09) → redirección permanente.
+      { source: "/cifras/28-formularios-y-tasas-oficiales", destination: "/cifras/29-formularios-y-tasas-oficiales", permanent: true },
+    ];
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

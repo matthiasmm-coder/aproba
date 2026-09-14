@@ -9,6 +9,7 @@ import { avisarGuia } from "@/components/guia-activacion";
 import { Tasa790Modal } from "./tasa790-modal";
 import { Tasa790026Modal } from "./tasa790026-modal";
 import { Tasa790052Modal } from "./tasa790052-modal";
+import { Tasa790062Modal } from "./tasa790062-modal";
 
 const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
@@ -244,6 +245,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                   {/* La tasa es NOMINATIVA → una por solicitante, con sus datos. */}
                   <Tasa790Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-012")} · ${a.nombre.split(" ")[0]}`} />
                   <Tasa790052Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-052")} · ${a.nombre.split(" ")[0]}`} />
+                  <Tasa790062Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-062")} · ${a.nombre.split(" ")[0]}`} />
                   <Tasa790026Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-026")} · ${a.nombre.split(" ")[0]}`} />
                 </div>
               </div>
@@ -257,10 +259,11 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                 {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
               </div>
             )}
-            {/* 012 (Policía: TIE, prórrogas…), 052 (Delegaciones: autorizaciones de residencia) y 026 (Justicia: nacionalidad). */}
+            {/* 012 (Policía: TIE, prórrogas…), 052 (Delegaciones: residencia), 062 (Delegaciones: trabajo) y 026 (Justicia: nacionalidad). */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Tasa790Modal expedienteId={exp.id} />
               <Tasa790052Modal expedienteId={exp.id} />
+              <Tasa790062Modal expedienteId={exp.id} />
               <Tasa790026Modal expedienteId={exp.id} />
             </div>
           </>
