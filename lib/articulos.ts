@@ -57,6 +57,102 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    slug: "recibir-documentos-clientes-extranjeria-whatsapp-email",
+    titulo: "Del WhatsApp al expediente: recibir documentos en extranjería",
+    descripcion:
+      "Los documentos llegan por WhatsApp, email o en mano. Cinco operaciones para reconocerlos, comprobarlos y colocarlos en el expediente sin perder plazos.",
+    fecha: "2026-09-15",
+    tema: "Práctica del despacho",
+    entradilla:
+      "Los papeles no llegan por donde el despacho quiere, sino por donde el cliente puede: una foto por WhatsApp a las once de la noche, un email con seis adjuntos, una carpeta en mano. Ordenarlos no tiene honorario, pero decide si el expediente se presenta completo.",
+    imagenAlt:
+      "Un teléfono móvil apoyado en una mesa de mármol blanco junto a una carpeta abierta de cartulina crema; de la pantalla del móvil sale un trazado de circuito verde esmeralda que se convierte, dentro de la carpeta, en una pila ordenada de documentos dibujados con líneas de luz.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Entre el momento en que el cliente envía un documento y el momento en que ese documento está en su sitio pasan cinco operaciones que casi nadie contabiliza: reconocer qué es, leer lo que dice, comprobar que sirve, colocarlo en el expediente correcto y pedir lo que falta. Son minutos por documento y decenas de documentos por expediente. Cuando una de ellas falla, la Administración la convierte en un requerimiento, y el requerimiento, en un plazo.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "10 días", etiqueta: "hábiles para aportar lo que falte tras un requerimiento; si no, la solicitud se tiene por desistida (art. 68.1 de la Ley 39/2015)" },
+          { valor: "10 días", etiqueta: "naturales para abrir la notificación electrónica de ese requerimiento antes de que se entienda rechazada (art. 43.2)" },
+          { valor: "3 meses", etiqueta: "de plazo máximo para resolver un arraigo; sin resolución expresa, el silencio es negativo" },
+          { valor: "2 meses", etiqueta: "antes de la caducidad se abre la ventana para renovar una residencia por cuenta ajena; se cierra tres meses después (hoja informativa 13)" },
+        ],
+      },
+      { t: "h2", texto: "Por dónde llegan los papeles" },
+      {
+        t: "p",
+        texto:
+          "En un despacho de extranjería la documentación entra por tres puertas, y ninguna la eligió el despacho. **WhatsApp**, porque es donde vive el cliente: fotos de un pasaporte tomadas de noche o un PDF reenviado desde otro chat. **Email**, porque es donde viven el empleador y el otro profesional. Y **en mano**, porque hay documentos que solo existen en papel hasta que alguien los escanea. El portal del cliente, cuando existe, es una cuarta puerta: útil, pero la menos transitada.",
+      },
+      {
+        t: "esquema",
+        titulo: "Tres entradas, un solo destino",
+        nodos: [
+          { titulo: "WhatsApp", texto: "Fotos y capturas desde el móvil del cliente, a cualquier hora" },
+          { titulo: "Email", texto: "Adjuntos del cliente, del empleador o de otro profesional" },
+          { titulo: "En mano", texto: "Papel que se escanea en el despacho" },
+        ],
+        destino: { titulo: "El expediente", texto: "Cada documento en su casilla y lo que falta, a la vista" },
+        nota: "El portal es una entrada más, no un requisito: cuanto menos cambie el cliente de hábitos, más documentos llegan.",
+      },
+      { t: "h2", texto: "Las cinco operaciones que se hacen con cada documento" },
+      {
+        t: "ol",
+        items: [
+          "**Reconocer qué es.** Un archivo llamado IMG_4821.jpg puede ser un pasaporte, un padrón o la foto de un gato. Hasta que alguien lo abre, no existe para el expediente.",
+          "**Leer lo que dice.** Número de pasaporte, NIE, fechas de nacimiento y de caducidad, el nombre exactamente como está escrito. Los nombres que no coinciden entre documentos están entre las causas más repetidas de requerimiento ([siete errores documentales](/articulos/errores-documentales-retrasan-expediente-extranjeria)).",
+          "**Comprobar que sirve.** Que el pasaporte siga en vigor cuando se prevea la resolución, no solo hoy; que el empadronamiento no supere la antigüedad que admite el trámite; que la foto se lea entera, con las cuatro esquinas.",
+          "**Colocarlo en su sitio.** En el expediente correcto y en la casilla correcta de la lista de ese trámite, para que la lista diga lo que falta y no solo lo que hay.",
+          "**Pedir lo que falta.** En el idioma del cliente, con instrucciones concretas y por el canal en el que él envió lo anterior. Pedir «la documentación» produce silencio; pedir «la página del pasaporte con la foto, completa» produce documentos.",
+        ],
+      },
+      { t: "h2", texto: "Lo que cuesta hacerlo a mano, y lo que cuesta no hacerlo" },
+      {
+        t: "p",
+        texto:
+          "Ninguna de las cinco operaciones factura. El honorario se pacta por el trámite; ordenar papeles se paga con la tarde del despacho. Pero saltárselas tiene precio: un documento sin colocar es un expediente presentado incompleto, un requerimiento de diez días hábiles y, si nadie abre la notificación a tiempo, un desistimiento. En los trámites con silencio negativo, además, el error no se descubre hasta que se agota el plazo ([el silencio administrativo, trámite por trámite](/articulos/silencio-administrativo-extranjeria-plazos-2026)).",
+      },
+      {
+        t: "tabla",
+        titulo: "Las cinco operaciones, a mano y automatizadas",
+        encabezados: ["Operación", "A mano", "Automatizada"],
+        filas: [
+          ["Reconocer", "Abrir cada archivo y renombrarlo", "El sistema identifica el tipo de documento al recibirlo"],
+          ["Leer", "Copiar los datos a la ficha, uno a uno", "Los datos leídos rellenan los campos vacíos de la ficha"],
+          ["Comprobar", "Mirar fechas y legibilidad, si hay tiempo", "Caducidad y legibilidad se contrastan en el momento"],
+          ["Colocar", "Carpeta, subcarpeta, nombre de archivo", "Cada documento cae en la casilla de su trámite"],
+          ["Pedir", "Escribir el mensaje, traducirlo, recordarlo", "La lista de lo que falta sale sola, en el idioma del cliente"],
+        ],
+        nota: "La automatización no sustituye la revisión del profesional: le entrega el expediente ya ordenado para que revisar sea la única tarea.",
+      },
+      { t: "h2", texto: "El criterio para elegir herramienta" },
+      {
+        t: "p",
+        texto:
+          "La pregunta útil no es cuántas funciones tiene un programa, sino cuántas de estas cinco operaciones deja de hacer el despacho sin cambiar de hábitos. Si la herramienta obliga al cliente a aprender un portal, o al despacho a subir a mano lo que ya recibió por WhatsApp, ha añadido una sexta operación en lugar de quitar una. Un programa de extranjería tiene que adaptarse a cómo trabaja el despacho, y no al revés: recibir los papeles por donde ya llegan y devolver el trabajo por donde ya sale.",
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Cada despacho tiene en Aproba una dirección de correo propia para documentos. El gestor reenvía el email del cliente, o el cliente escribe directamente, y los adjuntos entran solos: el sistema reconoce el tipo de documento, rellena con lo leído los campos vacíos de la ficha, coloca cada pieza en la casilla de su expediente y responde en el mismo hilo con lo que todavía falta. Si la ficha queda completa, los formularios EX del trámite llegan ya rellenados en esa misma respuesta. La misma entrada por WhatsApp está en fase de pruebas. El portal del cliente, en ocho idiomas, sigue disponible como opción, nunca como requisito.",
+      },
+      {
+        t: "faq",
+        items: [
+          { q: "¿Hay que obligar al cliente a usar un portal para enviar documentos?", a: "No. La mayoría de los clientes envía por WhatsApp o por email; un buen flujo acepta las tres entradas y las lleva al mismo expediente." },
+          { q: "¿Qué hago con una foto que no se lee?", a: "Pedirla de nuevo en el momento, con instrucciones concretas, antes de que el cliente desconecte del trámite. La legibilidad es la primera causa de requerimiento evitable." },
+          { q: "¿Cuánto tiempo hay para aportar un documento que la Administración echa en falta?", a: "Diez días hábiles desde la notificación del requerimiento (art. 68.1 de la Ley 39/2015); si no se aporta, la solicitud se tiene por desistida. Y la notificación electrónica se entiende rechazada a los diez días naturales sin abrirla ([quién recibe las notificaciones](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias))." },
+          { q: "¿Puedo reenviar el email de un cliente, con su pasaporte, a un programa de gestión?", a: "Sí, si el proveedor actúa como encargado del tratamiento con un contrato conforme al art. 28 del RGPD y los datos se alojan en la Unión Europea o con garantías equivalentes. Conviene decirlo en la hoja de encargo." },
+        ],
+      },
+    ],
+  },
+  {
     slug: "notificaciones-electronicas-extranjeria-quien-recibe-10-dias",
     titulo: "Notificaciones en extranjería: quién las recibe y los 10 días",
     descripcion:
