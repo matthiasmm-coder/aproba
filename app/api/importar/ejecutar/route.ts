@@ -23,8 +23,9 @@ const PARENTESCO: Record<string, string> = {
 const normParentesco = (v: string) => PARENTESCO[v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()] ?? (v ? "OTRO" : "");
 
 // Import de MIGRACIÓN: crea/completa clientes y familias, registra el HISTORIAL de
-// servicios (trámites ya realizados — NO expedientes: sin kanban, sin portal, sin cuota)
-// y siembra Vigía.
+// servicios (trámites ya realizados — sin kanban, sin portal, sin cuota), abre un
+// EXPEDIENTE real por cada trámite EN CURSO si el gestor marca la opción (15/09/2026:
+// Andrés y Luis querían sus dosieres vivos en el tablero) y siembra Vigía.
 // - Idempotente: por NIE/pasaporte/email (clientes), nombre (familias), referencia o
 //   (cliente+servicio+fecha) (historial). Reimportar el mismo archivo no duplica nada.
 // - NUNCA toca UsoMensual: migrar 200 dosieres no puede costar 600 € de overage.
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
     for (const f of (fams ?? []) as { id: string; nombre: string }[]) familiasPorNombre.set(f.nombre.trim().toLowerCase(), f.id);
   }
 
-  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, serviciosCreados: 0, serviciosOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
+  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, serviciosCreados: 0, serviciosOmitidos: 0, expedientesCreados: 0, expedientesOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
   const avisosExtra: string[] = [];
   const ahora = () => new Date().toISOString();
 
@@ -217,7 +218,7 @@ export async function POST(req: Request) {
       for (let i = 0; i < filas.length; i++) {
         const f = filas[i];
         const clienteId = clienteDe.get(i);
-        if (!clienteId || !f.servicio) continue;
+        if (!clienteId || !f.servicio || f.enCurso) continue; // en curso → expediente real (paso 3b), no historial
         const fechaSrv = f.fechaResolucion || ""; // fecha en que se realizó/resolvió
         const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
         // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
@@ -264,6 +265,64 @@ export async function POST(req: Request) {
     } catch (e) {
       // Repli propre: si falta la migración servicio-historico.sql, el resto del import no se cae.
       avisosExtra.push(`Historial de servicios no registrado (¿falta ejecutar servicio-historico.sql?): ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`);
+    }
+  }
+
+  // ── 3b. Expedientes EN CURSO (opción del gestor): un expediente REAL por trámite vivo ──
+  // Mismo nacimiento que «+ Nuevo expediente» (referencia del año, token de portal, servicio
+  // fijado, evento CREADO) con tres diferencias deliberadas: nace en MODO MANUAL (los papeles
+  // ya los tiene el despacho: nadie debe pedirle «enviar el enlace»), conserva la referencia
+  // antigua y las notas del Excel en el historial, y NUNCA toca UsoMensual ni el overage —
+  // migrar 40 dosieres vivos no puede costar 120 € de excedente.
+  // Idempotente: si el cliente ya tiene un expediente ABIERTO del mismo servicio, se omite.
+  if (mapeo.crearEnCurso) {
+    const candidatas = filas.map((f, i) => ({ f, i })).filter(({ f, i }) => f.enCurso && clienteDe.has(i));
+    if (candidatas.length) {
+      const { data: abiertos } = await admin.from("Expediente").select("clienteId, servicioClave, estado, archivadoAt").eq("workspaceId", workspaceId);
+      const yaAbierto = new Set<string>();
+      for (const e of (abiertos ?? []) as { clienteId: string; servicioClave: string | null; estado: string; archivadoAt: string | null }[]) {
+        if (e.archivadoAt || e.estado === "FINALIZADO") continue;
+        if (e.servicioClave) yaAbierto.add(`${e.clienteId}|${e.servicioClave}`);
+      }
+      const year = new Date().getFullYear();
+      const { data: last } = await admin.from("Expediente").select("referencia").eq("workspaceId", workspaceId).like("referencia", `EXP-${year}-%`).order("referencia", { ascending: false }).limit(1).maybeSingle();
+      let n = last ? Number(String(last.referencia).split("-")[2]) + 1 : 1;
+      if (!Number.isFinite(n)) n = 1;
+      const eventos: Record<string, unknown>[] = [];
+      for (const { f, i } of candidatas) {
+        const clienteId = clienteDe.get(i)!;
+        const servicio = f.servicio!;
+        if (yaAbierto.has(`${clienteId}|${servicio}`)) { r.expedientesOmitidos++; continue; }
+        const expedienteId = uid();
+        const tipo = SERVICIO_A_TIPO[servicio] ?? "OTRO";
+        const notas = [f.referencia ? `Ref. anterior: ${f.referencia}` : "", f.notas].filter(Boolean).join("\n").slice(0, 1000) || null;
+        let creado = false;
+        for (let intento = 0; intento < 5 && !creado; intento++) {
+          const referencia = `EXP-${year}-${String(n).padStart(4, "0")}`;
+          const fila: Record<string, unknown> = {
+            id: expedienteId, workspaceId, clienteId, referencia, portalToken: uid().replace(/-/g, ""),
+            tipo, servicioClave: servicio, estado: f.estado, asignadoAId: user.id, notas, modoTrabajo: "MANUAL", updatedAt: ahora(),
+            ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
+          };
+          let { error } = await admin.from("Expediente").insert(fila);
+          // Repli si alguna columna opcional no está migrada (modoTrabajo, oficinaId): el expediente nace igual.
+          if (error && /modoTrabajo|oficinaId|column|schema cache|does not exist/i.test(error.message)) {
+            delete fila.modoTrabajo; delete fila.oficinaId;
+            ({ error } = await admin.from("Expediente").insert(fila));
+          }
+          if (!error) { creado = true; n++; break; }
+          if (/duplicate|unique|23505/i.test(error.message)) { n++; continue; } // colisión de referencia → siguiente número
+          avisosExtra.push(`Fila ${i + 1}: no se pudo abrir el expediente (${error.message.slice(0, 80)})`);
+          break;
+        }
+        if (!creado) continue;
+        yaAbierto.add(`${clienteId}|${servicio}`);
+        r.expedientesCreados++;
+        const etiqueta = catalogoLabel.get(servicio) ?? TIPO_LABEL[tipo] ?? servicio;
+        eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? " · ya presentado" : ""}`, userId: user.id });
+        eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: "🖐 Modo manual: el despacho trabaja el expediente internamente (sin enlace al cliente). Se puede cambiar desde la ficha.", userId: user.id });
+      }
+      for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));
     }
   }
 

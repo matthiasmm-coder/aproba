@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, partirNombreCompleto,
   normalizarTelefono, esNie, parseImporte, type Mapeo,
+  ESTADOS_EN_CURSO, esEstadoEnCurso,
 } from "./importar";
 
 const mapeo: Mapeo = {
@@ -173,5 +174,47 @@ describe("importar — motor determinista", () => {
     expect(partirNombreCompleto("María del Mar Ruiz")).toEqual({ nombre: "María", apellidos: "del Mar Ruiz" });
     expect(normalizarTelefono("0034 612345678")).toBe("+34612345678");
     expect(esNie("x-1234567-l")).toBe(true);
+  });
+});
+
+describe("expedientes EN CURSO (crearEnCurso, 15/09/2026)", () => {
+  const cab = ["Nombre", "Apellidos", "Trámite", "Estado"];
+  const mapeoBase = {
+    columnas: cab.map((_, i) => ({ indice: i, campo: (["nombre", "apellidos", "tramite", "estado"] as const)[i] })),
+    tramites: { "Arraigo social": "arraigo_social", "Cosa rara": null },
+    validezMeses: {},
+    estados: { "En preparación": "EN_PREPARACION", "Presentado": "PRESENTADO", "Resuelto": "RESUELTO" },
+    crearHistorial: true, crearFamilias: false,
+  };
+  const filas = [
+    ["Ana", "García", "Arraigo social", "En preparación"],
+    ["Luis", "Pérez", "Arraigo social", "Presentado"],
+    ["Eva", "Ruiz", "Arraigo social", "Resuelto"],
+    ["Tom", "Vidal", "Cosa rara", "En preparación"],
+  ];
+  it("sin la opción, nada cambia: todo va al historial", () => {
+    const out = aplicarMapeo(filas, { ...mapeoBase });
+    expect(out.map((f) => f.enCurso)).toEqual([false, false, false, false]);
+    expect(out[0].servicio).toBe("arraigo_social");
+    expect(out[0].estado).toBe("EN_PREPARACION");
+  });
+  it("con la opción, solo los trámites vivos con servicio del catálogo abren expediente", () => {
+    const out = aplicarMapeo(filas, { ...mapeoBase, crearEnCurso: true });
+    expect(out.map((f) => f.enCurso)).toEqual([true, true, false, false]);
+    expect(out[2].estado).toBe("RESUELTO"); // pasado → historial
+    expect(out[3].servicio).toBeNull();
+    expect(out[3].avisos.some((a) => a.includes("no se abre expediente"))).toBe(true);
+  });
+  it("la opción funciona aunque el historial esté desmarcado (el servicio se resuelve igual)", () => {
+    const out = aplicarMapeo(filas, { ...mapeoBase, crearHistorial: false, crearEnCurso: true });
+    expect(out[0].enCurso).toBe(true);
+    expect(out[0].servicio).toBe("arraigo_social");
+    expect(out[2].servicio).toBe("arraigo_social");
+    expect(out[2].enCurso).toBe(false);
+  });
+  it("esEstadoEnCurso: solo EN_PREPARACION y PRESENTADO", () => {
+    expect(ESTADOS_EN_CURSO).toEqual(["EN_PREPARACION", "PRESENTADO"]);
+    expect(esEstadoEnCurso("RESUELTO")).toBe(false);
+    expect(esEstadoEnCurso("PRESENTADO")).toBe(true);
   });
 });

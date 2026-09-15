@@ -26,7 +26,7 @@ type Analisis = {
 
 type Resultado = {
   clientesCreados: number; clientesActualizados: number; clientesOmitidos: number;
-  familias: number; serviciosCreados: number; serviciosOmitidos: number;
+  familias: number; serviciosCreados: number; serviciosOmitidos: number; expedientesCreados?: number; expedientesOmitidos?: number;
   vencimientos: number; avisos: string[];
 };
 
@@ -130,7 +130,8 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
       entra,
       clientes: activas.length,
       descartadas: filas.length - activas.length,
-      servicios: mapeo.crearHistorial ? activas.filter((f) => f.servicio).length : 0,
+      servicios: mapeo.crearHistorial ? activas.filter((f) => f.servicio && !f.enCurso).length : 0,
+      expedientes: mapeo.crearEnCurso ? activas.filter((f) => f.enCurso).length : 0,
       renovaciones: activas.filter((f) => f.fechaCaducidad || f.caducidadDerivada).length,
     };
   }, [analisis, mapeo, paso, overrides]);
@@ -219,7 +220,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
           </div>
 
           {/* Lo único que de verdad decide el gestor: qué es cada trámite y cuánto dura */}
-          {mapeo.crearHistorial && analisis.valoresTramite.length > 0 && (
+          {(mapeo.crearHistorial || mapeo.crearEnCurso) && analisis.valoresTramite.length > 0 && (
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus trámites")}</p>
               <p className="mt-1 text-xs text-slate-400">{t("La renovación de cada cliente sale de aquí: la IA ha deducido cuánto dura la tarjeta que produce cada trámite.")}</p>
@@ -257,6 +258,10 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
               <input type="checkbox" checked={mapeo.crearHistorial} onChange={(e) => setMapeo({ ...mapeo, crearHistorial: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Historial de servicios")}
             </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600" title={t("Los trámites con estado «en preparación» o «presentado» se abren como expedientes en el tablero (en modo manual, sin enlace al cliente). Los demás van al historial.")}>
+              <input type="checkbox" checked={Boolean(mapeo.crearEnCurso)} onChange={(e) => setMapeo({ ...mapeo, crearEnCurso: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
+              {t("Abrir expedientes para los trámites en curso")}
+            </label>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={mapeo.crearFamilias} onChange={(e) => setMapeo({ ...mapeo, crearFamilias: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Crear familias")}
@@ -290,7 +295,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                   t={t}
                   onChange={(indice, campo) => setMapeo({ ...mapeo, columnas: mapeo.columnas.map((x) => x.indice === indice ? { ...x, campo } : x) })}
                 />
-                {mapeo.crearHistorial && analisis.valoresEstado.length > 0 && (
+                {(mapeo.crearHistorial || mapeo.crearEnCurso) && analisis.valoresEstado.length > 0 && (
                   <div className="mt-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Tus estados → estados de Aproba")}</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -328,6 +333,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Chip n={previa.clientes} label={t("clientes")} />
             <Chip n={previa.servicios} label={t("servicios")} />
+            {mapeo.crearEnCurso && <Chip n={previa.expedientes} label={t("expedientes en curso")} />}
             <Chip n={previa.renovaciones} label={t("renovaciones → Vigía")} />
             <Chip n={previa.descartadas} label={t("descartadas")} />
           </div>
@@ -472,12 +478,14 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
             <Chip n={resultado.clientesActualizados} label={t("completados")} />
             <Chip n={resultado.serviciosCreados} label={t("servicios (histórico)")} />
             <Chip n={resultado.vencimientos} label={t("vencimientos Vigía")} />
+            {(resultado.expedientesCreados ?? 0) > 0 && <Chip n={resultado.expedientesCreados ?? 0} label={t("expedientes abiertos")} />}
           </div>
-          {(resultado.familias > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0) && (
+          {(resultado.familias > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0 || (resultado.expedientesOmitidos ?? 0) > 0) && (
             <p className="mt-3 text-sm text-slate-500">
               {resultado.familias > 0 && `${resultado.familias} ${t("familias")} · `}
               {resultado.clientesOmitidos > 0 && `${resultado.clientesOmitidos} ${t("clientes omitidos (duplicados)")} · `}
               {resultado.serviciosOmitidos > 0 && `${resultado.serviciosOmitidos} ${t("servicios ya en el historial")}`}
+              {(resultado.expedientesOmitidos ?? 0) > 0 && ` · ${resultado.expedientesOmitidos} ${t("expedientes ya abiertos (no duplicados)")}`}
             </p>
           )}
           {resultado.avisos.length > 0 && (
@@ -487,6 +495,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
           )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/app/clientes" className="rounded-lg bg-aproba-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Ver clientes")}</Link>
+            {(resultado.expedientesCreados ?? 0) > 0 && <Link href="/app/expedientes" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver expedientes")}</Link>}
             <Link href="/app/vencimientos" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">{t("Ver Vigía (renovaciones)")}</Link>
           </div>
         </div>

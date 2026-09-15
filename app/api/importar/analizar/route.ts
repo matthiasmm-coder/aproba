@@ -7,7 +7,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { parseCSV } from "@/lib/csv-clientes";
 import { MESES_VALIDEZ } from "@/lib/validez";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
-import { TODOS_LOS_CAMPOS, ESTADOS_EXPEDIENTE, type Mapeo } from "@/lib/importar";
+import { TODOS_LOS_CAMPOS, ESTADOS_EXPEDIENTE, esEstadoEnCurso, type Mapeo } from "@/lib/importar";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // parseo + una llamada al modelo
@@ -60,7 +60,8 @@ Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
   "tramites": { "<valor libre visto>": "<clave de servicio del catálogo o null>", … },
   "validezMeses": { "<valor libre visto>": <meses que dura la tarjeta que produce ESE trámite, o null si no caduca>, … },
   "estados": { "<valor libre visto>": "<uno de: EN_PREPARACION, PRESENTADO, RESUELTO, RECHAZADO, FINALIZADO>", … },
-  "crearHistorial": true|false (true si hay una columna de trámite/servicio con valores mapeables; se registrará en el HISTORIAL de servicios del cliente, NUNCA como expediente activo),
+  "crearHistorial": true|false (true si hay una columna de trámite/servicio con valores mapeables; se registrará en el HISTORIAL de servicios del cliente),
+  "crearEnCurso": true|false (true si algún estado se mapea a EN_PREPARACION o PRESENTADO: esos trámites VIVOS se abren como expedientes en el tablero; los demás van al historial),
   "crearFamilias": true|false (true si hay agrupación familiar),
   "notas": ["observación breve para el gestor", …]
 }
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[importar] modelo", e instanceof Error ? e.message : e);
     // Sin propuesta → el gestor mapea a mano (la UI funciona igual).
-    propuesta = { primeraFilaEsCabecera: true, columnas: [], tramites: {}, validezMeses: {}, estados: {}, crearHistorial: false, crearFamilias: false, notas: ["No se pudo generar la propuesta automática; mapea las columnas a mano."] };
+    propuesta = { primeraFilaEsCabecera: true, columnas: [], tramites: {}, validezMeses: {}, estados: {}, crearHistorial: false, crearEnCurso: false, crearFamilias: false, notas: ["No se pudo generar la propuesta automática; mapea las columnas a mano."] };
   }
 
   // ── Validación estricta de la propuesta (el modelo PROPONE; nunca se confía en su shape) ──
@@ -220,6 +221,8 @@ export async function POST(req: Request) {
       validezMeses,
       estados,
       crearHistorial: Boolean(propuesta.crearHistorial) && colTramite !== undefined,
+      // Solo tiene sentido con trámite Y estado mapeados a un estado vivo.
+      crearEnCurso: Boolean(propuesta.crearEnCurso) && colTramite !== undefined && Object.values(estados).some((e) => esEstadoEnCurso(e)),
       crearFamilias: Boolean(propuesta.crearFamilias),
       notas: Array.isArray(propuesta.notas) ? propuesta.notas.filter((n): n is string => typeof n === "string").slice(0, 8) : [],
     },

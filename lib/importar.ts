@@ -33,8 +33,16 @@ export type Mapeo = {
   estados: Record<string, string>;
   // Registrar el trámite en el HISTORIAL de servicios del cliente (NO crea expediente).
   crearHistorial: boolean;
+  // Abrir un EXPEDIENTE real (tablero, portal, formularios) para cada trámite EN CURSO:
+  // fila con servicio del catálogo y estado EN_PREPARACION o PRESENTADO. Lo pasado sigue
+  // yendo al historial; lo vivo, al tablero. Pedido por Andrés (VIC Legal) y Luis (Asenjo)
+  // el 15/09/2026: «quiero mis dosieres en curso dentro». Nunca toca la cuota.
+  crearEnCurso?: boolean;
   crearFamilias: boolean;
 };
+
+export const ESTADOS_EN_CURSO = ["EN_PREPARACION", "PRESENTADO"] as const;
+export const esEstadoEnCurso = (e: string) => (ESTADOS_EN_CURSO as readonly string[]).includes(e);
 
 // Correcciones del gestor en la pantalla de revisión (por índice de fila de datos).
 export type OverrideFila = {
@@ -133,6 +141,7 @@ export type FilaImportada = {
   estado: string;              // EstadoExpediente (resultado del servicio)
   notas: string;
   importe: number | null;      // importe facturado en el pasado (info; NO genera factura)
+  enCurso: boolean;            // abre un expediente real (mapeo.crearEnCurso + servicio + estado vivo)
   excluir: boolean;            // el gestor la descartó en la revisión
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
 };
@@ -143,7 +152,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, excluir: false, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -178,8 +187,8 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
       }
     }
 
-    // Servicio (del trámite libre) → historial de servicios del cliente (NO expediente).
-    if (mapeo.crearHistorial && tramiteBruto) {
+    // Servicio (del trámite libre) → historial de servicios del cliente, o expediente si está en curso.
+    if ((mapeo.crearHistorial || mapeo.crearEnCurso) && tramiteBruto) {
       const servicio = mapeo.tramites[tramiteBruto];
       if (servicio) out.servicio = servicio;
       else if (servicio === undefined) out.avisos.push(`Trámite sin mapear: «${tramiteBruto}»`);
@@ -191,6 +200,12 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
     }
     // Servicio histórico sin estado → FINALIZADO (es pasado; el radar vive en Vigía, no en el kanban).
     if (out.servicio && !out.estado) out.estado = "FINALIZADO";
+    // Trámite VIVO (en preparación / presentado) con servicio del catálogo → expediente real.
+    // Sin servicio no hay expediente: un expediente sin trámite no tiene documentos ni formularios.
+    if (mapeo.crearEnCurso && esEstadoEnCurso(out.estado)) {
+      if (out.servicio) out.enCurso = true;
+      else if (tramiteBruto) out.avisos.push(`Trámite en curso sin servicio del catálogo: «${tramiteBruto}» — no se abre expediente`);
+    }
 
     // ── Caducidad DERIVADA (Vigía ESTIMADA) — solo si NO hay caducidad explícita ──
     // «De la naturaleza del trámite y de su fecha se deduce la renovación»: la tarjeta que
