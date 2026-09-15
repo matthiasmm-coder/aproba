@@ -85,16 +85,16 @@ export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = n
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div><label className={lbl}>{t("Razón social")}</label>
-          <input value={d.razonSocial} onChange={(e) => setD({ ...d, razonSocial: e.target.value })} maxLength={160} className={inp} /></div>
+          <input name="razonSocial" autoComplete="organization" value={d.razonSocial} onChange={(e) => setD({ ...d, razonSocial: e.target.value })} maxLength={160} className={inp} /></div>
         <div><label className={lbl}>NIF</label>
-          <input value={d.nif} onChange={(e) => setD({ ...d, nif: e.target.value })} maxLength={20} className={inp} /></div>
+          <input name="nif" autoComplete="off" value={d.nif} onChange={(e) => setD({ ...d, nif: e.target.value })} maxLength={20} className={inp} /></div>
         <div className="sm:col-span-2"><label className={lbl}>{t("Domicilio fiscal")}</label>
-          <input value={d.domicilio} onChange={(e) => setD({ ...d, domicilio: e.target.value })} maxLength={200} placeholder={t("Calle, nº, CP, ciudad")} className={inp} /></div>
+          <input name="domicilioFiscal" autoComplete="street-address" value={d.domicilio} onChange={(e) => setD({ ...d, domicilio: e.target.value })} maxLength={200} placeholder={t("Calle, nº, CP, ciudad")} className={inp} /></div>
         <div className="sm:col-span-2"><label className={lbl}>{t("Domicilio de actividad")} <span className="font-normal text-slate-400">({t("opcional")})</span></label>
-          <input value={d.domicilioActividad} onChange={(e) => setD({ ...d, domicilioActividad: e.target.value })} maxLength={200} placeholder={t("Solo si atiendes en otra dirección")} className={inp} />
+          <input name="domicilioActividad" autoComplete="off" value={d.domicilioActividad} onChange={(e) => setD({ ...d, domicilioActividad: e.target.value })} maxLength={200} placeholder={t("Calle, nº, CP, ciudad")} className={inp} />
           <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en la hoja de encargo, el presupuesto y el mandato. Las facturas llevan siempre el domicilio fiscal.")}</p></div>
         <div><label className={lbl}>{t("Email de facturación")}</label>
-          <input value={d.emailFacturacion} onChange={(e) => setD({ ...d, emailFacturacion: e.target.value })} maxLength={120} type="email" className={inp} /></div>
+          <input name="emailFacturacion" autoComplete="email" value={d.emailFacturacion} onChange={(e) => setD({ ...d, emailFacturacion: e.target.value })} maxLength={120} type="email" className={inp} /></div>
         <div><label className={lbl}>{t("Prefijo de serie")} <span className="font-normal text-slate-400">({t("opcional")})</span></label>
           <input value={d.prefijoSerie} onChange={(e) => setD({ ...d, prefijoSerie: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6) })}
             placeholder="DG" className={inp} />

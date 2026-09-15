@@ -55,25 +55,25 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
         <div className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Razón social / nombre")}</label>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t("Nombre del despacho")} className={inp} />
+            <input name="razonSocial" autoComplete="organization" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t("Nombre del despacho")} className={inp} />
           </div>
           <div>
             <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("NIF / CIF")}</label>
-            <input value={nif} onChange={(e) => setNif(e.target.value)} className={inp} />
+            <input name="nif" autoComplete="off" value={nif} onChange={(e) => setNif(e.target.value)} className={inp} />
           </div>
           <div>
             <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Email de facturación")}</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} />
+            <input name="emailFacturacion" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Domicilio fiscal")}</label>
-            <input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} placeholder={t("Calle, nº, CP, ciudad")} className={inp} />
+            <input name="domicilioFiscal" autoComplete="street-address" value={domicilio} onChange={(e) => setDomicilio(e.target.value)} placeholder={t("Calle, nº, CP, ciudad")} className={inp} />
             <p className="mt-1 text-[11px] text-slate-400">{t("El que aparece en tus facturas.")}</p>
           </div>
           <div className="sm:col-span-2">
             <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Domicilio de actividad")}</label>
-            <input value={domicilioActividad} onChange={(e) => setDomicilioActividad(e.target.value)} placeholder={t("Solo si atiendes en otra dirección")} className={inp} />
-            <p className="mt-1 text-[11px] text-slate-400">{t("Aparece en la hoja de encargo, el presupuesto y el mandato. Si lo dejas vacío, se usa el domicilio fiscal.")}</p>
+            <input name="domicilioActividad" autoComplete="off" value={domicilioActividad} onChange={(e) => setDomicilioActividad(e.target.value)} placeholder={t("Calle, nº, CP, ciudad")} className={inp} />
+            <p className="mt-1 text-[11px] text-slate-400">{t("Solo si atiendes en una dirección distinta de la fiscal. Aparece en la hoja de encargo, el presupuesto y el mandato; si lo dejas vacío, se usa el domicilio fiscal.")}</p>
           </div>
         </div>
       </div>

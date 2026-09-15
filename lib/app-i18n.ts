@@ -1014,7 +1014,7 @@ export const CA: Record<string, string> = {
   "Domicilio de actividad": "Domicili d'activitat",
   "El que aparece en tus facturas.": "El que apareix a les teves factures.",
   "Solo si atiendes en otra dirección": "Només si atens en una altra adreça",
-  "Aparece en la hoja de encargo, el presupuesto y el mandato. Si lo dejas vacío, se usa el domicilio fiscal.": "Apareix al full d'encàrrec, el pressupost i el mandat. Si el deixes buit, s'utilitza el domicili fiscal.",
+  "Solo si atiendes en una dirección distinta de la fiscal. Aparece en la hoja de encargo, el presupuesto y el mandato; si lo dejas vacío, se usa el domicilio fiscal.": "Només si atens en una adreça diferent de la fiscal. Apareix al full d'encàrrec, al pressupost i al mandat; si el deixes buit, es fa servir el domicili fiscal.",
   "Aparece en la hoja de encargo, el presupuesto y el mandato. Las facturas llevan siempre el domicilio fiscal.": "Apareix al full d'encàrrec, el pressupost i el mandat. Les factures porten sempre el domicili fiscal.",
   "Estos datos encabezan tus facturas y la hoja de encargo. Puedes completarlos ahora o más tarde en Ajustes.": "Aquestes dades encapçalen les teves factures i el full d'encàrrec. Els pots completar ara o més tard a Ajustos.",
   "Aproba puede generar automáticamente la hoja de encargo y el mandato de representación con los datos que ya tienes. Tu cliente los descarga, firma y sube desde su portal.": "Aproba pot generar automàticament el full d'encàrrec i el mandat de representació amb les dades que ja tens. El teu client els descarrega, signa i puja des del seu portal.",
