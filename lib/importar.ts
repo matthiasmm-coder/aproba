@@ -12,7 +12,7 @@ import { SERVICIO_A_TIPO } from "@/lib/tramites";
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
 export const CAMPOS_CLIENTE = [...FICHA_KEYS, "idioma", "fechaCaducidad"] as const;
-export const CAMPOS_EXPEDIENTE = ["referencia", "tramite", "estado", "notas", "importe"] as const;
+export const CAMPOS_EXPEDIENTE = ["referencia", "tramite", "estado", "fechaPresentacion", "notas", "importe"] as const;
 export const CAMPOS_ESPECIALES = ["nombreCompleto", "documento", "familia", "parentesco", "fechaResolucion"] as const;
 export type CampoImport = (typeof CAMPOS_CLIENTE)[number] | (typeof CAMPOS_EXPEDIENTE)[number] | (typeof CAMPOS_ESPECIALES)[number];
 
@@ -133,6 +133,7 @@ export type FilaImportada = {
   fechaCaducidad: string;      // ISO o "" — caducidad EXPLÍCITA (columna del Excel) → Vigía REAL
   caducidadDerivada: string;   // ISO o "" — estimada del servicio + fecha de resolución → Vigía ESTIMADA
   fechaResolucion: string;     // ISO o "" — fecha en que se realizó/resolvió el servicio
+  fechaPresentacion: string;   // ISO o "" — fecha en que el expediente se PRESENTÓ ante la Administración
   familia: string;             // clave de agrupación libre ("" = sin familia)
   parentesco: string;
   referencia: string;
@@ -152,7 +153,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -175,6 +176,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
         case "fechaNacimiento": { const f = normalizarFechaCsv(v); if (f) ficha.fechaNacimiento = f; else out.avisos.push(`Fecha de nacimiento no válida: «${v}»`); break; }
         case "fechaCaducidad": { const f = normalizarFechaCsv(v); if (f) out.fechaCaducidad = f; else out.avisos.push(`Caducidad no válida: «${v}»`); break; }
         case "fechaResolucion": { const f = normalizarFechaCsv(v); if (f) resolucion = f; else out.avisos.push(`Fecha de resolución no válida: «${v}»`); break; }
+        case "fechaPresentacion": { const f = normalizarFechaCsv(v); if (f) out.fechaPresentacion = f; else out.avisos.push(`Fecha de presentación no válida: «${v}»`); break; }
         case "idioma": out.idioma = v.slice(0, 2).toLowerCase(); break;
         case "familia": out.familia = v; break;
         case "parentesco": out.parentesco = v.toUpperCase(); break;
@@ -200,6 +202,13 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
     }
     // Servicio histórico sin estado → FINALIZADO (es pasado; el radar vive en Vigía, no en el kanban).
     if (out.servicio && !out.estado) out.estado = "FINALIZADO";
+    // Una fecha de presentación con estado «en preparación» se contradice: si se presentó, está
+    // presentado. Se corrige y se avisa (visible en la revisión). Sin columna de estado NO se
+    // infiere nada: un expediente antiguo con fecha de presentación es, casi siempre, pasado.
+    if (out.fechaPresentacion && out.estado === "EN_PREPARACION") {
+      out.estado = "PRESENTADO";
+      out.avisos.push(`Tiene fecha de presentación (${out.fechaPresentacion.split("-").reverse().join("/")}): se importa como presentado`);
+    }
     // Trámite VIVO (en preparación / presentado) con servicio del catálogo → expediente real.
     // Sin servicio no hay expediente: un expediente sin trámite no tiene documentos ni formularios.
     if (mapeo.crearEnCurso && esEstadoEnCurso(out.estado)) {

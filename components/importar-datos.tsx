@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import { TelefonoInput } from "@/components/telefono-input";
 import {
-  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE,
+  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, esEstadoEnCurso,
   type CampoImport, type Mapeo, type OverrideFila, type FilaImportada,
 } from "@/lib/importar";
 
@@ -44,10 +44,20 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha del trámite / resolución"],
   ] },
   { grupo: "Servicio realizado", campos: [
-    ["tramite", "Trámite / servicio"], ["importe", "Importe cobrado (histórico)"], ["estado", "Estado (resultado)"], ["referencia", "Referencia"], ["notas", "Notas"],
+    ["tramite", "Trámite / servicio"], ["estado", "Estado del trámite"], ["fechaPresentacion", "Fecha de presentación"], ["importe", "Importe cobrado (histórico)"], ["referencia", "Referencia"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
 ];
+
+// Cada estado de Aproba, en palabras y con su destino: en curso → tablero (si se abren expedientes),
+// terminado → historial. Es lo que decide qué aparece en el kanban, así que se dice en el propio desplegable.
+const NOMBRE_ESTADO: Record<string, string> = {
+  EN_PREPARACION: "En preparación", PRESENTADO: "Presentado", RESUELTO: "Resuelto (concedido)", RECHAZADO: "Rechazado (denegado)", FINALIZADO: "Finalizado",
+};
+function etiquetaEstado(estado: string, abreExpedientes: boolean, t: (s: string) => string): string {
+  const alTablero = abreExpedientes && esEstadoEnCurso(estado);
+  return `${t(NOMBRE_ESTADO[estado] ?? estado)} → ${alTablero ? t("tablero") : t("historial")}`;
+}
 
 // Opciones de validez (meses) de la tarjeta que produce un trámite.
 const VALIDEZ_OPCIONES: [number, string][] = [[12, "1 año"], [24, "2 años"], [36, "3 años"], [48, "4 años"], [60, "5 años"]];
@@ -271,6 +281,11 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
               {t("La primera fila son títulos")}
             </label>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {mapeo.crearEnCurso
+              ? t("Al tablero van solo los trámites en curso: «en preparación» y «presentado». Los terminados (resuelto, rechazado, finalizado) quedan en el historial de cada cliente.")
+              : t("Sin esa opción, todos los trámites van al historial de cada cliente y no se abre ningún expediente.")}
+          </p>
 
           {/* Detalle: correspondencias de columnas y estados — plegado (rara vez hace falta) */}
           <div className="mt-6">
@@ -304,12 +319,11 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                           <span className="min-w-0 flex-1 truncate text-slate-700" title={v}>{v}</span>
                           <span className="text-slate-300">→</span>
                           <select
-                            value={mapeo.estados[v] ?? ""}
+                            value={mapeo.estados[v] || "FINALIZADO"}
                             onChange={(e) => setMapeo({ ...mapeo, estados: { ...mapeo.estados, [v]: e.target.value } })}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
+                            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[16px] sm:text-sm outline-none focus:border-aproba-600"
                           >
-                            <option value="">FINALIZADO</option>
-                            {ESTADOS_EXPEDIENTE.map((e2) => <option key={e2} value={e2}>{e2}</option>)}
+                            {ESTADOS_EXPEDIENTE.map((e2) => <option key={e2} value={e2}>{etiquetaEstado(e2, Boolean(mapeo.crearEnCurso), t)}</option>)}
                           </select>
                         </div>
                       ))}
@@ -401,10 +415,16 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                     <div className="min-w-0 text-sm">
-                      <p className="text-xs uppercase tracking-wide text-slate-400">{t("Servicio realizado")}</p>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        {f.enCurso ? t("Trámite en curso") : t("Servicio realizado")}
+                        {f.servicio && (f.enCurso
+                          ? <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-aproba-700">{t("→ tablero")}</span>
+                          : <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-500">{t("→ historial")}</span>)}
+                      </p>
                       <p className="truncate text-slate-700">
                         {f.servicio ? nombreServicio(f.servicio) : (f.tramite || "—")}
-                        {f.fechaResolucion && <span className="text-slate-400"> · {fmtFecha(f.fechaResolucion)}</span>}
+                        {f.fechaPresentacion && <span className="text-slate-400"> · {t("presentado el")} {fmtFecha(f.fechaPresentacion)}</span>}
+                        {f.fechaResolucion && <span className="text-slate-400"> · {f.fechaPresentacion ? `${t("resuelto el")} ` : ""}{fmtFecha(f.fechaResolucion)}</span>}
                         {f.importe != null && <span className="font-medium text-slate-600"> · {f.importe} €</span>}
                         {!f.servicio && f.tramite && <span className="text-amber-600"> · {t("sin servicio del catálogo")}</span>}
                       </p>

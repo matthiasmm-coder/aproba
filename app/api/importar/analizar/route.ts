@@ -50,7 +50,7 @@ Recibes las primeras filas de una tabla exportada por un despacho (Excel casero,
 
 Campos de destino posibles para una columna (usa null si la columna no corresponde a ninguno):
 - Cliente: nombre, apellidos, nombreCompleto (nombre Y apellidos juntos en una sola columna), sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, nacionalidad, numeroDocumento (NIE/DNI), pasaporte, documento (columna que MEZCLA NIE y pasaportes), estadoCivil, nombrePadre, nombreMadre, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email, idioma, fechaCaducidad (caducidad de la TIE/residencia), fechaResolucion (fecha de RESOLUCIÓN de un expediente, típica de las listas de la regularización extraordinaria 2026)
-- Expediente: referencia, tramite (tipo de trámite en texto libre), estado, notas, importe (cantidad facturada/cobrada por el trámite en el pasado, p. ej. «690€», «300»)
+- Expediente: referencia, tramite (tipo de trámite en texto libre), estado, fechaPresentacion (fecha en que el expediente se PRESENTÓ ante la Administración — distinta de la de resolución), notas, importe (cantidad facturada/cobrada por el trámite en el pasado, p. ej. «690€», «300»)
 - Familia: familia (clave de agrupación familiar), parentesco
 
 Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
@@ -59,7 +59,7 @@ Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
   "columnas": [{ "indice": 0, "campo": "<campo o null>" }, …] (una entrada POR COLUMNA, en orden),
   "tramites": { "<valor libre visto>": "<clave de servicio del catálogo o null>", … },
   "validezMeses": { "<valor libre visto>": <meses que dura la tarjeta que produce ESE trámite, o null si no caduca>, … },
-  "estados": { "<valor libre visto>": "<uno de: EN_PREPARACION, PRESENTADO, RESUELTO, RECHAZADO, FINALIZADO>", … },
+  "estados": { "<valor libre visto>": "<uno de: EN_PREPARACION (aún no presentado), PRESENTADO (presentado, pendiente de resolución), RESUELTO (concedido), RECHAZADO (denegado), FINALIZADO (cerrado/entregado)>", … } — SOLO EN_PREPARACION y PRESENTADO son trámites vivos (van al tablero); los otros tres van al historial del cliente,
   "crearHistorial": true|false (true si hay una columna de trámite/servicio con valores mapeables; se registrará en el HISTORIAL de servicios del cliente),
   "crearEnCurso": true|false (true si algún estado se mapea a EN_PREPARACION o PRESENTADO: esos trámites VIVOS se abren como expedientes en el tablero; los demás van al historial),
   "crearFamilias": true|false (true si hay agrupación familiar),

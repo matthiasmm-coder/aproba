@@ -219,7 +219,7 @@ export async function POST(req: Request) {
         const f = filas[i];
         const clienteId = clienteDe.get(i);
         if (!clienteId || !f.servicio || f.enCurso) continue; // en curso → expediente real (paso 3b), no historial
-        const fechaSrv = f.fechaResolucion || ""; // fecha en que se realizó/resolvió
+        const fechaSrv = f.fechaResolucion || f.fechaPresentacion || ""; // fecha del servicio: resolución, o presentación si es lo único que hay
         const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
         // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
         const existente = (f.referencia ? porRef.get(f.referencia) : undefined)
@@ -302,12 +302,13 @@ export async function POST(req: Request) {
           const fila: Record<string, unknown> = {
             id: expedienteId, workspaceId, clienteId, referencia, portalToken: uid().replace(/-/g, ""),
             tipo, servicioClave: servicio, estado: f.estado, asignadoAId: user.id, notas, modoTrabajo: "MANUAL", updatedAt: ahora(),
+            ...(f.estado === "PRESENTADO" && f.fechaPresentacion ? { fechaPresentacion: `${f.fechaPresentacion}T00:00:00.000Z` } : {}),
             ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
           };
           let { error } = await admin.from("Expediente").insert(fila);
           // Repli si alguna columna opcional no está migrada (modoTrabajo, oficinaId): el expediente nace igual.
-          if (error && /modoTrabajo|oficinaId|column|schema cache|does not exist/i.test(error.message)) {
-            delete fila.modoTrabajo; delete fila.oficinaId;
+          if (error && /modoTrabajo|oficinaId|fechaPresentacion|column|schema cache|does not exist/i.test(error.message)) {
+            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion;
             ({ error } = await admin.from("Expediente").insert(fila));
           }
           if (!error) { creado = true; n++; break; }
@@ -319,7 +320,7 @@ export async function POST(req: Request) {
         yaAbierto.add(`${clienteId}|${servicio}`);
         r.expedientesCreados++;
         const etiqueta = catalogoLabel.get(servicio) ?? TIPO_LABEL[tipo] ?? servicio;
-        eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? " · ya presentado" : ""}`, userId: user.id });
+        eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? ` · presentado${f.fechaPresentacion ? " el " + f.fechaPresentacion.split("-").reverse().join("/") : ""}` : ""}`, userId: user.id });
         eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: "🖐 Modo manual: el despacho trabaja el expediente internamente (sin enlace al cliente). Se puede cambiar desde la ficha.", userId: user.id });
       }
       for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));

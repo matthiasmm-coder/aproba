@@ -218,3 +218,41 @@ describe("expedientes EN CURSO (crearEnCurso, 15/09/2026)", () => {
     expect(esEstadoEnCurso("PRESENTADO")).toBe(true);
   });
 });
+
+describe("fecha de presentación (15/09/2026)", () => {
+  const cab = ["Nombre", "Trámite", "Estado", "Fecha de presentación", "Fecha de resolución"];
+  const base = {
+    columnas: cab.map((_, i) => ({ indice: i, campo: (["nombre", "tramite", "estado", "fechaPresentacion", "fechaResolucion"] as const)[i] })),
+    tramites: { "Arraigo social": "arraigo_social" }, validezMeses: {},
+    estados: { "En preparación": "EN_PREPARACION", "Presentado": "PRESENTADO", "Resuelto": "RESUELTO" },
+    crearHistorial: true, crearEnCurso: true, crearFamilias: false,
+  };
+  it("se lee en formato español y viaja en la fila", () => {
+    const [f] = aplicarMapeo([["Ana", "Arraigo social", "Presentado", "20/08/2026", ""]], base);
+    expect(f.fechaPresentacion).toBe("2026-08-20");
+    expect(f.estado).toBe("PRESENTADO");
+    expect(f.enCurso).toBe(true);
+  });
+  it("«en preparación» con fecha de presentación → presentado, con aviso visible", () => {
+    const [f] = aplicarMapeo([["Ana", "Arraigo social", "En preparación", "20/08/2026", ""]], base);
+    expect(f.estado).toBe("PRESENTADO");
+    expect(f.avisos.some((a) => a.includes("se importa como presentado"))).toBe(true);
+  });
+  it("sin columna de estado no se infiere nada: sigue siendo historial (FINALIZADO)", () => {
+    const sinEstado = { ...base, columnas: base.columnas.filter((c) => c.campo !== "estado") };
+    const [f] = aplicarMapeo([["Ana", "Arraigo social", "Presentado", "20/08/2026", ""]], sinEstado);
+    expect(f.estado).toBe("FINALIZADO");
+    expect(f.enCurso).toBe(false);
+  });
+  it("fecha inválida → aviso, sin fecha", () => {
+    const [f] = aplicarMapeo([["Ana", "Arraigo social", "Presentado", "ayer", ""]], base);
+    expect(f.fechaPresentacion).toBe("");
+    expect(f.avisos.some((a) => a.startsWith("Fecha de presentación no válida"))).toBe(true);
+  });
+  it("un trámite resuelto con fecha de presentación va al historial, no al tablero", () => {
+    const [f] = aplicarMapeo([["Ana", "Arraigo social", "Resuelto", "20/02/2026", "10/06/2026"]], base);
+    expect(f.enCurso).toBe(false);
+    expect(f.estado).toBe("RESUELTO");
+    expect(f.fechaResolucion).toBe("2026-06-10");
+  });
+});
