@@ -343,6 +343,12 @@ export default async function Ajustes() {
             subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
             icon={IconEncargo}
           >
+            {/* Luis (Asenjo, 15/09) no encontró dónde poner el domicilio de actividad: el campo
+                vive en Facturación, pero quien lo busca está aquí. Se dice y se enlaza. */}
+            <p className="mb-4 text-xs text-slate-500">
+              {t("El domicilio que figura en la hoja de encargo y en el presupuesto es el de actividad, si está relleno; si no, el fiscal.")}{" "}
+              <a href="/app/ajustes?abrir=facturacion" className="font-medium text-aproba-700 hover:underline">{t("Rellenarlo en Facturación")}</a>
+            </p>
             {(() => {
               const panelDespacho = (
                 <EncargoConfig

@@ -876,6 +876,8 @@ export const CA: Record<string, string> = {
   "resuelto el": "resolt el",
   "historial": "historial",
   "tablero": "tauler",
+  "El domicilio que figura en la hoja de encargo y en el presupuesto es el de actividad, si está relleno; si no, el fiscal.": "El domicili que figura al full d'encàrrec i al pressupost és el d'activitat, si està emplenat; si no, el fiscal.",
+  "Rellenarlo en Facturación": "Emplenar-lo a Facturació",
   "Abrir expedientes para los trámites en curso": "Obrir expedients per als tràmits en curs",
   "Los trámites con estado «en preparación» o «presentado» se abren como expedientes en el tablero (en modo manual, sin enlace al cliente). Los demás van al historial.": "Els tràmits amb estat «en preparació» o «presentat» s'obren com a expedients al tauler (en mode manual, sense enllaç al client). La resta van a l'historial.",
   "expedientes en curso": "expedients en curs",
@@ -1986,7 +1988,7 @@ export const CA: Record<string, string> = {
   "Tus clientes lo ven en su portal, en los emails que les envías, en la vista previa del enlace y en tus facturas. JPG, PNG o WebP · máx. 2 MB.": "Els teus clients el veuen al seu portal, als emails que els envies, a la vista prèvia de l'enllaç i a les teves factures. JPG, PNG o WebP · màx. 2 MB.",
   "Solo un administrador puede cambiarlo.": "Només un administrador pot canviar-lo.",
   "Tu foto de perfil se cambia pulsando tu círculo en la barra lateral (abajo a la izquierda).": "La teva foto de perfil es canvia prement el teu cercle a la barra lateral (a baix a l'esquerra).",
-  "Aparecen en la cabecera de tus facturas (PDF). El logo se cambia en Despacho y cuenta.": "Apareixen a la capçalera de les teves factures (PDF). El logotip es canvia a Despatx i compte.",
+  "Aparecen en tus facturas y, el domicilio de actividad, en la hoja de encargo y el presupuesto. El logo se cambia en Despacho y cuenta.": "Apareixen a les teves factures i, el domicili d'activitat, al full d'encàrrec i al pressupost. El logotip es canvia a Despatx i compte.",
 };
 
 export function translate(lang: Lang, es: string): string {

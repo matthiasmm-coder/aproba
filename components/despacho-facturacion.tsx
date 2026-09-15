@@ -48,7 +48,7 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
           {estado === "saving" ? t("Guardando…") : estado === "saved" ? t("Guardado ✓") : estado === "error" ? t("Error") : ""}
         </span>
       </div>
-      <p className="mt-0.5 text-xs text-slate-500">{t("Aparecen en la cabecera de tus facturas (PDF). El logo se cambia en Despacho y cuenta.")}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{t("Aparecen en tus facturas y, el domicilio de actividad, en la hoja de encargo y el presupuesto. El logo se cambia en Despacho y cuenta.")}</p>
 
       <div className="mt-4 flex items-start gap-4">
         {/* Datos */}
