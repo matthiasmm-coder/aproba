@@ -1,7 +1,7 @@
 import "server-only";
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { extraerFacturaRecibida } from "@/lib/extraction-factura";
-import { normalizarFacturaLeida, type FacturaLeida, type FacturaRecibida, type OrigenRecibida } from "@/lib/facturas-recibidas";
+import { normalizarFacturaLeida, camposParaDb, type FacturaLeida, type FacturaRecibida, type OrigenRecibida } from "@/lib/facturas-recibidas";
 import type { AdjuntoBandeja } from "@/lib/email-entrante-procesar";
 import { randomUUID as uuid } from "node:crypto";
 
@@ -64,7 +64,7 @@ export async function guardarFacturaRecibida(admin: Admin, o: {
 
   const fila: Record<string, unknown> = {
     id, workspaceId: o.workspaceId, oficinaId: o.oficinaId ?? null,
-    ...leida.campos, notas: leida.avisos.length && !leida.esFactura ? leida.avisos.join(" · ") : "",
+    ...camposParaDb(leida.campos), notas: leida.avisos.length && !leida.esFactura ? leida.avisos.join(" · ") : "",
     archivoPath, archivoNombre, archivoMime: o.mime, archivoSize: o.buffer.length,
     origen: o.origen, bandejaId: o.bandejaId ?? null, confianza: leida.confianza, revisar: leida.revisar, creadoPorId: o.creadoPorId ?? null,
     updatedAt: new Date().toISOString(),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizarFacturaLeida, normalizarCamposEditados, agruparPorMes, csvFacturasRecibidas, filtrarPeriodo, totalesDe, nombreEnZip, motivoNoPagable, type FacturaRecibida } from "./facturas-recibidas";
+import { normalizarFacturaLeida, normalizarCamposEditados, agruparPorMes, csvFacturasRecibidas, filtrarPeriodo, totalesDe, nombreEnZip, motivoNoPagable, camposParaDb, type FacturaRecibida } from "./facturas-recibidas";
 
 const fila = (p: Partial<FacturaRecibida>): FacturaRecibida => ({
   id: "f1", proveedorNombre: "Papelería Vallès", proveedorNif: "B12345678", proveedorIban: "ES3700490001502310107890", numero: "A-1", fecha: "2026-09-10", baseImponible: 100, tipoIva: 21, cuotaIva: 21, total: 121,
@@ -91,5 +91,13 @@ describe("facturas recibidas · pago", () => {
     expect(motivoNoPagable(fila({ estado: "PAGADA" }))).toBe("ya pagada");
     expect(motivoNoPagable(fila({ total: null }))).toBe("sin importe");
     expect(motivoNoPagable(fila({ proveedorIban: "" }))).toBe("sin IBAN del proveedor");
+  });
+});
+
+describe("facturas recibidas · escritura en base", () => {
+  it("las fechas vacías van como null (columnas DATE), las informadas tal cual", () => {
+    expect(camposParaDb({ fecha: "", fechaPago: "", numero: "A" })).toEqual({ fecha: null, fechaPago: null, numero: "A" });
+    expect(camposParaDb({ fecha: "2026-09-03" })).toEqual({ fecha: "2026-09-03" });
+    expect(camposParaDb({ numero: "B" })).toEqual({ numero: "B" });
   });
 });

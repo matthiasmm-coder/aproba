@@ -42,7 +42,8 @@ export async function POST(req: Request) {
   if (cuentas.error && /oficinaId/i.test(cuentas.error.message)) cuentas = await admin.from("CuentaBancaria").select("iban, titular").eq("workspaceId", workspaceId).eq("activa", true) as typeof cuentas;
   const lista = ((cuentas.data ?? []) as { iban: string; titular: string; oficinaId?: string | null }[]);
   cuenta = (oficinas.length === 1 ? lista.find((c) => c.oficinaId === oficinas[0]) : undefined) ?? lista.find((c) => !c.oficinaId) ?? lista[0] ?? null;
-  if (!cuenta || !ibanValido(cuenta.iban)) return NextResponse.json({ error: "Añade la cuenta bancaria del despacho en Ajustes › Facturación y métodos de pago (será el ordenante de las transferencias).", code: "SIN_CUENTA" }, { status: 400 });
+  if (!cuenta) return NextResponse.json({ error: "Añade la cuenta bancaria del despacho en Ajustes › Facturación y métodos de pago (será el ordenante de las transferencias).", code: "SIN_CUENTA" }, { status: 400 });
+  if (!ibanValido(cuenta.iban)) return NextResponse.json({ error: `El IBAN de la cuenta activa del despacho (${cuenta.iban}) no es válido: corrígelo en Ajustes › Facturación y métodos de pago.`, code: "IBAN_DESPACHO" }, { status: 400 });
 
   const despacho = await fetchDespacho();
   const msgId = `APROBA-${hoy.replace(/-/g, "")}-${randomBytes(3).toString("hex").toUpperCase()}`;

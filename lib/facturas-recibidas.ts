@@ -213,3 +213,12 @@ export function motivoNoPagable(f: FacturaRecibida): string | null {
   if (!f.proveedorIban || !ibanValido(f.proveedorIban)) return "sin IBAN del proveedor";
   return null;
 }
+
+// Las columnas `fecha` y `fechaPago` son DATE: la cadena vacía del formulario/lectura debe
+// llegar como null (Postgres rechaza "" con «invalid input syntax for type date»).
+export function camposParaDb<T extends Partial<CamposFacturaRecibida>>(campos: T): Omit<T, "fecha" | "fechaPago"> & { fecha?: string | null; fechaPago?: string | null } {
+  const out: Record<string, unknown> = { ...campos };
+  if ("fecha" in out) out.fecha = out.fecha ? out.fecha : null;
+  if ("fechaPago" in out) out.fechaPago = out.fechaPago ? out.fechaPago : null;
+  return out as Omit<T, "fecha" | "fechaPago"> & { fecha?: string | null; fechaPago?: string | null };
+}

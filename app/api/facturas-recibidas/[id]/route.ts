@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { puedeGestionarEquipo } from "@/lib/planes";
-import { normalizarCamposEditados } from "@/lib/facturas-recibidas";
+import { normalizarCamposEditados, camposParaDb } from "@/lib/facturas-recibidas";
 import { COLS_RECIBIDA, mapFilaRecibida } from "@/lib/facturas-recibidas-guardar";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   const admin = createSupabaseAdmin();
   // El gestor ha revisado: deja de estar marcada.
-  const { data, error } = await admin.from("FacturaRecibida").update({ ...campos, revisar: false, updatedAt: new Date().toISOString() }).eq("id", id).select(COLS_RECIBIDA).single();
+  const { data, error } = await admin.from("FacturaRecibida").update({ ...camposParaDb(campos), revisar: false, updatedAt: new Date().toISOString() }).eq("id", id).select(COLS_RECIBIDA).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, factura: mapFilaRecibida(data as Record<string, unknown>) });
 }
