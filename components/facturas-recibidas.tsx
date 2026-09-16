@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { eur } from "@/lib/facturas";
-import { agruparPorMes, csvFacturasRecibidas, fechaCortaISO, filtrarPeriodo, isoDeFecha, totalesDe, motivoNoPagable, MAX_SUBIDA_RECIBIDAS, type FacturaRecibida, type CamposFacturaRecibida } from "@/lib/facturas-recibidas";
+import { csvFacturasRecibidas, fechaCortaISO, filtrarPeriodo, isoDeFecha, totalesDe, motivoNoPagable, MAX_SUBIDA_RECIBIDAS, type FacturaRecibida, type CamposFacturaRecibida } from "@/lib/facturas-recibidas";
 import { fmtIban } from "@/lib/sepa";
 import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 
@@ -17,7 +18,6 @@ import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 
 type Props = { items: FacturaRecibida[]; expedientes: ExpedienteVinculable[]; rangeFrom: Date; rangeTo: Date; esAdmin: boolean; oficinaActiva: string | null };
 type Traducir = (k: string) => string;
-type Filtro = "todas" | "pendientes" | "pagadas";
 
 const inp = "w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";
 const n2 = (v: number | null) => (v === null ? "" : String(v).replace(".", ","));
@@ -33,15 +33,13 @@ function Fila({ f, refDe, marcada, onMarcar, onEditar, onEliminar, onPagada, esA
   return (
     <tr className={`border-b border-slate-50 last:border-0 hover:bg-cream-50 ${marcada ? "bg-aproba-50/40" : ""}`}>
       <td className="pl-4 pr-1 py-2.5">
-        <input type="checkbox" checked={marcada} disabled={!!motivo} onChange={(e) => onMarcar(e.target.checked)} title={motivo ? t(motivo) : t("Incluir en la orden de transferencia")} className="h-4 w-4 accent-aproba-600 disabled:opacity-30" />
+        {f.estado === "PENDIENTE" && <input type="checkbox" checked={marcada} disabled={!!motivo} onChange={(e) => onMarcar(e.target.checked)} title={motivo ? t(motivo) : t("Incluir en la orden de transferencia")} className="h-4 w-4 accent-aproba-600 disabled:opacity-30" />}
       </td>
       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{f.fecha ? fechaCortaISO(f.fecha) : <span className="text-amber-600">{t("sin fecha")}</span>}</td>
       <td className="px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-medium text-slate-800">{f.proveedorNombre || <span className="text-amber-600">{t("Proveedor no leído")}</span>}</span>
-          {f.estado === "PAGADA"
-            ? <span className="rounded-full bg-aproba-100 px-1.5 py-0.5 text-[10px] font-semibold text-aproba-700">{t("Pagada")}{f.fechaPago ? ` ${fechaCortaISO(f.fechaPago)}` : ""}</span>
-            : <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{t("Pendiente")}</span>}
+          {f.estado === "PAGADA" && f.fechaPago && <span className="rounded-full bg-aproba-100 px-1.5 py-0.5 text-[10px] font-semibold text-aproba-700">{t("Pagada")} {fechaCortaISO(f.fechaPago)}</span>}
           {f.revisar && <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">{t("revisar")}</span>}
           {f.origen === "EMAIL" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{t("email")}</span>}
         </div>
@@ -69,7 +67,6 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [lista, setLista] = useState<FacturaRecibida[]>(items);
-  const [filtro, setFiltro] = useState<Filtro>("todas");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [subiendo, setSubiendo] = useState<number>(0);
   const [ordenando, setOrdenando] = useState(false);
@@ -79,15 +76,26 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
   const [editando, setEditando] = useState<FacturaRecibida | null>(null);
   const [plegado, setPlegado] = useState<Record<string, boolean>>({});
   const [descargando, setDescargando] = useState(false);
+  // Las acciones (orden, CSV, ZIP, subir) viven en la cabecera de la pestaña, como las de
+  // emitidas: se pintan por portal en el hueco que deja FacturasClient.
+  const [hueco, setHueco] = useState<HTMLElement | null>(null);
+  useEffect(() => { setHueco(document.getElementById("acciones-recibidas")); }, []);
 
   const desde = isoDeFecha(rangeFrom), hasta = isoDeFecha(rangeTo);
-  // «Pendientes» ignora el periodo: una factura por pagar lo es tenga la fecha que tenga.
-  const visibles = filtro === "pendientes" ? lista.filter((f) => f.estado === "PENDIENTE")
-    : filtrarPeriodo(lista, desde, hasta).filter((f) => filtro === "todas" || f.estado === "PAGADA");
-  const grupos = agruparPorMes(visibles);
+  // Misma lógica que las emitidas: el periodo filtra por fecha de factura (las sin fecha se
+  // enseñan siempre, hay que revisarlas) y cada estado es una tarjeta plegable.
+  const porFecha = (a: FacturaRecibida, b: FacturaRecibida) => (b.fecha || "9999").localeCompare(a.fecha || "9999") || b.createdAt.localeCompare(a.createdAt);
+  const visibles = filtrarPeriodo(lista, desde, hasta).sort(porFecha);
+  const pendientes = visibles.filter((f) => f.estado === "PENDIENTE");
+  const pagadas = visibles.filter((f) => f.estado === "PAGADA");
   const tot = totalesDe(visibles);
-  const nPendientes = lista.filter((f) => f.estado === "PENDIENTE").length;
-  const pagables = visibles.filter((f) => !motivoNoPagable(f));
+  const totPend = totalesDe(pendientes), totPag = totalesDe(pagadas);
+  const nRevisar = visibles.filter((f) => f.revisar).length;
+  const grupos = [
+    { key: "pendientes", titulo: "Pendientes de pago", items: pendientes, subtotal: totPend.total },
+    { key: "pagadas", titulo: "Pagadas", items: pagadas, subtotal: totPag.total },
+  ].filter((g) => g.items.length > 0);
+  const pagables = pendientes.filter((f) => !motivoNoPagable(f));
   const seleccion = pagables.filter((f) => sel.has(f.id));
   const totalSel = Math.round(seleccion.reduce((s, f) => s + (f.total ?? 0), 0) * 100) / 100;
   const refDe = (id: string) => expedientes.find((e) => e.id === id)?.referencia ?? t("expediente");
@@ -166,45 +174,43 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
   }
 
   const todasMarcadas = pagables.length > 0 && pagables.every((f) => sel.has(f.id));
-  const chip = (k: Filtro, label: string, n: number) => (
-    <button key={k} type="button" onClick={() => setFiltro(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${filtro === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-      {label} <span className="text-xs text-slate-400">{n}</span>
-    </button>
+  const acciones = (
+    <>
+      <button onClick={ordenTransferencia} disabled={seleccion.length === 0 || ordenando} title={t("Fichero SEPA (pain.001) con una transferencia por factura marcada, para importar en tu banca online")} className="inline-flex items-center gap-2 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-50">
+        {ordenando ? t("Generando…") : seleccion.length ? `${t("Orden de transferencia")} · ${seleccion.length} · ${eur(totalSel)}` : t("Orden de transferencia")}
+      </button>
+      <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+        <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+        {t("CSV")}
+      </button>
+      <button onClick={exportarZip} disabled={visibles.length === 0 || descargando} title={t("Los archivos originales del periodo más el CSV, en un ZIP")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+        <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+        {descargando ? t("Preparando…") : t("ZIP (archivos)")}
+      </button>
+      <input ref={fileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" className="hidden" onChange={(e) => subir(e.target.files)} />
+      <button onClick={() => fileRef.current?.click()} disabled={subiendo > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
+        {subiendo > 0 ? (subiendo === 1 ? t("Leyendo la factura…") : t("Leyendo {n} facturas…").replace("{n}", String(subiendo))) : t("+ Subir facturas")}
+      </button>
+    </>
   );
 
   return (
     <section id="recibidas">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
-          {chip("todas", t("Todas"), filtrarPeriodo(lista, desde, hasta).length)}
-          {chip("pendientes", t("Pendientes"), nPendientes)}
-          {chip("pagadas", t("Pagadas"), filtrarPeriodo(lista, desde, hasta).filter((f) => f.estado === "PAGADA").length)}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={ordenTransferencia} disabled={seleccion.length === 0 || ordenando} title={t("Fichero SEPA (pain.001) con una transferencia por factura marcada, para importar en tu banca online")} className="inline-flex items-center gap-2 rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-50">
-            {ordenando ? t("Generando…") : seleccion.length ? `${t("Orden de transferencia")} · ${seleccion.length} · ${eur(totalSel)}` : t("Orden de transferencia")}
-          </button>
-          <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{t("CSV")}</button>
-          <button onClick={exportarZip} disabled={visibles.length === 0 || descargando} title={t("Los archivos originales del periodo más el CSV, en un ZIP")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{descargando ? t("Preparando…") : t("ZIP (archivos)")}</button>
-          <input ref={fileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" className="hidden" onChange={(e) => subir(e.target.files)} />
-          <button onClick={() => fileRef.current?.click()} disabled={subiendo > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
-            {subiendo > 0 ? (subiendo === 1 ? t("Leyendo la factura…") : t("Leyendo {n} facturas…").replace("{n}", String(subiendo))) : t("+ Subir facturas")}
-          </button>
-        </div>
-      </div>
-      {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
-      {exito && <p className="mb-3 rounded-lg bg-aproba-50 px-3 py-2 text-xs text-aproba-700">{exito}</p>}
+      {hueco ? createPortal(acciones, hueco) : <div className="mb-4 flex flex-wrap items-center justify-end gap-2">{acciones}</div>}
+      {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+      {exito && <p className="mb-4 rounded-lg bg-aproba-50 px-3 py-2 text-xs text-aproba-700">{exito}</p>}
       {avisos.length > 0 && (
-        <ul className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <ul className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
           {avisos.map((a, i) => <li key={i}>{a}</li>)}
         </ul>
       )}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* Stats: espejo de Facturado / Cobrado / Pendiente de cobro */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { label: t("Base imponible"), value: eur(tot.base), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")}`, tone: "text-slate-900" },
-          { label: t("IVA soportado"), value: eur(tot.iva), sub: t("Suma de las cuotas"), tone: "text-slate-900" },
-          { label: filtro === "pendientes" ? t("Pendiente de pago") : t("Total recibido"), value: eur(tot.total), sub: visibles.some((f) => f.revisar) ? `${visibles.filter((f) => f.revisar).length} ${t("por revisar")}` : nPendientes ? `${nPendientes} ${t("pendientes de pago")}` : t("Todo pagado"), tone: filtro === "pendientes" ? "text-amber-600" : "text-aproba-700" },
+          { label: t("Recibido"), value: eur(tot.total), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")} · ${t("base")} ${eur(tot.base)} · ${t("IVA")} ${eur(tot.iva)}`, tone: "text-slate-900" },
+          { label: t("Pagado"), value: eur(totPag.total), sub: t("Pagadas"), tone: "text-aproba-700" },
+          { label: t("Pendiente de pago"), value: eur(totPend.total), sub: nRevisar ? `${nRevisar} ${t("por revisar")}` : totPend.n ? `${totPend.n} ${t("facturas")}` : t("Al día"), tone: "text-amber-600" },
         ].map((c) => (
           <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
             <p className="text-sm text-slate-500">{c.label}</p>
@@ -214,54 +220,53 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
         ))}
       </div>
 
-      {grupos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-400">
-          {filtro === "pendientes" ? t("Nada pendiente de pago.") : t("Sin facturas recibidas en este periodo. Sube la primera o reenvíala a tu email de Aproba.")}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {grupos.map((g) => {
-            const cerrado = plegado[g.clave] ?? false;
-            return (
-              <div key={g.clave} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <button type="button" onClick={() => setPlegado((p) => ({ ...p, [g.clave]: !cerrado }))} aria-expanded={!cerrado} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-cream-50/60">
-                  <div className="flex items-center gap-2">
-                    <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${cerrado ? "" : "rotate-90"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-                    <span className={`text-sm font-semibold ${g.clave === "sin-fecha" ? "text-amber-700" : "text-slate-800"}`}>{g.clave === "sin-fecha" ? t("Sin fecha (revisar)") : g.etiqueta}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{g.items.length}</span>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold text-slate-600">{eur(g.total)}</span>
-                </button>
-                {!cerrado && (
-                  <div className="overflow-x-auto border-t border-slate-100">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                          <th className="pl-4 pr-1 py-2.5">
-                            <input type="checkbox" checked={todasMarcadas} disabled={pagables.length === 0} onChange={(e) => setSel(e.target.checked ? new Set(pagables.map((f) => f.id)) : new Set())} title={t("Marcar todas las pendientes con IBAN")} className="h-4 w-4 accent-aproba-600 disabled:opacity-30" />
-                          </th>
-                          <th className="px-3 py-2.5 font-semibold">{t("Fecha")}</th>
-                          <th className="px-3 py-2.5 font-semibold">{t("Proveedor")}</th>
-                          <th className="hidden px-3 py-2.5 text-right font-semibold md:table-cell">{t("Base")}</th>
-                          <th className="hidden px-3 py-2.5 text-right font-semibold md:table-cell">{t("IVA")}</th>
-                          <th className="px-3 py-2.5 text-right font-semibold">{t("Total")}</th>
-                          <th className="px-2 py-2.5 text-right font-semibold"><span className="sr-only">{t("Acciones")}</span></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.items.map((f) => (
-                          <Fila key={f.id} f={f} refDe={refDe} marcada={sel.has(f.id)} onMarcar={(v) => setSel((s) => { const n = new Set(s); if (v) n.add(f.id); else n.delete(f.id); return n; })}
-                            onEditar={() => setEditando(f)} onEliminar={() => eliminar(f)} onPagada={() => marcarPagada(f)} esAdmin={esAdmin} t={t} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Tarjetas plegables por estado, como los grupos de emitidas */}
+      <div className="mt-6 space-y-4">
+        {grupos.map((g) => {
+          const cerrado = plegado[g.key] ?? true;
+          const esPend = g.key === "pendientes";
+          return (
+            <div key={g.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <button type="button" onClick={() => setPlegado((p) => ({ ...p, [g.key]: !cerrado }))} aria-expanded={!cerrado} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-cream-50/60">
+                <div className="flex items-center gap-2">
+                  <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${cerrado ? "" : "rotate-90"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                  <span className="text-sm font-semibold text-slate-800">{t(g.titulo)}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{g.items.length}</span>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-slate-600">{eur(g.subtotal)}</span>
+              </button>
+              {!cerrado && (
+                <div className="overflow-x-auto border-t border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                        <th className="pl-4 pr-1 py-3">
+                          {esPend && <input type="checkbox" checked={todasMarcadas} disabled={pagables.length === 0} onChange={(e) => setSel(e.target.checked ? new Set(pagables.map((f) => f.id)) : new Set())} title={t("Marcar todas las pendientes con IBAN")} className="h-4 w-4 accent-aproba-600 disabled:opacity-30" />}
+                        </th>
+                        <th className="px-3 py-3 font-semibold">{t("Fecha")}</th>
+                        <th className="px-3 py-3 font-semibold">{t("Proveedor")}</th>
+                        <th className="hidden px-3 py-3 text-right font-semibold md:table-cell">{t("Base")}</th>
+                        <th className="hidden px-3 py-3 text-right font-semibold md:table-cell">{t("IVA")}</th>
+                        <th className="px-3 py-3 text-right font-semibold">{t("Total")}</th>
+                        <th className="px-2 py-3 text-right font-semibold"><span className="sr-only">{t("Acciones")}</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.items.map((f) => (
+                        <Fila key={f.id} f={f} refDe={refDe} marcada={sel.has(f.id)} onMarcar={(v) => setSel((s) => { const n = new Set(s); if (v) n.add(f.id); else n.delete(f.id); return n; })}
+                          onEditar={() => setEditando(f)} onEliminar={() => eliminar(f)} onPagada={() => marcarPagada(f)} esAdmin={esAdmin} t={t} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {visibles.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400">{t("Sin facturas recibidas en este periodo. Sube la primera o reenvíala a tu email de Aproba.")}</div>
+        )}
+      </div>
       <p className="mt-3 text-[11px] text-slate-400">{t("Aproba archiva y lee las facturas recibidas y prepara el fichero de transferencias; el pago lo ejecuta tu banco. No lleva la contabilidad: exporta el CSV o el ZIP para quien la lleve.")}</p>
 
       {editando && (
