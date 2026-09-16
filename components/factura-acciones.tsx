@@ -22,7 +22,7 @@ export function FacturaAcciones({
 }) {
   const t = useT();
   const router = useRouter();
-  const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular">(null);
+  const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular" | "cobrar">(null);
   const [error, setError] = useState<string | null>(null);
 
   async function archivar() {
@@ -81,8 +81,34 @@ export function FacturaAcciones({
     }
   }
 
+  // «Cobrada» desde la lista (16/09/2026): Juan tenía 39 emitidas y 2 pagadas porque cobra
+  // fuera de la plataforma y nunca lo marcaba — «cobrado» y «pendiente» mentían. Un clic,
+  // método transferencia por defecto (el detalle permite entregas con su método).
+  async function cobrada() {
+    if (!(await confirmar(t("¿Marcar la factura {n} como cobrada? Se registra el cobro por transferencia y, si va ligada a un expediente, el cliente recibe la confirmación por email.").replace("{n}", numero)))) return;
+    setBusy("cobrar"); setError(null);
+    try {
+      const res = await fetch(`/api/facturas/${id}/pagada`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metodo: "TRANSFERENCIA" }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo marcar como cobrada."));
+      router.refresh(); onDone?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo marcar como cobrada."));
+    } finally { setBusy(null); }
+  }
+
   return (
     <div className="flex items-center justify-end gap-1">
+      {(estado === "EMITIDA" || estado === "VENCIDA") && !archivada && (
+        <button
+          onClick={cobrada}
+          disabled={busy !== null}
+          aria-label={t("Marcar la factura {n} como cobrada").replace("{n}", numero)}
+          className="mr-1 rounded-md border border-aproba-200 bg-aproba-50 px-2 py-1 text-xs font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-40"
+        >
+          {busy === "cobrar" ? "…" : t("Cobrada")}
+        </button>
+      )}
       {(estado === "EMITIDA" || estado === "VENCIDA") && (
         <button
           onClick={anular}
