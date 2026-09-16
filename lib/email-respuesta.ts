@@ -12,6 +12,7 @@ import { formulariosDelTramite, rellenarOficial, P2_OPCIONES } from "@/lib/ex-fo
 import { datosNormalizados } from "@/lib/formularios";
 import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { randomUUID as uuid } from "node:crypto";
+import type { FacturaRecibidaResumen } from "@/lib/facturas-recibidas-guardar";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
 
@@ -33,6 +34,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
   creado?: string[]; // cliente CREADO desde el email: campos de la ficha leídos del documento
   fichaCampos?: string[]; // campos de la ficha rellenados con lo leído en los documentos recibidos
   userId?: string | null; // gestor que reenvió (para el diario)
+  facturas?: FacturaRecibidaResumen[]; // facturas de proveedores archivadas desde este email (16/09/2026)
 }): Promise<ResultadoRespuesta> {
   const from = `"${o.gestoria.replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;
   const replyTo = direccionEntrante(o.token);
@@ -41,7 +43,15 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
   const attachments: { filename: string; content: Buffer }[] = [];
   let titulo: string; let cuerpo: string; let cta: { url: string; label: string } | null = null; let subject: string;
 
-  if (!o.clienteId) {
+  if (!o.clienteId && o.facturas?.length && o.nAdjuntos === 0) {
+    // Solo facturas de proveedores: archivadas en Facturas › Recibidas, nada que asignar.
+    subject = `Re: ${asuntoBase}`;
+    titulo = `He archivado ${o.facturas.length} factura${o.facturas.length === 1 ? "" : "s"} recibida${o.facturas.length === 1 ? "" : "s"}`;
+    const porRevisar = o.facturas.filter((f) => f.revisar).length;
+    cuerpo = listaFacturas(o.facturas)
+      + `<p>Están en <b>Facturas › Recibidas</b>, con el archivo original.${porRevisar ? ` ${porRevisar} lleva${porRevisar === 1 ? "" : "n"} la marca «revisar»: algún dato no se leyó bien; corrígelo desde ahí.` : ""}</p>`;
+    cta = { url: `${o.baseUrl}/app/facturas`, label: "Ver las facturas recibidas" };
+  } else if (!o.clienteId) {
     // Pendiente: pedir el nombre en una respuesta (el marcador identifica la fila).
     const marcador = MARCADOR(o.filaId);
     subject = `Re: ${asuntoBase} · ¿de quién es? ${marcador}`;
@@ -82,6 +92,8 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     cta = { url: `${o.baseUrl}/app/expedientes/${o.expedienteId}`, label: "Ver el expediente" };
   }
 
+  // Email mixto (facturas + documentos de cliente): las facturas se citan aparte.
+  if (o.facturas?.length && o.nAdjuntos > 0) cuerpo += `<p><b>Además, ${o.facturas.length} factura${o.facturas.length === 1 ? "" : "s"} de proveedor</b> archivada${o.facturas.length === 1 ? "" : "s"} en Facturas › Recibidas:</p>` + listaFacturas(o.facturas);
   const html = emailLayout({ gestoria: o.gestoria, titulo, cuerpoHtml: cuerpo, cta, footerNota: "Responde a este email para añadir documentos o decirme de quién son." });
   const text = `${titulo}\n\n${cuerpo.replace(/<[^>]+>/g, "")}\n${cta ? cta.url : ""}`;
   const { error } = await resend.emails.send({ from, to: o.para, replyTo, subject, html, text, ...(attachments.length ? { attachments } : {}) });
@@ -131,4 +143,8 @@ async function detalleParaRespuesta(admin: Admin, expedienteId: string, userId: 
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c] as string));
+const eurTxt = (n: number | null) => (n === null ? "importe no leído" : `${n.toFixed(2).replace(".", ",")} €`);
+const fechaTxt = (iso: string) => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "sin fecha");
+const listaFacturas = (fs: FacturaRecibidaResumen[]) =>
+  `<ul>${fs.map((f) => `<li><b>${esc(f.proveedorNombre || "Proveedor no leído")}</b> · ${fechaTxt(f.fecha)} · ${esc(eurTxt(f.total))}${f.revisar ? " · <i>revisar</i>" : ""}</li>`).join("")}</ul>`;
 const limpio = (s: string) => s.replace(/[^A-Za-z0-9_-]+/g, "_");

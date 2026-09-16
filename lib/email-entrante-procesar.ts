@@ -9,6 +9,7 @@ import { clasificarDeteccion, DOC_LABEL } from "@/lib/tramites";
 import { emailLayout } from "@/lib/notificaciones";
 import { responderAlGestor } from "@/lib/email-respuesta";
 import { crearClienteDesdeAdjuntos } from "@/lib/email-cliente-nuevo";
+import { archivarFacturasDesdeAdjuntos, type FacturaRecibidaResumen } from "@/lib/facturas-recibidas-guardar";
 import { pideClienteNuevo, nombreEscrito } from "@/lib/ficha-extraccion";
 import { completarFichaDesdeExtraccion } from "@/lib/ficha-sync";
 import {
@@ -22,7 +23,7 @@ import {
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
 
-export type AdjuntoBandeja = { nombre: string; mime: string; size: number; storagePath: string; destino?: "expediente" | "cliente"; docId?: string; etiqueta?: string };
+export type AdjuntoBandeja = { nombre: string; mime: string; size: number; storagePath: string; destino?: "expediente" | "cliente" | "factura"; docId?: string; etiqueta?: string };
 
 const uuid = () => crypto.randomUUID();
 const faltaMigracion = (msg: string) => /BandejaEntrada|emailEntranteToken|relation|column|schema cache|does not exist/i.test(msg);
@@ -120,11 +121,25 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   let resultado: Awaited<ReturnType<typeof asignarBandeja>> | null = null;
   let creadoCampos: string[] | undefined; // cliente creado desde el documento de identidad del email
   let clienteFinal = emp.cliente ? { id: emp.cliente.id, nombre: `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() } : null;
+  let facturas: FacturaRecibidaResumen[] = []; // facturas de proveedores archivadas desde este email
+  let restantes = adjuntos;                     // adjuntos que siguen el circuito de documentos de cliente
   if (!emp.cliente && esMiembro && adjuntos.length && emp.candidatos.length === 0) {
-    // Nadie coincide y el gestor reenvió a propósito: si un adjunto es un documento de
-    // identidad legible, el cliente se crea con su ficha y los documentos van a ella.
-    const nuevo = await crearClienteDesdeAdjuntos(admin, { workspaceId: ws.id as string, adjuntos });
-    if (nuevo) { clienteFinal = { id: nuevo.clienteId, nombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim() }; if (nuevo.creado) creadoCampos = nuevo.campos; }
+    // Facturas de proveedores reenviadas por el gestor (16/09/2026): la IA las reconoce,
+    // se archivan en Facturas › Recibidas y salen del circuito de documentos de cliente.
+    try {
+      const fr = await archivarFacturasDesdeAdjuntos(admin, { workspaceId: ws.id as string, adjuntos, bandejaId: filaId, creadoPorId: userIdRemitente });
+      facturas = fr.archivadas; restantes = fr.restantes;
+      if (facturas.length) {
+        const cierre = restantes.length ? {} : { estado: "ASIGNADO", motivo: `${facturas.length} factura(s) recibida(s) archivada(s)` };
+        await admin.from("BandejaEntrada").update({ adjuntos: fr.adjuntos, ...cierre, updatedAt: new Date().toISOString() }).eq("id", filaId);
+      }
+    } catch (err) { console.error("[email entrante] facturas recibidas:", err instanceof Error ? err.message : err); }
+    if (restantes.length) {
+      // Nadie coincide y el gestor reenvió a propósito: si un adjunto es un documento de
+      // identidad legible, el cliente se crea con su ficha y los documentos van a ella.
+      const nuevo = await crearClienteDesdeAdjuntos(admin, { workspaceId: ws.id as string, adjuntos: restantes });
+      if (nuevo) { clienteFinal = { id: nuevo.clienteId, nombre: `${nuevo.nombre} ${nuevo.apellidos}`.trim() }; if (nuevo.creado) creadoCampos = nuevo.campos; }
+    }
   }
   if (clienteFinal) {
     try {
@@ -138,15 +153,15 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   // Al gestor que reenvió: SIEMPRE una respuesta en el hilo con lo que se hizo (documentos
   // colocados, lo que falta, formularios adjuntos) o con la pregunta «¿de quién es?».
   // Al owner: solo cuando escribe el propio cliente (el gestor no lo ha visto).
-  const pendiente = !resultado;
+  const pendiente = !resultado && !(facturas.length && !restantes.length);
   if (esMiembro) {
     const { data: filaA } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", filaId).maybeSingle();
-    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: adjuntos.length, etiquetas: resultado?.etiquetas ?? [], fichaCampos: resultado?.fichaCampos ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
+    await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: restantes.length, facturas, etiquetas: resultado?.etiquetas ?? [], fichaCampos: resultado?.fichaCampos ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
   }
   if (emailOwner && !esMiembro) {
     await avisarDespacho(resend, { para: emailOwner, gestoria: ws.nombre as string, baseUrl, remitente, asunto: mail.subject ?? "", nAdjuntos: adjuntos.length, pendiente, cliente: emp.cliente ? `${emp.cliente.nombre} ${emp.cliente.apellidos ?? ""}`.trim() : null, referencia: resultado?.referencia ?? null });
   }
-  return { ok: true, motivo: resultado ? (creadoCampos ? "cliente nuevo creado desde el email" : `asignado (${emp.motivo})`) : emp.motivo, filaId };
+  return { ok: true, motivo: resultado ? (creadoCampos ? "cliente nuevo creado desde el email" : `asignado (${emp.motivo})`) : facturas.length && !restantes.length ? "facturas recibidas archivadas" : emp.motivo, filaId };
 }
 
 // Asigna una fila de la bandeja a un cliente (y, si procede, a uno de sus expedientes

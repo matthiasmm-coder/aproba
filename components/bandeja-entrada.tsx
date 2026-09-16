@@ -65,6 +65,21 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
     } finally { setBusy(null); }
   }
 
+  // Facturas de proveedores (16/09/2026): los adjuntos pasan a Facturas › Recibidas, con
+  // lectura IA; la fila queda resuelta sin cliente.
+  async function archivarFactura(fila: FilaBandeja) {
+    setBusy(fila.id); setError(null);
+    try {
+      const res = await fetch(`/api/bandeja/${fila.id}/factura`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo archivar como factura."));
+      setHecho((h) => ({ ...h, [fila.id]: t("Archivada en Facturas › Recibidas") }));
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo archivar como factura."));
+    } finally { setBusy(null); }
+  }
+
   const esWa = (f: FilaBandeja) => f.canal === "whatsapp";
   const conWa = whatsappConectado || pendientes.some(esWa) || recientes.some(esWa);
   const ChipWa = (
@@ -119,7 +134,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
             {ok ? (
               <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-sm font-medium text-aproba-700">{ok}</p>
             ) : (
-              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto_auto] sm:items-end">
                 <label className="block text-xs text-slate-500">
                   <span className="mb-1 block font-medium uppercase tracking-wide text-slate-400">{t("Cliente")}</span>
                   <input value={s.q} onChange={(e) => setSel((m) => ({ ...m, [fila.id]: { ...s, q: e.target.value } }))} placeholder={t("Buscar por nombre…")} className="mb-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-800" />
@@ -138,6 +153,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
                 </label>
                 <button type="button" onClick={() => asignar(fila)} disabled={busy === fila.id || !s.clienteId} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">{busy === fila.id ? "…" : t("Asignar")}</button>
                 <button type="button" onClick={() => descartar(fila)} disabled={busy === fila.id} className="rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-60">{t("Descartar")}</button>
+                <button type="button" onClick={() => archivarFactura(fila)} disabled={busy === fila.id || fila.adjuntos.length === 0} title={t("Los adjuntos pasan a Facturas › Recibidas: la IA lee proveedor, fecha e importes.")} className="rounded-lg border border-aproba-200 bg-aproba-50 px-3.5 py-2 text-sm font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-50">{t("Es una factura")}</button>
               </div>
             )}
           </article>
@@ -152,7 +168,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
               <li key={fila.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
                 <span className="flex min-w-0 items-center gap-2 text-slate-700">{esWa(fila) && ChipWa}<span className="truncate">{fila.asunto || fila.remitenteTelefono || fila.remitente} <span className="text-slate-400">· {fila.adjuntos.length} {t("adjunto(s)")}</span></span></span>
                 <span className="text-xs text-slate-500">
-                  {fila.estado === "DESCARTADO" ? t("Descartado") : fila.clienteId ? <Link href={`/app/clientes/${fila.clienteId}`} className="font-medium text-aproba-700 hover:underline">{nombreCliente[fila.clienteId] ?? t("cliente")}</Link> : ""}
+                  {fila.estado === "DESCARTADO" ? t("Descartado") : /factura/i.test(fila.motivo ?? "") ? <Link href="/app/facturas" className="font-medium text-aproba-700 hover:underline">{t("Facturas recibidas")}</Link> : fila.clienteId ? <Link href={`/app/clientes/${fila.clienteId}`} className="font-medium text-aproba-700 hover:underline">{nombreCliente[fila.clienteId] ?? t("cliente")}</Link> : ""}
                   {fila.expedienteId && <> · <Link href={`/app/expedientes/${fila.expedienteId}`} className="font-medium text-aproba-700 hover:underline">{t("expediente")}</Link></>}
                   <span className="ml-2 text-slate-400">{fecha(fila.recibidoAt)}</span>
                 </span>

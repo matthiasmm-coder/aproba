@@ -126,7 +126,7 @@ export type ResultadoExtraccion = {
   outputTokens: number;
 };
 
-const MEDIA_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp"]);
+export const MEDIA_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 // Repli quand le modèle n'a pas renvoyé de JSON exploitable : on rend un résultat VALIDE
 // marqué RECHAZADO. Le document est enregistré, le client voit quoi refaire, et le gestor
@@ -152,7 +152,7 @@ function respuestaIlegible(raw: string, inputTokens: number, outputTokens: numbe
 // entera solo paga tokens de más. Se reencuadra aquí (EXIF incluido) y se recomprime.
 // Fail-soft: si sharp falla con un fichero raro, se manda el original — nunca se pierde
 // un upload por optimizar. Los PDF no se tocan.
-async function prepararImagen(buffer: Buffer, mimeType: string): Promise<{ buffer: Buffer; mimeType: string }> {
+export async function prepararImagen(buffer: Buffer, mimeType: string): Promise<{ buffer: Buffer; mimeType: string }> {
   try {
     const sharp = (await import("sharp")).default;
     const out = await sharp(buffer)

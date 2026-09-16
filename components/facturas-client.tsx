@@ -10,6 +10,9 @@ import type { CobroPendiente } from "@/lib/data/facturas";
 import { CobrosPendientes } from "@/components/cobros-pendientes";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
+import { FacturasRecibidas } from "@/components/facturas-recibidas";
+import type { FacturaRecibida } from "@/lib/facturas-recibidas";
+import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 
 type Mode = "mtd" | "ytd" | "custom";
 type Traducir = (k: string) => string;
@@ -103,7 +106,7 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
   );
 }
 
-export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean }) {
+export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null }) {
   const t = useT();
   const HOY = startOfDay(new Date()); // aujourd'hui (date réelle)
   const [mode, setMode] = useState<Mode>("mtd");
@@ -311,6 +314,9 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin }: { factur
           </div>
         )}
       </div>
+
+      {/* Facturas recibidas (proveedores): mismo periodo que las emitidas */}
+      <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva} />
 
       {/* Datos de facturación — configuración puntual, al final de la página */}
       <div className="mt-6">
