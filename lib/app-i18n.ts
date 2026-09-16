@@ -943,7 +943,7 @@ export const CA: Record<string, string> = {
   "Marcar la factura {n} como cobrada": "Marcar la factura {n} com a cobrada",
   "Cobrada": "Cobrada",
   "Pendientes de pago": "Pendents de pagament",
-  "Recibido": "Rebut",
+  "Gastos": "Despeses",
   "Pagado": "Pagat",
   "base": "base",
   "Abrir expedientes para los trámites en curso": "Obrir expedients per als tràmits en curs",

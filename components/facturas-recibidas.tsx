@@ -208,7 +208,7 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
       {/* Stats: espejo de Facturado / Cobrado / Pendiente de cobro */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { label: t("Recibido"), value: eur(tot.total), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")} · ${t("base")} ${eur(tot.base)} · ${t("IVA")} ${eur(tot.iva)}`, tone: "text-slate-900" },
+          { label: t("Gastos"), value: eur(tot.total), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")} · ${t("base")} ${eur(tot.base)} · ${t("IVA")} ${eur(tot.iva)}`, tone: "text-slate-900" },
           { label: t("Pagado"), value: eur(totPag.total), sub: t("Pagadas"), tone: "text-aproba-700" },
           { label: t("Pendiente de pago"), value: eur(totPend.total), sub: nRevisar ? `${nRevisar} ${t("por revisar")}` : totPend.n ? `${totPend.n} ${t("facturas")}` : t("Al día"), tone: "text-amber-600" },
         ].map((c) => (
