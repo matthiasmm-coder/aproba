@@ -168,7 +168,7 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
               <li key={fila.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
                 <span className="flex min-w-0 items-center gap-2 text-slate-700">{esWa(fila) && ChipWa}<span className="truncate">{fila.asunto || fila.remitenteTelefono || fila.remitente} <span className="text-slate-400">· {fila.adjuntos.length} {t("adjunto(s)")}</span></span></span>
                 <span className="text-xs text-slate-500">
-                  {fila.estado === "DESCARTADO" ? t("Descartado") : /factura/i.test(fila.motivo ?? "") ? <Link href="/app/facturas" className="font-medium text-aproba-700 hover:underline">{t("Facturas recibidas")}</Link> : fila.clienteId ? <Link href={`/app/clientes/${fila.clienteId}`} className="font-medium text-aproba-700 hover:underline">{nombreCliente[fila.clienteId] ?? t("cliente")}</Link> : ""}
+                  {fila.estado === "DESCARTADO" ? t("Descartado") : /factura/i.test(fila.motivo ?? "") ? <Link href="/app/facturas?vista=recibidas" className="font-medium text-aproba-700 hover:underline">{t("Facturas recibidas")}</Link> : fila.clienteId ? <Link href={`/app/clientes/${fila.clienteId}`} className="font-medium text-aproba-700 hover:underline">{nombreCliente[fila.clienteId] ?? t("cliente")}</Link> : ""}
                   {fila.expedienteId && <> · <Link href={`/app/expedientes/${fila.expedienteId}`} className="font-medium text-aproba-700 hover:underline">{t("expediente")}</Link></>}
                   <span className="ml-2 text-slate-400">{fecha(fila.recibidoAt)}</span>
                 </span>

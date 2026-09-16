@@ -15,6 +15,7 @@ import type { FacturaRecibida } from "@/lib/facturas-recibidas";
 import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 
 type Mode = "mtd" | "ytd" | "custom";
+export type VistaFacturas = "emitidas" | "recibidas";
 type Traducir = (k: string) => string;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -106,8 +107,11 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
   );
 }
 
-export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null }) {
+export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas" }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas }) {
   const t = useT();
+  // Emitidas (a clientes) o recibidas (de proveedores): dos vistas de la misma pestaña,
+  // mismo periodo. `?vista=recibidas` abre la segunda (enlaces desde el email y la bandeja).
+  const [vista, setVista] = useState<VistaFacturas>(vistaInicial);
   const HOY = startOfDay(new Date()); // aujourd'hui (date réelle)
   const [mode, setMode] = useState<Mode>("mtd");
   const [from, setFrom] = useState<Date | null>(new Date(HOY.getFullYear(), HOY.getMonth(), 1));
@@ -223,9 +227,9 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Facturas")}</h1>
-          <p className="text-sm text-slate-500">{t("Factura a tus clientes por cada trámite.")}</p>
+          <p className="text-sm text-slate-500">{vista === "emitidas" ? t("Factura a tus clientes por cada trámite.") : t("Las de tus proveedores: súbelas o reenvíalas a tu email de Aproba. La IA lee los datos; tú corriges lo marcado.")}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {vista === "emitidas" && <div className="flex flex-wrap items-center gap-2">
           <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
             <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
             {t("CSV")}
@@ -235,7 +239,18 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
             {descargandoPdf ? t("Preparando…") : t("PDF (todas)")}
           </button>
           <Link href="/app/facturas/nueva" className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva factura")}</Link>
-        </div>
+        </div>}
+      </div>
+
+      {/* Emitidas / Recibidas */}
+      <div className="mb-4 inline-flex gap-1 rounded-lg border border-slate-200 bg-white p-1">
+        {([["emitidas", t("Emitidas"), facturas.filter((f) => !f.archivado).length], ["recibidas", t("Recibidas"), recibidas.length]] as [VistaFacturas, string, number][]).map(([v, label, n]) => (
+          <button key={v} type="button" onClick={() => setVista(v)} aria-pressed={vista === v}
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-semibold transition ${vista === v ? "bg-aproba-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+            {label}
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${vista === v ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{n}</span>
+          </button>
+        ))}
       </div>
       {errPdf && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{errPdf}</p>}
 
@@ -267,6 +282,9 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
         <span className="text-sm text-slate-400">{rangeLabel}</span>
       </div>
 
+      {vista === "recibidas" ? (
+        <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva} />
+      ) : (<>
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {STATS.map((s) => (
@@ -315,8 +333,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
         )}
       </div>
 
-      {/* Facturas recibidas (proveedores): mismo periodo que las emitidas */}
-      <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva} />
+      </>)}
 
       {/* Datos de facturación — configuración puntual, al final de la página */}
       <div className="mt-6">

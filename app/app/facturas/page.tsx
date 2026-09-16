@@ -21,7 +21,8 @@ async function esAdminActual(): Promise<boolean> {
 }
 
 // Facturación branchée sur Supabase (RLS).
-export default async function Facturas() {
+export default async function Facturas({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
+  const { vista } = await searchParams;
   // multi-oficina : les facturas estampillées suivent leur sede ; les non estampillées
   // (manuelles, antérieures à la fase 6) comptent pour la gestoría — jamais masquées
   // en vue « Todas ». Le tampon existe depuis la fase 6, le filtre devient possible.
@@ -40,7 +41,7 @@ export default async function Facturas() {
       {facturas.length >= TOPE_FACTURAS && (
         <p className="mb-3 text-center text-xs text-slate-400">Mostrando las {TOPE_FACTURAS} facturas más recientes. El export ZIP incluye SIEMPRE todas.</p>
       )}
-      <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} />
+      <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} vistaInicial={vista === "recibidas" ? "recibidas" : "emitidas"} />
     </div>
   );
 }

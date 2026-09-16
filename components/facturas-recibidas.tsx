@@ -113,20 +113,20 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
   }
 
   return (
-    <section className="mt-8" id="recibidas">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold tracking-tightest text-slate-900">{t("Facturas recibidas")}</h2>
-          <p className="text-sm text-slate-500">{t("Las de tus proveedores: súbelas o reenvíalas a tu email de Aproba. La IA lee los datos; tú corriges lo marcado.")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{t("CSV")}</button>
-          <button onClick={exportarZip} disabled={visibles.length === 0 || descargando} title={t("Los archivos originales del periodo más el CSV, en un ZIP")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">{descargando ? t("Preparando…") : t("ZIP")}</button>
-          <input ref={fileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" className="hidden" onChange={(e) => subir(e.target.files)} />
-          <button onClick={() => fileRef.current?.click()} disabled={subiendo > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
-            {subiendo > 0 ? (subiendo === 1 ? t("Leyendo la factura…") : t("Leyendo {n} facturas…").replace("{n}", String(subiendo))) : t("+ Subir facturas")}
-          </button>
-        </div>
+    <section id="recibidas">
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+          <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+          {t("CSV")}
+        </button>
+        <button onClick={exportarZip} disabled={visibles.length === 0 || descargando} title={t("Los archivos originales del periodo más el CSV, en un ZIP")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+          <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+          {descargando ? t("Preparando…") : t("ZIP (archivos)")}
+        </button>
+        <input ref={fileRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" className="hidden" onChange={(e) => subir(e.target.files)} />
+        <button onClick={() => fileRef.current?.click()} disabled={subiendo > 0} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
+          {subiendo > 0 ? (subiendo === 1 ? t("Leyendo la factura…") : t("Leyendo {n} facturas…").replace("{n}", String(subiendo))) : t("+ Subir facturas")}
+        </button>
       </div>
       {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
       {avisos.length > 0 && (
@@ -135,11 +135,19 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
         </ul>
       )}
 
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-        <span><b className="text-slate-800">{tot.n}</b> {tot.n === 1 ? t("factura") : t("facturas")}</span>
-        <span>{t("Base")} <b className="text-slate-800">{eur(tot.base)}</b></span>
-        <span>{t("IVA")} <b className="text-slate-800">{eur(tot.iva)}</b></span>
-        <span>{t("Total")} <b className="text-slate-800">{eur(tot.total)}</b></span>
+      {/* Mismas tarjetas que las emitidas: base, IVA y total del periodo */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          { label: t("Base imponible"), value: eur(tot.base), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")}`, tone: "text-slate-900" },
+          { label: t("IVA soportado"), value: eur(tot.iva), sub: t("Suma de las cuotas"), tone: "text-slate-900" },
+          { label: t("Total recibido"), value: eur(tot.total), sub: visibles.some((f) => f.revisar) ? `${visibles.filter((f) => f.revisar).length} ${t("por revisar")}` : t("Todo leído"), tone: "text-aproba-700" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
+            <p className="text-sm text-slate-500">{c.label}</p>
+            <p className={`mt-1 text-2xl font-bold tracking-tightest ${c.tone}`}>{c.value}</p>
+            <p className="mt-0.5 text-xs text-slate-400">{c.sub}</p>
+          </div>
+        ))}
       </div>
 
       {grupos.length === 0 ? (

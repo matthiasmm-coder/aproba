@@ -50,7 +50,7 @@ export async function responderAlGestor(admin: Admin, resend: Resend, o: {
     const porRevisar = o.facturas.filter((f) => f.revisar).length;
     cuerpo = listaFacturas(o.facturas)
       + `<p>Están en <b>Facturas › Recibidas</b>, con el archivo original.${porRevisar ? ` ${porRevisar} lleva${porRevisar === 1 ? "" : "n"} la marca «revisar»: algún dato no se leyó bien; corrígelo desde ahí.` : ""}</p>`;
-    cta = { url: `${o.baseUrl}/app/facturas`, label: "Ver las facturas recibidas" };
+    cta = { url: `${o.baseUrl}/app/facturas?vista=recibidas`, label: "Ver las facturas recibidas" };
   } else if (!o.clienteId) {
     // Pendiente: pedir el nombre en una respuesta (el marcador identifica la fila).
     const marcador = MARCADOR(o.filaId);
