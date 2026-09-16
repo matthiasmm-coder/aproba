@@ -16,7 +16,7 @@ import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 // se marcan las pendientes y Aproba escribe el fichero SEPA (pain.001) que el gestor
 // importa en su banca online; las facturas quedan pagadas. NO es contabilidad.
 
-type Props = { items: FacturaRecibida[]; expedientes: ExpedienteVinculable[]; rangeFrom: Date; rangeTo: Date; esAdmin: boolean; oficinaActiva: string | null };
+type Props = { items: FacturaRecibida[]; expedientes: ExpedienteVinculable[]; rangeFrom: Date; rangeTo: Date; esAdmin: boolean; oficinaActiva: string | null; onVerDesde?: (iso: string) => void };
 type Traducir = (k: string) => string;
 
 const inp = "w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";
@@ -62,7 +62,7 @@ function Fila({ f, refDe, marcada, onMarcar, onEditar, onEliminar, onPagada, esA
   );
 }
 
-export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAdmin, oficinaActiva }: Props) {
+export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAdmin, oficinaActiva, onVerDesde }: Props) {
   const t = useT();
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -96,6 +96,10 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
     { key: "pagadas", titulo: "Pagadas", items: pagadas, subtotal: totPag.total },
   ].filter((g) => g.items.length > 0);
   const pagables = pendientes.filter((f) => !motivoNoPagable(f));
+  // Fuera del periodo: una factura de proveedor casi nunca es del mes en curso.
+  const dentro = new Set(visibles.map((f) => f.id));
+  const fuera = lista.filter((f) => !dentro.has(f.id));
+  const masAntigua = fuera.reduce((min, f) => (f.fecha && (!min || f.fecha < min) ? f.fecha : min), "");
   const seleccion = pagables.filter((f) => sel.has(f.id));
   const totalSel = Math.round(seleccion.reduce((s, f) => s + (f.total ?? 0), 0) * 100) / 100;
   const refDe = (id: string) => expedientes.find((e) => e.id === id)?.referencia ?? t("expediente");
@@ -112,8 +116,17 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
       const res = await fetch("/api/facturas-recibidas", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudieron subir las facturas."));
-      setLista((l) => [...(d.facturas as FacturaRecibida[]), ...l]);
+      const nuevas = d.facturas as FacturaRecibida[];
+      setLista((l) => [...nuevas, ...l]);
       setAvisos(d.avisos ?? []);
+      // Si lo que acaba de subir cae fuera del periodo que está mirando, se dice y se abre:
+      // subir una factura y no verla es el peor momento para callarse.
+      const ocultas = nuevas.filter((f) => f.fecha && (f.fecha < desde || f.fecha > hasta));
+      if (ocultas.length) {
+        const min = ocultas.map((f) => f.fecha).sort()[0];
+        setExito(t("{n} de las facturas subidas son de otra fecha ({f}) y no se ven en este periodo.").replace("{n}", String(ocultas.length)).replace("{f}", fechaCortaISO(min)));
+        onVerDesde?.(min);
+      }
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudieron subir las facturas."));
@@ -264,7 +277,18 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
           );
         })}
         {visibles.length === 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400">{t("Sin facturas recibidas en este periodo. Sube la primera o reenvíala a tu email de Aproba.")}</div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400">
+            {fuera.length
+              ? <>{t("Ninguna factura en este periodo, pero tienes {n} de otras fechas.").replace("{n}", String(fuera.length))}{" "}
+                  <button type="button" onClick={() => masAntigua && onVerDesde?.(masAntigua)} className="font-semibold text-aproba-700 hover:underline">{t("Verlas todas")}</button></>
+              : t("Sin facturas recibidas en este periodo. Sube la primera o reenvíala a tu email de Aproba.")}
+          </div>
+        )}
+        {visibles.length > 0 && fuera.length > 0 && (
+          <p className="text-center text-xs text-slate-400">
+            {t("{n} facturas fuera de este periodo.").replace("{n}", String(fuera.length))}{" "}
+            <button type="button" onClick={() => masAntigua && onVerDesde?.(masAntigua)} className="font-semibold text-aproba-700 hover:underline">{t("Verlas todas")}</button>
+          </p>
         )}
       </div>
       <p className="mt-3 text-[11px] text-slate-400">{t("Aproba archiva y lee las facturas recibidas y prepara el fichero de transferencias; el pago lo ejecuta tu banco. No lleva la contabilidad: exporta el CSV o el ZIP para quien la lleve.")}</p>

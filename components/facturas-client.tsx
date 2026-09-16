@@ -284,7 +284,15 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
       </div>
 
       {vista === "recibidas" ? (
-        <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva} />
+        <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva}
+          onVerDesde={(iso) => {
+            // Una factura de proveedor suele ser de meses atrás: al subirla desaparecía del
+            // «Este mes» y parecía perdida (Varent, 16/09). Esto abre el periodo hasta ella.
+            const d = new Date(`${iso}T00:00:00`);
+            setMode("custom"); setCalOpen(false);
+            setFrom(d < rangeFrom ? d : rangeFrom);
+            setTo(d > HOY ? d : HOY);
+          }} />
       ) : (<>
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
