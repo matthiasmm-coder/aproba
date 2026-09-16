@@ -18,12 +18,13 @@ REGLAS:
 5. Importes en número con punto decimal y sin símbolo: base_imponible (suma de bases), tipo_iva (porcentaje principal: 21, 10, 4 o 0; si hay varios, el de mayor base), cuota_iva (suma de todas las cuotas de IVA), total (importe total a pagar). Si figura retención de IRPF, el total es el importe final a pagar tras la retención.
 6. concepto = descripción breve (máx. 120 caracteres) de lo facturado.
 7. moneda = código ISO (EUR, USD…) si se distingue; null si no.
+8b. proveedor_iban = el IBAN de la cuenta del PROVEEDOR donde pide el pago (suele figurar junto a «forma de pago» o «transferencia»), tal cual, con o sin espacios; null si no figura. Nunca el IBAN del destinatario de la factura.
 8. confianza = número 0-1 sobre la fiabilidad global de la lectura. legible = false si el documento está borroso, cortado o vacío.
 REGLA ABSOLUTA: devuelve el JSON SIEMPRE, también con el documento en blanco o ilegible (es_factura false, legible false, confianza 0).`;
 
 const PLANTILLA = `{
   "es_factura": true,
-  "proveedor_nombre": null, "proveedor_nif": null,
+  "proveedor_nombre": null, "proveedor_nif": null, "proveedor_iban": null,
   "numero": null, "fecha": null,
   "base_imponible": null, "tipo_iva": null, "cuota_iva": null, "total": null,
   "concepto": null, "moneda": null,

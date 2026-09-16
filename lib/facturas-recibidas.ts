@@ -6,13 +6,16 @@
 import { parseImporte } from "@/lib/importar";
 import { normalizarFechaCsv } from "@/lib/csv-clientes";
 import { MESES } from "@/lib/facturas";
+import { ibanValido, limpiarIban } from "@/lib/sepa";
 
 export type OrigenRecibida = "MANUAL" | "EMAIL";
+export type EstadoRecibida = "PENDIENTE" | "PAGADA";
 
 export type FacturaRecibida = {
   id: string;
   proveedorNombre: string;
   proveedorNif: string;
+  proveedorIban: string;         // leído de la factura si es válido (mod 97); si no, ""
   numero: string;
   fecha: string;                 // AAAA-MM-DD o "" si no se leyó
   baseImponible: number | null;
@@ -27,13 +30,16 @@ export type FacturaRecibida = {
   archivoMime: string;
   archivoSize: number | null;
   origen: OrigenRecibida;
+  estado: EstadoRecibida;        // pago al proveedor: pendiente o pagada
+  fechaPago: string;             // AAAA-MM-DD o ""
+  ordenPago: string;             // MsgId del fichero SEPA que la incluyó, o ""
   revisar: boolean;
   confianza: number | null;
   createdAt: string;
 };
 
 export type CamposFacturaRecibida = Pick<FacturaRecibida,
-  "proveedorNombre" | "proveedorNif" | "numero" | "fecha" | "baseImponible" | "tipoIva" | "cuotaIva" | "total" | "concepto" | "notas" | "expedienteId">;
+  "proveedorNombre" | "proveedorNif" | "proveedorIban" | "numero" | "fecha" | "baseImponible" | "tipoIva" | "cuotaIva" | "total" | "concepto" | "notas" | "expedienteId" | "estado" | "fechaPago">;
 
 export const MAX_ARCHIVO_RECIBIDA = 8 * 1024 * 1024;
 export const MIMES_RECIBIDA = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -44,6 +50,7 @@ export type ExtraccionFacturaCruda = {
   es_factura?: boolean | null;
   proveedor_nombre?: string | null;
   proveedor_nif?: string | null;
+  proveedor_iban?: string | null;
   numero?: string | null;
   fecha?: string | null;
   base_imponible?: number | string | null;
@@ -70,7 +77,7 @@ const TIPOS_IVA = [21, 10, 4, 0];
 export const limpiarNif = (v: string): string => v.toUpperCase().replace(/[\s.\-]/g, "").slice(0, 20);
 
 export const CAMPOS_VACIOS: CamposFacturaRecibida = {
-  proveedorNombre: "", proveedorNif: "", numero: "", fecha: "", baseImponible: null, tipoIva: null, cuotaIva: null, total: null, concepto: "", notas: "", expedienteId: null,
+  proveedorNombre: "", proveedorNif: "", proveedorIban: "", numero: "", fecha: "", baseImponible: null, tipoIva: null, cuotaIva: null, total: null, concepto: "", notas: "", expedienteId: null, estado: "PENDIENTE", fechaPago: "",
 };
 
 // Del JSON del modelo a campos coherentes: importes en número, fecha ISO, NIF limpio, y
@@ -93,15 +100,23 @@ export function normalizarFacturaLeida(cruda: ExtraccionFacturaCruda | null | un
   if (c.fecha && !fecha) avisos.push("Fecha no reconocida");
   const moneda = txt(c.moneda, 5).toUpperCase();
   if (moneda && moneda !== "EUR" && moneda !== "€") avisos.push(`Moneda ${moneda}: importe sin convertir`);
+  // IBAN: solo se guarda si pasa el mod 97 (una cifra mal leída haría una transferencia a
+  // otra cuenta); si no, aviso y el gestor lo teclea.
+  const ibanLeido = limpiarIban(txt(c.proveedor_iban, 40));
+  const proveedorIban = ibanLeido && ibanValido(ibanLeido) ? ibanLeido : "";
+  if (ibanLeido && !proveedorIban) avisos.push(`IBAN leído no válido: ${ibanLeido}`);
   const campos: CamposFacturaRecibida = {
     proveedorNombre: txt(c.proveedor_nombre, 160),
     proveedorNif: limpiarNif(txt(c.proveedor_nif, 30)),
+    proveedorIban,
     numero: txt(c.numero, 60),
     fecha,
     baseImponible: base, tipoIva: tipo, cuotaIva: cuota, total,
     concepto: txt(c.concepto, 240),
     notas: "",
     expedienteId: null,
+    estado: "PENDIENTE",
+    fechaPago: "",
   };
   if (!esFactura) avisos.unshift("No parece una factura");
   if (!campos.proveedorNombre) avisos.push("Proveedor no leído");
@@ -124,6 +139,12 @@ export function normalizarCamposEditados(b: Partial<Record<keyof CamposFacturaRe
     if (k in b) { const v = b[k]; out[k] = v === "" || v === null || v === undefined ? null : num(v as number | string); }
   }
   if ("expedienteId" in b) out.expedienteId = typeof b.expedienteId === "string" && b.expedienteId.trim() ? b.expedienteId.trim() : null;
+  if ("proveedorIban" in b) { const v = limpiarIban(txt(b.proveedorIban, 40)); out.proveedorIban = v && ibanValido(v) ? v : ""; }
+  if ("estado" in b) out.estado = b.estado === "PAGADA" ? "PAGADA" : "PENDIENTE";
+  if ("fechaPago" in b) out.fechaPago = normalizarFechaCsv(txt(b.fechaPago, 20));
+  // Coherencia: pagada sin fecha → hoy; pendiente → sin fecha de pago.
+  if (out.estado === "PAGADA" && !out.fechaPago) out.fechaPago = isoDeFecha(new Date());
+  if (out.estado === "PENDIENTE") out.fechaPago = "";
   return out;
 }
 
@@ -166,10 +187,11 @@ export function totalesDe(items: FacturaRecibida[]): { n: number; base: number; 
 export function csvFacturasRecibidas(items: FacturaRecibida[], referenciaDe?: (expedienteId: string) => string): string {
   const n = (v: number | null) => (v === null ? "" : v.toFixed(2).replace(".", ","));
   const esc = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const header = ["Fecha", "Proveedor", "NIF", "Número", "Concepto", "Base imponible", "IVA %", "Cuota IVA", "Total", "Expediente", "Origen", "Archivo", "Revisar"];
+  const header = ["Fecha", "Proveedor", "NIF", "IBAN", "Número", "Concepto", "Base imponible", "IVA %", "Cuota IVA", "Total", "Estado", "Fecha de pago", "Expediente", "Origen", "Archivo", "Revisar"];
   const rows = items.map((f) => [
-    f.fecha ? fechaCortaISO(f.fecha) : "", f.proveedorNombre, f.proveedorNif, f.numero, f.concepto,
+    f.fecha ? fechaCortaISO(f.fecha) : "", f.proveedorNombre, f.proveedorNif, f.proveedorIban, f.numero, f.concepto,
     n(f.baseImponible), f.tipoIva === null ? "" : String(f.tipoIva), n(f.cuotaIva), n(f.total),
+    f.estado === "PAGADA" ? "Pagada" : "Pendiente", f.fechaPago ? fechaCortaISO(f.fechaPago) : "",
     f.expedienteId ? (referenciaDe?.(f.expedienteId) ?? f.expedienteId) : "", f.origen === "EMAIL" ? "Email" : "Subida", f.archivoNombre, f.revisar ? "sí" : "",
   ]);
   return "﻿" + [header, ...rows].map((r) => r.map(esc).join(";")).join("\n");
@@ -181,4 +203,13 @@ export function nombreEnZip(f: FacturaRecibida): string {
   const seguro = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
   const partes = [f.fecha || "sin-fecha", seguro(f.proveedorNombre) || "proveedor", seguro(f.numero), f.id.slice(0, 6)].filter(Boolean);
   return `${partes.join("_")}${ext}`;
+}
+
+// Una factura entra en una orden de transferencia si está pendiente, tiene importe y un
+// IBAN válido. Lo demás se explica fila a fila (sin IBAN, ya pagada…).
+export function motivoNoPagable(f: FacturaRecibida): string | null {
+  if (f.estado === "PAGADA") return "ya pagada";
+  if (!(f.total !== null && f.total > 0)) return "sin importe";
+  if (!f.proveedorIban || !ibanValido(f.proveedorIban)) return "sin IBAN del proveedor";
+  return null;
 }

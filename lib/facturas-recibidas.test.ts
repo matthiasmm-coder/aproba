@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizarFacturaLeida, normalizarCamposEditados, agruparPorMes, csvFacturasRecibidas, filtrarPeriodo, totalesDe, nombreEnZip, type FacturaRecibida } from "./facturas-recibidas";
+import { normalizarFacturaLeida, normalizarCamposEditados, agruparPorMes, csvFacturasRecibidas, filtrarPeriodo, totalesDe, nombreEnZip, motivoNoPagable, type FacturaRecibida } from "./facturas-recibidas";
 
 const fila = (p: Partial<FacturaRecibida>): FacturaRecibida => ({
-  id: "f1", proveedorNombre: "Papelería Vallès", proveedorNif: "B12345678", numero: "A-1", fecha: "2026-09-10", baseImponible: 100, tipoIva: 21, cuotaIva: 21, total: 121,
-  concepto: "Material", notas: "", expedienteId: null, oficinaId: null, archivoNombre: "f.pdf", archivoMime: "application/pdf", archivoSize: 10, origen: "MANUAL", revisar: false, confianza: 0.9, createdAt: "2026-09-10T10:00:00Z", ...p,
+  id: "f1", proveedorNombre: "Papelería Vallès", proveedorNif: "B12345678", proveedorIban: "ES3700490001502310107890", numero: "A-1", fecha: "2026-09-10", baseImponible: 100, tipoIva: 21, cuotaIva: 21, total: 121,
+  concepto: "Material", notas: "", expedienteId: null, oficinaId: null, archivoNombre: "f.pdf", archivoMime: "application/pdf", archivoSize: 10, origen: "MANUAL", estado: "PENDIENTE", fechaPago: "", ordenPago: "", revisar: false, confianza: 0.9, createdAt: "2026-09-10T10:00:00Z", ...p,
 });
 
 describe("facturas recibidas · lectura", () => {
@@ -63,12 +63,33 @@ describe("facturas recibidas · listado y export", () => {
     const lineas = csv.split("\n");
     expect(lineas[0].startsWith("﻿Fecha;Proveedor")).toBe(true);
     // «;» separa: una coma dentro del nombre no se entrecomilla (mismo criterio que el CSV de emitidas).
-    expect(lineas[1]).toBe('02/08/2026;Alquiler, S.L.;B12345678;A-1;Material;50,00;21;10,50;60,50;;Subida;f.pdf;');
+    expect(lineas[1]).toBe('02/08/2026;Alquiler, S.L.;B12345678;ES3700490001502310107890;A-1;Material;50,00;21;10,50;60,50;Pendiente;;;Subida;f.pdf;');
     expect(csvFacturasRecibidas([items[0]]).split("\n")[1]).toContain("EXP-1".length ? "Papelería Vallès" : "");
     expect(csvFacturasRecibidas([fila({ concepto: 'Con "comillas"; y punto y coma' })]).split("\n")[1]).toContain('"Con ""comillas""; y punto y coma"');
   });
   it("nombre de archivo en el ZIP: fecha_proveedor_numero_id.ext", () => {
     expect(nombreEnZip(items[1])).toBe("2026-08-02_Alquiler_S_L_A_1_b.pdf");
     expect(nombreEnZip(fila({ id: "zz", fecha: "", proveedorNombre: "", numero: "", archivoNombre: "foto.JPG", archivoMime: "image/jpeg" }))).toBe("sin-fecha_proveedor_zz.jpg");
+  });
+});
+
+describe("facturas recibidas · pago", () => {
+  it("el IBAN leído solo se guarda si es válido; si no, aviso", () => {
+    const ok = normalizarFacturaLeida({ es_factura: true, proveedor_nombre: "X", fecha: "2026-01-05", total: 10, proveedor_iban: "es37 0049 0001 5023 1010 7890", confianza: 0.9 });
+    expect(ok.campos.proveedorIban).toBe("ES3700490001502310107890");
+    const mal = normalizarFacturaLeida({ es_factura: true, proveedor_nombre: "X", fecha: "2026-01-05", total: 10, proveedor_iban: "ES12 0049 0001 5023 1010 7890", confianza: 0.9 });
+    expect(mal.campos.proveedorIban).toBe(""); expect(mal.avisos.some((a) => a.startsWith("IBAN leído no válido"))).toBe(true); expect(mal.revisar).toBe(true);
+  });
+  it("marcar pagada pone fecha de hoy si falta; volver a pendiente la quita", () => {
+    const a = normalizarCamposEditados({ estado: "PAGADA" }); expect(a.estado).toBe("PAGADA"); expect(a.fechaPago).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const b = normalizarCamposEditados({ estado: "PAGADA", fechaPago: "5/9/2026" }); expect(b.fechaPago).toBe("2026-09-05");
+    const c = normalizarCamposEditados({ estado: "PENDIENTE", fechaPago: "2026-09-05" }); expect(c.fechaPago).toBe("");
+    expect(normalizarCamposEditados({ proveedorIban: "ES00 1234" }).proveedorIban).toBe("");
+  });
+  it("solo entra en una orden lo pendiente con importe e IBAN válido", () => {
+    expect(motivoNoPagable(fila({}))).toBeNull();
+    expect(motivoNoPagable(fila({ estado: "PAGADA" }))).toBe("ya pagada");
+    expect(motivoNoPagable(fila({ total: null }))).toBe("sin importe");
+    expect(motivoNoPagable(fila({ proveedorIban: "" }))).toBe("sin IBAN del proveedor");
   });
 });

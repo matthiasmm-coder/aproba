@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { mapFilaRecibida, COLS_RECIBIDA, faltaMigracionRecibidas } from "@/lib/facturas-recibidas-guardar";
+import { mapFilaRecibida, COLS_RECIBIDA, COLS_RECIBIDA_BASE, faltaMigracionRecibidas, faltaColumna } from "@/lib/facturas-recibidas-guardar";
 import type { FacturaRecibida } from "@/lib/facturas-recibidas";
 
 // Facturas recibidas del despacho (RLS). Sin migración → lista vacía (la sección se
@@ -8,18 +8,23 @@ export const TOPE_RECIBIDAS = 1500;
 
 export async function fetchFacturasRecibidas(sedes?: string[] | null, incluirSinSede = false, tope = TOPE_RECIBIDAS): Promise<FacturaRecibida[]> {
   const supabase = await createSupabaseServer();
-  let q = supabase.from("FacturaRecibida").select(COLS_RECIBIDA).order("fecha", { ascending: false, nullsFirst: true }).order("createdAt", { ascending: false }).limit(tope);
-  if (sedes?.length) {
-    const dentro = `oficinaId.in.(${sedes.join(",")})`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    q = (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
-  }
-  const { data, error } = await q;
+  const consulta = (cols: string) => {
+    let q = supabase.from("FacturaRecibida").select(cols).order("fecha", { ascending: false, nullsFirst: true }).order("createdAt", { ascending: false }).limit(tope);
+    if (sedes?.length) {
+      const dentro = `oficinaId.in.(${sedes.join(",")})`;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      q = (q as any).or(incluirSinSede ? `${dentro},oficinaId.is.null` : dentro);
+    }
+    return q;
+  };
+  let { data, error } = await consulta(COLS_RECIBIDA);
+  // Sin la migración de pago → columnas base (estado = pendiente, sin IBAN).
+  if (error && faltaColumna(error.message) && !/relation|does not exist/i.test(error.message)) ({ data, error } = await consulta(COLS_RECIBIDA_BASE));
   if (error) {
     if (faltaMigracionRecibidas(error.message)) return [];
     throw new Error(`Facturas recibidas: ${error.message}`);
   }
-  return ((data ?? []) as Record<string, unknown>[]).map(mapFilaRecibida);
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(mapFilaRecibida);
 }
 
 export type ExpedienteVinculable = { id: string; referencia: string; cliente: string };
