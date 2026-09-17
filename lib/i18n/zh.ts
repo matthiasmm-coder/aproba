@@ -12,7 +12,7 @@ export const ZH: Record<string, string> = {
   "ui:common.continuar": "继续",
   "ui:common.atras": "返回",
   "ui:s0.hola": "你好，{nombre} 👋",
-  "ui:s0.intro": "你的事务所（gestoría）会帮你办理移民手续。你需要办理哪一项？",
+  "ui:s0.intro": "你的事务所（gestoría）会帮你办理移民手续。",
   "ui:s0.sinServicios": "你的事务所还没有设置可办理的服务。",
   "ui:pago.split": "开始时付{a}，办结时付{b}",
   "ui:pago.unico": "开始时一次性付款",

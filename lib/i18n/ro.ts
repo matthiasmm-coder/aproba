@@ -12,7 +12,7 @@ export const RO: Record<string, string> = {
   "ui:common.continuar": "Continuă",
   "ui:common.atras": "Înapoi",
   "ui:s0.hola": "Bună, {nombre} 👋",
-  "ui:s0.intro": "Gestoría ta te ajută cu trámite-ul tău de extranjería. De care ai nevoie?",
+  "ui:s0.intro": "Gestoría ta te ajută cu trámite-ul tău de extranjería.",
   "ui:s0.sinServicios": "Gestoría ta nu a configurat încă serviciile disponibile.",
   "ui:pago.split": "{a} la început + {b} la final",
   "ui:pago.unico": "Plată unică la început",

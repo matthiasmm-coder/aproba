@@ -12,7 +12,7 @@ export const AR: Record<string, string> = {
   "ui:common.continuar": "متابعة",
   "ui:common.atras": "رجوع",
   "ui:s0.hola": "مرحباً {nombre} 👋",
-  "ui:s0.intro": "مكتبك (gestoría) يساعدك في معاملتك الخاصة بشؤون الأجانب. أي معاملة تحتاج؟",
+  "ui:s0.intro": "مكتبك (gestoría) يساعدك في معاملتك الخاصة بشؤون الأجانب.",
   "ui:s0.sinServicios": "مكتبك لم يقم بعد بإعداد الخدمات المتاحة.",
   "ui:pago.split": "{a} عند البدء + {b} عند الانتهاء",
   "ui:pago.unico": "دفعة واحدة عند البدء",

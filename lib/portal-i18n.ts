@@ -90,12 +90,14 @@ export const UI: Record<string, Tr> = {
   "common.atras": { es: "Atrás", en: "Back", fr: "Retour", it: "Indietro", de: "Zurück" },
 
   "s0.hola": { es: "Hola {nombre} 👋", en: "Hi {nombre} 👋", fr: "Bonjour {nombre} 👋", it: "Ciao {nombre} 👋", de: "Hallo {nombre} 👋" },
+  // Sin la pregunta «¿Cuál necesitas?» (18/09/2026): desde que la gestoría puede dejar el
+  // trámite ya fijado en el enlace, preguntar cuál necesita contradecía lo que se ve.
   "s0.intro": {
-    es: "Tu gestoría te ayuda con tu trámite de extranjería. ¿Cuál necesitas?",
-    en: "Your agency is helping with your immigration procedure. Which one do you need?",
-    fr: "Votre cabinet vous accompagne dans votre démarche d'immigration. Laquelle vous faut-il ?",
-    it: "Il tuo studio ti assiste nella tua pratica di immigrazione. Quale ti serve?",
-    de: "Deine Kanzlei hilft dir bei deinem Aufenthaltsverfahren. Welches brauchst du?",
+    es: "Tu gestoría te ayuda con tu trámite de extranjería.",
+    en: "Your agency is helping with your immigration procedure.",
+    fr: "Votre cabinet vous accompagne dans votre démarche d'immigration.",
+    it: "Il tuo studio ti assiste nella tua pratica di immigrazione.",
+    de: "Deine Kanzlei hilft dir bei deinem Aufenthaltsverfahren.",
   },
   "s0.famTotal": { es: "Total para la familia", en: "Total for the family", fr: "Total pour la famille", it: "Totale per la famiglia", de: "Gesamt für die Familie" },
   "s0.famError": { es: "Elige al menos un trámite para un miembro.", en: "Choose at least one procedure for one member.", fr: "Choisissez au moins une démarche pour un membre.", it: "Scegli almeno una pratica per un membro.", de: "Wählen Sie mindestens ein Verfahren für ein Mitglied." },
