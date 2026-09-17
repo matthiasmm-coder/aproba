@@ -125,7 +125,9 @@ export function FacturaAcciones({
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
         </button>
       )}
-      {(estado === "EMITIDA" || estado === "VENCIDA") && !archivada && (
+      {/* «Cobrada» es el atajo de la LISTA. En la ficha ya está «Marcar como pagada», que
+          además pregunta el método: dos botones para lo mismo solo estorbaban. */}
+      {!enBarra && (estado === "EMITIDA" || estado === "VENCIDA") && !archivada && (
         <button
           onClick={cobrada}
           disabled={busy !== null}
