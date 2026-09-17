@@ -38,7 +38,11 @@ type Row = {
 
 const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
-export default async function Clientes() {
+export default async function Clientes({ searchParams }: { searchParams: Promise<{ pestana?: string }> }) {
+  // `?pestana=empresas|familias`: el enlace «volver» de la ficha de empresa vuelve a SU
+  // pestaña (antes caía siempre en «Individuales» y la empresa parecía haber desaparecido).
+  const { pestana: pestanaParam } = await searchParams;
+  const pestanaInicial = pestanaParam === "empresas" || pestanaParam === "familias" ? pestanaParam : undefined;
   const t = await getT();
   const supabase = await createSupabaseServer();
   // Trois niveaux de repli : avec l'historique migré, puis avec la famille seule, puis nu.
@@ -181,7 +185,7 @@ export default async function Clientes() {
         </p>
       ) : (
         <>
-          <ClientesList lista={lista} oficinas={oficinas} />
+          <ClientesList lista={lista} oficinas={oficinas} pestanaInicial={pestanaInicial} />
           {esAdmin && <BorrarTodosClientes borrables={borrables} conExpedientes={conExpedientes} enFamilia={enFamilia} />}
         </>
       )}

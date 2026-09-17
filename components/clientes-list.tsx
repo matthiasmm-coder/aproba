@@ -22,12 +22,18 @@ function FamIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>;
 }
 
-export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?: OficinaLite[] }) {
+export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
+  lista: Cli[];
+  oficinas?: OficinaLite[];
+  pestanaInicial?: "individuales" | "familias" | "empresas";
+}) {
   const t = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   type Pestana = "individuales" | "familias" | "empresas";
-  const [pestana, setPestana] = useState<Pestana>("individuales");
+  // `?pestana=…` (lo resuelve el servidor): el enlace «volver» de la ficha de empresa
+  // vuelve a SU pestaña — antes caía en «Individuales» y la empresa parecía perdida.
+  const [pestana, setPestana] = useState<Pestana>((pestanaInicial as Pestana) ?? "individuales");
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
   // Multi-oficina : sélection multiple pour réaffecter en masse. N'existe qu'à partir
