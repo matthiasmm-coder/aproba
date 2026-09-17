@@ -8,6 +8,7 @@ import { periodoCuota } from "@/lib/cuota";
 import { copiarTexto } from "@/lib/copiar";
 import { ContadorExpedientes } from "@/components/contador-expedientes";
 import { AjustarPresupuestoModal } from "@/components/ajustar-presupuesto-modal";
+import { SelectorServicios, SELECCION_VACIA, type SeleccionServicios } from "@/components/selector-servicios";
 import { EncargoManualPanel } from "@/components/encargo-manual-panel";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
@@ -47,6 +48,11 @@ export function NuevoExpediente() {
   const t = useT();
   const router = useRouter();
   const [step, setStep] = useState(0);
+  // Servicios/packs elegidos POR EL GESTOR en esta misma pantalla (18/09/2026, Matthias):
+  // antes había que crear el expediente y ajustarlos en la pantalla del enlace. Se guardan
+  // justo después de crear, con su candado (el cliente no podrá quitarlos).
+  const [servicios, setServicios] = useState<SeleccionServicios>(SELECCION_VACIA);
+  const [avisoServicios, setAvisoServicios] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteRow[]>([]);
   const [familias, setFamilias] = useState<FamiliaRow[]>([]);
   const [oficinas, setOficinas] = useState<{ id: string; nombre: string }[]>([]);
@@ -271,6 +277,45 @@ export function NuevoExpediente() {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo crear el expediente. Vuelve a intentarlo."));
 
+      // Servicios elegidos arriba: se fijan en el expediente recién creado. Si algo falla,
+      // el expediente NO se pierde — se avisa y se pueden ajustar en la pantalla siguiente.
+      if (d.expedienteId && (servicios.claves.length > 0 || servicios.packId)) {
+        try {
+          const { clavesDeSeleccion } = await import("@/components/selector-servicios");
+          const sbp = createSupabaseBrowser();
+          let packs: { id: string; servicioIds?: string[]; descuentoPct?: number; nombre?: string }[] = [];
+          try {
+            const { data: mem } = await sbp.from("Membership").select("workspaceId").limit(1).maybeSingle();
+            if (mem?.workspaceId) {
+              const { data: ws } = await sbp.from("Workspace").select("packs").eq("id", mem.workspaceId).maybeSingle();
+              const raw = (ws as { packs?: unknown } | null)?.packs;
+              if (Array.isArray(raw)) packs = raw as typeof packs;
+            }
+          } catch { /* sin packs */ }
+          const claves = clavesDeSeleccion(servicios, packs as never);
+          if (claves.length) {
+            const rS = await fetch(`/api/expedientes/${d.expedienteId}/servicio`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clave: claves[0], extras: claves.slice(1), bloquear: servicios.bloquear }),
+            });
+            const dS = await rS.json().catch(() => ({}));
+            if (!rS.ok) setAvisoServicios(dS.error ?? t("No se pudieron fijar los servicios; ajústalos abajo."));
+            else if (dS.avisoBloqueo) setAvisoServicios(String(dS.avisoBloqueo));
+            // Descuento del pack: el % del catálogo, nunca uno inventado aquí.
+            const pk = packs.find((p) => p.id === servicios.packId);
+            const pct = Math.min(100, Math.max(0, Number(pk?.descuentoPct) || 0));
+            if (rS.ok && pk && pct > 0) {
+              await fetch(`/api/expedientes/${d.expedienteId}/descuento`, {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ descuento: { tipo: "PORCENTAJE", valor: pct, motivo: pk.nombre ?? "" } }),
+              }).catch(() => {});
+            }
+          }
+        } catch {
+          setAvisoServicios(t("No se pudieron fijar los servicios; ajústalos abajo."));
+        }
+      }
+
       setRef(d.referencia);
       setExpId(d.expedienteId);
       setToken(d.portalToken);
@@ -279,7 +324,7 @@ export function NuevoExpediente() {
       setEsFamiliar(Boolean(d.familiar));
       setEmpresaNombre(d.empresa ? empresaTxt : "");
       setMiembrosFam(familiaSel ? Math.max(1, familiaSel.miembros) : 1);
-      setAjustado(false);
+      setAjustado(servicios.claves.length > 0 || Boolean(servicios.packId));
       setExtraFacturado(Boolean(d.extra));
       setUsados((u) => (u ?? 0) + 1);
       setStep(1);
@@ -576,6 +621,10 @@ export function NuevoExpediente() {
             </div>
           )}
 
+          {/* Servicios y packs: se eligen AQUÍ (Matthias, 18/09) — el enlace sale ya con el
+              presupuesto cerrado y el cliente solo puede AÑADIR. */}
+          <SelectorServicios valor={servicios} onChange={setServicios} nMiembros={familiaSel ? Math.max(1, familiaSel.miembros) : 1} oficinaId={sedeCreacion.sede ?? null} />
+
           {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
           <button
@@ -675,6 +724,9 @@ export function NuevoExpediente() {
             {/* Precio cerrado con el cliente (packs, varios servicios): el enlace NO se envía
                 solo, así que el gestor puede fijar antes el servicio y el descuento sin salir
                 del alta — el presupuesto que verá el cliente ya sale ajustado. */}
+            {avisoServicios && (
+              <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{avisoServicios}</p>
+            )}
             {expId && (
               ajustado ? (
                 <p className="mt-3 text-xs font-medium text-aproba-700">
