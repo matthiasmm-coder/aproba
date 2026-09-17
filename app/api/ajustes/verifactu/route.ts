@@ -50,8 +50,11 @@ const publica = (c: ConfigVerifactu) => ({ nif: c.nif, entorno: c.entorno, activ
 
 async function estado(admin: ReturnType<typeof createSupabaseAdmin>, workspaceId: string) {
   let configs: ConfigVerifactu[] = [];
-  let migracion = true;
-  try { configs = await fetchConfigsVerifactu(admin, workspaceId); } catch { migracion = false; }
+  // ¿Existe la tabla? (fetchConfigsVerifactu devuelve [] sin ella, a propósito: el resto
+  // de la app no debe romperse; aquí sí queremos decirlo para que se ejecute la migración).
+  const sonda = await admin.from("VerifactuConfig").select("id", { count: "exact", head: true }).eq("workspaceId", workspaceId);
+  const migracion = !(sonda.error && /relation|does not exist|schema cache|PGRST205/i.test(sonda.error.message));
+  try { configs = await fetchConfigsVerifactu(admin, workspaceId); } catch { /* se informa vía migracion */ }
   const [nifs, resumen] = await Promise.all([nifsEmisores(admin, workspaceId), resumenRegistros(admin, workspaceId)]);
   // Declaración responsable del sistema (la publica Verifacti como SIF): primera clave válida.
   let declaracion: string | null = null;
