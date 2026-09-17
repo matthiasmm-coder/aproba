@@ -109,7 +109,7 @@ export type Progreso = {
 };
 
 // FLUJO v4 (03/09/2026): dos fases de TRABAJO. El ciclo del despacho termina en la
-// entrega; «Facturar y archivar» es el único gesto de cierre y sale del tablero.
+// entrega; «Archivar» es el único gesto de cierre y sale del tablero.
 export type FaseKey = "preparacion" | "preparado";
 export type AccionClave =
   | "elegir_servicio" | "subir_docs" | "generar_formularios" | "archivar" | "cerrado" | "denegado";
@@ -196,10 +196,10 @@ export function faseDe(estado: Estado5, hitoForm: boolean, validadoManual = fals
 function accionSiguiente(h: Hechos, estado: Estado5, docs: ReturnType<typeof docsCompletos>, hitoForm: boolean): Progreso["accion"] {
   // Legado: los estados de resolución que quedaron sin archivar. Su único gesto es cerrar.
   if (estado === "FINALIZADO" || estado === "RECHAZADO" || estado === "RESUELTO" || estado === "PRESENTADO") {
-    return { label: "Facturar y archivar", espera: false, clave: "archivar" };
+    return { label: "Archivar", espera: false, clave: "archivar" };
   }
   // «Preparado» a mano o por los hechos: el siguiente gesto es la entrega, es decir cerrar.
-  if (hitoForm || h.validadoManual) return { label: "Facturar y archivar", espera: false, clave: "archivar" };
+  if (hitoForm || h.validadoManual) return { label: "Archivar", espera: false, clave: "archivar" };
 
   // MODO MANUAL: nunca se pide el enlace. Lo que toca es aportar los documentos uno
   // mismo (o preparar ya, si el servicio no exige ninguno).

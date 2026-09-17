@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
+import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import type { FacturaEstado } from "@/lib/facturas";
 
 // Acciones por factura: anular (deja sin efecto SIN romper la numeración — la vía correcta
@@ -11,7 +12,7 @@ import type { FacturaEstado } from "@/lib/facturas";
 // (definitivo, solo admin). Reutilizado en la tabla de la lista y en la ficha de la factura.
 // Anular solo aparece en EMITIDA/VENCIDA: un borrador se borra, una pagada se rectifica.
 export function FacturaAcciones({
-  id, numero, estado, archivada, esAdmin, onDone,
+  id, numero, estado, archivada, esAdmin, onDone, conEditar = false,
 }: {
   id: string;
   numero: string;
@@ -19,11 +20,19 @@ export function FacturaAcciones({
   archivada: boolean;
   esAdmin: boolean;
   onDone?: () => void; // p.ej. redirigir tras borrar desde la ficha
+  // «Editar» dentro de la fila (lista de Facturas). En la ficha de la factura NO: allí el
+  // botón Editar vive en la cabecera del documento (evita dos botones iguales).
+  conEditar?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
   const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular" | "cobrar">(null);
   const [error, setError] = useState<string | null>(null);
+  // Editar desde la LISTA (petición Luis y Marta, 17/09): abrían una factura emitida a una
+  // empresa y solo podían archivarla o eliminarla. Una emitida se retoca; una PAGADA no
+  // (el dinero ya entró) y una ANULADA tampoco. El servidor vuelve a validarlo.
+  const [editando, setEditando] = useState(false);
+  const editable = conEditar && !archivada && estado !== "PAGADA" && estado !== "ANULADA";
 
   async function archivar() {
     setBusy("archivar"); setError(null);
@@ -99,6 +108,17 @@ export function FacturaAcciones({
 
   return (
     <div className="flex items-center justify-end gap-1">
+      {editable && (
+        <button
+          onClick={() => setEditando(true)}
+          disabled={busy !== null}
+          title={t("Editar")}
+          aria-label={t("Editar factura {n}").replace("{n}", numero)}
+          className="rounded p-1.5 text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40"
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+        </button>
+      )}
       {(estado === "EMITIDA" || estado === "VENCIDA") && !archivada && (
         <button
           onClick={cobrada}
@@ -145,6 +165,7 @@ export function FacturaAcciones({
         </button>
       )}
       {error && <span role="alert" className="ml-1 max-w-[160px] text-right text-[11px] leading-tight text-red-600">{error}</span>}
+      {editando && <CobroFacturaModal modo="editar" facturaId={id} onClose={() => { setEditando(false); router.refresh(); }} />}
     </div>
   );
 }

@@ -98,7 +98,7 @@ describe("formularios: la curación vacía cuenta como hecha", () => {
     const p = calcularProgreso({ ...base, formulariosCurados: true });
     expect(p.hitos.formularios).toBe(true);
     // Flujo v4: con los formularios hechos el expediente está PREPARADO y el siguiente
-    // gesto es el cierre («Facturar y archivar»), no «presentar».
+    // gesto es el cierre («Archivar»), no «presentar».
     expect(p.accion.clave).toBe("archivar");
   });
 

@@ -199,7 +199,7 @@ export const BENEFICIOS: Beneficio[] = [
       { t: "ul", items: [
         `**Se comprueba con el ejemplo.** ${PRUEBA} Verás su tarjeta en Preparado con «Generar formularios» como siguiente acción; genera los formularios y observa cómo cambia.`,
         "**Cada movimiento tiene una causa visible.** Al abrir la tarjeta, la ficha enseña el desglose (qué documento falta, qué campo está vacío) que explica la posición.",
-        "**Lo que sale del tablero sigue existiendo.** «Facturar y archivar» es el único gesto de cierre; lo archivado se consulta con un filtro y se recupera.",
+        "**Lo que sale del tablero sigue existiendo.** «Archivar» es el único gesto de cierre; lo archivado se consulta con un filtro y se recupera.",
       ] },
     ],
     limites: [

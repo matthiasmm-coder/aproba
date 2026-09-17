@@ -214,7 +214,8 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
                   <span className="ml-2 text-[11px] text-slate-400">{esEmp ? t("Toda la empresa") : t("Toda la familia")}</span>
                 </label>
               )}
-              <button onClick={() => toggle(c.id)} className="flex w-full items-center px-5 py-3 text-left transition hover:bg-cream-50" aria-expanded={abierta}>
+              <div className="flex items-center">
+              <button onClick={() => toggle(c.id)} className="flex min-w-0 flex-1 items-center px-5 py-3 text-left transition hover:bg-cream-50" aria-expanded={abierta}>
                 <span className="flex flex-1 items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700">{esEmp ? <EmpIcon className="h-4 w-4" /> : <FamIcon className="h-4 w-4" />}</span>
                   <span className="min-w-0">
@@ -227,6 +228,14 @@ export function ClientesList({ lista, oficinas = [] }: { lista: Cli[]; oficinas?
                 <span className="hidden w-40 truncate text-sm text-slate-500 sm:block">{t(c.ultimo)}</span>
                 <span className="w-20 text-right"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{c.expedientes}</span></span>
               </button>
+              {/* La EMPRESA tiene ficha propia (18/09/2026): sus datos, lo contratado, sus
+                  facturas y sus trabajadores. La familia no: es solo un agrupamiento. */}
+              {esEmp && (
+                <Link href={`/app/empresas/${c.id}`} className="mr-4 shrink-0 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
+                  {t("Ficha")}
+                </Link>
+              )}
+              </div>
               {abierta && c.miembros.map((m) => (
                 <div key={m.id} className="flex items-center border-t border-slate-50 bg-cream-50/40 hover:bg-cream-50">
                 {multi && (

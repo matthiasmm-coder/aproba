@@ -4,7 +4,7 @@ import { sembrarVencimiento, cerrarCicloRenovacion, MESES_VALIDEZ } from "@/lib/
 import { etiquetaSalida, type Salida } from "@/lib/types";
 
 // CIERRE DEL EXPEDIENTE (flujo v4, 03/09/2026). El ciclo del despacho termina en la
-// ENTREGA: «Facturar y archivar» registra la SALIDA y saca el expediente del tablero.
+// ENTREGA: «Archivar» registra la SALIDA y saca el expediente del tablero.
 // La salida se traduce al estado de siempre para que todo lo que ya lee estados (seguimiento
 // del cliente, Vigía, KPIs, historial) siga funcionando sin remapear nada:
 //   en_tramite → PRESENTADO (se sella fechaPresentacion)   desistido → el estado no cambia

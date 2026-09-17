@@ -13,7 +13,7 @@ import { setArchivadoServidor } from "@/lib/archivo";
 // sola línea — anillo con el % dentro, las tres partes y EL botón del momento.
 //   Preparación → «Marcar como preparado» (validación manual: empuja de columna sin tocar
 //                 el %).
-//   Preparado   → «Facturar y archivar»: popup con la SALIDA del expediente, la factura
+//   Preparado   → «Archivar»: popup con la SALIDA del expediente, la factura
 //                 final si queda resto y el aviso al cliente. Único gesto de cierre.
 //   Archivado   → chip con la salida + «Restaurar».
 // La respuesta de la Administración ya no es una etapa: se registra como salida (o se
@@ -157,7 +157,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
     acciones = (
       <>
         <button onClick={() => { setErrorCierre(null); setDialogo(true); }} disabled={loading} className={primario}>
-          {t("Facturar y archivar")}
+          {t("Archivar")}
         </button>
         {completitud.manual && est === "EN_PREPARACION" && (
           <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>

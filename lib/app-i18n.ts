@@ -1796,7 +1796,7 @@ export const CA: Record<string, string> = {
   "La factura se emitirá directamente como PAGADA, con su método real. No se enviará ninguna solicitud de pago al cliente.": "La factura s'emetrà directament com a PAGADA, amb el seu mètode real. No s'enviarà cap sol·licitud de pagament al client.",
   "Nombre del padre": "Nom del pare",
   "Nombre de la madre": "Nom de la mare",
-  // ── Flujo v4 (03/09/2026): dos columnas, «Facturar y archivar», salidas ──
+  // ── Flujo v4 (03/09/2026): dos columnas, «Archivar» (antes «Facturar y archivar»), salidas ──
   "Avisar al cliente por email": "Avisar el client per correu electrònic",
   "Cambiar categoría": "Canviar categoria",
   "Cambiar…": "Canviar…",
@@ -1809,6 +1809,7 @@ export const CA: Record<string, string> = {
   "Emitir la factura final por el resto pendiente": "Emetre la factura final per la resta pendent",
   "En trámite": "En tràmit",
   "Facturar y archivar": "Facturar i arxivar",
+  "Archivar expediente": "Arxivar expedient",
   "Falta la migración supabase/flujo-v4.sql: la categoría se deduce del estado.": "Falta la migració supabase/flujo-v4.sql: la categoria es dedueix de l'estat.",
   "Marcado como preparado por el gestor": "Marcat com a preparat pel gestor",
   "Marcar como preparado": "Marcar com a preparat",
@@ -2105,6 +2106,21 @@ export const CA: Record<string, string> = {
   "No registrada": "No registrada",
   "Envío pendiente": "Enviament pendent",
   "Falta un dato del cliente": "Falta una dada del client",
+  "Editar factura {n}": "Edita la factura {n}",
+  "Vas a anular la factura {n}. Dejará de contar como facturada y no se podrá cobrar, pero se conserva con su número (la numeración correlativa no se rompe). ¿Continuar?": "Vas a anul·lar la factura {n}. Deixarà de comptar com a facturada i no es podrà cobrar, però es conserva amb el seu número (la numeració correlativa no es trenca). Vols continuar?",
+  // Ficha de empresa (18/09/2026)
+  "El nombre del trabajador es obligatorio.": "El nom del treballador és obligatori.",
+  "No se pudo añadir el trabajador.": "No s'ha pogut afegir el treballador.",
+  "Empresa cliente": "Empresa clienta",
+  "La hoja de encargo y las facturas se emiten a nombre de la empresa. Cada trabajador sigue siendo el titular de su expediente y tiene su propia ficha.": "El full d'encàrrec i les factures s'emeten a nom de l'empresa. Cada treballador continua sent el titular del seu expedient i té la seva pròpia fitxa.",
+  "Editar datos": "Edita les dades",
+  "Servicios contratados": "Serveis contractats",
+  "Todavía sin expedientes: los servicios aparecen aquí en cuanto abras uno para un trabajador.": "Encara sense expedients: els serveis apareixen aquí quan n'obris un per a un treballador.",
+  "Con el nombre basta: el resto de la ficha se completa luego, a mano o con la lectura de sus documentos.": "Amb el nom n'hi ha prou: la resta de la fitxa es completa després, a mà o amb la lectura dels seus documents.",
+  "sin expedientes": "sense expedients",
+  "Todavía sin facturas.": "Encara sense factures.",
+  "Ver ficha": "Veure la fitxa",
+  "Ficha": "Fitxa",
 };
 
 export function translate(lang: Lang, es: string): string {

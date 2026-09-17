@@ -115,7 +115,7 @@ export const BOARD_COLUMNS: ExpedienteEstado[] = [
 // FLUJO v4 (03/09/2026, Matthias): el ciclo del despacho termina en la ENTREGA. Dos
 // columnas de TRABAJO — «Preparación» (datos, documentos, formularios, citas y cobro, en
 // el orden en que lleguen) y «Preparado» (dossier listo: formularios/tasa generados o
-// marcado a mano) — y un solo gesto de cierre, «Facturar y archivar», que registra la
+// marcado a mano) — y un solo gesto de cierre, «Archivar», que registra la
 // salida (Expediente.salida). La respuesta de la Administración ya no es una columna.
 // Las 4 fases anteriores (recepcion/preparacion/presentacion/cierre) desaparecen; los
 // `estados` son solo el repli de filas sin progreso calculado.
@@ -148,10 +148,10 @@ export const ACCION_ESTADO: Record<ExpedienteEstado, { label: string; espera?: b
   BORRADOR:        { label: "Enviar enlace al cliente" },
   DOCS_PENDIENTES: { label: "Generar formularios" }, // repli alineado: preparar nunca espera
   DOCS_VALIDADOS:  { label: "Generar formularios" },
-  FORM_GENERADO:   { label: "Facturar y archivar" },
-  PRESENTADO:      { label: "Facturar y archivar" },
-  RESUELTO:        { label: "Facturar y archivar" },
-  CITA_HUELLAS:    { label: "Facturar y archivar" },
+  FORM_GENERADO:   { label: "Archivar" },
+  PRESENTADO:      { label: "Archivar" },
+  RESUELTO:        { label: "Archivar" },
+  CITA_HUELLAS:    { label: "Archivar" },
   FINALIZADO:      { label: "Expediente cerrado", espera: true },
   RECHAZADO:       { label: "Expediente denegado", espera: true },
 };
