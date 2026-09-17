@@ -67,6 +67,7 @@ export function ClientPortal({
   servicioInicial,
   serviciosExtraClaves,
   serviciosBloqueados,
+  clienteYaEligio = false,
   suplidosOverride,
   descuento = null,
   asignacion = null,
@@ -96,6 +97,9 @@ export function ClientPortal({
   // BLOQUEADOS por el gestor antes de enviar el enlace (18/09/2026, Luis y Marta): el
   // cliente los ve marcados y no los puede quitar; sí puede AÑADIR del resto del catálogo.
   serviciosBloqueados?: string[];
+  // El cliente ya confirmó su elección alguna vez: entonces el portal retoma donde estaba
+  // (datos o documentos). Si no, y hay servicios fijados, abre en la pantalla de servicios.
+  clienteYaEligio?: boolean;
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   descuento?: Descuento | null;
   asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
@@ -107,6 +111,9 @@ export function ClientPortal({
   // trámite que fijó su gestoría antes de seguir — no es una sesión interrumpida.
   const [step, setStep] = useState(() => {
     if (!token || !servicioInicial || servicioFijado) return 0;
+    // Servicios fijados por la gestoría y cliente que aún no ha elegido: se le enseña la
+    // pantalla de servicios (los suyos marcados con candado) para que pueda añadir.
+    if ((serviciosBloqueados?.length ?? 0) > 0 && !clienteYaEligio) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
     const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
     return fichaCompleta ? 2 : (familia ? 0 : 1);

@@ -74,6 +74,10 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   let servicioInicial: string | null = null;
   let serviciosExtraClaves: string[] = [];
   let serviciosBloqueados: string[] = [];
+  // ¿El CLIENTE ya pasó por la pantalla de servicios? (evento «Eligió: …» de /api/portal/iniciar).
+  // Con servicios fijados por el gestor, el portal debe ABRIR en esa pantalla la primera vez
+  // — si no, el candado no se ve nunca y el cliente no puede añadir nada.
+  let clienteYaEligio = false;
   let suplidosOverride: { concepto: string; importe: number }[] | null = null;
   let descuentoExp: DescuentoT | null = null;
   let asignacionExp: AsignacionT | null = null;
@@ -163,6 +167,10 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       docsExtraExp = Array.isArray(docsExtraRaw) ? docsExtraRaw.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim()) : [];
       const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
       serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
+      try {
+        const { data: ev } = await admin.from("ExpedienteEvento").select("id").eq("expedienteId", exp.id).like("descripcion", "Eligió:%").limit(1);
+        clienteYaEligio = Boolean((ev ?? []).length);
+      } catch { /* sin eventos legibles → se trata como «no ha elegido» */ }
       // BLOQUEADOS por el gestor (18/09/2026): llegan marcados y no se pueden quitar.
       const bloqRaw = (exp as unknown as { serviciosBloqueados?: string[] | null }).serviciosBloqueados;
       serviciosBloqueados = [...new Set((Array.isArray(bloqRaw) ? bloqRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c && sv.active)))];
@@ -270,6 +278,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       servicioInicial={servicioInicial}
       serviciosExtraClaves={serviciosExtraClaves}
       serviciosBloqueados={serviciosBloqueados}
+      clienteYaEligio={clienteYaEligio}
       suplidosOverride={suplidosOverride}
       descuento={descuentoExp}
       asignacion={asignacionExp}
