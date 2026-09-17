@@ -31,6 +31,9 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
   const [tipo, setTipo] = useState<Descuento["tipo"]>("PORCENTAJE");
   const [valor, setValor] = useState(0);
   const [motivo, setMotivo] = useState("");
+  // Bloquear lo elegido en el enlace del cliente (18/09/2026, Luis y Marta): el cliente lo
+  // ve marcado y no lo puede quitar, pero sigue pudiendo AÑADIR del resto del catálogo.
+  const [bloquear, setBloquear] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,11 +59,17 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
       // mostrar lo ya guardado. Si arrancara vacío, guardar borraría el descuento y los
       // servicios en silencio. Sin fila o sin permiso: se queda vacío (no inventa nada).
       try {
-        const { data: exp } = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento").eq("id", expedienteId).maybeSingle();
+        let rExp = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento, serviciosBloqueados").eq("id", expedienteId).maybeSingle();
+        if (rExp.error) rExp = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento").eq("id", expedienteId).maybeSingle() as typeof rExp;
+        const { data: exp } = rExp;
         const e = exp as { servicioClave?: string | null; serviciosExtra?: string[] | null; descuento?: unknown } | null;
         if (!e) return;
         if (e.servicioClave) setClave(e.servicioClave);
         if (Array.isArray(e.serviciosExtra)) setExtras(e.serviciosExtra.filter(Boolean));
+        const bloq = (e as { serviciosBloqueados?: string[] | null }).serviciosBloqueados;
+        // Al reabrir, el candado refleja lo guardado (si ya se envió el enlace sin candado,
+        // no se vuelve a poner solo). Sin la columna migrada llega undefined → se deja ON.
+        if (Array.isArray(bloq)) setBloquear(bloq.length > 0);
         const d = descuentoValido(e.descuento);
         if (d) { setTipo(d.tipo); setValor(d.valor); setMotivo(d.motivo ?? ""); }
       } catch { /* sin estado previo: formulario vacío */ }
@@ -94,10 +103,11 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
       //    tasas la necesita). 2) Descuento después. Rutas existentes, sin tocar.
       const rS = await fetch(`/api/expedientes/${expedienteId}/servicio`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clave, label: svcElegido.label, extras: extras.filter((x) => x !== clave) }),
+        body: JSON.stringify({ clave, label: svcElegido.label, extras: extras.filter((x) => x !== clave), bloquear }),
       });
       const dS = await rS.json().catch(() => ({}));
       if (!rS.ok) throw new Error(dS.error ?? t("No se pudo cambiar el servicio."));
+      if (dS.avisoBloqueo) setError(String(dS.avisoBloqueo));
 
       const rD = await fetch(`/api/expedientes/${expedienteId}/descuento`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -166,6 +176,14 @@ export function AjustarPresupuestoModal({ expedienteId, nMiembros = 1, onClose }
                 </div>
               </div>
             )}
+
+            <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-cream-50/60 px-3 py-2.5">
+              <input type="checkbox" checked={bloquear} onChange={(e) => setBloquear(e.target.checked)} disabled={busy} className="mt-0.5 accent-aproba-600" />
+              <span className="text-xs leading-relaxed text-slate-600">
+                <b className="font-semibold text-slate-800">{t("Dejarlo fijado en el enlace del cliente")}</b>
+                <span className="block">{t("Lo verá marcado y no podrá quitarlo. Sí podrá añadir otros servicios de tu catálogo.")}</span>
+              </span>
+            </label>
 
             <div className="mt-4">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Descuento")}</label>

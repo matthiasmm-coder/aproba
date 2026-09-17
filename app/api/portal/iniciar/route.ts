@@ -28,12 +28,21 @@ export async function POST(req: Request) {
   // desconfiguró asignación y descuento).
   let res1 = await admin
     .from("Expediente")
-    .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento")
+    .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento, serviciosBloqueados")
     .eq("portalToken", token)
     .maybeSingle();
   // ¿Pudimos LEER el descuento? Si caemos a un select más corto no lo sabemos, y
   // entonces no se toca: mejor no aplicar el del pack que pisar el del gestor.
   const leyoDescuento = !res1.error;
+  // Repli propio de la columna más reciente (supabase/servicios-bloqueados.sql): sin ella
+  // no hay candados y el portal se comporta como siempre.
+  if (res1.error && /serviciosBloqueados|column|schema cache/i.test(res1.error.message)) {
+    res1 = await admin
+      .from("Expediente")
+      .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento")
+      .eq("portalToken", token)
+      .maybeSingle() as typeof res1;
+  }
   if (res1.error) res1 = await admin
     .from("Expediente")
     .select("id, estado, workspaceId, familiaId, servicioClave")
@@ -44,7 +53,7 @@ export async function POST(req: Request) {
     .select("id, estado, workspaceId, familiaId")
     .eq("portalToken", token)
     .maybeSingle() as typeof res1;
-  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosAsignacion?: unknown; descuento?: unknown } | null;
+  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosBloqueados?: string[] | null; serviciosAsignacion?: unknown; descuento?: unknown } | null;
   if (res1.error) return NextResponse.json({ error: res1.error.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
@@ -106,11 +115,18 @@ export async function POST(req: Request) {
   // La lista es AUTORITATIVA: si el cliente vuelve atrás y quita servicios, manda un
   // array vacío y hay que BORRAR los extras — si no, la factura seguiría cobrando
   // servicios que ya no están en pantalla.
+  // BLOQUEADOS por el gestor (18/09/2026): lo que fijó antes de enviar el enlace no se
+  // puede perder aunque el cliente mande otra lista (pantalla manipulada, versión vieja
+  // en caché, vuelta atrás): se FUSIONA, nunca se pisa.
+  const bloqueados = (Array.isArray(exp.serviciosBloqueados) ? exp.serviciosBloqueados : [])
+    .map((x) => String(x)).filter((x) => !catalogo.length || catalogo.some((sv) => sv.id === x));
   if (!extraCols.serviciosExtra && Array.isArray(body.extras)) {
     const validos = catalogo.length
       ? body.extras.map((x) => String(x)).filter((x) => x !== clave && catalogo.some((sv) => sv.id === x))
       : [];
-    extraCols = { ...extraCols, serviciosExtra: [...new Set(validos)].slice(0, 10) };
+    extraCols = { ...extraCols, serviciosExtra: [...new Set([...validos, ...bloqueados.filter((x) => x !== clave)])].slice(0, 10) };
+  } else if (!extraCols.serviciosExtra && bloqueados.length) {
+    extraCols = { ...extraCols, serviciosExtra: [...new Set(bloqueados.filter((x) => x !== clave))].slice(0, 10) };
   }
 
   // Descuento del PACK elegido por el cliente. El cliente manda el ID; el % se lee
@@ -125,12 +141,20 @@ export async function POST(req: Request) {
     } catch { /* sin catálogo legible → se factura sin descuento, nunca de más */ }
   }
 
-  const tipo = SERVICIO_A_TIPO[clave] ?? "OTRO";
+  // Si el gestor bloqueó un servicio, ese manda como principal: el del cliente pasa a extra
+  // (así el precio y los documentos incluyen ambos y nada fijado desaparece).
+  const principalBloqueado = bloqueados.includes(clave) ? clave : bloqueados[0];
+  const claveFinal = principalBloqueado ?? clave;
+  if (claveFinal !== clave) {
+    const extrasActuales = Array.isArray(extraCols.serviciosExtra) ? (extraCols.serviciosExtra as string[]) : [];
+    extraCols = { ...extraCols, serviciosExtra: [...new Set([...extrasActuales, clave])].filter((x) => x !== claveFinal).slice(0, 10) };
+  }
+  const tipo = SERVICIO_A_TIPO[claveFinal] ?? "OTRO";
   let { error: e2 } = await admin
     .from("Expediente")
     .update({
       tipo,
-      servicioClave: clave, // mémorise le service choisi (gère les services custom, sans équivalent enum)
+      servicioClave: claveFinal, // mémorise le service choisi (gère les services custom, sans équivalent enum)
       updatedAt: new Date().toISOString(),
       ...extraCols,
     })
@@ -138,7 +162,7 @@ export async function POST(req: Request) {
   // Repli: migración serviciosAsignacion sin ejecutar → guardar al menos el trámite.
   if (e2 && Object.keys(extraCols).length && /serviciosAsignacion|column|schema cache/i.test(e2.message)) {
     e2 = (await admin.from("Expediente").update({
-      tipo, servicioClave: clave,
+      tipo, servicioClave: claveFinal,
       updatedAt: new Date().toISOString(),
     }).eq("id", exp.id)).error;
   }

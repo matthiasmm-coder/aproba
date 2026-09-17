@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { DEFAULT_SERVICIOS, agruparPorTema, fmtPct, loadServicios, normTema, packPct, type Pack, type Servicio } from "@/lib/servicios";
 import { TemaPlegable } from "@/components/tema-plegable";
@@ -66,6 +66,7 @@ export function ClientPortal({
   familia,
   servicioInicial,
   serviciosExtraClaves,
+  serviciosBloqueados,
   suplidosOverride,
   descuento = null,
   asignacion = null,
@@ -92,6 +93,9 @@ export function ClientPortal({
   // cliente lo ve (nombre + precio) sin poder cambiarlo y pasa a datos y documentos.
   servicioFijado?: boolean;
   serviciosExtraClaves?: string[]; // multi-servicio: extras puestos por el gestor (no elegibles aquí)
+  // BLOQUEADOS por el gestor antes de enviar el enlace (18/09/2026, Luis y Marta): el
+  // cliente los ve marcados y no los puede quitar; sí puede AÑADIR del resto del catálogo.
+  serviciosBloqueados?: string[];
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   descuento?: Descuento | null;
   asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
@@ -252,11 +256,16 @@ export function ClientPortal({
   // elección, no un atajo que rellena casillas. Por eso hay dos estados —
   // `packId` (0 o 1 pack) y `sueltos` (servicios elegidos uno a uno) — y el
   // carrito real es la unión de ambos, que es lo que se paga y se envía.
+  // Lo fijado por la gestoría: vive fuera de `sueltos` para que el cliente no pueda
+  // quitarlo ni perderlo al cambiar de pack; entra siempre en el carrito.
+  const bloqueados = useMemo(() => svDe(serviciosBloqueados ?? []), [serviciosBloqueados, servicios]);
+  const estaBloqueado = (id: string) => bloqueados.includes(id);
   const [sueltos, setSueltos] = useState<string[]>(() => {
     if (!servicioInicial) return [];
     const guardados = [servicioInicial, ...(serviciosExtraClaves ?? [])];
     const dePack = new Set(packs.flatMap((pk) => (pk.servicioIds ?? []).every((id) => guardados.includes(id)) && pk.servicioIds.length ? pk.servicioIds : []));
-    return guardados.filter((id) => !dePack.has(id));
+    const fijados = new Set(serviciosBloqueados ?? []);
+    return guardados.filter((id) => !dePack.has(id) && !fijados.has(id));
   });
   const enPack = (id: string) => svDe(packDe(packId)?.servicioIds ?? []).includes(id);
   // Carrito = servicios del pack + sueltos, sin duplicados y en orden de catálogo.
@@ -264,7 +273,7 @@ export function ClientPortal({
   // sabían tratarlo así desde el multi-servicio del gestor.
   function recomputar(nuevoPack: string | null, nuevosSueltos: string[]) {
     const dePack = svDe(packDe(nuevoPack)?.servicioIds ?? []);
-    const todos = new Set([...dePack, ...nuevosSueltos]);
+    const todos = new Set([...bloqueados, ...dePack, ...nuevosSueltos]);
     const orden = servicios.filter((sv) => todos.has(sv.id)).map((sv) => sv.id);
     setTramiteId(orden[0] ?? null);
     setExtrasClaves(orden.slice(1));
@@ -281,7 +290,7 @@ export function ClientPortal({
   // son pulsables: marcarlos no cambiaría nada (ya están en el carrito) y el precio
   // no se movería — se enseñan como «incluido en el pack».
   function toggleServicio(id: string) {
-    if (enPack(id)) return;
+    if (enPack(id) || estaBloqueado(id)) return;
     const nuevos = sueltos.includes(id) ? sueltos.filter((c) => c !== id) : [...sueltos, id];
     setSueltos(nuevos);
     recomputar(packId, nuevos);
@@ -769,8 +778,15 @@ export function ClientPortal({
                 Solo los del gestor: desde que el cliente elige varios servicios, los
                 suyos también viven en extras y este aviso mentiría («tu gestoría ha
                 añadido» lo que acaba de marcar él). */}
+            {bloqueados.length > 0 && (
+              <div className="mt-4 rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3 text-sm text-aproba-800">
+                {t("s0.fijadoAviso")}
+              </div>
+            )}
             {(() => {
+              // Extras del gestor NO bloqueados (los bloqueados ya se explican arriba).
               const delGestor = (serviciosExtraClaves ?? [])
+                .filter((c) => !bloqueados.includes(c))
                 .map((c) => servicios.find((sv) => sv.id === c))
                 .filter((sv): sv is Servicio => Boolean(sv));
               if (!delGestor.length) return null;
@@ -844,13 +860,17 @@ export function ClientPortal({
                 // (ya está en el carrito y el precio no se movería). Se enseña como
                 // incluido en vez de dejar una casilla que no hace nada.
                 const incluido = enPack(tr.id);
+                // FIJADO por la gestoría antes de enviar el enlace: marcado y no quitable.
+                // Se distingue del «incluido en el pack» — aquí sí cuenta en el precio.
+                const fijado = estaBloqueado(tr.id);
                 return (
                 <button
                   key={tr.id}
                   onClick={() => toggleServicio(tr.id)}
-                  aria-disabled={incluido || undefined}
+                  aria-disabled={incluido || fijado || undefined}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
                     incluido ? "cursor-default border-slate-200 bg-slate-50"
+                      : fijado ? "cursor-default border-aproba-600 bg-aproba-50"
                       : marcado(tr.id) ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
@@ -876,6 +896,14 @@ export function ClientPortal({
                     </div>
                     <p className="text-sm text-slate-500">{servicioDesc(tr.id, tr.desc, lang)}</p>
                     {incluido && <p className="mt-1"><span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("sel.enPack")}</span></p>}
+                    {fijado && !incluido && (
+                      <p className="mt-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-aproba-700">
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                          {t("s0.fijadoBadge")}
+                        </span>
+                      </p>
+                    )}
                     {Boolean(tr.porcentaje) && !tr.precioOculto && (
                       <p className="mt-1 text-xs font-medium text-slate-500">
                         {tr.porcentajeSobre?.trim() ? t("precio.pctSobre", { pct: fmtPct(tr.porcentaje ?? 0), sobre: tr.porcentajeSobre.trim() }) : `+ ${fmtPct(tr.porcentaje ?? 0)} %`}
@@ -901,9 +929,9 @@ export function ClientPortal({
                       del pack (abajo) sigue redondo porque solo cabe uno. */}
                   <span className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
                     incluido ? "border-slate-300 bg-slate-300 text-white"
-                      : marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"
+                      : fijado || marcado(tr.id) ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"
                   }`}>
-                    {(incluido || marcado(tr.id)) && <Check className="h-3 w-3" />}
+                    {(incluido || fijado || marcado(tr.id)) && <Check className="h-3 w-3" />}
                   </span>
                 </button>
                 );
@@ -990,7 +1018,7 @@ export function ClientPortal({
                           key={c}
                           titulo={temaLabel(tituloDe(c), lang)}
                           resumen={n === 1 ? t("tema.unTramite") : t("tema.nTramites", { n })}
-                          abiertoInicial={ss.some((x) => marcado(x.id)) || ps.some((pk) => pk.id === packId)}
+                          abiertoInicial={ss.some((x) => marcado(x.id) || estaBloqueado(x.id)) || ps.some((pk) => pk.id === packId)}
                         >
                           {ps.map(tarjetaPack)}
                           {ss.map((tr) => tarjeta(tr))}
@@ -1001,7 +1029,7 @@ export function ClientPortal({
                       <TemaPlegable
                         titulo={t("tema.otros")}
                         resumen={sinTema.packs.length + sinTema.servicios.length === 1 ? t("tema.unTramite") : t("tema.nTramites", { n: sinTema.packs.length + sinTema.servicios.length })}
-                        abiertoInicial={sinTema.servicios.some((x) => marcado(x.id)) || sinTema.packs.some((pk) => pk.id === packId)}
+                        abiertoInicial={sinTema.servicios.some((x) => marcado(x.id) || estaBloqueado(x.id)) || sinTema.packs.some((pk) => pk.id === packId)}
                       >
                         {sinTema.packs.map(tarjetaPack)}
                         {sinTema.servicios.map((tr) => tarjeta(tr))}

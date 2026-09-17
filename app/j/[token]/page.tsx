@@ -73,6 +73,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   // Reprise de session: servicio ya elegido + documentos ya subidos.
   let servicioInicial: string | null = null;
   let serviciosExtraClaves: string[] = [];
+  let serviciosBloqueados: string[] = [];
   let suplidosOverride: { concepto: string; importe: number }[] | null = null;
   let descuentoExp: DescuentoT | null = null;
   let asignacionExp: AsignacionT | null = null;
@@ -94,17 +95,22 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, serviciosBloqueados, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
+    // serviciosBloqueados es la columna más reciente (supabase/servicios-bloqueados.sql):
+    // sin ella el portal funciona como siempre, sin candados.
+    if (res.error && /serviciosBloqueados|column|schema cache/i.test(res.error.message)) {
+      res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "")).eq("portalToken", token).maybeSingle();
+    }
     // docsExtra es columna nueva (supabase/docs-expediente.sql): sin ella, TODA la
     // cadena caería hasta el repli mínimo y el portal perdería descuento y extras.
     if (res.error && /docsExtra|column|schema cache/i.test(res.error.message)) {
-      res = await admin.from("Expediente").select(SEL.replace(", docsExtra", "")).eq("portalToken", token).maybeSingle();
+      res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "").replace(", docsExtra", "")).eq("portalToken", token).maybeSingle();
     }
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "")).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "")).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
-    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "").replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "").replace(", serviciosAsignacion", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "").replace(", serviciosAsignacion", "").replace(", descuento", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "").replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "")).eq("portalToken", token).maybeSingle();
+    if (res.error) res = await admin.from("Expediente").select(SEL.replace(", serviciosBloqueados", "").replace(", serviciosAsignacion", "").replace(", descuento", "").replace(", suplidosOverride", "").replace(", serviciosExtra", "")).eq("portalToken", token).maybeSingle();
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
@@ -157,6 +163,9 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       docsExtraExp = Array.isArray(docsExtraRaw) ? docsExtraRaw.filter((d): d is string => typeof d === "string" && Boolean(d.trim())).map((d) => d.trim()) : [];
       const extrasRaw = (exp as unknown as { serviciosExtra?: string[] | null }).serviciosExtra;
       serviciosExtraClaves = [...new Set((Array.isArray(extrasRaw) ? extrasRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c)))];
+      // BLOQUEADOS por el gestor (18/09/2026): llegan marcados y no se pueden quitar.
+      const bloqRaw = (exp as unknown as { serviciosBloqueados?: string[] | null }).serviciosBloqueados;
+      serviciosBloqueados = [...new Set((Array.isArray(bloqRaw) ? bloqRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c && sv.active)))];
       descuentoExp = descuentoValido((exp as unknown as { descuento?: unknown }).descuento);
       asignacionExp = asignacionValida((exp as unknown as { serviciosAsignacion?: unknown }).serviciosAsignacion);
       const supOv = (exp as unknown as { suplidosOverride?: { concepto: string; importe: number }[] | null }).suplidosOverride;
@@ -260,6 +269,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       familia={familia}
       servicioInicial={servicioInicial}
       serviciosExtraClaves={serviciosExtraClaves}
+      serviciosBloqueados={serviciosBloqueados}
       suplidosOverride={suplidosOverride}
       descuento={descuentoExp}
       asignacion={asignacionExp}

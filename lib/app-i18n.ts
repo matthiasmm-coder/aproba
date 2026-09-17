@@ -2121,6 +2121,8 @@ export const CA: Record<string, string> = {
   "Todavía sin facturas.": "Encara sense factures.",
   "Ver ficha": "Veure la fitxa",
   "Ficha": "Fitxa",
+  "Dejarlo fijado en el enlace del cliente": "Deixar-ho fixat a l'enllaç del client",
+  "Lo verá marcado y no podrá quitarlo. Sí podrá añadir otros servicios de tu catálogo.": "Ho veurà marcat i no ho podrà treure. Sí que podrà afegir altres serveis del teu catàleg.",
 };
 
 export function translate(lang: Lang, es: string): string {

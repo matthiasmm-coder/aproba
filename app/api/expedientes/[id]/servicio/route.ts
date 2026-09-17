@@ -13,7 +13,7 @@ import { reconciliarProgresoDocs } from "@/lib/documentos-upload";
 // de recogida si la unión de documentos requeridos cambió.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { clave?: string; label?: string; extras?: string[] };
+  let body: { clave?: string; label?: string; extras?: string[]; bloquear?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
   const clave = (body.clave ?? "").trim();
   const extrasIn = Array.isArray(body.extras)
@@ -29,7 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // El repli está GATED por el mensaje (patrón de fetchExpedienteDetalle): un error
   // transitorio (503, timeout) NO debe pasar por «columna ausente» — aquí esa confusión
   // decidiría una ESCRITURA equivocada (falso 409, quitar extras perdido en silencio).
-  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento, serviciosAsignacion").eq("id", id).maybeSingle();
+  let q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento, serviciosAsignacion, serviciosBloqueados").eq("id", id).maybeSingle();
+  if (q.error && /serviciosBloqueados|column|schema cache/i.test(q.error.message)) {
+    q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento, serviciosAsignacion").eq("id", id).maybeSingle() as typeof q;
+  }
   if (q.error && /serviciosAsignacion|column|schema cache/i.test(q.error.message)) {
     q = await supa.from("Expediente").select("id, familiaId, servicioClave, serviciosExtra, descuento").eq("id", id).maybeSingle() as typeof q;
   }
@@ -41,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (faltaColumna) q = await supa.from("Expediente").select("id, familiaId, servicioClave").eq("id", id).maybeSingle() as typeof q;
   if (q.error) return NextResponse.json({ error: q.error.message }, { status: 500 });
   const columnaExtras = !faltaColumna;
-  const exp = q.data as { id: string; familiaId: string | null; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown } | null;
+  const exp = q.data as { id: string; familiaId: string | null; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosBloqueados?: string[] | null } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
   if (extrasIn !== null && extrasIn.length > 0 && !columnaExtras) {
     return NextResponse.json({ error: "Falta la migración: ejecuta supabase/servicios-extra.sql en Supabase." }, { status: 409 });
@@ -57,16 +60,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const extrasPrevios = Array.isArray(exp.serviciosExtra) ? exp.serviciosExtra.filter(Boolean) : [];
   const extrasFinal = (extrasIn ?? extrasPrevios).filter((x) => x !== principalFinal);
 
-  // No-op: sin cambio real (ni principal ni extras), no se escribe ni se registra evento.
+  // BLOQUEO PARA EL CLIENTE (18/09/2026): `bloquear: true` marca lo elegido por el gestor
+  // como no quitable en el portal; `false` lo libera. Sin el campo, no se toca nada (las
+  // otras superficies que llaman a esta ruta no deciden sobre el enlace del cliente).
+  const bloqueadosPrevios = Array.isArray((exp as { serviciosBloqueados?: string[] | null }).serviciosBloqueados)
+    ? ((exp as { serviciosBloqueados?: string[] | null }).serviciosBloqueados ?? []).filter(Boolean) : [];
+  const bloqueadosFinal = body.bloquear === undefined
+    ? bloqueadosPrevios
+    : body.bloquear ? [principalFinal, ...extrasFinal].filter((x): x is string => Boolean(x)) : [];
+  const mismosBloqueados = bloqueadosFinal.length === bloqueadosPrevios.length && bloqueadosFinal.every((x, i) => bloqueadosPrevios[i] === x);
+
+  // No-op: sin cambio real (ni principal ni extras ni bloqueo), no se escribe ni se registra evento.
   const mismosExtras = extrasFinal.length === extrasPrevios.length && extrasFinal.every((x, i) => extrasPrevios[i] === x);
   const mismoPrincipal = !clave || exp.servicioClave === clave;
-  if (mismoPrincipal && mismosExtras) return NextResponse.json({ ok: true });
+  if (mismoPrincipal && mismosExtras && mismosBloqueados) return NextResponse.json({ ok: true });
 
   const admin = createSupabaseAdmin();
   const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   if (clave) { patch.tipo = SERVICIO_A_TIPO[clave] ?? "OTRO"; patch.servicioClave = clave; }
   if (columnaExtras && !mismosExtras) patch.serviciosExtra = extrasFinal;
-  const { error } = await admin.from("Expediente").update(patch).eq("id", id);
+  if (!mismosBloqueados) patch.serviciosBloqueados = bloqueadosFinal;
+  let { error } = await admin.from("Expediente").update(patch).eq("id", id);
+  // Repli: columna sin migrar (supabase/servicios-bloqueados.sql). El servicio SÍ se
+  // guarda; solo se pierde el candado, y se dice para que se ejecute la migración.
+  let sinColumnaBloqueo = false;
+  if (error && !mismosBloqueados && /serviciosBloqueados|column|schema cache/i.test(error.message)) {
+    delete patch.serviciosBloqueados;
+    sinColumnaBloqueo = true;
+    ({ error } = await admin.from("Expediente").update(patch).eq("id", id));
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Evento del historial: qué cambió exactamente.
@@ -78,6 +100,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   if (!mismosExtras) {
     partes.push(extrasFinal.length ? `Servicios adicionales: ${extrasFinal.map(labelDe).join(" + ")}` : "Servicios adicionales retirados");
+  }
+  if (!mismosBloqueados) {
+    partes.push(bloqueadosFinal.length ? `Bloqueados en el enlace del cliente: ${bloqueadosFinal.map(labelDe).join(" + ")}` : "Servicios desbloqueados en el enlace del cliente");
   }
   await admin.from("ExpedienteEvento").insert({
     id: crypto.randomUUID(),
@@ -144,5 +169,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   } catch { /* el aviso es best-effort, nunca bloquea el cambio */ }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...(sinColumnaBloqueo ? { avisoBloqueo: "Falta la migración supabase/servicios-bloqueados.sql: el servicio se ha guardado, pero el cliente podrá quitarlo desde su enlace." } : {}) });
 }
