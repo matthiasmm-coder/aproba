@@ -5,6 +5,7 @@ import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { puedeGestionarEquipo } from "@/lib/planes";
+import { facturaCongeladaPorVerifactu, registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 // Edición de una factura YA emitida (retocar el pago final o el anticipo desde el popup
 // del expediente). RLS: la lectura bajo sesión valida que la factura es del workspace del
@@ -38,6 +39,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
   // Integridad contable: una factura ya pagada NO se reescribe.
   if (f.estado === "PAGADA") return NextResponse.json({ error: "No se puede modificar una factura ya pagada." }, { status: 409 });
+  // VERI*FACTU: un alta ya enviada a la AEAT congela la factura (la vía legal es la
+  // subsanación o la rectificativa, no la edición). Lo que no llegó a enviarse sí se edita.
+  if (await facturaCongeladaPorVerifactu(supabase, id)) {
+    return NextResponse.json({ error: "Esta factura ya está registrada en VERI*FACTU (AEAT) y no se puede modificar. Anúlala y emite una nueva." }, { status: 409 });
+  }
 
   let body: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null; notificar?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
@@ -69,6 +75,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const admin = createSupabaseAdmin();
   const { error: eUp } = await admin.from("Factura").update(patch).eq("id", id);
+  // VERI*FACTU: si el alta estaba BLOQUEADA o sin enviar, la edición puede haberla
+  // desbloqueado (p. ej. nº o importe corregidos) → se vuelve a intentar.
+  if (!eUp) await registrarAltaSiActivo(admin, id);
   if (eUp) {
     const dup = /duplicate|unique/i.test(eUp.message);
     const faltaMig = /lineas|suplidos|schema cache|column/i.test(eUp.message);
@@ -118,6 +127,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Dinero YA recibido: una factura con entregas a cuenta no se elimina — la FK
   // EntregaCuenta.facturaId es ON DELETE CASCADE y el rastro del efectivo encajado
   // desaparecería con ella (auditoría 25/08). Anular, o retirar antes las entregas.
+  // VERI*FACTU: una factura registrada en la AEAT no desaparece — se anula (registro de
+  // anulación) y conserva su número. Un borrador nunca se registró.
+  if ((f as { estado: string }).estado !== "BORRADOR" && (await facturaCongeladaPorVerifactu(admin, id))) {
+    return NextResponse.json({ error: "Esta factura está registrada en VERI*FACTU (AEAT): no se puede eliminar. Anúlala." }, { status: 409 });
+  }
+
   const entregas = await admin.from("EntregaCuenta").select("id", { count: "exact", head: true }).eq("facturaId", id);
   if (!entregas.error && (entregas.count ?? 0) > 0) {
     return NextResponse.json({ error: "Esta factura tiene entregas a cuenta registradas: el dinero recibido no puede desaparecer. Anúlala, o retira antes las entregas." }, { status: 409 });

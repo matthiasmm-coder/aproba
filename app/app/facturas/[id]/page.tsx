@@ -4,8 +4,12 @@ import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
-import { FacturaView, type Emisor } from "@/components/factura-view";
+import { FacturaView, type Emisor, type VerifactuVista } from "@/components/factura-view";
 import { fetchEntregasDeFacturas } from "@/lib/entregas";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { fetchRegistrosDeFacturas, refrescarRegistro } from "@/lib/verifactu-envio";
+import { ESTADO_REGISTRO_META, registroBloqueaEdicion, type EstadoRegistro } from "@/lib/verifactu";
+import { qrDataUrl } from "@/lib/verifactu-qr";
 
 async function esAdminActual(): Promise<boolean> {
   const supa = await createSupabaseServer();
@@ -48,5 +52,30 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   // vacío y el bloque no se pinta: el producto sigue funcionando como antes.
   const entregas = (await fetchEntregasDeFacturas(await createSupabaseServer(), [f.id]))[f.id] ?? [];
 
-  return <FacturaView f={f} emisor={emisor} editable esAdmin={esAdmin} entregas={entregas} />;
+  // VERI*FACTU: registro de alta (lectura bajo RLS). Si lleva > 30 s «Pendiente», se
+  // pregunta a Verifacti antes de pintar (la AEAT contesta en 1-2 min). Sin tabla → nada.
+  let verifactu: VerifactuVista | null = null;
+  try {
+    const regs = (await fetchRegistrosDeFacturas(await createSupabaseServer(), [f.id]))[f.id] ?? [];
+    const alta = regs.find((r) => r.tipo === "ALTA") ?? null;
+    const anulacion = regs.find((r) => r.tipo === "ANULACION") ?? null;
+    if (alta) {
+      if (alta.estado === "PENDIENTE" && alta.uuid && alta.enviadoAt && Date.now() - new Date(alta.enviadoAt).getTime() > 30_000) {
+        try { alta.estado = await refrescarRegistro(createSupabaseAdmin(), alta); } catch { /* siguiente barrido */ }
+      }
+      const visible = f.estado === "ANULADA" && anulacion ? anulacion : alta;
+      const estado = visible.estado as EstadoRegistro;
+      const meta = ESTADO_REGISTRO_META[estado] ?? ESTADO_REGISTRO_META.PENDIENTE;
+      const conQr = Boolean(alta.url) && alta.estado !== "BLOQUEADO" && alta.estado !== "ERROR_ENVIO";
+      verifactu = {
+        estado, label: meta.label, pill: meta.pill, tono: meta.tono,
+        motivo: visible.motivo ?? visible.mensajeError ?? null, url: alta.url,
+        qr: conQr && alta.url ? await qrDataUrl(alta.url) : null,
+        congelada: registroBloqueaEdicion(alta),
+        reintentable: f.estado !== "ANULADA" && (alta.estado === "BLOQUEADO" || alta.estado === "ERROR_ENVIO"),
+      };
+    }
+  } catch { verifactu = null; }
+
+  return <FacturaView f={f} emisor={emisor} editable esAdmin={esAdmin} entregas={entregas} verifactu={verifactu} />;
 }

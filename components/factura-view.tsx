@@ -13,15 +13,36 @@ import type { Entrega } from "@/lib/entregas";
 
 export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
 
+// VERI*FACTU (17/09/2026): estado del registro en la AEAT y, si hay URL, el QR tributario
+// que se imprime en la factura. `congelada`: el alta ya se envió → sin botón Editar.
+export type VerifactuVista = {
+  estado: string; label: string; pill: string; tono: "ok" | "pendiente" | "problema" | "bloqueado";
+  motivo: string | null; url: string | null; qr: string | null; congelada: boolean; reintentable: boolean;
+};
+
 // `editable`: muestra el botón "Editar" (abre el popup de edición). Solo en la ficha de la
 // factura; en la vista previa de "Nueva factura" se deja en false. `esAdmin`: habilita el
 // borrado (archivar/eliminar); solo aplica en la ficha real.
-export function FacturaView({ f, emisor, editable = false, esAdmin = false, entregas = [] }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean; entregas?: Entrega[] }) {
+export function FacturaView({ f, emisor, editable = false, esAdmin = false, entregas = [], verifactu = null }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean; entregas?: Entrega[]; verifactu?: VerifactuVista | null }) {
   const t = useT();
   const router = useRouter();
   const meta = FACTURA_ESTADO_META[f.estado];
   const [marcando, setMarcando] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [reintentando, setReintentando] = useState(false);
+  const [errorVf, setErrorVf] = useState<string | null>(null);
+  async function reintentarVerifactu() {
+    setReintentando(true); setErrorVf(null);
+    try {
+      const res = await fetch(`/api/facturas/${f.id}/verifactu`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion: "reintentar" }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo reenviar."));
+      if (d.hecho === false && d.motivo) setErrorVf(d.motivo);
+      router.refresh();
+    } catch (e) {
+      setErrorVf(e instanceof Error ? e.message : t("No se pudo reenviar."));
+    } finally { setReintentando(false); }
+  }
   const contacto = [emisor.nif ? `${t("NIF/CIF")} ${emisor.nif}` : null, emisor.domicilio, emisor.email].filter(Boolean);
 
   // Líneas: el desglose si existe, si no una sola línea (concepto/base). Suplidos sin IVA.
@@ -54,7 +75,26 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
         </Link>
         <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
-          {editable && f.estado !== "PAGADA" && (
+          {verifactu && (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <span title={verifactu.motivo ?? undefined} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${verifactu.pill}`}>
+                {verifactu.tono === "ok" ? (
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                ) : verifactu.tono === "pendiente" ? (
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6" /></svg>
+                ) : (
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>
+                )}
+                {t("AEAT")}: {t(verifactu.label)}
+              </span>
+              {verifactu.reintentable && (
+                <button onClick={reintentarVerifactu} disabled={reintentando} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50">
+                  {reintentando ? t("Enviando…") : t("Reenviar a la AEAT")}
+                </button>
+              )}
+            </span>
+          )}
+          {editable && f.estado !== "PAGADA" && !verifactu?.congelada && (
             <button onClick={() => setEditando(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
               {t("Editar")}
@@ -84,6 +124,12 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
         </div>
       </div>
 
+      {verifactu && (verifactu.tono === "problema" || verifactu.tono === "bloqueado" || errorVf) && (
+        <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 print:hidden">
+          {errorVf ?? verifactu.motivo ?? t(verifactu.label)}
+        </p>
+      )}
+
       {/* Document facture */}
       <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
         <div className="flex items-start justify-between">
@@ -107,12 +153,23 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg bg-cream-50 p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturar a")}</p>
-          <p className="mt-1 font-medium text-slate-800">{f.cliente}</p>
-          {/* Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan. */}
-          {f.clienteDatos?.documento && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.documento}</p>}
-          {f.clienteDatos?.direccion && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.direccion}</p>}
+        <div className="mt-6 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 rounded-lg bg-cream-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturar a")}</p>
+            <p className="mt-1 font-medium text-slate-800">{f.cliente}</p>
+            {/* Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan. */}
+            {f.clienteDatos?.documento && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.documento}</p>}
+            {f.clienteDatos?.direccion && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.direccion}</p>}
+          </div>
+          {/* QR tributario (VERI*FACTU, art. 21 Orden HAC/1177/2024): 30-40 mm en papel. */}
+          {verifactu?.qr && (
+            <figure className="m-0 w-[132px] shrink-0 text-center">
+              <figcaption className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">{t("QR tributario")}</figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={verifactu.qr} alt={t("QR tributario")} width={120} height={120} className="mx-auto mt-0.5 h-[120px] w-[120px] print:h-[34mm] print:w-[34mm]" />
+              <p className="mt-0.5 text-[8px] leading-tight text-slate-500">{t("Factura verificable en la sede electrónica de la AEAT")} · VERI*FACTU</p>
+            </figure>
+          )}
         </div>
 
         {/* Líneas */}

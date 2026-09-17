@@ -3,7 +3,9 @@ import { fetchFacturasRecibidas, fetchExpedientesParaVincular } from "@/lib/data
 import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
-import { FacturasClient } from "@/components/facturas-client";
+import { FacturasClient, type ChipVerifactu } from "@/components/facturas-client";
+import { fetchRegistrosDeFacturas } from "@/lib/verifactu-envio";
+import { ESTADO_REGISTRO_META, type EstadoRegistro } from "@/lib/verifactu";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 
@@ -35,13 +37,29 @@ export default async function Facturas({ searchParams }: { searchParams: Promise
     fetchFacturasRecibidas(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []),
     fetchExpedientesParaVincular().catch(() => []),
   ]);
+  // VERI*FACTU: chip por factura registrada (lectura bajo RLS; sin tabla → nada).
+  let verifactu: Record<string, ChipVerifactu> | undefined;
+  try {
+    const regs = await fetchRegistrosDeFacturas(await createSupabaseServer(), facturas.map((f) => f.id));
+    const mapa: Record<string, ChipVerifactu> = {};
+    for (const f of facturas) {
+      const lista = regs[f.id] ?? [];
+      const alta = lista.find((r) => r.tipo === "ALTA");
+      const anul = lista.find((r) => r.tipo === "ANULACION");
+      const reg = f.estado === "ANULADA" && anul ? anul : alta;
+      if (!reg) continue;
+      const meta = ESTADO_REGISTRO_META[reg.estado as EstadoRegistro] ?? ESTADO_REGISTRO_META.PENDIENTE;
+      mapa[f.id] = { tono: meta.tono, label: meta.label, motivo: reg.motivo ?? reg.mensajeError ?? null };
+    }
+    if (Object.keys(mapa).length) verifactu = mapa;
+  } catch { verifactu = undefined; }
   return (
     <div>
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       {facturas.length >= TOPE_FACTURAS && (
         <p className="mb-3 text-center text-xs text-slate-400">Mostrando las {TOPE_FACTURAS} facturas más recientes. El export ZIP incluye SIEMPRE todas.</p>
       )}
-      <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} vistaInicial={vista === "recibidas" ? "recibidas" : "emitidas"} />
+      <FacturasClient facturas={facturas} cobros={cobros} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} verifactu={verifactu} vistaInicial={vista === "recibidas" ? "recibidas" : "emitidas"} />
     </div>
   );
 }

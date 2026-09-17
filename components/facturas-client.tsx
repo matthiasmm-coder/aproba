@@ -30,7 +30,11 @@ const GRUPOS: { key: string; estados: FacturaEstado[]; titulo: string }[] = [
 // Fila y Grupo a nivel de módulo (NO dentro del render): definirlos dentro remontaría toda
 // la tabla en cada cambio de estado del padre — perdiendo el estado interno de
 // FacturaAcciones (spinner/error) y refrescando inputs sin razón.
-function FilaFactura({ f, esAdmin, t }: { f: Factura; esAdmin: boolean; t: Traducir }) {
+// VERI*FACTU (17/09/2026): estado del registro en la AEAT por factura — solo llega para
+// despachos con el envío activo; el resto no ve nada nuevo.
+export type ChipVerifactu = { tono: "ok" | "pendiente" | "problema" | "bloqueado"; label: string; motivo: string | null };
+
+function FilaFactura({ f, esAdmin, t, vf }: { f: Factura; esAdmin: boolean; t: Traducir; vf?: ChipVerifactu }) {
   const meta = FACTURA_ESTADO_META[f.estado];
   return (
     <tr className={`border-b border-slate-50 last:border-0 hover:bg-cream-50 ${f.archivado ? "opacity-60" : ""}`}>
@@ -59,14 +63,26 @@ function FilaFactura({ f, esAdmin, t }: { f: Factura; esAdmin: boolean; t: Tradu
           <span className="font-semibold text-slate-800">{eur(totalDe(f.base))}</span>
         )}
       </td>
-      <td className="px-5 py-3 text-right"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span></td>
+      <td className="px-5 py-3 text-right">
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
+        {vf && (
+          <Link
+            href={`/app/facturas/${f.id}`}
+            title={vf.motivo ?? t(vf.label)}
+            aria-label={`${t("AEAT")}: ${t(vf.label)}`}
+            className={`ml-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 align-middle text-[10px] font-semibold ${vf.tono === "ok" ? "bg-emerald-50 text-emerald-700" : vf.tono === "pendiente" ? "bg-amber-50 text-amber-700" : "bg-amber-100 text-amber-800"}`}
+          >
+            {vf.tono === "ok" ? "✓" : vf.tono === "pendiente" ? "…" : "!"} {t("AEAT")}
+          </Link>
+        )}
+      </td>
       <td className="px-2 py-2 text-right"><FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} /></td>
     </tr>
   );
 }
 
-function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin, t }: {
-  id: string; titulo: string; items: Factura[]; subtotal?: number; cerrado: boolean; onToggle: () => void; esAdmin: boolean; t: Traducir;
+function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin, t, verifactu }: {
+  id: string; titulo: string; items: Factura[]; subtotal?: number; cerrado: boolean; onToggle: () => void; esAdmin: boolean; t: Traducir; verifactu?: Record<string, ChipVerifactu>;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -98,7 +114,7 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
               </tr>
             </thead>
             <tbody>
-              {items.map((f) => <FilaFactura key={f.id} f={f} esAdmin={esAdmin} t={t} />)}
+              {items.map((f) => <FilaFactura key={f.id} f={f} esAdmin={esAdmin} t={t} vf={verifactu?.[f.id]} />)}
             </tbody>
           </table>
         </div>
@@ -107,7 +123,7 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
   );
 }
 
-export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas" }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas }) {
+export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas", verifactu }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas; verifactu?: Record<string, ChipVerifactu> }) {
   const t = useT();
   // Emitidas (a clientes) o recibidas (de proveedores): dos vistas de la misma pestaña,
   // mismo periodo. `?vista=recibidas` abre la segunda (enlaces desde el email y la bandeja).
@@ -314,6 +330,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
       <div className="space-y-4">
         {grupos.map((g) => (
           <GrupoFacturas
+            verifactu={verifactu}
             key={g.key} id={g.key} titulo={g.titulo} items={g.items}
             subtotal={g.key === "borradores" ? undefined : g.items.reduce((s, f) => s + totalDe(f.base), 0)}
             cerrado={plegado[g.key] ?? true} onToggle={() => setPlegado((p) => ({ ...p, [g.key]: !(p[g.key] ?? true) }))}
@@ -333,6 +350,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
             </button>
             {verArchivadas && (
               <GrupoFacturas
+            verifactu={verifactu}
                 id="archivadas" titulo="Archivadas" items={archivadas}
                 cerrado={plegado.archivadas ?? true} onToggle={() => setPlegado((p) => ({ ...p, archivadas: !(p.archivadas ?? true) }))}
                 esAdmin={esAdmin} t={t}

@@ -6,7 +6,6 @@ import { type Factura } from "@/lib/facturas";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { facturacionAvanzada } from "@/lib/planes";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
-import { fmtFechaCorta } from "@/lib/tramites";
 import { FacturaView, type Emisor } from "@/components/factura-view";
 import { FacturaEditor, GENERICOS, type ServicioTarifa, type FacturaPayload } from "@/components/factura-editor";
 import { useT } from "@/components/lang-provider";
@@ -84,53 +83,25 @@ export default function NuevaFactura() {
     setCreando(true);
     setError(null);
     try {
-      const sb = createSupabaseBrowser();
-      const { data: mem, error: e1 } = await sb.from("Membership").select("workspaceId").limit(1).maybeSingle();
-      if (e1 || !mem) throw new Error(e1?.message ?? t("No se encontró tu despacho."));
-
-      const hoy = new Date();
-      const vence = new Date(hoy.getTime() + 30 * 24 * 3600 * 1000);
-      const year = hoy.getFullYear();
-
-      // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
-      // Sede de trabajo = el selector «Creando en» si aplica (en «Todas» OBLIGA a
-      // elegir: nada nace sin sede por accidente); si no, la pastilla activa (cookie),
-      // validada bajo RLS.
+      // «Todas» es vista de LECTURA: la factura manual necesita una oficina concreta
+      // (su serie depende de ella). Pastilla activa → prerrellena; en «Todas» → obliga.
       if (sedeCreacion.requerida && !sedeCreacion.sede) {
         throw new Error(t("Estás en «Todas» (solo lectura). Elige arriba la oficina que factura."));
       }
       let sedeTrabajo: string | null = sedeCreacion.requerida ? sedeCreacion.sede : null;
       if (!sedeTrabajo) sedeTrabajo = (await contextoDeTrabajoBrowser()).activa; // pastille validée (source unique)
 
-      let num = p.numero?.trim() ?? "";
-      if (!num) {
-        const r = await fetch(`/api/facturas/numero${sedeTrabajo ? `?oficina=${encodeURIComponent(sedeTrabajo)}` : ""}`);
-        if (!r.ok) throw new Error(t("No se pudo calcular el número de factura."));
-        num = String((await r.json()).numero ?? "");
-      }
-
-      const row: Record<string, unknown> = {
-        id: crypto.randomUUID(), workspaceId: mem.workspaceId, numero: num,
-        ...(sedeTrabajo ? { oficinaId: sedeTrabajo } : {}),
-        clienteNombre: p.cliente, concepto: p.concepto,
-        baseImponible: p.baseImponible, iva: p.iva, total: p.total, estado: "EMITIDA",
-        fechaEmision: hoy.toISOString(), fechaVencimiento: vence.toISOString(),
-        ...(p.avanzada ? { lineas: p.lineas, suplidos: p.suplidos, notas: p.notas } : {}),
-      };
-
-      let { error: e3 } = await sb.from("Factura").insert(row);
-      if (e3 && row.oficinaId && /oficinaId/i.test(e3.message)) {
-        const { oficinaId: _o, ...sinSede } = row;
-        ({ error: e3 } = await sb.from("Factura").insert(sinSede));
-      }
-      if (e3) throw new Error(
-        /duplicate|unique/i.test(e3.message) ? t("Ese número de factura ya existe. Cámbialo.")
-        : /lineas|suplidos|schema cache|column/i.test(e3.message) ? t("Falta la migración de facturas avanzadas: ejecuta supabase/factura-lineas.sql.")
-        : e3.message,
-      );
+      // La factura nace en el SERVIDOR (17/09/2026): numeración, totales y registro
+      // VERI*FACTU en un único sitio — el navegador ya no inserta en Factura.
+      const r = await fetch("/api/facturas", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error ?? t("No se pudo crear la factura. Vuelve a intentarlo."));
       setFactura({
-        id: row.id as string, numero: num, cliente: p.cliente, concepto: p.concepto, base: p.baseImponible,
-        estado: "EMITIDA", fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()),
+        id: String(d.id), numero: String(d.numero), cliente: p.cliente, concepto: p.concepto, base: p.baseImponible,
+        estado: "EMITIDA", fecha: String(d.fecha ?? ""), vence: d.vence ?? null,
         lineas: p.avanzada ? p.lineas : undefined, suplidos: p.avanzada ? p.suplidos : undefined, notas: p.avanzada ? p.notas : undefined,
       });
     } catch (err) {

@@ -5,6 +5,7 @@ import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchDespacho } from "@/lib/data/config";
 import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
+import { urlsQrDeFacturas } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // regenera un PDF por factura: puede tardar con muchas facturas
@@ -44,11 +45,13 @@ export async function GET() {
       return em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo } : { ...emisorBase, logo };
     } catch { return emisorBase; }
   };
+  // VERI*FACTU: QR tributario en cada factura registrada (RLS: solo las del despacho).
+  const qrs = await urlsQrDeFacturas(supa, exportables.map((f) => f.id));
   const entries: ZipEntry[] = [];
   const fallidas: string[] = [];
   for (const f of exportables) {
     try {
-      entries.push({ name: `factura_${nombreSeguro(f.numero)}.pdf`, data: await facturaToPdf(f, await emisorDe(f)) });
+      entries.push({ name: `factura_${nombreSeguro(f.numero)}.pdf`, data: await facturaToPdf(f, await emisorDe(f), { verifactuUrl: qrs[f.id] ?? null }) });
     } catch (e) {
       fallidas.push(f.numero);
       console.error("[facturas:export] factura", f.numero, e instanceof Error ? e.message : e);

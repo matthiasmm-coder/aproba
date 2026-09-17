@@ -13,6 +13,7 @@ import { CuentasBancarias } from "@/components/cuentas-bancarias";
 import { FacturacionPorOficina } from "@/components/facturacion-por-oficina";
 import { OficinaFacturacion } from "@/components/oficina-facturacion";
 import { CobroTarjetaConfig } from "@/components/cobro-tarjeta-config";
+import { VerifactuConfig } from "@/components/verifactu-config";
 import { GoogleCalendarConfig } from "@/components/google-calendar-config";
 import { DespachoFacturacion } from "@/components/despacho-facturacion";
 import { InstallPWA } from "@/components/install-pwa";
@@ -436,6 +437,7 @@ export default async function Ajustes() {
                   <DespachoFacturacion inicial={despacho} />
                   <CuentasBancarias inicial={cuentas.filter((c) => !c.oficinaId)} />
                   <CobroTarjetaConfig />
+                  <VerifactuConfig />
                 </>}
                 oficinas={oficinas.map((o) => o.orden === -1
                   ? {
@@ -449,6 +451,8 @@ export default async function Ajustes() {
                         <DespachoFacturacion inicial={despacho} />
                         <CuentasBancarias inicial={cuentas.filter((c) => !c.oficinaId)} />
                         <CobroTarjetaConfig />
+                        {/* VERI*FACTU lista TODOS los NIF emisores (despacho + sedes con NIF propio). */}
+                        <VerifactuConfig />
                       </>,
                     }
                   : {

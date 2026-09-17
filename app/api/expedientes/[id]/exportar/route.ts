@@ -12,6 +12,7 @@ import { facturaToPdf } from "@/lib/export-pdf";
 import { crearZip, nombreSeguro, type ZipEntry } from "@/lib/zip";
 import { FICHA_CAMPOS, FICHA_KEYS, GRUPOS, SEXOS, ESTADOS_CIVILES, type ClienteFicha } from "@/lib/ficha";
 import { DOC_LABEL } from "@/lib/tramites";
+import { urlsQrDeFacturas } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // baja documentos + regenera PDFs: puede tardar más que el default
@@ -185,8 +186,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           emisor = em.deOficina ? { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo } : { ...emisor, logo };
         }
       } catch { /* sin migrar */ }
+      const qrs = await urlsQrDeFacturas(supabase, facturas.map((f) => f.id)); // VERI*FACTU
       for (const f of facturas) {
-        try { add(`facturas/factura_${nombreSeguro(f.numero)}.pdf`, await facturaToPdf(f, emisor)); }
+        try { add(`facturas/factura_${nombreSeguro(f.numero)}.pdf`, await facturaToPdf(f, emisor, { verifactuUrl: qrs[f.id] ?? null })); }
         catch (e) { console.error("[exportar] factura", f.numero, e instanceof Error ? e.message : e); }
       }
     }

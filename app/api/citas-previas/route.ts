@@ -10,6 +10,7 @@ import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
 import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
+import { registrarAltaSiActivo, facturaCongeladaPorVerifactu } from "@/lib/verifactu-envio";
 
 // Citas previas (consulta): el gestor crea una cita con un cliente (existente o nombre
 // libre). Todo bajo RLS (sesión): solo su workspace. Si la tabla no está migrada, el
@@ -131,6 +132,8 @@ async function emitirFacturaCita(
     ({ error } = await admin.from("Factura").insert(fila));
   }
   if (error) { console.error("[citas/factura]", error.message); return null; }
+  // VERI*FACTU: registro de alta de la factura de la cita (si el NIF emisor lo tiene activo).
+  await registrarAltaSiActivo(admin, facturaId);
   return { facturaId, numero: String(fila.numero), total, oficinaId: oficinaCita };
 }
 
@@ -454,8 +457,11 @@ export async function PUT(req: Request) {
       const f = fRes.data;
       const fac = f as { id: string; numero: string; total: number; estado: string } | null;
       if (fac && fac.estado !== "PAGADA" && fac.estado !== "ANULADA") {
-        const total = Math.round(Number(patch.precio) * 100) / 100;
-        if (Math.abs(Number(fac.total) - total) >= 0.01) {
+        // VERI*FACTU: un alta ya enviada a la AEAT congela el importe de la factura de la
+        // cita — se mantiene el registrado; para cambiarlo, anular y emitir de nuevo.
+        const congelada = await facturaCongeladaPorVerifactu(admin, fac.id);
+        const total = congelada ? Math.round(Number(fac.total) * 100) / 100 : Math.round(Number(patch.precio) * 100) / 100;
+        if (!congelada && Math.abs(Number(fac.total) - total) >= 0.01) {
           const base = Math.round((total / (1 + IVA)) * 100) / 100;
           await admin.from("Factura").update({ baseImponible: base, iva: Math.round((total - base) * 100) / 100, total }).eq("id", fac.id);
         }

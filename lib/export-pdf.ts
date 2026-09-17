@@ -2,6 +2,7 @@ import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { eur, IVA, totalesFactura, type Factura } from "@/lib/facturas";
 import { embeberLogo, medidasLogo } from "@/lib/pdf-logo";
+import { LEYENDA_VERIFACTU, TITULO_QR, qrPng } from "@/lib/verifactu-qr";
 
 // PDF de factura para el export ZIP (pdf-lib reproduce components/factura-view.tsx).
 // pdf-lib + StandardFont solo codifica WinAnsi → saneamos lo que no entra (nombres no
@@ -29,7 +30,10 @@ function wrap(s: string, max: number): string[] {
   return out;
 }
 
-export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8Array> {
+// `extras.verifactuUrl`: URL de verificación de la AEAT (registro VERI*FACTU) → QR
+// tributario de ~32 mm con su leyenda (art. 21 Orden HAC/1177/2024), a la derecha del
+// bloque «Facturar a». Sin URL, el documento es el de siempre.
+export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { verifactuUrl?: string | null } = {}): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const A4: [number, number] = [595.28, 841.89];
   let page = doc.addPage(A4);
@@ -67,6 +71,7 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8
   }
 
   y -= 20;
+  const yBloqueCliente = y + 10;
   text("FACTURAR A", M, 8, bold, grey); y -= 15;
   text(f.cliente, M, 12, bold); y -= 15;
   // Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan.
@@ -74,6 +79,21 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8
     text(dato, M, 9, font, slate); y -= 13;
   }
   y -= 15;
+
+  // QR tributario (VERI*FACTU): columna derecha, a la altura del bloque del cliente. La
+  // tabla de líneas arranca por debajo del QR para no pisarlo.
+  if (extras.verifactuUrl) {
+    try {
+      const png = await doc.embedPng(await qrPng(extras.verifactuUrl));
+      const lado = 91; // ≈ 32 mm (norma: 30-40 mm)
+      const xq = W - M - lado;
+      page.drawText(TITULO_QR, { x: xq, y: yBloqueCliente + 3, size: 7, font: bold, color: grey });
+      page.drawImage(png, { x: xq, y: yBloqueCliente - lado, width: lado, height: lado });
+      const leyenda = wrap(`${LEYENDA_VERIFACTU} · VERI*FACTU`, 34);
+      leyenda.forEach((ln, i) => page.drawText(safe(ln), { x: xq, y: yBloqueCliente - lado - 9 - i * 8, size: 6.5, font, color: slate }));
+      y = Math.min(y, yBloqueCliente - lado - 9 - leyenda.length * 8 - 10);
+    } catch (e) { console.error("[pdf] QR VERI*FACTU", e instanceof Error ? e.message : e); }
+  }
 
   // Tabla de líneas
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
@@ -104,6 +124,6 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf): Promise<Uint8
     for (const ln of wrap(f.notas, 95)) { saltoSi(); text(ln, M, 9, font, slate); y -= 12; }
   }
 
-  page.drawText(safe(`Estado: ${f.estado}  ·  Generado con Aproba`), { x: M, y: 40, size: 8, font, color: grey });
+  page.drawText(safe(`Estado: ${f.estado}  ·  Generado con Aproba${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
   return doc.save();
 }

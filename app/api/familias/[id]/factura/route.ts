@@ -8,6 +8,7 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 import { ordenParentesco } from "@/lib/familia";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -114,6 +115,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const dup = /duplicate|unique/i.test(eIns.message);
     return NextResponse.json({ error: dup ? "Ese número de factura ya existe. Cámbialo." : eIns.message }, { status: dup ? 409 : 500 });
   }
+
+  // VERI*FACTU: registro de alta de la factura familiar (si el NIF emisor lo tiene activo).
+  await registrarAltaSiActivo(admin, facturaId);
 
   const baseUrl = baseUrlFromRequest(req);
   let enviado = false;

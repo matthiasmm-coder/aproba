@@ -8,6 +8,7 @@ import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteSerie } from "@/lib/factura-numero";
 import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -131,6 +132,9 @@ export async function POST(req: Request) {
     const dup = /duplicate|unique/i.test(error.message);
     return NextResponse.json({ error: dup ? "Conflicto de numeración; reintenta (no se emitió ninguna cuota)." : error.message }, { status: dup ? 409 : 500 });
   }
+
+  // VERI*FACTU: cada cuota es una factura emitida → un registro de alta por cuota.
+  for (const e of emitidas) await registrarAltaSiActivo(admin, e.facturaId);
 
   await admin.from("ExpedienteEvento").insert({
     id: uuid(), expedienteId: exp.id, tipo: "COMENTARIO",

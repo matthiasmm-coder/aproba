@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { registrarAnulacionSiActivo } from "@/lib/verifactu-envio";
 
 // Anula una factura EMITIDA/VENCIDA: la deja sin efecto SIN borrarla ni romper la
 // numeración correlativa. Es la operación que un despacho necesita cuando una factura
@@ -56,6 +57,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "La factura se ha cobrado mientras tanto: ya no se puede anular." }, { status: 409 });
   }
 
+  // VERI*FACTU: la anulación local va SIEMPRE seguida del registro de anulación en la
+  // AEAT (si el alta se había enviado). Si Verifacti no responde, queda pendiente de
+  // reintento — la factura ya está anulada aquí y así se enseña.
+  const verifactu = await registrarAnulacionSiActivo(admin, id);
+
   // Traza en el historial del expediente — anular es una decisión contable, debe verse.
   if (f.expedienteId) {
     await admin.from("ExpedienteEvento").insert({
@@ -67,5 +73,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
   }
 
-  return NextResponse.json({ ok: true, estado: "ANULADA" });
+  return NextResponse.json({ ok: true, estado: "ANULADA", ...(verifactu ? { verifactu } : {}) });
 }

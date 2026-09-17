@@ -10,6 +10,7 @@ import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { registrarAltaSiActivo, facturaCongeladaPorVerifactu } from "@/lib/verifactu-envio";
 
 // Paiement du client (portail) → factura générée automatiquement.
 //  • momento ANTICIPO : à l'onboarding, après l'envoi des documents.
@@ -210,7 +211,10 @@ export async function POST(req: Request) {
     // EMITIDA y su total ya no corresponde a la tarifa actual, la REALINEAMOS antes de
     // devolverla — si no, Stripe cobraría un importe distinto del que el portal muestra.
     const editadaPorGestor = previa.origen !== "AUTOMATICA";
-    if (!fac && !editadaPorGestor && previa.estado === "EMITIDA" && Number(previa.total) !== total) {
+    // VERI*FACTU (17/09/2026): un alta ya enviada a la AEAT congela el importe — si la
+    // tarifa cambió, el gestor anula y vuelve a emitir; aquí se cobra lo registrado.
+    const congelada = previa.estado === "EMITIDA" && Number(previa.total) !== total ? await facturaCongeladaPorVerifactu(admin, previa.id) : null;
+    if (!fac && !editadaPorGestor && previa.estado === "EMITIDA" && Number(previa.total) !== total && !congelada) {
       // El realineado también refresca el snapshot fiscal: la factura sigue sin pagar,
       // y así una emitida antes de la migración recoge los datos del cliente.
       const clienteDatos = datosFiscalesDeCliente(exp.cliente as Parameters<typeof datosFiscalesDeCliente>[0]);
@@ -351,6 +355,10 @@ export async function POST(req: Request) {
     const dup = /duplicate|unique/i.test(e4.message);
     return NextResponse.json({ error: dup ? "Ese número de factura ya existe. Cámbialo." : e4.message }, { status: dup ? 409 : 500 });
   }
+
+  // VERI*FACTU: registro de alta en la AEAT (si el NIF emisor lo tiene activo). Nunca
+  // frena la emisión: si falla, queda pendiente de reintento con su motivo.
+  await registrarAltaSiActivo(admin, facturaId);
 
   // Trace dans l'historial de l'expediente.
   await admin.from("ExpedienteEvento").insert({
