@@ -52,7 +52,8 @@ async function estado(admin: ReturnType<typeof createSupabaseAdmin>, workspaceId
   let configs: ConfigVerifactu[] = [];
   // ¿Existe la tabla? (fetchConfigsVerifactu devuelve [] sin ella, a propósito: el resto
   // de la app no debe romperse; aquí sí queremos decirlo para que se ejecute la migración).
-  const sonda = await admin.from("VerifactuConfig").select("id", { count: "exact", head: true }).eq("workspaceId", workspaceId);
+  // (select real, no HEAD: PostgREST responde 204 sin error a un HEAD sobre una tabla inexistente.)
+  const sonda = await admin.from("VerifactuConfig").select("id").eq("workspaceId", workspaceId).limit(1);
   const migracion = !(sonda.error && /relation|does not exist|schema cache|PGRST205/i.test(sonda.error.message));
   try { configs = await fetchConfigsVerifactu(admin, workspaceId); } catch { /* se informa vía migracion */ }
   const [nifs, resumen] = await Promise.all([nifsEmisores(admin, workspaceId), resumenRegistros(admin, workspaceId)]);
