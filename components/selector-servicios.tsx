@@ -123,11 +123,12 @@ export function SelectorServicios({ valor, onChange, nMiembros = 1, oficinaId = 
       <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto} className="flex w-full items-center justify-between gap-3 text-left">
         <span>
           <span className="block text-sm font-semibold text-slate-800">{t("Servicios del expediente")}</span>
-          <span className="block text-xs text-slate-500">
-            {nElegidos === 0
-              ? t("Opcional: elígelos tú ahora, o deja que los elija el cliente en su enlace.")
-              : `${elegidos.map((s) => s.label).join(" + ")} · ${conPorcentaje ? `${eur(total)} +` : eur(total)}${pct > 0 ? ` (−${fmtPct(pct)} %)` : ""}`}
-          </span>
+          {/* Sin nada elegido, ninguna segunda línea: el bloque ya se explica solo. */}
+          {nElegidos > 0 && (
+            <span className="block text-xs text-slate-500">
+              {`${elegidos.map((s) => s.label).join(" + ")} · ${conPorcentaje ? `${eur(total)} +` : eur(total)}${pct > 0 ? ` (−${fmtPct(pct)} %)` : ""}`}
+            </span>
+          )}
         </span>
         <svg className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${abierto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
       </button>

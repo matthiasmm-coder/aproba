@@ -2125,7 +2125,6 @@ export const CA: Record<string, string> = {
   "Lo verá marcado y no podrá quitarlo. Sí podrá añadir otros servicios de tu catálogo.": "Ho veurà marcat i no ho podrà treure. Sí que podrà afegir altres serveis del teu catàleg.",
   // Selector de servicios en el alta (18/09/2026)
   "Servicios del expediente": "Serveis de l'expedient",
-  "Opcional: elígelos tú ahora, o deja que los elija el cliente en su enlace.": "Opcional: tria'ls tu ara, o deixa que els triï el client al seu enllaç.",
   "No tienes servicios configurados todavía (Ajustes → Servicios).": "Encara no tens serveis configurats (Ajustes → Serveis).",
   "incluido en el pack": "inclòs al pack",
   "Packs": "Packs",
