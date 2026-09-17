@@ -12,7 +12,7 @@ import type { FacturaEstado } from "@/lib/facturas";
 // (definitivo, solo admin). Reutilizado en la tabla de la lista y en la ficha de la factura.
 // Anular solo aparece en EMITIDA/VENCIDA: un borrador se borra, una pagada se rectifica.
 export function FacturaAcciones({
-  id, numero, estado, archivada, esAdmin, onDone, conEditar = false,
+  id, numero, estado, archivada, esAdmin, onDone, conEditar = false, enBarra = false,
 }: {
   id: string;
   numero: string;
@@ -23,6 +23,10 @@ export function FacturaAcciones({
   // «Editar» dentro de la fila (lista de Facturas). En la ficha de la factura NO: allí el
   // botón Editar vive en la cabecera del documento (evita dos botones iguales).
   conEditar?: boolean;
+  // `enBarra`: dentro de la barra de acciones de la ficha de la factura, donde TODOS los
+  // botones miden lo mismo (h-10, la altura de «Editar»). En la fila de la lista siguen
+  // siendo iconos pequeños, si no la tabla se estiraría.
+  enBarra?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -33,6 +37,8 @@ export function FacturaAcciones({
   // (el dinero ya entró) y una ANULADA tampoco. El servidor vuelve a validarlo.
   const [editando, setEditando] = useState(false);
   const editable = conEditar && !archivada && estado !== "PAGADA" && estado !== "ANULADA";
+  // Icono: cuadrado de 40 px en la barra, botón pequeño en la fila de la lista.
+  const ico = enBarra ? "flex h-10 w-10 items-center justify-center rounded-lg" : "rounded p-1.5";
 
   async function archivar() {
     setBusy("archivar"); setError(null);
@@ -107,14 +113,14 @@ export function FacturaAcciones({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className={`flex items-center justify-end ${enBarra ? "gap-2" : "gap-1"}`}>
       {editable && (
         <button
           onClick={() => setEditando(true)}
           disabled={busy !== null}
           title={t("Editar")}
           aria-label={t("Editar factura {n}").replace("{n}", numero)}
-          className="rounded p-1.5 text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40"
+          className={`${ico} text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
         </button>
@@ -124,7 +130,7 @@ export function FacturaAcciones({
           onClick={cobrada}
           disabled={busy !== null}
           aria-label={t("Marcar la factura {n} como cobrada").replace("{n}", numero)}
-          className="mr-1 rounded-md border border-aproba-200 bg-aproba-50 px-2 py-1 text-xs font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-40"
+          className={`${enBarra ? "inline-flex h-10 items-center rounded-lg px-3 text-sm" : "mr-1 rounded-md px-2 py-1 text-xs"} border border-aproba-200 bg-aproba-50 font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-40`}
         >
           {busy === "cobrar" ? "…" : t("Cobrada")}
         </button>
@@ -135,7 +141,7 @@ export function FacturaAcciones({
           disabled={busy !== null}
           title={t("Anular")}
           aria-label={t("Anular factura {n}").replace("{n}", numero)}
-          className="rounded p-1.5 text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40"
+          className={`${ico} text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
         </button>
@@ -145,7 +151,7 @@ export function FacturaAcciones({
         disabled={busy !== null}
         title={archivada ? t("Restaurar") : t("Archivar")}
         aria-label={archivada ? t("Restaurar factura {n}").replace("{n}", numero) : t("Archivar factura {n}").replace("{n}", numero)}
-        className="rounded p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
+        className={`${ico} text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40`}
       >
         {archivada ? (
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8" /></svg>
@@ -159,7 +165,7 @@ export function FacturaAcciones({
           disabled={busy !== null}
           title={t("Eliminar")}
           aria-label={t("Eliminar factura {n}").replace("{n}", numero)}
-          className="rounded p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+          className={`${ico} text-slate-300 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
         </button>

@@ -23,6 +23,11 @@ export type VerifactuVista = {
 // `editable`: muestra el botón "Editar" (abre el popup de edición). Solo en la ficha de la
 // factura; en la vista previa de "Nueva factura" se deja en false. `esAdmin`: habilita el
 // borrado (archivar/eliminar); solo aplica en la ficha real.
+// Altura común de la barra de acciones de la factura: la del botón «Editar» (h-10).
+// Pedido de Matthias (18/09/2026): antes cada botón tenía la suya y «Marcar como pagada»
+// e «Imprimir / PDF» partían el texto en dos líneas, dejando la fila desigual.
+const BTN = "inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition";
+
 export function FacturaView({ f, emisor, editable = false, esAdmin = false, entregas = [], verifactu = null }: { f: Factura; emisor: Emisor; editable?: boolean; esAdmin?: boolean; entregas?: Entrega[]; verifactu?: VerifactuVista | null }) {
   const t = useT();
   const router = useRouter();
@@ -66,18 +71,19 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
 
   return (
     <div className="mx-auto max-w-2xl">
-      {/* Actions — cachées à l'impression. Móvil: enlace arriba y botones en líneas
-          que envuelven (antes la fila fija de ~545px desbordaba la pantalla). */}
-      <div className="mb-6 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-        <Link href="/app/facturas" className="inline-flex items-center gap-1 self-start py-1 text-sm text-slate-500 hover:text-slate-800 sm:py-0">
+      {/* Acciones — ocultas al imprimir. La flecha «Facturas» va en SU línea y los botones
+          debajo (antes se apelotonaban a su lado). Todos comparten la misma altura, la del
+          botón «Editar» (BTN), y no parten el texto en dos líneas. */}
+      <div className="mb-6 print:hidden">
+        <Link href="/app/facturas" className="inline-flex items-center gap-1 py-1 text-sm text-slate-500 transition hover:text-slate-800">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           {t("Facturas")}
         </Link>
-        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className={`inline-flex h-10 items-center rounded-full px-3 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
           {verifactu && (
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <span title={verifactu.motivo ?? undefined} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${verifactu.pill}`}>
+            <>
+              <span title={verifactu.motivo ?? undefined} className={`inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-full px-3 text-xs font-semibold ${verifactu.pill}`}>
                 {verifactu.tono === "ok" ? (
                   <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 ) : verifactu.tono === "pendiente" ? (
@@ -88,38 +94,38 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
                 {t("AEAT")}: {t(verifactu.label)}
               </span>
               {verifactu.reintentable && (
-                <button onClick={reintentarVerifactu} disabled={reintentando} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50">
+                <button onClick={reintentarVerifactu} disabled={reintentando} className={`${BTN} border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50`}>
                   {reintentando ? t("Enviando…") : t("Reenviar a la AEAT")}
                 </button>
               )}
-            </span>
+            </>
           )}
           {editable && f.estado !== "PAGADA" && !verifactu?.congelada && (
-            <button onClick={() => setEditando(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
+            <button onClick={() => setEditando(true)} className={`${BTN} border border-slate-300 text-slate-600 hover:border-aproba-300 hover:text-aproba-700`}>
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
               {t("Editar")}
             </button>
           )}
           {f.estado === "EMITIDA" && (eligiendo ? (
-            <span className="flex flex-wrap items-center gap-1.5 text-sm">
+            <>
               <span className="text-xs font-medium text-slate-500">{t("¿Cómo te ha pagado?")}</span>
               {([["EFECTIVO", t("Efectivo")], ["TRANSFERENCIA", t("Transferencia")], ["TARJETA", t("Tarjeta")], ["OTRO", t("Otro")]] as const).map(([m, lbl]) => (
-                <button key={m} onClick={() => marcarPagada(m)} disabled={marcando} className="rounded-md border border-aproba-200 bg-aproba-50 px-2.5 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-100 disabled:opacity-60">{lbl}</button>
+                <button key={m} onClick={() => marcarPagada(m)} disabled={marcando} className={`${BTN} border border-aproba-200 bg-aproba-50 text-aproba-700 hover:bg-aproba-100 disabled:opacity-60`}>{lbl}</button>
               ))}
-              <button onClick={() => setEligiendo(false)} className="px-1 text-xs text-slate-400 hover:text-slate-600">{t("Cancelar")}</button>
-            </span>
+              <button onClick={() => setEligiendo(false)} className="px-1 text-xs text-slate-400 transition hover:text-slate-600">{t("Cancelar")}</button>
+            </>
           ) : (
-            <button onClick={() => setEligiendo(true)} disabled={marcando} className="inline-flex items-center gap-1.5 rounded-lg border border-aproba-300 px-3 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60">
+            <button onClick={() => setEligiendo(true)} disabled={marcando} className={`${BTN} border border-aproba-300 text-aproba-700 hover:bg-aproba-50 disabled:opacity-60`}>
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
               {marcando ? t("Guardando…") : t("Marcar como pagada")}
             </button>
           ))}
-          <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">
+          <button onClick={() => window.print()} className={`${BTN} bg-aproba-600 text-white hover:bg-aproba-700`}>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" /></svg>
             {t("Imprimir / PDF")}
           </button>
           {editable && (
-            <FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} onDone={() => { router.push("/app/facturas"); router.refresh(); }} />
+            <FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} enBarra onDone={() => { router.push("/app/facturas"); router.refresh(); }} />
           )}
         </div>
       </div>
