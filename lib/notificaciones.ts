@@ -474,6 +474,33 @@ const fmtEur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 // Texto del gestor (nombre de un servicio propio) dentro de HTML de email.
 const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// Empresa que PAGA un expediente (cliente-empresa): su contacto recibe la factura y la
+// confirmación de pago. Sello del expediente o, si falta, la empresa del cliente — mismo
+// criterio que /api/pagos y la hoja de encargo. Sin empresa → null (cliente particular).
+async function empresaPagadora(
+  admin: SupabaseClient,
+  expedienteId: string,
+): Promise<{ nombre: string; email: string; telefono: string } | null> {
+  try {
+    const { data: x } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", expedienteId).maybeSingle();
+    const xx = x as { empresaId?: string | null; clienteId?: string | null } | null;
+    let eid = xx?.empresaId ?? null;
+    if (!eid && xx?.clienteId) {
+      const { data: c } = await admin.from("Cliente").select("empresaId").eq("id", xx.clienteId).maybeSingle();
+      eid = (c as { empresaId?: string | null } | null)?.empresaId ?? null;
+    }
+    if (!eid) return null;
+    const { data: em } = await admin.from("Empresa").select("razonSocial, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
+    const e = em as { razonSocial?: string | null; contactoNombre?: string | null; contactoEmail?: string | null; contactoTelefono?: string | null } | null;
+    if (!e) return null;
+    return {
+      nombre: String(e.contactoNombre ?? "").trim() || String(e.razonSocial ?? "").trim(),
+      email: String(e.contactoEmail ?? "").trim(),
+      telefono: String(e.contactoTelefono ?? "").trim(),
+    };
+  } catch { return null; }
+}
+
 export async function enviarSolicitudPago(
   admin: SupabaseClient,
   opts: { expedienteId: string; facturaId?: string; numero: string; total: number; concepto: string; baseUrl?: string },
@@ -488,7 +515,16 @@ export async function enviarSolicitudPago(
     if (!exp) return;
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
-    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+
+    // Cliente-EMPRESA: la factura está a nombre de la empresa y la paga ella — el aviso va
+    // a SU contacto, no al trabajador (que no puede pagarla ni tiene por qué recibirla).
+    // Misma resolución que la emisión: sello del expediente o, si falta, empresa del cliente.
+    const pagador = await empresaPagadora(admin, opts.expedienteId);
+    // Sin email de la empresa NO se cae en el del trabajador: la factura es de la empresa.
+    // Queda «sin contacto» y el gestor lo ve en el historial del expediente.
+    const emailDestino = pagador ? pagador.email : (cliente?.email ?? "");
+    const telefonoDestino = pagador ? pagador.telefono : (cliente?.telefono ?? "");
+    const nombre = primerNombre((pagador?.nombre || cliente?.nombre) ?? "cliente");
 
     // Cuenta activa DE LA SEDE del expediente (cascada a la común): el cliente de
     // Diagonal debe transferir a la cuenta de Diagonal, no a la de Gran Via.
@@ -555,7 +591,7 @@ export async function enviarSolicitudPago(
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[solicitudPago email]", error.message ?? error);
       }
-      console.log(`[solicitudPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
+      console.log(`[solicitudPago ${estadoEmail}] email → ${emailDestino || "(sin email)"}${pagador ? " (empresa)" : ""} | factura ${opts.numero} | ${fmtEur(opts.total)}`);
     };
     if (canal.email) await enviarEmailAviso();
 
@@ -568,8 +604,8 @@ export async function enviarSolicitudPago(
           : "Tu gestoría te facilitará los datos para realizar el pago.",
         ...(tarjetaOn ? [`Pagar con tarjeta: ${opts.baseUrl}/api/pagos/checkout?f=${opts.facturaId}`] : []),
       ].join("\n");
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: lineas, workspaceId: exp.workspaceId, admin });
-      console.log(`[solicitudPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
+      estadoWa = await enviarWhatsApp({ telefono: telefonoDestino, gestoria, cuerpo: lineas, workspaceId: exp.workspaceId, admin });
+      console.log(`[solicitudPago ${estadoWa}] whatsapp → ${telefonoDestino || "(sin teléfono)"}${pagador ? " (empresa)" : ""} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email
@@ -581,7 +617,7 @@ export async function enviarSolicitudPago(
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `💳 Solicitud de pago enviada al cliente (factura ${opts.numero}, ${fmtEur(opts.total)})${sufijo}`,
+      descripcion: `💳 Solicitud de pago enviada a ${pagador ? `la empresa${pagador.nombre ? ` (${pagador.nombre})` : ""}` : "el cliente"} (factura ${opts.numero}, ${fmtEur(opts.total)})${sufijo}`,
     });
   } catch (e) {
     console.error("[enviarSolicitudPago]", e instanceof Error ? e.message : e);
@@ -887,7 +923,11 @@ export async function enviarConfirmacionPago(
     if (!exp) return;
     const cliente = uno(exp.Cliente);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
-    const nombre = primerNombre(cliente?.nombre ?? "cliente");
+    // Cliente-EMPRESA: quien pagó es la empresa → la confirmación va a su contacto.
+    const pagador = await empresaPagadora(admin, opts.expedienteId);
+    const emailDestino = pagador ? pagador.email : (cliente?.email ?? "");
+    const telefonoDestino = pagador ? pagador.telefono : (cliente?.telefono ?? "");
+    const nombre = primerNombre((pagador?.nombre || cliente?.nombre) ?? "cliente");
     // OTRO (Bizum, cheque…): no se inventa el medio — la frase queda sin coletilla.
     const via = opts.metodo === "TARJETA" ? " con tarjeta" : opts.metodo === "EFECTIVO" ? " en efectivo" : opts.metodo === "OTRO" ? "" : " por transferencia";
     const link = exp.portalToken && opts.baseUrl ? `${opts.baseUrl}/s/${exp.portalToken}` : null;
@@ -909,7 +949,7 @@ export async function enviarConfirmacionPago(
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
-      const destino = cliente?.email ?? "";
+      const destino = emailDestino;
       if (!destino) {
         estadoEmail = "SIN_CONTACTO";
       } else if (resendDisponible()) {
@@ -920,15 +960,15 @@ export async function enviarConfirmacionPago(
         estadoEmail = error ? "ERROR" : "ENVIADO";
         if (error) console.error("[confirmacionPago email]", error.message ?? error);
       }
-      console.log(`[confirmacionPago ${estadoEmail}] email → ${cliente?.email || "(sin email)"} | factura ${opts.numero} | ${via}`);
+      console.log(`[confirmacionPago ${estadoEmail}] email → ${emailDestino || "(sin email)"}${pagador ? " (empresa)" : ""} | factura ${opts.numero} | ${via}`);
     };
     if (canal.email) await enviarEmailAviso();
 
     let estadoWa: Estado | null = null;
     if (canal.whatsapp) {
       const texto = `Hemos recibido tu pago ${via} de la factura ${opts.numero} (${fmtEur(opts.total)}). ¡Gracias! Seguimos avanzando con tu trámite.`;
-      estadoWa = await enviarWhatsApp({ telefono: cliente?.telefono, gestoria, cuerpo: texto, link, workspaceId: exp.workspaceId, admin });
-      console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${cliente?.telefono || "(sin teléfono)"} | factura ${opts.numero}`);
+      estadoWa = await enviarWhatsApp({ telefono: telefonoDestino, gestoria, cuerpo: texto, link, workspaceId: exp.workspaceId, admin });
+      console.log(`[confirmacionPago ${estadoWa}] whatsapp → ${telefonoDestino || "(sin teléfono)"}${pagador ? " (empresa)" : ""} | factura ${opts.numero}`);
     }
     // WhatsApp falló o no había teléfono, y el email no había salido (canal WHATSAPP
     // a secas): el cliente no puede quedarse sin su aviso → repli por email
