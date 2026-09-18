@@ -61,3 +61,14 @@ export async function fetchPresentaGestor(sb: SupabaseClient, expedienteId: stri
     return Boolean((data as { presentaGestor?: boolean | null }).presentaGestor);
   } catch { return false; }
 }
+
+// Tasas curadas del expediente. null/columna ausente → automático (lib/tasas.ts decide
+// según el servicio). Nunca rompe la pantalla.
+export async function fetchTasasCuradas(sb: SupabaseClient, expedienteId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await sb.from("Expediente").select("tasas").eq("id", expedienteId).maybeSingle();
+    if (error || !data) return null;
+    const v = (data as { tasas?: string[] | null }).tasas;
+    return Array.isArray(v) ? v : null;
+  } catch { return null; }
+}

@@ -9,6 +9,7 @@ import { avisarGuia } from "@/components/guia-activacion";
 import { Tasa790Modal } from "./tasa790-modal";
 import { Tasa790026Modal } from "./tasa790026-modal";
 import { Tasa790006Modal } from "./tasa790006-modal";
+import { TASAS } from "@/lib/tasas";
 import { Tasa790052Modal } from "./tasa790052-modal";
 import { Tasa790062Modal } from "./tasa790062-modal";
 
@@ -16,11 +17,12 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [], presentaInicial = false }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [], presentaInicial = false, tasasIniciales = [] }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   faltaDespacho?: string[]; // datos del despacho que faltan para el bloque «representante a efectos de presentación»
   presentaInicial?: boolean; // ¿el despacho presenta este expediente como representante?
+  tasasIniciales?: string[]; // tasas que salen en este expediente (curadas o según el servicio)
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
@@ -41,6 +43,17 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
     try { await fetch(`/api/expedientes/${exp.id}/representante`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor }) }); }
     catch { /* sin memoria: la descarga sigue llevando ?rep en el enlace */ }
   }
+
+  // Tasas del expediente: salen las del servicio (lib/tasas.ts) y el gestor quita o añade.
+  // Se persiste como la selección de modelos, para que la pantalla no las resucite.
+  const [tasasSel, setTasasSel] = useState<string[]>(tasasIniciales);
+  const guardarTasas = (lista: string[]) => {
+    setTasasSel(lista);
+    void fetch(`/api/expedientes/${exp.id}/tasas`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tasas: lista }),
+    }).catch(() => {});
+  };
+  const tasasPorAñadir = TASAS.filter((x) => !tasasSel.includes(x.code));
 
   const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
   const union = applicants.length ? [...new Set(Object.values(selMiembro).flat())] : seleccion;
@@ -96,6 +109,35 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
       if (!r.ok) return;
       router.refresh(); avisarGuia(); // la guía avanza sin cambiar de página
     });
+  };
+
+  // La × va PEGADA al botón, no en una pastilla gris aparte (Matthias, 18/09/2026):
+  // un solo objeto por formulario. El hijo pierde su redondeo derecho para que los dos
+  // trozos formen una sola pieza.
+  const conQuitar = (clave: string, nodo: React.ReactNode, onQuitar: () => void, etiqueta: string, tono: "verde" | "oscuro") => (
+    <span key={clave} className={`inline-flex items-stretch overflow-hidden rounded-lg ${tono === "verde" ? "bg-aproba-600" : "bg-slate-800"} [&>*:first-child]:rounded-none`}>
+      {nodo}
+      <button onClick={onQuitar} title={t("Quitar")} aria-label={`${t("Quitar")} ${etiqueta}`}
+        className={`px-2 text-white/70 transition hover:text-white ${tono === "verde" ? "border-l border-white/25 hover:bg-aproba-700" : "border-l border-white/20 hover:bg-slate-900"}`}>
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+    </span>
+  );
+
+  const MODAL_TASA: Record<string, React.ComponentType<{ expedienteId?: string; clienteId?: string; etiqueta?: string }>> = {
+    "790-012": Tasa790Modal, "790-052": Tasa790052Modal, "790-062": Tasa790062Modal,
+    "790-026": Tasa790026Modal, "790-006": Tasa790006Modal,
+  };
+  const botonTasa = (code: string, clienteId?: string, sufijo?: string) => {
+    const Modal = MODAL_TASA[code];
+    if (!Modal) return null;
+    return conQuitar(
+      `tasa-${code}-${clienteId ?? ""}`,
+      <Modal expedienteId={exp.id} clienteId={clienteId} etiqueta={`${t("Tasa")} ${code}${sufijo ? ` · ${sufijo}` : ""}`} />,
+      () => guardarTasas(tasasSel.filter((x) => x !== code)),
+      `${t("Tasa")} ${code}`,
+      "oscuro",
+    );
   };
 
   const descarga = (tipo: string, clienteId?: string, label?: string) => (
@@ -174,33 +216,34 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           </span>
         </label>
 
-        {/* Gestión del conjunto de formularios (chips con quitar). En familia se gestiona
-            POR miembro más abajo — la fila global desaparece (pedido de Matthias). */}
-        {!esFamilia && <div className="mt-4 flex flex-wrap items-center gap-2">
-          {seleccion.map((tipo) => (
-            <span key={tipo} className="inline-flex items-center overflow-hidden rounded-lg bg-slate-100 text-sm font-semibold text-slate-700">
-              <span className="px-3 py-1.5">{tipo}</span>
-              <button onClick={() => quitar(tipo)} title={t("Quitar")} aria-label={`${t("Quitar")} ${tipo}`} className="self-stretch border-l border-slate-200 px-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              </button>
-            </span>
-          ))}
-          {seleccion.length === 0 && <span className="text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector de abajo.")}</span>}
-          {porAñadir.length > 0 && (
+        {/* Selectores: modelos EX y tasas. Los botones (verdes y oscuros) salen abajo, con
+            su × pegada — ya no hay pastilla gris aparte. En familia los modelos se eligen
+            POR miembro más abajo, así que aquí solo queda el de tasas. */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {!esFamilia && porAñadir.length > 0 && (
             // Un <select> se dimensiona con su opción MÁS LARGA («EX-17 — Solicitud de
             // autorización…»), así que sin tope se sale de la tarjeta y el móvil acaba
             // con scroll horizontal. min-w-0 permite encogerlo dentro del flex.
-            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="min-w-0 max-w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
+            <select value="" onChange={(e) => { if (e.target.value) añadir(e.target.value); }} className="min-w-0 max-w-[15rem] rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
               <option value="">{t("+ Añadir formulario…")}</option>
               {porAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
             </select>
           )}
-        </div>}
+          {tasasPorAñadir.length > 0 && (
+            <select value="" onChange={(e) => { if (e.target.value) guardarTasas([...tasasSel, e.target.value]); }} className="min-w-0 max-w-[15rem] rounded-md border border-slate-300 px-2.5 py-1.5 text-[16px] sm:text-sm text-slate-600 outline-none focus:border-aproba-600">
+              <option value="">{t("+ Añadir tasa…")}</option>
+              {tasasPorAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {t(x.label)}</option>)}
+            </select>
+          )}
+        </div>
+        {!esFamilia && seleccion.length === 0 && (
+          <p className="mt-2 text-center text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector.")}</p>
+        )}
 
         {/* Casilla de trámite de la p.2 (EX-17: inicial/renovación/duplicado; EX-15: NIE).
             «Automático» la deduce del trámite del expediente; el gestor puede forzarla. */}
         {union.some((tipo) => p2Opciones[tipo]?.length) && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             {union.filter((tipo) => p2Opciones[tipo]?.length).map((tipo) => (
               // Sin flex-wrap la etiqueta no podía partirse: el texto se estrujaba en una
               // columna de cuatro líneas y el desplegable se salía de la pantalla.
@@ -229,13 +272,10 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               <div key={a.id}>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{a.nombre}</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  {propios.map((tipo) => (
-                    <span key={tipo} className="inline-flex items-center gap-1">
-                      {descarga(tipo, a.id)}
-                      <button onClick={() => setSelMiembro((m) => ({ ...m, [a.id]: (m[a.id] ?? []).filter((x) => x !== tipo) }))} aria-label={`${t("Quitar")} ${tipo}`} className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500">
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-                      </button>
-                    </span>
+                  {propios.map((tipo) => conQuitar(
+                    `${a.id}-${tipo}`, descarga(tipo, a.id),
+                    () => setSelMiembro((m) => ({ ...m, [a.id]: (m[a.id] ?? []).filter((x) => x !== tipo) })),
+                    tipo, "verde",
                   ))}
                   {paraAñadir.length > 0 && (
                     <select value="" onChange={(e) => { const v = e.target.value; if (v) setSelMiembro((m) => ({ ...m, [a.id]: [...(m[a.id] ?? []), v] })); }} className="min-w-0 max-w-full rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-[16px] sm:text-xs text-slate-500 outline-none focus:border-aproba-600">
@@ -243,12 +283,9 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                       {paraAñadir.map((x) => <option key={x.code} value={x.code}>{x.code} — {x.label}</option>)}
                     </select>
                   )}
-                  {/* La tasa es NOMINATIVA → una por solicitante, con sus datos. */}
-                  <Tasa790Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-012")} · ${a.nombre.split(" ")[0]}`} />
-                  <Tasa790052Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-052")} · ${a.nombre.split(" ")[0]}`} />
-                  <Tasa790062Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-062")} · ${a.nombre.split(" ")[0]}`} />
-                  <Tasa790026Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-026")} · ${a.nombre.split(" ")[0]}`} />
-                  <Tasa790006Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-006")} · ${a.nombre.split(" ")[0]}`} />
+                  {/* La tasa es NOMINATIVA → una por solicitante, con sus datos. La lista
+                      es la del expediente: quitarla aquí la quita para todos. */}
+                  {tasasSel.map((code) => botonTasa(code, a.id, a.nombre.split(" ")[0]))}
                 </div>
               </div>
               );
@@ -256,20 +293,12 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           </div>
         ) : (
           <>
-            {seleccion.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
+            {(seleccion.length > 0 || tasasSel.length > 0) && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-slate-100 pt-4">
+                {seleccion.map((tipo) => conQuitar(tipo, descarga(tipo, undefined, t("rellenado")), () => quitar(tipo), tipo, "verde"))}
+                {tasasSel.map((code) => botonTasa(code))}
               </div>
             )}
-            {/* 012 (Policía: TIE, prórrogas…), 052 (Delegaciones: residencia), 062 (Delegaciones: trabajo),
-                026 (Justicia: nacionalidad) y 006 (Justicia: antecedentes penales, pedida por Marta y Luis). */}
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Tasa790Modal expedienteId={exp.id} />
-              <Tasa790052Modal expedienteId={exp.id} />
-              <Tasa790062Modal expedienteId={exp.id} />
-              <Tasa790026Modal expedienteId={exp.id} />
-              <Tasa790006Modal expedienteId={exp.id} />
-            </div>
           </>
         )}
 
