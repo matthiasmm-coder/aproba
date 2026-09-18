@@ -165,9 +165,9 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         {/* El impreso trae una sección para el representante que PRESENTA la solicitud.
             Se rellena solo si el gestor dice que es él: en la mayoría de expedientes no lo
             es, y hasta ahora esa sección salía siempre en blanco (Matthias, 18/09/2026). */}
-        <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
           <input type="checkbox" checked={presenta} onChange={(e) => cambiarPresenta(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
           <span className="text-sm text-slate-700">
             {t("Presento yo la solicitud como representante")}
             <span className="block text-xs text-slate-500">{t("Añade al formulario el apartado del representante con los datos del despacho.")}</span>
