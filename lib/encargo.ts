@@ -188,8 +188,18 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   // emiten a la empresa; la persona del expediente figura como trabajador/beneficiario.
   const empresa = await (async (): Promise<EmpresaFiscal | null> => {
     try {
-      const { data: x } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle();
-      const eid = (x as { empresaId?: string | null } | null)?.empresaId; if (!eid) return null;
+      const { data: x } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", exp.id).maybeSingle();
+      const xx = x as { empresaId?: string | null; clienteId?: string | null } | null;
+      let eid = xx?.empresaId ?? null;
+      // Expediente sin sellar cuyo CLIENTE es trabajador de una empresa: la hoja también
+      // es de la empresa. Sin esto, el CONTRATO salía a nombre del trabajador y las
+      // FACTURAS a nombre de la empresa (que sí hace ese repli) — dos papeles distintos
+      // para el mismo trámite.
+      if (!eid && xx?.clienteId) {
+        const { data: cli } = await admin.from("Cliente").select("empresaId").eq("id", xx.clienteId).maybeSingle();
+        eid = (cli as { empresaId?: string | null } | null)?.empresaId ?? null;
+      }
+      if (!eid) return null;
       const { data: em } = await admin.from("Empresa").select("razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", eid).maybeSingle();
       return (em as EmpresaFiscal | null) ?? null;
     } catch { return null; }

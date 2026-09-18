@@ -187,8 +187,14 @@ export async function POST(req: Request) {
   const familiaSufijo = exp.familiaId && nMiembros > 1 && !fac ? ` · familia, ${nMiembros} miembros` : "";
   // Cliente-empresa: el concepto nombra al trabajador (la empresa recibe varias facturas).
   const empresaIdConcepto = await (async () => {
-    try { const { data } = await admin.from("Expediente").select("empresaId").eq("id", exp.id).maybeSingle(); return (data as { empresaId?: string | null } | null)?.empresaId ?? null; }
-    catch { return null; }
+    try {
+      const { data } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", exp.id).maybeSingle();
+      const x = data as { empresaId?: string | null; clienteId?: string | null } | null;
+      if (x?.empresaId) return x.empresaId;
+      // Mismo repli que la emisión: expediente sin sellar, empresa del cliente.
+      if (x?.clienteId) { const { data: c } = await admin.from("Cliente").select("empresaId").eq("id", x.clienteId).maybeSingle(); return (c as { empresaId?: string | null } | null)?.empresaId ?? null; }
+      return null;
+    } catch { return null; }
   })();
   const trabajadorSufijo = (() => { const c = exp.cliente as { nombre?: string; apellidos?: string } | null; const n = `${c?.nombre ?? ""} ${c?.apellidos ?? ""}`.trim(); return empresaIdConcepto && n ? ` · trabajador: ${n}` : ""; })();
   const concepto = fac?.concepto?.trim() || `${etiqueta} — ${etiquetaServicios} (${exp.referencia})${familiaSufijo}${trabajadorSufijo}`;
