@@ -124,12 +124,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       // Casilla p.2 forzada por el gestor → mismo relleno que la página Formularios.
       const p2o = await fetchP2Overrides(admin, id);
       const tramiteDe = (code: string) => p2o[code] ?? exp.tipoEnum;
+      // Bloque del despacho que presenta: el ZIP lleva los mismos PDF que la pestaña Formularios.
+      const { fetchPresentador } = await import("@/lib/data/presentador");
+      const presentador = await fetchPresentador(supabase, exp.oficinaId).catch(() => null);
+      const conPres = (x?: Record<string, unknown>) => (presentador ? { ...(x ?? {}), presentador } : x);
       if (solicitantes.length) {
         for (const s of solicitantes) {
           for (const code of (pmZip ? (pmZip[s.id] ?? []) : generados)) {
             try {
               const { datos, extra: ex } = formularioParaMiembro(code, datosTitular, s.datos, s.fechaNacimiento);
-              const b = await rellenarOficial(code, datos, tramiteDe(code), ex, { editable: true });
+              const b = await rellenarOficial(code, datos, tramiteDe(code), conPres(ex), { editable: true });
               if (b) add(`formularios/${nombreSeguro(code)}_${nombreSeguro(s.nombre)}.pdf`, b);
             } catch (e) { console.error("[exportar] oficial", code, s.id, e instanceof Error ? e.message : e); }
           }
@@ -137,7 +141,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       } else {
         for (const code of generados) {
           try {
-            const b = await rellenarOficial(code, datosTitular, tramiteDe(code), undefined, { editable: true });
+            const b = await rellenarOficial(code, datosTitular, tramiteDe(code), conPres(), { editable: true });
             if (b) add(`formularios/${nombreSeguro(code)}.pdf`, b);
           } catch (e) { console.error("[exportar] oficial", code, e instanceof Error ? e.message : e); }
         }

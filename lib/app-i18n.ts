@@ -1598,6 +1598,8 @@ export const CA: Record<string, string> = {
   "Sus facturas irán numeradas": "Les seves factures aniran numerades",
   "Tarjeta": "Targeta",
   "Tasa 790": "Taxa 790",
+  "El apartado del representante que presenta saldrá en blanco. Falta:": "L’apartat del representant que presenta sortirà en blanc. Falta:",
+  "Completar los datos del despacho →": "Completar les dades del despatx →",
   "Tasa 790-006": "Taxa 790-006",
   "Tasa 790-006 (antecedentes penales)": "Taxa 790-006 (antecedents penals)",
   "Tasa 790-006 · Antecedentes penales": "Taxa 790-006 · Antecedents penals",

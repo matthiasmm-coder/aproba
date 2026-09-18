@@ -6,6 +6,7 @@ import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { formularioToPdf } from "@/lib/formularios-pdf";
 import { rellenarOficial, P2_OPCIONES, formulariosDisponibles } from "@/lib/ex-forms";
 import { fetchP2Overrides } from "@/lib/p2-overrides";
+import { fetchPresentador } from "@/lib/data/presentador";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { dispararAviso } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -57,8 +58,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const valido = (v?: string) => Boolean(v && P2_OPCIONES[tipo]?.some((o) => o.value === v));
     const persistido = (await fetchP2Overrides(supabase, id))[tipo];
     const tramite = valido(p2) ? p2 : valido(persistido) ? persistido : exp.tipoEnum;
+    // Bloque «Representante a efectos de presentación»: el despacho que presenta, con la
+    // sede del expediente si la tiene configurada (pedido de Andrés de Ceballos, 18/09).
+    const presentador = await fetchPresentador(supabase, exp.oficinaId);
     // editable: el gestor puede corregir/añadir datos en cualquier visor (pedido por Juan).
-    const oficial = await rellenarOficial(tipo, datos, tramite, extra, { editable: true });
+    const oficial = await rellenarOficial(tipo, datos, tramite, { ...(extra ?? {}), ...(presentador ? { presentador } : {}) }, { editable: true });
     if (!oficial) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
     return new Response(Buffer.from(oficial), {
       headers: {

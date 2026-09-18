@@ -3,10 +3,11 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { datosDeCliente } from "@/lib/formularios";
 import { rellenarOficial } from "@/lib/ex-forms";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { fetchPresentador } from "@/lib/data/presentador";
 
 const nombreArchivo = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, "_");
 // Toutes les colonnes « ficha » du cliente (mêmes champs que le portail « Tus datos »).
-const SELECT = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre";
+const SELECT = "nombre, apellidos, email, telefono, nacionalidad, numeroDocumento, pasaporte, sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, estadoCivil, via, numeroVia, piso, codigoPostal, provincia, municipio, nombrePadre, nombreMadre, oficinaId";
 
 // GET ?tipo=EX-10 → PDF officiel AUTORRELLENÉ depuis la fiche du client, sans
 // expediente ni service (RLS : seul un membre du workspace du client y accède).
@@ -26,7 +27,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   for (const k of FICHA_KEYS) { const v = c[k]; if (typeof v === "string" && v) ficha[k] = v; }
   const nombreCompleto = `${c.nombre ?? ""} ${c.apellidos ?? ""}`.trim();
 
-  const pdf = await rellenarOficial(tipo, datosDeCliente(ficha as ClienteFicha, nombreCompleto, c.telefono, c.email), undefined, undefined, { editable: true });
+  // Bloque del despacho que presenta (sede del cliente si la tiene).
+  const presentador = await fetchPresentador(supabase, c.oficinaId);
+  const pdf = await rellenarOficial(tipo, datosDeCliente(ficha as ClienteFicha, nombreCompleto, c.telefono, c.email), undefined, presentador ? { presentador } : undefined, { editable: true });
   if (!pdf) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
 
   return new Response(Buffer.from(pdf), {

@@ -71,6 +71,42 @@ function auditMark(tag, sexo, ec, blank, filled, fails) {
   if (!nuevos.some((x) => near(ec, x))) fails.push(`${tag} estadoCivil(${ec}): marque X absente/décalée`);
 }
 
+// Bloque del DESPACHO que presenta: sentinelas propias. Se comprueba que cada valor cae
+// DENTRO de la sección «Representante a efectos de presentación» (entre su cabecera y la
+// siguiente) y en la fila de su rótulo — los rótulos se repiten en la sección 1, así que
+// un valor bien escrito pero en el bloque del extranjero tiene que saltar.
+const P = {
+  nombre: "PRESNOMBRE", documento: "PRESNIF", domicilio: "PRESDOMIC", numero: "P9", piso: "P8",
+  localidad: "PRESLOCAL", cp: "PRESCP", provincia: "", telefono: "PRESTEL", email: "PRESMAIL",
+  repNombre: "PRESREPNOM", repDoc: "PRESREPDNI", repTitulo: "PRESTITULO",
+};
+const LABELS_PRES = {
+  nombre: [/^Nombre\/Raz/], documento: [/^DNI|^NIF|^NIE/], domicilio: [/^Domicilio/], numero: ["Nº"], piso: [/^Piso/],
+  localidad: [/^Localidad/], cp: [/^C\.P\./], telefono: [/^Tel[eé]fono|^Tf\./], email: [/mail/i],
+  repNombre: [/^Representante legal/], repDoc: [/^DNI|^NIF|^NIE/], repTitulo: [/^T[ií]tulo/],
+};
+function auditPresentador(code, blank, filled, fails) {
+  const cab = blank.find((i) => /REPRESENTANTE A (LOS )?EFECTOS DE PRESENTACI/i.test(i.s));
+  if (!cab) return; // modelo sin bloque del despacho (EX-00, EX-25, EX-29)
+  auditPresentador.vistos = (auditPresentador.vistos ?? 0) + 1;
+  const sig = blank.filter((i) => i.y < cab.y - 5 && /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ /,.()-]{14,}$/.test(i.s) && i.x < 120).sort((a, b) => b.y - a.y)[0];
+  const suelo = sig ? sig.y : 0;
+  const sentinelas = new Set([...Object.values(P), ...Object.values(S)].filter(Boolean));
+  for (const [k, labels] of Object.entries(LABELS_PRES)) {
+    const v = P[k];
+    if (!v) continue;
+    const hit = filled.find((i) => i.s === v);
+    if (!hit) { fails.push(`${code}[presentador] ${k}: VALEUR "${v}" INTROUVABLE`); continue; }
+    if (hit.y >= cab.y || hit.y <= suelo) { fails.push(`${code}[presentador] ${k}: FUERA de la sección (y=${hit.y}, sección ${suelo}..${cab.y})`); continue; }
+    const cands = filled.filter((i) => !sentinelas.has(i.s) && i.y < cab.y && i.y > suelo && labels.some((l) => match(i.s, l)));
+    if (!cands.length) { fails.push(`${code}[presentador] ${k}: LABEL introuvable en la sección`); continue; }
+    const lab = cands.reduce((a, b) => (Math.abs(a.y - hit.y) <= Math.abs(b.y - hit.y) ? a : b));
+    const dy = hit.y - lab.y, dx = hit.x - lab.x;
+    if (Math.abs(dy) > 6) fails.push(`${code}[presentador] ${k}: dy=${dy} (val y=${hit.y} vs «${lab.s}» y=${lab.y})`);
+    else if (dx <= 0 || dx > 460) fails.push(`${code}[presentador] ${k}: dx=${dx}`);
+  }
+}
+
 const { readFile } = await import("node:fs/promises");
 let totalFails = 0;
 for (const code of formulariosOficiales()) {
@@ -80,7 +116,7 @@ for (const code of formulariosOficiales()) {
   const blank = await textItems(blankBytes, 1);
   const extra = code === "EX-02" ? { reagrupado: S2, menorRepresentado: true }
     : (code === "EX-31" || code === "EX-32") ? { padreTutor: S2 } : undefined;
-  const out = await rellenarOficial(code, S, undefined, extra);
+  const out = await rellenarOficial(code, S, undefined, { ...(extra ?? {}), presentador: P });
   if (!out) { console.log(`${code}: NULL`); continue; }
   const filled = await textItems(new Uint8Array(out), 1);
   // Un modelo puede no tener bloque de domicilio en su sección 1 (EX-22, trabajador
@@ -88,6 +124,7 @@ for (const code of formulariosOficiales()) {
   const sinDom = !FORMS[code].coords?.domicilio ? ["domicilio", "numero", "piso", "localidad", "cp", "provincia"] : [];
   auditValues(code, S, filled, fails, sinDom);
   auditMark(code, "M", "D", blank, filled, fails);
+  auditPresentador(code, blank, filled, fails);
   if (code === "EX-02" && extra) {
     // Le bloc reagrupado du EX-02 officiel n'a pas de ligne teléfono/email → non estampillés.
     auditValues(`${code}[reagrupado]`, S2, filled, fails, ["telefono", "email"]);
@@ -203,4 +240,5 @@ for (const code of formulariosOficiales().filter((c) => FORMS[c].modo === "acrof
   fails.forEach((f) => console.log(`   ${f}`));
   totalFails += fails.length;
 }
+console.log(`\nBloque del despacho auditado en ${auditPresentador.vistos ?? 0} modelos overlay.`);
 console.log(`\nTOTAL: ${totalFails} problème(s)`);

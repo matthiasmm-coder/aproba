@@ -109,6 +109,9 @@ async function detalleParaRespuesta(admin: Admin, expedienteId: string, userId: 
   if (!r?.portalToken) return vacio;
   const exp = await fetchExpedienteDetallePorToken(r.portalToken);
   if (!exp) return vacio;
+  // Bloque del despacho que presenta: el cliente recibe el MISMO formulario que el gestor.
+  const { fetchPresentadorDeWorkspace } = await import("@/lib/data/presentador");
+  const presentador = await fetchPresentadorDeWorkspace(admin, r.workspaceId, r.oficinaId ?? null).catch(() => null);
   let docsFaltan: string[] = [];
   try {
     const catalogo = await fetchServiciosDeWorkspace(admin, r.workspaceId, r.oficinaId ?? null);
@@ -125,7 +128,7 @@ async function detalleParaRespuesta(admin: Admin, expedienteId: string, userId: 
       for (const code of codes) {
         try {
           const persistido = p2[code]; const valido = Boolean(persistido && P2_OPCIONES[code]?.some((op) => op.value === persistido));
-          const pdf = await rellenarOficial(code, datos, valido ? persistido : exp.tipoEnum, undefined, { editable: true });
+          const pdf = await rellenarOficial(code, datos, valido ? persistido : exp.tipoEnum, presentador ? { presentador } : undefined, { editable: true });
           if (pdf) formularios.push({ code, filename: `${code}_${limpio(exp.referencia)}.pdf`, content: Buffer.from(pdf) });
         } catch (err) { console.error(`[email respuesta] ${code}:`, err instanceof Error ? err.message : err); }
       }

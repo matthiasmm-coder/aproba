@@ -7,6 +7,7 @@ import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { FormulariosView } from "@/components/formularios-view";
 import { camposQueFaltan, FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { fetchPresentador } from "@/lib/data/presentador";
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -56,5 +57,16 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     if (campos.length) faltanPorPersona = [{ id: exp.clienteId ?? "titular", nombre: exp.clienteNombre, campos }];
   }
 
-  return <FormulariosView faltanPorPersona={faltanPorPersona} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Bloque «Representante a efectos de presentación» (el despacho). Si no está
+  // configurado, el formulario sale con esa sección en blanco: mejor decirlo aquí que
+  // dejar al gestor pensando que el PDF está roto.
+  const presentador = await createSupabaseServer().then((sb) => fetchPresentador(sb, exp.oficinaId)).catch(() => null);
+  const faltaDespacho = [
+    !presentador?.nombre && "Nombre o razón social",
+    !presentador?.documento && "NIF",
+    !presentador?.repNombre && "Nombre del profesional que representa",
+    !presentador?.repDoc && "Su DNI/NIE",
+  ].filter(Boolean) as string[];
+
+  return <FormulariosView faltanPorPersona={faltanPorPersona} faltaDespacho={faltaDespacho} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

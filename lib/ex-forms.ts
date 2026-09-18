@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, StandardFonts, rgb, TextAlignment, PDFName, PDFString, PDFTextField, type PDFDict, type PDFForm } from "pdf-lib";
 import type { DatosForm } from "./formularios";
+import { partirNombreProfesional, type Presentador } from "./presentador";
 import { readFileSync } from "node:fs";
 
 // Remplissage des PDF officiels EX avec les données de l'expediente. Deux modes :
@@ -543,6 +544,61 @@ function blanksGenericos(code: string): Blank[] {
 export const formularioOficialDisponible = (code: string) => code in FORMS;
 export const formulariosOficiales = () => Object.keys(FORMS);
 
+// ── Bloque «DATOS DEL REPRESENTANTE A EFECTOS DE PRESENTACIÓN DE LA SOLICITUD» ──────
+// El despacho que presenta. Derivado del propio PDF con scripts/derivar-presentador.mjs
+// (rótulo → hueco hasta el rótulo siguiente), como las filas de la sección 1.
+// ⚠️ NO es la casilla «Representante legal, en su caso» de la sección 1: esa es la del
+// representante legal del EXTRANJERO — la EX-11 la titula «Representante legal
+// (menor/tutelado…)» y la nota oficial pone de ejemplo «Padre/Madre del menor, Tutor».
+// Los modelos sin esta sección (EX-00, EX-25, EX-29) no llevan bloque del despacho.
+type PosPresentador = Partial<Record<keyof Presentador, Pos>>;
+const PRESENTADOR: Record<string, PosPresentador> = {
+  "EX-01": { nombre: { x: 126.4, y: 263.5, w: 287.3 }, documento: { x: 466.6, y: 263.5, w: 73.4 }, domicilio: { x: 122, y: 246.6, w: 333.2 }, numero: { x: 472.2, y: 246.6, w: 25.5 }, piso: { x: 521.1, y: 246.6, w: 18.9 }, localidad: { x: 86.3, y: 229.6, w: 175.8 }, cp: { x: 285.4, y: 229.6, w: 50.9 }, provincia: { x: 375.8, y: 229.6, w: 164.2 }, telefono: { x: 102.7, y: 212.5, w: 134.8 }, email: { x: 267.5, y: 212.5, w: 272.5 }, repNombre: { x: 160.5, y: 195.5, w: 188.4 }, repDoc: { x: 401.7, y: 195.5, w: 53.6 }, repTitulo: { x: 488.9, y: 195.5, w: 51.1 } },
+  "EX-02": { nombre: { x: 126.5, y: 243.8, w: 287.3 }, documento: { x: 466.6, y: 243.8, w: 73.4 }, domicilio: { x: 122, y: 226.9, w: 333.2 }, numero: { x: 472.2, y: 226.9, w: 25.5 }, piso: { x: 521.1, y: 226.9, w: 18.9 }, localidad: { x: 86.3, y: 209.9, w: 175.8 }, cp: { x: 285.4, y: 209.9, w: 50.9 }, provincia: { x: 375.8, y: 209.9, w: 164.2 }, telefono: { x: 102.7, y: 192.8, w: 134.8 }, email: { x: 267.5, y: 192.8, w: 272.5 }, repNombre: { x: 160.5, y: 175.8, w: 174.9 }, repDoc: { x: 388.2, y: 175.8, w: 55.4 }, repTitulo: { x: 478.6, y: 175.8, w: 61.4 } },
+  "EX-03": { nombre: { x: 127.6, y: 117.1, w: 275.9 }, documento: { x: 456.3, y: 117.1, w: 83.7 }, domicilio: { x: 123.1, y: 100.2, w: 320.5 }, numero: { x: 460.5, y: 100.2, w: 24.8 }, piso: { x: 508.7, y: 100.2, w: 31.3 }, localidad: { x: 87.4, y: 83.1, w: 156.8 }, cp: { x: 267.5, y: 83.1, w: 61.1 }, provincia: { x: 368.1, y: 83.1, w: 171.9 }, telefono: { x: 84.5, y: 68, w: 142.5 }, email: { x: 257, y: 62.9, w: 283 }, repNombre: { x: 161.6, y: 41.6, w: 176.6 }, repDoc: { x: 391, y: 41.6, w: 49.8 }, repTitulo: { x: 468.3, y: 41.6, w: 71.7 } },
+  "EX-04": { nombre: { x: 126.5, y: 293.7, w: 287.3 }, documento: { x: 466.6, y: 293.7, w: 73.4 }, domicilio: { x: 122, y: 276.8, w: 333.2 }, numero: { x: 472.2, y: 276.8, w: 25.5 }, piso: { x: 521.1, y: 276.8, w: 18.9 }, localidad: { x: 86.3, y: 259.8, w: 175.8 }, cp: { x: 285.4, y: 259.8, w: 50.9 }, provincia: { x: 375.8, y: 259.8, w: 164.2 }, telefono: { x: 102.7, y: 242.7, w: 134.8 }, email: { x: 267.5, y: 242.7, w: 272.5 }, repNombre: { x: 160.5, y: 225.7, w: 188.4 }, repDoc: { x: 401.7, y: 225.7, w: 51.6 }, repTitulo: { x: 488.9, y: 225.7, w: 51.1 } },
+  "EX-06": { nombre: { x: 126.2, y: 292.7, w: 294.2 }, documento: { x: 473.2, y: 292.7, w: 66.8 }, domicilio: { x: 121.7, y: 275.6, w: 338.4 }, numero: { x: 477.1, y: 275.6, w: 24.8 }, piso: { x: 525.3, y: 275.6, w: 14.7 }, localidad: { x: 86.1, y: 258.7, w: 174.7 }, cp: { x: 284.1, y: 258.7, w: 61.1 }, provincia: { x: 384.7, y: 258.7, w: 155.3 }, telefono: { x: 102.5, y: 241.7, w: 131.9 }, email: { x: 264.4, y: 241.7, w: 275.6 }, repNombre: { x: 160.3, y: 224.6, w: 194.6 }, repDoc: { x: 407.7, y: 224.6, w: 49.8 }, repTitulo: { x: 491, y: 224.6, w: 49 } },
+  "EX-07": { nombre: { x: 126.5, y: 306.5, w: 287.3 }, documento: { x: 466.6, y: 306.5, w: 73.4 }, domicilio: { x: 122, y: 289.4, w: 333.2 }, numero: { x: 472.2, y: 289.4, w: 25.5 }, piso: { x: 521.1, y: 289.4, w: 18.9 }, localidad: { x: 86.3, y: 272.5, w: 175.8 }, cp: { x: 285.4, y: 272.5, w: 50.9 }, provincia: { x: 375.8, y: 272.5, w: 164.2 }, telefono: { x: 102.7, y: 255.3, w: 134.8 }, email: { x: 267.5, y: 255.3, w: 272.5 }, repNombre: { x: 160.5, y: 238.4, w: 188.4 }, repDoc: { x: 401.7, y: 238.4, w: 51.6 }, repTitulo: { x: 488.9, y: 238.4, w: 51.1 } },
+  "EX-09": { nombre: { x: 126.5, y: 292.7, w: 291 }, documento: { x: 452.7, y: 292.7, w: 87.3 }, domicilio: { x: 122, y: 275.6, w: 335.6 }, numero: { x: 474.6, y: 275.6, w: 24.7 }, piso: { x: 522.7, y: 275.6, w: 17.3 }, localidad: { x: 86.3, y: 258.7, w: 171.9 }, cp: { x: 281.6, y: 258.7, w: 61.1 }, provincia: { x: 382.1, y: 258.7, w: 157.9 }, telefono: { x: 102.7, y: 241.7, w: 129.2 }, email: { x: 261.8, y: 241.7, w: 278.2 }, repNombre: { x: 160.5, y: 224.6, w: 191.7 }, repDoc: { x: 388.1, y: 224.6, w: 66.7 }, repTitulo: { x: 489.7, y: 224.6, w: 50.3 } },
+  "EX-11": { nombre: { x: 126.2, y: 388.3, w: 294.2 }, documento: { x: 473.2, y: 388.3, w: 66.8 }, domicilio: { x: 121.7, y: 371.4, w: 338.4 }, numero: { x: 477.1, y: 371.4, w: 24.8 }, piso: { x: 525.3, y: 371.4, w: 14.7 }, localidad: { x: 86.1, y: 354.3, w: 174.7 }, cp: { x: 284.1, y: 354.3, w: 61.1 }, provincia: { x: 384.7, y: 354.3, w: 155.3 }, telefono: { x: 102.5, y: 337.3, w: 131.9 }, email: { x: 264.4, y: 337.3, w: 275.6 }, repNombre: { x: 160.3, y: 320.3, w: 194.6 }, repDoc: { x: 407.7, y: 320.3, w: 49.8 }, repTitulo: { x: 491, y: 320.3, w: 49 } },
+  "EX-13": { nombre: { x: 126.5, y: 388.9, w: 293.9 }, documento: { x: 473.2, y: 388.9, w: 66.8 }, domicilio: { x: 122, y: 371.9, w: 335.6 }, numero: { x: 474.6, y: 371.9, w: 24.7 }, piso: { x: 522.7, y: 371.9, w: 17.3 }, localidad: { x: 86.3, y: 354.8, w: 171.9 }, cp: { x: 281.6, y: 354.8, w: 61.1 }, provincia: { x: 382.1, y: 354.8, w: 157.9 }, telefono: { x: 102.7, y: 337.8, w: 129.2 }, email: { x: 261.8, y: 337.8, w: 278.2 }, repNombre: { x: 160.5, y: 320.9, w: 191.7 }, repDoc: { x: 405, y: 320.9, w: 49.8 }, repTitulo: { x: 488.4, y: 320.9, w: 51.6 } },
+  "EX-15": { nombre: { x: 126.5, y: 430.2, w: 307.7 }, documento: { x: 487, y: 430.2, w: 53 }, domicilio: { x: 130.7, y: 413.1, w: 343.5 }, numero: { x: 491.2, y: 413.1, w: 24.8 }, piso: { x: 539.5, y: 413.1, w: 0.5 }, localidad: { x: 86.3, y: 396.2, w: 188.6 }, cp: { x: 298.2, y: 396.2, w: 61.1 }, provincia: { x: 398.8, y: 396.2, w: 141.2 }, telefono: { x: 102.7, y: 379.2, w: 146.3 }, email: { x: 279, y: 379.2, w: 261 }, repNombre: { x: 160.5, y: 362.1, w: 208.4 }, repDoc: { x: 421.7, y: 362.1, w: 49.8 }, repTitulo: { x: 505.1, y: 362.1, w: 34.9 } },
+  "EX-16": { nombre: { x: 126.5, y: 402.6, w: 293.9 }, documento: { x: 473.2, y: 402.6, w: 66.8 }, domicilio: { x: 122, y: 385.7, w: 335.6 }, numero: { x: 474.6, y: 385.7, w: 24.7 }, piso: { x: 522.7, y: 385.7, w: 17.3 }, localidad: { x: 86.3, y: 368.6, w: 171.9 }, cp: { x: 281.6, y: 368.6, w: 61.1 }, provincia: { x: 382.1, y: 368.6, w: 157.9 }, telefono: { x: 102.7, y: 351.6, w: 129.2 }, email: { x: 261.8, y: 351.6, w: 278.2 }, repNombre: { x: 160.5, y: 334.5, w: 191.7 }, repDoc: { x: 405, y: 334.5, w: 49.8 }, repTitulo: { x: 488.4, y: 334.5, w: 51.6 } },
+  "EX-17": { nombre: { x: 126.5, y: 402.6, w: 293.9 }, documento: { x: 473.2, y: 402.6, w: 66.8 }, domicilio: { x: 122, y: 385.7, w: 338.4 }, numero: { x: 477.3, y: 385.7, w: 24.8 }, piso: { x: 525.5, y: 385.7, w: 14.5 }, localidad: { x: 86.3, y: 368.6, w: 174.7 }, cp: { x: 284.3, y: 368.6, w: 61.1 }, provincia: { x: 384.9, y: 368.6, w: 155.1 }, telefono: { x: 102.7, y: 351.6, w: 131.9 }, email: { x: 264.6, y: 351.6, w: 275.4 }, repNombre: { x: 160.5, y: 334.5, w: 194.6 }, repDoc: { x: 407.9, y: 334.5, w: 49.8 }, repTitulo: { x: 491.3, y: 334.5, w: 48.7 } },
+  "EX-18": { nombre: { x: 126.4, y: 402.5, w: 293.9 }, documento: { x: 473.2, y: 402.5, w: 66.8 }, domicilio: { x: 122, y: 385.6, w: 338.4 }, numero: { x: 477.4, y: 385.6, w: 24.8 }, piso: { x: 525.5, y: 385.6, w: 14.5 }, localidad: { x: 86.3, y: 368.5, w: 174.7 }, cp: { x: 284.3, y: 368.5, w: 61.1 }, provincia: { x: 384.9, y: 368.5, w: 155.1 }, telefono: { x: 102.7, y: 351.5, w: 131.9 }, email: { x: 264.6, y: 351.5, w: 275.4 }, repNombre: { x: 160.5, y: 334.5, w: 194.6 }, repDoc: { x: 407.9, y: 334.5, w: 49.8 }, repTitulo: { x: 491.2, y: 334.5, w: 48.8 } },
+  "EX-19": { nombre: { x: 126.5, y: 266.7, w: 293.9 }, documento: { x: 473.2, y: 266.7, w: 66.8 }, domicilio: { x: 122, y: 249.8, w: 335.6 }, numero: { x: 474.6, y: 249.8, w: 24.7 }, piso: { x: 522.7, y: 249.8, w: 17.3 }, localidad: { x: 86.3, y: 232.8, w: 171.9 }, cp: { x: 281.6, y: 232.8, w: 61.1 }, provincia: { x: 382.1, y: 232.8, w: 157.9 }, telefono: { x: 102.7, y: 215.7, w: 129.2 }, email: { x: 261.8, y: 215.7, w: 278.2 }, repNombre: { x: 160.5, y: 198.7, w: 191.7 }, repDoc: { x: 405, y: 198.7, w: 49.8 }, repTitulo: { x: 489.7, y: 198.7, w: 50.3 } },
+  "EX-20": { nombre: { x: 126.5, y: 402.6, w: 287.3 }, documento: { x: 466.6, y: 402.6, w: 73.4 }, domicilio: { x: 122, y: 385.7, w: 333.2 }, numero: { x: 472.2, y: 385.7, w: 25.5 }, piso: { x: 521.1, y: 385.7, w: 18.9 }, localidad: { x: 86.3, y: 368.6, w: 175.8 }, cp: { x: 285.4, y: 368.6, w: 50.9 }, provincia: { x: 375.8, y: 368.6, w: 164.2 }, telefono: { x: 102.7, y: 351.6, w: 134.8 }, email: { x: 267.5, y: 351.6, w: 272.5 }, repNombre: { x: 160.5, y: 334.5, w: 188.4 }, repDoc: { x: 401.7, y: 334.5, w: 52.3 }, repTitulo: { x: 488.9, y: 334.5, w: 51.1 } },
+  "EX-21": { nombre: { x: 126.5, y: 294.7, w: 287.3 }, documento: { x: 466.6, y: 294.7, w: 73.4 }, domicilio: { x: 122, y: 277.7, w: 333.2 }, numero: { x: 472.2, y: 277.7, w: 25.5 }, piso: { x: 521.1, y: 277.7, w: 18.9 }, localidad: { x: 86.3, y: 260.6, w: 175.8 }, cp: { x: 285.4, y: 260.6, w: 50.9 }, provincia: { x: 375.8, y: 260.6, w: 164.2 }, telefono: { x: 102.7, y: 243.6, w: 134.8 }, email: { x: 267.5, y: 243.6, w: 272.5 }, repNombre: { x: 160.5, y: 226.7, w: 188.4 }, repDoc: { x: 401.7, y: 226.7, w: 53.6 }, repTitulo: { x: 488.9, y: 226.7, w: 51.1 } },
+  "EX-22": { nombre: { x: 126.5, y: 354.8, w: 287.3 }, documento: { x: 466.6, y: 354.8, w: 73.4 }, domicilio: { x: 122, y: 337.9, w: 333.2 }, numero: { x: 472.2, y: 337.9, w: 25.5 }, piso: { x: 521.1, y: 337.9, w: 18.9 }, localidad: { x: 86.3, y: 320.9, w: 175.8 }, cp: { x: 285.4, y: 320.9, w: 50.9 }, provincia: { x: 375.8, y: 320.9, w: 164.2 }, telefono: { x: 102.7, y: 303.8, w: 134.8 }, email: { x: 267.5, y: 303.8, w: 272.5 }, repNombre: { x: 160.5, y: 286.8, w: 188.4 }, repDoc: { x: 401.7, y: 286.8, w: 52.3 }, repTitulo: { x: 488.9, y: 286.8, w: 51.1 } },
+  "EX-23": { nombre: { x: 126.5, y: 388.9, w: 287.3 }, documento: { x: 466.6, y: 388.9, w: 73.4 }, domicilio: { x: 122, y: 371.9, w: 333.2 }, numero: { x: 472.2, y: 371.9, w: 25.5 }, piso: { x: 521.1, y: 371.9, w: 18.9 }, localidad: { x: 86.3, y: 354.8, w: 175.8 }, cp: { x: 285.4, y: 354.8, w: 50.9 }, provincia: { x: 375.8, y: 354.8, w: 164.2 }, telefono: { x: 102.7, y: 337.8, w: 134.8 }, email: { x: 267.5, y: 337.8, w: 272.5 }, repNombre: { x: 160.5, y: 320.9, w: 188.4 }, repDoc: { x: 401.7, y: 320.9, w: 53.6 }, repTitulo: { x: 488.9, y: 320.9, w: 51.1 } },
+  "EX-24": { nombre: { x: 126.5, y: 247.8, w: 291 }, documento: { x: 470.3, y: 247.8, w: 69.7 }, domicilio: { x: 122, y: 230.7, w: 335.6 }, numero: { x: 474.6, y: 230.7, w: 24.7 }, piso: { x: 522.7, y: 230.7, w: 17.3 }, localidad: { x: 86.3, y: 213.8, w: 171.9 }, cp: { x: 281.6, y: 213.8, w: 61.1 }, provincia: { x: 382.1, y: 213.8, w: 157.9 }, telefono: { x: 102.7, y: 196.8, w: 129.2 }, email: { x: 261.8, y: 196.8, w: 278.2 }, repNombre: { x: 160.5, y: 179.7, w: 191.7 }, repDoc: { x: 405, y: 179.7, w: 49.8 }, repTitulo: { x: 488.4, y: 179.7, w: 51.6 } },
+  "EX-26": { nombre: { x: 126.2, y: 257.7, w: 294.2 }, documento: { x: 473.2, y: 257.7, w: 66.8 }, domicilio: { x: 121.7, y: 240.7, w: 338.4 }, numero: { x: 477.1, y: 240.7, w: 24.8 }, piso: { x: 525.3, y: 240.7, w: 14.7 }, localidad: { x: 86.1, y: 223.7, w: 174.7 }, cp: { x: 284.1, y: 223.7, w: 61.1 }, provincia: { x: 384.6, y: 223.7, w: 155.4 }, telefono: { x: 102.5, y: 206.7, w: 131.9 }, email: { x: 264.4, y: 206.7, w: 275.6 }, repNombre: { x: 160.2, y: 189.6, w: 194.6 }, repDoc: { x: 407.7, y: 189.6, w: 49.8 }, repTitulo: { x: 491, y: 189.6, w: 49 } },
+  "EX-28": { nombre: { x: 126.5, y: 353.6, w: 287.3 }, documento: { x: 466.6, y: 353.6, w: 73.4 }, domicilio: { x: 122, y: 336.6, w: 333.2 }, numero: { x: 472.2, y: 336.6, w: 25.5 }, piso: { x: 521.1, y: 336.6, w: 18.9 }, localidad: { x: 86.3, y: 319.5, w: 175.8 }, cp: { x: 285.4, y: 319.5, w: 50.9 }, provincia: { x: 375.8, y: 319.5, w: 164.2 }, telefono: { x: 102.7, y: 302.5, w: 134.8 }, email: { x: 267.5, y: 302.5, w: 272.5 }, repNombre: { x: 160.5, y: 285.6, w: 174.9 }, repDoc: { x: 388.2, y: 285.6, w: 55.4 }, repTitulo: { x: 478.6, y: 285.6, w: 61.4 } },
+  "EX-31": { nombre: { x: 132.1, y: 460.1, w: 291 }, documento: { x: 475.8, y: 460.1, w: 64.2 }, domicilio: { x: 127.6, y: 443.2, w: 335.6 }, numero: { x: 480.2, y: 443.2, w: 24.8 }, piso: { x: 528.4, y: 443.2, w: 11.6 }, localidad: { x: 92, y: 426.1, w: 171.8 }, cp: { x: 287.1, y: 426.1, w: 61.1 }, provincia: { x: 387.6, y: 426.1, w: 152.4 }, telefono: { x: 108.3, y: 409.1, w: 129 }, email: { x: 267.4, y: 409.1, w: 272.6 }, repNombre: { x: 166.1, y: 392.1, w: 191.8 }, repDoc: { x: 410.7, y: 392.1, w: 49.8 }, repTitulo: { x: 494, y: 392.1, w: 46 } },
+  "EX-32": { nombre: { x: 132.1, y: 450.9, w: 290.9 }, documento: { x: 475.8, y: 450.9, w: 64.2 }, domicilio: { x: 127.6, y: 433.9, w: 335.6 }, numero: { x: 480.2, y: 433.9, w: 24.8 }, piso: { x: 528.4, y: 433.9, w: 11.6 }, localidad: { x: 92, y: 416.9, w: 171.8 }, cp: { x: 287.1, y: 416.9, w: 61.1 }, provincia: { x: 387.7, y: 416.9, w: 152.3 }, telefono: { x: 108.3, y: 399.8, w: 129 }, email: { x: 267.4, y: 399.8, w: 272.6 }, repNombre: { x: 166.1, y: 382.9, w: 191.7 }, repDoc: { x: 410.7, y: 382.9, w: 49.8 }, repTitulo: { x: 494, y: 382.9, w: 46 } },
+};
+
+// Los AcroForm se mapean por nombre de campo (probe: scripts/probe-campos-acroform.mjs).
+// Los MI (Ley 14/2013) piden a la PERSONA autorizada —apellidos y nombre por separado—,
+// no a la razón social del despacho.
+const PRESENTADOR_ACRO: Record<string, Partial<Record<keyof Presentador | "repApellidos" | "repNombreSolo", string>>> = {
+  "EX-10": {
+    nombre: "Textfield-51", documento: "Piso-0",
+    domicilio: "Textfield-50", numero: "Textfield-52", piso: "Textfield-53",
+    localidad: "Textfield-54", cp: "Textfield-55", provincia: "Textfield-56",
+    telefono: "Textfield-58", email: "Textfield-60",
+    repNombre: "Textfield-61", repDoc: "Textfield-62", repTitulo: "Textfield-63",
+  },
+  "MI-TIE": {
+    nombre: "Texto44", documento: "Texto45",
+    domicilio: "Texto46", numero: "Texto47", piso: "Texto48",
+    localidad: "Texto49", cp: "Texto50", provincia: "Texto51",
+    telefono: "Texto53", email: "Texto54",
+  },
+  "MI-T": { repApellidos: "Texto78", repNombreSolo: "Texto79", telefono: "Texto80", email: "Texto81", repDoc: "Texto82" },
+  "MI-F": { repApellidos: "Texto58", repNombreSolo: "Texto59", telefono: "Texto60", email: "Texto61", repDoc: "Texto62" },
+};
+
 // Libellés lisibles + liste complète (pour que le gestor ajoute un modèle à la main).
 export const FORM_LABEL: Record<string, string> = {
   "EX-01": "Residencia no lucrativa",
@@ -699,7 +755,7 @@ function cuerpoSegunAncho(f: PDFTextField): number {
 
 export async function rellenarOficial(
   code: string, datos: DatosForm, tramite?: string,
-  extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm },
+  extra?: { reagrupado?: DatosForm; menorRepresentado?: boolean; padreTutor?: DatosForm; presentador?: Presentador },
   opts?: { editable?: boolean },
 ): Promise<Uint8Array | null> {
   const mapa = FORMS[code];
@@ -757,6 +813,21 @@ export async function rellenarOficial(
       for (const [campo, valor] of [[mapa.representante.nombre, nombreRep], [mapa.representante.documento, docRep]] as const) {
         if (!valor) continue;
         try { const f = form.getTextField(campo); f.setText(limpiar(valor)); f.setFontSize(cuerpoSegunAncho(f)); } catch { /* campo ausente */ }
+      }
+    }
+    // Bloque del DESPACHO que presenta (sección propia del impreso, nunca la casilla
+    // «Representante legal» del extranjero). Los MI piden apellidos y nombre por separado.
+    const acroPres = PRESENTADOR_ACRO[code];
+    if (acroPres && extra?.presentador) {
+      const p = extra.presentador;
+      const partes = partirNombreProfesional(p.repNombre);
+      const valores: Partial<Record<keyof Presentador | "repApellidos" | "repNombreSolo", string>> = {
+        ...p, repApellidos: partes.apellidos, repNombreSolo: partes.nombre,
+      };
+      for (const [clave, campo] of Object.entries(acroPres)) {
+        const v = limpiar(valores[clave as keyof typeof valores] ?? "");
+        if (!v || !campo) continue;
+        try { const f = form.getTextField(campo); f.setText(v); f.setFontSize(cuerpoSegunAncho(f)); } catch { /* campo ausente */ }
       }
     }
     // p.2 «Nombre y apellidos del titular» (se repite): campo AcroForm existente, sin rellenar.
@@ -910,6 +981,21 @@ export async function rellenarOficial(
     }
     if (pt.sexo) estampar(menorBlocMapa.sexoMarks?.[pt.sexo], "X", 10, "sexo");
     if (pt.estadoCivil) estampar(menorBlocMapa.estadoCivilMarks?.[pt.estadoCivil], "X", 10, "ec");
+  }
+
+  // Bloque del DESPACHO que presenta. Se estampa antes de los blanks para que los campos
+  // genéricos no se posen encima (rectsCreados).
+  const posPres = PRESENTADOR[code];
+  if (posPres && extra?.presentador) {
+    for (const [clave, pos] of Object.entries(posPres)) {
+      const txt = limpiar(extra.presentador[clave as keyof Presentador] ?? "");
+      // Los huecos de esta sección son estrechos («Título» mide 48 pt y «Gestor
+      // administrativo» no cabe a 9): se reduce el cuerpo hasta que entra, mínimo 5.
+      let sz = 9;
+      const ancho = pos.w ?? 120;
+      while (sz > 5 && txt && font.widthOfTextAtSize(txt, sz) > ancho - 2) sz -= 0.5;
+      estampar(pos, txt, sz, `pres_${clave}`);
+    }
   }
 
   // ── Modo editable: campos VACÍOS de la p.2 (EX-15/17/18) para escribir a mano lo no

@@ -136,6 +136,55 @@ describe.each(ACRO)("%s (AcroForm) · los datos se escriben en sus casillas", (c
   });
 });
 
+// Bloque «Representante a efectos de presentación»: el DESPACHO que presenta (Andrés, 18/09).
+// Las coordenadas de los modelos overlay las audita scripts/audit-ex-forms.mjs (pdfjs);
+// aquí se blindan los AcroForm, donde el riesgo es un nombre de campo mal copiado.
+describe("bloque del despacho que presenta (AcroForm)", () => {
+  const PRES = {
+    nombre: "DE CEBALLOS ABOGADOS SLP", documento: "B87654321",
+    domicilio: "Calle Velázquez", numero: "15", piso: "2º",
+    localidad: "Madrid", cp: "28001", provincia: "",
+    telefono: "915551234", email: "info@viclegal.eu",
+    repNombre: "Andrés de Ceballos Cabrillo", repDoc: "50123456Z", repTitulo: "Abogado",
+  };
+  const leer = async (code: string) => {
+    const out = await rellenarOficial(code, SAMPLE, undefined, { presentador: PRES });
+    return (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
+  };
+  it("EX-10 escribe razón social, NIF y el profesional con su título", async () => {
+    const form = await leer("EX-10");
+    expect(form.getTextField("Textfield-51").getText()).toBe("DE CEBALLOS ABOGADOS SLP");
+    expect(form.getTextField("Piso-0").getText()).toBe("B87654321");
+    expect(form.getTextField("Textfield-61").getText()).toBe("Andrés de Ceballos Cabrillo");
+    expect(form.getTextField("Textfield-63").getText()).toBe("Abogado");
+  });
+  it("MI-TIE escribe el bloque del representante que presenta", async () => {
+    const form = await leer("MI-TIE");
+    expect(form.getTextField("Texto44").getText()).toBe("DE CEBALLOS ABOGADOS SLP");
+    expect(form.getTextField("Texto50").getText()).toBe("28001");
+  });
+  it("MI-T y MI-F piden a la PERSONA autorizada: apellidos y nombre por separado", async () => {
+    for (const [code, ape, nom, dni] of [["MI-T", "Texto78", "Texto79", "Texto82"], ["MI-F", "Texto58", "Texto59", "Texto62"]] as const) {
+      const form = await leer(code);
+      expect(form.getTextField(ape).getText(), code).toBe("de Ceballos Cabrillo");
+      expect(form.getTextField(nom).getText(), code).toBe("Andrés");
+      expect(form.getTextField(dni).getText(), code).toBe("50123456Z");
+    }
+  });
+  it("sin presentador, el bloque queda intacto", async () => {
+    const out = await rellenarOficial("EX-10", SAMPLE);
+    const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
+    expect(form.getTextField("Textfield-51").getText() ?? "").toBe("");
+  });
+  it("la casilla «Representante legal» de la sección 1 NUNCA recibe al despacho", async () => {
+    // Es la del representante legal del extranjero (padre/madre/tutor): la EX-25 la usa
+    // para eso y no debe cambiar por rellenar el bloque del despacho.
+    const out = await rellenarOficial("EX-25", SAMPLE, undefined, { presentador: PRES });
+    const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
+    expect(form.getTextField("Texto180").getText() ?? "").toBe("");
+  });
+});
+
 // EX-25: el padre/madre/tutor del expediente familiar firma como «Representante legal».
 describe("EX-25 · representante legal desde el titular", () => {
   it("nombre y documento del titular van a Texto180/181", async () => {

@@ -71,13 +71,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   }
 
   const p2o = await fetchP2Overrides(admin, exp.id);
+  // Bloque del despacho que presenta: el ZIP del cliente lleva los mismos PDF que el gestor.
+  const { fetchPresentadorDeWorkspace } = await import("@/lib/data/presentador");
+  const { data: wsRow } = await admin.from("Expediente").select("workspaceId, oficinaId").eq("id", exp.id).maybeSingle();
+  const w = wsRow as { workspaceId?: string; oficinaId?: string | null } | null;
+  const presentador = w?.workspaceId ? await fetchPresentadorDeWorkspace(admin, w.workspaceId, w.oficinaId ?? null).catch(() => null) : null;
   const entries: ZipEntry[] = [];
   for (const code of lista) {
     try {
       let datos = datosTitular;
       let extra: ExtraFormulario | undefined;
       if (miembro) ({ datos, extra } = formularioParaMiembro(code, datosTitular, miembro.datos, miembro.fechaNacimiento));
-      const pdf = await rellenarOficial(code, datos, p2o[code] ?? exp.tipoEnum, extra);
+      const pdf = await rellenarOficial(code, datos, p2o[code] ?? exp.tipoEnum, presentador ? { ...(extra ?? {}), presentador } : extra);
       if (pdf) entries.push({ name: `${nombreSeguro(code)}.pdf`, data: pdf });
     } catch (e) { console.error("[seguimiento zip] form", code, e instanceof Error ? e.message : e); }
   }

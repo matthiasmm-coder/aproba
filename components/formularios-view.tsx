@@ -16,9 +16,10 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [] }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [] }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
+  faltaDespacho?: string[]; // datos del despacho que faltan para el bloque «representante a efectos de presentación»
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
@@ -163,6 +164,20 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               ))}
             </p>
           )}
+
+      {/* El bloque «Representante a efectos de presentación» del formulario: el despacho.
+          Se rellena solo con lo que haya en Ajustes › Despacho; si falta, el PDF sale con
+          esa sección vacía (petición de Andrés de Ceballos, 18/09/2026). */}
+      {faltaDespacho.length > 0 && (
+        <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+          <p className="text-sm text-slate-700">
+            {t("El apartado del representante que presenta saldrá en blanco. Falta:")} <span className="font-medium">{faltaDespacho.join(" · ")}</span>.
+          </p>
+          <Link href="/app/ajustes" className="mt-2 inline-block text-sm font-semibold text-aproba-700 underline">
+            {t("Completar los datos del despacho →")}
+          </Link>
+        </div>
+      )}
         </div>
       )}
 

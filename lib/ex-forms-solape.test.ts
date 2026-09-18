@@ -47,7 +47,16 @@ describe("ningún campo editable tapa una palabra impresa", () => {
       // pas, et leurs cases NIE mordaient les tirets sans que personne le voie (02/09/2026).
       const extra = code === "EX-02" ? { reagrupado: SAMPLE, menorRepresentado: true }
         : code === "EX-31" || code === "EX-32" ? { padreTutor: SAMPLE } : undefined;
-      const bytes = await rellenarOficial(code, SAMPLE, undefined, extra, { editable: true });
+      // El bloque del despacho que presenta también se estampa: sus 12 huecos vienen de una
+      // derivación automática, así que son justo los que hay que vigilar.
+      const presentador = {
+        nombre: "DE CEBALLOS ABOGADOS SLP", documento: "B87654321",
+        domicilio: "Calle Velázquez", numero: "15", piso: "2º",
+        localidad: "Madrid", cp: "28001", provincia: "",
+        telefono: "915551234", email: "info@viclegal.eu",
+        repNombre: "Andrés de Ceballos Cabrillo", repDoc: "50123456Z", repTitulo: "Abogado",
+      };
+      const bytes = await rellenarOficial(code, SAMPLE, undefined, { ...(extra ?? {}), presentador }, { editable: true });
       expect(bytes).toBeTruthy();
 
       const medidor = await PDFDocument.create();
