@@ -1607,7 +1607,6 @@ export const CA: Record<string, string> = {
   "Justicia: nacionalidad": "Justícia: nacionalitat",
   "Justicia: antecedentes penales": "Justícia: antecedents penals",
   "Presento yo la solicitud como representante": "Presento jo la sol·licitud com a representant",
-  "Añade al formulario el apartado del representante con los datos del despacho.": "Afegeix al formulari l’apartat del representant amb les dades del despatx.",
   "Faltan datos del despacho: el apartado del representante que presenta saldrá en blanco.": "Falten dades del despatx: l’apartat del representant que presenta sortirà en blanc.",
   "Completar los datos del despacho": "Completar les dades del despatx",
   "Tasa 790-006": "Taxa 790-006",
