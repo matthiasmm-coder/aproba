@@ -2120,7 +2120,6 @@ export const CA: Record<string, string> = {
   "sin expedientes": "sense expedients",
   "Todavía sin facturas.": "Encara sense factures.",
   "Ver ficha": "Veure la fitxa",
-  "Ficha": "Fitxa",
   "Dejarlo fijado en el enlace del cliente": "Deixar-ho fixat a l'enllaç del client",
   "Lo verá marcado y no podrá quitarlo. Sí podrá añadir otros servicios de tu catálogo.": "Ho veurà marcat i no ho podrà treure. Sí que podrà afegir altres serveis del teu catàleg.",
   // Selector de servicios en el alta (18/09/2026)
@@ -2130,6 +2129,8 @@ export const CA: Record<string, string> = {
   "Packs": "Packs",
   "Otros trámites": "Altres tràmits",
   "No se pudieron fijar los servicios; ajústalos abajo.": "No s'han pogut fixar els serveis; ajusta'ls a sota.",
+  "Ver los trabajadores de": "Veure els treballadors de",
+  "Ocultar los trabajadores de": "Amaga els treballadors de",
 };
 
 export function translate(lang: Lang, es: string): string {
