@@ -57,6 +57,94 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    slug: "representante-formulario-ex-quien-va-en-cada-casilla",
+    titulo: "Representante en el formulario EX: quién va en cada casilla",
+    descripcion:
+      "El EX pide un representante tres veces y no es la misma persona: el tutor del extranjero, el profesional que presenta y quien recibe las notificaciones.",
+    fecha: "2026-09-18",
+    tema: "Formularios",
+    entradilla:
+      "El mismo formulario escribe «representante» en tres apartados y cada vez se refiere a alguien distinto. El propio impreso lo explica en sus notas al pie; casi nadie las lee, y el despacho acaba en la casilla del tutor o en ninguna.",
+    imagenAlt:
+      "Vista cenital de un formulario en blanco de papel crema sobre una mesa de piedra clara: sus tres recuadros vacíos están perfilados en verde esmeralda y de cada uno sale un trazado de circuito que converge en un nodo mayor junto a un sello de latón con mango de madera; unas gafas de carey descansan en la esquina inferior.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "El formulario EX escribe la palabra «representante» tres veces, en tres apartados distintos, y en cada uno se refiere a una persona diferente. La primera es el **representante legal del extranjero**: un padre, una madre, un tutor. La segunda es **quien presenta la solicitud en su nombre**: el abogado, el gestor administrativo, el graduado social. La tercera no lleva la palabra, pero decide más que las otras dos: el **domicilio a efectos de notificaciones**. Confundirlas manda los requerimientos a quien no toca o deja al despacho actuando sin título.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "3", etiqueta: "apartados del EX con un representante: el legal del extranjero, el que presenta y el domicilio de notificaciones" },
+          { valor: "3", etiqueta: "vías para representar (art. 197.4 del RD 1155/2024): poder notarial o apud acta, convenio profesional, registro de colaboradores" },
+          { valor: "1", etiqueta: "modelo oficial, «Designación de representante», basta en renovaciones y prórrogas (Instrucción SEM 1/2024)" },
+          { valor: "11/07/2027", etiqueta: "caducan los convenios de gestores administrativos y graduados sociales; el de la abogacía, el 28/04/2028" },
+        ],
+      },
+      { t: "h2", texto: "Tres casillas, tres personas" },
+      {
+        t: "p",
+        texto:
+          "El bloque 1, «Datos de la persona extranjera», termina con la línea «Representante legal, en su caso», seguida de «DNI/NIE/PAS» y «Título». La nota (4) del impreso dice qué título espera: «Indique el título en base al cual se ostenta la representación, por ejemplo: Padre/Madre del menor, Tutor…». El EX-11 lo escribe sin rodeos: «Representante legal (menor/tutelado…)». Es la casilla de quien representa **a la persona**, no a la solicitud. El bloque 2, «Datos del representante a efectos de presentación de la solicitud», es un apartado entero con razón social, NIF, domicilio, teléfono y correo, y su nota (5) lo resume: «Rellenar sólo en el caso de ser persona distinta del solicitante». Ahí va el despacho. El bloque 3, «Domicilio a efectos de notificaciones», no pide un representante sino una dirección, y esa dirección decide quién recibe los escritos de la Administración.",
+      },
+      {
+        t: "esquema",
+        titulo: "Los tres apartados del EX",
+        nodos: [
+          { titulo: "Representante legal", texto: "Del extranjero: padre, madre o tutor, con su título" },
+          { titulo: "Quien presenta", texto: "El profesional: nombre o razón social, NIF y título", destacado: true },
+          { titulo: "Notificaciones", texto: "La dirección a la que escribe la Administración" },
+        ],
+        destino: { titulo: "Una solicitud que llega a quien debe", texto: "Cada persona en su apartado y los requerimientos donde alguien los abre a tiempo" },
+        nota: "Los dos primeros identifican personas; el tercero elige un buzón, y es el que más consecuencias tiene.",
+      },
+      {
+        t: "tabla",
+        titulo: "Quién va en cada apartado",
+        encabezados: ["Apartado", "Quién", "Título que se escribe", "Error habitual"],
+        filas: [
+          ["Representante legal, en su caso (bloque 1)", "El representante legal del extranjero", "Padre o madre del menor, tutor", "Poner ahí al despacho"],
+          ["Representante a efectos de presentación (bloque 2)", "El profesional que presenta la solicitud", "Abogado, gestor administrativo, graduado social", "Dejarlo vacío y presentar como si fuera el interesado"],
+          ["Domicilio a efectos de notificaciones (bloque 3)", "Quien va a abrir las notificaciones", "Ninguno: nombre, NIF y dirección", "Poner al despacho sin certificado ni turno para atenderlas"],
+        ],
+        nota: "Las notas (4) y (5) están al pie de la última página de cada modelo EX.",
+      },
+      { t: "h2", texto: "Con qué título presenta un despacho" },
+      {
+        t: "p",
+        texto:
+          "Rellenar el bloque 2 identifica a quien presenta; no crea la representación. Esa tiene que existir antes, y el reglamento cierra la lista: el art. 197.4 del RD 1155/2024 admite el **poder notarial o apud acta** inscrito en el Registro Electrónico de Apoderamientos, la actuación de **profesionales bajo convenio** (abogados, gestores administrativos y graduados sociales, cada colegio con el suyo) y la inscripción en el **Registro de entidades colaboradoras**, reservado a sindicatos y entidades sin ánimo de lucro. Una gestoría sin colegiación no encaja en ninguna de las tres.",
+      },
+      {
+        t: "p",
+        texto:
+          "La distinción que más trabajo ahorra está en la Instrucción SEM 1/2024: para las **autorizaciones iniciales** hace falta el poder notarial o apud acta, pero para **renovaciones, prórrogas y modificaciones** basta una representación simple con el modelo oficial «Designación de representante» del Ministerio. Sea cual sea la vía, el título del bloque 2 es la profesión por la que se actúa; los convenios de gestores y graduados sociales caducan el 11 de julio de 2027.",
+      },
+      { t: "h2", texto: "La casilla que no es de representación" },
+      {
+        t: "p",
+        texto:
+          "El bloque 3 es un interruptor. Si la dirección es la del extranjero, las notificaciones van a él, en papel salvo que marque la casilla de la DEHú. Si es la del despacho, van al despacho y **solo por vía electrónica**, porque el profesional colegiado está obligado a recibirlas así (art. 14.2 de la Ley 39/2015), con diez días naturales para abrirlas antes de que se entiendan rechazadas ([quién recibe las notificaciones y los 10 días](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias)). Presentar por Mercurio como gestoría no cambia nada: decide la dirección escrita en ese bloque. Un requerimiento que nadie abre se convierte en un plazo de [subsanación](/articulos/subsanacion-regularizacion-plazo) que corre igual, y después en un [silencio](/articulos/silencio-administrativo-extranjeria-plazos-2026) que nadie vio venir.",
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Al generar un modelo EX, Aproba rellena el bloque 1 con los datos de la persona extranjera y reserva la casilla «Representante legal, en su caso» para el padre, la madre o el tutor cuando el expediente lo tiene: nunca pone ahí al despacho. El bloque 2 solo se rellena si el gestor marca «Presento yo la solicitud como representante»: salen la razón social, el NIF, el domicilio y el profesional con su título, deducido del colegio que el despacho declara en sus ajustes. La casilla está desmarcada por defecto, porque en la mayoría de expedientes el despacho no representa. El bloque 3 se deja en blanco y editable: elegir quién recibe las notificaciones no es una decisión que un programa deba tomar solo.",
+      },
+      {
+        t: "faq",
+        items: [
+          { q: "¿Puede el abogado ponerse en «Representante legal, en su caso»?", a: "No es su casilla. Según la nota (4) del impreso, ahí va quien representa legalmente a la persona extranjera: padre, madre, tutor. El profesional tiene su propio apartado, «Datos del representante a efectos de presentación de la solicitud»." },
+          { q: "¿Qué se escribe en «Título» del bloque 2?", a: "La condición por la que se actúa: abogado, gestor administrativo, graduado social. La casilla es corta; el número de colegiado consta en el poder o en la designación." },
+          { q: "¿Basta con rellenar el bloque 2 para representar al cliente?", a: "No. El apartado identifica a quien presenta; la representación tiene que existir por una de las vías del art. 197.4 del RD 1155/2024: poder notarial o apud acta para las iniciales, designación oficial de representante para renovaciones y prórrogas, o convenio del colegio profesional." },
+          { q: "Si pongo mi despacho en el domicilio de notificaciones, ¿las recibo yo?", a: "Sí, y solo por vía electrónica, con diez días naturales para abrir cada una. Solo conviene si el despacho tiene certificado y alguien que mire la sede cada semana; si no, es más seguro dejar la dirección del cliente y explicarle cómo abrirlas." },
+        ],
+      },
+    ],
+  },
+  {
     slug: "recibir-documentos-clientes-extranjeria-whatsapp-email",
     titulo: "Del WhatsApp al expediente: recibir documentos en extranjería",
     descripcion:
