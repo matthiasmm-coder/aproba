@@ -2132,6 +2132,33 @@ export const CA: Record<string, string> = {
   "Ver los trabajadores de": "Veure els treballadors de",
   "Ocultar los trabajadores de": "Amaga els treballadors de",
   "· se factura a la empresa, no a él": "· es factura a l'empresa, no a ell",
+  // Expedientes: lista de trabajo + archivo por temas (18/09/2026)
+  "Completado": "Completat",
+  "Sin tema": "Sense tema",
+  "por hacer": "per fer",
+  "esperando al cliente": "esperant el client",
+  "En curso": "En curs",
+  "Archivo": "Arxiu",
+  "Todos los temas": "Tots els temes",
+  "Responsable": "Responsable",
+  "Todo el equipo": "Tot l'equip",
+  "Nada con estos filtros.": "Res amb aquests filtres.",
+  "Te toca a ti": "Et toca a tu",
+  "Datos": "Dades",
+  "Docs": "Docs",
+  "Cobro": "Cobrament",
+  "en curso": "en curs",
+  "en el historial": "a l'historial",
+  "Todavía no has cerrado ningún expediente.": "Encara no has tancat cap expedient.",
+  "Sin fecha": "Sense data",
+  "Ver los {n} restantes": "Mostra els {n} restants",
+  // Resolución antes de archivar (18/09/2026, petición de Jennifer)
+  "No se pudo registrar la resolución.": "No s'ha pogut registrar la resolució.",
+  "Archivar sin resolución": "Arxivar sense resolució",
+  "Resolución": "Resolució",
+  "Queda por facturar": "Queda per facturar",
+  "Emitir ahora la factura final.": "Emet ara la factura final.",
+  "El resto ya está facturado: nada pendiente.": "La resta ja està facturada: res pendent.",
 };
 
 export function translate(lang: Lang, es: string): string {

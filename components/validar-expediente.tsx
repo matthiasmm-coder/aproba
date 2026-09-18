@@ -37,6 +37,12 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   const [faseCierre, setFaseCierre] = useState("");
   const [errorCierre, setErrorCierre] = useState<string | null>(null);
   const [hecho, setHecho] = useState<{ salida: Salida; enviado?: string; factura?: { numero: string; total: number } | null } | null>(null);
+  // RESOLUCIÓN antes de archivar (petición de Jennifer, 18/09/2026): primero se registra
+  // si la Administración resolvió a favor o en contra, y solo después se archiva — el
+  // popup ya únicamente pregunta por el dinero pendiente.
+  const [resolucion, setResolucion] = useState<Salida | null>(null);
+  const [registrando, setRegistrando] = useState<Salida | null>(null);
+  const [libre, setLibre] = useState(false); // archivar sin resolución (en trámite, desistido)
 
   async function validar(validado: boolean) {
     if (loading) return;
@@ -51,6 +57,25 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo validar el expediente."));
     } finally { setLoading(false); }
+  }
+
+  // Registrar la resolución SIN archivar: el expediente sigue vivo, pero ya consta cómo
+  // ha resuelto la Administración (Vigía siembra la renovación desde aquí, no al archivar).
+  async function registrarResolucion(s: Salida) {
+    if (loading || registrando) return;
+    setRegistrando(s); setError(null);
+    try {
+      const res = await fetch(`/api/expedientes/${id}/salida`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salida: s }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? t("No se pudo registrar la resolución."));
+      setResolucion(s);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo registrar la resolución."));
+    } finally { setRegistrando(null); }
   }
 
   async function restaurar() {
@@ -154,11 +179,39 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
       </button>
     );
   } else {
+    // La resolución ya registrada (local, o la columna del expediente/estado).
+    const resuelta: Salida | null = resolucion
+      ?? ((salida === "concedido" || salida === "denegado") ? (salida as Salida) : null)
+      ?? (salidaDeEstado(estado) === "concedido" || salidaDeEstado(estado) === "denegado" ? salidaDeEstado(estado) : null);
     acciones = (
       <>
-        <button onClick={() => { setErrorCierre(null); setDialogo(true); }} disabled={loading} className={primario}>
-          {t("Archivar")}
-        </button>
+        {resuelta ? (
+          <>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${resuelta === "concedido" ? "bg-aproba-100 text-aproba-700" : "bg-red-50 text-red-600"}`}>
+              {resuelta === "concedido" ? t("Resolución favorable") : t("Resolución desfavorable")}
+            </span>
+            <button onClick={() => { setErrorCierre(null); setLibre(false); setDialogo(true); }} disabled={loading} className={primario}>
+              {t("Archivar")}
+            </button>
+            <button onClick={() => setResolucion(null)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">
+              {t("Cambiar")}
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => void registrarResolucion("concedido")} disabled={loading || Boolean(registrando)} className={primario}>
+              {registrando === "concedido" ? "…" : t("Resolución favorable")}
+            </button>
+            <button onClick={() => void registrarResolucion("denegado")} disabled={loading || Boolean(registrando)} className="rounded-lg border border-red-200 px-3.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60">
+              {registrando === "denegado" ? "…" : t("Resolución desfavorable")}
+            </button>
+            {/* Sin resolución todavía (presentado y pendiente, o el cliente desistió): el
+                popup de siempre, con las cuatro salidas. */}
+            <button onClick={() => { setErrorCierre(null); setLibre(true); setDialogo(true); }} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">
+              {t("Archivar sin resolución")}
+            </button>
+          </>
+        )}
         {completitud.manual && est === "EN_PREPARACION" && (
           <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>
             {t("Retirar")}
@@ -194,6 +247,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
       {dialogo && (
         <CerrarExpedienteDialog
           referencia={referencia ?? ""}
+          salidaFijada={libre ? null : (resolucion ?? ((salida === "concedido" || salida === "denegado") ? (salida as Salida) : null) ?? (salidaDeEstado(estado) === "concedido" || salidaDeEstado(estado) === "denegado" ? salidaDeEstado(estado) : null))}
           factura={finalizacion}
           busy={loading}
           fase={faseCierre}

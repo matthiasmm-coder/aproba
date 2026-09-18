@@ -10,11 +10,14 @@ import { eur } from "@/lib/facturas";
 // Pregunta la SALIDA (así los archivados se leen por categorías y Vigía sabe qué sembrar),
 // recuerda la factura final si queda resto y deja elegir si se avisa al cliente.
 // Desde el tablero (`sinFactura`) solo se pregunta la salida: el dinero se toca en la ficha.
-export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactura = false, busy = false, fase = "", error = null, onConfirm, onClose }: {
+export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactura = false, salidaFijada = null, busy = false, fase = "", error = null, onConfirm, onClose }: {
   referencia: string;
   cliente?: string;
   factura?: { resto: number; puedeFacturar: boolean; clienteEmail: string } | null;
   sinFactura?: boolean;
+  // Resolución ya registrada en la ficha (favorable/desfavorable, 18/09/2026): el popup
+  // no vuelve a preguntar la salida — solo el dinero que queda y el aviso al cliente.
+  salidaFijada?: Salida | null;
   busy?: boolean;
   fase?: string;
   error?: string | null;
@@ -22,7 +25,7 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
   onClose: () => void;
 }) {
   const t = useT();
-  const [salida, setSalida] = useState<Salida>("en_tramite");
+  const [salida, setSalida] = useState<Salida>(salidaFijada ?? "en_tramite");
   const [facturar, setFacturar] = useState(true);
   const [avisar, setAvisar] = useState(true);
 
@@ -41,6 +44,15 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
         <h2 id="cerrar-exp-titulo" className="text-base font-bold text-slate-900">{t("Archivar expediente")}</h2>
         <p className="mt-0.5 text-xs text-slate-500"><span className="font-mono">{referencia}</span>{cliente ? ` · ${cliente}` : ""}</p>
 
+        {salidaFijada ? (
+          <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            {t("Resolución")}:
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${salidaFijada === "concedido" ? "bg-aproba-100 text-aproba-700" : "bg-red-50 text-red-600"}`}>
+              {salidaFijada === "concedido" ? t("Resolución favorable") : t("Resolución desfavorable")}
+            </span>
+          </p>
+        ) : (
+          <>
         <p className="mt-4 text-sm font-medium text-slate-800">{t("¿Cómo termina este expediente?")}</p>
         <div className="mt-2 grid gap-1.5">
           {SALIDAS.map((o) => (
@@ -53,16 +65,18 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
             </label>
           ))}
         </div>
+          </>
+        )}
 
         {!sinFactura && (
           <div className="mt-4 grid gap-2 rounded-lg bg-cream-50 px-3 py-2.5 text-xs text-slate-600">
             {puedeFacturar ? (
               <label className="flex cursor-pointer items-start gap-2">
                 <input type="checkbox" checked={facturar} onChange={(e) => setFacturar(e.target.checked)} className="mt-0.5 accent-aproba-600" disabled={busy} />
-                <span>{t("Emitir la factura final por el resto pendiente")}: <b>{eur(factura!.resto)}</b> + IVA</span>
+                <span>{t("Queda por facturar")} <b>{eur(factura!.resto)}</b> + IVA. {t("Emitir ahora la factura final.")}</span>
               </label>
             ) : (
-              <span>{t("Nada pendiente de facturar.")}</span>
+              <span>{t("El resto ya está facturado: nada pendiente.")}</span>
             )}
             <label className={`flex items-start gap-2 ${conEmail ? "cursor-pointer" : "opacity-60"}`}>
               <input type="checkbox" checked={avisar && conEmail} onChange={(e) => setAvisar(e.target.checked)} className="mt-0.5 accent-aproba-600" disabled={busy || !conEmail} />

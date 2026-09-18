@@ -91,7 +91,13 @@ export async function aplicarSalida(admin: SupabaseClient, opts: {
   const etiqueta = etiquetaSalida(salida) ?? salida;
   await admin.from("ExpedienteEvento").insert({
     id: crypto.randomUUID(), expedienteId: id, tipo: "ESTADO_CAMBIADO",
-    descripcion: opts.archivar ? `🗄️ Facturado y archivado · ${etiqueta}` : `🗂️ Reclasificado · ${etiqueta}`,
+    // Sin archivar: o es la RESOLUCIÓN que acaba de llegar (favorable/desfavorable), o una
+    // reclasificación posterior. Con archivar, el cierre de siempre.
+    descripcion: opts.archivar
+      ? `🗄️ Archivado · ${etiqueta}`
+      : salida === "concedido" || salida === "denegado"
+        ? `⚖️ Resolución registrada · ${etiqueta}`
+        : `🗂️ Reclasificado · ${etiqueta}`,
     userId: opts.userId,
   });
 
