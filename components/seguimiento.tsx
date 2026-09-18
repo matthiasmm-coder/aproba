@@ -29,7 +29,8 @@ export function Seguimiento({
 }: {
   token: string; gestoria: string; logoUrl?: string | null; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
-  // «Tasa 790-026» (nacionalidad), «Tasa 790-052» (residencia) o «Tasa 790-062» (trabajo) cuando lo guardado no es la 012.
+  // «Tasa 790-026» (nacionalidad), «Tasa 790-052» (residencia), «Tasa 790-062» (trabajo)
+  // o «Tasa 790-006» (antecedentes penales) cuando lo guardado no es la 012.
   tasaEtiqueta?: string;
   // Expediente familiar: descargas por solicitante (formularios con sus datos + su tasa).
   miembros?: { id: string; nombre: string; tieneTasa: boolean; tasaEtiqueta?: string; formularios?: string[] }[];

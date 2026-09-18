@@ -7,7 +7,7 @@ import { formulariosOficiales } from "./ex-forms";
 // (decía «13 modelos EX» con 14 mapeados, y «15 formularios y tasas» con 28 reales): un
 // número inflado en la home es una promesa que el producto no cumple, y uno corto regala
 // trabajo hecho. Este test las ata al código que las produce.
-const TASAS = ["790-012", "790-052", "790-062", "790-026"]; // las cuatro que Aproba genera de verdad (062 desde el 14/09/2026)
+const TASAS = ["790-012", "790-052", "790-062", "790-026", "790-006"]; // las que Aproba genera de verdad (062 desde el 14/09/2026, 006 desde el 18/09/2026)
 const home = readFileSync(path.join(process.cwd(), "app", "page.tsx"), "utf8");
 
 describe("cifras de la landing", () => {

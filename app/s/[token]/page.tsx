@@ -127,12 +127,14 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // para los expedientes con tasa clásica.
   let tasaEtiqueta: string | undefined;
   if (!tasaDisponible && !exp.familiaId) {
-    // 052 (residencia), 062 (trabajo) y 026 (nacionalidad): mismo esquema, sin tasaPath.
+    // 052 (residencia), 062 (trabajo), 026 (nacionalidad) y 006 (antecedentes penales):
+    // mismo esquema, sin tasaPath.
     const { data: archivosTasa } = await admin.storage.from("documentos").list(exp.id, { search: "tasa-790-0" });
     const nombres = new Set((archivosTasa ?? []).map((a) => a.name));
     if (nombres.has("tasa-790-052.pdf")) { tasaDisponible = true; tasaEtiqueta = "Tasa 790-052"; }
     else if (nombres.has("tasa-790-062.pdf")) { tasaDisponible = true; tasaEtiqueta = "Tasa 790-062"; }
     else if (nombres.has("tasa-790-026.pdf")) { tasaDisponible = true; tasaEtiqueta = "Tasa 790-026"; }
+    else if (nombres.has("tasa-790-006.pdf")) { tasaDisponible = true; tasaEtiqueta = "Tasa 790-006"; }
   }
 
   // Expediente FAMILIAR: descargas POR SOLICITANTE (formularios con sus datos + su tasa
@@ -154,12 +156,12 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     const { data: archivos } = await admin.storage.from("documentos").list(exp.id);
     // id de miembro → «012» | «026» (si tiene ambas, gana la 012: mismo criterio que
     // el expediente individual, donde tasaPath — la 012 — tiene prioridad).
-    const conTasa = new Map<string, "012" | "026" | "052" | "062">();
-    const rango = { "012": 0, "052": 1, "062": 2, "026": 3 } as const;
+    const conTasa = new Map<string, "012" | "026" | "052" | "062" | "006">();
+    const rango = { "012": 0, "052": 1, "062": 2, "026": 3, "006": 4 } as const;
     for (const a of archivos ?? []) {
-      const m = /^tasa-790-(012|026|052|062)-(.+)\.pdf$/.exec(a.name);
+      const m = /^tasa-790-(012|026|052|062|006)-(.+)\.pdf$/.exec(a.name);
       if (!m) continue;
-      const cod = m[1] as "012" | "026" | "052" | "062";
+      const cod = m[1] as "012" | "026" | "052" | "062" | "006";
       const previa = conTasa.get(m[2]);
       if (!previa || rango[cod] < rango[previa]) conTasa.set(m[2], cod);
     }
@@ -171,7 +173,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       id: r.id,
       nombre: `${r.nombre ?? ""} ${r.apellidos ?? ""}`.trim() || "Miembro",
       tieneTasa: conTasa.has(r.id),
-      ...(conTasa.get(r.id) === "026" ? { tasaEtiqueta: "Tasa 790-026" } : conTasa.get(r.id) === "052" ? { tasaEtiqueta: "Tasa 790-052" } : conTasa.get(r.id) === "062" ? { tasaEtiqueta: "Tasa 790-062" } : {}),
+      ...(conTasa.get(r.id) === "026" ? { tasaEtiqueta: "Tasa 790-026" } : conTasa.get(r.id) === "052" ? { tasaEtiqueta: "Tasa 790-052" } : conTasa.get(r.id) === "062" ? { tasaEtiqueta: "Tasa 790-062" } : conTasa.get(r.id) === "006" ? { tasaEtiqueta: "Tasa 790-006" } : {}),
       formularios: pmForms ? (pmForms[r.id] ?? []) : formularios,
     }));
 

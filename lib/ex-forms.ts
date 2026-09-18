@@ -65,7 +65,12 @@ function vec(
          // « provincia » contre son propre libellé sur l'EX-15).
          limites?: { numeroX?: number; numeroW?: number; fechaAW?: number; provinciaX?: number; provinciaW?: number; nombreW?: number; pisoW?: number };
          // Retouches x/w par clé, pour un modèle dont un libellé est ailleurs (EX-02 : « 2º Apellido » à 292).
-         ajustes?: Partial<Record<keyof DatosForm, Partial<Pos>>> },
+         ajustes?: Partial<Record<keyof DatosForm, Partial<Pos>>>;
+         // EX-22 (trabajador fronterizo): el bloque 1 NO pide domicilio del solicitante.
+         // Las filas «Domicilio / Localidad» que hay más abajo son las de la ACTIVIDAD (el
+         // empleador): estampar ahí la dirección del cliente sería un dato falso, así que
+         // esas casillas se retiran del mapeo y quedan para el modo editable.
+         sinDomicilio?: boolean },
 ): MapaOverlay {
   // La case suit son libellé : X ≈ fin du libellé + bord de case (+11 lettre seule, +16 « Sp », +20 « X * »).
   const y = (v: number) => v - 1;
@@ -113,6 +118,7 @@ function vec(
       Sp: { x: ms ? mc(ms.ec[4]) : ec[5] + 16, y: yEc },
     },
   };
+  if (ov?.sinDomicilio) for (const k of ["domicilio", "numero", "piso", "localidad", "cp", "provincia"] as const) delete mapa.coords[k];
   for (const [k, aj] of Object.entries(ov?.ajustes ?? {})) {
     const pos = mapa.coords[k as keyof DatosForm];
     if (pos && aj) Object.assign(pos, aj);
@@ -154,6 +160,11 @@ export const FORMS: Record<string, Mapa> = {
   // EX-19 (tarjeta de familiar de ciudadano UE): plantilla en disco desde junio, nunca mapeada.
   "EX-19": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 459, 495, 519], [596, 399, 427, 456, 485, 514], [576, 51, 300], { nie: [321.4, 353.8, 358.1, 507.8, 510], marcas: { sexo: [474.4, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 636.2, ec: 599.3 } }),
   "EX-20": vec({ P: 654, A: 635.9, N: 617.2, F: 599.1, NAC: 580.5, D: 544.2, L: 525.9, T: 507.9 }, [618, 457, 495, 519], [582, 399, 427, 456, 485, 514], [562.3, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510], marcas: { sexo: [474.8, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 622.3, ec: 585.6 } }),
+  // ── Brexit, completado el 18/09/2026 (petición de Marta y Luis) ───────────────
+  // EX-21 (familiar de nacional del Reino Unido) — plantilla idéntica a la EX-19, 12 pt más abajo.
+  "EX-21": vec({ P: 656.3, A: 638.1, N: 619.5, F: 601.4, NAC: 582.8, D: 546.4, L: 528.2, T: 510.2 }, [620, 456, 495, 519], [585, 399, 427, 456, 485, 514], [564.6, 51, 300], { nie: [328.7, 358.8, 361, 507.8, 510], marcas: { sexo: [474.8, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 624.7, ec: 587.8 } }),
+  // EX-22 (trabajador fronterizo del Reino Unido): sin domicilio en el bloque 1 → sinDomicilio.
+  "EX-22": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 0, L: 0, T: 551.1 }, [632, 457, 495, 519], [596, 399, 427, 456, 485, 514], [576, 51, 300], { sinDomicilio: true, ajustes: { apellido1: { w: 208 } }, nie: [328.7, 358.8, 361, 507.8, 510], marcas: { sexo: [478, 507.4, 538], ec: [415.5, 444.2, 472.9, 501.9, 529.1] }, marcasY: { sexo: 636.1, ec: 599.3 } }),
   // EX-24 (familiar de español, 5 pág.): el bloque 1 es la persona extranjera; el bloque
   // «datos del ciudadano español» (p.1, y≈444) queda para el modo editable (blanks genéricos).
   "EX-24": vec({ P: 667.8, A: 649.7, N: 631, F: 612.9, NAC: 594.3, D: 558, L: 539.7, T: 521.7 }, [632, 455, 495, 519], [596, 399, 427, 456, 486, 515], [576, 51, 300], { nie: [321.4, 353.8, 358.1, 507.8, 510], marcas: { sexo: [474.5, 507.4, 538], ec: [415.5, 444.2, 473.9, 502.9, 530.1] }, marcasY: { sexo: 636.3, ec: 599.3 } }),
@@ -412,6 +423,7 @@ const LUGAR_FECHA: Record<string, { x0: number; y: number; corto?: boolean }> = 
   "EX-00": { x0: 256, y: 264.7 }, "EX-04": { x0: 256, y: 329.6 }, "EX-06": { x0: 282.1, y: 601.5 }, "EX-07": { x0: 256, y: 494.9 },
   "EX-09": { x0: 256, y: 528.8 }, "EX-16": { x0: 256, y: 363.5 }, "EX-20": { x0: 256, y: 180.1 }, "EX-24": { x0: 282.1, y: 471.8 },
   "EX-28": { x0: 259.7, y: 207.5, corto: true }, "EX-29": { x0: 256, y: 486.2 },
+  "EX-21": { x0: 256, y: 193.9 }, "EX-22": { x0: 256, y: 403.2 },
 };
 // Offsets relevés au repère visuel sur EX-18 (ligne identique sur EX-10/15/17/31/32,
 // largeur 261,7 pt). Avant, « día » commençait sur le « a » de « , a » : le texte tapé
@@ -479,6 +491,8 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-25": "Menores (residencia / desplazamiento)",
   "EX-28": "Disposición transitoria 2ª (RD 1155/2024)",
   "EX-29": "Prórroga de estancia de corta duración",
+  "EX-21": "Familiar de británico art. 50 TUE",
+  "EX-22": "Trabajador fronterizo del Reino Unido",
 };
 export const formulariosDisponibles = (): { code: string; label: string }[] =>
   Object.keys(FORMS).sort().map((code) => ({ code, label: FORM_LABEL[code] ?? code }));
@@ -499,7 +513,7 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   // registro del propio ciudadano (EX-18): así lo describe el servicio del catálogo.
   residencia_ue: ["EX-19", "EX-18"],
   autorizacion_regreso: ["EX-13"], regreso: ["EX-13"],
-  brexit: ["EX-23", "EX-20"],
+  brexit: ["EX-23", "EX-20", "EX-21", "EX-22"],
   modificacion: ["EX-26"],
   arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
 };

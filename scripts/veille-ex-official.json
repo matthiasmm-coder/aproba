@@ -1,4 +1,15 @@
 {
+  "EX-00": [
+    {
+      "slug": "/documents/d/migraciones/ex00-formulario-autorizacion-de-estancia-de-larga-duracion",
+      "sha256": "dc2837160d9c7f9852ba96b77685d05ade830ad99a41e324a913aba1e8c4c95a",
+      "bytes": 687513,
+      "esPdf": true,
+      "semantica": "f1d63f6203b2ec89e14f28d4d31a4b486eb1d087f5a844308a6038d85a5c628d",
+      "textos": 296,
+      "paginas": 4
+    }
+  ],
   "EX-01": [
     {
       "slug": "/documents/d/migraciones/ex01-formulario-autorizacion-de-residencia-temporal-no-lucrativa-1",
@@ -38,6 +49,50 @@
       "esPdf": true,
       "semantica": "d35bcb449c92b5634b890ef43fa6d55ef5e02bece810a26adf6436ef9c5500b2",
       "textos": 299,
+      "paginas": 3
+    }
+  ],
+  "EX-04": [
+    {
+      "slug": "/documents/d/migraciones/ex04-formulario-autorizacion-de-residencia-para-pacticas",
+      "sha256": "ee68e581b245ce1ba20e039c0890a90d25d400aa4c6184d17e068bc0edc10572",
+      "bytes": 141902,
+      "esPdf": true,
+      "semantica": "5b2c06ce31edd81182c23da8f9b11e8e74de2988837d4384384f6f8504737259",
+      "textos": 207,
+      "paginas": 3
+    }
+  ],
+  "EX-06": [
+    {
+      "slug": "/documents/d/migraciones/ex06-formulario-autorizacion-de-residencia-y-trabajo-para-actividades-temporada",
+      "sha256": "e40fd50c5d44cc017912d30f4c3ce9b00bd2daa958002d4cdf197d12eb869a06",
+      "bytes": 172607,
+      "esPdf": true,
+      "semantica": "99c06d1d98a1b67876dba9ab896a63b1054cf385924b2ac93ef8d37127bda42f",
+      "textos": 193,
+      "paginas": 3
+    }
+  ],
+  "EX-07": [
+    {
+      "slug": "/documents/d/migraciones/ex07-formulario-autorizacion-de-residencia-temporal-y-trabajo-por-cuenta-propia",
+      "sha256": "c489bc5b659e51fa31576d5dbe8d65e40111ae4655a49da467f0dddc9c4f7320",
+      "bytes": 139677,
+      "esPdf": true,
+      "semantica": "afcde57691b94c21f1244f1a6d8474e761c610c59c84a25b484069f2c18f9723",
+      "textos": 201,
+      "paginas": 3
+    }
+  ],
+  "EX-09": [
+    {
+      "slug": "/documents/d/migraciones/ex09-formulario-autorizacion-de-residencia-temporal-con-excepcion-de-la-autorizacion-de-trabajo",
+      "sha256": "fb9239aa423bfc68ad0c893271d3505080f81b858dc8c7bbfcb856e3a51a9a25",
+      "bytes": 149338,
+      "esPdf": true,
+      "semantica": "c4e78139b53d296d39d1b213ac97f7af570b9d6a8d3334458f28ba01df959b5b",
+      "textos": 204,
       "paginas": 3
     }
   ],
@@ -94,6 +149,17 @@
       "paginas": 3
     }
   ],
+  "EX-16": [
+    {
+      "slug": "/documents/d/migraciones/ex16-formulario-solicitud-cedula-de-inscripcion-o-titulo-de-viaje",
+      "sha256": "3f98b95be0655b22c4bd0727a00f73c66017fae55bf80c826ffea07f9bb6a8ff",
+      "bytes": 144997,
+      "esPdf": true,
+      "semantica": "30a7e45e9fd9e4ee505b23a8a8c6e0429518c260e68b049e6ad15b43644376af",
+      "textos": 200,
+      "paginas": 3
+    }
+  ],
   "EX-17": [
     {
       "slug": "/documents/d/migraciones/ex17-formulario-solicitud-tarjeta-de-identidad-de-extranjero",
@@ -116,6 +182,50 @@
       "paginas": 3
     }
   ],
+  "EX-19": [
+    {
+      "slug": "/documents/d/migraciones/ex19-formulario-tarjeta-de-residencia-de-familiar-de-ciudadano-de-la-ue",
+      "sha256": "233fe7d753723a65ef2ee1d3eceb98f2bdb81e5dd86be8e81c061f157ceebae7",
+      "bytes": 146103,
+      "esPdf": true,
+      "semantica": "ad6d3219f535e2e767d20add760da921a1c9d4686e3bc845dfe2eaddd6e61f06",
+      "textos": 215,
+      "paginas": 3
+    }
+  ],
+  "EX-20": [
+    {
+      "slug": "/documents/d/migraciones/ex20-formulario-residencia-articulo-50-tue-para-nacionales-del-reino-unido-1",
+      "sha256": "da510793db4785a875dd2d23ad275826dc593b179e621c93ed73a180ed2257be",
+      "bytes": 147012,
+      "esPdf": true,
+      "semantica": "06233363871a607fcd777566de2b1441e64630a041b9de5110ed5bde1eb1bbaf",
+      "textos": 245,
+      "paginas": 3
+    }
+  ],
+  "EX-21": [
+    {
+      "slug": "/documents/d/migraciones/ex21-formulario-residencia-articulo-50-tue-para-3-s-paises-familiares-nacionales-reino-unido-1",
+      "sha256": "05a47b0ee57526da64fbce7bafdb1faa79c280a7fdfd3f71d99456fa7b4cd0f0",
+      "bytes": 150280,
+      "esPdf": true,
+      "semantica": "6ad3a7ee2c51bbb0a9304f683a774b301bbe40d79d0e9f04fdae1dc108c83cf4",
+      "textos": 241,
+      "paginas": 3
+    }
+  ],
+  "EX-22": [
+    {
+      "slug": "/documents/d/migraciones/ex22-formulario-permiso-articulo-50-tue-para-trabajador-fronterizo-del-reino-unido-1",
+      "sha256": "126caea6e416d2f4923238e9523439f0e4d6192f1d37af8f8fb2f87528d55289",
+      "bytes": 146949,
+      "esPdf": true,
+      "semantica": "adba8f67362f58e14c5f1d6f1579d964afda089a63010ab97188b5cf35851776",
+      "textos": 206,
+      "paginas": 3
+    }
+  ],
   "EX-23": [
     {
       "slug": "/documents/d/migraciones/ex23-formulario-solicitud-de-tarjeta-art-18-4-del-acuerdo-de-retirada-",
@@ -127,6 +237,37 @@
       "paginas": 3
     }
   ],
+  "EX-24": [
+    {
+      "slug": "/documents/d/migraciones/ex24-formulario-autorizacion-de-residencia-temporal-de-familiares-de-personas-con-nacionalidad-espanola-1",
+      "sha256": "5fff7465f370dc46d61f9b8fa9318ec2413be0c112422800ceac8877a09b05cb",
+      "bytes": 160909,
+      "esPdf": true,
+      "semantica": "0adecaaebaaf7a8fd67a7eb9bdcdd4141f117fc67879011002bd5a2d0845120a",
+      "textos": 277,
+      "paginas": 5
+    }
+  ],
+  "EX-25": [
+    {
+      "slug": "/documents/d/migraciones/ex25-formulario-autorizacion-de-residencia-temporal-y-desplazamiento-temporal-de-menores-extranjeros-",
+      "sha256": "62152b8d845062be1c8e6d7bc184ef1231e2948fcbedda09f040429b2d488568",
+      "bytes": 1192027,
+      "esPdf": true,
+      "semantica": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "textos": 0,
+      "paginas": 3
+    },
+    {
+      "slug": "/documents/d/migraciones/ex25.pdf",
+      "sha256": "a6dd6ebbade2fe43dc98aa726dd29b15d6caa5f498cf13410cd6a08e70a446ab",
+      "bytes": 1252131,
+      "esPdf": true,
+      "semantica": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "textos": 0,
+      "paginas": 3
+    }
+  ],
   "EX-26": [
     {
       "slug": "/documents/d/migraciones/ex26-formulario-de-solicitud-modificacion-de-autorizacion-de-residencia-o-estancia-1",
@@ -135,6 +276,28 @@
       "esPdf": true,
       "semantica": "93c7616379be65f4b27178abb563ecc3613347f786b949998445fee3403159e4",
       "textos": 224,
+      "paginas": 3
+    }
+  ],
+  "EX-28": [
+    {
+      "slug": "/documents/d/migraciones/ex28-formulario-solicitud-de-aplicacion-de-la-dt-2-rd-1155-2024",
+      "sha256": "b421dc71aaf62ae986f244dab5f8c145e1f4f056f01b2d8928b226c53705f511",
+      "bytes": 162658,
+      "esPdf": true,
+      "semantica": "445cd1d63716494c6befb011ce6eee96aef7ba1225882b579ec87beef2019de8",
+      "textos": 229,
+      "paginas": 3
+    }
+  ],
+  "EX-29": [
+    {
+      "slug": "/documents/d/migraciones/ex29-formulario-solicitud-de-prorroga-de-estancia-de-corta-duracion",
+      "sha256": "129f544ca52a7cdbe4d0489c5d00b45598d8a14eef9fd61074cabdc22b40aa2a",
+      "bytes": 129956,
+      "esPdf": true,
+      "semantica": "8c407260046f806ed8fd5de5c41420abb69e91aef8ca0b4e6c49fdaa1f43fe9c",
+      "textos": 178,
       "paginas": 3
     }
   ],

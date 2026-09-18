@@ -83,7 +83,10 @@ for (const code of formulariosOficiales()) {
   const out = await rellenarOficial(code, S, undefined, extra);
   if (!out) { console.log(`${code}: NULL`); continue; }
   const filled = await textItems(new Uint8Array(out), 1);
-  auditValues(code, S, filled, fails);
+  // Un modelo puede no tener bloque de domicilio en su sección 1 (EX-22, trabajador
+  // fronterizo): lo dice su propio mapeo, así no hay que mantener una lista aparte.
+  const sinDom = !FORMS[code].coords?.domicilio ? ["domicilio", "numero", "piso", "localidad", "cp", "provincia"] : [];
+  auditValues(code, S, filled, fails, sinDom);
   auditMark(code, "M", "D", blank, filled, fails);
   if (code === "EX-02" && extra) {
     // Le bloc reagrupado du EX-02 officiel n'a pas de ligne teléfono/email → non estampillés.

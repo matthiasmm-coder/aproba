@@ -38,7 +38,8 @@ const nextConfig = {
       { source: "/app/bandeja", destination: "/app/ajustes?abrir=integraciones", permanent: false },
       // La cifra de la portada pasó de 28 a 29 piezas al añadir la tasa 790-062 (14/09/2026):
       // la URL antigua ya estaba indexada (IndexNow 13/09) → redirección permanente.
-      { source: "/cifras/28-formularios-y-tasas-oficiales", destination: "/cifras/29-formularios-y-tasas-oficiales", permanent: true },
+      { source: "/cifras/28-formularios-y-tasas-oficiales", destination: "/cifras/32-formularios-y-tasas-oficiales", permanent: true },
+      { source: "/cifras/29-formularios-y-tasas-oficiales", destination: "/cifras/32-formularios-y-tasas-oficiales", permanent: true },
     ];
   },
   async headers() {

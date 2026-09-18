@@ -148,5 +148,17 @@
     "paginas": 3,
     "ancho": 595,
     "alto": 842
+  },
+  "EX-21": {
+    "sha256": "05a47b0ee57526da64fbce7bafdb1faa79c280a7fdfd3f71d99456fa7b4cd0f0",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
+  },
+  "EX-22": {
+    "sha256": "126caea6e416d2f4923238e9523439f0e4d6192f1d37af8f8fb2f87528d55289",
+    "paginas": 3,
+    "ancho": 595,
+    "alto": 842
   }
 }

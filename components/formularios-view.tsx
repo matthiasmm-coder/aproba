@@ -8,6 +8,7 @@ import { useT } from "@/components/lang-provider";
 import { avisarGuia } from "@/components/guia-activacion";
 import { Tasa790Modal } from "./tasa790-modal";
 import { Tasa790026Modal } from "./tasa790026-modal";
+import { Tasa790006Modal } from "./tasa790006-modal";
 import { Tasa790052Modal } from "./tasa790052-modal";
 import { Tasa790062Modal } from "./tasa790062-modal";
 
@@ -247,6 +248,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                   <Tasa790052Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-052")} · ${a.nombre.split(" ")[0]}`} />
                   <Tasa790062Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-062")} · ${a.nombre.split(" ")[0]}`} />
                   <Tasa790026Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-026")} · ${a.nombre.split(" ")[0]}`} />
+                  <Tasa790006Modal expedienteId={exp.id} clienteId={a.id} etiqueta={`${t("Tasa 790-006")} · ${a.nombre.split(" ")[0]}`} />
                 </div>
               </div>
               );
@@ -259,12 +261,14 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
                 {seleccion.map((tipo) => descarga(tipo, undefined, t("rellenado")))}
               </div>
             )}
-            {/* 012 (Policía: TIE, prórrogas…), 052 (Delegaciones: residencia), 062 (Delegaciones: trabajo) y 026 (Justicia: nacionalidad). */}
+            {/* 012 (Policía: TIE, prórrogas…), 052 (Delegaciones: residencia), 062 (Delegaciones: trabajo),
+                026 (Justicia: nacionalidad) y 006 (Justicia: antecedentes penales, pedida por Marta y Luis). */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Tasa790Modal expedienteId={exp.id} />
               <Tasa790052Modal expedienteId={exp.id} />
               <Tasa790062Modal expedienteId={exp.id} />
               <Tasa790026Modal expedienteId={exp.id} />
+              <Tasa790006Modal expedienteId={exp.id} />
             </div>
           </>
         )}
