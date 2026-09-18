@@ -557,7 +557,13 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   m.espacio(10);
   m.parrafo("En ____________________________, a ______ de ______________________ de 20____", { size: 9.5 });
   m.espacio(8);
-  m.firmas("EL PROFESIONAL", "EL CLIENTE");
+  // Cliente-EMPRESA: quien firma el encargo es la EMPRESA (es quien contrata y paga), no
+  // el trabajador — él solo firma el mandato, que es lo que se le representa. Se nombra
+  // bajo la línea para que nadie firme por error (verificación pedida el 18/09/2026).
+  m.firmas("EL PROFESIONAL", d.trabajador !== undefined ? "EL CLIENTE (LA EMPRESA)" : "EL CLIENTE");
+  if (d.trabajador !== undefined) {
+    m.parrafo(`Firma por el cliente la persona con poder de representación de ${o(d.cliente.nombre, 40)}${d.cliente.nie ? `, CIF ${d.cliente.nie}` : ""}. El trabajador ${o(d.trabajador, 30)} no es parte de este contrato: firma únicamente el mandato de representación.`, { size: 8, color: GRIS });
+  }
   return m.bytes();
 }
 

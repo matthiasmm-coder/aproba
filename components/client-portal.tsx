@@ -68,6 +68,7 @@ export function ClientPortal({
   serviciosExtraClaves,
   serviciosBloqueados,
   clienteYaEligio = false,
+  empresaNombre = null,
   suplidosOverride,
   descuento = null,
   asignacion = null,
@@ -100,6 +101,8 @@ export function ClientPortal({
   // El cliente ya confirmó su elección alguna vez: entonces el portal retoma donde estaba
   // (datos o documentos). Si no, y hay servicios fijados, abre en la pantalla de servicios.
   clienteYaEligio?: boolean;
+  // Cliente-EMPRESA: quién firma cada documento cambia — la hoja la empresa, el mandato él.
+  empresaNombre?: string | null;
   suplidosOverride?: { concepto: string; importe: number }[] | null; // tasas ajustadas por el gestor (sustituyen a las del servicio)
   descuento?: Descuento | null;
   asignacion?: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
@@ -1252,15 +1255,17 @@ export function ClientPortal({
             {encargoActivo && token && (
               <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
                 <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
-                <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
+                <p className="mt-1 text-xs leading-relaxed text-aproba-700">
+                  {empresaNombre ? t("firma.introEmpresa", { empresa: empresaNombre }) : t("firma.intro")}
+                </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
-                    {t("firma.hoja")}
+                    {empresaNombre ? t("firma.hojaEmpresa") : t("firma.hoja")}
                   </a>
                   <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
-                    {t("firma.mandato")}
+                    {empresaNombre ? t("firma.mandatoTuyo") : t("firma.mandato")}
                   </a>
                 </div>
               </div>

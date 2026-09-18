@@ -78,6 +78,8 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   // Con servicios fijados por el gestor, el portal debe ABRIR en esa pantalla la primera vez
   // — si no, el candado no se ve nunca y el cliente no puede añadir nada.
   let clienteYaEligio = false;
+  // Cliente-EMPRESA: su nombre, para decir en el portal quién firma la hoja de encargo.
+  let empresaNombre: string | null = null;
   let suplidosOverride: { concepto: string; importe: number }[] | null = null;
   let descuentoExp: DescuentoT | null = null;
   let asignacionExp: AsignacionT | null = null;
@@ -172,6 +174,21 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
         clienteYaEligio = Boolean((ev ?? []).length);
       } catch { /* sin eventos legibles → se trata como «no ha elegido» */ }
       // BLOQUEADOS por el gestor (18/09/2026): llegan marcados y no se pueden quitar.
+      // La empresa que contrata (sello del expediente o, si no, la del cliente: mismo
+      // criterio que la facturación y la hoja de encargo).
+      try {
+        const { data: xe } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", exp.id).maybeSingle();
+        const xx = xe as { empresaId?: string | null; clienteId?: string | null } | null;
+        let eid = xx?.empresaId ?? null;
+        if (!eid && xx?.clienteId) {
+          const { data: ce } = await admin.from("Cliente").select("empresaId").eq("id", xx.clienteId).maybeSingle();
+          eid = (ce as { empresaId?: string | null } | null)?.empresaId ?? null;
+        }
+        if (eid) {
+          const { data: em } = await admin.from("Empresa").select("razonSocial").eq("id", eid).maybeSingle();
+          empresaNombre = ((em as { razonSocial?: string | null } | null)?.razonSocial ?? "").trim() || null;
+        }
+      } catch { empresaNombre = null; }
       const bloqRaw = (exp as unknown as { serviciosBloqueados?: string[] | null }).serviciosBloqueados;
       serviciosBloqueados = [...new Set((Array.isArray(bloqRaw) ? bloqRaw : []).filter((c) => c && servicios.some((sv) => sv.id === c && sv.active)))];
       descuentoExp = descuentoValido((exp as unknown as { descuento?: unknown }).descuento);
@@ -279,6 +296,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       serviciosExtraClaves={serviciosExtraClaves}
       serviciosBloqueados={serviciosBloqueados}
       clienteYaEligio={clienteYaEligio}
+      empresaNombre={empresaNombre}
       suplidosOverride={suplidosOverride}
       descuento={descuentoExp}
       asignacion={asignacionExp}
