@@ -9,6 +9,7 @@ import { FormulariosView } from "@/components/formularios-view";
 import { camposQueFaltan, FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { fetchPresentador, fetchPresentaGestor, fetchTasasCuradas } from "@/lib/data/presentador";
 import { tasasDelTramite } from "@/lib/tasas";
+import { fetchTasasGeneradas } from "@/lib/data/tasas";
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -66,7 +67,12 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // Tasas: lo que el gestor dejó curado (aunque sea nada) o, si nunca tocó nada, las que
   // corresponden al servicio del expediente.
   const curadas = await fetchTasasCuradas(sb, id).catch(() => null);
-  const tasasIniciales = curadas ?? tasasDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
+  // Sin curación: las del servicio MÁS las que este expediente ya generó — un botón que
+  // el gestor venía usando no puede desaparecer porque el servicio no lo prediga.
+  const tasasIniciales = curadas ?? [...new Set([
+    ...tasasDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]),
+    ...(await fetchTasasGeneradas(id, exp.tasaPath).catch(() => [])),
+  ])];
   const presentador = await fetchPresentador(sb, exp.oficinaId).catch(() => null);
   const faltaDespacho = [
     !presentador?.nombre && "Nombre o razón social",
