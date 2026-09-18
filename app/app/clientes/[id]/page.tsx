@@ -172,9 +172,16 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
             <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{nombre}</h1>
             <p className="text-slate-500">{nacionalidad}</p>
             {empresaDe && (
-              <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                <svg className="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></svg>
-                {t("Trabajador de")} {empresaDe.razonSocial}
+              // Quién PAGA: las facturas y la hoja de encargo van a nombre de la empresa,
+              // nunca del trabajador (regla del 09/09/2026). Se dice aquí, en su ficha,
+              // porque es donde el gestor duda al ir a cobrar.
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                  <svg className="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" /></svg>
+                  {t("Trabajador de")}{" "}
+                  <a href={`/app/empresas/${empresaDe.id}`} className="font-semibold text-slate-800 underline-offset-2 hover:underline">{empresaDe.razonSocial}</a>
+                </span>
+                <span className="text-xs text-slate-500">{t("· se factura a la empresa, no a él")}</span>
               </p>
             )}
           </div>

@@ -2131,6 +2131,7 @@ export const CA: Record<string, string> = {
   "No se pudieron fijar los servicios; ajústalos abajo.": "No s'han pogut fixar els serveis; ajusta'ls a sota.",
   "Ver los trabajadores de": "Veure els treballadors de",
   "Ocultar los trabajadores de": "Amaga els treballadors de",
+  "· se factura a la empresa, no a él": "· es factura a l'empresa, no a ell",
 };
 
 export function translate(lang: Lang, es: string): string {

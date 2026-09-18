@@ -298,13 +298,32 @@ async function empresaDeExpediente(
   try {
     const { data, error } = await supabase
       .from("Expediente")
-      .select("empresaId, empresa:Empresa(id, razonSocial, nif, contactoNombre, contactoEmail, contactoTelefono)")
+      .select("empresaId, clienteId, empresa:Empresa(id, razonSocial, nif, contactoNombre, contactoEmail, contactoTelefono)")
       .eq("id", expedienteId)
       .maybeSingle();
-    if (error || !data?.empresaId) return { empresaId: null, empresa: null };
-    const e = Array.isArray(data.empresa) ? data.empresa[0] ?? null : data.empresa ?? null;
+    if (error) return { empresaId: null, empresa: null };
+    let empresaId = data?.empresaId ? String(data.empresaId) : null;
+    let e = Array.isArray(data?.empresa) ? data.empresa[0] ?? null : data?.empresa ?? null;
+    // Expediente sin sello de empresa cuyo CLIENTE sí es trabajador de una (expedientes
+    // anteriores al 08/09/2026, o creados por vías que no lo sellaban): la empresa manda
+    // igual. /api/pagos y /pagos/fraccionar ya facturan así — la ficha debe enseñar lo
+    // mismo, si no el popup de cobro propone el nombre del TRABAJADOR y la factura saldría
+    // a su nombre con el CIF de la empresa.
+    if (!empresaId && data?.clienteId) {
+      const { data: c } = await supabase
+        .from("Cliente")
+        .select("empresaId, empresa:Empresa(id, razonSocial, nif, contactoNombre, contactoEmail, contactoTelefono)")
+        .eq("id", data.clienteId)
+        .maybeSingle();
+      const cc = c as { empresaId?: string | null; empresa?: unknown } | null;
+      if (cc?.empresaId) {
+        empresaId = String(cc.empresaId);
+        e = (Array.isArray(cc.empresa) ? cc.empresa[0] ?? null : cc.empresa ?? null) as typeof e;
+      }
+    }
+    if (!empresaId) return { empresaId: null, empresa: null };
     return {
-      empresaId: String(data.empresaId),
+      empresaId,
       empresa: e ? {
         id: String(e.id),
         razonSocial: String(e.razonSocial ?? "").trim() || "Empresa",

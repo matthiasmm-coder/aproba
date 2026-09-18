@@ -265,6 +265,10 @@ export async function POST(req: Request) {
   if (empresaIdExp) {
     const { data: em } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono").eq("id", empresaIdExp).maybeSingle();
     empresa = (em as (EmpresaFiscal & { id: string }) | null) ?? null;
+    // Auto-curación: si la empresa vino del CLIENTE (expediente sin sellar, anterior al
+    // 08/09/2026), se sella ahora en el expediente — así la ficha, la hoja de encargo y el
+    // próximo cobro ven lo mismo que esta factura.
+    try { await admin.from("Expediente").update({ empresaId: empresaIdExp }).eq("id", exp.id).is("empresaId", null); } catch { /* columna sin migrar */ }
   }
   const cliente = exp.cliente as { nombre?: string; apellidos?: string } | null;
   const trabajador = `${cliente?.nombre ?? ""} ${cliente?.apellidos ?? ""}`.trim();
