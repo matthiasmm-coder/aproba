@@ -118,7 +118,6 @@ export function ClientPortal({
     const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
     return fichaCompleta ? 2 : (familia ? 0 : 1);
   });
-  const [reanudado, setReanudado] = useState(() => Boolean(token && servicioInicial && !servicioFijado));
   const [lang, setLang] = useState<Lang>("es");
   const [tramiteId, setTramiteId] = useState<string | null>(servicioInicial ?? null);
   // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
@@ -743,14 +742,6 @@ export function ClientPortal({
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Reprise de session: el migrante retoma donde lo dejó (se cierra solo al avanzar). */}
-        {reanudado && step < PASO_LISTO && (
-          <div className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-aproba-200 bg-aproba-50 px-3.5 py-2.5">
-            <p className="text-sm text-aproba-700">👋 {t("common.reanudado")}</p>
-            <button onClick={() => setReanudado(false)} aria-label="OK" className="-m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-aproba-400 hover:text-aproba-700">✕</button>
           </div>
         )}
 
