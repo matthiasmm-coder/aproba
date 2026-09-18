@@ -980,7 +980,7 @@ export async function enviarConfirmacionPago(
       id: crypto.randomUUID(),
       expedienteId: opts.expedienteId,
       tipo: "NOTIFICACION_ENVIADA",
-      descripcion: `${icono} Confirmación de pago enviada al cliente (factura ${opts.numero})${sufijo}`,
+      descripcion: `${icono} Confirmación de pago enviada a ${pagador ? `la empresa${pagador.nombre ? ` (${pagador.nombre})` : ""}` : "el cliente"} (factura ${opts.numero})${sufijo}`,
     });
   } catch (e) {
     console.error("[enviarConfirmacionPago]", e instanceof Error ? e.message : e);
