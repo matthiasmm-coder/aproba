@@ -580,7 +580,7 @@ export async function enviarSolicitudPago(
     let estadoEmail: Estado | null = null;
     const enviarEmailAviso = async () => {
       estadoEmail = "SIMULADO";
-      const destino = cliente?.email ?? "";
+      const destino = emailDestino;
       if (!destino) {
         estadoEmail = "SIN_CONTACTO";
       } else if (resendDisponible()) {
