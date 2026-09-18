@@ -331,5 +331,38 @@
       "textos": 521,
       "paginas": 7
     }
+  ],
+  "MI-F": [
+    {
+      "slug": "/documents/d/migraciones/modelo-de-solicitud-autorizacion-de-residencia-de-familiares",
+      "sha256": "db6d3635e1fc8a16bd5403007e650054dd6636d89e199f1474569a4e6fab35de",
+      "bytes": 253415,
+      "esPdf": true,
+      "semantica": "047512e2f11aacefa35a80e32d4449211ad00b6d657c5727b043f851014b0488",
+      "textos": 257,
+      "paginas": 2
+    }
+  ],
+  "MI-T": [
+    {
+      "slug": "/documents/d/migraciones/modelo-de-solicitud-de-autorizacion-de-residencia-titulares",
+      "sha256": "2e64dd1284e70293576f6a5de2d80de1c92dadc061cf131458424542b13cc36e",
+      "bytes": 248920,
+      "esPdf": true,
+      "semantica": "9eba7e07e2983b470a78044ce20b5e5e64e4bd434e655f79cbe911020e54f344",
+      "textos": 270,
+      "paginas": 2
+    }
+  ],
+  "MI-TIE": [
+    {
+      "slug": "/documents/d/migraciones/modelo-de-solicitud-de-la-tarjeta-de-identidad-de-extranjero",
+      "sha256": "586e3ae15316950ef69758292c9e6ac13c724b096f85fa82a4a7642dad369b62",
+      "bytes": 229747,
+      "esPdf": true,
+      "semantica": "ff947b0ba94d2a45b47740b7946372751b23158ac004857f56d9895572210a5c",
+      "textos": 178,
+      "paginas": 2
+    }
   ]
 }

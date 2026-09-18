@@ -160,5 +160,23 @@
     "paginas": 3,
     "ancho": 595,
     "alto": 842
+  },
+  "MI-T": {
+    "sha256": "2e64dd1284e70293576f6a5de2d80de1c92dadc061cf131458424542b13cc36e",
+    "paginas": 2,
+    "ancho": 595,
+    "alto": 842
+  },
+  "MI-TIE": {
+    "sha256": "586e3ae15316950ef69758292c9e6ac13c724b096f85fa82a4a7642dad369b62",
+    "paginas": 2,
+    "ancho": 595,
+    "alto": 842
+  },
+  "MI-F": {
+    "sha256": "db6d3635e1fc8a16bd5403007e650054dd6636d89e199f1474569a4e6fab35de",
+    "paginas": 2,
+    "ancho": 595,
+    "alto": 842
   }
 }

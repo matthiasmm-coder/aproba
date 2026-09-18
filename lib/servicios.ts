@@ -92,6 +92,11 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
   { id: "residencia_ue", label: "Residencia ciudadano UE", desc: "Tarjeta de residencia de familiar de ciudadano de la UE (RD 240/2007)", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["Pasaporte", "Documento de identidad del ciudadano UE", "Certificado de empadronamiento", "Justificante del vínculo familiar"], citaPresencial: true, citaQuien: "cliente" },
   { id: "brexit", label: "Tarjeta Acuerdo de Retirada (Brexit)", desc: "Documentación para británicos y sus familiares (art. 18.4)", active: false, precio: 250, anticipo: 120, resto: 130, docs: ["Pasaporte", "Justificante de residencia anterior a 2021", "Certificado de empadronamiento"], citaPresencial: true, citaQuien: "cliente" },
   { id: "modificacion", label: "Modificación de autorización", desc: "Cambiar el tipo de autorización de residencia/trabajo", active: false, precio: 280, anticipo: 140, resto: 140, docs: ["TIE actual", "Pasaporte", "Justificante del nuevo supuesto"], citaPresencial: true, citaQuien: "cliente" },
+  // Ley 14/2013 (Unidad de Grandes Empresas): inversores, emprendedores, profesionales
+  // altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores
+  // internacionales. Se presenta en la sede del Ministerio de Inclusión, no en la Oficina
+  // de Extranjería, y lleva sus propios modelos (MI-T, MI-TIE, MI-F) y la tasa 790-038.
+  { id: "movilidad_internacional", label: "Movilidad internacional (Ley 14/2013)", desc: "Inversores, emprendedores, profesionales altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte", "Titulación o experiencia profesional", "Contrato, proyecto empresarial o justificación de la inversión", "Seguro médico", "Antecedentes penales"], citaPresencial: false, citaQuien: "cliente" },
 ];
 
 // Garantit que chaque service a anticipo/resto/precio cohérents, même si la config

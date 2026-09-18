@@ -26,7 +26,7 @@ const PAINS = [
 const STATS = [
   { n: "3 h → 30 min", l: "por expediente", icon: "time", href: rutaDeTarjeta("3 h → 30 min por expediente") },
   { n: "−80 %", l: "errores administrativos", icon: "shield", href: rutaDeTarjeta("−80 % errores administrativos") },
-  { n: "32", l: "formularios y tasas oficiales en un clic", icon: "file", href: rutaDeTarjeta("32 formularios y tasas oficiales en un clic") },
+  { n: "35", l: "formularios y tasas oficiales en un clic", icon: "file", href: rutaDeTarjeta("35 formularios y tasas oficiales en un clic") },
   { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
 ];
 
@@ -49,7 +49,7 @@ function StatIcon({ name }: { name: string }) {
 // 22/08 y su sitio lo ocupa la facturación). Cada tarjeta enlaza a su página explicada.
 const MODULOS = [
   { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
-  { titulo: "Formularios en un clic", desc: "27 modelos EX y las tasas 790-012, 790-052, 790-062, 790-026 y 790-006, rellenados solos y editables. Sin teclear, sin erratas.", icon: "doc" },
+  { titulo: "Formularios en un clic", desc: "27 modelos EX, los 3 de movilidad internacional y las tasas 790-012, 790-052, 790-062, 790-026 y 790-006, rellenados solos y editables.", icon: "doc" },
   { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },
   { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
   { titulo: "Radar de renovaciones", desc: "Cada TIE vigilada. Un clic y la renovación en marcha: ese cliente vuelve a ti.", icon: "radar" },

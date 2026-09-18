@@ -56,8 +56,12 @@ describe.each(ACRO)("%s (AcroForm) · los campos del mapeo existen en el PDF", (
     if (mapa.modo !== "acroform") return;
     const pdf = await PDFDocument.load(await readFile(tpl(code)), { ignoreEncryption: true });
     const present = new Set(pdf.getForm().getFields().map((f) => f.getName()));
+    // Los campos que `reparar` crea (widgets que el impreso oficial repite bajo un mismo
+    // nombre) todavía no existen en el PDF virgen: se comprueba el campo PADRE.
+    const creados = new Map((mapa.reparar ?? []).map((r) => [r.nuevo, r.campo]));
     const refs = [
-      ...Object.values(mapa.texto),
+      ...Object.values(mapa.texto).map((n) => creados.get(n as string) ?? n),
+      ...(mapa.apellidos ? [mapa.apellidos] : []),
       ...Object.values(mapa.checks ?? {}),
       ...Object.values(mapa.estadoCivil ?? {}),
       ...Object.values(mapa.tramiteChecks ?? {}).flat(),
@@ -122,7 +126,9 @@ describe.each(ACRO)("%s (AcroForm) · los datos se escriben en sus casillas", (c
     const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
     const read = (f?: string) => { try { return f ? (form.getTextField(f).getText() ?? "") : null; } catch { return null; } };
     expect(read(mapa.texto.nombre)).toBe("JULIA");
-    expect(read(mapa.texto.apellido1)).toBe("MENDOZA");
+    // Impresos con una sola casilla «Apellidos» (los MI de la Ley 14/2013): los dos juntos.
+    if (mapa.apellidos) expect(read(mapa.apellidos)).toBe("MENDOZA RESTREPO");
+    else expect(read(mapa.texto.apellido1)).toBe("MENDOZA");
     expect(read(mapa.texto.pasaporte)).toBe("AY0429317");
     expect(read(mapa.texto.cp)).toBe("08036");
     if (mapa.checks?.sexoM) expect(form.getCheckBox(mapa.checks.sexoM).isChecked()).toBe(true);

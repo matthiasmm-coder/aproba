@@ -85,10 +85,10 @@ export const BENEFICIOS: Beneficio[] = [
     grupo: "funciones", slug: "formularios-en-un-clic",
     tarjeta: "Formularios en un clic",
     titulo: "Formularios EX y tasas 790 en un clic | Aproba",
-    descripcion: "27 modelos EX y las 5 tasas 790 rellenados con los datos del expediente, editables sobre el impreso oficial. La lista completa, modelo a modelo.",
-    h1: "Formularios en un clic: los 27 EX y las 5 tasas, rellenados solos",
+    descripcion: "30 modelos oficiales y las 5 tasas 790 rellenados con los datos del expediente, editables sobre el impreso. La lista completa, modelo a modelo.",
+    h1: "Formularios en un clic: los 30 modelos y las 5 tasas, rellenados solos",
     entradilla: "Los datos que la IA ha leído en los documentos no se vuelven a teclear: el modelo EX del trámite y su tasa 790 salen del expediente, sobre el impreso oficial vigente, editables campo a campo.",
-    actualizado: "2026-09-13",
+    actualizado: "2026-09-18",
     captura: { w: 1600, h: 933, alt: "Página «Formularios oficiales» de un expediente: EX-17 y EX-13 rellenados, con la tasa 790-012 al lado", pie: "Los formularios generados de una renovación de TIE: EX-17 y EX-13 rellenados y editables, con las tasas 790 disponibles al lado." },
     significa: [
       { t: "p", texto: "Cada servicio del catálogo del despacho lleva asociados sus formularios oficiales. Cuando el expediente tiene la ficha y los documentos, el botón «Generar formularios» produce el PDF del modelo EX correspondiente con las casillas rellenadas —titular, representante, domicilio a efectos de notificaciones, situación— y, al lado, la tasa 790 que toca, también rellenada." },
@@ -96,7 +96,7 @@ export const BENEFICIOS: Beneficio[] = [
         "**Sobre el impreso oficial.** No es una plantilla parecida: es el PDF publicado por el Ministerio, con los datos escritos en sus casillas. Se presenta tal cual.",
         "**Editable.** Cada campo se puede corregir sobre el propio PDF, incluida la página 2 (lugar, fecha, firmante). Si cambias la ficha, regeneras.",
         "**Familias.** En un expediente familiar, un formulario por miembro, con el solicitante y el reagrupante en el sitio correcto.",
-        "**Con su tasa.** 790-012 (Policía), 790-052 y 790-062 (Oficinas de Extranjería: residencia y trabajo) o, en Justicia, 790-026 (nacionalidad) y 790-006 (antecedentes penales), según el trámite ([las 32 piezas](/cifras/32-formularios-y-tasas-oficiales)).",
+        "**Con su tasa.** 790-012 (Policía), 790-052 y 790-062 (Oficinas de Extranjería: residencia y trabajo) o, en Justicia, 790-026 (nacionalidad) y 790-006 (antecedentes penales), según el trámite ([las 35 piezas](/cifras/35-formularios-y-tasas-oficiales)).",
       ] },
     ],
     afirmamos: [
@@ -117,6 +117,11 @@ export const BENEFICIOS: Beneficio[] = [
         ["EX-16", "Cédula de inscripción / título de viaje", "EX-32", "Arraigo DA 21ª — regularización 2026"],
         ["EX-17", "Tarjeta de identidad de extranjero (TIE)", "", ""],
       ], nota: "Los impresos oficiales cambian: Aproba compara periódicamente las versiones publicadas con sus plantillas y actualizamos el modelo cuando cambia. Los formularios ya generados conservan el PDF que se presentó." },
+      { t: "tabla", titulo: "Y los 3 de movilidad internacional (Ley 14/2013)", encabezados: ["Modelo", "Para quién"], filas: [
+        ["MI-T", "Titular: inversor, emprendedor, profesional altamente cualificado, investigador, traslado intraempresarial o teletrabajador internacional"],
+        ["MI-TIE", "Tarjeta de identidad de extranjero del titular de movilidad internacional"],
+        ["MI-F", "Familiares del titular (cónyuge, pareja, hijos, ascendientes a cargo)"],
+      ], nota: "Estos tres se presentan en la sede del Ministerio de Inclusión (Unidad de Grandes Empresas), no en la Oficina de Extranjería. Su tasa, la 790-038, hay que sacarla en esa sede con certificado o Cl@ve: Aproba rellena los modelos, no genera esa tasa." },
       { t: "ul", items: [
         `**Genera uno tú.** ${PRUEBA} Pulsa «Generar formularios» y abre el PDF: verás las casillas rellenadas y podrás editarlas.`,
         "**Cada dato tiene origen.** Lo que aparece en el EX viene de la ficha, y lo que hay en la ficha viene de un documento leído o de lo que escribió el gestor. No hay un tercer sitio donde se teclee.",
@@ -371,20 +376,20 @@ export const BENEFICIOS: Beneficio[] = [
     ],
   },
   {
-    grupo: "cifras", slug: "32-formularios-y-tasas-oficiales",
-    tarjeta: "32 formularios y tasas oficiales en un clic",
-    titulo: "32 formularios y tasas oficiales en un clic: la lista | Aproba",
-    descripcion: "Los 27 modelos EX y las 5 tasas 790 (012, 052, 062, 026, 006) que Aproba genera desde el expediente, uno por uno, y qué trámite corresponde a cada uno.",
-    h1: "32 formularios y tasas oficiales: los 27 EX y las 5 tasas, uno por uno",
-    entradilla: "Veintisiete son modelos EX de la serie vigente; cinco son las tasas 790 que acompañan a esos trámites. Aquí está la lista completa, para que «32» no sea un número redondo sino una cuenta.",
-    actualizado: "2026-09-13",
+    grupo: "cifras", slug: "35-formularios-y-tasas-oficiales",
+    tarjeta: "35 formularios y tasas oficiales en un clic",
+    titulo: "35 formularios y tasas oficiales en un clic: la lista | Aproba",
+    descripcion: "Los 27 modelos EX, los 3 de la Ley 14/2013 y las 5 tasas 790 que Aproba genera desde el expediente, uno por uno, con su trámite.",
+    h1: "35 formularios y tasas oficiales: los 30 modelos y las 5 tasas, uno por uno",
+    entradilla: "Veintisiete son modelos EX de la serie vigente, tres son los de movilidad internacional de la Ley 14/2013 y cinco son las tasas 790 que acompañan a esos trámites. Aquí está la lista completa, para que «35» no sea un número redondo sino una cuenta.",
+    actualizado: "2026-09-18",
     significa: [
       { t: "datos", items: [
-        { valor: "27", etiqueta: "modelos EX sobre el impreso oficial" },
+        { valor: "30", etiqueta: "modelos oficiales: 27 EX y 3 de la Ley 14/2013" },
         { valor: "5", etiqueta: "tasas 790: 012, 052, 062, 026 y 006" },
-        { valor: "32", etiqueta: "piezas rellenadas desde el expediente" },
+        { valor: "35", etiqueta: "piezas rellenadas desde el expediente" },
       ] },
-      { t: "p", texto: "La lista de los 27 modelos EX, con su trámite, está en la página de [formularios en un clic](/funciones/formularios-en-un-clic). Las cinco tasas:" },
+      { t: "p", texto: "La lista de los 27 modelos EX, con su trámite, está en la página de [formularios en un clic](/funciones/formularios-en-un-clic). Los tres de movilidad internacional (Ley 14/2013, Unidad de Grandes Empresas y Colectivos Estratégicos) son el MI-T del titular, el MI-TIE de su tarjeta y el MI-F de sus familiares. Las cinco tasas:" },
       { t: "tabla", titulo: "Las cinco tasas", encabezados: ["Tasa", "Organismo", "Trámites habituales", "Cómo la genera Aproba"], filas: [
         ["790-012", "Ministerio del Interior (Policía)", "TIE inicial y renovaciones, certificados, autorización de regreso", "Impreso oficial rellenado, campos editables"],
         ["790-052", "Oficinas de Extranjería (Delegaciones del Gobierno)", "Autorizaciones de residencia y de residencia y trabajo, arraigos, reagrupación", "Impreso oficial rellenado, campos editables"],
@@ -395,9 +400,9 @@ export const BENEFICIOS: Beneficio[] = [
     ],
     afirmamos: [
       { t: "ul", items: [
-        "**Cada pieza existe y se puede abrir.** Los 27 PDF oficiales están en la plataforma con su versión vigilada; las cinco tasas se generan desde el expediente. En la cuenta de prueba se ven todas en la lista de formularios del expediente de ejemplo.",
+        "**Cada pieza existe y se puede abrir.** Los 30 PDF oficiales están en la plataforma con su versión vigilada; las cinco tasas se generan desde el expediente. En la cuenta de prueba se ven todas en la lista de formularios del expediente de ejemplo.",
         "**El trámite decide.** No hay que saber qué modelo toca: el servicio del catálogo lleva asociados su EX y su tasa; el gestor puede añadir otro a mano.",
-        "**Lo que falta, se dice.** El EX-30 sigue fuera: el Ministerio no lo publica en su página de modelos generales. Tampoco está la tasa 790-038 de la Ley 14/2013 (visado de emprendedores, nómadas digitales, traslados intraempresariales): su impreso solo se obtiene identificándose con certificado digital o Cl@ve en la sede del Ministerio de Inclusión, y eso no se puede hacer desde un servidor.",
+        "**Lo que falta, se dice.** El EX-30 sigue fuera: el Ministerio no lo publica en su página de modelos generales. Y la tasa 790-038, la que acompaña a los tres modelos de movilidad internacional, no la genera Aproba: su impreso solo se obtiene identificándose con certificado digital o Cl@ve en la sede del Ministerio de Inclusión, y eso no lo puede hacer un servidor por el despacho. Los modelos sí salen rellenados; la tasa la saca el gestor en la sede.",
       ] },
     ],
     faq: [

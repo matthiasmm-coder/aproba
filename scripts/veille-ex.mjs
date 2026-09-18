@@ -18,6 +18,13 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 const PAGE = "https://www.inclusion.gob.es/web/migraciones/modelos-generales";
+// Los modelos de la Ley 14/2013 están en otra página y su URL no se deduce del código.
+const PAGE_MI = "https://www.inclusion.gob.es/web/migraciones/modelos-de-solicitudes-de-la-ley-14/2013";
+const SLUG_MI = {
+  "MI-T": "modelo-de-solicitud-de-autorizacion-de-residencia-titulares",
+  "MI-TIE": "modelo-de-solicitud-de-la-tarjeta-de-identidad-de-extranjero",
+  "MI-F": "modelo-de-solicitud-autorizacion-de-residencia-de-familiares",
+};
 const BASE = "https://www.inclusion.gob.es";
 // ⚠️ UA de navigateur : avec un UA « bot » le ministère répond 403 + une page HTML,
 // que la veille hachait comme si c'était le PDF → fausses alertes (17/08/2026).
@@ -65,8 +72,23 @@ async function snapshot() {
   const codes = Object.keys(JSON.parse(await readFile(FP_PATH, "utf8"))).sort();
   const html = (await getBuf(PAGE)).toString("utf8");
   const hrefs = [...new Set([...html.matchAll(/href="(\/documents\/d\/migraciones\/ex[0-9]{2}[^"]*)"/gi)].map((m) => m[1]))];
+  let hrefsMi = null;
   const snap = {};
   for (const code of codes) {
+    if (SLUG_MI[code]) {
+      if (!hrefsMi) {
+        const htmlMi = (await getBuf(PAGE_MI)).toString("utf8");
+        hrefsMi = [...new Set([...htmlMi.matchAll(/href="(\/documents\/d\/migraciones\/[^"]+)"/gi)].map((m) => m[1]))];
+      }
+      const items = [];
+      for (const h of hrefsMi.filter((h) => (h.split("/").pop() ?? "") === SLUG_MI[code]).sort()) {
+        const buf = await getBuf(BASE + h);
+        const hs = await huellaSemantica(buf);
+        items.push({ slug: h, sha256: sha(buf), bytes: buf.length, esPdf: Boolean(hs), semantica: hs?.sha ?? null, textos: hs?.textos ?? null, paginas: hs?.paginas ?? null });
+      }
+      snap[code] = items;
+      continue;
+    }
     const n = code.slice(3);
     const cands = hrefs
       .filter((h) => { const s = h.split("/").pop(); return new RegExp("^ex" + n + "([^0-9]|$)", "i").test(s) && !/editable/i.test(s); })

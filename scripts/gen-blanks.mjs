@@ -16,7 +16,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 
 const helv = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
 const r1 = (v) => Math.round(v * 10) / 10;
-const ACROFORM = new Set(["EX-10", "EX-25"]);
+const ACROFORM = new Set(["EX-10", "EX-25", "MI-T", "MI-TIE", "MI-F"]);
 const BORDE = 545;
 const FILAS_SIN = /^(Sexo|Estado civil|X\s*\*?|H|M|S|C|V|D|Sp)$|^X\(\*\)/;
 

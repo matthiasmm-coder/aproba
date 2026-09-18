@@ -17,10 +17,13 @@ describe("cifras de la landing", () => {
     expect(Number(m![1])).toBe(formulariosOficiales().length + TASAS.length);
   });
 
-  it("el módulo «Formularios en un clic» anuncia los modelos EX que existen y las cuatro tasas", () => {
-    const m = /desc: "(\d+) modelos EX y las tasas ([^"]+)"/.exec(home);
+  it("el módulo «Formularios en un clic» anuncia los modelos que existen y todas las tasas", () => {
+    const m = /desc: "(\d+) modelos EX, los (\d+) de movilidad internacional y las tasas ([^"]+)"/.exec(home);
     expect(m, "no se encuentra el módulo de formularios en app/page.tsx").toBeTruthy();
-    expect(Number(m![1])).toBe(formulariosOficiales().length);
-    for (const t of TASAS) expect(m![2], `la landing no menciona la tasa ${t}`).toContain(t);
+    // Dos familias distintas: los EX de extranjería general y los MI de la Ley 14/2013.
+    // Contarlos juntos como «modelos EX» sería mentir sobre lo que hay.
+    expect(Number(m![1])).toBe(formulariosOficiales().filter((c) => c.startsWith("EX-")).length);
+    expect(Number(m![2])).toBe(formulariosOficiales().filter((c) => c.startsWith("MI-")).length);
+    for (const t of TASAS) expect(m![3], `la landing no menciona la tasa ${t}`).toContain(t);
   });
 });

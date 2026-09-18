@@ -124,6 +124,12 @@ for (const code of formulariosOficiales().filter((c) => FORMS[c].modo === "acrof
       try { const got = form.getTextField(fieldName).getText(); if (got !== v) fails.push(`${code} ${k}: "${got}" != "${v}"`); }
       catch { fails.push(`${code} ${k}: champ "${fieldName}" absent`); }
     }
+    // Impresos con UNA casilla «Apellidos» (los MI): los dos, separados por un espacio.
+    if (mapa.apellidos) {
+      const esperado = [S.apellido1, S.apellido2].filter(Boolean).join(" ");
+      try { const got = form.getTextField(mapa.apellidos).getText(); if (got !== esperado) fails.push(`${code} apellidos: "${got}" != "${esperado}"`); }
+      catch { fails.push(`${code} apellidos: champ "${mapa.apellidos}" absent`); }
+    }
     const cb = (n, want, tag) => { try { if (form.getCheckBox(n).isChecked() !== want) fails.push(`${code} ${tag}: case ${n} != ${want}`); } catch { fails.push(`${code} ${tag}: case ${n} absente`); } };
     cb(mapa.checks.sexoM, true, "sexo M"); cb(mapa.checks.sexoH, false, "sexo H");
     if (mapa.estadoCivil) cb(mapa.estadoCivil.D, true, "estadoCivil D");

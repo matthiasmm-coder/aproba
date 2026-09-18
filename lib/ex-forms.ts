@@ -2,7 +2,7 @@ import "server-only";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb, TextAlignment, PDFName, PDFString, PDFTextField, type PDFForm } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, TextAlignment, PDFName, PDFString, PDFTextField, type PDFDict, type PDFForm } from "pdf-lib";
 import type { DatosForm } from "./formularios";
 import { readFileSync } from "node:fs";
 
@@ -31,6 +31,14 @@ type MapaAcro = {
   tramiteChecks?: Record<string, string[]>; // tipoEnum → cases à cocher (pág.2)
   // EX-25 : « Representante legal, en su caso » (nom + DNI/NIE/PAS) = padre/madre/tutor du mineur.
   representante?: { nombre: string; documento: string };
+  // Impresos con UNA sola casilla «Apellidos» (los MI de la Ley 14/2013): los dos
+  // apellidos van juntos. Si está, manda sobre texto.apellido1/apellido2.
+  apellidos?: string;
+  // Impresos oficiales con el MISMO nombre de campo en DOS casillas distintas (defecto
+  // del PDF del Ministerio: en la MI-F, «Nombre de la madre» y «Localidad» comparten
+  // «Texto43»). Antes de rellenar se separa el widget indicado en un campo propio, para
+  // que cada casilla reciba SU dato — y siga siendo editable.
+  reparar?: { campo: string; indice: number; nuevo: string }[];
 };
 type MapaOverlay = {
   modo: "overlay";
@@ -212,6 +220,77 @@ export const FORMS: Record<string, Mapa> = {
       ARRAIGO_LABORAL: ["RESIDENCIA INICIAL", "Arraigo Laboral art 1241"],
       ARRAIGO_FAMILIAR: ["RESIDENCIA INICIAL", "Arraigo Familiar art 1243"],
     },
+  },
+
+  // ── Movilidad internacional · Ley 14/2013 (UGE-CE) — pedidos por Luis el 18/09/2026 ──
+  // Otro régimen: inversores, emprendedores, profesionales altamente cualificados,
+  // investigadores, traslados intraempresariales y teletrabajadores internacionales. Se
+  // presentan en la sede del Ministerio de Inclusión, no en la Oficina de Extranjería, y
+  // su tasa es la 790-038 (que NO podemos generar: exige certificado o Cl@ve).
+  // Campos con nombres opacos («Texto39»): mapeados por posición contra los rótulos
+  // impresos con scripts/probe-campos-acroform.mjs. Solo se rellena el bloque de datos
+  // personales; el tipo de autorización lo marca el gestor sobre el PDF, que va editable.
+
+  // MI-T — titular (una sola casilla «Apellidos», con «Lugar de nacimiento»).
+  "MI-T": {
+    modo: "acroform",
+    texto: {
+      pasaporte: "Texto39", nie1: "Texto40", nie2: "Texto41", nie3: "Texto42",
+      nombre: "Texto44", lugarNac: "Texto45",
+      fechaD: "Texto46", fechaM: "Texto47", fechaA: "Texto48",
+      paisNac: "Texto49", nacionalidad: "Texto50",
+      nombrePadre: "Texto51", nombreMadre: "Texto52",
+      domicilio: "Texto53", numero: "Texto54", piso: "Texto55",
+      localidad: "Texto56", cp: "Texto57", provincia: "Texto58",
+      telefono: "Texto60", email: "Texto61",
+    },
+    apellidos: "Texto43",
+    checks: { sexoH: "Casilla de verificación27", sexoM: "Casilla de verificación28" },
+    estadoCivil: { S: "Casilla de verificación29", C: "Casilla de verificación30", V: "Casilla de verificación31", D: "Casilla de verificación32", Sp: "Casilla de verificación33" },
+  },
+
+  // MI-TIE — tarjeta de identidad de extranjero de la Ley 14/2013. Este sí separa
+  // «1er Apellido» y «2º Apellido», y no tiene «Lugar de nacimiento» (solo País).
+  "MI-TIE": {
+    modo: "acroform",
+    texto: {
+      pasaporte: "Texto21", nie1: "Texto22", nie2: "Texto23", nie3: "Texto24",
+      apellido1: "Texto25", apellido2: "Texto26", nombre: "Texto27",
+      fechaD: "Texto28", fechaM: "Texto29", fechaA: "Texto30",
+      paisNac: "Texto31", nacionalidad: "Texto32",
+      nombrePadre: "Texto33", nombreMadre: "Texto34",
+      domicilio: "Texto35", numero: "Texto36", piso: "Texto37",
+      localidad: "Texto38", cp: "Texto39", provincia: "Texto40",
+      telefono: "Texto42", email: "Texto43",
+    },
+    checks: { sexoH: "Casilla de verificación20", sexoM: "Casilla de verificación21" },
+    estadoCivil: { S: "Casilla de verificación22", C: "Casilla de verificación23", V: "Casilla de verificación24", D: "Casilla de verificación25", Sp: "Casilla de verificación26" },
+  },
+
+  // MI-F — familiar. ⚠️ El PDF oficial repite CUATRO nombres de campo en dos casillas
+  // distintas (Texto43 = «Nombre de la madre» Y «Localidad», etc.): sin separarlos, el
+  // nombre de la madre se imprimiría también en la localidad. De ahí `reparar`.
+  "MI-F": {
+    modo: "acroform",
+    reparar: [
+      { campo: "Texto43", indice: 1, nuevo: "Texto43_localidad" },
+      { campo: "Texto44", indice: 1, nuevo: "Texto44_cp" },
+      { campo: "Texto45", indice: 1, nuevo: "Texto45_provincia" },
+      { campo: "Texto46", indice: 1, nuevo: "Texto46_paisResidencia" },
+    ],
+    texto: {
+      pasaporte: "Texto30", nie1: "Texto31", nie2: "Texto32", nie3: "Texto33",
+      nombre: "Texto35", lugarNac: "Texto36",
+      fechaD: "Texto37", fechaM: "Texto38", fechaA: "Texto39",
+      paisNac: "Texto40", nacionalidad: "Texto41",
+      nombrePadre: "Texto42", nombreMadre: "Texto43",
+      domicilio: "Texto44", numero: "Texto45", piso: "Texto46",
+      localidad: "Texto43_localidad", cp: "Texto44_cp", provincia: "Texto45_provincia",
+      telefono: "Texto47", email: "Texto48",
+    },
+    apellidos: "Texto34",
+    checks: { sexoH: "Casilla de verificación21", sexoM: "Casilla de verificación22" },
+    estadoCivil: { S: "Casilla de verificación23", C: "Casilla de verificación24", V: "Casilla de verificación25", D: "Casilla de verificación26", Sp: "Casilla de verificación27" },
   },
 };
 
@@ -493,6 +572,9 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-29": "Prórroga de estancia de corta duración",
   "EX-21": "Familiar de británico art. 50 TUE",
   "EX-22": "Trabajador fronterizo del Reino Unido",
+  "MI-T": "Movilidad internacional · titular (Ley 14/2013)",
+  "MI-TIE": "Movilidad internacional · TIE (Ley 14/2013)",
+  "MI-F": "Movilidad internacional · familiar (Ley 14/2013)",
 };
 export const formulariosDisponibles = (): { code: string; label: string }[] =>
   Object.keys(FORMS).sort().map((code) => ({ code, label: FORM_LABEL[code] ?? code }));
@@ -515,6 +597,9 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   autorizacion_regreso: ["EX-13"], regreso: ["EX-13"],
   brexit: ["EX-23", "EX-20", "EX-21", "EX-22"],
   modificacion: ["EX-26"],
+  // Ley 14/2013 (UGE-CE): titular, su TIE y sus familiares.
+  ley_14_2013: ["MI-T", "MI-TIE", "MI-F"], movilidad_internacional: ["MI-T", "MI-TIE", "MI-F"],
+  nomada_digital: ["MI-T", "MI-TIE", "MI-F"], teletrabajador: ["MI-T", "MI-TIE", "MI-F"],
   arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
 };
 
@@ -567,6 +652,31 @@ export function formulariosDelTramite(tipoEnum: string, claves?: string | (strin
 // Le /DA doit tenir sur UNE SEULE LIGNE : pdf-lib l'écrit « rg\n/Helvetica 7 Tf » et le
 // saut de ligne casse la lecture par PDFKit (taille ET couleur).
 // À appeler APRÈS updateFieldAppearances, qui réécrit sinon ce qu'on vient de poser.
+// pdf-lib escribe «/Helvetica N Tf» en el /DA de cada campo que toca, pero los impresos
+// del Ministerio solo declaran «/Helv» en sus recursos (/DR). Mientras nadie edite, se ve
+// bien (la apariencia ya está dibujada); en cuanto el gestor escribe en una casilla, el
+// visor regenera esa apariencia y no encuentra la fuente. Se devuelve el nombre real.
+function normalizarFuenteDA(form: PDFForm) {
+  let nombre = "Helv";
+  try {
+    const dr = form.acroForm.dict.context.lookup(form.acroForm.dict.get(PDFName.of("DR"))) as { get(k: unknown): unknown } | undefined;
+    const fuentes = dr ? form.acroForm.dict.context.lookup(dr.get(PDFName.of("Font")) as Parameters<typeof form.acroForm.dict.context.lookup>[0]) as { keys(): Iterable<unknown> } | undefined : undefined;
+    const claves = fuentes ? [...fuentes.keys()].map((k) => String(k).replace(/^\//, "")) : [];
+    const helv = claves.find((k) => /^Helv/i.test(k));
+    if (helv) nombre = helv; else if (claves.length) nombre = claves[0];
+  } catch { /* sin /DR legible: se queda con Helv, que es el nombre estándar */ }
+  for (const f of form.getFields()) {
+    if (!(f instanceof PDFTextField)) continue;
+    const da = f.acroField.getDefaultAppearance?.();
+    if (!da || !/\/Helvetica\s/.test(da)) continue;
+    const linea = da.replace(/\/Helvetica(\s)/g, `/${nombre}$1`);
+    try {
+      f.acroField.setDefaultAppearance(linea);
+      for (const w of f.acroField.getWidgets()) if (w.dict.get(PDFName.of("DA"))) w.dict.set(PDFName.of("DA"), PDFString.of(linea));
+    } catch { /* un campo sin /DA propio no necesita nada */ }
+  }
+}
+
 function sellarDA(form: PDFForm) {
   for (const f of form.getFields()) {
     if (!/^[fbm]_/.test(f.getName())) continue; // seulement NOS champs
@@ -577,6 +687,14 @@ function sellarDA(form: PDFForm) {
     f.acroField.setDefaultAppearance(linea);
     for (const w of f.acroField.getWidgets()) w.dict.set(PDFName.of("DA"), PDFString.of(linea));
   }
+}
+
+// Cuerpo de un campo AcroForm según lo ancho que sea su casilla. Los impresos del
+// Ministerio mezclan créneaux de 12 pt (día/mes) con otros de 350 pt: un tamaño fijo
+// corta unos o deja los otros minúsculos.
+function cuerpoSegunAncho(f: PDFTextField): number {
+  const w = f.acroField.getWidgets()[0]?.getRectangle().width ?? 100;
+  return w < 18 ? 6 : w < 22 ? 7 : 9;
 }
 
 export async function rellenarOficial(
@@ -591,13 +709,40 @@ export async function rellenarOficial(
 
   if (mapa.modo === "acroform") {
     const form = pdf.getForm();
+    // Casillas que comparten nombre en el impreso oficial: el widget sobrante se convierte
+    // en su propio campo (hereda /FT y /DA del padre, recibe un /T nuevo) antes de escribir.
+    for (const r of mapa.reparar ?? []) {
+      try {
+        const padre = form.getTextField(r.campo).acroField;
+        const kids = padre.dict.get(PDFName.of("Kids")) as { asArray(): unknown[]; remove(i: number): void } | undefined;
+        const refs = kids?.asArray() ?? [];
+        if (refs.length <= r.indice) continue;
+        const ref = refs[r.indice] as Parameters<typeof pdf.context.lookup>[0];
+        const w = pdf.context.lookup(ref) as PDFDict;
+        const ft = padre.dict.get(PDFName.of("FT"));
+        if (ft) w.set(PDFName.of("FT"), ft);
+        const da = padre.dict.get(PDFName.of("DA"));
+        if (da && !w.get(PDFName.of("DA"))) w.set(PDFName.of("DA"), da);
+        w.set(PDFName.of("T"), PDFString.of(r.nuevo));
+        w.delete(PDFName.of("Parent"));
+        kids?.remove(r.indice);
+        (pdf.context.lookup(form.acroForm.dict.get(PDFName.of("Fields"))) as { push(x: unknown): void } | undefined)?.push(ref);
+      } catch { /* impreso cambiado: mejor un campo sin rellenar que un PDF roto */ }
+    }
     const marcar = (n?: string) => { if (n) try { form.getCheckBox(n).check(); } catch { /* ignore */ } };
     for (const [key, fieldName] of Object.entries(mapa.texto)) {
       const value = (datos[key as keyof DatosForm] as string) || "";
       if (!value || !fieldName) continue;
       // limpiar: un nombre en cirílico/árabe/chino (lo habitual en extranjería) fuera de
       // WinAnsi haría lanzar a pdf-lib al regenerar apariencias y mataría TODO el PDF.
-      try { const f = form.getTextField(fieldName); f.setText(limpiar(value)); f.setFontSize(9); } catch { /* champ absent */ }
+      // Cuerpo según el ancho de la casilla: en los MI hay créneaux de 12-15 pt (el mes de
+      // la fecha de nacimiento) donde un 9 pt corta el segundo dígito.
+      try { const f = form.getTextField(fieldName); f.setText(limpiar(value)); f.setFontSize(cuerpoSegunAncho(f)); } catch { /* champ absent */ }
+    }
+    // Una sola casilla «Apellidos» (MI-T, MI-F): los dos, separados por un espacio.
+    if (mapa.apellidos) {
+      const dos = [datos.apellido1, datos.apellido2].map((v) => (v ?? "").trim()).filter(Boolean).join(" ");
+      if (dos) try { const f = form.getTextField(mapa.apellidos); f.setText(limpiar(dos)); f.setFontSize(cuerpoSegunAncho(f)); } catch { /* campo ausente */ }
     }
     if (datos.sexo === "X") marcar(mapa.checks?.sexoX);
     if (datos.sexo === "H") marcar(mapa.checks?.sexoH);
@@ -611,7 +756,7 @@ export async function rellenarOficial(
       const docRep = pt.nie1 ? `${pt.nie1}${pt.nie2}${pt.nie3}` : pt.pasaporte;
       for (const [campo, valor] of [[mapa.representante.nombre, nombreRep], [mapa.representante.documento, docRep]] as const) {
         if (!valor) continue;
-        try { const f = form.getTextField(campo); f.setText(limpiar(valor)); f.setFontSize(9); } catch { /* campo ausente */ }
+        try { const f = form.getTextField(campo); f.setText(limpiar(valor)); f.setFontSize(cuerpoSegunAncho(f)); } catch { /* campo ausente */ }
       }
     }
     // p.2 «Nombre y apellidos del titular» (se repite): campo AcroForm existente, sin rellenar.
@@ -625,8 +770,7 @@ export async function rellenarOficial(
       // chiffre. Corps explicite partout, adapté à la largeur (le nom /Helv est dans /DR).
       for (const f of form.getFields()) {
         if (!(f instanceof PDFTextField) || f.getName().startsWith("f_")) continue;
-        const w = f.acroField.getWidgets()[0]?.getRectangle().width ?? 100;
-        try { f.setFontSize(w < 18 ? 6 : w < 22 ? 7 : 9); } catch { /* champ sans /DA */ }
+        try { f.setFontSize(cuerpoSegunAncho(f)); } catch { /* champ sans /DA */ }
       }
       const font = await pdf.embedFont(StandardFonts.Helvetica);
       const pg2 = pdf.getPages()[1];
@@ -638,6 +782,7 @@ export async function rellenarOficial(
       }
     }
     try { form.updateFieldAppearances(); } catch { /* ignore */ }
+    normalizarFuenteDA(form);
     if (opts?.editable) sellarDA(form);
     return pdf.save();
   }

@@ -10,8 +10,18 @@ import { createHash } from "node:crypto";
 // scripts/veille-ex-official.json. Sin dependencias externas (fetch + node:crypto).
 
 const PAGE = "https://www.inclusion.gob.es/web/migraciones/modelos-generales";
+// Los modelos de la Ley 14/2013 (MI-T, MI-TIE, MI-F) viven en otra página del Ministerio
+// y su URL no se deduce del código: se vigilan por slug exacto.
+const PAGE_MI = "https://www.inclusion.gob.es/web/migraciones/modelos-de-solicitudes-de-la-ley-14/2013";
+const SLUG_MI: Record<string, string> = {
+  "MI-T": "modelo-de-solicitud-de-autorizacion-de-residencia-titulares",
+  "MI-TIE": "modelo-de-solicitud-de-la-tarjeta-de-identidad-de-extranjero",
+  "MI-F": "modelo-de-solicitud-autorizacion-de-residencia-de-familiares",
+};
 const BASE = "https://www.inclusion.gob.es";
-const UA = { "user-agent": "Mozilla/5.0 (Aproba veille-ex)" };
+// ⚠️ UA de navegador: con un UA «bot» el Ministerio responde 403 y una página HTML, que
+// la vigilancia hacheaba como si fuera el PDF (falsas alertas, 17/08/2026).
+const UA = { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36", "accept": "application/pdf,text/html,*/*" };
 
 const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -37,8 +47,20 @@ export async function snapshot(codes: string[]): Promise<Snap> {
   const hrefs = [...new Set(
     [...html.matchAll(/href="(\/documents\/d\/migraciones\/ex[0-9]{2}[^"]*)"/gi)].map((m) => m[1]),
   )];
+  let hrefsMi: string[] | null = null;
   const snap: Snap = {};
   for (const code of codes) {
+    if (SLUG_MI[code]) {
+      if (!hrefsMi) {
+        const htmlMi = (await getBuf(PAGE_MI)).toString("utf8");
+        hrefsMi = [...new Set([...htmlMi.matchAll(/href="(\/documents\/d\/migraciones\/[^"]+)"/gi)].map((m) => m[1]))];
+      }
+      const cands = hrefsMi.filter((h) => (h.split("/").pop() ?? "") === SLUG_MI[code]).sort();
+      const items: Item[] = [];
+      for (const h of cands) { const buf = await getBuf(BASE + h); items.push({ slug: h, sha256: sha(buf), bytes: buf.length }); }
+      snap[code] = items;
+      continue;
+    }
     const n = code.slice(3); // "EX-01" -> "01"
     const cands = hrefs
       .filter((h) => {
