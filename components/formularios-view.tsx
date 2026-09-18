@@ -16,10 +16,11 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [] }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [], presentaInicial = false }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   faltaDespacho?: string[]; // datos del despacho que faltan para el bloque «representante a efectos de presentación»
+  presentaInicial?: boolean; // ¿el despacho presenta este expediente como representante?
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
@@ -31,6 +32,16 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
   // Familia: selección POR miembro (modelos de SUS servicios); el añadido manual elige miembro.
+  // «Presento yo como representante»: decide si el formulario lleva la sección del
+  // despacho. Por defecto NO —es lo que ha hecho Aproba siempre y nadie lo ha echado en
+  // falta—; quien representa lo activa aquí y se recuerda para este expediente.
+  const [presenta, setPresenta] = useState(presentaInicial);
+  async function cambiarPresenta(valor: boolean) {
+    setPresenta(valor);
+    try { await fetch(`/api/expedientes/${exp.id}/representante`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ valor }) }); }
+    catch { /* sin memoria: la descarga sigue llevando ?rep en el enlace */ }
+  }
+
   const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
   const union = applicants.length ? [...new Set(Object.values(selMiembro).flat())] : seleccion;
   // Casilla de trámite de la p.2 elegida por modelo ("" = automático, según el trámite).
@@ -48,7 +59,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   const esFamilia = applicants.length > 0;
   const porAñadir = todos.filter((x) => !seleccion.includes(x.code));
   const urlOficial = (tipo: string, clienteId?: string) =>
-    `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial${clienteId ? `&clienteId=${clienteId}` : ""}${p2Sel[tipo] ? `&p2=${encodeURIComponent(p2Sel[tipo])}` : ""}`;
+    `/api/expedientes/${exp.id}/formularios?tipo=${encodeURIComponent(tipo)}&modo=oficial${clienteId ? `&clienteId=${clienteId}` : ""}${p2Sel[tipo] ? `&p2=${encodeURIComponent(p2Sel[tipo])}` : ""}&rep=${presenta ? 1 : 0}`;
   const quitar = (tipo: string) => {
     setSeleccion((s) => s.filter((x) => x !== tipo));
     // Quitar el modelo también olvida su casilla p.2 (si no, reaparecería al re-añadirlo).
@@ -134,7 +145,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
 
       {/* El bloque «Representante a efectos de presentación» del formulario: el despacho
           (petición de Andrés de Ceballos, 18/09/2026). Bloque aparte, no anidado. */}
-      {faltaDespacho.length > 0 && (
+      {presenta && faltaDespacho.length > 0 && (
         <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
           {t("Faltan datos del despacho: el apartado del representante que presenta saldrá en blanco.")}{" "}
           <Link href="/app/ajustes" className="font-semibold underline underline-offset-2 hover:text-amber-950">
@@ -150,6 +161,18 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
             ? t("Un juego de formularios por cada solicitante, rellenado con SUS datos. Revisa y firma antes de presentar.")
             : t("Rellenamos los datos de la persona extranjera. Revisa, marca el tipo de trámite y firma antes de presentar.")}
         </p>
+
+        {/* El impreso trae una sección para el representante que PRESENTA la solicitud.
+            Se rellena solo si el gestor dice que es él: en la mayoría de expedientes no lo
+            es, y hasta ahora esa sección salía siempre en blanco (Matthias, 18/09/2026). */}
+        <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <input type="checkbox" checked={presenta} onChange={(e) => cambiarPresenta(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+          <span className="text-sm text-slate-700">
+            {t("Presento yo la solicitud como representante")}
+            <span className="block text-xs text-slate-500">{t("Añade al formulario el apartado del representante con los datos del despacho.")}</span>
+          </span>
+        </label>
 
         {/* Gestión del conjunto de formularios (chips con quitar). En familia se gestiona
             POR miembro más abajo — la fila global desaparece (pedido de Matthias). */}

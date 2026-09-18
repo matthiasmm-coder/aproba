@@ -125,8 +125,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const p2o = await fetchP2Overrides(admin, id);
       const tramiteDe = (code: string) => p2o[code] ?? exp.tipoEnum;
       // Bloque del despacho que presenta: el ZIP lleva los mismos PDF que la pestaña Formularios.
-      const { fetchPresentador } = await import("@/lib/data/presentador");
-      const presentador = await fetchPresentador(supabase, exp.oficinaId).catch(() => null);
+      const { fetchPresentador, fetchPresentaGestor } = await import("@/lib/data/presentador");
+      const presentador = (await fetchPresentaGestor(supabase, id).catch(() => false))
+        ? await fetchPresentador(supabase, exp.oficinaId).catch(() => null) : null;
       const conPres = (x?: Record<string, unknown>) => (presentador ? { ...(x ?? {}), presentador } : x);
       if (solicitantes.length) {
         for (const s of solicitantes) {

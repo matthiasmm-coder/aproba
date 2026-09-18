@@ -72,11 +72,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const { fetchP2Overrides } = await import("@/lib/p2-overrides");
   const p2o = await fetchP2Overrides(createSupabaseAdmin(), exp.id);
   // Bloque del despacho que presenta: el cliente descarga el MISMO formulario que el gestor.
-  const { fetchPresentadorDeWorkspace } = await import("@/lib/data/presentador");
+  const { fetchPresentadorDeWorkspace, fetchPresentaGestor } = await import("@/lib/data/presentador");
   const adminWs = createSupabaseAdmin();
   const { data: wsRow } = await adminWs.from("Expediente").select("workspaceId, oficinaId").eq("id", exp.id).maybeSingle();
   const w = wsRow as { workspaceId?: string; oficinaId?: string | null } | null;
-  const presentador = w?.workspaceId ? await fetchPresentadorDeWorkspace(adminWs, w.workspaceId, w.oficinaId ?? null).catch(() => null) : null;
+  const presentador = w?.workspaceId && await fetchPresentaGestor(adminWs, exp.id)
+    ? await fetchPresentadorDeWorkspace(adminWs, w.workspaceId, w.oficinaId ?? null).catch(() => null) : null;
   const pdf = await rellenarOficial(tipo, datos, p2o[tipo] ?? exp.tipoEnum, presentador ? { ...(extra ?? {}), presentador } : extra);
   if (!pdf) return NextResponse.json({ error: "Formulario no disponible." }, { status: 404 });
 

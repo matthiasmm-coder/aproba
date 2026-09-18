@@ -27,8 +27,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   for (const k of FICHA_KEYS) { const v = c[k]; if (typeof v === "string" && v) ficha[k] = v; }
   const nombreCompleto = `${c.nombre ?? ""} ${c.apellidos ?? ""}`.trim();
 
-  // Bloque del despacho que presenta (sede del cliente si la tiene).
-  const presentador = await fetchPresentador(supabase, c.oficinaId);
+  // Bloque del despacho que presenta. Aquí no hay expediente donde guardar la decisión:
+  // va por query (?rep=1), con la sección en blanco por defecto.
+  const presentador = new URL(req.url).searchParams.get("rep") === "1" ? await fetchPresentador(supabase, c.oficinaId) : null;
   const pdf = await rellenarOficial(tipo, datosDeCliente(ficha as ClienteFicha, nombreCompleto, c.telefono, c.email), undefined, presentador ? { presentador } : undefined, { editable: true });
   if (!pdf) return NextResponse.json({ error: "Formulario oficial no disponible para este modelo." }, { status: 404 });
 

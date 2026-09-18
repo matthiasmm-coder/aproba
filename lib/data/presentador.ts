@@ -49,3 +49,15 @@ export async function fetchPresentadorDeWorkspace(
   }
   return presentadorDe(ws.data as FuentePresentador, oficina);
 }
+
+// ¿El despacho presenta este expediente como representante? Decisión por expediente
+// (interruptor de la pantalla Formularios). Defensivo: sin la migración
+// supabase/presenta-gestor.sql la columna no existe → false, que es el comportamiento
+// de siempre (sección en blanco). Nunca rompe la descarga.
+export async function fetchPresentaGestor(sb: SupabaseClient, expedienteId: string): Promise<boolean> {
+  try {
+    const { data, error } = await sb.from("Expediente").select("presentaGestor").eq("id", expedienteId).maybeSingle();
+    if (error || !data) return false;
+    return Boolean((data as { presentaGestor?: boolean | null }).presentaGestor);
+  } catch { return false; }
+}

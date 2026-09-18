@@ -7,7 +7,7 @@ import { fetchP2Overrides } from "@/lib/p2-overrides";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { FormulariosView } from "@/components/formularios-view";
 import { camposQueFaltan, FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
-import { fetchPresentador } from "@/lib/data/presentador";
+import { fetchPresentador, fetchPresentaGestor } from "@/lib/data/presentador";
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -60,7 +60,9 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // Bloque «Representante a efectos de presentación» (el despacho). Si no está
   // configurado, el formulario sale con esa sección en blanco: mejor decirlo aquí que
   // dejar al gestor pensando que el PDF está roto.
-  const presentador = await createSupabaseServer().then((sb) => fetchPresentador(sb, exp.oficinaId)).catch(() => null);
+  const sb = await createSupabaseServer();
+  const presentaGestor = await fetchPresentaGestor(sb, id).catch(() => false);
+  const presentador = await fetchPresentador(sb, exp.oficinaId).catch(() => null);
   const faltaDespacho = [
     !presentador?.nombre && "Nombre o razón social",
     !presentador?.documento && "NIF",
@@ -68,5 +70,5 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     !presentador?.repDoc && "Su DNI/NIE",
   ].filter(Boolean) as string[];
 
-  return <FormulariosView faltanPorPersona={faltanPorPersona} faltaDespacho={faltaDespacho} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  return <FormulariosView faltanPorPersona={faltanPorPersona} faltaDespacho={faltaDespacho} presentaInicial={presentaGestor} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

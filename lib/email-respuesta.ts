@@ -110,8 +110,9 @@ async function detalleParaRespuesta(admin: Admin, expedienteId: string, userId: 
   const exp = await fetchExpedienteDetallePorToken(r.portalToken);
   if (!exp) return vacio;
   // Bloque del despacho que presenta: el cliente recibe el MISMO formulario que el gestor.
-  const { fetchPresentadorDeWorkspace } = await import("@/lib/data/presentador");
-  const presentador = await fetchPresentadorDeWorkspace(admin, r.workspaceId, r.oficinaId ?? null).catch(() => null);
+  const { fetchPresentadorDeWorkspace, fetchPresentaGestor } = await import("@/lib/data/presentador");
+  const presentador = await fetchPresentaGestor(admin, r.id).catch(() => false)
+    ? await fetchPresentadorDeWorkspace(admin, r.workspaceId, r.oficinaId ?? null).catch(() => null) : null;
   let docsFaltan: string[] = [];
   try {
     const catalogo = await fetchServiciosDeWorkspace(admin, r.workspaceId, r.oficinaId ?? null);
