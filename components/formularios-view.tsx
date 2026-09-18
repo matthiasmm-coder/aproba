@@ -31,22 +31,6 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   const [errorMarcar, setErrorMarcar] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>(oficiales);
   // Familia: selección POR miembro (modelos de SUS servicios); el añadido manual elige miembro.
-  // «Rellenar con los documentos»: vuelca a la ficha lo que la IA ya leyó (solo huecos).
-  const [completando, setCompletando] = useState(false);
-  const [avisoFicha, setAvisoFicha] = useState<string | null>(null);
-  async function completarDesdeDocs() {
-    setCompletando(true); setAvisoFicha(null);
-    try {
-      const r = await fetch(`/api/expedientes/${exp.id}/completar-ficha`, { method: "POST" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error ?? t("No se pudo completar la ficha."));
-      if (!j.rellenados) setAvisoFicha(t("Los documentos subidos no traen esos datos: hay que escribirlos a mano."));
-      else router.refresh();
-    } catch (e) {
-      setAvisoFicha(e instanceof Error ? e.message : t("No se pudo completar la ficha."));
-    } finally { setCompletando(false); }
-  }
-
   const [selMiembro, setSelMiembro] = useState<Record<string, string[]>>(oficialesPorMiembro);
   const union = applicants.length ? [...new Set(Object.values(selMiembro).flat())] : seleccion;
   // Casilla de trámite de la p.2 elegida por modelo ("" = automático, según el trámite).
@@ -124,60 +108,38 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         <p className="text-sm text-slate-500">{exp.clienteNombre} · {exp.tipoLabel}</p>
       </div>
 
-      {/* Lo que el PDF va a dejar EN BLANCO. Antes se generaba incompleto sin decir
-          nada y el gestor lo tomaba por un fallo del formulario (caso real 17/08). */}
+      {/* Lo que el PDF va a dejar EN BLANCO. Antes se generaba incompleto sin decir nada
+          y el gestor lo tomaba por un fallo del formulario (caso real 17/08). Se dice QUE
+          falta, no QUÉ falta: la lista completa era un muro de texto (Matthias, 18/09). */}
       {faltanPorPersona.length > 0 && (
-        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center">
-          <p className="text-sm font-semibold text-amber-900">
-            {t("Faltan datos en la ficha: el formulario saldrá con esos huecos en blanco.")}
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {faltanPorPersona.map((p) => (
-              <li key={p.id} className="text-sm text-amber-900">
-                {faltanPorPersona.length > 1 && <span className="font-medium">{p.nombre}: </span>}
-                <span className="text-amber-800">{p.campos.join(" · ")}</span>
-              </li>
-            ))}
-          </ul>
-          {/* Los datos que la IA ya leyó en los documentos de este expediente: un clic y
-              entran en la ficha (rellena solo lo vacío). Para los expedientes anteriores
-              al 08/09/2026, cuando la subida todavía no lo hacía sola. */}
-          <button onClick={completarDesdeDocs} disabled={completando}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-60">
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-            {completando ? t("Rellenando…") : t("Rellenar con los documentos")}
-          </button>
-          {avisoFicha && <p className="mt-2 text-sm text-amber-900">{avisoFicha}</p>}
-
+        <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+          {t("Faltan datos en la ficha: el formulario saldrá con esos huecos en blanco.")}{" "}
           {faltanPorPersona.length === 1 && faltanPorPersona[0].id !== "titular" ? (
             // ?editar=1 : la ficha llega con el diálogo «Editar cliente» YA abierto —
             // el gestor viene a rellenar huecos, no a buscar el botón Editar.
-            <Link href={`/app/clientes/${faltanPorPersona[0].id}?editar=1`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950">
+            <Link href={`/app/clientes/${faltanPorPersona[0].id}?editar=1`} className="font-semibold underline underline-offset-2 hover:text-amber-950">
               {t("Completar la ficha")} →
             </Link>
           ) : (
-            <p className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm font-semibold text-amber-900">
+            <span className="inline-flex flex-wrap justify-center gap-x-3">
               {faltanPorPersona.filter((p) => p.id !== "titular").map((p) => (
-                <Link key={p.id} href={`/app/clientes/${p.id}?editar=1`} className="underline underline-offset-2 hover:text-amber-950">
+                <Link key={p.id} href={`/app/clientes/${p.id}?editar=1`} className="font-semibold underline underline-offset-2 hover:text-amber-950">
                   {t("Completar")} {p.nombre} →
                 </Link>
               ))}
-            </p>
+            </span>
           )}
-
-      {/* El bloque «Representante a efectos de presentación» del formulario: el despacho.
-          Se rellena solo con lo que haya en Ajustes › Despacho; si falta, el PDF sale con
-          esa sección vacía (petición de Andrés de Ceballos, 18/09/2026). */}
-      {faltaDespacho.length > 0 && (
-        <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-          <p className="text-sm text-slate-700">
-            {t("El apartado del representante que presenta saldrá en blanco. Falta:")} <span className="font-medium">{faltaDespacho.join(" · ")}</span>.
-          </p>
-          <Link href="/app/ajustes" className="mt-2 inline-block text-sm font-semibold text-aproba-700 underline">
-            {t("Completar los datos del despacho →")}
-          </Link>
         </div>
       )}
+
+      {/* El bloque «Representante a efectos de presentación» del formulario: el despacho
+          (petición de Andrés de Ceballos, 18/09/2026). Bloque aparte, no anidado. */}
+      {faltaDespacho.length > 0 && (
+        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+          {t("Faltan datos del despacho: el apartado del representante que presenta saldrá en blanco.")}{" "}
+          <Link href="/app/ajustes" className="font-semibold underline underline-offset-2 hover:text-amber-950">
+            {t("Completar los datos del despacho")} →
+          </Link>
         </div>
       )}
 
