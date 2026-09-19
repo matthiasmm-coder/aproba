@@ -36,16 +36,18 @@ export function SelectorServicios({ valor, onChange, nMiembros = 1, oficinaId = 
         // Catálogo de la SEDE si la tiene propio; si no, el común del despacho.
         // ⚠️ ServicioConfig NO tiene columna `precio` (el precio es anticipo + resto):
         // pedirla hacía fallar el SELECT entero y la pantalla decía «no tienes servicios».
-        const cols = "clave, label, active, anticipo, resto, categoria, porcentaje, oficinaId";
+        const cols = "clave, label, active, anticipo, resto, categoria, porcentaje, oficinaId, servicioIds";
         let res = await sb.from("ServicioConfig").select(cols).order("orden");
+        if (res.error) res = await sb.from("ServicioConfig").select("clave, label, active, anticipo, resto, categoria, porcentaje, oficinaId").order("orden") as typeof res;
         if (res.error) res = await sb.from("ServicioConfig").select("clave, label, active, anticipo, resto, categoria").order("orden") as typeof res;
         if (res.error) res = await sb.from("ServicioConfig").select("clave, label, active, anticipo, resto").order("orden") as typeof res;
         if (res.error) throw res.error;
-        const filas = (res.data ?? []) as { clave: string; label: string | null; active: boolean | null; anticipo: number | string | null; resto: number | string | null; categoria?: string | null; porcentaje?: number | null; oficinaId?: string | null }[];
+        const filas = (res.data ?? []) as { clave: string; label: string | null; active: boolean | null; anticipo: number | string | null; resto: number | string | null; categoria?: string | null; porcentaje?: number | null; oficinaId?: string | null; servicioIds?: string[] | null }[];
         const deSede = oficinaId ? filas.filter((s) => s.oficinaId === oficinaId) : [];
         const usar = deSede.length ? deSede : filas.filter((s) => !s.oficinaId);
         setServicios(usar
-          .filter((s) => s.active !== false && (s.label ?? "").trim())
+          // Un ítem con servicios dentro es un PACK: se elige abajo, en su lista.
+          .filter((s) => s.active !== false && (s.label ?? "").trim() && !(s.servicioIds ?? []).length)
           .map((s) => ({
             id: s.clave, label: (s.label ?? "").trim(),
             precio: (Number(s.anticipo) || 0) + (Number(s.resto) || 0),

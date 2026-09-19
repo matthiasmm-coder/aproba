@@ -254,7 +254,9 @@ export default async function ExpedienteDetail({
                 cualquier recálculo de la facturación familiar. */}
             <CambiarServicio
               expedienteId={e.id}
-              servicios={servicios}
+              // Sin los ítems-pack: aquí se cambia el TRÁMITE del expediente, y un pack
+              // es una venta (sus servicios ya entran uno a uno).
+              servicios={servicios.filter((s) => !(s.servicioIds ?? []).length)}
               actualClave={e.servicioClave ?? serviciosExp[0]?.id ?? null}
               extrasActuales={e.serviciosExtra}
               // Familiar: el «para quién» de cada servicio se decide AQUÍ (no en Cobro):

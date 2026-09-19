@@ -52,7 +52,46 @@ export function mapServicioRow(r: ServicioRow): Servicio {
     porcentajeSobre: String((r as { porcentajeSobre?: unknown }).porcentajeSobre ?? "").trim() || undefined,
     precioOculto: Boolean((r as { precioOculto?: unknown }).precioOculto) || undefined,
     categoria: String((r as { categoria?: unknown }).categoria ?? "").trim() || undefined,
+    temaId: (r as { temaId?: string | null }).temaId ?? null,
+    servicioIds: (() => {
+      const raw = (r as { servicioIds?: unknown }).servicioIds;
+      return Array.isArray(raw) ? raw.map((x) => String(x)).filter(Boolean) : undefined;
+    })(),
+    descuentoPct: (() => {
+      const v = Number((r as { descuentoPct?: unknown }).descuentoPct);
+      return Number.isFinite(v) && v > 0 ? v : undefined;
+    })(),
   };
+}
+
+// Un ítem del catálogo con servicios dentro es un PACK: vive en Workspace.packs para el
+// portal, así que NO puede salir también en la lista de servicios (saldría dos veces).
+export const esItemPack = (s: Servicio) => (s.servicioIds ?? []).length > 0;
+export const soloServicios = (l: Servicio[]) => l.filter((s) => !esItemPack(s));
+
+// Workspace.temas (JSONB) → las carpetas del catálogo. Defensivo: forma rara → [].
+export function parseCarpetas(raw: unknown): { id: string; nombre: string; parentId: string | null; orden: number; usuarios: string[] }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+    .map((x, i) => ({
+      id: String(x.id ?? ""),
+      nombre: String(x.nombre ?? "").trim(),
+      parentId: x.parentId ? String(x.parentId) : null,
+      orden: Number.isFinite(Number(x.orden)) ? Number(x.orden) : i,
+      usuarios: Array.isArray(x.usuarios) ? x.usuarios.map((u) => String(u)).filter(Boolean) : [],
+    }))
+    .filter((c) => c.id && c.nombre);
+}
+
+// Carpetas del workspace del usuario conectado (RLS).
+export async function fetchCarpetasConfig(): Promise<ReturnType<typeof parseCarpetas>> {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase.from("Membership").select("Workspace(temas)").limit(1).maybeSingle();
+  if (error || !data) return [];
+  const wsRaw = (data as { Workspace?: { temas?: unknown } | { temas?: unknown }[] }).Workspace;
+  const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
+  return parseCarpetas(ws?.temas);
 }
 
 // Workspace.packs (JSONB) → Pack[] validado. Defensivo: cualquier forma inesperada → [].
@@ -75,7 +114,9 @@ export function parsePacks(raw: unknown): Pack[] {
     .filter((p) => p.id && p.nombre);
 }
 
-const SELECT_SERVICIOS = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria";
+const SELECT_SERVICIOS = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria, temaId, servicioIds, descuentoPct";
+// Antes de supabase/temas-carpetas.sql: mismo catálogo sin carpetas ni packs-servicio.
+const SELECT_SERVICIOS_SIN_CARPETAS = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto, categoria";
 // Replis por tramo de migración (categoría → pro → suplidos → noIncluye → base).
 const SELECT_SERVICIOS_SIN_CATEGORIA = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos, porcentaje, porcentajeSobre, precioOculto";
 const SELECT_SERVICIOS_SIN_PRO = "oficinaId, clave, label, descripcion, docs, active, anticipo, resto, orden, citaPresencial, citaQuien, noIncluye, suplidos";
@@ -86,6 +127,7 @@ const SELECT_SERVICIOS_SIN_NOINCLUYE = "oficinaId, clave, label, descripcion, do
 export async function fetchServiciosConfig(): Promise<{ servicios: Servicio[]; desdeDb: boolean; fallo?: boolean }> {
   const supabase = await createSupabaseServer();
   let res = await supabase.from("ServicioConfig").select(SELECT_SERVICIOS).order("orden");
+  if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CARPETAS).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CATEGORIA).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_PRO).order("orden")) as unknown as typeof res;
   if (res.error) res = (await supabase.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_SUPLIDOS).order("orden")) as unknown as typeof res;
@@ -120,6 +162,7 @@ export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspac
       return b.order("orden");
     };
     let res = await q(SELECT_SERVICIOS);
+    if (res.error) res = (await q(SELECT_SERVICIOS_SIN_CARPETAS)) as unknown as typeof res;
     if (res.error) res = (await q(SELECT_SERVICIOS_SIN_CATEGORIA)) as unknown as typeof res;
     if (res.error) res = (await q(SELECT_SERVICIOS_SIN_PRO)) as unknown as typeof res;
     if (res.error) res = (await q(SELECT_SERVICIOS_SIN_SUPLIDOS)) as unknown as typeof res;
@@ -131,13 +174,16 @@ export async function fetchServiciosDeWorkspace(client: SupabaseClient, workspac
   if (res.error && /oficinaId|column|schema cache|does not exist/i.test(res.error.message)) {
     // migración config-por-oficina ausente → catálogo plano de siempre
     let plano = await client.from("ServicioConfig").select(SELECT_SERVICIOS).eq("workspaceId", workspaceId).order("orden");
+    if (plano.error) plano = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_CARPETAS).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof plano;
     if (plano.error) plano = (await client.from("ServicioConfig").select(SELECT_SERVICIOS_SIN_NOINCLUYE).eq("workspaceId", workspaceId).order("orden")) as unknown as typeof plano;
     res = plano as unknown as typeof res;
   }
   const { data, error } = res;
   if (error) throw new Error(`ServicioConfig(ws): ${error.message}`);
   if (!data || (data as unknown[]).length === 0) return DEFAULT_SERVICIOS;
-  return (data as unknown as ServicioRow[]).map(mapServicioRow);
+  // Los ítems-pack NO salen aquí: para el portal viajan por Workspace.packs (si salieran
+  // en las dos listas, el cliente los vería dos veces).
+  return soloServicios((data as unknown as ServicioRow[]).map(mapServicioRow));
 }
 
 // Listado ESTRICTO de un ámbito para Ajustes (sin cascada): la página necesita

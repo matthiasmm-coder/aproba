@@ -27,9 +27,16 @@ export type Servicio = {
   porcentajeSobre?: string; // sobre qué se aplica (texto libre del gestor)
   // «Precio a consultar»: el portal del cliente no muestra importes de este servicio.
   precioOculto?: boolean;
-  // Tema del catálogo («Empresa», «Nacionalidad»…), texto libre del despacho. Vacío =
-  // «Otros trámites». En el portal cada tema es un desplegable plegado.
+  // Tema del catálogo («Empresa», «Nacionalidad»…). Se sigue escribiendo (es lo que leen
+  // el portal, el árbol de expedientes y el importador) pero desde el 20/09 su fuente es
+  // la CARPETA: `temaId`.
   categoria?: string;
+  // Carpeta del catálogo (Workspace.temas). null = sin carpeta.
+  temaId?: string | null;
+  // Un servicio CON servicios dentro es un PACK. La clave no cambia al convertirlo, así
+  // que los expedientes que ya lo citan siguen resolviendo su nombre.
+  servicioIds?: string[];
+  descuentoPct?: number; // 0-100 sobre la suma de los servicios incluidos (solo packs)
 };
 
 // Pack: agrupación de servicios. Su precio NO se teclea: es la suma de los

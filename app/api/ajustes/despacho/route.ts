@@ -45,6 +45,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Carpetas del catálogo (Workspace.temas JSONB): rama propia, escribe SOLO su columna.
+  if (str("soloTemas") === "1") {
+    let temas: unknown;
+    try { temas = JSON.parse(str("temas") || "[]"); } catch { temas = null; }
+    if (!Array.isArray(temas) || temas.length > 200) {
+      return NextResponse.json({ error: "Carpetas inválidas." }, { status: 400 });
+    }
+    const limpio = temas
+      .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+      .map((x, i) => ({
+        id: String(x.id ?? "").slice(0, 40),
+        nombre: String(x.nombre ?? "").trim().slice(0, 60),
+        parentId: x.parentId ? String(x.parentId).slice(0, 40) : null,
+        orden: Number.isFinite(Number(x.orden)) ? Number(x.orden) : i,
+        // Acceso por persona: lista de userId. Vacía = toda la gestoría.
+        usuarios: Array.isArray(x.usuarios) ? x.usuarios.map((u) => String(u).slice(0, 64)).filter(Boolean).slice(0, 50) : [],
+      }))
+      .filter((c) => c.id && c.nombre);
+    const { error: eT } = await r.admin.from("Workspace").update({ temas: limpio }).eq("id", r.workspaceId);
+    if (eT) {
+      const falta = /temas|schema cache|column/i.test(eT.message);
+      return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/temas-carpetas.sql en Supabase." : eT.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // Packs de servicios (Workspace.packs JSONB): rama propia, escribe SOLO su columna.
   // El antiguo interruptor global «ocultar precios» (soloOcultarPrecios) se retiró:
   // ahora es ServicioConfig.precioOculto por servicio (supabase/servicios-pro.sql).

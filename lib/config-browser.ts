@@ -50,6 +50,11 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     porcentajeSobre: s.porcentaje && s.porcentaje > 0 ? (s.porcentajeSobre?.trim() || null) : null,
     precioOculto: Boolean(s.precioOculto),
     categoria: s.categoria?.trim() || null,
+    temaId: s.temaId ?? null,
+    // Un servicio con servicios dentro ES un pack (su clave no cambia nunca). NULL = no
+    // es un pack; lista vacía = marcado como pack pero aún sin elegir qué lleva.
+    servicioIds: Array.isArray(s.servicioIds) ? s.servicioIds.filter(Boolean) : null,
+    descuentoPct: Array.isArray(s.servicioIds) ? Math.max(0, Math.min(100, Number(s.descuentoPct) || 0)) : null,
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
@@ -60,12 +65,16 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
   // Replis pre-migración: quitar SOLO el tramo más reciente cada vez, para que el resto
   // de la config del servicio nunca se pierda por una columna nueva.
   // Repli categoría (migración más reciente) ANTES del repli pro: cada tramo cae solo.
+  if (error && /temaId|servicioIds|descuentoPct|schema cache|column/i.test(error.message)) {
+    const sinCarpetas = rows.map(({ temaId: _t, servicioIds: _si, descuentoPct: _d, ...r }) => r);
+    ({ error } = await supabase.from("ServicioConfig").upsert(sinCarpetas, { onConflict: "id" }));
+  }
   if (error && /categoria|schema cache|column/i.test(error.message)) {
-    const sinCat = rows.map(({ categoria: _c, ...r }) => r);
+    const sinCat = rows.map(({ categoria: _c, temaId: _t, servicioIds: _si, descuentoPct: _d, ...r }) => r);
     ({ error } = await supabase.from("ServicioConfig").upsert(sinCat, { onConflict: "id" }));
   }
   if (error && /porcentaje|precioOculto|schema cache|column/i.test(error.message)) {
-    const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, categoria: _c, ...r }) => r);
+    const sinPro = rows.map(({ porcentaje: _p, porcentajeSobre: _ps, precioOculto: _po, categoria: _c, temaId: _t, servicioIds: _si, descuentoPct: _d, ...r }) => r);
     ({ error } = await supabase.from("ServicioConfig").upsert(sinPro, { onConflict: "id" }));
     if (error && /suplidos|schema cache|column/i.test(error.message)) {
       const sinSuplidos = sinPro.map(({ suplidos: _s, ...r }) => r);
@@ -102,6 +111,47 @@ export async function guardarPacks(packs: Pack[]): Promise<void> {
   const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((j as { error?: string }).error || "No se pudieron guardar los packs.");
+}
+
+// ESPEJO para el portal: los packs viven ahora como servicios con servicios dentro, pero
+// Workspace.packs se sigue escribiendo igual. Así el portal del cliente, /c, /j y los
+// enlaces ?pack=… no se enteran del cambio. Se llama junto a guardarServicios.
+export async function guardarPacksEspejo(items: Servicio[]): Promise<void> {
+  const packs = items
+    .filter((s) => (s.servicioIds ?? []).length > 0)
+    .map((s) => ({
+      id: s.id,
+      nombre: (s.label ?? "").trim(),
+      desc: (s.desc ?? "").trim(),
+      servicioIds: (s.servicioIds ?? []).filter(Boolean),
+      precioDesde: 0, // legado: el precio se calcula con los servicios incluidos
+      descuentoPct: Math.max(0, Math.min(100, Number(s.descuentoPct) || 0)),
+      porcentaje: Math.max(0, Math.min(100, Number(s.porcentaje) || 0)),
+      porcentajeSobre: (s.porcentajeSobre ?? "").trim(),
+      precioOculto: Boolean(s.precioOculto),
+      categoria: (s.categoria ?? "").trim(),
+    }))
+    .filter((p) => p.nombre);
+  const fd = new FormData();
+  fd.set("soloPacks", "1");
+  fd.set("packs", JSON.stringify(packs));
+  const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error((j as { error?: string }).error || "No se pudieron guardar los packs.");
+  }
+}
+
+// El árbol de carpetas (Workspace.temas).
+export async function guardarCarpetas(carpetas: { id: string; nombre: string; parentId: string | null; orden: number; usuarios?: string[] }[]): Promise<void> {
+  const fd = new FormData();
+  fd.set("soloTemas", "1");
+  fd.set("temas", JSON.stringify(carpetas));
+  const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error((j as { error?: string }).error || "No se pudieron guardar las carpetas.");
+  }
 }
 
 // `oficinaId` : null = avisos de la gestoría ; con id = los PROPIOS de esa sede.

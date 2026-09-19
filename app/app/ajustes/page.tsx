@@ -1,4 +1,4 @@
-import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig } from "@/lib/data/config";
+import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig, fetchCarpetasConfig } from "@/lib/data/config";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchEquipo } from "@/lib/data/equipo";
@@ -165,7 +165,7 @@ export default async function Ajustes() {
   // avaient déjà leur .catch ; ces deux-là ne l'avaient pas — d'où la page blanche
   // du 27/08 sur un simple hoquet de token. Les fonctions dégradent maintenant
   // elles-mêmes sur panne passagère (fallo:true) ; le .catch reste la ceinture.
-  const [srv, avs, cuentas, equipo, despacho, packs, oficinas] = await Promise.all([
+  const [srv, avs, cuentas, equipo, despacho, packs, oficinas, carpetas] = await Promise.all([
     fetchServiciosConfig().catch(() => ({ servicios: DEFAULT_SERVICIOS, desdeDb: false, fallo: true })),
     fetchAvisosConfig().catch(() => ({ avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true })),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
@@ -173,6 +173,7 @@ export default async function Ajustes() {
     fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
+    fetchCarpetasConfig().catch(() => []), // sin migración de carpetas → catálogo plano
   ]);
   const { servicios } = srv;
   const { avisos } = avs;
@@ -198,6 +199,14 @@ export default async function Ajustes() {
   const conPastillas = oficinas.length >= 2;
 
   const yo = equipo?.miembros.find((m) => m.esYo);
+  // Acceso por persona a las carpetas: la lista del equipo y quién mira.
+  const equipoCarpetas = (equipo?.miembros ?? []).map((m) => ({ userId: m.userId, nombre: m.nombre, avatarUrl: m.avatarUrl }));
+  const propsCarpetas = {
+    carpetasInicial: carpetas,
+    equipo: equipoCarpetas,
+    miUserId: yo?.userId ?? null,
+    soyAdmin: yo ? yo.role === "OWNER" || yo.role === "ADMIN" : true,
+  };
   const despachoNombre = equipo?.workspace.nombre ?? "Mi despacho";
   const despachoTipo = equipo ? (TIPO_LABEL[equipo.workspace.tipo] ?? equipo.workspace.tipo) : "—";
   const despachoPlan = equipo ? planLabel(equipo.plan) : "Starter";
@@ -235,9 +244,9 @@ export default async function Ajustes() {
           <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
             {conPastillas ? (
               <FacturacionPorOficina
-                comun={<ServiciosManager inicial={servicios} packsInicial={packs} />}
+                comun={<ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} />}
                 oficinas={oficinas.map((o) => o.orden === -1
-                  ? { id: o.id, nombre: o.nombre, panel: <ServiciosManager inicial={servicios} packsInicial={packs} /> }
+                  ? { id: o.id, nombre: o.nombre, panel: <ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} /> }
                   : {
                       id: o.id,
                       nombre: o.nombre,
@@ -250,13 +259,13 @@ export default async function Ajustes() {
                           comoOficinaId={null}
                           conDuplicarServicios
                           fuentesAvisos={sedes.filter((x) => x.id !== o.id && (scopeServicios.get(x.id)?.propios ?? false)).map((x) => ({ id: x.id, nombre: x.nombre, avisos: [] }))}
-                          editor={<ServiciosManager inicial={scopeServicios.get(o.id)?.servicios ?? []} oficinaId={o.id} sinPacks />}
+                          editor={<ServiciosManager inicial={scopeServicios.get(o.id)?.servicios ?? []} oficinaId={o.id} sinPacks {...propsCarpetas} />}
                         />
                       ),
                     })}
               />
             ) : (
-              <ServiciosManager inicial={servicios} packsInicial={packs} />
+              <ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} />
             )}
           </fieldset>
         </AjustesSection>
