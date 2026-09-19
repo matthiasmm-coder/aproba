@@ -337,9 +337,14 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   // En el historial, siempre plegado: ahí se busca, no se lee entero.
   const TOPE_ABIERTO = 30;
   const abiertoPorDefecto = view === "curso" && activos.length <= TOPE_ABIERTO;
-  const estaAbierto = (k: string) => Boolean(q.trim()) || (abiertoPorDefecto ? !cerrados.has(k) : abiertos.has(k));
-  const toggle = (k: string) => {
-    if (abiertoPorDefecto) setCerrados((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  // `porDefecto` = cómo nace ESA carpeta (no siempre el defecto global): una carpeta con
+  // un solo servicio nace abierta con su tema, y aun así su flecha tiene que plegarla.
+  // Antes su estado colgaba de la clave de la RAÍZ mientras el clic escribía la del
+  // grupo: la flecha no hacía nada (reportado por Matthias el 19/09).
+  const estaAbierto = (k: string, porDefecto = abiertoPorDefecto) =>
+    Boolean(q.trim()) || (porDefecto ? !cerrados.has(k) : abiertos.has(k));
+  const toggle = (k: string, porDefecto = abiertoPorDefecto) => {
+    if (porDefecto) setCerrados((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
     else setAbiertos((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   };
 
@@ -504,8 +509,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       const kRaiz = `historial/${r.clave}`;
       if (!estaAbierto(kRaiz)) continue;
       for (const g of r.grupos) {
-        const abiertoG = r.grupos.length === 1 ? estaAbierto(kRaiz) : estaAbierto(`historial/${g.clave}`);
-        if (!abiertoG) continue;
+        const defG = r.grupos.length === 1 ? estaAbierto(kRaiz) : abiertoPorDefecto;
+        if (!estaAbierto(`historial/${g.clave}`, defG)) continue;
         void archivoSrv.pedir(g.clave + sufijo, queryCarpeta(g), aItem);
       }
     }
@@ -630,9 +635,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 <Nivel key={kRaiz} titulo={r.titulo} n={r.n} abierto={estaAbierto(kRaiz)} onToggle={() => toggle(kRaiz)} raiz>
                   {r.grupos.map((g) => {
                     const kg = `historial/${g.clave}`;
-                    const abiertoG = r.grupos.length === 1 ? estaAbierto(kRaiz) : estaAbierto(kg);
+                    const defG = r.grupos.length === 1 ? estaAbierto(kRaiz) : abiertoPorDefecto;
+                    const abiertoG = estaAbierto(kg, defG);
                     return (
-                      <Nivel key={kg} titulo={g.nombre} n={g.n} abierto={abiertoG} onToggle={() => toggle(kg)}>
+                      <Nivel key={kg} titulo={g.nombre} n={g.n} abierto={abiertoG} onToggle={() => toggle(kg, defG)}>
                         <FilasArchivo
                           carpeta={g} sufijo={`|${asignado}|${catFiltro}|${anioElegido ?? ""}`} query={queryCarpeta(g)}
                           srv={archivoSrv} aItem={aItem}
@@ -684,9 +690,12 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                       )}
                       {r.grupos.map((g) => {
                         const k = `${b.key}/${g.clave}`;
-                        const abierto = r.grupos.length === 1 ? estaAbierto(`${b.key}/${r.clave}`) : estaAbierto(k);
+                        // Un solo servicio: nace abierto con su tema (sin pedir un clic de
+                        // más) pero se pliega como cualquier otro.
+                        const defecto = r.grupos.length === 1 ? estaAbierto(`${b.key}/${r.clave}`) : abiertoPorDefecto;
+                        const abierto = estaAbierto(k, defecto);
                         return (
-                          <Nivel key={k} titulo={g.nombre} n={g.lista.length} abierto={abierto} onToggle={() => toggle(k)}>
+                          <Nivel key={k} titulo={g.nombre} n={g.lista.length} abierto={abierto} onToggle={() => toggle(k, defecto)}>
                             {g.anios
                               ? g.anios.map((an) => {
                                   const ka = `${b.key}/${an.clave}`;
