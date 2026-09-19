@@ -62,7 +62,7 @@ type ResumenRow = {
 // CONSUMIDORES que muestran listas lo pasan y ENSEÑAN un aviso si se alcanza
 // (regla «no silent caps»); los flujos de export/analítica NO lo pasan (todo).
 export const TOPE_EXPEDIENTES = 800;
-export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSinSede = false, tope?: number): Promise<ExpedienteResumen[]> {
+export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSinSede = false, tope?: number, soloVivos = false): Promise<ExpedienteResumen[]> {
   const supabase = await createSupabaseServer();
   // Le filtre s'applique à CHAQUE cran de la chaîne de replis — sans ça, un repli
   // (migration absente) ramènerait silencieusement tout le despacho.
@@ -71,6 +71,11 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // `sedes` = une ou plusieurs oficinas (membre multi-sedes) ; incluirSinSede
   // (la gestoría en fait partie) ajoute l'historique jamais estampillé.
+  // `soloVivos`: la pantalla Expedientes lee el ARCHIVO aparte (historial_resumen), así
+  // que el cargador no tiene por qué traerlo. Solo se aplica a las variantes que
+  // seleccionan archivadoAt; si la columna no existe, la cadena de replis sigue igual.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vivos = <T,>(q: T): T => (soloVivos ? (q as any).is("archivadoAt", null) : q);
   const conFiltro = <T,>(q: T): T => {
     if (!sedes?.length) return q;
     const dentro = `oficinaId.in.(${sedes.join(",")})`;
@@ -81,7 +86,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo, etiqueta)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000),
+    vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label, docs, citaPresencial, oficinaId"),
@@ -90,7 +95,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   let data: unknown[] | null = (conTodo.data ?? null) as unknown[] | null;
   let error = conTodo.error;
   if (error) {
-    const r1b = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+    const r1b = await vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, archivadoAt, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r1b.data ?? null) as unknown[] | null;
     error = r1b.error;
   }
@@ -109,12 +114,12 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   // etiqueta es columna nueva (supabase/documento-etiqueta.sql) y vive en SEL_BASE:
   // sin migrar, TODA la cadena fallaría. Se reintenta la consulta completa sin ella.
   if (error && /etiqueta/i.test(String(error.message))) {
-    const rE = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(", etiqueta)", ")")}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+    const rE = await vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(", etiqueta)", ")")}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (rE.data ?? null) as unknown[] | null;
     error = rE.error;
   }
   if (error && /modoTrabajo|validadoAt/i.test(String(error.message))) {
-    const r4 = await conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "").replace(" fechaPresentacion,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`)).order("createdAt", { ascending: false }).limit(tope ?? 100000);
+    const r4 = await vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE.replace(" modoTrabajo,", "").replace(" validadoAt,", "").replace(" fechaPresentacion,", "")}, serviciosExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000);
     data = (r4.data ?? null) as unknown[] | null;
     error = r4.error;
   }

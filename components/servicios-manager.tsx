@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fmtPct, newPack, newServicio, packPrecio, temasUsados, DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
+import { temaSugerido, temaEfectivo, unificarTemas, TEMAS_SUGERIDOS } from "@/lib/temas";
+import { normTema as normTemaLocal } from "@/lib/servicios";
+
+// Clave interna de la carpeta «sin tema» (no es un tema: es su ausencia).
+const SIN_TEMA_CLAVE = "__sin__";
 import { guardarPacks, guardarServicios } from "@/lib/config-browser";
 import { eur, totalDe } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
@@ -12,7 +17,13 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 // Pointer events → funciona con ratón Y con el dedo (el drag&drop HTML5 no existe en
 // táctil). Mientras se arrastra, la lista se recoloca en vivo bajo el puntero: el hueco
 // de inserción = nº de tarjetas cuyo punto medio queda por encima del puntero.
-export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[]>>, getId: (x: T) => string) {
+export function useReordenar<T>(
+  setLista: React.Dispatch<React.SetStateAction<T[]>>,
+  getId: (x: T) => string,
+  // Se llama al SOLTAR, con la altura del puntero: así el llamante puede decidir en qué
+  // carpeta (tema) ha caído la tarjeta. Sin esto, arrastrar solo reordenaba.
+  alSoltar?: (id: string, y: number) => void,
+) {
   const refs = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -63,8 +74,10 @@ export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[
       e.preventDefault();
       dragRef.current = id;
       setDragId(id);
+      let ultimaY = e.clientY;
       const move = (ev: PointerEvent) => {
         if (dragRef.current !== id) return;
+        ultimaY = ev.clientY;
         // Auto-scroll cerca de los bordes (con touch-none el gesto ya no hace scroll).
         if (ev.clientY < 90) window.scrollBy(0, -14);
         else if (ev.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
@@ -73,6 +86,7 @@ export function useReordenar<T>(setLista: React.Dispatch<React.SetStateAction<T[
       const fin = () => {
         dragRef.current = null;
         setDragId(null);
+        alSoltar?.(id, ultimaY);
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", fin);
         window.removeEventListener("pointercancel", fin);
@@ -179,8 +193,35 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
   const updatePack = (id: string, patch: Partial<Pack>) =>
     setPacks((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
-  const dndServicios = useReordenar(setServicios, (s) => s.id);
-  const dndPacks = useReordenar(setPacks, (p) => p.id);
+  // ── CARPETAS POR TEMA ──────────────────────────────────────────────────────
+  // El catálogo se ve como se ve la pantalla de Expedientes: una carpeta por tema y los
+  // servicios dentro. Arrastrar una tarjeta a otra carpeta CAMBIA su tema (pedido de
+  // Matthias, 19/09) — antes había que escribirlo a mano en un campo libre.
+  const zonas = useRef<Map<string, HTMLElement>>(new Map());
+  const zonaRef = (tema: string) => (el: HTMLElement | null) => { if (el) zonas.current.set(tema, el); else zonas.current.delete(tema); };
+  const [temasVacios, setTemasVacios] = useState<string[]>([]);
+
+  // Carpeta bajo el puntero al soltar (null = ninguna).
+  const carpetaEn = (y: number): string | null => {
+    for (const [tema, el] of zonas.current) {
+      const r = el.getBoundingClientRect();
+      if (y >= r.top && y <= r.bottom) return tema;
+    }
+    return null;
+  };
+
+  const dndServicios = useReordenar(setServicios, (s) => s.id, (id, y) => {
+    const destino = carpetaEn(y);
+    if (destino === null) return;
+    const tema = destino === SIN_TEMA_CLAVE ? "" : destino;
+    setServicios((lista) => lista.map((s) => (s.id === id && (s.categoria ?? "") !== tema ? { ...s, categoria: tema } : s)));
+  });
+  const dndPacks = useReordenar(setPacks, (p) => p.id, (id, y) => {
+    const destino = carpetaEn(y);
+    if (destino === null) return;
+    const tema = destino === SIN_TEMA_CLAVE ? "" : destino;
+    setPacks((lista) => lista.map((p) => (p.id === id && (p.categoria ?? "") !== tema ? { ...p, categoria: tema } : p)));
+  });
 
   const moverPack = (id: string, delta: -1 | 1) =>
     setPacks((list) => {
@@ -217,13 +258,38 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
   // Temas ya usados (servicios + packs) → datalist compartida: el gestor reutiliza
   // sus temas escribiendo dos letras, sin obligarle a un desplegable cerrado.
   const temas = temasUsados(servicios, packs);
-  const campoTema = (valor: string | undefined, onChange: (v: string) => void) => (
+  // Las carpetas que verá en Expedientes: el tema escrito o, si no lo hay, el propuesto.
+  const { lista: nombresCarpetas } = unificarTemas(servicios.filter((s) => s.active).map((s) => temaEfectivo(s.categoria, s.id, s.label)));
+  const sinTema = servicios.filter((s) => s.active && !temaEfectivo(s.categoria, s.id, s.label)).length;
+  const porAplicar = servicios.filter((s) => !(s.categoria ?? "").trim() && temaSugerido(s.id, s.label)).length;
+  // Las carpetas, en el orden del catálogo; los servicios de cada una conservan el suyo.
+  // «Sin tema» siempre al final, y las carpetas vacías (recién creadas) también se pintan:
+  // una carpeta vacía es donde el gestor va a soltar el primer servicio.
+  const carpetas = (() => {
+    const orden: string[] = [];
+    const dentro = new Map<string, Servicio[]>();
+    for (const sv of servicios) {
+      const tema = (sv.categoria ?? "").trim() || temaSugerido(sv.id, sv.label) || "";
+      const clave = tema || SIN_TEMA_CLAVE;
+      if (!dentro.has(clave)) { dentro.set(clave, []); orden.push(clave); }
+      dentro.get(clave)!.push(sv);
+    }
+    for (const t of temasVacios) if (!dentro.has(t)) { dentro.set(t, []); orden.push(t); }
+    return orden
+      .sort((a, b) => (a === SIN_TEMA_CLAVE ? 1 : b === SIN_TEMA_CLAVE ? -1 : 0))
+      .map((clave) => ({ clave, titulo: clave === SIN_TEMA_CLAVE ? t("Sin tema") : clave, lista: dentro.get(clave) ?? [] }));
+  })();
+  const temasLibres = TEMAS_SUGERIDOS.filter((x) => !carpetas.some((c) => normTemaLocal(c.clave) === normTemaLocal(x)));
+  // Un clic: los temas propuestos pasan a ser SUYOS (y ya son editables uno a uno).
+  const aplicarSugeridos = () =>
+    setServicios((list) => list.map((s) => ((s.categoria ?? "").trim() ? s : { ...s, categoria: temaSugerido(s.id, s.label) ?? s.categoria })));
+  const campoTema = (valor: string | undefined, onChange: (v: string) => void, sugerido?: string | null) => (
     <label className="block">
-      <span className="mb-1 block text-xs text-slate-500">{t("Tema (agrupa en el portal)")}</span>
+      <span className="mb-1 block text-xs text-slate-500">{t("Tema (carpeta en Expedientes y en el portal)")}</span>
       <input
         list="aproba-temas"
         value={valor ?? ""}
-        placeholder={t("p. ej. Empresa, Nacionalidad…")}
+        placeholder={sugerido ? `${sugerido} — ${t("sugerido")}` : t("p. ej. Empresa, Nacionalidad…")}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-500 focus:ring-2 focus:ring-aproba-100"
       />
@@ -243,6 +309,24 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
   return (
     <div>
       <datalist id="aproba-temas">{temas.map((x) => <option key={x} value={x} />)}</datalist>
+      {/* Lo que el catálogo PRODUCE: las carpetas de Expedientes. Sin esto, el gestor
+          configura precios y documentos sin ver nunca el efecto en su pantalla. */}
+      <div className="mb-4 rounded-xl border border-slate-200 bg-cream-50/60 px-4 py-3">
+        <p className="text-sm text-slate-600">
+          {nombresCarpetas.length === 1 ? t("Tus expedientes se agrupan en 1 carpeta:") : t("Tus expedientes se agrupan en {n} carpetas:").replace("{n}", String(nombresCarpetas.length))}{" "}
+          <span className="font-medium text-slate-800">{nombresCarpetas.join(" · ")}</span>
+          {sinTema > 0 && <span className="text-slate-400">{` · ${sinTema} ${t("sin tema (van a «Otros trámites»)")}`}</span>}
+        </p>
+        {porAplicar > 0 && (
+          <button
+            type="button" onClick={aplicarSugeridos}
+            className="mt-2 rounded-lg border border-aproba-300 px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50"
+          >
+            {porAplicar === 1 ? t("Aplicar el tema sugerido") : t("Aplicar los {n} temas sugeridos").replace("{n}", String(porAplicar))}
+          </button>
+        )}
+      </div>
+
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos} {t("activos")}</span> {t("de")} {servicios.length}</p>
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
@@ -252,8 +336,19 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
         </span>
       </div>
 
-      <div className="space-y-3">
-        {servicios.map((s) => (
+      {/* Las carpetas son zonas de soltado: arrastrar un servicio a otra cambia su tema. */}
+      <div className="space-y-5">
+        {carpetas.map((carpeta) => (
+          <div key={carpeta.clave} ref={zonaRef(carpeta.clave)} className={`rounded-2xl border border-dashed p-2 transition-colors ${dndServicios.dragId || dndPacks.dragId ? "border-aproba-300 bg-aproba-50/30" : "border-transparent"}`}>
+            <div className="flex items-center gap-2 px-2 pb-2">
+              <svg className="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7.6l-1.7-2.2A1 1 0 0 0 9.9 4H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z" /></svg>
+              <span className={`text-sm font-semibold ${carpeta.clave === SIN_TEMA_CLAVE ? "text-slate-400" : "text-slate-700"}`}>{carpeta.titulo}</span>
+              <span className="text-xs tabular-nums text-slate-400">{carpeta.lista.length}</span>
+              {carpeta.lista.length === 0 && <span className="text-xs text-slate-400">· {t("arrastra aquí un servicio")}</span>}
+              {(dndServicios.dragId || dndPacks.dragId) && carpeta.lista.length > 0 && <span className="text-xs text-aproba-700">· {t("soltar aquí")}</span>}
+            </div>
+            <div className="space-y-3">
+              {carpeta.lista.map((s) => (
           <div key={s.id} ref={dndServicios.registrar(s.id)} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"} ${dndServicios.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
             {/* Ligne titre + toggle (gap réduit en móvil : l'asa + toggle + corbeille
                 laissent peu de place au nom) */}
@@ -309,7 +404,9 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
                   : `${s.anticipo + s.resto > 0 ? `${s.anticipo + s.resto} €` : t("Gratis")}${s.porcentaje ? ` + ${fmtPct(s.porcentaje)} %` : ""}`}
                 {" · "}{s.docs.length} {t("docs")}
                 {(s.suplidos ?? []).length > 0 ? ` · ${(s.suplidos ?? []).length} ${t("tasas")}` : ""}
-                {s.categoria?.trim() ? ` · ${s.categoria.trim()}` : ""}
+                {s.categoria?.trim()
+                  ? ` · ${s.categoria.trim()}`
+                  : temaSugerido(s.id, s.label) ? ` · ${temaSugerido(s.id, s.label)} (${t("sugerido")})` : ""}
               </button>
             )}
 
@@ -321,7 +418,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
               className="mt-1 w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[16px] sm:text-xs text-slate-500 outline-none hover:border-slate-200 focus:border-aproba-500 focus:bg-white"
             />
 
-            <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }))}</div>
+            <div className="mt-3">{campoTema(s.categoria, (v) => update(s.id, { categoria: v }), temaSugerido(s.id, s.label))}</div>
 
             {/* Pago del cliente : anticipo (al firmar) + resto (al finalizar) */}
             <div className="mt-3 border-t border-slate-100 pt-3">
@@ -511,8 +608,27 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
             </div>
             </div>
           </div>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
+
+      {/* Crear una carpeta vacía y arrastrar servicios dentro (los temas propuestos por
+          Aproba primero; cualquier otro nombre, escribiéndolo). */}
+      {temasLibres.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-400">{t("Añadir carpeta:")}</span>
+          {temasLibres.map((x) => (
+            <button
+              key={x} type="button" onClick={() => setTemasVacios((v) => [...v, x])}
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500 transition hover:border-aproba-300 hover:text-aproba-700"
+            >
+              + {x}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         {enCatalogo.length > 0 && (

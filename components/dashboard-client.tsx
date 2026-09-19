@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BOARD_PHASES, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
-import { loadArchivados } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
+import { AvatarGestor, type Avatares } from "@/components/avatar-gestor";
+import { esperaAlCliente } from "@/lib/progreso";
 import { AgendaCitas } from "@/components/agenda-citas";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
 import type { Progreso } from "@/lib/progreso";
@@ -29,7 +30,6 @@ const diasHasta = (iso?: string) => {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? Infinity : Math.ceil((t - Date.now()) / 864e5);
 };
-const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
 function Icon({ name }: { name: string }) {
   const c = "h-[18px] w-[18px]";
@@ -40,13 +40,13 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, hoy }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; hoy: string }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; hoy: string; avatares?: Avatares }) {
   const t = useT();
   const router = useRouter();
-  const [archivados, setArchivados] = useState<Set<string>>(new Set());
-  useEffect(() => { setArchivados(loadArchivados()); }, []);
-
-  const live = useMemo(() => items.filter((e) => !e.archivado && !archivados.has(e.id)), [items, archivados]);
+  // El servidor ya no manda archivados (fetchExpedientesResumen soloVivos). La caché
+  // local de archivados ya no se consulta: un id viejo escondería un expediente VIVO de
+  // los recuentos. `archivado` se mantiene como cinturón si la consulta cayera al repli.
+  const live = useMemo(() => items.filter((e) => !e.archivado), [items]);
 
   const activos = live.filter((e) => e.estado !== "FINALIZADO" && e.estado !== "RECHAZADO");
   // «Requieren tu acción» = TODOS los estados donde le toca al gestor (fuente única
@@ -58,11 +58,9 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   const vencenSemana = live.filter((e) => { const d = diasHasta(e.fechaLimiteISO); return d !== Infinity && d <= 7; });
   const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
   // Hecho, no estado: un expediente con formularios ya generados no espera a nadie.
-  const esperandoCliente = live.filter((e) => e.progreso
-    ? e.progreso.docs.faltan.length > 0 && !e.progreso.hitos.presentado
-      && e.progreso.accion.clave !== "elegir_servicio" // sin enlace enviado no se «recuerda» nada
-      && e.progreso.accion.clave !== "subir_docs" // modo manual: el cliente no tiene enlace
-    : e.estado === "DOCS_PENDIENTES").length;
+  // Definición ÚNICA (lib/progreso.ts) — la comparte el filtro de la lista de Expedientes,
+  // adonde lleva este KPI.
+  const esperandoCliente = live.filter(esperaAlCliente).length;
 
   const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)).length }));
   const maxFase = Math.max(1, ...porFase.map((p) => p.count));
@@ -167,7 +165,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
             {carga.length === 0 && <p className="text-sm text-slate-400">{t("Esta oficina aún no tiene miembros asignados.")}</p>}
             {carga.map(([nombre, n]) => (
               <div key={nombre} className="flex items-center gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-semibold text-aproba-700">{initials(nombre)}</span>
+                <AvatarGestor nombre={nombre} foto={avatares[nombre]} size={28} />
                 <span className="w-20 shrink-0 text-sm text-slate-600">{nombre}</span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-aproba-500" style={{ width: `${(n / maxCarga) * 100}%` }} /></div>
                 <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{n}</span>

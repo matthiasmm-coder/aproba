@@ -56,7 +56,7 @@ const NOMBRE_ESTADO: Record<string, string> = {
 };
 function etiquetaEstado(estado: string, abreExpedientes: boolean, t: (s: string) => string): string {
   const alTablero = abreExpedientes && esEstadoEnCurso(estado);
-  return `${t(NOMBRE_ESTADO[estado] ?? estado)} → ${alTablero ? t("tablero") : t("historial")}`;
+  return `${t(NOMBRE_ESTADO[estado] ?? estado)} → ${alTablero ? t("En curso") : t("historial")}`;
 }
 
 // Opciones de validez (meses) de la tarjeta que produce un trámite.
@@ -268,7 +268,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
               <input type="checkbox" checked={mapeo.crearHistorial} onChange={(e) => setMapeo({ ...mapeo, crearHistorial: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Historial de servicios")}
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-600" title={t("Los trámites con estado «en preparación» o «presentado» se abren como expedientes en el tablero (en modo manual, sin enlace al cliente). Los demás van al historial.")}>
+            <label className="flex items-center gap-2 text-sm text-slate-600" title={t("Los trámites con estado «en preparación» o «presentado» se abren como expedientes en curso (en modo manual, sin enlace al cliente). Los demás van al historial.")}>
               <input type="checkbox" checked={Boolean(mapeo.crearEnCurso)} onChange={(e) => setMapeo({ ...mapeo, crearEnCurso: e.target.checked })} className="h-4 w-4 accent-aproba-600" />
               {t("Abrir expedientes para los trámites en curso")}
             </label>
@@ -283,7 +283,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
           </div>
           <p className="mt-2 text-xs text-slate-500">
             {mapeo.crearEnCurso
-              ? t("Al tablero van solo los trámites en curso: «en preparación» y «presentado». Los terminados (resuelto, rechazado, finalizado) quedan en el historial de cada cliente.")
+              ? t("Solo se abren los trámites vivos: «en preparación» y «presentado». Los terminados (resuelto, rechazado, finalizado) quedan en el historial de cada cliente.")
               : t("Sin esa opción, todos los trámites van al historial de cada cliente y no se abre ningún expediente.")}
           </p>
 
@@ -418,7 +418,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                       <p className="text-xs uppercase tracking-wide text-slate-400">
                         {f.enCurso ? t("Trámite en curso") : t("Servicio realizado")}
                         {f.servicio && (f.enCurso
-                          ? <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-aproba-700">{t("→ tablero")}</span>
+                          ? <span className="ml-2 rounded-full bg-aproba-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-aproba-700">{t("→ En curso")}</span>
                           : <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-500">{t("→ historial")}</span>)}
                       </p>
                       <p className="truncate text-slate-700">

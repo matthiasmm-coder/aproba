@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BOARD_COLUMNS, BOARD_PHASES, SALIDAS, etiquetaSalida, salidaDeEstado, type ExpedienteEstado, type Salida } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { useT } from "@/components/lang-provider";
+import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/components/avatar-gestor";
 import { ArchiveIcon, ChevronIcon } from "@/components/icons";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
 import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
@@ -33,7 +34,6 @@ export type BoardItem = {
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-const initials = (name: string) => name.split(" ").map((p) => p[0]).join("");
 
 // Orden canónico de los estados (para ordenar las tarjetas dentro de una fase).
 const ORDEN: Record<string, number> = Object.fromEntries(BOARD_COLUMNS.map((e, i) => [e, i]));
@@ -58,6 +58,7 @@ const chipDe = (c: Salida | null) =>
   : "bg-amber-50 text-amber-700";
 
 function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardItem) => void; preparado: boolean }) {
+  const foto = useAvatar(e.asignadoA);
   const t = useT();
   // La barra habla el MISMO idioma que la acción: documentos requeridos por el servicio,
   // no documentos subidos. Sin requisitos configurados (o sin progreso), el conteo de subidos.
@@ -125,14 +126,14 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
               ].filter(Boolean).join(" · ")}
             />
           )}
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-aproba-100 text-[11px] font-semibold text-aproba-700">{initials(e.asignadoA)}</span>
+          <AvatarGestor nombre={e.asignadoA} foto={foto} size={24} />
         </div>
       </div>
     </Link>
   );
 }
 
-export function BoardClient({ items, asignados, filtroInicial = null }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null }) {
+export function BoardClient({ items, asignados, filtroInicial = null, avatares = {} }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null; avatares?: Avatares }) {
   const t = useT();
   const [q, setQ] = useState("");
   // Filtro «esperando cliente» (desde el KPI del dashboard).
@@ -215,6 +216,7 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
   const filtrosAsignado = asignados.filter((a) => a !== "Sin asignar");
 
   return (
+    <AvataresProvider value={avatares}>
     <div>
       <div className="mb-5 flex items-end justify-between">
         <div>
@@ -355,5 +357,6 @@ export function BoardClient({ items, asignados, filtroInicial = null }: { items:
         </div>
       )}
     </div>
+    </AvataresProvider>
   );
 }

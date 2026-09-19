@@ -35,7 +35,9 @@ export default async function Dashboard() {
   const activa = filtroSede.activa;
   const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos] = await Promise.all([
     supabase.auth.getUser(),
-    fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede),
+    // Solo los VIVOS: el dashboard filtra los archivados nada más recibirlos, y un
+    // despacho con años de historial importado los traía todos para tirarlos.
+    fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, undefined, true),
     fetchChecklist(supabase, t),
     // Agenda semanal: 90 días hacia atrás para poder navegar a semanas pasadas.
     fetchProximasCitas({ desdeDias: 90, max: 300 }),
@@ -48,19 +50,20 @@ export default async function Dashboard() {
   // mirada — en «Oficina Barcelona» solo los miembros DE Barcelona (con su 0 si no
   // llevan nada), no los de Zaragoza. Los admins no están anclados: aparecen solo
   // si llevan carga en la vista. RLS enseña todas las membresías del despacho.
-  let equipo: { nombre: string; esAdmin: boolean; sedes: string[] }[] = [];
+  let equipo: { nombre: string; avatarUrl?: string | null; esAdmin: boolean; sedes: string[] }[] = [];
   // Mi rol: la memoria de actividad (documento institucional) solo se enseña a la administración.
   let miRol: string | null = null;
   try {
-    let res = await supabase.from("Membership").select("userId, role, oficinaId, oficinaIds, user:User(nombre)");
-    if (res.error) res = await supabase.from("Membership").select("userId, role, oficinaId, user:User(nombre)") as typeof res;
+    let res = await supabase.from("Membership").select("userId, role, oficinaId, oficinaIds, user:User(nombre, avatarUrl)");
+    if (res.error) res = await supabase.from("Membership").select("userId, role, oficinaId, user:User(nombre, avatarUrl)") as typeof res;
     miRol = ((res.data ?? []) as { userId?: string; role?: string }[]).find((m) => m.userId === user?.id)?.role ?? null;
     equipo = (res.data ?? []).flatMap((m) => {
-      const fila = m as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null; user?: { nombre: string | null } | { nombre: string | null }[] | null };
+      const fila = m as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null; user?: { nombre: string | null; avatarUrl?: string | null } | { nombre: string | null; avatarUrl?: string | null }[] | null };
       const u = Array.isArray(fila.user) ? fila.user[0] : fila.user;
       if (!u?.nombre) return [];
       return [{
         nombre: u.nombre,
+        avatarUrl: u.avatarUrl ?? null,
         esAdmin: fila.role === "OWNER" || fila.role === "ADMIN",
         sedes: fila.oficinaIds?.length ? fila.oficinaIds : fila.oficinaId ? [fila.oficinaId] : [],
       }];
@@ -93,7 +96,7 @@ export default async function Dashboard() {
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
       {/* Memoria de actividad (art. 8.1.f): cierra el Inicio de los administradores. */}
       {esAdmin && <MemoriaActividadCard />}
     </>

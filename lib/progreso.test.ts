@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizarEstado, calcularProgreso, docsCompletos, faseDe, type Hechos } from "./progreso";
+import { normalizarEstado, calcularProgreso, docsCompletos, esperaAlCliente, faseDe, type Hechos, type Progreso } from "./progreso";
 
 const base: Hechos = {
   estado: "EN_PREPARACION",
@@ -308,5 +308,41 @@ describe("completitud del expediente (Información + Documentos + Formularios)",
     expect(p.completitud.pct).toBe(100);
     expect(p.completitud.real).toBe(100);
     expect(p.completitud.manual).toBe(false);
+  });
+});
+
+describe("esperaAlCliente (una sola definición para Inicio y Expedientes)", () => {
+  const base = (p: Partial<Progreso>): { progreso: Progreso } => ({
+    progreso: {
+      estado: "EN_PREPARACION", fase: "preparacion",
+      docs: { requeridos: 3, recibidos: 1, faltan: ["Pasaporte", "Empadronamiento"], completo: false },
+      hitos: { arrancado: true, docs: false, formularios: false, presentado: false, resuelto: false, cerrado: false },
+      accion: { label: "Recordar al cliente", espera: true, clave: "generar_formularios" },
+      score: 50,
+      completitud: { pct: 30, real: 30, info: 1, docs: 0, formularios: 0, manual: false },
+      ...p,
+    } as Progreso,
+  });
+
+  it("espera cuando faltan documentos y el cliente tiene cómo mandarlos", () => {
+    expect(esperaAlCliente(base({}))).toBe(true);
+  });
+
+  it("no espera si ya está presentado", () => {
+    expect(esperaAlCliente(base({ hitos: { arrancado: true, docs: false, formularios: false, presentado: true, resuelto: false, cerrado: false } }))).toBe(false);
+  });
+
+  it("no espera si no falta ningún documento", () => {
+    expect(esperaAlCliente(base({ docs: { requeridos: 3, recibidos: 3, faltan: [], completo: true } }))).toBe(false);
+  });
+
+  it("no espera en modo manual ni antes de elegir servicio: ahí trabaja el gestor", () => {
+    expect(esperaAlCliente(base({ accion: { label: "Subir documentos", espera: false, clave: "subir_docs" } }))).toBe(false);
+    expect(esperaAlCliente(base({ accion: { label: "Elegir servicio", espera: false, clave: "elegir_servicio" } }))).toBe(false);
+  });
+
+  it("sin progreso calculado, se cae al estado (filas degradadas)", () => {
+    expect(esperaAlCliente({ estado: "DOCS_PENDIENTES" })).toBe(true);
+    expect(esperaAlCliente({ estado: "PRESENTADO" })).toBe(false);
   });
 });

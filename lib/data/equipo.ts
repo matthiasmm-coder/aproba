@@ -152,3 +152,21 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     miembros,
   };
 }
+
+// Mapa nombre → foto, ligero (sin Stripe ni planes): lo usan las pantallas que pintan
+// al responsable de un expediente. Va por NOMBRE porque es lo que viaja en las filas
+// (`asignadoA`), también en las que vienen del archivo.
+export async function fetchAvataresEquipo(): Promise<Record<string, string | null>> {
+  const supabase = await createSupabaseServer();
+  const out: Record<string, string | null> = {};
+  try {
+    const { data, error } = await supabase.from("Membership").select("User(nombre, avatarUrl)");
+    if (error) return out;
+    type Fila = { User: { nombre: string | null; avatarUrl: string | null } | { nombre: string | null; avatarUrl: string | null }[] | null };
+    for (const fila of (data as unknown as Fila[] | null) ?? []) {
+      const u = Array.isArray(fila.User) ? fila.User[0] : fila.User;
+      if (u?.nombre) out[u.nombre] = u.avatarUrl ?? null;
+    }
+  } catch { /* sin equipo legible: iniciales, como siempre */ }
+  return out;
+}

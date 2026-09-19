@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     if (email && process.env.RESEND_API_KEY) {
       const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim() || "Un cliente";
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? baseUrlFromRequest(req)).replace(/\/$/, "");
-      const cuerpo = `${nombre} ha solicitado un trámite desde su espacio:\n\n• ${etiquetas.join("\n• ")}\n\nEl expediente ${referencia} ya está en tu tablero (fase Recepción). El cliente está subiendo sus documentos.\n\nÁbrelo aquí:\n${appUrl}/app/expedientes/${expedienteId}`;
+      const cuerpo = `${nombre} ha solicitado un trámite desde su espacio:\n\n• ${etiquetas.join("\n• ")}\n\nEl expediente ${referencia} ya está en tus expedientes. El cliente está subiendo sus documentos.\n\nÁbrelo aquí:\n${appUrl}/app/expedientes/${expedienteId}`;
       // Misma cabecera que los emails al cliente: foto del despacho (OWNER) o sus
       // iniciales. Antes era un <pre> pelado — el gestor recibe ahora el mismo diseño.
       const { data: ws } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         titulo: "Nuevo trámite solicitado",
         cuerpoHtml: `<p style="margin:0 0 10px"><strong>${nombre}</strong> ha solicitado un trámite desde su espacio:</p>
           <p style="margin:0 0 10px">• ${etiquetas.join("<br>• ")}</p>
-          <p style="margin:0">El expediente <strong>${referencia}</strong> ya está en tu tablero (fase Recepción). El cliente está subiendo sus documentos.</p>`,
+          <p style="margin:0">El expediente <strong>${referencia}</strong> ya está en tus expedientes. El cliente está subiendo sus documentos.</p>`,
         cta: { url: `${appUrl}/app/expedientes/${expedienteId}`, label: "Abrir el expediente" },
         footerNota: `Aviso de Aproba para ${gestoria}.`,
         preheader: `${nombre}: ${etiquetas.join(" + ")}`,

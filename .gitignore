@@ -35,3 +35,6 @@ veille-ex-report.md
 
 # Servidor de desarrollo paralelo (NEXT_DIST_DIR=.next-dev)
 .next-dev/
+
+# Página de prueba local del árbol de expedientes (nunca se despliega)
+app/app/stress-local/

@@ -108,6 +108,24 @@ export type Progreso = {
   completitud: { pct: number; real: number; info: number; docs: number; formularios: number; manual: boolean };
 };
 
+// «ESPERANDO AL CLIENTE» — una sola definición para toda la app.
+//
+// Inicio contaba 7 y la lista de Expedientes 0 el mismo día (19/09): Inicio miraba los
+// DOCUMENTOS que faltan, la lista miraba `accion.espera`, que en el flujo v4 casi nunca
+// es cierto («preparar nunca espera»). Como el KPI de Inicio enlaza al filtro de la
+// lista, el gestor pulsaba «7 esperando cliente» y aterrizaba en una lista vacía.
+//
+// Manda el hecho: faltan documentos, no se ha presentado, y el cliente TIENE cómo
+// mandarlos (en modo manual o sin enlace enviado, el que tiene trabajo es el gestor).
+export function esperaAlCliente(e: { progreso?: Progreso; estado?: string }): boolean {
+  const p = e.progreso;
+  if (!p) return e.estado === "DOCS_PENDIENTES";
+  return p.docs.faltan.length > 0
+    && !p.hitos.presentado
+    && p.accion.clave !== "elegir_servicio"  // sin enlace enviado no se «recuerda» nada
+    && p.accion.clave !== "subir_docs";      // modo manual: el cliente no tiene enlace
+}
+
 // FLUJO v4 (03/09/2026): dos fases de TRABAJO. El ciclo del despacho termina en la
 // entrega; «Archivar» es el único gesto de cierre y sale del tablero.
 export type FaseKey = "preparacion" | "preparado";

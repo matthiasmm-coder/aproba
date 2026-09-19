@@ -7,7 +7,9 @@ export async function run() {
   const fx = colector();
   const { madrid } = await contexto();
   try {
-    const cli = await fx.cliente(); // SANS email : aucun aviso ne part
+    // Desde el 11/09 (91ca3f3) una renovación se PROPONE por email: sin email, la ruta
+    // devuelve 400 a propósito. El fixture usa el sumidero de Resend — nunca un buzón real.
+    const cli = await fx.cliente({ email: "delivered@resend.dev" });
     const venc = await fx.vencimiento(cli);
 
     const r1 = await api(`/api/vencimientos/${venc}/renovar`);

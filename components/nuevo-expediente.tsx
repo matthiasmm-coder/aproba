@@ -753,7 +753,7 @@ export function NuevoExpediente() {
           )}
 
           <div className="mt-5 flex justify-center gap-3 text-sm">
-            <Link href="/app/expedientes" className="font-semibold text-aproba-700 hover:underline">{t("Ir al tablero")}</Link>
+            <Link href="/app/expedientes" className="font-semibold text-aproba-700 hover:underline">{t("Ir a Expedientes")}</Link>
             <span className="text-slate-300">·</span>
             <button onClick={() => { setStep(0); setSeleccionado(null); setFamiliaSel(null); setEmpresaSel(null); setTrabajadorSel(null); setTrabNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaEmp({ razonSocial: "", nif: "", contactoNombre: "", contactoEmail: "", contactoTelefono: "" }); setEmpresaNombre(""); setModoNuevo(false); setTipoNuevo("individual"); setNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaFam({ nombre: "", titularNombre: "", titularApellidos: "", telefono: "" }); setQ(""); }} className="text-slate-500 hover:text-slate-800">
               {t("Crear otro")}

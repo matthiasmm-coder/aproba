@@ -57,9 +57,9 @@ export function pasoDeGuia(d: DatosActivacion, pathname: string, tour: TourEjemp
       // Sin ejemplo sembrado (siembra fallida o borrado antes de empezar): /app/ejemplo lo siembra y abre.
       if (!ej && !enFicha) return P({ key: "sembrar", n: 1, titulo: "Tu primer expediente ya está hecho", texto: "Ábrelo y mira lo que hace la IA.", ir: "/app/ejemplo", cta: "Abrir el ejemplo" });
       if (enFicha) return P({ key: "informacion", n: 3, anclaje: "informacion", abrir: "informacion", titulo: "La ficha, rellenada por la IA", texto: "Nombre, NIE, pasaporte…: leídos de sus documentos.", cta: "Siguiente", avanza: 3 });
-      if (enTablero && ej) return P({ key: "tarjeta", n: 2, anclaje: "tarjeta-ejemplo", titulo: "Ábrelo", texto: "Pulsa su tarjeta para ver la ficha.", ir: ficha, cta: "Abrir el ejemplo", ctaSoloSinAncla: true });
-      if (enPanel) return P({ key: "menu", n: 1, anclaje: "menu-expedientes", titulo: "Tu primer expediente ya está hecho", texto: "Entra en Expedientes: está en el tablero.", ir: "/app/expedientes", cta: "Ver expedientes", ctaSoloSinAncla: true });
-      return P({ key: "volver-1", n: 1, titulo: "Tu primer expediente ya está hecho", texto: "Está en el tablero de Expedientes.", ir: "/app/expedientes", cta: "Ver expedientes" });
+      if (enTablero && ej) return P({ key: "tarjeta", n: 2, anclaje: "tarjeta-ejemplo", titulo: "Ábrelo", texto: "Pulsa el ejemplo para ver su ficha.", ir: ficha, cta: "Abrir el ejemplo", ctaSoloSinAncla: true });
+      if (enPanel) return P({ key: "menu", n: 1, anclaje: "menu-expedientes", titulo: "Tu primer expediente ya está hecho", texto: "Entra en Expedientes: ahí lo tienes.", ir: "/app/expedientes", cta: "Ver expedientes", ctaSoloSinAncla: true });
+      return P({ key: "volver-1", n: 1, titulo: "Tu primer expediente ya está hecho", texto: "Está en tus Expedientes.", ir: "/app/expedientes", cta: "Ver expedientes" });
     }
     if (v < 4) {
       if (enFicha) return P({ key: "documentos", n: 4, anclaje: "documentos", abrir: "documentos", titulo: "Cuatro documentos validados", texto: "Leídos y comprobados uno a uno. Nada que teclear.", cta: "Siguiente", avanza: 4 });
