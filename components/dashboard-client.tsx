@@ -82,7 +82,9 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   // Inicio (sustituye al retrospectivo «Resueltos»). «Plazos esta semana» = fechas límite
   // de expedientes (≠ caducidades de tarjetas).
   const KPIS = [
-    { n: accion.length, label: t("Requieren tu acción"), href: "/app/expedientes", tone: "border-aproba-300 bg-aproba-50", num: "text-aproba-700", icon: "bell", emph: true },
+    // Fondo blanco como las demás (20/09): la tarjeta principal se distingue por su
+    // número en verde y su icono, no por teñir todo el recuadro.
+    { n: accion.length, label: t("Requieren tu acción"), href: "/app/expedientes", tone: "border-aproba-200 bg-white", num: "text-aproba-700", icon: "bell", emph: true },
     { n: vencenSemana.length, label: t("Plazos esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
     { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")} →`, subHref: "/app/expedientes?filtro=esperando", href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
     { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar", emph: false },
