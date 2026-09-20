@@ -51,7 +51,7 @@ export function CaducidadTie({ clienteId, fechaActual }: { clienteId: string; fe
               <span className={`font-semibold ${dias < 0 ? "text-red-600" : dias <= 60 ? "text-amber-600" : "text-slate-800"}`}>
                 {dias < 0 ? t("Caducó hace {n} días").replace("{n}", String(-dias)) : t("Caduca en {n} días").replace("{n}", String(dias))}
               </span>
-              <span className="text-slate-400"> · {t("vigilada en Vencimientos")}</span>
+              <span className="text-slate-400"> · {t("vigilada en Renovaciones")}</span>
             </p>
           ) : (
             <p className="mt-1 text-sm text-slate-500">{t("Registra la caducidad y Vigía te avisará cuando toque renovar — sin esperar a un expediente.")}</p>

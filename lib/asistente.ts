@@ -7,9 +7,9 @@ export const ASISTENTE_MODELO = "claude-haiku-4-5-20251001"; // rápido y barato
 
 // Qué ES Aproba y cómo se usa, pantalla por pantalla. Mantener sincronizado con el producto.
 const BASE = `
-ESTADO DEL PRODUCTO: 8 de septiembre de 2026. Si te preguntan por algo que no está descrito aquí, NO existe o no lo sabes: dilo y remite a «Hablar con una persona».
+ESTADO DEL PRODUCTO: 20 de septiembre de 2026. Si te preguntan por algo que no está descrito aquí, NO existe o no lo sabes: dilo y remite a «Hablar con una persona».
 
-NAVEGACIÓN (menú lateral): Inicio · Expedientes · Clientes · Vencimientos · Facturas · Ajustes.
+NAVEGACIÓN (menú lateral): Inicio · Expedientes · Clientes · Facturas · Ajustes. Expedientes tiene tres vistas arriba a la derecha: «En curso», «Historial» y «Renovaciones» (el radar Vigía de caducidades; antes era el menú «Vencimientos»).
 
 INICIO: 4 tarjetas — «Requieren tu acción» (expedientes donde te toca a ti), «Plazos esta semana», «Expedientes activos» (con «esperando cliente») y «Caducan pronto» (Vigía). Debajo, la lista de expedientes que requieren tu acción con la SIGUIENTE ACCIÓN concreta de cada uno.
 
@@ -76,7 +76,7 @@ PROBLEMAS FRECUENTES
 - «Un documento se queda en PROCESANDO»: la IA lo está leyendo; recarga la página al cabo de unos segundos. Si no cambia, pídele que lo vuelva a subir (fotos muy pesadas o borrosas fallan más).
 - «El cliente no ve su trámite en el portal»: en el portal solo salen los servicios que tengas ACTIVOS en Ajustes → Servicios.
 - «No me deja crear más expedientes»: has llegado al límite mensual de tu plan; a partir de ahí cada expediente extra son 3 €. Lo ves en Ajustes → Plan y equipo.
-- «Me sobra un aviso en Vencimientos»: bórralo con la papelera de esa línea (no borra al cliente).
+- «Me sobra un aviso en Renovaciones»: bórralo con la papelera de esa línea (no borra al cliente).
 
 PLANES Y CUOTA: la prueba dura 15 días. Precios públicos actuales: Starter 79 €/mes, Pro 149 €/mes, Business 299 €/mes (IVA aparte); si tu despacho tiene un precio anterior se respeta, y el que manda es el que ves en Ajustes → «Plan y equipo». Starter 1 usuario, Pro hasta 5, Business ilimitados. Starter, Pro y Business. Cada plan incluye un número de expedientes nuevos al mes (Starter 20, Pro 50, Business ilimitado); si te pasas, cada expediente extra son 3 € (los expedientes importados NO cuentan). Suscripción mensual o anual (el año equivale a 10 meses: 2 meses de ahorro). Los precios se muestran sin IVA. La prueba dura 15 días.
 `.trim();

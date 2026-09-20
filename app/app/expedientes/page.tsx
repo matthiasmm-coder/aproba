@@ -3,6 +3,7 @@ import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { temaEfectivo, unificarTemas } from "@/lib/temas";
 import { fetchHistorialResumen } from "@/lib/data/historial";
+import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchAvataresEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { normTema } from "@/lib/servicios";
@@ -21,10 +22,13 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   // EL ARCHIVO SE LEE APARTE (supabase/historial-resumen.sql): recuentos por servicio y
   // año. Si la función existe, el cargador ya NO trae los archivados — es lo que permite
   // importar quince años sin que la pantalla cargue quince años.
-  const [resumenArchivo, avatares] = await Promise.all([
+  const [resumenArchivo, avatares, vencimientos] = await Promise.all([
     fetchHistorialResumen(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchAvataresEquipo(),
+    fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []), // pestaña «Renovaciones»
   ]);
+  // El recuento de la pestaña = el KPI «Caducan pronto» del Inicio (misma regla).
+  const renovaciones = vencimientos.filter((v) => v.estado !== "TRAMITANDO" && v.dias <= 60).length;
   const expedientes = await fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES, resumenArchivo !== null);
 
   // FLUJO v4: dos lecturas ligeras aparte del cargador (que tiene su propia cadena de
@@ -193,7 +197,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       )}
       {vista === "tablero"
         ? <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} avatares={avatares} />
-        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} archivo={archivo} avatares={avatares} />}
+        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} archivo={archivo} avatares={avatares} />}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/components/avatar-gestor";
 import { useT } from "@/components/lang-provider";
+import { ArchiveIcon, VistasExpedientes } from "@/components/vistas-expedientes";
 import { SALIDAS, etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { construirArbol, grupoDe as grupoArbol, raizDe, temaDe, SIN_TEMA, type PackLite } from "@/lib/expedientes-arbol";
@@ -48,9 +49,6 @@ const chipDe = (c: Salida | null) =>
   : c === "desistido" ? "bg-slate-100 text-slate-500"
   : "bg-amber-50 text-amber-700";
 
-function ArchiveIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4" /></svg>;
-}
 // Fecha límite: reloj dibujado (antes, el emoji ⏱ — cada sistema lo pinta a su manera).
 function PlazoIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
@@ -271,7 +269,7 @@ function useArchivoServidor() {
   return { filas, cargando, error, pedir, pedirMas, quitar };
 }
 
-export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, archivo = null, avatares = {}, carpetasVacias = [] }: {
+export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, vistaInicial = "curso", renovaciones = 0, archivo = null, avatares = {}, carpetasVacias = [] }: {
   items: ItemLista[];
   asignados: string[];
   temas: string[];
@@ -282,6 +280,11 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   // `?filtro=esperando` viene de Inicio («N esperando cliente →»). Sin esto, el enlace
   // llevaba a la lista COMPLETA: el gestor pulsaba un recuento y no veía ese recuento.
   filtroInicial?: "esperando" | null;
+  // `?vista=historial`: la pestaña «Historial» de la pantalla de renovaciones vuelve aquí
+  // abriendo directamente el archivo. Y el recuento de la pestaña «Renovaciones» (el
+  // mismo número que el KPI «Caducan pronto» del Inicio).
+  vistaInicial?: "curso" | "historial";
+  renovaciones?: number;
   // Fotos del equipo por nombre: la fila pinta la foto del responsable, no sus iniciales.
   avatares?: Avatares;
   // Carpetas de Ajustes que hoy no llevan ningún expediente: se pintan igual, vacías.
@@ -292,7 +295,15 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const [q, setQ] = useState("");
   const [asignado, setAsignado] = useState("");
   const [tema, setTema] = useState("");
-  const [view, setView] = useState<"curso" | "historial">("curso");
+  const [view, setView] = useState<"curso" | "historial">(vistaInicial);
+  // La URL acompaña a la vista (?vista=historial) sin recargar: así un F5 — o el enlace
+  // «Historial» desde Renovaciones — vuelve a abrir lo que se estaba mirando.
+  const cambiarVista = (v: "curso" | "historial") => {
+    setView(v);
+    const url = new URL(window.location.href);
+    if (v === "historial") url.searchParams.set("vista", "historial"); else url.searchParams.delete("vista");
+    window.history.replaceState(window.history.state, "", url.pathname + (url.search || ""));
+  };
   const [soloEsperando, setSoloEsperando] = useState(filtroInicial === "esperando");
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   // El plegado se RECUERDA entre visitas (localStorage, por navegador): al volver, el
@@ -554,12 +565,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 : `${totalArchivo} ${t("en el historial")}`}
           </p>
         </div>
-        <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
-          <button onClick={() => setView("curso")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${view === "curso" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("En curso")}</button>
-          <button onClick={() => setView("historial")} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${view === "historial" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-            <ArchiveIcon className="h-3.5 w-3.5" />{t("Historial")} {totalArchivo > 0 && <span className="text-xs text-slate-400">{totalArchivo}</span>}
-          </button>
-        </div>
+        <VistasExpedientes activa={view} totalHistorial={totalArchivo} totalRenovaciones={renovaciones} onCambiar={cambiarVista} />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

@@ -16,6 +16,10 @@ export const CA: Record<string, string> = {
   "Los documentos subidos no traen esos datos: hay que escribirlos a mano.": "Els documents pujats no porten aquestes dades: cal escriure-les a mà.",
   // ── Vigía (vencimientos/renovaciones) + UX 2026-07 ──
   "Vencimientos": "Venciments",
+  "Renovaciones": "Renovacions",
+  "caducan en 60 días": "caduquen en 60 dies",
+  "Nada caduca en los próximos 60 días": "No caduca res en els propers 60 dies",
+  "vigilada en Renovaciones": "vigilada a Renovacions",
   "Las tarjetas de tus clientes que caducan pronto. Inicia la renovación con un clic: se crea el expediente y se avisa al cliente en su idioma.": "Les targetes dels teus clients que caduquen aviat. Inicia la renovació amb un clic: es crea l'expedient i s'avisa el client en el seu idioma.",
   "Ya caducadas": "Ja caducades",
   "Caducan en menos de 60 días": "Caduquen en menys de 60 dies",
