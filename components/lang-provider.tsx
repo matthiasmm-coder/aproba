@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext } from "react";
 import { translate, type Lang } from "@/lib/app-i18n";
 
 // La langue est résolue côté serveur (cookie) et passée ici ; les Client Components
@@ -18,5 +18,9 @@ export function useLang(): Lang {
 
 export function useT(): (es: string) => string {
   const lang = useContext(LangContext);
-  return (es: string) => translate(lang, es);
+  // Identidad ESTABLE mientras no cambie el idioma. Si `t` fuera una función nueva en
+  // cada render, cualquier efecto que la lleve en sus dependencias se relanzaría sin
+  // parar: la memoria de actividad pedía /api/memoria en bucle y su botón, desactivado
+  // mientras carga, no llegaba a activarse nunca.
+  return useCallback((es: string) => translate(lang, es), [lang]);
 }

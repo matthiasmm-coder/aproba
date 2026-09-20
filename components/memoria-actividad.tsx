@@ -110,7 +110,9 @@ export function MemoriaActividad() {
         </label>
         <button
           onClick={descargar}
-          disabled={bajando || cargando || rangoInvalido}
+          // Solo lo bloquean un período imposible o una descarga en marcha: el PDF se
+          // calcula en el servidor, no necesita esperar a las cifras de la vista previa.
+          disabled={bajando || rangoInvalido}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-aproba-600 px-3.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60"
         >
           {bajando ? (
@@ -133,7 +135,7 @@ export function MemoriaActividad() {
         <>
           {/* Las cifras, en una línea: es una vista previa de lo que llevará el PDF, no
               un cuadro de mando. Sin caja ni rejilla, la tarjeta respira. */}
-          <p className="mt-4 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <p className={`mt-4 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-xs text-slate-500 transition-opacity ${cargando ? "opacity-40" : ""}`}>
             {cifras.map(([label, n]) => (
               <span key={label} className="whitespace-nowrap">
                 <span className="text-sm font-semibold text-aproba-700">{n}</span> {label}
