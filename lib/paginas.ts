@@ -193,7 +193,7 @@ export const PAGINAS: PaginaPublica[] = [
       ] },
     ],
     cta: { titulo: "Pruébalo con un expediente real", texto: "Cuenta de prueba de 15 días con un expediente de ejemplo ya resuelto. Sin tarjeta." },
-    relacionadas: ["/precios", "/para/gestorias", "/para/abogados", "/funciones/formularios-en-un-clic", "/funciones/radar-de-renovaciones"],
+    relacionadas: ["/tramites", "/precios", "/para/gestorias", "/para/abogados", "/funciones/formularios-en-un-clic", "/funciones/radar-de-renovaciones"],
   },
   {
     ruta: "/precios",

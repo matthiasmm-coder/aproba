@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PAGINAS, getPagina, faqDePagina, PRECIOS, FRASE_DEFINICION } from "@/lib/paginas";
+import { faqDePagina, PRECIOS, FRASE_DEFINICION } from "@/lib/paginas";
+import { TODAS_LAS_PAGINAS, getPaginaPublica } from "@/lib/paginas-indice";
+import { ARTICULOS } from "@/lib/articulos";
 import { ArticuloCuerpo } from "@/components/articulo-cuerpo";
 import { fechaLarga } from "@/lib/articulos";
 
@@ -13,7 +15,7 @@ const BASE = "https://aproba-software.com";
 // pestaña, ni un menú nuevo (regla de Matthias, 20/09/2026). Quien llega aquí viene de
 // un buscador, no de la landing.
 export async function metadataDePagina(ruta: string): Promise<Metadata> {
-  const p = getPagina(ruta);
+  const p = getPaginaPublica(ruta);
   if (!p) return { title: "Página no encontrada" };
   return {
     title: { absolute: p.titulo }, // ≤ 65 caracteres, sin el sufijo del layout raíz
@@ -27,13 +29,17 @@ export async function metadataDePagina(ruta: string): Promise<Metadata> {
 const limpiar = (s: string) => s.replace(/\*\*/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 
 export function PaginaPublicaVista({ ruta }: { ruta: string }) {
-  const p = getPagina(ruta);
+  const p = getPaginaPublica(ruta);
   if (!p) notFound();
   const faq = faqDePagina(p);
+  // «Seguir leyendo»: páginas de categoría, trámites, artículos (por su slug) y los dos índices.
   const relacionadas = (p.relacionadas ?? [])
-    .map((r) => (r === "/articulos"
-      ? { ruta: r, h1: "Artículos sobre extranjería para despachos", descripcion: "Plazos, tasas, notificaciones y renovaciones, con las fuentes oficiales." }
-      : getPagina(r)))
+    .map((r) => {
+      if (r === "/articulos") return { ruta: r, h1: "Artículos sobre extranjería para despachos", descripcion: "Plazos, tasas, notificaciones y renovaciones, con las fuentes oficiales." };
+      if (r === "/tramites") return { ruta: r, h1: "Los trámites, uno a uno", descripcion: "Qué pide Aproba al cliente, qué modelos y qué tasa genera en cada trámite." };
+      if (r.startsWith("/articulos/")) { const a = ARTICULOS.find((x) => `/articulos/${x.slug}` === r); return a ? { ruta: r, h1: a.titulo, descripcion: a.descripcion } : undefined; }
+      return getPaginaPublica(r);
+    })
     .filter((r): r is NonNullable<typeof r> => Boolean(r));
 
   // Datos estructurados: WebPage + migas + FAQ; en /precios, la aplicación con sus ofertas.
@@ -113,4 +119,4 @@ export function PaginaPublicaVista({ ruta }: { ruta: string }) {
   );
 }
 
-export const rutasPublicas = () => PAGINAS.map((p) => p.ruta);
+export const rutasPublicas = () => TODAS_LAS_PAGINAS.map((p) => p.ruta);

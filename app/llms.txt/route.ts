@@ -1,5 +1,6 @@
 import { ARTICULOS, listaArticulos } from "@/lib/articulos";
-import { PAGINAS, FRASE_DEFINICION, PRECIOS } from "@/lib/paginas";
+import { FRASE_DEFINICION, PRECIOS } from "@/lib/paginas";
+import { TODAS_LAS_PAGINAS as PAGINAS } from "@/lib/paginas-indice";
 
 // /llms.txt — el índice que leen los asistentes y buscadores generativos (convención
 // llmstxt.org): qué es Aproba, en una frase idéntica a la del sitio, y dónde está cada

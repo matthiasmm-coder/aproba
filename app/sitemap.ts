@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { ARTICULOS } from "@/lib/articulos";
 import { BENEFICIOS, rutaDe } from "@/lib/beneficios";
-import { PAGINAS } from "@/lib/paginas";
+import { TODAS_LAS_PAGINAS } from "@/lib/paginas-indice";
 
 // Sitemap mínimo: las páginas públicas indexables. Fechas fijas por página (se
 // actualizan cuando cambia el contenido de verdad, no en cada build).
@@ -39,12 +39,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
   // Páginas de CATEGORÍA (lib/paginas): las que nombran «software de extranjería», el
   // precio y cada público. No cuelgan de la portada: el buscador llega por aquí.
-  const categoria: MetadataRoute.Sitemap = PAGINAS.map((pg) => ({
+  const categoria: MetadataRoute.Sitemap = [...TODAS_LAS_PAGINAS.map((pg) => ({
     url: `${base}${pg.ruta}`,
     lastModified: new Date(pg.actualizado),
-    changeFrequency: "monthly",
-    priority: pg.ruta === "/software-de-extranjeria" ? 0.9 : 0.8,
-  }));
+    changeFrequency: "monthly" as const,
+    priority: pg.ruta === "/software-de-extranjeria" ? 0.9 : pg.ruta.startsWith("/tramites/") ? 0.7 : 0.8,
+  })), { url: `${base}/tramites`, lastModified: new Date("2026-09-20"), changeFrequency: "monthly" as const, priority: 0.8 }];
 
   // Las páginas «beneficio explicado» de la portada (lib/beneficios): una por tarjeta.
   const beneficios: MetadataRoute.Sitemap = BENEFICIOS.map((b) => ({

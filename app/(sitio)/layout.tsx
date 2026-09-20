@@ -31,6 +31,7 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
             <Link href="/" className="hover:text-slate-700">Inicio</Link>
             <Link href="/software-de-extranjeria" className="hover:text-slate-700">Software de extranjería</Link>
             <Link href="/precios" className="hover:text-slate-700">Precios</Link>
+            <Link href="/tramites" className="hover:text-slate-700">Trámites</Link>
             <Link href="/para/gestorias" className="hover:text-slate-700">Para gestorías</Link>
             <Link href="/para/abogados" className="hover:text-slate-700">Para abogados</Link>
             <Link href="/articulos" className="hover:text-slate-700">Artículos</Link>
