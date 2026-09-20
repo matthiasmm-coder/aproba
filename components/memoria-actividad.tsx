@@ -80,17 +80,17 @@ export function MemoriaActividad() {
 
   const cifras: [string, number][] = datos
     ? [
-        [t("Expedientes tramitados"), datos.expedientesTramitados],
-        [t("Iniciados en el período"), datos.expedientesIniciados],
-        [t("Presentados"), datos.expedientesPresentados],
-        [t("Personas atendidas"), datos.personasAtendidas],
+        [t("tramitados"), datos.expedientesTramitados],
+        [t("iniciados"), datos.expedientesIniciados],
+        [t("presentados"), datos.expedientesPresentados],
+        [t("personas"), datos.personasAtendidas],
       ]
     : [];
 
   return (
     <div>
-      <p className="mx-auto mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
-        {t("Expedientes, procedimientos y actuaciones de un período, en un PDF. Es lo que pide el artículo 8.1.f de la Orden ISM/164/2026 al renovar la inscripción como entidad colaboradora.")}
+      <p className="mx-auto mt-1 max-w-2xl text-xs text-slate-500">
+        {t("Tu actividad de un período en un PDF, para renovar como entidad colaboradora (art. 8.1.f). Solo cifras agregadas.")}
       </p>
 
       <div className="mt-4 flex flex-wrap items-end justify-center gap-3">
@@ -130,38 +130,33 @@ export function MemoriaActividad() {
       )}
 
       {datos && !rangoInvalido && (
-        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <>
+          {/* Las cifras, en una línea: es una vista previa de lo que llevará el PDF, no
+              un cuadro de mando. Sin caja ni rejilla, la tarjeta respira. */}
+          <p className="mt-4 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-xs text-slate-500">
             {cifras.map(([label, n]) => (
-              <div key={label}>
-                <p className="text-2xl font-bold tracking-tightest text-aproba-700">{n}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{label}</p>
-              </div>
+              <span key={label} className="whitespace-nowrap">
+                <span className="text-sm font-semibold text-aproba-700">{n}</span> {label}
+              </span>
             ))}
-          </div>
-          {datos.procedimientos.length > 0 && (
-            <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">
-              {datos.procedimientos.length} {datos.procedimientos.length === 1 ? t("procedimiento") : t("procedimientos")}
-              {" · "}
-              {datos.actuaciones.reduce((s, a) => s + a.n, 0)} {t("actuaciones registradas")}
-            </p>
-          )}
+            {datos.procedimientos.length > 0 && (
+              <span className="whitespace-nowrap text-slate-400">
+                {datos.procedimientos.length} {datos.procedimientos.length === 1 ? t("procedimiento") : t("procedimientos")}
+                {" · "}
+                {datos.actuaciones.reduce((s, a) => s + a.n, 0)} {t("actuaciones")}
+              </span>
+            )}
+          </p>
           {datos.expedientesTramitados === 0 && (
-            <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">
-              {t("No hay actividad registrada en este período.")}
-            </p>
+            <p className="mt-2 text-xs text-slate-400">{t("No hay actividad registrada en este período.")}</p>
           )}
           {datos.truncada && (
-            <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               {t("Tu histórico supera el máximo de esta consulta: acorta el período para obtener cifras completas.")}
             </p>
           )}
-        </div>
+        </>
       )}
-
-      <p className="mt-3 text-xs text-slate-400">
-        {t("El PDF solo lleva cifras agregadas: ningún dato personal de las personas atendidas.")}
-      </p>
     </div>
   );
 }
