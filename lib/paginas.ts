@@ -45,6 +45,69 @@ const faqComun: { q: string; a: string }[] = [
 ];
 
 export const PAGINAS: PaginaPublica[] = [
+  // ── CASO REAL (20/09/2026) ────────────────────────────────────────
+  // El despacho NO se nombra: se nombrará cuando dé su autorización (decisión de
+  // Matthias, 20/09). Todas las cifras salen de su propia cuenta, medidas el 20/09/2026.
+  // ⚠️ Se publica el NÚMERO de facturas, no su importe: la facturación es dato de negocio
+  // del despacho, no nuestro. Si algún día se añade, que sea con su permiso expreso.
+  {
+    ruta: "/caso-real",
+    titulo: "Un despacho real con Aproba: 105 expedientes en 12 semanas",
+    descripcion: "Cifras medidas en la cuenta de un despacho de extranjería que paga Aproba desde junio de 2026: expedientes, documentos, formularios y avisos. Con el método.",
+    etiqueta: "Caso real",
+    h1: "Qué hace un despacho real con Aproba en doce semanas",
+    entradilla: "No es una estimación ni un testimonio: son las cifras de la cuenta de un despacho de extranjería español que paga Aproba desde el 29 de junio de 2026, medidas el 20 de septiembre. El despacho no se nombra todavía — lo haremos cuando nos autorice a hacerlo.",
+    actualizado: "2026-09-20",
+    migas: [{ nombre: "Caso real", ruta: "/caso-real" }],
+    bloques: [
+      { t: "datos", items: [
+        { valor: "105", etiqueta: "expedientes abiertos en 12 semanas" },
+        { valor: "177", etiqueta: "documentos subidos por sus clientes desde el portal" },
+        { valor: "83", etiqueta: "formularios oficiales generados" },
+        { valor: "42", etiqueta: "facturas emitidas desde el expediente" },
+      ] },
+      { t: "p", texto: "Un despacho de extranjería abrió su cuenta el **29 de junio de 2026** y paga desde el primer día. Lo que sigue es lo que su equipo ha hecho con Aproba en doce semanas, contado desde su propia cuenta. Ningún número está redondeado ni proyectado." },
+      { t: "h2", texto: "Las cifras, una a una" },
+      { t: "tabla", titulo: "Medido el 20 de septiembre de 2026", encabezados: ["Qué", "Cuánto", "Qué significa"], filas: [
+        ["Expedientes abiertos", "105", "Trámites reales de sus clientes, no pruebas"],
+        ["Clientes en su fichero", "124", "Ficha con sus datos personales, reutilizable en cada trámite"],
+        ["Documentos subidos por el cliente", "177", "Desde el portal, con el móvil; el despacho no subió ninguno"],
+        ["Documentos validados por la IA", "120", "Tipo reconocido, caducidad leída, datos extraídos a la ficha"],
+        ["Formularios oficiales generados", "83", "Modelos EX y tasas 790 rellenados con los datos del expediente"],
+        ["Avisos enviados a sus clientes", "585", "Automáticos, en el idioma de cada cliente"],
+        ["Facturas emitidas", "42", "Desde el propio expediente, con sus suplidos"],
+        ["Caducidades vigiladas", "27", "TIE, pasaportes y NIE con su fecha, para proponer la renovación"],
+      ], nota: "Fuente: la cuenta del despacho. Cada cifra es un recuento directo, sin muestreo." },
+      { t: "h2", texto: "Dos números que dicen más que el resto" },
+      { t: "p", texto: "**177 documentos subidos por sus clientes, cero por el despacho.** Es la diferencia entre perseguir papeles por WhatsApp y recibirlos clasificados: el cliente abre su enlace, ve la lista exacta de su trámite y hace las fotos con el teléfono. El registro de cada expediente dice quién subió cada documento; en este despacho, siempre el cliente." },
+      { t: "p", texto: "**56 días distintos con expedientes nuevos**, entre el 29 de junio y el 20 de septiembre. De los 60 días laborables del período, se abrió trabajo nuevo en 42 — siete de cada diez —, y en otros catorce fines de semana o festivos. No es una cuenta que se probó una semana y se dejó." },
+      { t: "h2", texto: "El portal, en seis idiomas" },
+      { t: "barras", titulo: "Idioma elegido por sus 124 clientes", unidad: "clientes", items: [
+        { etiqueta: "Español", valor: 96 },
+        { etiqueta: "Inglés", valor: 19, destacado: true },
+        { etiqueta: "Alemán", valor: 3 },
+        { etiqueta: "Francés", valor: 3 },
+        { etiqueta: "Italiano", valor: 2 },
+        { etiqueta: "Chino", valor: 1 },
+      ], nota: "Uno de cada cuatro clientes de este despacho no hace su trámite en español." },
+      { t: "h2", texto: "Lo que estas cifras no dicen" },
+      { t: "ul", items: [
+        "**Es un despacho, no una muestra.** Doce semanas de una sola cuenta no permiten afirmar «los despachos ahorran X horas». Cuando tengamos más cuentas con recorrido, se publicarán igual: medidas, no estimadas.",
+        "**No medimos su tiempo.** Aproba cuenta lo que pasa dentro de la aplicación; las horas que se ahorra un equipo no se pueden leer desde aquí. Cualquiera que te dé esa cifra sin haberte cronometrado se la está inventando.",
+        "**No publicamos su facturación.** Las 42 facturas son suyas y su importe también: es dato de negocio del despacho, no nuestro.",
+        "**Presenta el despacho, no Aproba.** Los 83 formularios salen rellenados y editables; la presentación en Mercurio o en la sede es un acto del profesional, con su certificado.",
+      ] },
+      { t: "nota", titulo: "Por qué no aparece el nombre", texto: "Porque todavía no nos ha autorizado a darlo. Preferimos publicar cifras verificables de un despacho anónimo que un testimonio inventado con nombre y apellidos — algo bastante común en este sector." },
+      { t: "faq", items: [
+        { q: "¿Se puede comprobar?", a: "Las cifras salen de la cuenta del despacho y se pueden volver a contar en cualquier momento; la fecha de medición está arriba. Cuando el despacho autorice su nombre, lo añadiremos aquí con su valoración." },
+        { q: "¿Es el único cliente?", a: "No, pero sí el de más recorrido: paga desde el 29 de junio de 2026. Los demás llevan menos tiempo y sus cifras aún dirían poco." },
+        { q: "¿Cuánto tardó en ponerse en marcha?", a: "Abrió expedientes el mismo día del alta. Si prefieres empezar con tus clientes ya migrados y tu equipo formado, eso es [Despegue](/despegue)." },
+        { q: "¿Qué plan usa?", a: "Pro. Los planes y lo que incluye cada uno están en [precios](/precios)." },
+      ] },
+    ],
+    cta: { titulo: "Ábrete una cuenta y mide la tuya", texto: "15 días gratis, sin tarjeta. Tu cuenta lleva el mismo registro: cada documento, cada formulario y cada aviso quedan contados." },
+    relacionadas: ["/software-de-extranjeria", "/precios", "/despegue", "/para/gestorias"],
+  },
   // ── PÁGINA PILAR ──────────────────────────────────────────────────────────
   {
     ruta: "/software-de-extranjeria",
