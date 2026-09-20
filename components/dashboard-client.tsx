@@ -72,10 +72,10 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   // Los cuatro KPI, en el orden que pidió Matthias (20/09): lo que tengo abierto, lo que
   // espera del cliente (documentos), lo que espera su dinero, y lo que caduca.
   const KPIS = [
-    { n: activos.length, label: t("Expedientes activos"), href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: true },
-    { n: esperandoCliente, label: t("Esperando al cliente"), sub: t("documentos e información"), href: "/app/expedientes?filtro=esperando", tone: "border-slate-200 bg-white", num: esperandoCliente ? "text-amber-600" : "text-slate-900", icon: "clock", emph: false },
-    { n: esperandoPago, label: t("Esperando pago"), sub: cobrosVencidos ? `${cobrosVencidos} ${cobrosVencidos === 1 ? t("factura vencida") : t("facturas vencidas")}` : t("facturas enviadas sin cobrar"), href: "/app/facturas", tone: "border-slate-200 bg-white", num: cobrosVencidos ? "text-red-600" : esperandoPago ? "text-amber-600" : "text-slate-900", icon: "euro", emph: false },
-    { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar", emph: false },
+    { n: activos.length, label: t("Expedientes activos"), href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder" },
+    { n: esperandoCliente, label: t("Esperando al cliente"), sub: t("documentos e información"), href: "/app/expedientes?filtro=esperando", tone: "border-slate-200 bg-white", num: esperandoCliente ? "text-amber-600" : "text-slate-900", icon: "clock" },
+    { n: esperandoPago, label: t("Esperando pago"), sub: cobrosVencidos ? `${cobrosVencidos} ${cobrosVencidos === 1 ? t("factura vencida") : t("facturas vencidas")}` : t("facturas enviadas sin cobrar"), href: "/app/facturas", tone: "border-slate-200 bg-white", num: cobrosVencidos ? "text-red-600" : esperandoPago ? "text-amber-600" : "text-slate-900", icon: "euro" },
+    { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar" },
   ];
 
   return (
@@ -96,8 +96,10 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
       )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (
-          <Link key={k.label} href={k.href} className={`flex flex-col items-center rounded-2xl border p-5 text-center transition hover:shadow-sm ${k.tone}`}>
-            <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${k.emph ? "bg-aproba-600 text-white" : "bg-slate-100 text-slate-500"}`}><Icon name={k.icon} /></span>
+          // El verde aparece al PASAR POR ENCIMA (borde e icono): en reposo las cuatro
+          // tarjetas son iguales y lo único que habla son las cifras.
+          <Link key={k.label} href={k.href} className={`group flex flex-col items-center rounded-2xl border p-5 text-center transition hover:border-aproba-400 hover:shadow-sm ${k.tone}`}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-aproba-600 group-hover:text-white"><Icon name={k.icon} /></span>
             <p className={`mt-4 text-3xl font-bold tracking-tightest ${k.num}`}>{k.n}</p>
             <p className="text-sm font-medium text-slate-600">{k.label}</p>
             {k.sub && ((k as { subHref?: string }).subHref ? (
