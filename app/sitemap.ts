@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { ARTICULOS } from "@/lib/articulos";
 import { BENEFICIOS, rutaDe } from "@/lib/beneficios";
+import { PAGINAS } from "@/lib/paginas";
 
 // Sitemap mínimo: las páginas públicas indexables. Fechas fijas por página (se
 // actualizan cuando cambia el contenido de verdad, no en cada build).
@@ -36,6 +37,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly",
     priority: 0.7,
   }));
+  // Páginas de CATEGORÍA (lib/paginas): las que nombran «software de extranjería», el
+  // precio y cada público. No cuelgan de la portada: el buscador llega por aquí.
+  const categoria: MetadataRoute.Sitemap = PAGINAS.map((pg) => ({
+    url: `${base}${pg.ruta}`,
+    lastModified: new Date(pg.actualizado),
+    changeFrequency: "monthly",
+    priority: pg.ruta === "/software-de-extranjeria" ? 0.9 : 0.8,
+  }));
+
   // Las páginas «beneficio explicado» de la portada (lib/beneficios): una por tarjeta.
   const beneficios: MetadataRoute.Sitemap = BENEFICIOS.map((b) => ({
     url: `${base}${rutaDe(b)}`,
