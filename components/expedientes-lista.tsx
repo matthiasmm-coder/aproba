@@ -49,7 +49,11 @@ const chipDe = (c: Salida | null) =>
   : "bg-amber-50 text-amber-700";
 
 function ArchiveIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" /></svg>;
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4" /></svg>;
+}
+// Fecha límite: reloj dibujado (antes, el emoji ⏱ — cada sistema lo pinta a su manera).
+function PlazoIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
 }
 function ChevronIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>;
@@ -93,7 +97,7 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
       <Link href={`/app/expedientes/${e.id}`} data-guia={e.referencia === "EJEMPLO" ? "tarjeta-ejemplo" : undefined} className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="min-w-0 truncate text-sm font-semibold text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</span>
-          {e.fechaLimite && !cerrado && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
+          {e.fechaLimite && !cerrado && <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"><PlazoIcon className="h-3 w-3" />{e.fechaLimite}</span>}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-slate-400">
           {e.empresaNombre && <span className="truncate font-medium text-slate-500" title={e.empresaNombre}>{e.empresaNombre} ·</span>}
@@ -560,7 +564,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative max-w-xs flex-1">
-          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente, trámite, referencia…")} className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-8 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm" />
           {q && <button onClick={() => setQ("")} aria-label={t("Borrar")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-500">✕</button>}
         </div>

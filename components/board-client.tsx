@@ -89,11 +89,11 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
-            {e.fechaLimite && !preparado && <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">⏱ {e.fechaLimite}</span>}
+            {e.fechaLimite && !preparado && <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"><PlazoIcon className="h-3 w-3" />{e.fechaLimite}</span>}
           </div>
           {e.empresaNombre && (
             <p className="mt-0.5 flex items-center gap-1 truncate text-[12px] font-medium text-slate-600" title={e.empresaNombre}>
-              <svg className="h-3 w-3 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></svg>
+              <svg className="h-3 w-3 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 8h4M10 12h4" /></svg>
               <span className="truncate">{e.empresaNombre}</span>
             </p>
           )}
@@ -131,6 +131,11 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
       </div>
     </Link>
   );
+}
+
+// Fecha límite: reloj dibujado (antes, el emoji ⏱ — cada sistema lo pinta a su manera).
+function PlazoIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
 }
 
 export function BoardClient({ items, asignados, filtroInicial = null, avatares = {} }: { items: BoardItem[]; asignados: string[]; filtroInicial?: "esperando" | null; avatares?: Avatares }) {
