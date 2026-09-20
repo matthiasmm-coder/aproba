@@ -174,7 +174,10 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
   // y lo que puede esperar (más de 60 días). Lo aceptado sigue abajo, en su grupo:
   // su expediente ya está en «En curso».
   type Filtro = "urgentes" | "esperando" | "lejanos";
-  const [filtro, setFiltro] = useState<Filtro | null>(null);
+  // Por defecto, lo URGENTE (20/09, Matthias): la pantalla abre en lo que hay que atender
+  // hoy; «Esperando respuesta» y «Más adelante» se consultan a un clic. Soltar el chip
+  // activo enseña todo.
+  const [filtro, setFiltro] = useState<Filtro | null>("urgentes");
   const CLAVES: Record<Filtro, string[]> = { urgentes: ["vencidos", "urgentes"], esperando: ["esperando"], lejanos: ["lejanos"] };
   const agrupar = useCallback((vs: VencimientoRow[]): Grupo[] => {
     const enMarcha = vs.filter((v) => v.estado === "TRAMITANDO");
