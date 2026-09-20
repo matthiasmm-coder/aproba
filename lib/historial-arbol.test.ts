@@ -84,3 +84,19 @@ describe("árbol del archivo (recuentos del servidor)", () => {
     expect(totalResumen(filtrarResumen(filas, { salida: "sin" }, CAT))).toBe(1);
   });
 });
+
+describe("el archivo enseña las MISMAS carpetas que «En curso» (20/09)", () => {
+  it("las carpetas sin nada archivado se pintan vacías, al final", () => {
+    const arbol = construirArbolHistorial(
+      [r({ servicio: "tie", anio: "2026", n: 2 })],
+      { ...opciones, carpetasVacias: ["Arraigo", "Nacionalidad"] },
+    );
+    expect(arbol.map((x) => [x.titulo, x.n])).toEqual([["Residencia", 2], ["Arraigo", 0], ["Nacionalidad", 0]]);
+  });
+
+  it("y una carpeta que sí tiene archivo no se duplica", () => {
+    const arbol = construirArbolHistorial([r({ servicio: "tie", n: 3 })], { ...opciones, carpetasVacias: ["residencia"] });
+    expect(arbol).toHaveLength(1);
+    expect(arbol[0].n).toBe(3);
+  });
+});

@@ -470,8 +470,9 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const salidasArchivo = useMemo(() => salidasDelResumen(resumenAnio), [resumenAnio]);
   const arbolArchivo = useMemo(() => (archivo ? construirArbolHistorial(
     filtrarResumen(resumenAnio, { salida: catFiltro || null }, catalogoArchivo),
-    { catalogo: catalogoArchivo, temas, etiquetaSinClasificar: t("Sin clasificar"), etiquetaTipo },
-  ) : []), [archivo, resumenAnio, catFiltro, catalogoArchivo, temas, t, etiquetaTipo]);
+    { catalogo: catalogoArchivo, temas, etiquetaSinClasificar: t("Sin clasificar"), etiquetaTipo,
+      carpetasVacias: !q.trim() && !tema && !asignado && !catFiltro ? carpetasVacias : [] },
+  ) : []), [archivo, resumenAnio, catFiltro, catalogoArchivo, temas, t, etiquetaTipo, carpetasVacias, q, tema, asignado]);
   const totalArchivo = archivo ? totalResumen(archivo.resumen) : historial.length;
 
   // Búsqueda en el archivo: la hace el SERVIDOR (si no, buscar solo miraría lo ya traído).
@@ -637,7 +638,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
             {arbolArchivo.map((r) => {
               const kRaiz = `historial/${r.clave}`;
               return (
-                <Nivel key={kRaiz} titulo={r.titulo} n={r.n} abierto={estaAbierto(kRaiz)} onToggle={() => toggle(kRaiz)} raiz>
+                <Nivel key={kRaiz} titulo={r.titulo} n={r.n === 0 ? undefined : r.n} vacia={r.n === 0} abierto={estaAbierto(kRaiz)} onToggle={() => toggle(kRaiz)} raiz>
                   {r.grupos.map((g) => {
                     const kg = `historial/${g.clave}`;
                     const defG = r.grupos.length === 1 ? estaAbierto(kRaiz) : abiertoPorDefecto;

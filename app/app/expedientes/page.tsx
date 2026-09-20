@@ -68,14 +68,15 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   // Catálogo del despacho: las FILAS, sin aplanar. Con varias sedes, la misma clave
   // existe en cada una (Jennifer: 14 duplicadas) y un mapa plano clave→tema elegía un
   // ganador al azar; se resuelve por la sede del expediente, como en la ficha y el portal.
-  type FilaCat = { clave: string; label: string; categoria: string | null; oficinaId: string | null };
+  type FilaCat = { clave: string; label: string; categoria: string | null; temaId: string | null; oficinaId: string | null };
   let filasCatalogo: FilaCat[] = [];
   try {
-    let cs = await supabase.from("ServicioConfig").select("clave, label, categoria, oficinaId, orden").order("orden");
+    let cs = await supabase.from("ServicioConfig").select("clave, label, categoria, temaId, oficinaId, orden").order("orden");
+    if (cs.error) cs = await supabase.from("ServicioConfig").select("clave, label, categoria, oficinaId, orden").order("orden") as typeof cs;
     if (cs.error) cs = await supabase.from("ServicioConfig").select("clave, label, oficinaId").order("orden") as typeof cs;
     filasCatalogo = (cs.data ?? []).map((c) => {
-      const x = c as { clave: string; label?: string | null; categoria?: string | null; oficinaId?: string | null };
-      return { clave: x.clave, label: (x.label ?? "").trim() || x.clave, categoria: (x.categoria ?? "").trim() || null, oficinaId: x.oficinaId ?? null };
+      const x = c as { clave: string; label?: string | null; categoria?: string | null; temaId?: string | null; oficinaId?: string | null };
+      return { clave: x.clave, label: (x.label ?? "").trim() || x.clave, categoria: (x.categoria ?? "").trim() || null, temaId: x.temaId ?? null, oficinaId: x.oficinaId ?? null };
     });
   } catch { /* sin catálogo: el árbol se agrupa por servicio, sin temas */ }
 
@@ -84,7 +85,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   // servicios, 0 temas) abría la pantalla con 18 carpetas raíz.
   // Carpetas del catálogo (Workspace.temas). Con ellas, la carpeta manda sobre cualquier
   // tema deducido, y las que hoy no tienen expedientes se siguen viendo.
-  let carpetasWs: { id: string; nombre: string }[] = [];
+  let carpetasWs: { id: string; nombre: string; parentId: string | null }[] = [];
   let packs: PackLite[] = [];
   try {
     const { data: mem } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
@@ -93,8 +94,8 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       const { data: wsTemas } = await supabase.from("Workspace").select("temas").eq("id", wsId).maybeSingle();
       const rawT = (wsTemas as { temas?: unknown } | null)?.temas;
       if (Array.isArray(rawT)) {
-        carpetasWs = (rawT as { id?: string; nombre?: string }[])
-          .map((c) => ({ id: String(c.id ?? ""), nombre: String(c.nombre ?? "").trim() }))
+        carpetasWs = (rawT as { id?: string; nombre?: string; parentId?: string | null }[])
+          .map((c) => ({ id: String(c.id ?? ""), nombre: String(c.nombre ?? "").trim(), parentId: c.parentId ? String(c.parentId) : null }))
           .filter((c) => c.id && c.nombre);
       }
       const { data: ws } = await supabase.from("Workspace").select("packs").eq("id", wsId).maybeSingle();
@@ -108,7 +109,15 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   } catch { /* sin packs: el segundo nivel es el servicio */ }
 
   const hayCarpetas = carpetasWs.length > 0;
-  const temaDeFila = (f: FilaCat) => temaEfectivo(f.categoria, f.clave, f.label, hayCarpetas);
+  // La carpeta RAÍZ de un servicio: una subcarpeta no es una carpeta hermana, está
+  // dentro de la suya, así que sus expedientes cuentan en la madre.
+  const raizDeCarpeta = (temaId: string | null): string | null => {
+    const c = carpetasWs.find((x) => x.id === temaId);
+    if (!c) return null;
+    const madre = c.parentId ? carpetasWs.find((x) => x.id === c.parentId) : null;
+    return (madre ?? c).nombre;
+  };
+  const temaDeFila = (f: FilaCat) => raizDeCarpeta(f.temaId) ?? temaEfectivo(f.categoria, f.clave, f.label, hayCarpetas);
   // Orden de los temas = orden del catálogo (el arrastre de Ajustes ordena el árbol), y
   // una sola grafía por tema: «ARRAIGO» y «Arraigo» son la misma carpeta.
   const { lista: temas, canon: canonTema } = unificarTemas(filasCatalogo.map(temaDeFila));
@@ -157,11 +166,10 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     return { ...e, tema: cat?.tema ?? null, servicioLabel: cat?.label ?? e.tipoLabel, claves, anio };
   });
 
-  // Carpetas que existen en Ajustes pero hoy no llevan ningún expediente: se enseñan
-  // igual (vacías), si no el gestor cuenta cuatro en Ajustes y ve tres aquí.
-  const conTrabajo = new Set(itemsLista.map((e) => normTema(e.tema ?? "")).filter(Boolean));
-  const carpetasVacias = [...new Set(carpetasWs.map((c) => c.nombre))]
-    .filter((n) => !conTrabajo.has(normTema(n)))
+  // TODAS las carpetas raíz de Ajustes. Cada vista pinta las que le falten (el árbol no
+  // duplica las que ya tienen expedientes): así «En curso» y el historial enseñan las
+  // mismas carpetas, aunque una esté vacía en una de las dos.
+  const carpetasRaiz = [...new Set(carpetasWs.filter((c) => !c.parentId).map((c) => c.nombre))]
     .map((n) => temaCanonico(n) ?? n);
 
   // Catálogo que nombra las carpetas del archivo: el de la sede MIRADA (la pastilla).
@@ -185,7 +193,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       )}
       {vista === "tablero"
         ? <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} avatares={avatares} />
-        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasVacias} filtroInicial={filtro === "esperando" ? "esperando" : null} archivo={archivo} avatares={avatares} />}
+        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} archivo={archivo} avatares={avatares} />}
     </div>
   );
 }

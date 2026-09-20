@@ -73,7 +73,13 @@ export function anioPorDefecto(anios: { anio: string; n: number }[], hoy = new D
 
 export function construirArbolHistorial(
   filas: ResumenHistorial[],
-  o: { catalogo: Map<string, CatalogoLite>; temas: string[]; etiquetaSinClasificar: string; etiquetaTipo: (tipo: string) => string },
+  o: {
+    catalogo: Map<string, CatalogoLite>; temas: string[]; etiquetaSinClasificar: string;
+    etiquetaTipo: (tipo: string) => string;
+    // Carpetas del catálogo sin nada archivado: se pintan igual, para que el historial
+    // y «En curso» enseñen las MISMAS carpetas.
+    carpetasVacias?: string[];
+  },
 ): CarpetaTema[] {
   const raices = new Map<string, CarpetaTema>();
   for (const r of filas) {
@@ -101,6 +107,10 @@ export function construirArbolHistorial(
     let g = raiz.grupos.find((x) => x.clave === kg);
     if (!g) { g = { clave: kg, nombre: nombreGrupo, n: 0, servicio: r.servicio, tipo: r.tipo }; raiz.grupos.push(g); }
     g.n += r.n;
+  }
+  for (const nombre of o.carpetasVacias ?? []) {
+    const k = `tema:${normTema(nombre)}`;
+    if (!raices.has(k)) raices.set(k, { clave: k, titulo: nombre, n: 0, grupos: [], orden: 950 });
   }
   return [...raices.values()]
     .sort((a, b) => a.orden - b.orden || a.titulo.localeCompare(b.titulo, "es"))
