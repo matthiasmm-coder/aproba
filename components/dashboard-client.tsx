@@ -92,12 +92,10 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
 
   return (
     <div className="mx-auto max-w-5xl">
+      {/* Solo el saludo: lo que decía la frase de debajo ya lo dicen las tarjetas de
+          abajo («Requieren tu acción» y los vencidos de «Plazos esta semana»). */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Hola")}{usuario ? `, ${usuario.split(" ")[0]}` : ""}</h1>
-        <p className="text-sm text-slate-500">
-          <span className="font-semibold text-aproba-700">{accion.length} {t("expedientes")}</span> {t("requieren tu acción")}
-          {vencidos > 0 && <> · <span className="font-semibold text-red-600">{vencidos} {t("vencidos")}</span></>}.
-        </p>
       </div>
 
       {bandejaPendientes > 0 && (
