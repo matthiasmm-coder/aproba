@@ -16,10 +16,10 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const initials = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
 
 function EmpIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></svg>;
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" /><path d="M10 6h4M10 10h4M10 14h4" /></svg>;
 }
 function FamIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3" /><circle cx="17" cy="10" r="2.2" /><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2a4.5 4.5 0 0 1 4.5 4.5V20" /><path d="M15.5 20v-1a3.5 3.5 0 0 1 3.5-3.5h.5" /></svg>;
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8.5" cy="7" r="4" /><path d="M2 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2" /><circle cx="18" cy="12" r="2.5" /><path d="M14.5 21v-1a3.5 3.5 0 0 1 7 0v1" /></svg>;
 }
 
 export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
@@ -303,14 +303,14 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
             </div>
           ) : pestana === "familias" ? (
             <div className="px-5 py-12 text-center">
-              <p className="text-3xl">👨‍👩‍👧</p>
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aproba-50 text-aproba-600"><FamIcon className="h-7 w-7" /></span>
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes familias")}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Agrupa a varios clientes en una familia: expedientes juntos, documentos compartidos y una sola factura. Se crea desde «Nuevo cliente» o desde la ficha de un cliente.")}</p>
               <Link href="/app/clientes/nuevo" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva familia")}</Link>
             </div>
           ) : pestana === "empresas" ? (
             <div className="px-5 py-12 text-center">
-              <p className="text-3xl">🏢</p>
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aproba-50 text-aproba-600"><EmpIcon className="h-7 w-7" /></span>
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes empresas")}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cuando tu cliente es una empresa que contrata a un trabajador extranjero: la empresa figura en la hoja de encargo y en las facturas, y el expediente se abre a nombre del trabajador. Se crea desde «Nuevo cliente» o «Nuevo expediente».")}</p>
               <Link href="/app/clientes/nuevo?modo=empresa" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva empresa")}</Link>
@@ -318,7 +318,7 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
           ) : (
             // Día 1: sin clientes ≠ búsqueda sin resultados — aquí toca invitar, no un «para ""».
             <div className="px-5 py-12 text-center">
-              <p className="text-3xl">👋</p>
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aproba-50 text-aproba-600"><svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="8" r="5" /><path d="M2 21a8 8 0 0 1 13.292-6M19 16v6M22 19h-6" /></svg></span>
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("Añade tu primer cliente")}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cada cliente guarda su ficha, sus documentos y sus expedientes. También puedes importarlos desde un CSV.")}</p>
               <Link href="/app/clientes/nuevo" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nuevo cliente")}</Link>
