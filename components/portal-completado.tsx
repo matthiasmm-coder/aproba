@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, type Lang, esLangSoportada } from "@/lib/portal-i18n";
 
@@ -22,7 +22,7 @@ export function PortalCompletado({ token, gestoria, logoUrl = null, idioma, pago
     if (saved && LANGS.some((l) => l.code === saved)) setLang(saved);
     else if (!esLangSoportada(idioma)) setLang(detectarLang());
   }, [idioma]);
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
   const eurC = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
   const inicial = gestoria.split(" ").filter(Boolean).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 

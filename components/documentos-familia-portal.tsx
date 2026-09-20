@@ -36,7 +36,7 @@ export function DocumentosFamiliaPortal({
   docsPropios?: string[];
   encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
   const firmaLabels = encargoActivo ? FIRMA_LABELS : [];
   const comunes = docsComunes.filter((l) => !esFirma(l));

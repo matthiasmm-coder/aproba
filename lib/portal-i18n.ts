@@ -735,7 +735,9 @@ function pick(tr: Tr | undefined, lang: Lang, fallback: string, extraKey?: strin
   return tr?.[lang] ?? (extraKey ? EXTRA[lang]?.[extraKey] : undefined) ?? tr?.es ?? fallback;
 }
 
-// Fabrique la fonction de traduction pour une langue.
+// Fabrique la fonction de traduction pour une langue. Dans un composant, l'envelopper
+// dans useMemo(..., [lang]) : une fonction neuve à chaque render rend instable toute
+// dépendance de hook qui la contient — c'est ce qui bouclait côté gestor (cc1fa03).
 export function makeT(lang: Lang) {
   return (key: string, vars?: Record<string, string | number>): string => {
     let s = pick(UI[key], lang, key, `ui:${key}`);

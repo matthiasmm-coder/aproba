@@ -208,7 +208,7 @@ export function ClientPortal({
   const docPendienteRef = useRef<number | null>(null);
   const docsRef = useRef<HTMLDivElement>(null); // pour « seguir subiendo » → remonter à la liste
 
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
 
   // Langue : préférence sauvegardée, sinon celle du navigateur.
   useEffect(() => {

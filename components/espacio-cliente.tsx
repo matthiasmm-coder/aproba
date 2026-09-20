@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, servicioLabel, temaLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
 import { agruparPorTema, fmtPct, normTema, packPct, packRebajado } from "@/lib/servicios";
@@ -32,7 +32,7 @@ export type DocumentoPedido = { id: string; tipo: string; fecha: string };
 // Bloque «Documentos que te pedimos»: un vencimiento SOLICITADO = una casilla para subir
 // el documento nuevo. La IA lee la caducidad; si es posterior, el aviso desaparece solo.
 function DocumentosPedidos({ token, pedidos, lang }: { token: string; pedidos: DocumentoPedido[]; lang: Lang }) {
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
   const [estado, setEstado] = useState<Record<string, { fase: "idle" | "subiendo" | "ok" | "revisar" | "error"; fecha?: string | null; error?: string }>>({});
   const nombreDoc = (tipo: string) => (t(`notif.renov.tipo.${tipo}`) === `notif.renov.tipo.${tipo}` ? tipo : t(`notif.renov.tipo.${tipo}`));
   const fmt = (iso: string) => new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : lang);
@@ -90,7 +90,7 @@ export function EspacioCliente({ token, gestoria, logoUrl = null, nombre, idioma
   const [packId, setPackId] = useState<string | null>(null);
   const [estado, setEstado] = useState<"idle" | "enviando" | "ok">("idle");
   const [error, setError] = useState<string | null>(null);
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
 
   useEffect(() => {
     const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;

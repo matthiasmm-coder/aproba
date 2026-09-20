@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, servicioLabel, esLangSoportada, esRTL, type Lang } from "@/lib/portal-i18n";
 
@@ -22,7 +22,7 @@ export function PropuestaRenovacion({ token, gestoria, logoUrl = null, idioma, t
   const auto = estado === "PROPUESTA" && preseleccion ? preseleccion : null;
   const [fase, setFase] = useState<"idle" | "enviando" | "aceptada" | "rechazada">(estado === "RECHAZADA" ? "rechazada" : auto ? "enviando" : "idle");
   const [error, setError] = useState<string | null>(null);
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
   // Respuesta traída por el enlace del email: se registra nada más abrir, una sola vez.
   useEffect(() => { if (auto) void responder(auto === "aceptar" ? "ACEPTADA" : "RECHAZADA", true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => {

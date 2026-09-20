@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FICHA_CAMPOS, GRUPOS, SEXOS, ESTADOS_CIVILES, fichaVacia, type ClienteFicha } from "@/lib/ficha";
 import { TelefonoInput } from "@/components/telefono-input";
 import { FechaInput } from "@/components/fecha-input";
@@ -40,7 +40,7 @@ export function DatosFamilia({
   // + «Atrás» dejaba un miembro fantasma — facturado por el servidor, invisible en la UI.
   onMiembrosChange?: (miembros: MiembroInicial[]) => void;
 }) {
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
   const [miembros, setMiembros] = useState<Miembro[]>(() => {
     const inic = (miembrosIniciales.length ? miembrosIniciales : []).map((m, i) => {
       const ficha = fichaVacia();

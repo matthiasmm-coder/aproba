@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, parentescoI18n, type Lang, esLangSoportada, esRTL } from "@/lib/portal-i18n";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
@@ -54,7 +54,7 @@ export function Seguimiento({
   const [progreso, setProgreso] = useState<number | null>(null); // % subida en curso (misma barra que /j)
   const fileRef = useRef<HTMLInputElement>(null);
   const pendienteRef = useRef<number | null>(null);
-  const t = makeT(lang);
+  const t = useMemo(() => makeT(lang), [lang]);
 
   useEffect(() => {
     const saved = (typeof window !== "undefined" && window.localStorage.getItem(LANG_KEY)) as Lang | null;
