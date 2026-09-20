@@ -53,5 +53,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly",
     priority: 0.8,
   }));
-  return [...fijas, ...beneficios, ...articulos];
+  return [...fijas, ...categoria, ...beneficios, ...articulos];
 }
