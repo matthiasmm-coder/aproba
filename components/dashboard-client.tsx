@@ -37,7 +37,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, esperandoPago = 0, cobrosVencidos = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; esperandoPago?: number; cobrosVencidos?: number; hoy: string; avatares?: Avatares }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, bandejaPendientes = 0, esperandoPago = 0, cobrosVencidos = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; bandejaPendientes?: number; esperandoPago?: number; cobrosVencidos?: number; hoy: string; avatares?: Avatares }) {
   const t = useT();
   const router = useRouter();
   // El servidor ya no manda archivados (fetchExpedientesResumen soloVivos). La caché
@@ -57,7 +57,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
     const k = (e.servicio ?? e.tipoLabel ?? "").replace(/ \+\d+$/, "").trim() || "—";
     return m.set(k, (m.get(k) ?? 0) + 1);
   }, new Map<string, number>())].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
-  const maxServicio = Math.max(1, ...porServicio.map(([, n]) => n), renovaciones6m);
+  const maxServicio = Math.max(1, ...porServicio.map(([, n]) => n));
   const [verTodos, setVerTodos] = useState(false);
 
   // La carga depende de la sede mirada (los items YA vienen filtrados por la pastilla):
@@ -148,18 +148,6 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
                 {verTodos ? t("Ver menos") : `${t("Ver más")} (${porServicio.length - 3})`}
               </button>
             )}
-            {/* El trabajo que viene: renovaciones que caducan en menos de 6 meses (Vigía),
-                en la misma escala (pedido de Matthias, 03/09). */}
-            <Link href="/app/vencimientos" className="flex items-center gap-3 border-t border-slate-100 pt-2.5 transition hover:text-aproba-700">
-              <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 3v6h-6" /></svg>
-                </span>
-                <span className="leading-tight">{t("Renovaciones en 6 meses")}</span>
-              </span>
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-amber-400" style={{ width: `${(renovaciones6m / maxServicio) * 100}%` }} /></div>
-              <span className={`w-6 shrink-0 text-right text-sm font-semibold ${renovaciones6m ? "text-amber-700" : "text-slate-700"}`}>{renovaciones6m}</span>
-            </Link>
           </div>
         </div>
 

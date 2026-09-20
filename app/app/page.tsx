@@ -105,9 +105,6 @@ export default async function Dashboard() {
   const proximos = vencimientos.filter((v) => v.estado !== "TRAMITANDO");
   const caducanPronto = proximos.filter((v) => v.dias <= 60).length;
   const caducadas = proximos.filter((v) => v.dias < 0).length;
-  // Renovaciones que caducan en menos de 6 meses (incluidas las ya caducadas sin renovar):
-  // el trabajo que viene, visible en la carta «Por fase» (pedido de Matthias, 03/09).
-  const renovaciones6m = proximos.filter((v) => v.dias <= 183).length;
   // Expedientes con una factura EMITIDA o VENCIDA sin cobrar: el cliente tiene algo que
   // pagar (anticipo o final). Se cuenta el EXPEDIENTE, no la factura: uno con anticipo y
   // final pendientes es un solo caso que perseguir.
@@ -122,7 +119,7 @@ export default async function Dashboard() {
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient esperandoPago={esperandoPago} cobrosVencidos={cobrosVencidos} avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient esperandoPago={esperandoPago} cobrosVencidos={cobrosVencidos} avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
       {/* Memoria de actividad (art. 8.1.f): cierra el Inicio de los administradores. */}
       {esAdmin && <MemoriaActividadCard />}
     </>
