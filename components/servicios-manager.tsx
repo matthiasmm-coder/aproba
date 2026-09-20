@@ -23,6 +23,9 @@ export function useReordenar<T>(
   // Se llama al SOLTAR, con la altura del puntero: así el llamante puede decidir en qué
   // carpeta (tema) ha caído la tarjeta. Sin esto, arrastrar solo reordenaba.
   alSoltar?: (id: string, y: number) => void,
+  // Y MIENTRAS se mueve: el llamante señala la carpeta que hay debajo, para que se vea
+  // dónde va a caer antes de soltar.
+  alMover?: (id: string, y: number) => void,
 ) {
   const refs = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<string | null>(null);
@@ -75,6 +78,18 @@ export function useReordenar<T>(
       dragRef.current = id;
       setDragId(id);
       let ultimaY = e.clientY;
+      // La tarjeta VA CON EL DEDO: se desplaza para quedar centrada bajo el puntero. El
+      // desfase se recalcula en cada movimiento, así que sobrevive a los reordenamientos
+      // (React recoloca el nodo y la cuenta se corrige sola).
+      let desplazada = 0;
+      const seguir = (y: number) => {
+        const nodo = refs.current.get(id);
+        if (!nodo) return;
+        const r = nodo.getBoundingClientRect();
+        desplazada += y - (r.top + r.height / 2);
+        nodo.style.transition = "none";
+        nodo.style.transform = `translateY(${desplazada}px)`;
+      };
       const move = (ev: PointerEvent) => {
         if (dragRef.current !== id) return;
         ultimaY = ev.clientY;
@@ -82,10 +97,19 @@ export function useReordenar<T>(
         if (ev.clientY < 90) window.scrollBy(0, -14);
         else if (ev.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
         colocar(id, ev.clientY);
+        seguir(ev.clientY);
+        alMover?.(id, ev.clientY);
       };
       const fin = () => {
         dragRef.current = null;
         setDragId(null);
+        // Aterrizaje: vuelve a su sitio con un gesto corto en vez de dar un salto.
+        const nodo = refs.current.get(id);
+        if (nodo) {
+          nodo.style.transition = "transform 150ms cubic-bezier(.2,.8,.2,1)";
+          nodo.style.transform = "";
+          window.setTimeout(() => { const n = refs.current.get(id); if (n) { n.style.transition = ""; } }, 180);
+        }
         alSoltar?.(id, ultimaY);
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", fin);
@@ -228,14 +252,16 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
 
   // Soltar una tarjeta dentro de una carpeta la MUEVE ahí (y su `categoria` sigue al día,
   // que es lo que leen el portal y el árbol de expedientes).
+  const [zonaActiva, setZonaActiva] = useState<string | null>(null);
   const dndServicios = useReordenar(setServicios, (s) => s.id, (id, y) => {
+    setZonaActiva(null);
     const destino = carpetaEn(y);
     if (destino === null) return;
     const temaId = destino === SIN_TEMA_CLAVE ? null : destino;
     setServicios((lista) => lista.map((s) => (s.id === id
       ? { ...s, temaId, categoria: temaId ? nombreDeCarpeta(carpetas, temaId) : "" }
       : s)));
-  });
+  }, (_id, y) => setZonaActiva(carpetaEn(y)));
 
 
   // Subir/bajar una tarjeta: el orden del array ES la columna `orden` al guardar.
@@ -259,12 +285,18 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
   const removeDoc = (id: string, idx: number) =>
     setServicios((list) => list.map((s) => (s.id === id ? { ...s, docs: s.docs.filter((_, i) => i !== idx) } : s)));
 
-  const activos = servicios.filter((s) => s.active).length;
 
   // ── EL EXPLORADOR ──────────────────────────────────────────────────────────
   // Carpetas visibles para QUIEN mira (un admin lo ve todo), con sus subcarpetas, y los
   // ítems de cada una. Los que no están en ninguna carpeta se ven igual, al final: un
   // servicio nunca desaparece por no tener carpeta.
+  // Mientras se arrastra: todas las carpetas se insinúan (borde punteado tenue) y solo la
+  // que hay DEBAJO del puntero se marca. Lo justo para saber dónde va a caer.
+  const zonaCls = (id: string) =>
+    !dndServicios.dragId ? "" : zonaActiva === id
+      ? "bg-aproba-50 ring-2 ring-aproba-400"
+      : "bg-slate-50/60 ring-1 ring-dashed ring-slate-200";
+
   const visible = (c: Carpeta) => puedeVerCarpeta(c, miUserId, soyAdmin);
   const arbol = arbolCarpetas(carpetas).filter((n) => visible(n.carpeta));
   const dentroDe = (temaId: string | null) => servicios.filter((s) => (s.temaId ?? null) === temaId);
@@ -402,7 +434,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
   // Una tarjeta del catálogo (servicio o pack). Función, no componente: así los
   // campos de texto no pierden el foco al reordenarse la lista.
   const tarjeta = (s: Servicio) => (
-            <div key={s.id} ref={dndServicios.registrar(s.id)} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"} ${dndServicios.dragId === s.id ? "relative z-10 opacity-95 shadow-lg ring-2 ring-aproba-300" : ""}`}>
+            <div key={s.id} ref={dndServicios.registrar(s.id)} className={`rounded-xl border bg-white p-4 transition-colors ${s.active ? "border-slate-200" : "border-slate-200 bg-slate-50/60"} ${dndServicios.dragId === s.id ? "relative z-20 cursor-grabbing opacity-95 shadow-xl ring-1 ring-aproba-300" : ""}`}>
               {/* Ligne titre + toggle (gap réduit en móvil : l'asa + toggle + corbeille
                   laissent peu de place au nom) */}
               <div className="flex items-center gap-2 sm:gap-3">
@@ -710,8 +742,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos} {t("activos")}</span> {t("de")} {servicios.length}</p>
+      <div className="mb-4 flex items-center justify-end">
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
           {saveState === "saving" && t("Guardando…")}
           {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Guardado")}</>)}
@@ -736,7 +767,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
         {arbol.map(({ carpeta, hijas }) => (
           <div key={carpeta.id} className="rounded-2xl border border-slate-200 bg-white/60">
             <CabeceraCarpeta carpeta={carpeta} n={cuentaCarpeta(carpeta)} raiz />
-            <div ref={zonaRef(carpeta.id)} className={`space-y-3 px-3 pb-3 transition-colors ${dndServicios.dragId ? "rounded-b-2xl bg-aproba-50/40" : ""}`}>
+            <div ref={zonaRef(carpeta.id)} className={`space-y-3 rounded-b-2xl px-3 pb-3 transition-colors ${zonaCls(carpeta.id)}`}>
               {dentroDe(carpeta.id).map(tarjeta)}
               {dentroDe(carpeta.id).length === 0 && hijas.length === 0 && (
                 <p className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">{t("Arrastra aquí un servicio o un pack")}</p>
@@ -744,7 +775,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
               {hijas.filter(visible).map((h) => (
                 <div key={h.id} className="rounded-xl border border-slate-200 bg-white">
                   <CabeceraCarpeta carpeta={h} n={dentroDe(h.id).length} />
-                  <div ref={zonaRef(h.id)} className={`space-y-3 px-3 pb-3 transition-colors ${dndServicios.dragId ? "rounded-b-xl bg-aproba-50/40" : ""}`}>
+                  <div ref={zonaRef(h.id)} className={`space-y-3 rounded-b-xl px-3 pb-3 transition-colors ${zonaCls(h.id)}`}>
                     {dentroDe(h.id).map(tarjeta)}
                     {dentroDe(h.id).length === 0 && (
                       <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">{t("Arrastra aquí un servicio o un pack")}</p>
@@ -762,7 +793,7 @@ export function ServiciosManager({ inicial, packsInicial, oficinaId = null, sinP
             <span className="text-sm font-semibold text-slate-500">{t("Sin carpeta")}</span>
             <span className="text-xs tabular-nums text-slate-400">{sueltos.length}</span>
           </div>
-          <div ref={zonaRef(SIN_TEMA_CLAVE)} className={`space-y-3 px-3 pb-3 transition-colors ${dndServicios.dragId ? "rounded-b-2xl bg-aproba-50/40" : ""}`}>
+          <div ref={zonaRef(SIN_TEMA_CLAVE)} className={`space-y-3 rounded-b-2xl px-3 pb-3 transition-colors ${zonaCls(SIN_TEMA_CLAVE)}`}>
             {sueltos.map(tarjeta)}
             {sueltos.length === 0 && (
               <p className="px-1 pb-2 text-xs text-slate-400">{t("Todo está en una carpeta.")}</p>

@@ -75,7 +75,6 @@ export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsApp
   const update = (id: string, patch: Partial<Aviso>) => setAvisos((l) => l.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const visibles = avisos.filter((a) => !a.oculto);
   const ocultos = avisos.filter((a) => a.oculto);
-  const activos = visibles.filter((a) => a.activo);
 
   // «Eliminar» (pedido de Sandra/LexPats, 31/08): un predeterminado se OCULTA (borrar
   // su fila lo resucitaría por el repli a DEFAULT_AVISOS); un personalizado se borra.
@@ -178,8 +177,7 @@ export function AvisosManager({ inicial, envioEmailActivo = false, envioWhatsApp
         )}
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500"><span className="font-medium text-slate-700">{activos.length} {t("activos")}</span> {t("de")} {visibles.length}</p>
+      <div className="mb-4 flex items-center justify-end">
         <span className={`flex items-center gap-1 text-xs font-medium transition-opacity duration-300 ${saveState === "idle" ? "opacity-0" : "opacity-100"} ${saveState === "error" ? "text-red-600" : "text-aproba-700"}`}>
           {saveState === "saving" && t("Guardando…")}
           {saveState === "saved" && (<><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>{t("Guardado")}</>)}
