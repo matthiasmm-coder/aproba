@@ -43,8 +43,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${base}${pg.ruta}`,
     lastModified: new Date(pg.actualizado),
     changeFrequency: "monthly" as const,
-    priority: pg.ruta === "/software-de-extranjeria" ? 0.9 : pg.ruta.startsWith("/tramites/") ? 0.7 : 0.8,
-  })), { url: `${base}/tramites`, lastModified: new Date("2026-09-20"), changeFrequency: "monthly" as const, priority: 0.8 }];
+    priority: pg.ruta === "/software-de-extranjeria" ? 0.9
+      : pg.ruta.startsWith("/formularios/") || pg.ruta.startsWith("/tasas/") ? 0.6
+      : pg.ruta.startsWith("/tramites/") ? 0.7 : 0.8,
+  })), ...["/tramites", "/formularios", "/tasas"].map((ruta) => ({
+    url: `${base}${ruta}`, lastModified: new Date("2026-09-20"), changeFrequency: "monthly" as const, priority: 0.8,
+  }))];
 
   // Las páginas «beneficio explicado» de la portada (lib/beneficios): una por tarjeta.
   const beneficios: MetadataRoute.Sitemap = BENEFICIOS.map((b) => ({

@@ -37,6 +37,8 @@ export function PaginaPublicaVista({ ruta }: { ruta: string }) {
     .map((r) => {
       if (r === "/articulos") return { ruta: r, h1: "Artículos sobre extranjería para despachos", descripcion: "Plazos, tasas, notificaciones y renovaciones, con las fuentes oficiales." };
       if (r === "/tramites") return { ruta: r, h1: "Los trámites, uno a uno", descripcion: "Qué pide Aproba al cliente, qué modelos y qué tasa genera en cada trámite." };
+      if (r === "/formularios") return { ruta: r, h1: "Los 30 modelos oficiales", descripcion: "Cada modelo EX y MI que Aproba rellena, con el trámite al que pertenece." };
+      if (r === "/tasas") return { ruta: r, h1: "Las tasas 790", descripcion: "Las cinco tasas que Aproba genera con los datos del cliente, y la que no." };
       if (r.startsWith("/articulos/")) { const a = ARTICULOS.find((x) => `/articulos/${x.slug}` === r); return a ? { ruta: r, h1: a.titulo, descripcion: a.descripcion } : undefined; }
       return getPaginaPublica(r);
     })
