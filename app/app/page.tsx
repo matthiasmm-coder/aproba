@@ -1,7 +1,7 @@
 import { fetchExpedientesResumen } from "@/lib/data/expedientes";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { PastillasOficina } from "@/components/pastillas-oficina";
-import { fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchRenovacionesPropuestas, fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchCobrosPendientes } from "@/lib/data/facturas";
 import { grupoDe } from "@/lib/expedientes-arbol";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
@@ -35,7 +35,7 @@ export default async function Dashboard() {
   // décocher parce qu'on regarde une sede qui vient d'ouvrir.
   const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const activa = filtroSede.activa;
-  const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos] = await Promise.all([
+  const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos, propuestas] = await Promise.all([
     supabase.auth.getUser(),
     // Solo los VIVOS: el dashboard filtra los archivados nada más recibirlos, y un
     // despacho con años de historial importado los traía todos para tirarlos.
@@ -45,6 +45,7 @@ export default async function Dashboard() {
     fetchProximasCitas({ desdeDias: 90, max: 300 }),
     fetchClientesMin(),
     fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede), // KPI «Caducan pronto» (Vigía visible desde Inicio)
+    fetchRenovacionesPropuestas(), // renovaciones propuestas sin respuesta: no cuentan como activas
   ]);
   const usuario = (user?.user_metadata?.nombre as string) || user?.email || undefined;
 
@@ -90,7 +91,8 @@ export default async function Dashboard() {
     }
   } catch { /* sin packs: se cuenta por servicio */ }
 
-  const items: DashItem[] = expedientes.map((e) => ({
+  // Misma regla que la lista: una renovación propuesta y sin respuesta aún no es trabajo en curso.
+  const items: DashItem[] = expedientes.filter((e) => !propuestas.has(e.id)).map((e) => ({
     id: e.id,
     clienteNombre: e.clienteNombre,
     tipoLabel: e.tipoLabel,

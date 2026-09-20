@@ -3,7 +3,7 @@ import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { temaEfectivo, unificarTemas } from "@/lib/temas";
 import { fetchHistorialResumen } from "@/lib/data/historial";
-import { fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchRenovacionesPropuestas, fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchAvataresEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { normTema } from "@/lib/servicios";
@@ -29,7 +29,13 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   ]);
   // El recuento de la pestaña = el KPI «Caducan pronto» del Inicio (misma regla).
   const renovaciones = vencimientos.filter((v) => v.estado !== "TRAMITANDO" && v.dias <= 60).length;
-  const expedientes = await fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES, resumenArchivo !== null);
+  const [cargados, propuestas] = await Promise.all([
+    fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES, resumenArchivo !== null),
+    fetchRenovacionesPropuestas(),
+  ]);
+  // Una renovación PROPUESTA y sin respuesta no es todavía trabajo en curso: vive en la
+  // vista Renovaciones («Esperando respuesta») y entra aquí cuando el cliente acepta.
+  const expedientes = cargados.filter((e) => !propuestas.has(e.id));
 
   // FLUJO v4: dos lecturas ligeras aparte del cargador (que tiene su propia cadena de
   // replis y no debe depender de columnas nuevas): (1) ¿tiene factura viva? — el chip

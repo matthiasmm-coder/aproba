@@ -17,6 +17,12 @@ export const CA: Record<string, string> = {
   // ── Vigía (vencimientos/renovaciones) + UX 2026-07 ──
   "Vencimientos": "Venciments",
   "Renovaciones": "Renovacions",
+  "Urgentes": "Urgents",
+  "Esperando respuesta": "Esperant resposta",
+  "Sin renovaciones en este grupo.": "Sense renovacions en aquest grup.",
+  "Ya caducadas o caducan en menos de 60 días": "Ja caducades o caduquen en menys de 60 dies",
+  "Propuesta enviada o documento pedido: el expediente pasará a «En curso» cuando el cliente acepte": "Proposta enviada o document demanat: l'expedient passarà a «En curs» quan el client accepti",
+  "Caducan en más de 60 días": "Caduquen en més de 60 dies",
   "caducan en 60 días": "caduquen en 60 dies",
   "Nada caduca en los próximos 60 días": "No caduca res en els propers 60 dies",
   "vigilada en Renovaciones": "vigilada a Renovacions",

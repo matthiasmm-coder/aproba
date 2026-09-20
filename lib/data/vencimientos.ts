@@ -82,3 +82,16 @@ export async function fetchVencimientos(sedes?: string[] | null, incluirSinSede 
     return []; // tabla sin migrar → pantalla vacía, sin romper
   }
 }
+
+// Expedientes de renovación cuya PROPUESTA sigue sin respuesta. Mientras el cliente no
+// acepte, ese expediente vive en Renovaciones («Esperando respuesta») y NO en «En curso»
+// (20/09, Matthias): aparece allí en cuanto acepta. Consulta mínima bajo RLS; si la
+// columna no existe (migración pendiente) no se esconde nada.
+export async function fetchRenovacionesPropuestas(): Promise<Set<string>> {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase.from("Vencimiento").select("expedienteRenovacionId").eq("estado", "PROPUESTA").not("expedienteRenovacionId", "is", null);
+    if (error) return new Set();
+    return new Set((data ?? []).map((v) => String((v as { expedienteRenovacionId: string }).expedienteRenovacionId)));
+  } catch { return new Set(); }
+}

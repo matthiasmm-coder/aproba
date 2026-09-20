@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { VencimientoRow } from "@/lib/data/vencimientos";
@@ -169,9 +169,14 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
     })();
   }, []);
 
-  const grupos = useMemo<Grupo[]>(() => {
-    const filtro = q.trim().toLowerCase();
-    const vs = filtro ? vencimientos.filter((v) => v.clienteNombre.toLowerCase().includes(filtro)) : vencimientos;
+  // Tres filtros a la derecha del buscador (20/09, Matthias): lo urgente (ya caducado o
+  // menos de 60 días), lo que espera respuesta (propuesta enviada o documento pedido)
+  // y lo que puede esperar (más de 60 días). Lo aceptado sigue abajo, en su grupo:
+  // su expediente ya está en «En curso».
+  type Filtro = "urgentes" | "esperando" | "lejanos";
+  const [filtro, setFiltro] = useState<Filtro | null>(null);
+  const CLAVES: Record<Filtro, string[]> = { urgentes: ["vencidos", "urgentes"], esperando: ["esperando"], lejanos: ["lejanos"] };
+  const agrupar = useCallback((vs: VencimientoRow[]): Grupo[] => {
     const enMarcha = vs.filter((v) => v.estado === "TRAMITANDO");
     // Propuesta enviada (servicio) o documento pedido: la pelota está en el tejado del cliente.
     const esperando = vs.filter((v) => v.estado === "PROPUESTA" || v.estado === "SOLICITADO");
@@ -182,10 +187,17 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
       // Un solo grupo para todo lo que caduca en más de 60 días (03/09: «En los próximos
       // 6 meses» fusionado aquí — el corte a 6 meses vive como indicador en Inicio).
       { key: "lejanos", titulo: t("Más adelante"), tono: "text-slate-500", items: resto.filter((v) => v.dias > 60) },
-      { key: "esperando", titulo: t("Esperando al cliente"), tono: "text-amber-700", items: esperando },
+      { key: "esperando", titulo: t("Esperando respuesta"), tono: "text-amber-700", items: esperando },
       { key: "tramitando", titulo: t("Renovación aceptada · en marcha"), tono: "text-aproba-700", items: enMarcha },
     ].filter((g) => g.items.length > 0);
-  }, [vencimientos, q, t]);
+  }, [t]);
+  const todos = useMemo(() => agrupar(vencimientos), [agrupar, vencimientos]);
+  const cuenta = (f: Filtro) => todos.filter((g) => CLAVES[f].includes(g.key)).reduce((n, g) => n + g.items.length, 0);
+  const grupos = useMemo<Grupo[]>(() => {
+    const f = q.trim().toLowerCase();
+    const vs = f ? vencimientos.filter((v) => v.clienteNombre.toLowerCase().includes(f)) : vencimientos;
+    return agrupar(vs).filter((g) => !filtro || CLAVES[filtro].includes(g.key));
+  }, [vencimientos, q, filtro, agrupar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Un vencimiento sin sede en un despacho multi-oficina, desde «Todas»: elegir pastilla primero.
   function sinSedeDesdeTodas(v: VencimientoRow) { return v.clienteSinSede && sedeCtx.multi && !sedeCtx.activa; }
@@ -285,12 +297,27 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
 
   return (
     <div className="mt-6">
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t("Buscar cliente…")}
-        className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("Buscar cliente…")}
+          className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600 sm:w-64"
+        />
+        {([
+          ["urgentes", t("Urgentes"), t("Ya caducadas o caducan en menos de 60 días")],
+          ["esperando", t("Esperando respuesta"), t("Propuesta enviada o documento pedido: el expediente pasará a «En curso» cuando el cliente acepte")],
+          ["lejanos", t("Más adelante"), t("Caducan en más de 60 días")],
+        ] as const).map(([f, etiqueta, ayuda]) => (
+          <button
+            key={f} type="button" title={ayuda} aria-pressed={filtro === f}
+            onClick={() => setFiltro(filtro === f ? null : f)}
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${filtro === f ? "border-aproba-500 bg-aproba-50 text-aproba-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
+          >
+            {etiqueta} <span className={filtro === f ? "text-aproba-600" : "text-slate-400"}>{cuenta(f)}</span>
+          </button>
+        ))}
+      </div>
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {dialogo && (
         <RenovacionDialog
@@ -316,6 +343,9 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
         </p>
       )}
 
+      {grupos.length === 0 && (
+        <p className="mt-6 text-sm text-slate-400">{t("Sin renovaciones en este grupo.")}</p>
+      )}
       <div className="mt-4 space-y-6">
         {grupos.map((g) => (
           <div key={g.key}>
