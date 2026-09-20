@@ -3,6 +3,7 @@ import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchCobrosPendientes } from "@/lib/data/facturas";
+import { grupoDe } from "@/lib/expedientes-arbol";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
@@ -72,10 +73,28 @@ export default async function Dashboard() {
   } catch { equipo = []; }
   const esAdmin = miRol ? puedeGestionarEquipo(miRol) : true;
   const sedesVista = activa ? [activa] : filtroSede.sedes;
+  // Packs del despacho: un expediente que lleva TODOS los servicios de un pack se cuenta
+  // bajo el nombre del pack (misma regla que el árbol de Expedientes).
+  let packsWs: { id: string; nombre: string; servicioIds: string[] }[] = [];
+  try {
+    const { data: mem } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
+    const wsId = (mem as { workspaceId?: string } | null)?.workspaceId;
+    if (wsId) {
+      const { data: w } = await supabase.from("Workspace").select("packs").eq("id", wsId).maybeSingle();
+      const raw = (w as { packs?: unknown } | null)?.packs;
+      if (Array.isArray(raw)) {
+        packsWs = (raw as { id?: string; nombre?: string; servicioIds?: string[] }[])
+          .map((p) => ({ id: String(p.id ?? ""), nombre: String(p.nombre ?? "").trim(), servicioIds: (p.servicioIds ?? []).filter(Boolean) }))
+          .filter((p) => p.id && p.nombre && p.servicioIds.length > 0);
+      }
+    }
+  } catch { /* sin packs: se cuenta por servicio */ }
+
   const items: DashItem[] = expedientes.map((e) => ({
     id: e.id,
     clienteNombre: e.clienteNombre,
     tipoLabel: e.tipoLabel,
+    servicio: grupoDe({ tipoLabel: e.tipoLabel, servicioLabel: e.servicioLabel ?? null, claves: e.claves ?? [] }, packsWs),
     estado: e.estado,
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,

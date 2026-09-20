@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
+import type { ExpedienteEstado } from "@/lib/types";
 import { useT } from "@/components/lang-provider";
 import { AvatarGestor, type Avatares } from "@/components/avatar-gestor";
 import { esperaAlCliente } from "@/lib/progreso";
@@ -15,6 +15,7 @@ export type DashItem = {
   id: string;
   clienteNombre: string;
   tipoLabel: string;
+  servicio?: string; // servicio principal o, si lleva todos los del pack, el pack
   estado: ExpedienteEstado;
   asignadoA: string;
   fechaLimite?: string; // label dd/mm/aaaa
@@ -50,8 +51,14 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   // adonde lleva este KPI.
   const esperandoCliente = live.filter(esperaAlCliente).length;
 
-  const porFase = BOARD_PHASES.map((ph) => ({ ph, count: live.filter((e) => e.progreso ? e.progreso.fase === ph.key : ph.estados.includes(e.estado)).length }));
-  const maxFase = Math.max(1, ...porFase.map((p) => p.count));
+  // POR SERVICIOS: qué se vende de verdad, contado sobre los expedientes vivos. Packs
+  // incluidos (el servidor ya resolvió cuál es el pack de cada expediente).
+  const porServicio = [...live.reduce((m, e) => {
+    const k = (e.servicio ?? e.tipoLabel ?? "").replace(/ \+\d+$/, "").trim() || "—";
+    return m.set(k, (m.get(k) ?? 0) + 1);
+  }, new Map<string, number>())].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+  const maxServicio = Math.max(1, ...porServicio.map(([, n]) => n), renovaciones6m);
+  const [verTodos, setVerTodos] = useState(false);
 
   // La carga depende de la sede mirada (los items YA vienen filtrados por la pastilla):
   // en una sede concreta, filas = miembros DE esa sede (con su 0: sirve para repartir
@@ -122,20 +129,27 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Por fase")}</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Por servicios")}</h2>
           <div className="space-y-2.5">
-            {porFase.map(({ ph, count }, i) => (
-              <div key={ph.key} className="flex items-center gap-3">
-                <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-[10px] font-bold text-aproba-700">{i + 1}</span>
-                  {t(ph.label)}
-                </span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-aproba-500" style={{ width: `${(count / Math.max(maxFase, renovaciones6m)) * 100}%` }} /></div>
-                <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{count}</span>
+            {porServicio.length === 0 && <p className="text-sm text-slate-400">{t("Todavía no hay expedientes en curso.")}</p>}
+            {/* Los tres más pedidos; el resto, a un clic. */}
+            {(verTodos ? porServicio : porServicio.slice(0, 3)).map(([nombre, n]) => (
+              <div key={nombre} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 truncate text-sm text-slate-600" title={nombre}>{nombre}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-aproba-500" style={{ width: `${(n / maxServicio) * 100}%` }} /></div>
+                <span className="w-6 shrink-0 text-right text-sm font-semibold text-slate-700">{n}</span>
               </div>
             ))}
+            {porServicio.length > 3 && (
+              <button
+                type="button" onClick={() => setVerTodos((v) => !v)}
+                className="text-xs font-semibold text-aproba-700 transition hover:underline"
+              >
+                {verTodos ? t("Ver menos") : `${t("Ver más")} (${porServicio.length - 3})`}
+              </button>
+            )}
             {/* El trabajo que viene: renovaciones que caducan en menos de 6 meses (Vigía),
-                en la misma escala que las fases (pedido de Matthias, 03/09). */}
+                en la misma escala (pedido de Matthias, 03/09). */}
             <Link href="/app/vencimientos" className="flex items-center gap-3 border-t border-slate-100 pt-2.5 transition hover:text-aproba-700">
               <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-slate-600">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
@@ -143,7 +157,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
                 </span>
                 <span className="leading-tight">{t("Renovaciones en 6 meses")}</span>
               </span>
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-amber-400" style={{ width: `${(renovaciones6m / Math.max(maxFase, renovaciones6m, 1)) * 100}%` }} /></div>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-amber-400" style={{ width: `${(renovaciones6m / maxServicio) * 100}%` }} /></div>
               <span className={`w-6 shrink-0 text-right text-sm font-semibold ${renovaciones6m ? "text-amber-700" : "text-slate-700"}`}>{renovaciones6m}</span>
             </Link>
           </div>

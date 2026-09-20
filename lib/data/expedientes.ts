@@ -23,6 +23,8 @@ export type ExpedienteResumen = {
   referencia: string;
   clienteNombre: string;
   clienteNacionalidad: string;
+  servicioLabel?: string;   // servicio principal, sin el «+N» de los extras
+  claves?: string[];        // claves del expediente (principal + extras)
   empresaNombre?: string | null; // cliente-empresa: quien contrata y paga (la tarjeta lo enseña)
   tipoLabel: string;
   extrasLabels?: string[]; // multi-servicio: labels de los adicionales (tooltip + búsqueda)
@@ -165,7 +167,9 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
       const claves = clavesDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: (e as unknown as { serviciosExtra?: string[] | null }).serviciosExtra, tipo: e.tipo });
       const extrasLabels = claves.slice(1).map(labelDe).filter((l): l is string => Boolean(l));
       const base = (e.servicioClave && labelDe(e.servicioClave)) || TIPO_LABEL[e.tipo] || e.tipo;
-      return { tipoLabel: base + (extrasLabels.length ? ` +${extrasLabels.length}` : ""), extrasLabels };
+      // `servicioLabel` = el nombre del servicio principal SIN el «+N»: es lo que agrupa
+      // (el Inicio cuenta por servicio). `claves` permite reconocer un pack.
+      return { tipoLabel: base + (extrasLabels.length ? ` +${extrasLabels.length}` : ""), extrasLabels, servicioLabel: base, claves };
     })(),
     estado: e.estado as ExpedienteEstado,
     asignadoA: e.asignadoA?.nombre ?? "Sin asignar",
