@@ -592,20 +592,15 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
             {filtrosAsignado.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         )}
+        {/* AÑO (solo en el historial): un filtro, uno solo a la vez — así la carpeta no
+            repite «2026» en cada línea cuando toda la pantalla ya es de 2026. Lista
+            desplegable a la derecha del equipo (20/09, Matthias), no una fila de chips. */}
+        {view === "historial" && archivo && aniosArchivo.length > 0 && !busqueda && (
+          <select value={anioElegido ?? ""} onChange={(e) => setAnio(e.target.value)} aria-label={t("Año")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
+            {aniosArchivo.map((a) => <option key={a.anio || "sin"} value={a.anio}>{a.anio || t("Sin fecha")} ({a.n})</option>)}
+          </select>
+        )}
       </div>
-
-      {/* AÑO: un filtro, uno solo a la vez. Así la carpeta no repite «2026» en cada línea
-          cuando toda la pantalla ya es de 2026. */}
-      {view === "historial" && archivo && aniosArchivo.length > 0 && !busqueda && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-medium text-slate-400">{t("Año")}</span>
-          {aniosArchivo.map((a) => (
-            <button key={a.anio || "sin"} onClick={() => setAnio(a.anio)} className={chip(anioElegido === a.anio)}>
-              {a.anio || t("Sin fecha")} <span className="opacity-70">{a.n}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {view === "historial" && totalArchivo > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
