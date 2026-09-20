@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BOARD_PHASES, ACCION_ESTADO, type ExpedienteEstado } from "@/lib/types";
+import { BOARD_PHASES, type ExpedienteEstado } from "@/lib/types";
 import { useT } from "@/components/lang-provider";
 import { AvatarGestor, type Avatares } from "@/components/avatar-gestor";
 import { esperaAlCliente } from "@/lib/progreso";
@@ -25,22 +25,18 @@ export type DashItem = {
 
 // Días hasta la fecha límite, con la fecha REAL de hoy (antes: TODAY=11 mockeado —
 // los badges «Vencido» y el orden eran falsos todos los días salvo el 11/06).
-const diasHasta = (iso?: string) => {
-  if (!iso) return Infinity;
-  const t = Date.parse(iso);
-  return Number.isNaN(t) ? Infinity : Math.ceil((t - Date.now()) / 864e5);
-};
 
 function Icon({ name }: { name: string }) {
   const c = "h-[18px] w-[18px]";
   if (name === "bell") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
   if (name === "clock") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
   if (name === "folder") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>;
+  if (name === "euro") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 5.5A7.5 7.5 0 0 0 7 12a7.5 7.5 0 0 0 10.5 6.5M4 10h9M4 14h9" /></svg>;
   if (name === "calendar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>;
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; hoy: string; avatares?: Avatares }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, renovaciones6m = 0, bandejaPendientes = 0, esperandoPago = 0, cobrosVencidos = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; renovaciones6m?: number; bandejaPendientes?: number; esperandoPago?: number; cobrosVencidos?: number; hoy: string; avatares?: Avatares }) {
   const t = useT();
   const router = useRouter();
   // El servidor ya no manda archivados (fetchExpedientesResumen soloVivos). La caché
@@ -49,14 +45,6 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   const live = useMemo(() => items.filter((e) => !e.archivado), [items]);
 
   const activos = live.filter((e) => e.estado !== "FINALIZADO" && e.estado !== "RECHAZADO");
-  // «Requieren tu acción» = TODOS los estados donde le toca al gestor (fuente única
-  // ACCION_ESTADO). Antes solo 2 estados: un RESUELTO (cliente esperando su cita de
-  // huellas) desaparecía del radar.
-  // El progreso calculado manda; ACCION_ESTADO queda como repli de filas degradadas.
-  const accion = live.filter((e) => { const a = e.progreso?.accion ?? ACCION_ESTADO[e.estado]; return a && !a.espera; })
-    .sort((a, b) => diasHasta(a.fechaLimiteISO) - diasHasta(b.fechaLimiteISO));
-  const vencenSemana = live.filter((e) => { const d = diasHasta(e.fechaLimiteISO); return d !== Infinity && d <= 7; });
-  const vencidos = live.filter((e) => diasHasta(e.fechaLimiteISO) < 0).length;
   // Hecho, no estado: un expediente con formularios ya generados no espera a nadie.
   // Definición ÚNICA (lib/progreso.ts) — la comparte el filtro de la lista de Expedientes,
   // adonde lleva este KPI.
@@ -81,12 +69,12 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
   // 4 KPI, todos CLICABLES (antes ninguno lo era). «Caducan pronto» expone Vigía desde
   // Inicio (sustituye al retrospectivo «Resueltos»). «Plazos esta semana» = fechas límite
   // de expedientes (≠ caducidades de tarjetas).
+  // Los cuatro KPI, en el orden que pidió Matthias (20/09): lo que tengo abierto, lo que
+  // espera del cliente (documentos), lo que espera su dinero, y lo que caduca.
   const KPIS = [
-    // Igual que las demás (20/09): lo que la distingue es su número en verde y su icono,
-    // no el recuadro.
-    { n: accion.length, label: t("Requieren tu acción"), href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-aproba-700", icon: "bell", emph: true },
-    { n: vencenSemana.length, label: t("Plazos esta semana"), sub: vencidos ? `${vencidos} ${t("vencidos")}` : undefined, href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-amber-600", icon: "clock", emph: false },
-    { n: activos.length, label: t("Expedientes activos"), sub: `${esperandoCliente} ${t("esperando cliente")} →`, subHref: "/app/expedientes?filtro=esperando", href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: false },
+    { n: activos.length, label: t("Expedientes activos"), href: "/app/expedientes", tone: "border-slate-200 bg-white", num: "text-slate-900", icon: "folder", emph: true },
+    { n: esperandoCliente, label: t("Esperando al cliente"), sub: t("documentos e información"), href: "/app/expedientes?filtro=esperando", tone: "border-slate-200 bg-white", num: esperandoCliente ? "text-amber-600" : "text-slate-900", icon: "clock", emph: false },
+    { n: esperandoPago, label: t("Esperando pago"), sub: cobrosVencidos ? `${cobrosVencidos} ${cobrosVencidos === 1 ? t("factura vencida") : t("facturas vencidas")}` : t("facturas enviadas sin cobrar"), href: "/app/facturas", tone: "border-slate-200 bg-white", num: cobrosVencidos ? "text-red-600" : esperandoPago ? "text-amber-600" : "text-slate-900", icon: "euro", emph: false },
     { n: caducanPronto, label: t("Caducan pronto"), sub: caducadas ? `${caducadas} ${t("ya caducadas")}` : t("tarjetas · próximos 60 días"), href: "/app/vencimientos", tone: "border-slate-200 bg-white", num: caducadas ? "text-red-600" : caducanPronto ? "text-amber-600" : "text-slate-900", icon: "calendar", emph: false },
   ];
 

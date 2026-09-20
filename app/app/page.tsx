@@ -2,6 +2,7 @@ import { fetchExpedientesResumen } from "@/lib/data/expedientes";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchCobrosPendientes } from "@/lib/data/facturas";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
@@ -88,6 +89,12 @@ export default async function Dashboard() {
   // Renovaciones que caducan en menos de 6 meses (incluidas las ya caducadas sin renovar):
   // el trabajo que viene, visible en la carta «Por fase» (pedido de Matthias, 03/09).
   const renovaciones6m = proximos.filter((v) => v.dias <= 183).length;
+  // Expedientes con una factura EMITIDA o VENCIDA sin cobrar: el cliente tiene algo que
+  // pagar (anticipo o final). Se cuenta el EXPEDIENTE, no la factura: uno con anticipo y
+  // final pendientes es un solo caso que perseguir.
+  const cobros = await fetchCobrosPendientes(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []);
+  const esperandoPago = new Set(cobros.map((c) => c.expedienteId).filter(Boolean)).size;
+  const cobrosVencidos = cobros.filter((c) => c.estado === "VENCIDA").length;
   // Bandeja de entrada (documentos por email sin asignar): 0 si la migración no está.
   const bandejaPendientes = (await supabase.from("BandejaEntrada").select("id", { count: "exact", head: true }).eq("estado", "PENDIENTE")).count ?? 0;
   return (
@@ -96,7 +103,7 @@ export default async function Dashboard() {
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient esperandoPago={esperandoPago} cobrosVencidos={cobrosVencidos} avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} renovaciones6m={renovaciones6m} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
       {/* Memoria de actividad (art. 8.1.f): cierra el Inicio de los administradores. */}
       {esAdmin && <MemoriaActividadCard />}
     </>
