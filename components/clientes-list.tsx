@@ -268,11 +268,15 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
                       className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                   </label>
                 )}
-                <Link href={`/app/clientes/${m.id}`} className={`flex flex-1 items-center py-2.5 pr-5 transition ${multi ? "pl-4" : "pl-12"}`}>
+                {/* Toda la fila lleva a la ficha del miembro/trabajador, pero nada lo decía:
+                    el nombre de la EMPRESA de arriba se subraya al pasar y estos no (20/09,
+                    Matthias: «tengo que poder abrir la ficha del trabajador pulsando su
+                    nombre»). Ahora el nombre reacciona como el de la empresa. */}
+                <Link href={`/app/clientes/${m.id}`} className={`group flex flex-1 items-center py-2.5 pr-5 transition ${multi ? "pl-4" : "pl-12"}`}>
                   <span className="flex flex-1 items-center gap-3">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-aproba-700 ring-1 ring-aproba-100">{initials(m.nombre)}</span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-700">{m.nombre}</span>
+                      <span className="block truncate text-sm font-medium text-slate-700 transition group-hover:text-aproba-700 group-hover:underline">{m.nombre}</span>
                       {m.parentesco && <span className="block text-[11px] uppercase tracking-wide text-slate-400">{parentescoLabel(m.parentesco)}</span>}
                     </span>
                   </span>
