@@ -164,15 +164,16 @@ function ListaFilas({ lista, cerrado, sangria, onArchive, onRestaurar, onReclasi
   );
 }
 
-function Nivel({ titulo, n, enCurso, abierto, onToggle, raiz = false, anio = false, children }: { titulo: string; n?: number; enCurso?: number; abierto: boolean; onToggle: () => void; raiz?: boolean; anio?: boolean; children: React.ReactNode }) {
+function Nivel({ titulo, n, enCurso, abierto, onToggle, raiz = false, anio = false, vacia = false, children }: { titulo: string; n?: number; enCurso?: number; abierto: boolean; onToggle: () => void; raiz?: boolean; anio?: boolean; vacia?: boolean; children: React.ReactNode }) {
   return (
     <div className={raiz ? `border-l-2 border-t border-slate-100 first:border-t-0 ${abierto ? "border-l-aproba-500 bg-aproba-50/20" : "border-l-transparent"}` : ""}>
       <button
         type="button" onClick={onToggle} aria-expanded={abierto}
         className={`flex w-full items-center gap-2 text-left transition hover:bg-cream-50/60 ${raiz ? "px-4 py-2.5" : anio ? "border-t border-slate-50 py-1.5 pl-14 pr-4" : "border-t border-slate-50 py-2 pl-9 pr-4"}`}
       >
-        <ChevronIcon className={`h-3.5 w-3.5 shrink-0 text-slate-300 transition-transform ${abierto ? "rotate-90" : ""}`} />
-        <span className={`min-w-0 flex-1 truncate ${raiz ? "text-sm font-semibold text-slate-800" : anio ? "text-[12px] font-medium tabular-nums text-slate-400" : "text-[13px] text-slate-500"}`}>{titulo}</span>
+        <ChevronIcon className={`h-3.5 w-3.5 shrink-0 transition-transform ${vacia ? "text-transparent" : "text-slate-300"} ${abierto ? "rotate-90" : ""}`} />
+        <span className={`min-w-0 flex-1 truncate ${raiz ? `text-sm font-semibold ${vacia ? "text-slate-400" : "text-slate-800"}` : anio ? "text-[12px] font-medium tabular-nums text-slate-400" : "text-[13px] text-slate-500"}`}>{titulo}</span>
+        {vacia && <span className="shrink-0 text-[11px] text-slate-300">{"—"}</span>}
         {/* Círculo verde = expedientes EN CURSO de ese tema. Nada si no hay ninguno
             (un tema solo con historial no debe pedir atención). */}
         {typeof n === "number" && <span className={`shrink-0 text-xs tabular-nums ${raiz ? "font-semibold text-slate-400" : "text-slate-300"}`}>{n}</span>}
@@ -266,7 +267,7 @@ function useArchivoServidor() {
   return { filas, cargando, error, pedir, pedirMas, quitar };
 }
 
-export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, archivo = null, avatares = {} }: {
+export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, archivo = null, avatares = {}, carpetasVacias = [] }: {
   items: ItemLista[];
   asignados: string[];
   temas: string[];
@@ -279,6 +280,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   filtroInicial?: "esperando" | null;
   // Fotos del equipo por nombre: la fila pinta la foto del responsable, no sus iniciales.
   avatares?: Avatares;
+  // Carpetas de Ajustes que hoy no llevan ningún expediente: se pintan igual, vacías.
+  carpetasVacias?: string[];
 }) {
   const t = useT();
   const router = useRouter();
@@ -415,9 +418,11 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     return [{ key: view, arbol: construirArbol(base, {
       temas, packs, porAnios: view === "historial", ordenarFilas,
       etiquetaSinClasificar: t("Sin clasificar"), etiquetaSinFecha: t("Sin fecha"),
+      // Solo en «En curso»: el archivo se recorre para buscar, no para ver la estructura.
+      carpetasVacias: view === "curso" && !q.trim() && !tema && !asignado && !soloEsperando ? carpetasVacias : [],
     }) }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, activos, historial, q, asignado, tema, catFiltro, temas, packs, soloEsperando]);
+  }, [view, activos, historial, q, asignado, tema, catFiltro, temas, packs, soloEsperando, carpetasVacias]);
 
   const total = bloques.reduce((a, b) => a + b.arbol.reduce((x, r) => x + r.n, 0), 0);
 
@@ -676,7 +681,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 <div className="overflow-hidden rounded-2xl bg-white">
                   {b.arbol.map((r) => (
                     <Nivel
-                      key={`${b.key}/${r.clave}`} titulo={r.titulo}
+                      key={`${b.key}/${r.clave}`} titulo={r.titulo} vacia={r.n === 0}
                       n={view === "curso" ? undefined : r.n}
                       enCurso={view === "curso" ? (activosPorRaiz.get(r.clave) ?? 0) : undefined}
                       abierto={estaAbierto(`${b.key}/${r.clave}`)} onToggle={() => toggle(`${b.key}/${r.clave}`)} raiz

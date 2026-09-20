@@ -97,3 +97,24 @@ describe("temas escritos de varias formas", () => {
     expect(arbol[0].grupos).toHaveLength(3);
   });
 });
+
+describe("carpetas del catálogo sin expedientes (20/09)", () => {
+  const base = { temas: ["Arraigo", "Familia", "Residencia"], packs: [], porAnios: false, ordenarFilas: (l: ItemArbol[]) => l, etiquetaSinClasificar: "Sin clasificar", etiquetaSinFecha: "Sin fecha" };
+
+  it("se ven igual, vacías y DESPUÉS de las que tienen trabajo", () => {
+    const arbol = construirArbol(
+      [{ tipoLabel: "x", tema: "Arraigo", servicioLabel: "Arraigo social", claves: ["as"] }],
+      { ...base, carpetasVacias: ["Residencia", "Familia"] },
+    );
+    expect(arbol.map((r) => [r.titulo, r.n])).toEqual([["Arraigo", 1], ["Familia", 0], ["Residencia", 0]]);
+  });
+
+  it("una carpeta que YA tiene expedientes no se duplica al pasarla como vacía", () => {
+    const arbol = construirArbol(
+      [{ tipoLabel: "x", tema: "Arraigo", servicioLabel: "Arraigo social", claves: ["as"] }],
+      { ...base, carpetasVacias: ["arraigo ", "ARRAIGO"] },
+    );
+    expect(arbol).toHaveLength(1);
+    expect(arbol[0].n).toBe(1);
+  });
+});

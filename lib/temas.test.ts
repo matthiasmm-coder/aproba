@@ -50,3 +50,20 @@ describe("temas del catálogo", () => {
     expect(canon.get("arraigo")).toBe("ARRAIGO");
   });
 });
+
+describe("con carpetas de verdad, la carpeta manda", () => {
+  it("un servicio SIN carpeta se queda sin tema (no se le deduce uno)", () => {
+    expect(temaEfectivo(null, "renovacion_tie", "Renovación de TIE", true)).toBeNull();
+    expect(temaEfectivo("", "srv_1", "Estancia de estudios", true)).toBeNull();
+  });
+
+  it("y sin carpetas todavía, la propuesta sigue ayudando", () => {
+    expect(temaEfectivo(null, "renovacion_tie", "Renovación de TIE", false)).toBe("Residencia");
+    expect(temaEfectivo(null, "srv_1", "Estancia de estudios")).toBe("Estudios");
+  });
+
+  it("lo que el despacho escribió manda en los dos casos", () => {
+    expect(temaEfectivo("Mis TIE", "renovacion_tie", "Renovación de TIE", true)).toBe("Mis TIE");
+    expect(temaEfectivo("Mis TIE", "renovacion_tie", "Renovación de TIE", false)).toBe("Mis TIE");
+  });
+});

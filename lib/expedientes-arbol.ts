@@ -59,6 +59,9 @@ export type OpcionesArbol<T> = {
   ordenarFilas: (l: T[]) => T[];
   etiquetaSinClasificar: string;
   etiquetaSinFecha: string;
+  // Carpetas del catálogo que hoy no tienen ningún expediente. Se pintan igual, al
+  // final: si el gestor las creó en Ajustes, esperar verlas aquí es lo normal.
+  carpetasVacias?: string[];
 };
 
 // ÁRBOL, como sus carpetas:
@@ -104,6 +107,12 @@ export function construirArbol<T extends ItemArbol>(lista: T[], o: OpcionesArbol
       .sort((x, y) => (x[0] === "sin" ? 1 : y[0] === "sin" ? -1 : y[0].localeCompare(x[0])))
       .map(([a, sub]) => ({ clave: `${claveGrupo}//${a}`, nombre: a === "sin" ? o.etiquetaSinFecha : a, lista: o.ordenarFilas(sub) }));
   };
+  // Las carpetas vacías entran DESPUÉS de las que tienen trabajo (orden 950), nunca
+  // empujando hacia abajo lo que hay que hacer.
+  for (const nombre of o.carpetasVacias ?? []) {
+    const k = normTema(nombre);
+    if (!raices.has(`tema:${k}`)) raiz(`tema:${k}`, nombre, 950);
+  }
   return [...raices.values()]
     .sort((a, b) => a.orden - b.orden || a.titulo.localeCompare(b.titulo, "es"))
     .map((r) => ({

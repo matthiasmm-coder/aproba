@@ -55,12 +55,17 @@ export function temaSugerido(clave: string | null | undefined, label: string | n
   return null;
 }
 
-// Tema EFECTIVO de un servicio: lo que escribió el despacho manda siempre; si está
-// vacío, la propuesta. Devuelve null si no hay nada que proponer → «Otros trámites».
-export function temaEfectivo(categoria: string | null | undefined, clave?: string | null, label?: string | null): string | null {
+// Tema EFECTIVO de un servicio: la carpeta en la que está manda siempre.
+//
+// `hayCarpetas` = el despacho ya organizó su catálogo en carpetas. Entonces un servicio
+// SIN carpeta está sin carpeta a propósito, y deducirle un tema le escondería el
+// servicio en una carpeta que él no ha creado (20/09: Matthias veía tres carpetas donde
+// tenía cuatro). Sin carpetas todavía, la propuesta sigue siendo útil: es lo que evita
+// que un despacho como el de Juan (40 servicios, ningún tema) abra una lista plana.
+export function temaEfectivo(categoria: string | null | undefined, clave?: string | null, label?: string | null, hayCarpetas = false): string | null {
   const propio = (categoria ?? "").trim();
   if (propio) return propio;
-  return temaSugerido(clave, label);
+  return hayCarpetas ? null : temaSugerido(clave, label);
 }
 
 // Une las grafías de un mismo tema («ARRAIGO», «Arraigo ») conservando la PRIMERA que
