@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchStripeKeyDeWorkspace, stripeConClave, marcarFacturaPagada } from "@/lib/cobros-tarjeta";
 import { enviarConfirmacionPago } from "@/lib/notificaciones";
 import { escanearVencimientos } from "@/lib/vencimientos";
+import { escanearRequerimientos } from "@/lib/requerimientos-escaner";
 import { barrerVerifactu } from "@/lib/verifactu-envio";
 
 // Cron de Vercel (ver vercel.json): reconcilia los pagos con TARJETA que el redirect a
@@ -70,7 +71,7 @@ export async function GET(req: Request) {
 
   const admin = createSupabaseAdmin();
   // Respuesta MINIMALISTA (contadores): nada de ids de workspace/factura en el JSON.
-  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0, vigia: { avisados: 0, workspaces: 0 }, verifactu: { revisados: 0, cambiados: 0, reintentados: 0, enviados: 0 } };
+  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0, vigia: { avisados: 0, workspaces: 0 }, requerimientos: { avisados: 0, workspaces: 0 }, verifactu: { revisados: 0, cambiados: 0, reintentados: 0, enviados: 0 } };
 
   // Workspaces con cobro con tarjeta activado. Si la tabla no está migrada → nada que hacer.
   let cuentas: { workspaceId: string }[] = [];
@@ -187,6 +188,16 @@ export async function GET(req: Request) {
     resumen.vigia = await escanearVencimientos(admin);
   } catch (e) {
     console.error("[cron vigia]", e instanceof Error ? e.message : e);
+  }
+
+  // ── REQUERIMIENTOS: mismo tick diario (Hobby limita los crons). Plazo de la
+  //    Administración → aviso al DESPACHO por hitos. Nunca escribe al cliente.
+  //    try/catch PROPIO: si Vigía falla, los requerimientos tienen que salir igual —
+  //    es la fecha que hace caer el expediente. ──
+  try {
+    resumen.requerimientos = await escanearRequerimientos(admin);
+  } catch (e) {
+    console.error("[cron requerimientos]", e instanceof Error ? e.message : e);
   }
 
   // ── VERI*FACTU: mismo tick → consultar los registros pendientes y reintentar los

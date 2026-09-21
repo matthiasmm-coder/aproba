@@ -1,4 +1,6 @@
 import { fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
+import { diasRestantes } from "@/lib/requerimientos";
 import { fetchHistorialResumen } from "@/lib/data/historial";
 import { totalResumen } from "@/lib/historial-arbol";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
@@ -17,9 +19,10 @@ export const dynamic = "force-dynamic";
 export default async function VencimientosPage() {
   const t = await getT();
   const filtroSede = await resolverOficina();
-  const [vencimientos, resumenArchivo] = await Promise.all([
+  const [vencimientos, resumenArchivo, requerimientos] = await Promise.all([
     fetchVencimientos(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchHistorialResumen(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => null),
+    fetchRequerimientosPendientes(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []),
   ]);
   // Mismos números que el KPI «Caducan pronto» del Inicio.
   const proximos = vencimientos.filter((v) => v.estado !== "TRAMITANDO");
@@ -37,7 +40,8 @@ export default async function VencimientosPage() {
               : t("Nada caduca en los próximos 60 días")}
           </p>
         </div>
-        <VistasExpedientes activa="renovaciones" totalHistorial={resumenArchivo ? totalResumen(resumenArchivo) : 0} totalRenovaciones={caducanPronto} />
+        <VistasExpedientes activa="renovaciones" totalHistorial={resumenArchivo ? totalResumen(resumenArchivo) : 0} totalRenovaciones={caducanPronto}
+          totalRequerimientos={requerimientos.length} requerimientosUrgentes={requerimientos.some((r) => diasRestantes(r.fechaLimite) <= 0)} />
       </div>
       <p className="text-sm text-slate-500">{t("Las tarjetas de tus clientes que caducan pronto. Inicia la renovación con un clic: se crea el expediente y se avisa al cliente en su idioma.")}</p>
       <VencimientosList vencimientos={vencimientos} />

@@ -4,6 +4,8 @@ import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { temaEfectivo, unificarTemas } from "@/lib/temas";
 import { fetchHistorialResumen } from "@/lib/data/historial";
 import { fetchRenovacionesPropuestas, fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
+import { diasRestantes } from "@/lib/requerimientos";
 import { fetchAvataresEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { normTema } from "@/lib/servicios";
@@ -29,10 +31,13 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   ]);
   // El recuento de la pestaña = el KPI «Caducan pronto» del Inicio (misma regla).
   const renovaciones = vencimientos.filter((v) => v.estado !== "TRAMITANDO" && v.dias <= 60).length;
-  const [cargados, propuestas] = await Promise.all([
+  const [cargados, propuestas, requerimientos] = await Promise.all([
     fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES, resumenArchivo !== null),
     fetchRenovacionesPropuestas(),
+    fetchRequerimientosPendientes(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []), // pestaña «Requerimientos»
   ]);
+  // Requerimientos vivos del despacho: contador de la pestaña, en rojo si alguno vence hoy o ya venció.
+  const requerimientosUrgentes = requerimientos.filter((r) => diasRestantes(r.fechaLimite) <= 0).length;
   // Una renovación PROPUESTA y sin respuesta no es todavía trabajo en curso: vive en la
   // vista Renovaciones («Esperando respuesta») y entra aquí cuando el cliente acepta.
   const expedientes = cargados.filter((e) => !propuestas.has(e.id));
@@ -204,7 +209,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       )}
       {vista === "tablero"
         ? <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} avatares={avatares} />
-        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} archivo={archivo} avatares={avatares} />}
+        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} requerimientos={requerimientos.length} requerimientosUrgentes={requerimientosUrgentes > 0} archivo={archivo} avatares={avatares} />}
     </div>
   );
 }

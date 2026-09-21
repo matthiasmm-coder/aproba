@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 // no perder estados internos (popups de cobro, edición de notas…) ni las anclas.
 // El driver «siguiente paso» abre una sección disparando el evento `abrir-seccion`
 // con su id (p. ej. Cobro) antes de hacer scroll.
-export function SeccionPlegable({ id, titulo, resumen, right, completa = false, children }: {
+export function SeccionPlegable({ id, titulo, resumen, right, completa = false, defaultOpen = false, children }: {
   id: string;
   titulo: React.ReactNode;
   resumen?: React.ReactNode; // visible solo plegada
@@ -17,9 +17,12 @@ export function SeccionPlegable({ id, titulo, resumen, right, completa = false, 
   // cabecera para escanear la ficha sin abrir nada. Solo se pone cuando de verdad no
   // queda trabajo: una coca falsa sobre datos incompletos es peor que ninguna coca.
   completa?: boolean;
+  // Nace abierta (21/09/2026, requerimientos): una sección que contiene un plazo vivo no
+  // puede empezar plegada — el gestor tiene que verlo sin buscarlo.
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(defaultOpen);
 
   useEffect(() => {
     const h = (ev: Event) => { if ((ev as CustomEvent).detail === id) setAbierto(true); };

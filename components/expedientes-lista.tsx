@@ -271,7 +271,7 @@ function useArchivoServidor() {
   return { filas, cargando, error, pedir, pedirMas, quitar };
 }
 
-export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, vistaInicial = "curso", renovaciones = 0, archivo = null, avatares = {}, carpetasVacias = [] }: {
+export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, vistaInicial = "curso", renovaciones = 0, requerimientos = 0, requerimientosUrgentes = false, archivo = null, avatares = {}, carpetasVacias = [] }: {
   items: ItemLista[];
   asignados: string[];
   temas: string[];
@@ -287,6 +287,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   // mismo número que el KPI «Caducan pronto» del Inicio).
   vistaInicial?: "curso" | "historial";
   renovaciones?: number;
+  requerimientos?: number;
+  requerimientosUrgentes?: boolean;
   // Fotos del equipo por nombre: la fila pinta la foto del responsable, no sus iniciales.
   avatares?: Avatares;
   // Carpetas de Ajustes que hoy no llevan ningún expediente: se pintan igual, vacías.
@@ -568,7 +570,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 : `${totalArchivo} ${t("en el historial")}`}
           </p>
         </div>
-        <VistasExpedientes activa={view} totalHistorial={totalArchivo} totalRenovaciones={renovaciones} onCambiar={cambiarVista} />
+        <VistasExpedientes activa={view} totalHistorial={totalArchivo} totalRenovaciones={renovaciones} totalRequerimientos={requerimientos} requerimientosUrgentes={requerimientosUrgentes} onCambiar={cambiarVista} />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

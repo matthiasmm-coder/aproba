@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
+import { fetchRequerimientosDeExpediente } from "@/lib/data/requerimientos";
+import { urgenciaDe, plazoClave } from "@/lib/requerimientos";
 import { NotasExpediente } from "@/components/notas-expediente";
+import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
 import { EnlaceCliente } from "@/components/enlace-cliente";
@@ -61,11 +64,12 @@ export default async function ExpedienteDetail({
 }) {
   const { id } = await params;
   // Las 4 fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
-  const [t, e, { servicios }, notas] = await Promise.all([
+  const [t, e, { servicios }, notas, requerimientos] = await Promise.all([
     getT(),
     fetchExpedienteDetalle(id),
     fetchServiciosConfig(),
     fetchNotasExpediente(id),
+    fetchRequerimientosDeExpediente(id),
   ]);
   if (!e) notFound();
 
@@ -354,6 +358,22 @@ export default async function ExpedienteDetail({
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
+        {/* Requerimientos: el plazo de la Administración. Va ARRIBA del todo y abierto si
+            hay alguno pendiente — si vence, el expediente se tiene por desistido. */}
+        <SeccionPlegable
+          id="requerimientos"
+          titulo={t("Requerimientos")}
+          defaultOpen={requerimientos.some((r) => r.estado === "PENDIENTE")}
+          resumen={(() => {
+            const vivos = requerimientos.filter((r) => r.estado === "PENDIENTE");
+            if (!vivos.length) return requerimientos.length ? t("Aportados") : t("Ninguno");
+            const urgente = vivos.find((r) => ["VENCIDO", "HOY", "URGENTE"].includes(urgenciaDe(r))) ?? vivos[0];
+            const p = plazoClave(urgente); return t(p.clave).replace("{n}", String(p.n));
+          })()}
+        >
+          <RequerimientosExpediente expedienteId={e.id} inicial={requerimientos} />
+        </SeccionPlegable>
+
         {/* Notas de trabajo del gestor («cita solicitada», «a la espera de apostillas»…) */}
         <SeccionPlegable id="notas" titulo={t("Notas")} resumen={notas.length > 0 ? `${notas.length}` : t("Sin notas")}>
           <NotasExpediente expedienteId={e.id} inicial={notas} />
