@@ -581,16 +581,18 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
             <option value={SIN_TEMA}>{t("Otros trámites")}</option>
           </select>
         )}
-        {view === "curso" && (nEsperando > 0 || soloEsperando) && (
-          <button type="button" onClick={() => setSoloEsperando((v) => !v)} className={chip(soloEsperando)}>
-            {t("Esperando al cliente")} <span className="opacity-70">{nEsperando}</span>
-          </button>
-        )}
         {filtrosAsignado.length > 0 && (
           <select value={asignado} onChange={(e) => setAsignado(e.target.value)} aria-label={t("Responsable")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
             <option value="">{t("Todo el equipo")}</option>
             {filtrosAsignado.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
+        )}
+        {/* «Esperando al cliente» a la DERECHA del equipo (21/09, Matthias): primero se
+            elige de quién son los expedientes, luego se afina por estado. */}
+        {view === "curso" && (nEsperando > 0 || soloEsperando) && (
+          <button type="button" onClick={() => setSoloEsperando((v) => !v)} className={chip(soloEsperando)}>
+            {t("Esperando al cliente")} <span className="opacity-70">{nEsperando}</span>
+          </button>
         )}
         {/* AÑO (solo en el historial): un filtro, uno solo a la vez — así la carpeta no
             repite «2026» en cada línea cuando toda la pantalla ya es de 2026. Lista
