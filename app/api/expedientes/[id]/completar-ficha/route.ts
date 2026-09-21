@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { esDocumentoDeIdentidad, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
+import { camposParaFicha, esDocumentoDeIdentidad, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
 import { FICHA_CAMPOS, FICHA_KEYS } from "@/lib/ficha";
 
 // «Rellenar con los documentos»: vuelca a la ficha de cada persona lo que la IA ya leyó en
@@ -36,24 +36,30 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const vistos = new Set<string>();
   for (const d of docs) {
     const x = porDoc.get(d.id);
-    if (!x || !esDocumentoDeIdentidad(x.tipoDetectado)) continue;
+    if (!x || !Array.isArray(x.datos) || !Object.keys(camposParaFicha(x.tipoDetectado, fichaDesdeCampos(x.datos as { label: string; value: string }[]))).length) continue;
     const dueno = (d as { clienteId: string | null }).clienteId || titular;
     if (!dueno || vistos.has(dueno)) continue;
 
     // Todos los documentos de identidad de esa persona, no solo el primero (el pasaporte
     // trae la identidad y la TIE el NIE: juntos completan la ficha).
     const suyos = docs.filter((o) => ((o as { clienteId: string | null }).clienteId || titular) === dueno);
-    const campos = suyos.flatMap((o) => {
-      const e = porDoc.get(o.id);
-      return e && esDocumentoDeIdentidad(e.tipoDetectado) && Array.isArray(e.datos) ? (e.datos as { label: string; value: string }[]) : [];
-    });
-    if (!campos.length) continue;
+    // Un documento de identidad manda sobre los demás: su número de pasaporte es el
+    // bueno, el de una resolución es su número de expediente. Se fusiona en ese orden y
+    // el primer valor de cada campo gana.
+    const fichas = suyos
+      .map((o) => porDoc.get(o.id))
+      .filter((e): e is NonNullable<typeof e> => Boolean(e) && Array.isArray(e!.datos))
+      .sort((a1, b1) => Number(esDocumentoDeIdentidad(b1.tipoDetectado)) - Number(esDocumentoDeIdentidad(a1.tipoDetectado)))
+      .map((e) => camposParaFicha(e.tipoDetectado, fichaDesdeCampos(e.datos as { label: string; value: string }[])));
+    const fusion: Record<string, string> = {};
+    for (const f of fichas) for (const [k, v] of Object.entries(f)) if (v && !fusion[k]) fusion[k] = v as string;
+    if (!Object.keys(fusion).length) continue;
     vistos.add(dueno);
 
     const { data: filaRaw } = await admin.from("Cliente").select(["nombre", "apellidos", ...FICHA_KEYS].join(", ")).eq("id", dueno).maybeSingle();
     const fila = filaRaw as unknown as Record<string, unknown> | null;
     if (!fila) continue;
-    const huecos = huecosDeFicha(fila, fichaDesdeCampos(campos));
+    const huecos = huecosDeFicha(fila, fusion);
     const claves = Object.keys(huecos);
     if (!claves.length) continue;
 

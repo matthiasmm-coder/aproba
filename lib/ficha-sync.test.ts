@@ -27,12 +27,21 @@ describe("completarFichaDesdeExtraccion", () => {
     expect(etiquetas).toEqual(expect.arrayContaining(["Pasaporte / doc. de identidad", "Nacionalidad"]));
     expect(etiquetas.length).toBe(Object.keys(updates[0]).length);
   });
-  it("no escribe nada sin cliente, sin validar o con un documento que no es de identidad", async () => {
+  it("no escribe nada sin cliente, sin validar, ni desde un documento sin identificación", async () => {
     const { admin, updates } = adminFalso({ pasaporte: "" });
     expect(await completarFichaDesdeExtraccion(admin, null, pasaporte)).toEqual([]);
     expect(await completarFichaDesdeExtraccion(admin, "c1", { ...pasaporte, estado: "RECHAZADO" })).toEqual([]);
-    expect(await completarFichaDesdeExtraccion(admin, "c1", { ...pasaporte, tipoDetectado: "EMPADRONAMIENTO" })).toEqual([]);
+    // Un documento en el que la IA no ha leído ni NIE ni pasaporte: sus datos pueden ser
+    // de cualquiera (el empleador de un contrato, el firmante de una resolución).
+    expect(await completarFichaDesdeExtraccion(admin, "c1", { estado: "VALIDADO", tipoDetectado: "otro", campos: [{ label: "Nombre completo", value: "ALEJO MARIA AMADEO BARON" }] })).toEqual([]);
     expect(updates).toHaveLength(0);
+  });
+  it("un escaneo mixto («otro») con el pasaporte leído SÍ rellena (Asenjo Global, 21/09/2026)", async () => {
+    const { admin, updates } = adminFalso({ pasaporte: "", nacionalidad: null });
+    const etiquetas = await completarFichaDesdeExtraccion(admin, "c1", { ...pasaporte, tipoDetectado: "otro" });
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ pasaporte: "AB123456", nacionalidad: "Colombia" });
+    expect(etiquetas.length).toBeGreaterThan(0);
   });
   it("ficha ya completa → ningún update", async () => {
     const { admin, updates } = adminFalso({ pasaporte: "X1", fechaNacimiento: "1990-01-01", nacionalidad: "Colombia", paisNacimiento: "Colombia" });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fichaDesdeCampos, fechaISO, sexoFicha, pideClienteNuevo, nombreEscrito, esDocumentoDeIdentidad, huecosDeFicha } from "./ficha-extraccion";
+import { camposParaFicha, esDocumentoDeIdentidad, fechaISO, fichaDesdeCampos, huecosDeFicha, nombreEscrito, pideClienteNuevo, sexoFicha } from "./ficha-extraccion";
 import { FICHA_KEYS } from "./ficha";
 
 describe("ficha desde la extracción de un pasaporte", () => {
@@ -61,5 +61,77 @@ describe("huecosDeFicha", () => {
   it("todas las claves que produce vienen de la ficha oficial (nada inventado)", () => {
     const claves = Object.keys(huecosDeFicha({}, leido));
     for (const k of claves) expect(FICHA_KEYS, `«${k}» no es un campo de la ficha`).toContain(k);
+  });
+});
+
+// ── camposParaFicha — qué se lleva a la ficha (21/09/2026, caso Asenjo Global) ────────
+// Un PDF que mezcla el pasaporte y la resolución de arraigo se clasifica «otro»: hasta
+// hoy eso tiraba TODO lo que la IA había leído y la ficha del cliente seguía vacía.
+describe("camposParaFicha", () => {
+  const identificacion = [
+    { label: "Nombre completo", value: "ALBA YASOHARA DAVILA RODRIGUEZ" },
+    { label: "Nombre", value: "ALBA YASOHARA" },
+    { label: "Apellidos", value: "DAVILA RODRIGUEZ" },
+    { label: "Sexo", value: "F" },
+    { label: "Nacionalidad", value: "NICARAGÜENSE" },
+    { label: "Fecha de nacimiento", value: "1997-05-29" },
+    { label: "Lugar de nacimiento", value: "ESTELI, NICARAGUA" },
+    { label: "NIE", value: "Z3989639H" },
+    { label: "Nº pasaporte", value: "C02569900" },
+    { label: "Municipio", value: "Madrid" },
+    { label: "Provincia", value: "Madrid" },
+    { label: "País", value: "España" },
+  ];
+
+  it("un escaneo mixto («otro») con NIE y pasaporte SÍ rellena la identidad", () => {
+    const r = camposParaFicha("otro", fichaDesdeCampos(identificacion));
+    expect(r.nombre).toBe("Alba Yasohara");
+    expect(r.apellidos).toBe("Davila Rodriguez");
+    expect(r.numeroDocumento).toBe("Z3989639H");
+    expect(r.pasaporte).toBe("C02569900");
+    expect(r.fechaNacimiento).toBe("1997-05-29");
+    expect(r.sexo).toBe("M");
+  });
+
+  it("…pero no se queda con el domicilio ni el país del documento", () => {
+    const r = camposParaFicha("otro", fichaDesdeCampos(identificacion));
+    // «Madrid» es la Delegación del Gobierno que firma la resolución, no donde vive.
+    expect(r.municipio).toBeUndefined();
+    expect(r.provincia).toBeUndefined();
+    expect(r.paisNacimiento).toBeUndefined();
+    // Lo que sí dice el documento de ella: dónde nació.
+    expect(r.lugarNacimiento).toBe("Esteli, Nicaragua");
+  });
+
+  it("un documento de identidad de verdad sigue rellenando TODO (sin regresión)", () => {
+    const r = camposParaFicha("pasaporte", fichaDesdeCampos(identificacion));
+    expect(r.municipio).toBe("Madrid");
+    expect(r.paisNacimiento).toBe("España");
+  });
+
+  it("el nº de expediente de una resolución no se guarda como pasaporte", () => {
+    const r = camposParaFicha("otro", fichaDesdeCampos([
+      { label: "Nombre completo", value: "ALBA YASOHARA DAVILA RODRIGUEZ" },
+      { label: "NIE", value: "Z3989639H" },
+      { label: "Nº documento", value: "280120250124827" },
+    ]));
+    expect(r.numeroDocumento).toBe("Z3989639H");
+    expect(r.pasaporte).toBeUndefined(); // 15 cifras no es un pasaporte
+    expect(r.nombre).toBe("Alba"); // sin «Nombre»/«Apellidos» separados, parte el completo
+  });
+
+  it("sin identificación leída no se toca la ficha", () => {
+    const r = camposParaFicha("otro", fichaDesdeCampos([
+      { label: "Nombre completo", value: "ALEJO MARIA AMADEO BARON" },
+      { label: "Municipio", value: "Madrid" },
+    ]));
+    expect(r).toEqual({});
+  });
+
+  it("un documento de OTRA persona nunca rellena la ficha del titular", () => {
+    const campos = [{ label: "Nombre completo", value: "HIJO RECIEN NACIDO" }, { label: "NIE", value: "Z3989639H" }];
+    for (const tipo of ["certificado_nacimiento", "certificado_matrimonio", "libro_familia"]) {
+      expect(camposParaFicha(tipo, fichaDesdeCampos(campos))).toEqual({});
+    }
   });
 });

@@ -1,5 +1,5 @@
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { esDocumentoDeIdentidad, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
+import { camposParaFicha, fichaDesdeCampos, huecosDeFicha } from "@/lib/ficha-extraccion";
 import { FICHA_CAMPOS, FICHA_KEYS } from "@/lib/ficha";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
@@ -15,10 +15,12 @@ export async function completarFichaDesdeExtraccion(
   clienteId: string | null | undefined,
   r: { estado: string; tipoDetectado: string; campos: { label: string; value: string }[] },
 ): Promise<string[]> {
-  if (!clienteId || r.estado !== "VALIDADO" || !esDocumentoDeIdentidad(r.tipoDetectado)) return [];
+  if (!clienteId || r.estado !== "VALIDADO") return [];
+  const util = camposParaFicha(r.tipoDetectado, fichaDesdeCampos(r.campos));
+  if (!Object.keys(util).length) return [];
   try {
     const { data: fila } = await admin.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).maybeSingle();
-    const huecos = huecosDeFicha((fila as Record<string, unknown> | null) ?? null, fichaDesdeCampos(r.campos));
+    const huecos = huecosDeFicha((fila as Record<string, unknown> | null) ?? null, util);
     const claves = Object.keys(huecos);
     if (!claves.length) return [];
     const { error } = await admin.from("Cliente").update(huecos).eq("id", clienteId);

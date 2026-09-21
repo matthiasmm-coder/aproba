@@ -9,6 +9,38 @@ export type FichaNueva = {
 const IDENTIDAD = new Set(["pasaporte", "tarjeta_residencia_tie", "nie", "dni", "documento_identidad", "cedula", "tarjeta_identidad"]);
 export const esDocumentoDeIdentidad = (tipoDetectado: string | null | undefined): boolean => IDENTIDAD.has(String(tipoDetectado ?? "").toLowerCase());
 
+// Documentos que hablan de OTRA persona (el hijo que nace, el cónyuge): sus datos
+// personales no son los del titular del expediente.
+const DE_TERCEROS = new Set(["certificado_nacimiento", "certificado_matrimonio", "libro_familia"]);
+// En un documento que NO es de identidad, estos campos son del DOCUMENTO, no del cliente:
+// en una resolución de arraigo «Madrid» es la Delegación del Gobierno que la firma y
+// «España» el país donde se emite — ni donde nació ni donde vive.
+const DEL_DOCUMENTO: (keyof FichaNueva)[] = ["via", "municipio", "provincia", "codigoPostal", "paisNacimiento"];
+// Un número de pasaporte tiene entre 6 y 12 caracteres (ICAO: 9). El «nº de expediente»
+// de 15 cifras de una resolución administrativa no es un pasaporte.
+const PASAPORTE_PLAUSIBLE = /^[A-Z0-9]{6,12}$/;
+
+// Qué se puede llevar a la ficha del cliente de lo que la IA acaba de leer.
+//
+// Hasta el 21/09/2026 decidía la ETIQUETA del documento: solo un pasaporte, una TIE o un
+// NIE rellenaban la ficha. Un PDF que mezcla el pasaporte y la resolución de arraigo —el
+// escaneo normal de una gestoría— se clasifica «otro», y eso bastaba para tirar TODO lo
+// leído: nombre, apellidos, sexo, nacionalidad, fecha de nacimiento, NIE y pasaporte
+// incluidos (caso real de Asenjo Global, 21/09/2026). Ahora decide el CONTENIDO: si la IA
+// ha leído un NIE o un número de pasaporte, el documento identifica a una persona.
+// De un documento que no es de identidad NO se toman los campos del propio documento.
+export function camposParaFicha(tipoDetectado: string | null | undefined, ficha: FichaNueva): FichaNueva {
+  const t = String(tipoDetectado ?? "").toLowerCase();
+  if (DE_TERCEROS.has(t)) return {};
+  if (esDocumentoDeIdentidad(t)) return ficha;
+  const out: FichaNueva = { ...ficha };
+  for (const k of DEL_DOCUMENTO) delete out[k];
+  if (out.pasaporte && !PASAPORTE_PLAUSIBLE.test(out.pasaporte)) delete out.pasaporte;
+  // Sin una identificación leída, lo demás puede ser de cualquiera: no se toca la ficha.
+  if (!out.numeroDocumento && !out.pasaporte) return {};
+  return out;
+}
+
 const limpiar = (v: string | null | undefined) => String(v ?? "").replace(/\s+/g, " ").trim();
 const titulo = (s: string) => s.toLowerCase().replace(/(^|[\s'-])([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase());
 
