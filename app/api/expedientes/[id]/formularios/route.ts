@@ -42,6 +42,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let sufijo = "";
     // Expediente DE EMPRESA: el trabajador del lote (misma mecánica que el miembro).
     const esTrabajador = Boolean(clienteId) && exp.trabajadores.some((tr) => tr.id === clienteId);
+    // Un clienteId que no es del lote no puede colarse: antes se ignoraba en silencio y el
+    // PDF salía con los datos del expediente (vacíos en uno de empresa).
+    if (clienteId && exp.esDeEmpresa && !esTrabajador) return NextResponse.json({ error: "Trabajador no encontrado en el expediente." }, { status: 404 });
     if (clienteId && (exp.familiaId || esTrabajador)) {
       const q = supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId);
       const { data: m } = await (esTrabajador ? q : q.eq("familiaId", exp.familiaId as string)).maybeSingle();
