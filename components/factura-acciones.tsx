@@ -12,13 +12,18 @@ import type { FacturaEstado } from "@/lib/facturas";
 // (definitivo, solo admin). Reutilizado en la tabla de la lista y en la ficha de la factura.
 // Anular solo aparece en EMITIDA/VENCIDA: un borrador se borra, una pagada se rectifica.
 export function FacturaAcciones({
-  id, numero, estado, archivada, esAdmin, onDone, conEditar = false, enBarra = false,
+  id, numero, estado, archivada, esAdmin, onDone, conEditar = false, enBarra = false, esRectificativa = false, rectificadaPor = null, metodoPago = null,
 }: {
   id: string;
   numero: string;
   estado: FacturaEstado;
   archivada: boolean;
   esAdmin: boolean;
+  // Rectificativas (21/09/2026): una rectificativa no se rectifica, y una factura ya
+  // rectificada tampoco (el índice único lo impide; aquí no se ofrece el botón).
+  esRectificativa?: boolean;
+  rectificadaPor?: { id: string; numero: string } | null;
+  metodoPago?: string | null; // para avisar si el cobro se hizo con tarjeta
   onDone?: () => void; // p.ej. redirigir tras borrar desde la ficha
   // «Editar» dentro de la fila (lista de Facturas). En la ficha de la factura NO: allí el
   // botón Editar vive en la cabecera del documento (evita dos botones iguales).
@@ -30,7 +35,7 @@ export function FacturaAcciones({
 }) {
   const t = useT();
   const router = useRouter();
-  const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular" | "cobrar">(null);
+  const [busy, setBusy] = useState<null | "archivar" | "borrar" | "anular" | "cobrar" | "descobrar" | "rectificar">(null);
   const [error, setError] = useState<string | null>(null);
   // Editar desde la LISTA (petición Luis y Marta, 17/09): abrían una factura emitida a una
   // empresa y solo podían archivarla o eliminarla. Una emitida se retoca; una PAGADA no
@@ -112,6 +117,51 @@ export function FacturaAcciones({
     } finally { setBusy(null); }
   }
 
+  // DESHACER EL COBRO (Luis, 21/09/2026): marcar «pagada» por error dejaba la factura en
+  // un callejón sin salida. No es un error contable — la factura se emitió bien y solo el
+  // estado del pago es falso —, así que vuelve a pendiente conservando su número.
+  async function descobrar() {
+    const aviso = metodoPago === "TARJETA"
+      ? t("Si el cobro se hizo con tarjeta en la plataforma, el dinero ya está en tu cuenta: deshacerlo aquí NO lo devuelve. ")
+      : "";
+    if (!(await confirmar({
+      titulo: t("Deshacer el cobro"),
+      mensaje: aviso + t("La factura {n} volverá a estar pendiente de cobro. Conserva su número y su fecha; queda constancia en el historial. ¿Continuar?").replace("{n}", numero),
+      confirmarLabel: t("Deshacer el cobro"),
+    }))) return;
+    setBusy("descobrar"); setError(null);
+    try {
+      const res = await fetch(`/api/facturas/${id}/pagada`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo deshacer el cobro."));
+      router.refresh(); onDone?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo deshacer el cobro."));
+    } finally { setBusy(null); }
+  }
+
+  // RECTIFICATIVA: la vía legal para corregir una factura ya emitida (RD 1619/2012,
+  // art. 15). La original se conserva intacta; la nueva lleva los importes en negativo.
+  async function rectificar() {
+    if (!(await confirmar({
+      titulo: t("Emitir rectificativa"),
+      mensaje: t("Se emitirá una factura rectificativa de la {n}, con su propio número (serie R) y los importes en negativo. La factura original se conserva tal cual. ¿Continuar?").replace("{n}", numero),
+      confirmarLabel: t("Emitir rectificativa"),
+    }))) return;
+    setBusy("rectificar"); setError(null);
+    try {
+      const res = await fetch(`/api/facturas/${id}/rectificar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo emitir la rectificativa."));
+      router.refresh();
+      if (d.id) router.push(`/app/facturas/${d.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("No se pudo emitir la rectificativa."));
+    } finally { setBusy(null); }
+  }
+
+  const puedeRectificar = !esRectificativa && !rectificadaPor && estado !== "BORRADOR" && estado !== "ANULADA" && !archivada;
+
   return (
     <div className={`flex items-center justify-end ${enBarra ? "gap-2" : "gap-1"}`}>
       {editable && (
@@ -135,6 +185,31 @@ export function FacturaAcciones({
           className={`${enBarra ? "inline-flex h-10 items-center rounded-lg px-3 text-sm" : "mr-1 rounded-md px-2 py-1 text-xs"} border border-aproba-200 bg-aproba-50 font-semibold text-aproba-700 transition hover:border-aproba-300 disabled:opacity-40`}
         >
           {busy === "cobrar" ? "…" : t("Cobrada")}
+        </button>
+      )}
+      {/* Una pagada por error vuelve a pendiente: es lo que faltaba para no tener que
+          borrar una factura emitida (petición de Luis, 21/09/2026). */}
+      {estado === "PAGADA" && !archivada && (
+        <button
+          onClick={descobrar}
+          disabled={busy !== null}
+          title={t("Deshacer el cobro")}
+          aria-label={t("Deshacer el cobro de la factura {n}").replace("{n}", numero)}
+          className={`${ico} text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40`}
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+        </button>
+      )}
+      {/* Rectificativa: la vía correcta para corregir una factura emitida. */}
+      {puedeRectificar && (
+        <button
+          onClick={rectificar}
+          disabled={busy !== null}
+          title={t("Emitir rectificativa")}
+          aria-label={t("Emitir una rectificativa de la factura {n}").replace("{n}", numero)}
+          className={`${ico} text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40`}
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 15h6" /></svg>
         </button>
       )}
       {(estado === "EMITIDA" || estado === "VENCIDA") && (

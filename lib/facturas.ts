@@ -40,6 +40,12 @@ export type Factura = {
   fecha: string; // dd/mm/aaaa
   vence?: string;
   origen?: "MANUAL" | "AUTOMATICA"; // AUTOMATICA = pago del cliente en plataforma
+  // Rectificativas: `rectificaId`/`rectificaNumero` = la factura que ESTA corrige;
+  // `rectificadaPor` = la rectificativa que corrige a ESTA (null en una factura normal).
+  metodoPago?: string | null; // con qué se cobró (avisa si fue tarjeta al deshacer)
+  rectificaId?: string | null;
+  rectificaNumero?: string | null;
+  rectificadaPor?: { id: string; numero: string } | null;
   momento?: "ANTICIPO" | "FINAL" | null;
   lineas?: LineaFactura[]; // desglose de honorarios (si vacío → una sola línea: concepto/base)
   suplidos?: Suplido[]; // gastos sin IVA
@@ -108,6 +114,46 @@ export function tieneCuotas(facturas: { momento: string | null; estado: string }
 export function eur(n: number): string {
   const [int, dec] = n.toFixed(2).split(".");
   return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${dec} €`;
+}
+
+// ── FACTURA RECTIFICATIVA (RD 1619/2012, art. 15 — Luis, 21/09/2026) ─────────────────
+// Una factura emitida no se borra (numeración correlativa, y con VERI*FACTU además
+// registrada en la AEAT): se corrige con una rectificativa, que es un documento propio
+// con su número en una SERIE ESPECÍFICA y que identifica a la factura rectificada.
+
+// Serie de las rectificativas: «R-2026-0001», y «R-DG-2026-0001» si la oficina tiene su
+// propio prefijo. El patrón `like` ancla el principio, así que «2026-%» nunca atrapa una
+// rectificativa y las dos series corren independientes sin columna nueva.
+export const PREFIJO_RECTIFICATIVA = "R";
+export function prefijoRectificativa(prefijoOficina = ""): string {
+  const p = String(prefijoOficina ?? "").trim();
+  return p ? `${PREFIJO_RECTIFICATIVA}-${p}` : PREFIJO_RECTIFICATIVA;
+}
+export const esNumeroRectificativa = (numero: string): boolean =>
+  new RegExp(`^${PREFIJO_RECTIFICATIVA}-`).test(String(numero ?? "").trim());
+
+// Rectificación POR DIFERENCIA (la de uso corriente): la rectificativa lleva el negativo
+// de lo que se rectifica, de modo que original + rectificativa suman cero. Los suplidos
+// se niegan igual (van sin IVA y fuera de la base, aquí solo cambian de signo).
+export function importesRectificativa(f: {
+  baseImponible: number; iva: number; total: number;
+  lineas?: LineaFactura[] | null; suplidos?: Suplido[] | null;
+}): { baseImponible: number; iva: number; total: number; lineas: LineaFactura[] | null; suplidos: Suplido[] | null } {
+  const neg = (n: unknown) => r2(-Math.abs(Number(n) || 0));
+  const ls = Array.isArray(f.lineas) ? f.lineas.filter((l) => l && l.concepto) : [];
+  const ss = Array.isArray(f.suplidos) ? f.suplidos.filter((s) => s && s.concepto) : [];
+  return {
+    baseImponible: neg(f.baseImponible), iva: neg(f.iva), total: neg(f.total),
+    lineas: ls.length ? ls.map((l) => ({ concepto: l.concepto, base: neg(l.base) })) : null,
+    suplidos: ss.length ? ss.map((s) => ({ concepto: s.concepto, importe: neg(s.importe) })) : null,
+  };
+}
+
+// Concepto de la rectificativa: dice SIEMPRE a qué factura rectifica (exigido), y el
+// motivo del gestor cuando lo escribe.
+export function conceptoRectificativa(numeroOriginal: string, motivo?: string | null): string {
+  const m = String(motivo ?? "").trim();
+  return `Rectificativa de la factura ${numeroOriginal}${m ? ` — ${m}` : ""}`.slice(0, 300);
 }
 
 export const FACTURA_ESTADO_META: Record<FacturaEstado, { label: string; pill: string }> = {

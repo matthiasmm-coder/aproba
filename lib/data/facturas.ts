@@ -21,16 +21,18 @@ type Row = {
   notas?: string | null;
   archivadoAt?: string | null;
   clienteDatos?: unknown;
+  rectificaId?: string | null;
 };
 
 // lineas/suplidos/notas (Pro/Business) y archivadoAt son columnas nuevas. Se piden en el
 // SELECT; si la migración aún no se aplicó, se reintenta sin ellas, en cascada (repli propre):
 // completo → sin archivadoAt → base. Cada grupo de columnas tiene su propia migración.
-const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, fechaEmision, fechaVencimiento, expedienteId";
+const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, metodoPago, fechaEmision, fechaVencimiento, expedienteId";
 const SELECT_LIN: string = `${COLS_BASE}, lineas, suplidos, notas`;
 const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
 const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
 const SELECT_OFI: string = `${SELECT_CLI}, oficinaId`; // fase 6 (repli si sin migrar)
+const SELECT_RECT: string = `${SELECT_OFI}, rectificaId`; // factura-rectificativa.sql
 
 // Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
 // caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
@@ -43,7 +45,8 @@ async function selectFacturas<T>(
   run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
   contexto = "Facturas",
 ): Promise<T> {
-  let res = await run(SELECT_OFI);
+  let res = await run(SELECT_RECT);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_OFI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_CLI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_FULL);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_LIN);
@@ -71,7 +74,21 @@ function mapRow(f: Row): Factura {
     clienteDatos: f.clienteDatos && typeof f.clienteDatos === "object" ? (f.clienteDatos as ClienteDatosFactura) : null,
     expedienteId: (f as { expedienteId?: string | null }).expedienteId ?? null,
     oficinaId: (f as { oficinaId?: string | null }).oficinaId ?? null,
+    metodoPago: (f as { metodoPago?: string | null }).metodoPago ?? null,
+    rectificaId: (f as { rectificaId?: string | null }).rectificaId ?? null,
   };
+}
+
+// Pareja original ↔ rectificativa dentro de una lista ya cargada: sin consulta extra.
+function emparejarRectificativas(fs: Factura[]): Factura[] {
+  const porOriginal = new Map<string, { id: string; numero: string }>();
+  for (const f of fs) if (f.rectificaId) porOriginal.set(f.rectificaId, { id: f.id, numero: f.numero });
+  const porId = new Map(fs.map((f) => [f.id, f]));
+  return fs.map((f) => {
+    const rect = porOriginal.get(f.id) ?? null;
+    const orig = f.rectificaId ? porId.get(f.rectificaId) : null;
+    return rect || orig ? { ...f, rectificadaPor: rect, rectificaNumero: orig?.numero ?? f.rectificaNumero ?? null } : f;
+  });
 }
 
 // `oficinaId` (pastillas multi-oficina) : facturas estampillées de cette sede ;
@@ -97,7 +114,7 @@ export async function fetchFacturas(sedes?: string[] | null, incluirSinSede = fa
   };
   try {
     const data = await selectFacturas((cols) => filtro(supabase.from("Factura").select(cols)).order("numero", { ascending: false }).limit(tope ?? 100000));
-    return conEntregas(((data ?? []) as unknown as Row[]).map(mapRow));
+    return conEntregas(emparejarRectificativas(((data ?? []) as unknown as Row[]).map(mapRow)));
   } catch (e) {
     if (sedes?.length && e instanceof Error && /oficinaId/i.test(e.message)) {
       const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).order("numero", { ascending: false }).limit(tope ?? 100000));
@@ -117,7 +134,19 @@ export async function fetchFacturasDeExpediente(expedienteId: string): Promise<F
 export async function fetchFactura(id: string): Promise<Factura | null> {
   const supabase = await createSupabaseServer();
   const data = await selectFacturas((cols) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle(), `Factura ${id}`);
-  return data ? mapRow(data as unknown as Row) : null;
+  if (!data) return null;
+  const f = mapRow(data as unknown as Row);
+  // Su pareja: la rectificativa que la corrige, o la factura que ella rectifica. Consulta
+  // tolerante — sin la migración, ninguna de las dos existe y la ficha sale como siempre.
+  try {
+    if (f.rectificaId) {
+      const { data: o } = await supabase.from("Factura").select("id, numero").eq("id", f.rectificaId).maybeSingle();
+      if (o) f.rectificaNumero = (o as { numero: string }).numero;
+    }
+    const { data: r } = await supabase.from("Factura").select("id, numero").eq("rectificaId", id).maybeSingle();
+    if (r) f.rectificadaPor = { id: (r as { id: string }).id, numero: (r as { numero: string }).numero };
+  } catch { /* migración pendiente */ }
+  return f;
 }
 
 // ── Cobros pendientes (morosos) ──────────────────────────────────────────────

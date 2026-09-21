@@ -76,7 +76,7 @@ function FilaFactura({ f, esAdmin, t, vf }: { f: Factura; esAdmin: boolean; t: T
           </Link>
         )}
       </td>
-      <td className="px-2 py-2 text-right"><FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} conEditar /></td>
+      <td className="px-2 py-2 text-right"><FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} esRectificativa={Boolean(f.rectificaId)} rectificadaPor={f.rectificadaPor ?? null} conEditar /></td>
     </tr>
   );
 }

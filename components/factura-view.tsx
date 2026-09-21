@@ -32,6 +32,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
   const t = useT();
   const router = useRouter();
   const meta = FACTURA_ESTADO_META[f.estado];
+  const esRect = Boolean(f.rectificaId ?? f.rectificaNumero);
   const [marcando, setMarcando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [reintentando, setReintentando] = useState(false);
@@ -125,7 +126,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
             {t("Imprimir / PDF")}
           </button>
           {editable && (
-            <FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} enBarra onDone={() => { router.push("/app/facturas"); router.refresh(); }} />
+            <FacturaAcciones id={f.id} numero={f.numero} estado={f.estado} archivada={Boolean(f.archivado)} esAdmin={esAdmin} enBarra esRectificativa={esRect} rectificadaPor={f.rectificadaPor ?? null} metodoPago={f.metodoPago ?? null} onDone={() => { router.push("/app/facturas"); router.refresh(); }} />
           )}
         </div>
       </div>
@@ -137,6 +138,12 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
       )}
 
       {/* Document facture */}
+      {f.rectificadaPor && (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 print:hidden">
+          {t("Esta factura se rectificó con la")}{" "}
+          <Link href={`/app/facturas/${f.rectificadaPor.id}`} className="font-mono font-semibold underline underline-offset-2">{f.rectificadaPor.numero}</Link>.
+        </p>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
         <div className="flex items-start justify-between">
           <div>
@@ -152,8 +159,13 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
             )}
           </div>
           <div className="text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Factura")}</p>
+            {/* Una rectificativa DEBE decirlo en el propio documento e identificar a la
+                factura rectificada (RD 1619/2012, art. 15). */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{esRect ? t("Factura rectificativa") : t("Factura")}</p>
             <p className="font-mono text-lg font-bold text-slate-900">{f.numero}</p>
+            {esRect && f.rectificaNumero && (
+              <p className="mt-0.5 text-xs font-medium text-slate-600">{t("Rectifica a la factura")} <span className="font-mono">{f.rectificaNumero}</span></p>
+            )}
             <p className="mt-1 text-xs text-slate-500">{t("Fecha:")} {f.fecha}</p>
             {f.vence && <p className="text-xs text-slate-500">{t("Vencimiento:")} {f.vence}</p>}
           </div>
