@@ -330,12 +330,6 @@ export function NuevoExpediente() {
       setEmpresaNombre(d.empresa ? empresaTxt : "");
       // Empresa: la tarifa es por trabajador (sin ninguno, una unidad — como /api/pagos).
       setMiembrosFam(familiaSel ? Math.max(1, familiaSel.miembros) : d.empresa ? Math.max(1, Number(d.trabajadores) || 0) : 1);
-      if (d.empresa) {
-        // El portal de la EMPRESA llega en el lote 2: hasta entonces el expediente se trabaja
-        // en modo manual (el encargo se fija aquí; los trabajadores, desde la ficha).
-        setModo("manual");
-        void fetch(`/api/expedientes/${d.expedienteId}/modo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo: "manual" }) }).catch(() => {});
-      }
       setAjustado(servicios.claves.length > 0 || Boolean(servicios.packId));
       setExtraFacturado(Boolean(d.extra));
       setUsados((u) => (u ?? 0) + 1);
@@ -357,7 +351,9 @@ export function NuevoExpediente() {
   const portalFull = `${origin}/j/${token}`;
   const portalHref = `/j/${token}`;
   const saludo = esFamiliar ? (nombreCliente || t("familia")) : nombreCliente.split(" ")[0];
-  const waMsg = esFamiliar
+  const waMsg = empresaNombre
+    ? `Hola, soy de ${gestoriaNombre || "tu gestoría"}. Para empezar el trámite de vuestros trabajadores, entra aquí, completa los datos de ${empresaNombre} y de cada trabajador, y sube sus documentos: ${portalFull}`
+    : esFamiliar
     ? `Hola, soy de ${gestoriaNombre || "tu gestoría"}. Para empezar el trámite de ${saludo}, entra aquí, elige el trámite y rellena los datos y documentos de cada miembro: ${portalFull}`
     : `Hola ${saludo}, soy de ${gestoriaNombre || "tu gestoría"}. Para empezar tu trámite de extranjería, entra aquí, elige tu trámite y sube tus documentos: ${portalFull}`;
   const waLink = telefono
@@ -685,7 +681,7 @@ export function NuevoExpediente() {
 
           {empresaNombre && (
             <div className="mx-auto mt-4 max-w-md rounded-lg border border-aproba-200 bg-aproba-50/60 px-3 py-2 text-xs leading-relaxed text-aproba-800">
-              {t("El expediente es de la empresa: la hoja de encargo y las facturas van a su nombre. Fija aquí el encargo; los trabajadores se añaden desde la ficha del expediente. El enlace para que la empresa complete los datos de sus trabajadores llegará en breve.")}
+              {t("El enlace es para la empresa: completa sus datos, añade a cada trabajador con su ficha y sube sus documentos. La hoja de encargo la firma la empresa; el mandato, cada trabajador. Las facturas van a nombre de la empresa.")}
             </div>
           )}
 
@@ -704,7 +700,6 @@ export function NuevoExpediente() {
           {/* Cómo se va a trabajar este expediente. Es una decisión REAL del despacho:
               muchos trámites (contra-trámites, clientes que traen los papeles en mano)
               nunca pasan por el portal, y pedirles el enlace era ruido permanente. */}
-          {!empresaNombre && (
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             {/* focus-visible en verde de marca: el anillo azul por defecto del navegador
                 se quedaba pegado tras el clic y no era el color de Aproba. */}
@@ -727,7 +722,6 @@ export function NuevoExpediente() {
               <p className="mt-1 text-xs text-slate-500">{t("Los subes tú, sin enlace.")}</p>
             </button>
           </div>
-          )}
           {errorModo && <p role="alert" className="mt-2 text-xs text-red-600">{errorModo}</p>}
 
           {modo === "manual" ? (

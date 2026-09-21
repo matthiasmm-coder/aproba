@@ -16,8 +16,9 @@ import {
   servicioLabel, servicioDesc, temaLabel, docLabel, docHelp, type Lang, esRTL,
 } from "@/lib/portal-i18n";
 import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
+import { DatosEmpresa, type EmpresaPortal } from "@/components/datos-empresa";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
-import { docsFamiliaPorServicios, docsExtraPlanos, sinQuitados } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, docsExtraPlanos, sinQuitados } from "@/lib/familia";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -64,6 +65,7 @@ export function ClientPortal({
   tarjetaActiva,
   encargoActivo,
   familia,
+  empresa = null,
   servicioInicial,
   serviciosExtraClaves,
   serviciosBloqueados,
@@ -88,6 +90,8 @@ export function ClientPortal({
   encargoActivo?: boolean; // hoja de encargo + mandato: descarga y firma en el portal
   // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
   familia?: { familiaId: string; miembros: MiembroInicial[] };
+  // Expediente DE EMPRESA (21/09/2026): la empresa es el cliente y cada trabajador, solicitante.
+  empresa?: EmpresaPortal | null;
   // REPRISE DE SESSION: servicio ya elegido + documentos ya subidos (el migrante que
   // vuelve al enlace NO empieza de cero — retoma en el primer paso incompleto).
   servicioInicial?: string | null;
@@ -110,6 +114,8 @@ export function ClientPortal({
   docsExtra?: string[]; // documentos pedidos a mano por el gestor en este expediente
 }) {
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
+  // Grupo (familia o empresa): mismos pasos «datos de todos → trámite → documentos por persona».
+  const esGrupo = Boolean(familia) || Boolean(empresa);
   // Renovación ACEPTADA (servicioFijado): empieza en el paso 0 para que el cliente VEA el
   // trámite que fijó su gestoría antes de seguir — no es una sesión interrumpida.
   const [step, setStep] = useState(() => {
@@ -119,12 +125,12 @@ export function ClientPortal({
     if ((serviciosBloqueados?.length ?? 0) > 0 && !clienteYaEligio) return 0;
     const base: Record<string, string> = { ...fichaVacia(), ...(clienteFicha ?? {}) } as Record<string, string>;
     const fichaCompleta = REQUIRED_KEYS.every((k) => (base[k] ?? "").trim());
-    return fichaCompleta ? 2 : (familia ? 0 : 1);
+    return fichaCompleta ? 2 : (esGrupo ? 0 : 1);
   });
   const [lang, setLang] = useState<Lang>("es");
   const [tramiteId, setTramiteId] = useState<string | null>(servicioInicial ?? null);
   // Miembros de la familia (con esSolicitante): estado compartido entre Datos y Documentos.
-  const [famMiembros, setFamMiembros] = useState<MiembroInicial[]>(familia?.miembros ?? []);
+  const [famMiembros, setFamMiembros] = useState<MiembroInicial[]>(familia?.miembros ?? empresa?.trabajadores ?? []);
   // Familia heterogénea: asignación viva (SSR del gestor o elegida aquí por el titular).
   const [asig, setAsig] = useState<ServiciosAsignacion | null>(asignacion ?? null);
   // Página «miembros primero»: servicios elegidos POR miembro (inverso de asig).
@@ -355,11 +361,19 @@ export function ClientPortal({
         solicitantesFam.map((m) => ({ id: m.id, fechaNacimiento: m.ficha?.fechaNacimiento ?? null })),
         docsExtra, // pedidos a mano: comunes al dossier o uno por persona
       )
-    : { comunes: [] as string[], porMiembro: {} as Record<string, string[]> };
+    : empresa
+      // Empresa: TODO lo del servicio es de cada trabajador (los comunes son solo lo pedido a mano).
+      ? docsEmpresaPorTrabajador(
+          [tramite, ...extrasServicios].filter((sv): sv is NonNullable<typeof sv> => Boolean(sv)),
+          asig,
+          famMiembros.map((m) => ({ id: m.id, fechaNacimiento: m.ficha?.fechaNacimiento ?? null })),
+          docsExtra,
+        )
+      : { comunes: [] as string[], porMiembro: {} as Record<string, string[]> };
   // Expediente FAMILIAR: el servicio se tarifica POR MIEMBRO → el pago total
   // multiplica por el nº de miembros. OJO: famMiembros (estado VIVO, incluye los
   // añadidos en el paso Datos), no la prop SSR que llegó congelada del servidor.
-  const nMiembros = Math.max(1, familia ? famMiembros.length : 1);
+  const nMiembros = Math.max(1, esGrupo ? famMiembros.length : 1);
   // Honorarios del expediente: unidad × N, y DESPUÉS el descuento del gestor (mismo
   // helper y mismo orden que /api/pagos — el total mostrado DEBE cuadrar con Stripe).
   const tarifaUnit = {
@@ -404,7 +418,7 @@ export function ClientPortal({
   const validacionActiva = Boolean(token);
   const datosOk = !validacionActiva || faltan === 0;
 
-  const stepLabels = familia ? [t("step.datos"), t("step.tramite"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])] : [t("step.tramite"), t("step.datos"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])];
+  const stepLabels = esGrupo ? [t(empresa ? "emp.step.datos" : "step.datos"), t("step.tramite"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])] : [t("step.tramite"), t("step.datos"), t("step.documentos"), ...(conPago ? [t("step.pago")] : [])];
 
   function upload(i: number) {
     if (token) {
@@ -588,7 +602,7 @@ export function ClientPortal({
   // cliente NO vuelve a elegir servicios — solo datos y documentos (pedido de Juan: su
   // clienta re-eligió y desconfiguró todo). El servidor además ignora cualquier intento
   // de reescritura (iniciar: primero-escribe-gana).
-  const serviciosFijados = Boolean(familia) && Boolean(servicioInicial);
+  const serviciosFijados = esGrupo && Boolean(servicioInicial);
 
   // Avance directo datos → documentos cuando el trámite viene fijado: confirma en el
   // servidor (avanza el estado) sin enviar ninguna asignación.
@@ -611,14 +625,14 @@ export function ClientPortal({
       for (const c of claves) inversa[c] = [...(inversa[c] ?? []), miembroId];
     }
     const clavesElegidas = servicios.filter((sv) => inversa[sv.id]?.length).map((sv) => sv.id);
-    if (!clavesElegidas.length) { setErrorPaso(t("s0.famError")); return; }
+    if (!clavesElegidas.length) { setErrorPaso(t(empresa ? "emp.s0.error" : "s0.famError")); return; }
     // Regla del tutor: un MENOR con trámite exige la ficha completa del TITULAR.
     const conServicio = new Set(Object.values(inversa).flat());
     const esMenor = (f: Record<string, string | undefined>) => {
       const fn = Date.parse(f.fechaNacimiento ?? "");
       return Number.isFinite(fn) && (Date.now() - fn) < 18 * 365.25 * 864e5;
     };
-    if (famMiembros.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>))) {
+    if (familia && famMiembros.some((m) => conServicio.has(m.id) && esMenor(m.ficha as Record<string, string | undefined>))) {
       const titular = famMiembros.find((m) => (m.parentesco ?? "").toUpperCase() === "TITULAR") ?? famMiembros[0];
       const fT = { ...fichaVacia(), ...(titular?.ficha ?? {}) } as Record<string, string>;
       if (!REQUIRED_KEYS.every((k) => (fT[k] ?? "").trim())) { setErrorPaso(t("s1.famTutor")); return; }
@@ -797,11 +811,21 @@ export function ClientPortal({
                 </div>
               );
             })()}
-            {familia && token ? (
+            {esGrupo && token ? (
               /* ── Página 1 (familia): DATOS de cada miembro + casilla «el trámite es para
                     esta persona»; los servicios se eligen en la página siguiente. ── */
               <div className="mt-6">
                 {errorPaso && <p role="alert" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{errorPaso}</p>}
+                {empresa ? (
+                  <DatosEmpresa
+                    token={token}
+                    lang={lang}
+                    empresa={empresa}
+                    trabajadoresIniciales={famMiembros}
+                    onMiembrosChange={setFamMiembros}
+                    onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); if (serviciosFijados) { void continuarConTramiteFijado(); } else { setStep(1); } }}
+                  />
+                ) : (
                 <DatosFamilia
                   token={token}
                   lang={lang}
@@ -810,6 +834,7 @@ export function ClientPortal({
                   onBack={() => {}}
                   onContinue={(ms) => { setErrorPaso(null); setFamMiembros(ms); if (serviciosFijados) { void continuarConTramiteFijado(); } else { setStep(1); } }}
                 />
+                )}
               </div>
             ) : servicioFijado && tramite ? (
               /* ── Renovación aceptada: trámite FIJADO por la gestoría, sin selector. ── */
@@ -923,7 +948,7 @@ export function ClientPortal({
                           ? t("pago.unico")
                           : t("pago.final")}
                       {" · "}{t("pago.ivaIncluido")}
-                      {nMiembros > 1 && !asig && <>{" · "}{t("s3.nMiembros", { n: nMiembros })}</>}
+                      {nMiembros > 1 && !asig && <>{" · "}{t(empresa ? "emp.s3.nTrabajadores" : "s3.nMiembros", { n: nMiembros })}</>}
                     </p>}
                   </div>
                   {/* Casilla CUADRADA: se pueden elegir varios servicios. El redondel
@@ -1068,10 +1093,10 @@ export function ClientPortal({
         )}
 
         {/* ── Step 1 · Datos (familiar → multi-membre) ── */}
-        {step === 1 && familia && !serviciosFijados && token && (
+        {step === 1 && esGrupo && !serviciosFijados && token && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.tramite")}</h1>
-            <p className="mt-2 text-slate-600">{t("s0.intro")}</p>
+            <p className="mt-2 text-slate-600">{t(empresa ? "emp.s1.intro" : "s0.intro")}</p>
             <div className="mt-6 space-y-3">
               {famMiembros.filter((m) => m.esSolicitante).map((m) => (
                 <div key={m.id} className="rounded-xl border-2 border-slate-200 bg-white p-4">
@@ -1108,7 +1133,7 @@ export function ClientPortal({
                 if (elegidos.some((sv) => sv.precioOculto)) return null;
                 return (
                   <div className="flex items-baseline justify-between rounded-xl border border-aproba-200 bg-aproba-50 px-4 py-3">
-                    <span className="text-sm font-medium text-aproba-800">{t("s0.famTotal")}</span>
+                    <span className="text-sm font-medium text-aproba-800">{t(empresa ? "emp.s0.total" : "s0.famTotal")}</span>
                     <span className="text-lg font-bold text-slate-900">{eur(total)} <span className="text-xs font-medium text-slate-500">{t("pago.ivaIncluido")}</span></span>
                   </div>
                 );
@@ -1127,7 +1152,7 @@ export function ClientPortal({
         )}
 
         {/* ── Step 1 · Datos (individual) ── */}
-        {step === 1 && !familia && (
+        {step === 1 && !esGrupo && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.datos")}</h1>
             <p className="mt-2 text-slate-600">{t("s1.intro")}</p>
@@ -1230,8 +1255,9 @@ export function ClientPortal({
         )}
 
         {/* ── Step 2 · Documentos (familiar → comunes + por miembro) ── */}
-        {step === 2 && familia && token && (
+        {step === 2 && esGrupo && token && (
           <DocumentosFamiliaPortal
+            modo={empresa ? "empresa" : "familia"}
             token={token}
             lang={lang}
             miembros={famMiembros}
@@ -1245,7 +1271,7 @@ export function ClientPortal({
         )}
 
         {/* ── Step 2 · Documentos (individual) ── */}
-        {step === 2 && !familia && (
+        {step === 2 && !esGrupo && (
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("step.documentos")}</h1>
             <p className="mt-2 text-slate-600">{t("s2.intro")}</p>
@@ -1465,7 +1491,7 @@ export function ClientPortal({
                 </div>
               )}
               {nMiembros > 1 && !asig && (
-                <p className="mt-1 text-right text-xs text-slate-400">{t("s3.xMiembros", { precio: eur(r2(anticipoBruto / nMiembros)), n: nMiembros })}</p>
+                <p className="mt-1 text-right text-xs text-slate-400">{t(empresa ? "emp.s3.xTrabajadores" : "s3.xMiembros", { precio: eur(r2(anticipoBruto / nMiembros)), n: nMiembros })}</p>
               )}
               <div className="mt-1.5 flex items-center justify-between text-sm">
                 <span className="text-slate-500">{t("s3.iva")}</span>

@@ -25,9 +25,12 @@ const esMenor = (m: MiembroInicial) => {
 const FIRMA_LABELS = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 export function DocumentosFamiliaPortal({
-  token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], encargoActivo, onBack, onContinue,
+  token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], encargoActivo, onBack, onContinue, modo = "familia",
 }: {
   token: string; lang: Lang; miembros: MiembroInicial[];
+  // «empresa» (21/09/2026): los miembros son los TRABAJADORES del lote — la hoja de encargo
+  // la firma la empresa (común) y el mandato lo firma CADA trabajador (casilla en su sección).
+  modo?: "familia" | "empresa";
   // Calculado por el llamante con docsFamiliaPorServicios: comunes (se suben UNA vez)
   // + los de CADA miembro según SUS servicios asignados (familia heterogénea).
   docsComunes: string[]; docsPorMiembro: Record<string, string[]>;
@@ -37,8 +40,10 @@ export function DocumentosFamiliaPortal({
   encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
   const t = useMemo(() => makeT(lang), [lang]);
+  const emp = modo === "empresa";
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
-  const firmaLabels = encargoActivo ? FIRMA_LABELS : [];
+  const firmaLabels = encargoActivo ? (emp ? [FIRMA_LABELS[0]] : FIRMA_LABELS) : [];
+  const firmaPorMiembro = useMemo(() => (encargoActivo && emp ? [FIRMA_LABELS[1]] : []), [encargoActivo, emp]);
   const comunes = docsComunes.filter((l) => !esFirma(l));
   const propios = new Set(docsPropios.map((d) => d.trim().toLowerCase()));
   const etiquetaDoc = (l: string) => (propios.has(l.trim().toLowerCase()) ? l : docLabel(l, lang));
@@ -63,16 +68,16 @@ export function DocumentosFamiliaPortal({
   // (padre/madre). Solo si el titular no es ya solicitante (si no, ya tiene su sección).
   const titular = useMemo(() => miembros.find((m) => m.parentesco === "TITULAR") ?? miembros[0], [miembros]);
   const hayMenorSolicitante = useMemo(() => solicitantes.some(esMenor), [solicitantes]);
-  const representante = hayMenorSolicitante && titular && !titular.esSolicitante ? titular : null;
+  const representante = !emp && hayMenorSolicitante && titular && !titular.esSolicitante ? titular : null;
   const DOC_REPRESENTANTE = "Pasaporte";
 
   // Todas las casillas requeridas (comunes + por solicitante + representante) → aviso de completitud.
   const requiredKeys = useMemo(() => {
     const ks = [...firmaLabels.map((l) => keyFor(null, l)), ...comunes.map((l) => keyFor(null, l))];
-    for (const m of solicitantes) for (const l of docsPorMiembro[m.id] ?? []) ks.push(keyFor(m.id, l));
+    for (const m of solicitantes) for (const l of [...firmaPorMiembro, ...(docsPorMiembro[m.id] ?? [])]) ks.push(keyFor(m.id, l));
     if (representante) ks.push(keyFor(representante.id, DOC_REPRESENTANTE));
     return ks;
-  }, [firmaLabels, comunes, docsPorMiembro, solicitantes, representante]);
+  }, [firmaLabels, firmaPorMiembro, comunes, docsPorMiembro, solicitantes, representante]);
   const total = requiredKeys.length;
   const validados = requiredKeys.filter((k) => estados[k]?.status === "validado").length;
   const todosOk = total > 0 && validados === total;
@@ -207,23 +212,25 @@ export function DocumentosFamiliaPortal({
   return (
     <div>
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onFile} />
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("fam.docs.titulo")}</h1>
-      <p className="mt-2 text-slate-600">{t("fam.docs.intro")}</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t(emp ? "emp.docs.titulo" : "fam.docs.titulo")}</h1>
+      <p className="mt-2 text-slate-600">{t(emp ? "emp.docs.intro" : "fam.docs.intro")}</p>
 
       {firmaLabels.length > 0 && (
         <div className="mt-6">
           <div className="rounded-xl border border-aproba-200 bg-aproba-50 p-4">
             <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
-            <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
+            <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t(emp ? "emp.firma.intro" : "firma.intro")}</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                 {t("firma.hoja")}
               </a>
+              {!emp && (
               <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                 {t("firma.mandato")}
               </a>
+              )}
             </div>
           </div>
           <div className="mt-3 space-y-2">
@@ -233,21 +240,33 @@ export function DocumentosFamiliaPortal({
       )}
 
       {comunes.length > 0 && (
-        <Seccion id="comunes" titulo={t("fam.docs.comunes")} hint={t("fam.docs.comunesHint")} labels={comunes} clienteId={null} />
+        <Seccion id="comunes" titulo={t(emp ? "emp.docs.comunes" : "fam.docs.comunes")} hint={t(emp ? "emp.docs.comunesHint" : "fam.docs.comunesHint")} labels={comunes} clienteId={null} />
       )}
 
       {solicitantes.map((m) => {
-        const propios = docsPorMiembro[m.id] ?? [];
+        // Empresa: el mandato firmado va PRIMERO en la sección del trabajador (con su PDF).
+        const propios = [...firmaPorMiembro, ...(docsPorMiembro[m.id] ?? [])];
         if (!propios.length) return null;
+        const nombreM = `${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || (emp ? t("emp.trabajador") : t("fam.miembro"));
         return (
           <Seccion
             key={m.id}
             id={m.id}
-            chip={parentescoI18n(m.parentesco, lang) || t("fam.miembro")}
-            titulo={`${m.nombre ?? ""} ${m.apellidos ?? ""}`.trim() || t("fam.miembro")}
+            chip={emp ? t("emp.trabajador") : (parentescoI18n(m.parentesco, lang) || t("fam.miembro"))}
+            titulo={nombreM}
             labels={propios}
             clienteId={m.id}
-          />
+          >
+            {emp && firmaPorMiembro.length > 0 && (
+              <div className="rounded-lg border border-aproba-200 bg-aproba-50 p-3">
+                <a href={`/api/portal/encargo?token=${token}&doc=mandato&clienteId=${m.id}`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>
+                  {t("emp.firma.mandatoDe", { nombre: nombreM })}
+                </a>
+                <p className="mt-2 text-[11px] leading-relaxed text-aproba-700">{t("emp.firma.mandatoHint")}</p>
+              </div>
+            )}
+          </Seccion>
         );
       })}
 

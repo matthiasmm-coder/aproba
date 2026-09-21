@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   // desconfiguró asignación y descuento).
   let res1 = await admin
     .from("Expediente")
-    .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento, serviciosBloqueados")
+    .select("id, estado, workspaceId, oficinaId, familiaId, empresaId, clienteId, servicioClave, serviciosAsignacion, descuento, serviciosBloqueados")
     .eq("portalToken", token)
     .maybeSingle();
   // ¿Pudimos LEER el descuento? Si caemos a un select más corto no lo sabemos, y
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   if (res1.error && /serviciosBloqueados|column|schema cache/i.test(res1.error.message)) {
     res1 = await admin
       .from("Expediente")
-      .select("id, estado, workspaceId, oficinaId, familiaId, servicioClave, serviciosAsignacion, descuento")
+      .select("id, estado, workspaceId, oficinaId, familiaId, empresaId, clienteId, servicioClave, serviciosAsignacion, descuento")
       .eq("portalToken", token)
       .maybeSingle() as typeof res1;
   }
@@ -53,13 +53,15 @@ export async function POST(req: Request) {
     .select("id, estado, workspaceId, familiaId")
     .eq("portalToken", token)
     .maybeSingle() as typeof res1;
-  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; servicioClave?: string | null; serviciosBloqueados?: string[] | null; serviciosAsignacion?: unknown; descuento?: unknown } | null;
+  const exp = res1.data as { id: string; estado: string; workspaceId: string; familiaId: string | null; empresaId?: string | null; clienteId?: string | null; servicioClave?: string | null; serviciosBloqueados?: string[] | null; serviciosAsignacion?: unknown; descuento?: unknown } | null;
   if (res1.error) return NextResponse.json({ error: res1.error.message }, { status: 500 });
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
   // PRIMERO-ESCRIBE-GANA (familia): el gestor fijó el servicio antes de enviar el enlace
   // → el portal solo avanza el estado; tipo, servicios y asignación quedan intactos.
-  if (Boolean(exp.familiaId) && Boolean(exp.servicioClave)) {
+  // Expediente DE EMPRESA (sin titular persona): mismo trato que la familia.
+  const deEmpresa = Boolean(exp.empresaId) && !exp.clienteId;
+  if ((Boolean(exp.familiaId) || deEmpresa) && Boolean(exp.servicioClave)) {
     // Se marca el expediente como tocado y nada más: el estado lo lleva el gestor.
     const { error: eAv } = await admin.from("Expediente").update({
       updatedAt: new Date().toISOString(),
@@ -91,11 +93,14 @@ export async function POST(req: Request) {
   // Se filtra contra la realidad (solo servicios del catálogo y miembros de SU familia)
   // y se derivan principal + extras de la propia asignación — mismo modelo que el gestor.
   let extraCols: Record<string, unknown> = {};
-  if (exp.familiaId && body.asignacion !== undefined) {
+  if ((exp.familiaId || deEmpresa) && body.asignacion !== undefined) {
     const bruta = asignacionValida(body.asignacion);
     if (bruta) {
-      const { data: fam } = await admin.from("Cliente").select("id").eq("familiaId", exp.familiaId);
-      const idsFam = new Set(((fam ?? []) as { id: string }[]).map((m) => m.id));
+      // Familia: sus miembros. Empresa: los trabajadores del lote.
+      const { data: fam } = exp.familiaId
+        ? await admin.from("Cliente").select("id").eq("familiaId", exp.familiaId)
+        : await admin.from("ExpedienteTrabajador").select("clienteId").eq("expedienteId", exp.id);
+      const idsFam = new Set(((fam ?? []) as { id?: string; clienteId?: string }[]).map((m) => String(m.id ?? m.clienteId)));
       const filtrada: Record<string, string[]> = {};
       for (const [k, ids] of Object.entries(bruta)) {
         if (catalogo.length && !catalogo.some((s) => s.id === k)) continue;

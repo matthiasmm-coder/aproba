@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo";
+import { datosEncargo, generarHojaEncargo, generarMandato, personaEncargo, type PersonaEncargo } from "@/lib/encargo";
 
 // El CLIENTE descarga desde su portal la hoja de encargo y el mandato ya
 // cumplimentados (los firma y los vuelve a subir como documentos del expediente).
@@ -17,6 +17,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token")?.trim() ?? "";
   const doc = url.searchParams.get("doc") === "mandato" ? "mandato" : "hoja";
+  // Expediente DE EMPRESA: ?clienteId=<trabajador> → SU mandato (cada uno firma el suyo).
+  const trabajadorId = url.searchParams.get("clienteId")?.trim() ?? "";
   if (!token) return NextResponse.json({ error: "token requerido" }, { status: 400 });
 
   const admin = createSupabaseAdmin();
@@ -63,15 +65,25 @@ export async function GET(req: Request) {
     } catch { /* columna sin migrar → mandato generado */ }
   }
 
+  let persona: PersonaEncargo | undefined;
+  let sufijo = "";
+  if (doc === "mandato" && trabajadorId) {
+    // Pertenencia al lote de ESTE expediente (anti-IDOR): un id ajeno no existe.
+    const { data: tr } = await admin.from("ExpedienteTrabajador").select("clienteId, cliente:Cliente(*)").eq("expedienteId", exp.id).eq("clienteId", trabajadorId).maybeSingle();
+    const c = tr ? ((Array.isArray(tr.cliente) ? tr.cliente[0] : tr.cliente) as Record<string, string | null> | null) : null;
+    if (!c) return NextResponse.json({ error: "Trabajador no encontrado" }, { status: 404 });
+    persona = personaEncargo(c);
+    sufijo = "-" + `${persona.nombre} ${persona.apellidos}`.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+  }
   let bytes: Uint8Array;
   try {
-    bytes = doc === "mandato" ? await generarMandato(datos) : await generarHojaEncargo(datos);
+    bytes = doc === "mandato" ? await generarMandato(datos, persona) : await generarHojaEncargo(datos);
   } catch (e) {
     // Un dato con carácter no imprimible no debe romper la descarga con un 500 opaco.
     console.error("[encargo] generación PDF", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "No se pudo generar el documento. Revisa que los datos no contengan caracteres extraños." }, { status: 500 });
   }
-  const nombre = doc === "mandato" ? `mandato-${exp.referencia}.pdf` : `hoja-de-encargo-${exp.referencia}.pdf`;
+  const nombre = doc === "mandato" ? `mandato-${exp.referencia}${sufijo}.pdf` : `hoja-de-encargo-${exp.referencia}.pdf`;
   return new Response(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",

@@ -47,10 +47,15 @@ export async function POST(req: Request) {
   if (!exp) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
   // Documento por MIEMBRO (expediente familiar): el clienteId debe pertenecer a la familia.
+  // Familiar: miembro de la familia. Expediente DE EMPRESA: trabajador del lote (anti-IDOR).
   if (clienteId) {
-    if (!exp.familiaId) return NextResponse.json({ error: "Este expediente no es familiar." }, { status: 400 });
-    const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
-    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    if (exp.familiaId) {
+      const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+      if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    } else {
+      const { data: tr } = await admin.from("ExpedienteTrabajador").select("id").eq("expedienteId", exp.id).eq("clienteId", clienteId).maybeSingle();
+      if (!tr) return NextResponse.json({ error: exp.clienteId ? "Este expediente no es familiar." : "Trabajador no encontrado." }, { status: exp.clienteId ? 400 : 404 });
+    }
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

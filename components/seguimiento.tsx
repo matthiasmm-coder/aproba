@@ -36,7 +36,8 @@ export function Seguimiento({
   miembros?: { id: string; nombre: string; tieneTasa: boolean; tasaEtiqueta?: string; formularios?: string[] }[];
   // Familia: secciones de documentos (comunes + una por miembro) — los SegDoc llevan
   // grupo/clienteId y aquí solo se agrupan y pliegan. Sin esto: lista plana (individual).
-  gruposDocs?: { id: string; nombre?: string; parentesco?: string | null }[];
+  // chip: «__trabajador__» / «__empresa__» = expediente de empresa (sin parentesco).
+  gruposDocs?: { id: string; nombre?: string; parentesco?: string | null; chip?: string }[];
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
@@ -347,8 +348,8 @@ export function Seguimiento({
                   <div key={g.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                     <button type="button" onClick={() => setPlegados((pl) => ({ ...pl, [g.id]: !pl[g.id] }))} aria-expanded={abierta} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
                       <span className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {g.id !== "comunes" && <span className="shrink-0 rounded-full bg-cream-50 px-2 py-0.5 normal-case text-slate-500">{parentescoI18n(g.parentesco ?? null, lang) || t("fam.miembro")}</span>}
-                        <span className="truncate">{g.id === "comunes" ? t("fam.docs.comunes") : g.nombre || t("fam.miembro")}</span>
+                        {g.id !== "comunes" && <span className="shrink-0 rounded-full bg-cream-50 px-2 py-0.5 normal-case text-slate-500">{g.chip === "__trabajador__" ? t("emp.trabajador") : (parentescoI18n(g.parentesco ?? null, lang) || t("fam.miembro"))}</span>}
+                        <span className="truncate">{g.id === "comunes" ? t(g.chip === "__empresa__" ? "emp.docs.comunes" : "fam.docs.comunes") : g.nombre || t(g.chip === "__trabajador__" ? "emp.trabajador" : "fam.miembro")}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
                         <span className={`text-xs font-semibold tabular-nums ${okN === del.length ? "text-aproba-700" : "text-slate-400"}`}>{okN}/{del.length}</span>
@@ -357,7 +358,7 @@ export function Seguimiento({
                     </button>
                     {abierta && (
                       <div className="space-y-2 px-3 pb-3">
-                        {g.id === "comunes" && <p className="px-1 text-[11px] leading-relaxed text-slate-400">{t("fam.docs.comunesHint")}</p>}
+                        {g.id === "comunes" && <p className="px-1 text-[11px] leading-relaxed text-slate-400">{t(g.chip === "__empresa__" ? "emp.docs.comunesHint" : "fam.docs.comunesHint")}</p>}
                         {del.map((x) => cartaDoc(x.d, x.i))}
                       </div>
                     )}
