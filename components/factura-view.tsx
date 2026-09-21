@@ -107,7 +107,9 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
               {t("Editar")}
             </button>
           )}
-          {f.estado === "EMITIDA" && (eligiendo ? (
+          {/* Un ABONO (rectificativa) no se cobra: se devuelve. Marcarlo «pagada»
+              mandaría al cliente una confirmación de pago en negativo. */}
+          {!esRect && f.estado === "EMITIDA" && (eligiendo ? (
             <>
               <span className="text-xs font-medium text-slate-500">{t("¿Cómo te ha pagado?")}</span>
               {([["EFECTIVO", t("Efectivo")], ["TRANSFERENCIA", t("Transferencia")], ["TARJETA", t("Tarjeta")], ["OTRO", t("Otro")]] as const).map(([m, lbl]) => (
@@ -250,7 +252,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
 
       {/* Entregas a cuenta: fuera del papel de la factura (print:hidden) — es el
           registro de caja del despacho, no un dato del documento fiscal. */}
-      {editable && <EntregasCuenta facturaId={f.id} total={total} estado={f.estado} inicial={entregas} />}
+      {!esRect && editable && <EntregasCuenta facturaId={f.id} total={total} estado={f.estado} inicial={entregas} />}
 
       {editando && <CobroFacturaModal modo="editar" facturaId={f.id} onClose={() => setEditando(false)} />}
     </div>

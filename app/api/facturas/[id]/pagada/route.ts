@@ -21,6 +21,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { data: f } = await supabase.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", id).maybeSingle();
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
+  // Una rectificativa es un ABONO: no se cobra, se devuelve. Marcarla «pagada» enviaría
+  // al cliente una confirmación de pago por un importe negativo (21/09/2026).
+  if (Number(f.total) < 0) return NextResponse.json({ error: "Una factura rectificativa no se cobra: es un abono a favor del cliente." }, { status: 409 });
   if (f.estado === "PAGADA") return NextResponse.json({ ok: true, estado: "PAGADA" });
   if (f.estado === "ANULADA") return NextResponse.json({ error: "La factura está anulada: no puede marcarse como pagada." }, { status: 409 });
 
