@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupDocs } from "./tramites";
+import { dedupDocs, labelADocTipo } from "./tramites";
 import { docLabel } from "./portal-i18n";
 
 describe("dedupDocs", () => {
@@ -19,5 +19,17 @@ describe("docLabel — documentos personalizados", () => {
   });
   it("los tipos conocidos se siguen traduciendo", () => {
     expect(docLabel("Pasaporte completo", "es")).toBe("Pasaporte");
+  });
+});
+
+
+// 21/09/2026: «Informe de vida laboral» y «Antecedentes penales» van juntos en el arraigo
+// laboral; con el mismo tipo el dedup se comía uno (la ficha uno, el portal el otro).
+describe("vida laboral ≠ antecedentes penales", () => {
+  it("los dos sobreviven al dedup del servicio", () => {
+    const lista = ["Pasaporte", "Informe de vida laboral", "Certificado de empadronamiento", "Antecedentes penales"];
+    expect(dedupDocs(lista)).toEqual(lista);
+    expect(labelADocTipo("Informe de vida laboral")).toBe("OTRO");
+    expect(labelADocTipo("Certificado de antecedentes penales")).toBe("ANTECEDENTES_PENALES");
   });
 });

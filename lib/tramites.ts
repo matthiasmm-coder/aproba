@@ -41,7 +41,11 @@ export function labelADocTipo(label: string): string {
   if (n.includes("empadronamiento")) return "EMPADRONAMIENTO";
   if (n.includes("contrato")) return "CONTRATO_TRABAJO";
   if (n.includes("nomina")) return "NOMINA";
-  if (n.includes("antecedentes") || n.includes("vida laboral")) return "ANTECEDENTES_PENALES";
+  // «Informe de vida laboral» (Seguridad Social) NO es un certificado de antecedentes: los
+  // dos van juntos en el arraigo laboral y, con el mismo tipo, el dedup se comía uno de
+  // ellos (la ficha perdía uno y el portal el otro — visto el 21/09/2026). Sin enum
+  // propio, queda en OTRO: el dedup de OTRO es por etiqueta, así que ambos sobreviven.
+  if (n.includes("antecedentes")) return "ANTECEDENTES_PENALES";
   if (n.includes("bancario") || n.includes("medios economicos") || n.includes("saldo")) return "CERTIFICADO_BANCARIO";
   if (n.includes("libro de familia")) return "LIBRO_FAMILIA";
   if (n.includes("titulo") || n.includes("estudios")) return "TITULO_ESTUDIOS";
