@@ -8,6 +8,7 @@ import { TelefonoInput } from "@/components/telefono-input";
 import { confirmar } from "@/components/confirm-dialog";
 import type { TrabajadorExpediente } from "@/lib/trabajadores";
 import { fmtFechaCorta } from "@/lib/tramites";
+import { copiarTexto } from "@/lib/copiar";
 
 // TRABAJADORES de un expediente DE EMPRESA (Luis, 21/09/2026): quiénes van en este lote,
 // añadir uno (existente de la empresa o nuevo), quitarlo si no dejó rastro, y marcar SU
@@ -29,6 +30,33 @@ export function TrabajadoresExpediente({ expedienteId, trabajadores, candidatos,
   const [nuevo, setNuevo] = useState({ nombre: "", apellidos: "", email: "", telefono: "" });
   const [ocupado, setOcupado] = useState<string | null>(null); // id o "alta"
   const [error, setError] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState<string | null>(null);
+
+  // ENLACE INDIVIDUAL (lote 3): /t/<token> abre SOLO lo suyo — sus documentos y su mandato.
+  // Copiar o abrir WhatsApp deja constancia (enlaceEnviadoAt): la sección dice quién lo
+  // tiene y quién no, y no se vuelve a pedir lo ya enviado.
+  const origen = typeof window !== "undefined" ? window.location.origin : "https://aproba-software.com";
+  const enlaceDe = (tr: TrabajadorExpediente) => (tr.token ? `${origen}/t/${tr.token}` : null);
+  async function marcarEnviado(tr: TrabajadorExpediente) {
+    if (tr.enlaceEnviadoAt) return;
+    await fetch(`/api/expedientes/${expedienteId}/trabajadores/${tr.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enlaceEnviado: true }) }).catch(() => {});
+    router.refresh();
+  }
+  async function copiarEnlace(tr: TrabajadorExpediente) {
+    const url = enlaceDe(tr); if (!url) return;
+    const ok = await copiarTexto(url);
+    setCopiado(ok ? tr.id : null);
+    if (ok) { setTimeout(() => setCopiado(null), 2000); void marcarEnviado(tr); }
+    else setError(t("No se pudo copiar. Selecciona el enlace y cópialo a mano:") + " " + url);
+  }
+  function whatsappDe(tr: TrabajadorExpediente): string | null {
+    const url = enlaceDe(tr); if (!url) return null;
+    const msg = t("Hola {nombre}, soy de {gestoria}. Para tu trámite, entra aquí, sube tus documentos y firma tu mandato: {url}")
+      .replace("{nombre}", tr.nombre.split(" ")[0]).replace("{gestoria}", t("tu gestoría")).replace("{url}", url);
+    const tel = (tr.telefono ?? "").replace(/\D/g, "");
+    return tel ? `https://wa.me/${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  }
+  const sinEnlace = trabajadores.filter((x) => !x.enlaceEnviadoAt).length;
 
   const input = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
@@ -100,6 +128,13 @@ export function TrabajadoresExpediente({ expedienteId, trabajadores, candidatos,
         )}
       </div>
 
+      {trabajadores.length > 0 && sinEnlace > 0 && (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {sinEnlace === 1
+            ? t("Un trabajador aún no tiene su enlace: envíaselo para que suba sus documentos y firme su mandato.")
+            : t("{n} trabajadores aún no tienen su enlace: envíaselo para que suban sus documentos y firmen su mandato.").replace("{n}", String(sinEnlace))}
+        </p>
+      )}
       {trabajadores.length === 0 ? (
         <p className="mt-2 text-sm text-slate-500">{t("Todavía sin trabajadores. Añádelos aquí; cada uno tendrá sus documentos, sus formularios y su mandato.")}</p>
       ) : (
@@ -109,6 +144,14 @@ export function TrabajadoresExpediente({ expedienteId, trabajadores, candidatos,
               <Link href={`/app/clientes/${tr.id}`} className="text-sm font-medium text-slate-800 hover:underline">{tr.nombre}</Link>
               <span className="text-xs text-slate-400">{[tr.nacionalidad, tr.email, tr.telefono].filter(Boolean).join(" · ")}</span>
               <span className="ml-auto flex items-center gap-3">
+                {tr.token && (
+                  <>
+                    <button type="button" onClick={() => void copiarEnlace(tr)} className={`text-xs font-medium underline underline-offset-2 ${copiado === tr.id ? "text-aproba-700" : tr.enlaceEnviadoAt ? "text-slate-500 hover:text-slate-800" : "text-aproba-700 hover:text-aproba-600"}`} title={enlaceDe(tr) ?? ""}>
+                      {copiado === tr.id ? t("Copiado ✓") : tr.enlaceEnviadoAt ? t("copiar su enlace") : t("copiar su enlace (sin enviar)")}
+                    </button>
+                    <a href={whatsappDe(tr) ?? "#"} target="_blank" rel="noreferrer" onClick={() => void marcarEnviado(tr)} className="text-xs font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">WhatsApp</a>
+                  </>
+                )}
                 {despachoEncargo && (
                   <a href={`/api/expedientes/${expedienteId}/encargo?doc=mandato&clienteId=${tr.id}`} className="text-xs font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">
                     {t("mandato (PDF)")}

@@ -47,12 +47,21 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; clienteId: string }> }) {
   const { id, clienteId } = await params;
-  let body: { presentado?: boolean };
+  let body: { presentado?: boolean; enlaceEnviado?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
-  if (typeof body.presentado !== "boolean") return NextResponse.json({ error: "Falta «presentado»." }, { status: 400 });
+  if (typeof body.presentado !== "boolean" && body.enlaceEnviado !== true) return NextResponse.json({ error: "Falta «presentado» o «enlaceEnviado»." }, { status: 400 });
   const ctx = await contexto(id, clienteId);
   if ("error" in ctx) return ctx.error;
   const { user, exp, fila, nombre } = ctx;
+
+  // Constancia de que el gestor le mandó su enlace (copiar / WhatsApp): solo la primera vez.
+  if (body.enlaceEnviado === true && typeof body.presentado !== "boolean") {
+    const admin = createSupabaseAdmin();
+    const { error } = await admin.from("ExpedienteTrabajador").update({ enlaceEnviadoAt: new Date().toISOString() }).eq("id", fila.id).eq("workspaceId", exp.workspaceId).is("enlaceEnviadoAt", null);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await admin.from("ExpedienteEvento").insert({ id: uuid(), expedienteId: id, tipo: "NOTIFICACION_ENVIADA", descripcion: `Enlace individual enviado a ${nombre}`, userId: user.id });
+    return NextResponse.json({ ok: true });
+  }
 
   const presentadoAt = body.presentado ? new Date().toISOString() : null;
   const admin = createSupabaseAdmin();

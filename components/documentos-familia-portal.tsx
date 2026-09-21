@@ -26,11 +26,16 @@ const FIRMA_LABELS = ["Hoja de encargo firmada", "Mandato de representación fir
 
 export function DocumentosFamiliaPortal({
   token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], encargoActivo, onBack, onContinue, modo = "familia",
+  endpointDocs = "/api/portal/documentos", urlMandatoDe,
 }: {
   token: string; lang: Lang; miembros: MiembroInicial[];
   // «empresa» (21/09/2026): los miembros son los TRABAJADORES del lote — la hoja de encargo
   // la firma la empresa (común) y el mandato lo firma CADA trabajador (casilla en su sección).
-  modo?: "familia" | "empresa";
+  // «trabajador» (lote 3): el enlace individual — un solo miembro, sin la hoja de la empresa
+  // ni comunes, subiendo con SU token a SU ruta.
+  modo?: "familia" | "empresa" | "trabajador";
+  endpointDocs?: string;
+  urlMandatoDe?: (clienteId: string) => string;
   // Calculado por el llamante con docsFamiliaPorServicios: comunes (se suben UNA vez)
   // + los de CADA miembro según SUS servicios asignados (familia heterogénea).
   docsComunes: string[]; docsPorMiembro: Record<string, string[]>;
@@ -40,10 +45,13 @@ export function DocumentosFamiliaPortal({
   encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
 }) {
   const t = useMemo(() => makeT(lang), [lang]);
-  const emp = modo === "empresa";
+  const trab = modo === "trabajador";
+  const emp = modo === "empresa" || trab;
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
-  const firmaLabels = encargoActivo ? (emp ? [FIRMA_LABELS[0]] : FIRMA_LABELS) : [];
+  // Trabajador: la hoja de encargo no es suya (la firma la empresa) → sin bloque común.
+  const firmaLabels = encargoActivo && !trab ? (emp ? [FIRMA_LABELS[0]] : FIRMA_LABELS) : [];
   const firmaPorMiembro = useMemo(() => (encargoActivo && emp ? [FIRMA_LABELS[1]] : []), [encargoActivo, emp]);
+  const mandatoUrl = (clienteId: string) => (urlMandatoDe ? urlMandatoDe(clienteId) : `/api/portal/encargo?token=${token}&doc=mandato&clienteId=${clienteId}`);
   const comunes = docsComunes.filter((l) => !esFirma(l));
   const propios = new Set(docsPropios.map((d) => d.trim().toLowerCase()));
   const etiquetaDoc = (l: string) => (propios.has(l.trim().toLowerCase()) ? l : docLabel(l, lang));
@@ -116,7 +124,7 @@ export function DocumentosFamiliaPortal({
       else setEstados((s) => ({ ...s, [key]: { status: "alerta", alertas: [d?.error ?? t("s2.noSeLee")] } }));
     };
     xhr.onerror = () => { stop(); setEstados((s) => ({ ...s, [key]: { status: "alerta", alertas: [t("s2.errorSubir")] } })); };
-    xhr.open("POST", "/api/portal/documentos");
+    xhr.open("POST", endpointDocs);
     xhr.send(fd);
   }
 
@@ -212,8 +220,8 @@ export function DocumentosFamiliaPortal({
   return (
     <div>
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onFile} />
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t(emp ? "emp.docs.titulo" : "fam.docs.titulo")}</h1>
-      <p className="mt-2 text-slate-600">{t(emp ? "emp.docs.intro" : "fam.docs.intro")}</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t(trab ? "trab.docs.titulo" : emp ? "emp.docs.titulo" : "fam.docs.titulo")}</h1>
+      <p className="mt-2 text-slate-600">{t(trab ? "trab.docs.intro" : emp ? "emp.docs.intro" : "fam.docs.intro")}</p>
 
       {firmaLabels.length > 0 && (
         <div className="mt-6">
@@ -259,11 +267,11 @@ export function DocumentosFamiliaPortal({
           >
             {emp && firmaPorMiembro.length > 0 && (
               <div className="rounded-lg border border-aproba-200 bg-aproba-50 p-3">
-                <a href={`/api/portal/encargo?token=${token}&doc=mandato&clienteId=${m.id}`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
+                <a href={mandatoUrl(m.id)} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50">
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>
                   {t("emp.firma.mandatoDe", { nombre: nombreM })}
                 </a>
-                <p className="mt-2 text-[11px] leading-relaxed text-aproba-700">{t("emp.firma.mandatoHint")}</p>
+                <p className="mt-2 text-[11px] leading-relaxed text-aproba-700">{t(trab ? "trab.firma.mandatoHint" : "emp.firma.mandatoHint")}</p>
               </div>
             )}
           </Seccion>
