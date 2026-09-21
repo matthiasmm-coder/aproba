@@ -37,6 +37,8 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
   // Texto libre que se imprime en la factura (pedido de Luis, 21/09/2026): el gestor
   // quiere poder decir algo en LA factura antes de que salga hacia el cliente.
   const [notaFactura, setNotaFactura] = useState("");
+  // Cliente-empresa: la hoja de encargo es de la empresa y va a SU contacto (21/09).
+  const [empresa, setEmpresa] = useState<{ razonSocial: string; contactoEmail: string } | null>(null);
   const [email, setEmail] = useState("");
   const [hojaActiva, setHojaActiva] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,13 +64,22 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
       }
       // Email actual del cliente + estado real del expediente (por si se reabre el alta).
       try {
-        const { data } = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento, cliente:Cliente(email)").eq("id", expedienteId).maybeSingle();
+        let { data } = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento, cliente:Cliente(email, empresa:Empresa(razonSocial, contactoEmail)), empresa:Empresa(razonSocial, contactoEmail)").eq("id", expedienteId).maybeSingle();
+        // Sin la migración de empresas, el join no existe: se cae al select de siempre.
+        if (!data) ({ data } = await sb.from("Expediente").select("servicioClave, serviciosExtra, descuento, cliente:Cliente(email)").eq("id", expedienteId).maybeSingle());
         const e = data as { servicioClave?: string | null; serviciosExtra?: string[] | null; descuento?: unknown; cliente?: { email?: string | null } | { email?: string | null }[] | null } | null;
         if (e?.servicioClave) setClave(e.servicioClave);
         if (Array.isArray(e?.serviciosExtra)) setExtras(e.serviciosExtra.filter(Boolean));
         if (e?.descuento) setHabiaDescuento(true);
         const cli = Array.isArray(e?.cliente) ? e?.cliente[0] : e?.cliente;
-        if (cli?.email) setEmail(cli.email);
+        // La empresa del expediente (sello propio) o, si no, la del trabajador.
+        const uno = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
+        const emp = uno((e as { empresa?: unknown }).empresa as { razonSocial?: string; contactoEmail?: string } | null)
+          ?? uno((cli as { empresa?: unknown } | null)?.empresa as { razonSocial?: string; contactoEmail?: string } | null);
+        if (emp?.razonSocial) {
+          setEmpresa({ razonSocial: String(emp.razonSocial), contactoEmail: String(emp.contactoEmail ?? "") });
+          if (emp.contactoEmail) setEmail(String(emp.contactoEmail));
+        } else if (cli?.email) setEmail(cli.email);
       } catch { /* sin estado previo */ }
       try {
         const { data: ws } = await sb.from("Workspace").select("hojaEncargoActiva").limit(1).maybeSingle();
@@ -182,7 +193,11 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-left">
         <p className="text-sm font-semibold text-slate-800">{t("Esto es lo que recibirá el cliente")}</p>
         <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-cream-50/60 p-4 text-sm">
-          <p><span className="text-slate-400">{t("Para")}: </span><span className="font-medium text-slate-800">{email.trim()}</span></p>
+          <p>
+            <span className="text-slate-400">{t("Para")}: </span>
+            <span className="font-medium text-slate-800">{email.trim()}</span>
+            {empresa && <span className="text-slate-400"> · {empresa.razonSocial} ({t("la empresa que contrata")})</span>}
+          </p>
           <p>
             <span className="text-slate-400">{t("Servicios")}: </span>
             <span className="font-medium text-slate-800">{elegidos.map((s) => s.label).join(" + ")}</span>
@@ -329,14 +344,18 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
           )}
 
           <div className="mt-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Email del cliente")}</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">{empresa ? t("Email de la empresa") : t("Email del cliente")}</label>
             <input
               type="email" value={email} placeholder="cliente@ejemplo.com" aria-label={t("Email del cliente")}
               onChange={(e) => setEmail(e.target.value)}
               className={`mt-1.5 w-full ${inp}`}
             />
             {!emailOk && email.trim() !== "" && <p className="mt-1 text-[11px] text-amber-700">{t("Ese email no parece válido.")}</p>}
-            <p className="mt-1 text-[11px] text-slate-400">{t("Se guardará en la ficha del cliente.")}</p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {empresa
+                ? `${t("La hoja de encargo va a nombre de")} ${empresa.razonSocial}: ${t("el email va a su contacto, no al trabajador. Se guardará en su ficha.")}`
+                : t("Se guardará en la ficha del cliente.")}
+            </p>
           </div>
         </>
       )}

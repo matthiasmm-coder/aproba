@@ -477,10 +477,13 @@ const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;")
 // Empresa que PAGA un expediente (cliente-empresa): su contacto recibe la factura y la
 // confirmación de pago. Sello del expediente o, si falta, la empresa del cliente — mismo
 // criterio que /api/pagos y la hoja de encargo. Sin empresa → null (cliente particular).
-async function empresaPagadora(
+// La empresa del expediente: quien PAGA la factura y quien CONTRATA en la hoja de
+// encargo — es la misma. Exportada para que la ruta del encargo manual resuelva el
+// destinatario con la misma regla que las facturas (21/09/2026, retorno de Luis).
+export async function empresaPagadora(
   admin: SupabaseClient,
   expedienteId: string,
-): Promise<{ nombre: string; email: string; telefono: string } | null> {
+): Promise<{ id: string; nombre: string; email: string; telefono: string } | null> {
   try {
     const { data: x } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", expedienteId).maybeSingle();
     const xx = x as { empresaId?: string | null; clienteId?: string | null } | null;
@@ -494,6 +497,7 @@ async function empresaPagadora(
     const e = em as { razonSocial?: string | null; contactoNombre?: string | null; contactoEmail?: string | null; contactoTelefono?: string | null } | null;
     if (!e) return null;
     return {
+      id: eid,
       nombre: String(e.contactoNombre ?? "").trim() || String(e.razonSocial ?? "").trim(),
       email: String(e.contactoEmail ?? "").trim(),
       telefono: String(e.contactoTelefono ?? "").trim(),

@@ -6,7 +6,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { serviciosDeExpediente, aplicarDescuento, asignacionValida, descuentoValido, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { totalDe, r2 } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
-import { enviarEncargoManual } from "@/lib/notificaciones";
+import { empresaPagadora, enviarEncargoManual } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 
 // ALTA EN MODO MANUAL — el correo del encargo (22/08, pedido de Matthias). El gestor
@@ -57,10 +57,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (emailIn && !/^\S+@\S+\.\S+$/.test(emailIn)) {
     return NextResponse.json({ error: "El email no parece válido." }, { status: 400 });
   }
+  // CLIENTE-EMPRESA: la hoja de encargo se emite A NOMBRE de la empresa y la firma la
+  // empresa — el correo va a SU contacto, no al trabajador, que no puede firmar por su
+  // empleador (retorno de Luis, 21/09/2026). Misma regla que las facturas: sin email de
+  // la empresa NO se cae en el del trabajador; se dice y el gestor lo arregla.
+  const empresa = await empresaPagadora(admin, exp.id);
   const emailFicha = (exp.cliente?.email ?? "").trim();
-  const destino = emailIn || emailFicha;
-  if (!destino) return NextResponse.json({ error: "El cliente no tiene email. Añádelo para poder enviarle el encargo." }, { status: 400 });
-  if (emailIn && emailIn !== emailFicha && exp.clienteId) {
+  const emailEmpresa = (empresa?.email ?? "").trim();
+  const destino = emailIn || (empresa ? emailEmpresa : emailFicha);
+  if (!destino) {
+    return NextResponse.json({
+      error: empresa
+        ? `${empresa.nombre} no tiene email de contacto. Añádelo en su ficha (Clientes → Empresas) o escríbelo aquí: la hoja de encargo va a su nombre.`
+        : "El cliente no tiene email. Añádelo para poder enviarle el encargo.",
+    }, { status: 400 });
+  }
+  // El email tecleado se guarda donde corresponde: en la ficha de la EMPRESA si es ella
+  // quien contrata, y si no, en la del cliente. La próxima vez ya estará.
+  if (emailIn && empresa && emailIn !== emailEmpresa) {
+    try { await admin.from("Empresa").update({ contactoEmail: emailIn }).eq("id", empresa.id); } catch { /* columna sin migrar */ }
+  } else if (emailIn && !empresa && emailIn !== emailFicha && exp.clienteId) {
     await admin.from("Cliente").update({ email: emailIn }).eq("id", exp.clienteId);
   }
 
