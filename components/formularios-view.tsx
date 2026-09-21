@@ -29,6 +29,24 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
 }) {
   const t = useT();
   const router = useRouter();
+  // «Rellenar con los documentos»: vuelca a la ficha lo que la IA YA leyó en este
+  // expediente (solo los huecos). Se perdió el 18/09/2026 al reescribir los avisos
+  // (commit e9f3865) y la ruta se quedó sin llamante: sin él, un expediente cuya ficha
+  // no se rellenó sola no tiene forma de recuperarse (Asenjo Global, 21/09/2026).
+  const [completando, setCompletando] = useState(false);
+  const [avisoFicha, setAvisoFicha] = useState<string | null>(null);
+  async function completarDesdeDocs() {
+    setCompletando(true); setAvisoFicha(null);
+    try {
+      const r = await fetch(`/api/expedientes/${exp.id}/completar-ficha`, { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? t("No se pudo completar la ficha."));
+      if (!j.rellenados) setAvisoFicha(t("Los documentos subidos no traen esos datos: hay que escribirlos a mano."));
+      else router.refresh();
+    } catch (e) {
+      setAvisoFicha(e instanceof Error ? e.message : t("No se pudo completar la ficha."));
+    } finally { setCompletando(false); }
+  }
   const [marcando, setMarcando] = useState(false);
   const [marcado, setMarcado] = useState(false);
   const [errorMarcar, setErrorMarcar] = useState(false);
@@ -182,6 +200,14 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               ))}
             </span>
           )}
+          <span className="mt-2 block">
+            <button type="button" onClick={completarDesdeDocs} disabled={completando}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-60">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>
+              {completando ? t("Rellenando…") : t("Rellenar con los documentos")}
+            </button>
+          </span>
+          {avisoFicha && <span className="mt-2 block text-xs">{avisoFicha}</span>}
         </div>
       )}
 
