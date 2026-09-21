@@ -37,6 +37,10 @@ export async function POST(req: Request) {
     token?: string; expedienteId?: string; momento?: string;
     // Factura editada desde el popup del gestor (opcional). Si falta → automática por tarifa.
     factura?: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null };
+    // Texto libre del gestor que se imprime en la factura (pedido de Luis, 21/09/2026).
+    // Va aparte de `factura` para poder acompañar también a la factura AUTOMÁTICA por
+    // tarifa, que es la del alta en modo manual.
+    notas?: string;
     // Solo gestor: no enviar aquí el email de la factura — el llamante manda UNO combinado
     // (alta en modo manual: servicios + factura + hoja de encargo en el mismo correo).
     sinEmail?: boolean;
@@ -120,7 +124,9 @@ export async function POST(req: Request) {
   let etiquetaServicios = TIPO_LABEL[exp.tipo] ?? exp.tipo; // composite si multi-servicio
   let lineas: { concepto: string; base: number }[] | null = null;
   let suplidos: { concepto: string; importe: number }[] | null = null;
-  let notas: string | null = null;
+  // Nota libre: la del cuerpo (vale para la factura automática) y, si el popup manda
+  // una factura editada con la suya, esa gana.
+  let notas: string | null = typeof body.notas === "string" ? body.notas.trim() || null : null;
 
   if (fac) {
     const ls = Array.isArray(fac.lineas) ? fac.lineas.filter((l) => l?.concepto?.trim() && Number(l.base) > 0) : [];
@@ -128,7 +134,7 @@ export async function POST(req: Request) {
       const ss = Array.isArray(fac.suplidos) ? fac.suplidos.filter((s) => s?.concepto?.trim() && Number(s.importe) > 0) : [];
       const tt = totalesFactura(ls, ss);
       baseImponible = tt.base; iva = tt.iva; total = tt.total;
-      lineas = ls; suplidos = ss; notas = fac.notas?.trim() || null;
+      lineas = ls; suplidos = ss; notas = fac.notas?.trim() || notas;
     } else {
       baseImponible = Number(fac.baseImponible) || 0; iva = ivaDe(baseImponible); total = totalDe(baseImponible);
     }
@@ -305,7 +311,9 @@ export async function POST(req: Request) {
     fechaEmision: ahora.toISOString(),
     // Pagada al nacer: sin plazo de pago que mostrar — vence hoy mismo.
     fechaVencimiento: (cobroExterno ? ahora : vencimiento).toISOString(),
-    ...(lineas || suplidos?.length ? { lineas, suplidos, notas } : {}),
+    ...(lineas || suplidos?.length ? { lineas, suplidos } : {}),
+    // La nota se imprime en la factura aunque no haya líneas (factura por tarifa).
+    ...(notas ? { notas } : {}),
     // multi-oficina: la factura hereda la sede de su expediente (emisor/cuenta correctos)
     ...((exp as { oficinaId?: string | null }).oficinaId ? { oficinaId: (exp as { oficinaId?: string | null }).oficinaId } : {}),
   };

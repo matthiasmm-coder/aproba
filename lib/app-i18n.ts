@@ -17,6 +17,9 @@ export const CA: Record<string, string> = {
   // ── Vigía (vencimientos/renovaciones) + UX 2026-07 ──
   "Vencimientos": "Venciments",
   "Renovaciones": "Renovacions",
+  "Nota en la factura": "Nota a la factura",
+  "Ej.: Pago fraccionado acordado con el cliente. Segunda cuota al presentar.": "Ex.: Pagament fraccionat acordat amb el client. Segona quota en presentar.",
+  "Se imprime en la factura, debajo del importe. El cliente la ve; puedes editarla después desde la factura.": "S'imprimeix a la factura, sota l'import. El client la veu; després la pots editar des de la factura.",
   "Urgentes": "Urgents",
   "Esperando respuesta": "Esperant resposta",
   "Sin renovaciones en este grupo.": "Sense renovacions en aquest grup.",

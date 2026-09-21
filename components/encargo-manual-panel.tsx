@@ -34,6 +34,9 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
   const [habiaDescuento, setHabiaDescuento] = useState(false); // para no «retirar» un descuento que nunca existió
   const [cobrar, setCobrar] = useState(true);
   const [baseCobro, setBaseCobro] = useState<number | null>(null); // null = automático
+  // Texto libre que se imprime en la factura (pedido de Luis, 21/09/2026): el gestor
+  // quiere poder decir algo en LA factura antes de que salga hacia el cliente.
+  const [notaFactura, setNotaFactura] = useState("");
   const [email, setEmail] = useState("");
   const [hojaActiva, setHojaActiva] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,6 +129,7 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
             // Importe personalizado por el gestor → factura editada (el servidor recalcula
             // IVA y totales; sin ×miembros: el gestor fija el importe que quiere).
             ...(propio ? { factura: { baseImponible: r2(base) } } : {}),
+            ...(notaFactura.trim() ? { notas: notaFactura.trim() } : {}),
           }),
         });
         const dP = await rP.json().catch(() => ({}));
@@ -190,6 +194,12 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
               ? <span className="font-medium text-slate-800">{t("factura de")} {eur(totalDe(r2(base)))} <span className="text-slate-400">{t("IVA inc.")} · {t("IBAN y pago con tarjeta en el email")}</span></span>
               : <span className="text-slate-500">{t("sin cobro inicial")}</span>}
           </p>
+          {cobroActivo && notaFactura.trim() && (
+            <p>
+              <span className="text-slate-400">{t("Nota en la factura")}: </span>
+              <span className="whitespace-pre-line font-medium text-slate-800">{notaFactura.trim()}</span>
+            </p>
+          )}
           <p>
             <span className="text-slate-400">{t("Para firmar")}: </span>
             {hojaActiva === false
@@ -304,6 +314,19 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
               </label>
             </div>
           </div>
+
+          {cobroActivo && (
+            <div className="mt-4">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Nota en la factura")} <span className="font-normal normal-case tracking-normal text-slate-400">({t("opcional")})</span></label>
+              <textarea
+                value={notaFactura} onChange={(e) => setNotaFactura(e.target.value)} rows={2} maxLength={600}
+                aria-label={t("Nota en la factura")}
+                placeholder={t("Ej.: Pago fraccionado acordado con el cliente. Segunda cuota al presentar.")}
+                className={`mt-1.5 w-full ${inp}`}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">{t("Se imprime en la factura, debajo del importe. El cliente la ve; puedes editarla después desde la factura.")}</p>
+            </div>
+          )}
 
           <div className="mt-4">
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Email del cliente")}</label>
