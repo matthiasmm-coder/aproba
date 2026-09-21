@@ -134,12 +134,16 @@ async function mensajeEntrante(admin: Admin, cuenta: CuentaWA, m: MensajeWA, bas
     const lang = (esLangSoportada((c as { idioma?: string | null } | null)?.idioma) ? (c as { idioma: string }).idioma : "es") as Lang;
     const t = makeT(lang);
     const docs = r.etiquetas.length ? r.etiquetas.join(", ") : nombre;
-    const texto = r.destino === "expediente" && r.referencia ? t("wa.recibidoExp", { docs, referencia: r.referencia }) : t("wa.recibidoFicha", { docs });
+    // Sin nada colocado (la lectura IA no respondió), no se le dice que ya está en su
+    // expediente: se acusa recibo y la gestoría lo ve pendiente en su bandeja.
+    const texto = r.documentos === 0 && r.pendientes > 0
+      ? t("wa.recibidoPendiente")
+      : r.destino === "expediente" && r.referencia ? t("wa.recibidoExp", { docs, referencia: r.referencia }) : t("wa.recibidoFicha", { docs });
     const env = await enviarTexto(cuenta, telefono, texto, { responderA: m.id });
     if (env.id) await registrar(admin, cuenta, { id: env.id, telefono, direccion: "OUT", tipo: "text", texto, media: null, timestamp: new Date().toISOString(), clienteId, estado: "sent" });
     await marcarLeido(cuenta, m.id);
   } catch (e) { console.error("[whatsapp respuesta]", e instanceof Error ? e.message : e); }
-  return `IN ${m.id}: ${r.documentos} documento(s) de ${nombreCliente} → ${r.destino === "expediente" ? r.referencia : "ficha"}${creado ? " (cliente nuevo)" : ""}`;
+  return `IN ${m.id}: ${r.documentos} documento(s) de ${nombreCliente} → ${r.destino === "expediente" ? r.referencia : "ficha"}${r.pendientes ? ` · ${r.pendientes} sin leer (pendiente)` : ""}${creado ? " (cliente nuevo)" : ""}`;
 }
 
 export type { CambioWA };

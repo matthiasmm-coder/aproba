@@ -8,6 +8,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export const MODELO_EXTRACTION = "claude-opus-4-8";
 
+// La lectura IA no está disponible AHORA (sobrecarga, rate limit, timeout, sin clave).
+// Es un fallo TRANSITORIO y quien llama debe distinguirlo de «este papel no se entiende»:
+// un documento sin leer se reintenta, no se guarda con una etiqueta inventada.
+export class IaNoDisponible extends Error {
+  constructor(mensaje: string) { super(mensaje); this.name = "IaNoDisponible"; }
+}
+
 const SYSTEM_PROMPT = `Eres un asistente experto en la lectura de documentos de extranjería en España (gestorías y abogados). Tu tarea es extraer datos estructurados de un documento escaneado o fotografiado, con la máxima precisión.
 
 TIPOS DE DOCUMENTO QUE PUEDES RECIBIR:

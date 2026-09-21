@@ -1,5 +1,5 @@
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { extraerDocumento } from "@/lib/extraction";
+import { IaNoDisponible, extraerDocumento } from "@/lib/extraction";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { dispararAviso } from "@/lib/notificaciones";
 import { labelADocTipo, clasificarDeteccion, siguienteEtiquetaLibre, DOC_A_TIPO_IA, DOC_LABEL } from "@/lib/tramites";
@@ -48,7 +48,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
       resultadoPrevio = await extraerDocumento(buffer, file.type);
     } catch (err) {
       console.error("[upload auto] validación IA caída:", err instanceof Error ? err.message : err);
-      throw new Error("La validación automática no está disponible en este momento. Vuelve a intentarlo en unos minutos.");
+      throw new IaNoDisponible("La validación automática no está disponible en este momento. Vuelve a intentarlo en unos minutos.");
     }
     const cls = clasificarDeteccion(resultadoPrevio.tipoDetectado, opts.docsRequeridos ?? []);
     esExtra = !cls.requerido;
@@ -144,7 +144,7 @@ export async function procesarSubidaDocumento(admin: Admin, opts: {
     // El documento queda PENDIENTE: el gestor lo ve y el cliente puede reintentar.
     // El error real se conserva en logs para diagnóstico.
     console.error("[upload] validación IA caída:", err instanceof Error ? err.message : err);
-    throw new Error("La validación automática no está disponible en este momento. Tu documento se ha guardado — vuelve a intentarlo en unos minutos.");
+    throw new IaNoDisponible("La validación automática no está disponible en este momento. Tu documento se ha guardado — vuelve a intentarlo en unos minutos.");
   }
 
   // ¿El documento detectado corresponde al pedido? (En modo auto no aplica: la casilla

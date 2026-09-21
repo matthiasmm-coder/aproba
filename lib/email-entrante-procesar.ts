@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { extraerDocumento } from "@/lib/extraction";
+import { extraerDocumento, IaNoDisponible } from "@/lib/extraction";
 import { procesarSubidaDocumento } from "@/lib/documentos-upload";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsDeExpediente, serviciosDeExpediente } from "@/lib/multi-servicio";
@@ -153,7 +153,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   // Al gestor que reenvió: SIEMPRE una respuesta en el hilo con lo que se hizo (documentos
   // colocados, lo que falta, formularios adjuntos) o con la pregunta «¿de quién es?».
   // Al owner: solo cuando escribe el propio cliente (el gestor no lo ha visto).
-  const pendiente = !resultado && !(facturas.length && !restantes.length);
+  const pendiente = (!resultado || resultado.pendientes > 0) && !(facturas.length && !restantes.length);
   if (esMiembro) {
     const { data: filaA } = await admin.from("BandejaEntrada").select("expedienteId").eq("id", filaId).maybeSingle();
     await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: mail.subject ?? "", filaId, baseUrl, nAdjuntos: restantes.length, facturas, etiquetas: resultado?.etiquetas ?? [], fichaCampos: resultado?.fichaCampos ?? [], clienteId: resultado ? (clienteFinal?.id ?? null) : null, clienteNombre: clienteFinal?.nombre ?? null, expedienteId: resultado ? ((filaA?.expedienteId as string | null) ?? null) : null, candidatos: resultado ? [] : emp.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), creado: creadoCampos, userId: userIdRemitente });
@@ -167,7 +167,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
 // Asigna una fila de la bandeja a un cliente (y, si procede, a uno de sus expedientes
 // vivos): los adjuntos pasan a ser documentos reales. Lo llama la recepción automática
 // y el botón «Asignar» de la bandeja.
-export async function asignarBandeja(admin: Admin, opts: { filaId: string; clienteId: string; expedienteId: string | null; baseUrl: string; motivo?: string }): Promise<{ destino: "expediente" | "cliente"; referencia: string | null; documentos: number; etiquetas: string[]; fichaCampos: string[] }> {
+export async function asignarBandeja(admin: Admin, opts: { filaId: string; clienteId: string; expedienteId: string | null; baseUrl: string; motivo?: string }): Promise<{ destino: "expediente" | "cliente"; referencia: string | null; documentos: number; etiquetas: string[]; fichaCampos: string[]; pendientes: number }> {
   const { filaId, clienteId, baseUrl } = opts;
   const { data: fila, error } = await admin.from("BandejaEntrada").select("id, workspaceId, adjuntos, remitente, asunto, estado").eq("id", filaId).maybeSingle();
   if (error || !fila) throw new Error("Email no encontrado en la bandeja.");
@@ -208,7 +208,12 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
   // Cada adjunto = una pasada de Vision (varios segundos). En serie, ocho documentos
   // rozaban el tope de la función (60 s) y el email se quedaba PENDIENTE sin aviso
   // (Asenjo Global, 08/09/2026). Se colocan de tres en tres, conservando el orden.
-  const colocarUno = async (a: AdjuntoBandeja): Promise<{ etiqueta: string | null; ficha: string[] }> => {
+  // `pendiente` = la lectura IA no estaba disponible: el adjunto NO se coloca ni se
+  // etiqueta, y la fila se queda en la bandeja para reintentarlo. Antes se caía en la
+  // ficha del cliente, se volvía a llamar a la IA (que fallaba otra vez) y el documento
+  // acababa guardado como «Otro documento» sin decir por qué: se perdían a la vez la
+  // clasificación y el relleno de la ficha (caso Asenjo Global, 21/09/2026).
+  const colocarUno = async (a: AdjuntoBandeja): Promise<{ etiqueta: string | null; ficha: string[]; pendiente?: boolean }> => {
     if (a.docId) return { etiqueta: a.etiqueta ?? a.nombre, ficha: [] }; // ya colocado (reintento)
     const dl = await admin.storage.from("documentos").download(a.storagePath);
     if (dl.error || !dl.data) { console.error("[bandeja] adjunto no descargable:", a.storagePath); return { etiqueta: null, ficha: [] }; }
@@ -225,6 +230,10 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
         a.destino = "expediente"; a.docId = "expediente"; a.etiqueta = r.label ?? a.nombre;
         return { etiqueta: a.etiqueta, ficha: r.fichaCampos ?? [] };
       } catch (err) {
+        if (err instanceof IaNoDisponible) {
+          console.error("[bandeja] lectura IA no disponible, el adjunto queda pendiente:", a.nombre);
+          return { etiqueta: null, ficha: [], pendiente: true };
+        }
         console.error("[bandeja] subida al expediente fallida, cae en la ficha:", err instanceof Error ? err.message : err);
       }
     }
@@ -233,7 +242,13 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
     // para clasificar y «Información» seguía vacía aunque el pasaporte estuviera ahí.
     let tipo = DOC_LABEL.OTRO;
     let det: Awaited<ReturnType<typeof extraerDocumento>> | null = null;
-    try { det = await extraerDocumento(buffer, a.mime); tipo = clasificarDeteccion(det.tipoDetectado, []).label; } catch { /* sin IA: Otro documento */ }
+    try { det = await extraerDocumento(buffer, a.mime); tipo = clasificarDeteccion(det.tipoDetectado, []).label; }
+    catch (err) {
+      // Sin lectura, guardarlo como «Otro documento» sería inventarse una etiqueta: se
+      // deja pendiente y el gestor lo reintenta desde la bandeja cuando la IA responda.
+      console.error("[bandeja] lectura IA no disponible (ficha):", err instanceof Error ? err.message : err);
+      return { etiqueta: null, ficha: [], pendiente: true };
+    }
     const docId = uuid();
     const storagePath = `clientes/${clienteId}/${docId}.${ext}`;
     const up = await admin.storage.from("documentos").upload(storagePath, buffer, { contentType: a.mime, upsert: false });
@@ -247,12 +262,22 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
   const resultados = await enParalelo(adjuntos, 3, colocarUno);
   const etiquetas = resultados.map((r) => r.etiqueta).filter((x): x is string => Boolean(x));
   const fichaCampos = [...new Set(resultados.flatMap((r) => r.ficha))];
+  const pendientes = resultados.filter((r) => r.pendiente).length;
 
   if (exp) {
     await admin.from("ExpedienteEvento").insert({ id: uuid(), expedienteId: exp.id, tipo: "COMENTARIO", descripcion: `📥 Email de ${fila.remitente}${fila.asunto ? ` · «${String(fila.asunto).slice(0, 80)}»` : ""} · ${adjuntos.length} adjunto(s) colocado(s) desde la bandeja` });
   }
-  await admin.from("BandejaEntrada").update({ estado: "ASIGNADO", clienteId, expedienteId: exp?.id ?? null, adjuntos, motivo: opts.motivo ?? "manual", updatedAt: new Date().toISOString() }).eq("id", filaId);
-  return { destino: exp ? "expediente" : "cliente", referencia: exp?.referencia ?? null, documentos: etiquetas.length, etiquetas, fichaCampos };
+  // Con adjuntos sin leer la fila NO se cierra: se queda en la bandeja diciendo por qué,
+  // con los ya colocados marcados (el reintento los salta). Los colocados se guardan igual.
+  await admin.from("BandejaEntrada").update({
+    estado: pendientes > 0 ? "PENDIENTE" : "ASIGNADO",
+    clienteId, expedienteId: exp?.id ?? null, adjuntos,
+    motivo: pendientes > 0
+      ? `la lectura automática no estaba disponible: ${pendientes} documento(s) sin colocar, vuelve a asignarlo en unos minutos`
+      : opts.motivo ?? "manual",
+    updatedAt: new Date().toISOString(),
+  }).eq("id", filaId);
+  return { destino: exp ? "expediente" : "cliente", referencia: exp?.referencia ?? null, documentos: etiquetas.length, etiquetas, fichaCampos, pendientes };
 }
 
 // Ejecuta `fn` sobre los elementos con como mucho `n` en vuelo; resultados en el orden de entrada.

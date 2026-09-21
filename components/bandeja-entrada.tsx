@@ -45,7 +45,13 @@ export function BandejaEntrada({ pendientes, recientes, clientes, expedientes, w
       const res = await fetch(`/api/bandeja/${fila.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteId: s.clienteId, expedienteId: s.expedienteId || null }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo asignar."));
-      setHecho((h) => ({ ...h, [fila.id]: d.referencia ? `${t("Guardado en el expediente")} ${d.referencia}` : t("Guardado en la ficha del cliente") }));
+      if (d.pendientes > 0) {
+        // La lectura IA no respondió: los documentos siguen en la bandeja, sin etiqueta
+        // inventada. Se dice por qué en vez de dar el email por resuelto.
+        setError(t("La lectura automática no ha respondido: {n} documento(s) siguen aquí. Vuelve a asignarlo en unos minutos.").replace("{n}", String(d.pendientes)));
+      } else {
+        setHecho((h) => ({ ...h, [fila.id]: d.referencia ? `${t("Guardado en el expediente")} ${d.referencia}` : t("Guardado en la ficha del cliente") }));
+      }
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo asignar."));

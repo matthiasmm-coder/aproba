@@ -2081,6 +2081,7 @@ export const CA: Record<string, string> = {
   "La hoja de encargo y las facturas se emiten a nombre de la empresa. El trabajador sigue siendo el titular del expediente y firma el mandato.": "El full d'encàrrec i les factures s'emeten a nom de l'empresa. El treballador continua sent el titular de l'expedient i signa el mandat.",
   "Teléfono de contacto": "Telèfon de contacte",
   "Todavía sin trabajadores.": "Encara sense treballadors.",
+  "La lectura automática no ha respondido: {n} documento(s) siguen aquí. Vuelve a asignarlo en unos minutos.": "La lectura automàtica no ha respost: {n} document(s) segueixen aquí. Torna a assignar-ho d’aquí a uns minuts.",
   "El enlace es para la empresa: completa sus datos, añade a cada trabajador con su ficha y sube sus documentos. La hoja de encargo la firma la empresa; el mandato, cada trabajador. Las facturas van a nombre de la empresa.": "L\u2019enllaç és per a l\u2019empresa: completa les seves dades, afegeix cada treballador amb la seva fitxa i puja els seus documents. El full d\u2019encàrrec el signa l\u2019empresa; el mandat, cada treballador. Les factures van a nom de l\u2019empresa.",
   // Expediente DE EMPRESA con trabajadores (21/09/2026)
   "De la empresa": "De l'empresa",
