@@ -307,10 +307,13 @@ export function VencimientosList({ vencimientos }: { vencimientos: VencimientoRo
           placeholder={t("Buscar cliente…")}
           className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] sm:text-sm text-slate-700 outline-none focus:border-aproba-600 sm:w-64"
         />
+        {/* Orden de la barra (21/09, Matthias): primero los filtros de plazo, y al final
+            el estado que depende del cliente — igual que «Esperando al cliente» en
+            «En curso», que va a la derecha del todo. */}
         {([
           ["urgentes", t("Urgentes"), t("Ya caducadas o caducan en menos de 60 días")],
-          ["esperando", t("Esperando respuesta"), t("Propuesta enviada o documento pedido: el expediente pasará a «En curso» cuando el cliente acepte")],
           ["lejanos", t("Más adelante"), t("Caducan en más de 60 días")],
+          ["esperando", t("Esperando respuesta"), t("Propuesta enviada o documento pedido: el expediente pasará a «En curso» cuando el cliente acepte")],
         ] as const).map(([f, etiqueta, ayuda]) => (
           <button
             key={f} type="button" title={ayuda} aria-pressed={filtro === f}
