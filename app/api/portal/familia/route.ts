@@ -16,7 +16,7 @@ async function resolverExpediente(token: string) {
   // heredarán los miembros añadidos desde el portal, donde no hay sesión de la que sacarla.
   let { data } = await admin.from("Expediente").select("id, familiaId, workspaceId, clienteId, oficinaId").eq("portalToken", token).maybeSingle();
   if (!data) ({ data } = await admin.from("Expediente").select("id, familiaId, workspaceId, clienteId").eq("portalToken", token).maybeSingle()); // sin multi-oficina
-  return { admin, exp: data as { id: string; familiaId: string | null; workspaceId: string; clienteId: string; oficinaId?: string | null } | null };
+  return { admin, exp: data as { id: string; familiaId: string | null; workspaceId: string; clienteId: string | null; oficinaId?: string | null } | null };
 }
 
 // POST → añade un miembro (Cliente vacío) a la familia. Devuelve su id.

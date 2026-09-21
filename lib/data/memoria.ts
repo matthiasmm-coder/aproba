@@ -42,6 +42,17 @@ export async function fetchMemoria(desde: string, hasta: string): Promise<Memori
   const idsEjemplo = new Set(filas.filter((f) => f.referencia === REFERENCIA_EJEMPLO).map((f) => String(f.id)));
   filas = filas.filter((f) => !idsEjemplo.has(String(f.id)));
 
+  // Expedientes DE EMPRESA (sin titular): sus trabajadores cuentan como personas atendidas.
+  const trabajadoresPor = new Map<string, string[]>();
+  const sinTitular = filas.filter((f) => !f.clienteId).map((f) => String(f.id));
+  if (sinTitular.length) {
+    try {
+      const { data: trs } = await supabase.from("ExpedienteTrabajador").select("expedienteId, clienteId").in("expedienteId", sinTitular);
+      for (const t of (trs ?? []) as { expedienteId: string; clienteId: string }[]) {
+        trabajadoresPor.set(t.expedienteId, [...(trabajadoresPor.get(t.expedienteId) ?? []), t.clienteId]);
+      }
+    } catch { /* migración pendiente */ }
+  }
   const expedientes: FilaExpediente[] = filas.map((f) => {
     const cRaw = f.cliente;
     const c = Array.isArray(cRaw) ? cRaw[0] : cRaw;
@@ -54,6 +65,7 @@ export async function fetchMemoria(desde: string, hasta: string): Promise<Memori
       salida: (f.salida as string | null) ?? null,
       fechaPresentacion: (f.fechaPresentacion as string | null) ?? null,
       clienteId: String(f.clienteId ?? ""),
+      trabajadorIds: trabajadoresPor.get(String(f.id)) ?? [],
       oficinaId: (f.oficinaId as string | null) ?? null,
       nacionalidad: c?.nacionalidad ?? null,
     };

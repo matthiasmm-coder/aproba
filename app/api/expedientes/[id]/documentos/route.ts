@@ -43,11 +43,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const admin = createSupabaseAdmin();
-  // Familiar: el clienteId debe pertenecer a la familia del expediente.
+  // Familiar: el clienteId debe pertenecer a la familia del expediente. Expediente DE
+  // EMPRESA: al lote de trabajadores (fila en ExpedienteTrabajador, resuelta bajo RLS).
   if (clienteId) {
-    if (!exp.familiaId) return NextResponse.json({ error: "Este expediente no es familiar." }, { status: 400 });
-    const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
-    if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    if (exp.familiaId) {
+      const { data: m } = await admin.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+      if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
+    } else {
+      const { data: tr } = await supa.from("ExpedienteTrabajador").select("id").eq("expedienteId", id).eq("clienteId", clienteId).maybeSingle();
+      if (!tr) return NextResponse.json({ error: exp.clienteId ? "Este expediente no es familiar ni de empresa." : "Trabajador no encontrado en el expediente." }, { status: exp.clienteId ? 400 : 404 });
+    }
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

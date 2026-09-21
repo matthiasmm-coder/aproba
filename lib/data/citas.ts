@@ -67,7 +67,9 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
       .gte("fechaCita", today)
       .order("fechaCita", { ascending: true })
       .limit(limite);
-    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)");
+    // Con la empresa (expediente DE EMPRESA: la cita se nombra por ella); repli sin ella.
+    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos), empresa:Empresa(razonSocial)");
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)") as typeof resC;
     if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)") as typeof resC;
     if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)") as typeof resC;
     const data = resC.data as unknown as Record<string, unknown>[] | null;
@@ -85,7 +87,8 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
         : claves.some((clave) => (quienPorClave[clave] ?? "cliente") === "gestor");
       if (!acudeGestor) continue;
       const cli = uno(e.cliente as { nombre: string | null; apellidos: string | null }[] | null);
-      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string, conCliente: quienCita === "ambos" });
+      const emp = uno((e.empresa ?? null) as { razonSocial?: string | null }[] | null);
+      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || emp?.razonSocial || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string, conCliente: quienCita === "ambos" });
     }
   } catch { /* sin citas de administración */ }
 

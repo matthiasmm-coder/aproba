@@ -179,6 +179,17 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
   if (expQ.error) expQ = await admin.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra, referencia").eq("clienteId", clienteId).eq("workspaceId", fila.workspaceId) as typeof expQ;
   type ExpRow = { id: string; workspaceId: string; oficinaId: string | null; clienteId: string | null; tipo: string; estado: string; familiaId: string | null; servicioClave: string | null; serviciosExtra: string[] | null; docsExtra?: unknown; archivadoAt?: string | null; referencia: string };
   const vivos = ((expQ.data ?? []) as ExpRow[]).filter((e) => !e.archivadoAt);
+  // Expedientes DE EMPRESA en los que este cliente es TRABAJADOR (no llevan su clienteId):
+  // sin esto, un email del trabajador no podía caer en el expediente de su empresa.
+  try {
+    const { data: filas } = await admin.from("ExpedienteTrabajador").select("expedienteId").eq("clienteId", clienteId).eq("workspaceId", fila.workspaceId);
+    const ids = (filas ?? []).map((f) => String((f as { expedienteId: string }).expedienteId)).filter((x) => !vivos.some((v) => v.id === x));
+    if (ids.length) {
+      let q2 = await admin.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra, docsExtra, archivadoAt, referencia").in("id", ids);
+      if (q2.error) q2 = await admin.from("Expediente").select("id, workspaceId, oficinaId, clienteId, tipo, estado, familiaId, servicioClave, serviciosExtra, referencia").in("id", ids) as typeof q2;
+      for (const e of (q2.data ?? []) as ExpRow[]) if (!e.archivadoAt) vivos.push(e);
+    }
+  } catch { /* sin migración → solo los expedientes propios */ }
   let exp: ExpRow | null = null;
   if (opts.expedienteId) {
     exp = vivos.find((e) => e.id === opts.expedienteId) ?? null;
@@ -208,7 +219,8 @@ export async function asignarBandeja(admin: Admin, opts: { filaId: string; clien
       try {
         const r = await procesarSubidaDocumento(admin, {
           exp: { id: exp.id, workspaceId: exp.workspaceId, clienteId: exp.clienteId, tipo: exp.tipo, estado: exp.estado, familiaId: exp.familiaId, oficinaId: exp.oficinaId },
-          label: "", clienteId: null, file, buffer, ext, baseUrl, origen: "gestor", auto: true, docsRequeridos,
+          // Expediente DE EMPRESA: el documento es del TRABAJADOR que lo manda (su casilla).
+          label: "", clienteId: exp.clienteId ? null : clienteId, file, buffer, ext, baseUrl, origen: "gestor", auto: true, docsRequeridos,
         });
         a.destino = "expediente"; a.docId = "expediente"; a.etiqueta = r.label ?? a.nombre;
         return { etiqueta: a.etiqueta, ficha: r.fichaCampos ?? [] };

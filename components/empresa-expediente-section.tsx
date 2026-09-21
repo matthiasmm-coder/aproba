@@ -5,12 +5,21 @@ import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import type { EmpresaDetalle } from "@/lib/data/empresas";
 import { EmpresaEditor } from "@/components/empresa-editor";
+import { TrabajadoresExpediente } from "@/components/trabajadores-expediente";
+import type { TrabajadorExpediente } from "@/lib/trabajadores";
 
 // Bloque «Empresa contratante» de la ficha del expediente: quién contrata y paga (la
 // hoja de encargo y las facturas la llevan como cliente), sus datos fiscales editables
 // en línea, y sus trabajadores con los expedientes de cada uno.
 
-export function EmpresaExpedienteSection({ empresa, expedienteId }: { empresa: EmpresaDetalle; expedienteId: string }) {
+export function EmpresaExpedienteSection({ empresa, expedienteId, trabajadores = [], esDeEmpresa = false, despachoEncargo = false }: {
+  empresa: EmpresaDetalle;
+  expedienteId: string;
+  // Expediente DE EMPRESA (21/09/2026): sin titular persona; los trabajadores del lote.
+  trabajadores?: TrabajadorExpediente[];
+  esDeEmpresa?: boolean;
+  despachoEncargo?: boolean;
+}) {
   const t = useT();
   const [editando, setEditando] = useState(false);
 
@@ -29,7 +38,10 @@ export function EmpresaExpedienteSection({ empresa, expedienteId }: { empresa: E
             {direccion && <> · {direccion}</>}
           </p>
           {contacto && <p className="text-sm text-slate-500">{t("Contacto")}: {contacto}</p>}
-          <p className="mt-2 text-xs text-slate-500">{t("La hoja de encargo y las facturas se emiten a nombre de la empresa. El trabajador sigue siendo el titular del expediente y firma el mandato.")}</p>
+          {!contacto && esDeEmpresa && <p className="text-sm text-amber-700">{t("Sin persona de contacto: añade su email para enviarle la hoja de encargo y las facturas.")}</p>}
+          {esDeEmpresa
+            ? <p className="mt-2 text-xs text-slate-500">{t("El expediente es de la empresa: la hoja de encargo y las facturas van a su nombre y las firma su representante. Cada trabajador del lote tiene sus documentos, sus formularios y su propio mandato.")}</p>
+            : <p className="mt-2 text-xs text-slate-500">{t("La hoja de encargo y las facturas se emiten a nombre de la empresa. El trabajador sigue siendo el titular del expediente y firma el mandato.")}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
         <Link href={`/app/empresas/${empresa.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-aproba-300 hover:text-aproba-700">
@@ -47,6 +59,14 @@ export function EmpresaExpedienteSection({ empresa, expedienteId }: { empresa: E
         </div>
       )}
 
+      {esDeEmpresa ? (
+        <TrabajadoresExpediente
+          expedienteId={expedienteId}
+          trabajadores={trabajadores}
+          candidatos={empresa.trabajadores.filter((tr) => !trabajadores.some((x) => x.id === tr.id)).map((tr) => ({ id: tr.id, nombre: tr.nombre }))}
+          despachoEncargo={despachoEncargo}
+        />
+      ) : (
       <div className="border-t border-slate-100 px-5 py-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Trabajadores")} ({empresa.trabajadores.length})</p>
         {empresa.trabajadores.length === 0 ? (
@@ -69,6 +89,7 @@ export function EmpresaExpedienteSection({ empresa, expedienteId }: { empresa: E
           </ul>
         )}
       </div>
+      )}
     </div>
   );
 }

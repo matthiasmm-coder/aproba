@@ -95,6 +95,44 @@ export function docsFamiliaPorServicios(
   return { comunes: unirDocsPedidos(sinQuitados(comunes, docsExtra), extra.comunes), porMiembro };
 }
 
+// Expediente DE EMPRESA (21/09/2026): TODO lo del servicio es de CADA trabajador (pasaporte,
+// antecedentes, empadronamiento… son personales aunque «empadronamiento» sea común en una
+// familia). Comunes = solo lo que el gestor pidió a mano para el dossier. Misma regla de
+// asignación por servicio y de menores que la familia; hoja/mandato fuera (bloque firma).
+export function docsEmpresaPorTrabajador(
+  servicios: { id: string; docs?: string[] }[],
+  asignacion: Record<string, string[]> | null | undefined,
+  trabajadores: { id: string; fechaNacimiento?: string | null }[],
+  docsExtra?: unknown,
+): { comunes: string[]; porMiembro: Record<string, string[]> } {
+  const norm = (l: string) => l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const esFirma = (l: string) => { const n = norm(l); return n.includes("encargo") || n.includes("mandato"); };
+  const esMenor = (f?: string | null) => {
+    if (!f) return false;
+    const d = new Date(f);
+    if (Number.isNaN(d.getTime())) return false;
+    const edad = (Date.now() - d.getTime()) / (365.25 * 864e5);
+    return edad >= 0 && edad < 18;
+  };
+  const menores = new Set(trabajadores.filter((m) => esMenor(m.fechaNacimiento)).map((m) => m.id));
+  const porMiembro: Record<string, string[]> = Object.fromEntries(trabajadores.map((m) => [m.id, [] as string[]]));
+  for (const sv of servicios) {
+    const lista = asignacion?.[sv.id];
+    const destinatarios = lista?.length ? trabajadores.filter((m) => lista.includes(m.id)) : trabajadores;
+    for (const d of sv.docs ?? []) {
+      if (esFirma(d)) continue;
+      const tipo = labelADocTipo(d);
+      for (const m of destinatarios) {
+        if (tipo === "ANTECEDENTES_PENALES" && menores.has(m.id)) continue;
+        porMiembro[m.id].push(d);
+      }
+    }
+  }
+  const extra = separarDocsExtra(docsExtra);
+  for (const id of Object.keys(porMiembro)) porMiembro[id] = unirDocsPedidos(sinQuitados(porMiembro[id], docsExtra), extra.porPersona);
+  return { comunes: unirDocsPedidos(sinQuitados([], docsExtra), extra.comunes), porMiembro };
+}
+
 // ── Documentos pedidos A MANO en un expediente FAMILIAR ────────────────────────
 // Un papel añadido por el gestor puede ser del DOSSIER (un contrato de alquiler: se
 // envía una vez) o DE CADA PERSONA (un certificado médico: uno por solicitante). Se

@@ -97,11 +97,12 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   // Renovación ACEPTADA desde una propuesta: el trámite lo fijó la gestoría — el cliente lo
   // ve pero no lo cambia, y pasa directo a sus datos y documentos.
   let servicioFijado = false;
+  let empresaEnEspera: { nombre: string; gestoria: string } | null = null;
 
   try {
     const admin = createSupabaseAdmin();
     // Con familiaId/clienteId (expediente familiar); repli sin ellos si la migración falta.
-    const SEL = `oficinaId, id, referencia, familiaId, clienteId, tipo, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, serviciosBloqueados, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
+    const SEL = `oficinaId, id, referencia, familiaId, clienteId, empresaId, empresa:Empresa(razonSocial), tipo, servicioClave, serviciosExtra, docsExtra, suplidosOverride, descuento, serviciosAsignacion, serviciosBloqueados, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre, hojaEncargoActiva)`;
     let res = await admin.from("Expediente").select(SEL).eq("portalToken", token).maybeSingle();
     // serviciosBloqueados es la columna más reciente (supabase/servicios-bloqueados.sql):
     // sin ella el portal funciona como siempre, sin candados.
@@ -120,6 +121,15 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
     if (res.error) res = await admin.from("Expediente").select(`id, referencia, tipo, servicioClave, cliente:Cliente(${SELECT_CLIENTE}), workspace:Workspace(id, nombre)`).eq("portalToken", token).maybeSingle();
 
     const exp = res.data as unknown as ExpedienteToken | null;
+    // Expediente DE EMPRESA (sin titular persona): su portal es el de la empresa (lote 2).
+    // Hasta entonces, una página de espera con nombre y gestoría — nunca «Hola Julia».
+    {
+      const x = exp as unknown as { empresaId?: string | null; clienteId?: string | null; empresa?: { razonSocial?: string } | { razonSocial?: string }[] | null } | null;
+      if (x?.empresaId && !x.clienteId) {
+        const em = Array.isArray(x.empresa) ? x.empresa[0] : x.empresa;
+        empresaEnEspera = { nombre: String(em?.razonSocial ?? "").trim() || "tu empresa", gestoria: exp?.workspace?.nombre ?? "tu gestoría" };
+      }
+    }
     if (exp?.workspace) {
       valido = true;
       referencia = exp.referencia;
@@ -254,6 +264,19 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
     }
   } catch {
     /* token illisible → traité comme lien invalide ci-dessous */
+  }
+
+  if (empresaEnEspera) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-cream-50 px-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-aproba-100 text-aproba-700">
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4" /></svg>
+        </div>
+        <h1 className="mt-5 text-xl font-bold text-slate-900">Enlace de {empresaEnEspera.nombre}</h1>
+        <p className="mt-2 max-w-sm text-sm text-slate-500">{empresaEnEspera.gestoria} está preparando este expediente. El espacio para que la empresa complete los datos de sus trabajadores estará disponible muy pronto; mientras tanto, la gestoría lo tramita por ti.</p>
+        <p className="mt-6 flex items-center gap-1 text-xs text-slate-400">con <AprobaMark size={13} /> aproba</p>
+      </div>
+    );
   }
 
   // Token inconnu / expiré → ce n'est PAS la démo (celle-ci vit sur /portal) : lien invalide.

@@ -23,9 +23,13 @@ async function resolver(id: string) {
 // Tasa NOMINATIVA de un miembro (familia): ruta determinista en el bucket. Anti-IDOR:
 // el miembro debe pertenecer a la familia del expediente (resuelto BAJO RLS).
 async function rutaNominativa(r: { supa: Awaited<ReturnType<typeof createSupabaseServer>>; exp: { id: string; familiaId?: string | null } }, clienteId: string) {
-  if (!r.exp.familiaId) return null;
-  const { data: m } = await r.supa.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", r.exp.familiaId).maybeSingle();
-  return m ? `${r.exp.id}/tasa-790-012-${clienteId}.pdf` : null;
+  if (r.exp.familiaId) {
+    const { data: m } = await r.supa.from("Cliente").select("id").eq("id", clienteId).eq("familiaId", r.exp.familiaId).maybeSingle();
+    return m ? `${r.exp.id}/tasa-790-012-${clienteId}.pdf` : null;
+  }
+  // Expediente DE EMPRESA: el trabajador del lote (misma ruta determinista, bajo RLS).
+  const { data: tr } = await r.supa.from("ExpedienteTrabajador").select("id").eq("expedienteId", r.exp.id).eq("clienteId", clienteId).maybeSingle();
+  return tr ? `${r.exp.id}/tasa-790-012-${clienteId}.pdf` : null;
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {

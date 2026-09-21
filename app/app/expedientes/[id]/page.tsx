@@ -16,7 +16,8 @@ import { EmpresaExpedienteSection } from "@/components/empresa-expediente-sectio
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
-import { docsFamiliaPorServicios, docsExtraPlanos, sinQuitados } from "@/lib/familia";
+import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, docsExtraPlanos, sinQuitados } from "@/lib/familia";
+import { etiquetaTrabajadores } from "@/lib/trabajadores";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
@@ -110,7 +111,7 @@ export default async function ExpedienteDetail({
   // Casillas de la ficha: firma PRIMERO (mismo orden que el portal /j y /s) y luego
   // los del trámite. La hoja/mandato firmados van por casilla como todo lo demás —
   // era lo ÚNICO que quedaba en el selector manual, que ya no hace falta.
-  const casillasFicha = familia
+  const casillasFicha = familia || e.esDeEmpresa
     ? []
     : [...sinQuitados(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], e.docsExtra), ...docsRequeridos];
   const tarifa = tarifaDeServicios(serviciosExp);
@@ -122,16 +123,19 @@ export default async function ExpedienteDetail({
   // Tasas 790 NOMINATIVAS de la familia (storage, ruta determinista) → chips en la
   // sección Formularios (antes eran invisibles en la ficha: solo /s y el ZIP las veían).
   let tasaMiembrosIds: string[] = [];
-  if (familia) {
+  if (familia || e.esDeEmpresa) {
     try {
       const { data: archivos } = await createSupabaseAdmin().storage.from("documentos").list(e.id);
       const conTasa = new Set((archivos ?? []).map((x) => x.name).filter((n) => /^tasa-790-012-.+\.pdf$/.test(n)).map((n) => n.slice("tasa-790-012-".length, -".pdf".length)));
-      tasaMiembrosIds = familia.miembros.filter((m) => conTasa.has(m.id)).map((m) => m.id);
+      tasaMiembrosIds = (familia ? familia.miembros : e.trabajadores).filter((m) => conTasa.has(m.id)).map((m) => m.id);
     } catch { /* sin storage legible → sin chips de tasa */ }
   }
   const asignadosExp = new Set(Object.values(e.serviciosAsignacion ?? {}).flat());
-  const solicitantesExp = familia ? (() => { const sol = familia.miembros.filter((m) => m.esSolicitante || asignadosExp.has(m.id)); return sol.length ? sol : familia.miembros; })() : [];
-  const nMiembrosExp = Math.max(1, familia?.miembros.length ?? 1);
+  const solicitantesExp = familia
+    ? (() => { const sol = familia.miembros.filter((m) => m.esSolicitante || asignadosExp.has(m.id)); return sol.length ? sol : familia.miembros; })()
+    // Expediente DE EMPRESA: cada trabajador del lote es solicitante (misma forma que un miembro).
+    : e.esDeEmpresa ? e.trabajadores.map((w) => ({ id: w.id, nombre: w.nombre, parentesco: null, telefono: w.telefono, esSolicitante: true, ficha: w.ficha, expedientes: [] })) : [];
+  const nMiembrosExp = Math.max(1, familia?.miembros.length ?? (e.esDeEmpresa ? e.trabajadores.length : 1));
   // Familiar: lo que se pide, con su ámbito. Los del servicio salen del MISMO
   // repartidor que el portal (docsFamiliaPorServicios) para no divergir.
   const repartoFamilia = (() => {
@@ -147,17 +151,30 @@ export default async function ExpedienteDetail({
     const firma = sinQuitados(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], e.docsExtra);
     return { ...rep, comunes: [...firma, ...rep.comunes], miembros: sol };
   })();
+  // Expediente DE EMPRESA: mismo esquema por secciones — «De la empresa» (lo pedido a mano
+  // para el dossier + la hoja de encargo, que firma la empresa) y un trabajador por sección
+  // (sus documentos + SU mandato). Sin trabajadores todavía, solo la sección de la empresa.
+  const repartoEmpresa = (() => {
+    if (!e.esDeEmpresa) return null;
+    const trs = e.trabajadores.map((w) => ({ id: w.id, nombre: w.nombre, fechaNacimiento: (w.ficha.fechaNacimiento as string | undefined) ?? null }));
+    const rep = docsEmpresaPorTrabajador(serviciosExp, e.serviciosAsignacion, trs, e.docsExtra);
+    const hoja = sinQuitados(despachoEncargo ? [DOC_LABEL.HOJA_ENCARGO] : [], e.docsExtra);
+    const mandato = sinQuitados(despachoEncargo ? [DOC_LABEL.MANDATO] : [], e.docsExtra);
+    const porMiembro = Object.fromEntries(trs.map((w) => [w.id, [...mandato, ...(rep.porMiembro[w.id] ?? [])]]));
+    return { comunes: [...hoja, ...rep.comunes], porMiembro, miembros: trs };
+  })();
+  const reparto = repartoFamilia ?? repartoEmpresa;
   const propiosFicha = new Set(docsExtraPlanos(e.docsExtra));
   // Grupos de la ficha familiar (comunes + un miembro por sección) con SUS documentos
   // ya emparejados: se calcula ANTES del JSX para saber qué documentos quedan fuera
   // (si no, el bloque de abajo los repintaba y salían dos veces).
-  const gruposFamilia = repartoFamilia
+  const gruposFamilia = reparto
     ? [
-        { id: null as string | null, titulo: t("Comunes de la familia"), labels: repartoFamilia.comunes },
-        ...repartoFamilia.miembros.map((m) => ({
+        { id: null as string | null, titulo: familia ? t("Comunes de la familia") : t("De la empresa"), labels: reparto.comunes },
+        ...reparto.miembros.map((m) => ({
           id: m.id as string | null,
-          titulo: m.nombre.trim() || t("Miembro"),
-          labels: repartoFamilia.porMiembro[m.id] ?? [],
+          titulo: m.nombre.trim() || (familia ? t("Miembro") : t("Trabajador")),
+          labels: reparto.porMiembro[m.id] ?? [],
         })),
       ]
         // TODAS las secciones, aunque estén vacías: al añadir un miembro, su parte
@@ -170,8 +187,8 @@ export default async function ExpedienteDetail({
   const usadosFamilia = new Set(
     gruposFamilia.flatMap((g) => g.casados).filter((d): d is NonNullable<typeof d> => Boolean(d)).map((d) => d.id),
   );
-  const totalCasillasFamilia = repartoFamilia
-    ? repartoFamilia.comunes.length + Object.values(repartoFamilia.porMiembro).reduce((a, l) => a + l.length, 0)
+  const totalCasillasFamilia = reparto
+    ? reparto.comunes.length + Object.values(reparto.porMiembro).reduce((a, l) => a + l.length, 0)
     : 0;
   const tarifaMult = tarifaAsignada(serviciosExp, e.serviciosAsignacion, nMiembrosExp);
   // Descuento del expediente sobre la tarifa YA multiplicada (nMiembros=1 aquí).
@@ -209,7 +226,8 @@ export default async function ExpedienteDetail({
       // hecho a progresoDeExpediente, hay que pasarlo en LAS DOS llamadas.
       modoTrabajo: e.modoTrabajo,
       validadoAt: e.validadoManual ? "1" : null,
-      cliente: (e.clienteFicha ?? {}) as Record<string, unknown>,
+      // Sin titular persona (expediente DE EMPRESA): null → la parte «Información» no cuenta.
+      cliente: e.esDeEmpresa ? null : (e.clienteFicha ?? {}) as Record<string, unknown>,
     },
     serviciosSede.map((sv) => ({ id: sv.id, docs: sv.docs, citaPresencial: sv.citaPresencial })),
   );
@@ -230,7 +248,8 @@ export default async function ExpedienteDetail({
   const fichaExp = (e.clienteFicha ?? {}) as Record<string, unknown>;
   // Mismo criterio que el portal (todo menos piso y NIE): lo que ningún documento trae aún.
   // Presentación en Mercurio: campos del solicitante para que la extensión rellene el formulario.
-  const camposMercurioList = camposMercurioFlat(e.clienteFicha ?? {});
+  // Expediente DE EMPRESA: Mercurio se rellena con el PRIMER trabajador del lote (uno a uno).
+  const camposMercurioList = camposMercurioFlat(e.esDeEmpresa ? (e.trabajadores[0]?.ficha ?? {}) : (e.clienteFicha ?? {}));
   const rellenosMercurio = camposMercurioList.filter((c) => c.value).length;
 
   return (
@@ -249,7 +268,7 @@ export default async function ExpedienteDetail({
           <div className="min-w-0">
             <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
-            <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : ` · ${e.clienteNacionalidad}`}</p>
+            <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : e.esDeEmpresa ? ` · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : ` · ${e.clienteNacionalidad}`}</p>
             {/* También en familia (pedido por Juan): el cambio ajusta el precio base ×N como
                 cualquier recálculo de la facturación familiar. */}
             <CambiarServicio
@@ -261,7 +280,7 @@ export default async function ExpedienteDetail({
               extrasActuales={e.serviciosExtra}
               // Familiar: el «para quién» de cada servicio se decide AQUÍ (no en Cobro):
               // pilota los documentos de cada miembro, sus formularios y la tarifa ×N.
-              miembros={familia ? familia.miembros.map((m) => ({ id: m.id, nombre: m.nombre })) : []}
+              miembros={familia ? familia.miembros.map((m) => ({ id: m.id, nombre: m.nombre })) : e.esDeEmpresa ? e.trabajadores.map((w) => ({ id: w.id, nombre: w.nombre })) : []}
               asignacionInicial={e.serviciosAsignacion}
             />
             {familia && (
@@ -345,7 +364,7 @@ export default async function ExpedienteDetail({
             sin salir del expediente que está preparando.
             FAMILIAR: no se enseña — repetiría la ficha del titular, que ya se edita
             miembro a miembro en «Familia» (el portal del cliente NO cambia). */}
-        {!familia && (
+        {!familia && !e.esDeEmpresa && (
         <div data-guia="informacion">
         <SeccionPlegable
           id="informacion"
@@ -373,8 +392,8 @@ export default async function ExpedienteDetail({
 
         {/* Empresa contratante (cliente-empresa): datos fiscales + trabajadores */}
         {empresa && (
-          <SeccionPlegable id="empresa" titulo={t("Empresa")} resumen={empresa.razonSocial}>
-            <EmpresaExpedienteSection empresa={empresa} expedienteId={e.id} />
+          <SeccionPlegable id="empresa" titulo={t("Empresa")} resumen={e.esDeEmpresa ? `${empresa.razonSocial} · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : empresa.razonSocial}>
+            <EmpresaExpedienteSection empresa={empresa} expedienteId={e.id} trabajadores={e.trabajadores} esDeEmpresa={e.esDeEmpresa} despachoEncargo={despachoEncargo} />
           </SeccionPlegable>
         )}
 
@@ -432,9 +451,9 @@ export default async function ExpedienteDetail({
               Familia = por miembro (portal), aquí solo expedientes individuales. */}
           {/* Encabezado explícito: el gestor tiene que saber, sin recordarlo de memoria,
               qué papeles hay que reunir en ESTE expediente. */}
-          {(familia ? totalCasillasFamilia > 0 : casillasFicha.length > 0) && (
+          {(reparto ? totalCasillasFamilia > 0 : casillasFicha.length > 0) && (
             <p className="mb-2 -mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("Documentos requeridos")} · {familia ? totalCasillasFamilia : casillasFicha.length}
+              {t("Documentos requeridos")} · {reparto ? totalCasillasFamilia : casillasFicha.length}
             </p>
           )}
           <div className="space-y-3">
@@ -489,7 +508,7 @@ export default async function ExpedienteDetail({
               miembro, con SU casilla y SU zona de arrastre. El documento se guarda con
               el clienteId del miembro (o sin él si es común): lo mismo que distingue
               las casillas del portal. */}
-          {familia && (
+          {reparto && (
             <div className="space-y-4">
               {gruposFamilia.map((g) => (
                 <div key={g.id ?? "comunes"}>
@@ -518,14 +537,14 @@ export default async function ExpedienteDetail({
           )}
           <DocumentosEsperados
             expedienteId={e.id}
-            docsActuales={familia && repartoFamilia ? [...repartoFamilia.comunes, ...Object.values(repartoFamilia.porMiembro).flat()] : casillasFicha}
+            docsActuales={reparto ? [...reparto.comunes, ...Object.values(reparto.porMiembro).flat()] : casillasFicha}
             docsTramite={docsRequeridos}
             docsExtra={e.docsExtra}
             sugerencias={sugerenciasDocs}
             nServicios={serviciosExp.length}
-            esFamilia={Boolean(familia)}
+            esFamilia={Boolean(reparto)}
           />
-          {!familia && <SubirDocumentoGestor expedienteId={e.id} />}
+          {!reparto && <SubirDocumentoGestor expedienteId={e.id} />}
         </SeccionPlegable>
         </div>
 
@@ -544,12 +563,12 @@ export default async function ExpedienteDetail({
           {e.formularios.length > 0 || e.tieneTasa || tasaMiembrosIds.length > 0 ? (
             // Descarga DIRECTA del PDF oficial relleno (editable) + × para quitar cada uno.
             // Incluye la tasa 790-012 guardada. Familiar: chips → página (por solicitante).
-            <FormulariosGeneradosChips expedienteId={e.id} formularios={e.formularios} esFamilia={Boolean(familia)} tieneTasa={e.tieneTasa} porMiembro={e.formulariosPorMiembro} miembros={solicitantesExp.map((m) => ({ id: m.id, nombre: m.nombre }))} tasaMiembros={tasaMiembrosIds} />
+            <FormulariosGeneradosChips expedienteId={e.id} formularios={e.formularios} esFamilia={Boolean(familia) || e.esDeEmpresa} tieneTasa={e.tieneTasa} porMiembro={e.formulariosPorMiembro} miembros={solicitantesExp.map((m) => ({ id: m.id, nombre: m.nombre }))} tasaMiembros={tasaMiembrosIds} />
           ) : (
             // Nada generado. FAMILIAR (pedido de Matthias): SOLO los nombres de los
             // solicitantes — la generación vive en la página («Generar →» arriba); al
             // generar, los formularios de cada miembro aparecen bajo su nombre.
-            familia ? (
+            (familia || e.esDeEmpresa) ? (
               <div className="space-y-2">
                 {solicitantesExp.map((m) => (
                   <p key={m.id} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">

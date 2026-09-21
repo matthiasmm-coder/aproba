@@ -187,17 +187,18 @@ export async function cobrarExpedienteExtra(opts: {
   customerId: string;
   expedienteId: string;
   referencia: string;
+  unidad?: string; // trabajador de un expediente de empresa: un cobro por trabajador
 }): Promise<string> {
   const it = await getStripe().invoiceItems.create(
     {
       customer: opts.customerId,
       amount: Math.round(PRECIO_EXPEDIENTE_EXTRA * 100), // céntimos, SIN IVA (landing: «después 3 €/expediente» bajo «Precios sin IVA»)
       currency: "eur",
-      description: `Expediente extra ${opts.referencia} (por encima del límite del plan)`,
-      metadata: { expedienteId: opts.expedienteId },
+      description: `Expediente extra ${opts.referencia}${opts.unidad ? " (trabajador)" : ""} (por encima del límite del plan)`,
+      metadata: { expedienteId: opts.expedienteId, ...(opts.unidad ? { unidad: opts.unidad } : {}) },
       tax_rates: [await tasaIva()],
     },
-    { idempotencyKey: `ov_${opts.expedienteId}` },
+    { idempotencyKey: opts.unidad ? `ov_${opts.expedienteId}_${opts.unidad}` : `ov_${opts.expedienteId}` },
   );
   return it.id;
 }

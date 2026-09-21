@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { empresaPagadora } from "@/lib/notificaciones";
 import { Resend } from "resend";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -26,10 +27,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!own) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
   const cli = (Array.isArray(own.Cliente) ? own.Cliente[0] : own.Cliente) as { nombre?: string; apellidos?: string; email?: string } | null;
-  const para = (cli?.email ?? "").trim();
-  if (!para) return NextResponse.json({ error: "El cliente no tiene email registrado." }, { status: 400 });
-
   const admin = createSupabaseAdmin();
+  // Cliente-EMPRESA: el presupuesto y la hoja de encargo van a la EMPRESA (quien contrata),
+  // nunca al trabajador — misma regla que el encargo manual y la factura (Luis, 21/09).
+  const pagador = await empresaPagadora(admin, id);
+  const para = (pagador ? pagador.email : (cli?.email ?? "")).trim();
+  if (!para) {
+    return NextResponse.json({ error: pagador ? `${pagador.nombre} no tiene email de contacto. Añádelo en su ficha (Clientes → Empresas).` : "El cliente no tiene email registrado." }, { status: 400 });
+  }
   const { data: exp } = await admin.from("Expediente").select("*, cliente:Cliente(*)").eq("id", id).maybeSingle();
   const datos = exp ? await datosEncargo(admin, exp as never) : null;
   if (!datos) return NextResponse.json({ error: "Configura primero el servicio del expediente." }, { status: 409 });
@@ -48,7 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const gestoria = datos.despacho.nombre;
-  const nombreCli = `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim();
+  const nombreCli = pagador ? pagador.nombre : `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim();
   const servicios = escapar(datos.servicios.map((s) => s.label).join(" + "));
   const titulo = doc === "presupuesto" ? "Presupuesto de tu trámite" : "Documentos para firmar";
   const cuerpo = doc === "presupuesto"

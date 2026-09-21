@@ -26,7 +26,8 @@ export type FilaExpediente = {
   /** flujo v4: en_tramite | concedido | denegado | desistido (null si la migración falta) */
   salida?: string | null;
   fechaPresentacion?: string | null;
-  clienteId: string;
+  clienteId: string; // "" en un expediente DE EMPRESA (sin titular persona)
+  trabajadorIds?: string[]; // expediente de empresa: las personas del lote
   oficinaId?: string | null;
   nacionalidad?: string | null;
 };
@@ -137,7 +138,8 @@ export function construirMemoria(e: EntradaMemoria): Memoria {
   const resoluciones = { concedidos: 0, denegados: 0, desistidos: 0 };
 
   for (const x of tramitados) {
-    personas.add(x.clienteId);
+    if (x.clienteId) personas.add(x.clienteId);
+    for (const id of x.trabajadorIds ?? []) personas.add(id);
     if (x.nacionalidad) nacionalidades.add(x.nacionalidad.trim().toLowerCase());
     // Etiqueta del servicio configurado por el despacho; si no la hay, el tipo oficial.
     // El expediente puede llegar con servicioClave o sin ella (según por dónde se creó):

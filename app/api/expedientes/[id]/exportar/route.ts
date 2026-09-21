@@ -71,7 +71,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   };
 
   // 1) Ficha del cliente
-  add("ficha_cliente.txt", new TextEncoder().encode(fichaTxt(exp)));
+  // Expediente DE EMPRESA (sin titular): no hay ficha de cliente que exportar; las de
+  // los trabajadores viven en sus fichas de Clientes.
+  if (!exp.esDeEmpresa) add("ficha_cliente.txt", new TextEncoder().encode(fichaTxt(exp)));
 
   // 2) Documentos subidos por el cliente (bucket privado → service_role)
   try {

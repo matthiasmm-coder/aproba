@@ -22,7 +22,10 @@ import { periodoCuota } from "@/lib/cuota";
 // de incrementar: de ella sale el día ancla del ciclo.
 export async function cobrarOverageSiProcede(
   admin: SupabaseClient,
-  opts: { workspaceId: string; expedienteId: string; referencia: string },
+  // `unidad` (expediente de EMPRESA, 21/09/2026): cada trabajador añadido consume UNA
+  // unidad de la cuota — un lote de diez contratos no puede valer un expediente de
+  // cincuenta. Se pasa el clienteId para que el cobro extra sea idempotente POR trabajador.
+  opts: { workspaceId: string; expedienteId: string; referencia: string; unidad?: string },
 ): Promise<boolean> {
   try {
     const ahora = new Date();
@@ -54,7 +57,7 @@ export async function cobrarOverageSiProcede(
         creadosMes = count ?? 0;
       }
       if (creadosMes > limiteExpedientes(sub.plan)) {
-        await cobrarExpedienteExtra({ customerId: sub.stripeCustomerId, expedienteId: opts.expedienteId, referencia: opts.referencia });
+        await cobrarExpedienteExtra({ customerId: sub.stripeCustomerId, expedienteId: opts.expedienteId, referencia: opts.referencia, unidad: opts.unidad });
         return true;
       }
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { etiquetaTrabajadores } from "@/lib/trabajadores";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -98,7 +99,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
           {e.fechaLimite && !cerrado && <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"><PlazoIcon className="h-3 w-3" />{e.fechaLimite}</span>}
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-slate-400">
-          {e.empresaNombre && <span className="truncate font-medium text-slate-500" title={e.empresaNombre}>{e.empresaNombre} ·</span>}
+          {e.empresaNombre && e.empresaNombre !== e.clienteNombre && <span className="truncate font-medium text-slate-500" title={e.empresaNombre}>{e.empresaNombre} ·</span>}
+          {e.empresaNombre && e.empresaNombre === e.clienteNombre && typeof e.nTrabajadores === "number" && <span className="font-medium text-slate-500">{etiquetaTrabajadores(e.nTrabajadores, t)} ·</span>}
           <span className="font-mono">{e.referencia}</span>
           {cerrado && e.presentadoEl && <span>· {t("presentado el")} {e.presentadoEl}</span>}
           {!cerrado && docs && docs.requeridos > 0 && <span>· {docs.recibidos}/{docs.requeridos} {t("docs")}</span>}
@@ -459,7 +461,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const aItem = useCallback((f: FilaHistorial): ItemLista => {
     const info = catalogoArchivo.get(f.servicio);
     return {
-      id: f.id, referencia: f.referencia, clienteNombre: f.cliente || "—", clienteNacionalidad: "",
+      // Expediente DE EMPRESA archivado: el nombre es la empresa (el servidor deja «—» sin persona).
+      id: f.id, referencia: f.referencia, clienteNombre: (f.cliente && f.cliente !== "—" ? f.cliente : f.empresa) || "—", clienteNacionalidad: "",
       empresaNombre: f.empresa || null, tipoLabel: info?.label || etiquetaTipo(f.tipo) || f.servicio || "—",
       estado: f.estado as ExpedienteEstado, asignadoA: f.asignado || "Sin asignar",
       presentadoEl: f.presentacion || undefined, archivado: true, salida: f.salida || null,

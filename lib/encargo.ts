@@ -76,6 +76,23 @@ type ExpRow = {
   cliente: Record<string, string | null> | null;
 };
 
+// Bloque «persona» del contrato/mandato a partir de una ficha de Cliente (columnas o
+// ClienteFicha). Lo comparten el titular, los miembros de una familia y los trabajadores
+// de un expediente de empresa (un mandato por trabajador).
+export type PersonaEncargo = {
+  nombre: string; apellidos: string; nie: string; pasaporte: string; nacionalidad: string;
+  domicilio: string; municipio: string; cp: string; provincia: string; telefono: string; email: string;
+};
+export function personaEncargo(c: Record<string, string | null | undefined>): PersonaEncargo {
+  const v = (x: string | null | undefined) => String(x ?? "").trim();
+  return {
+    nombre: v(c.nombre), apellidos: v(c.apellidos), nie: v(c.numeroDocumento), pasaporte: v(c.pasaporte), nacionalidad: v(c.nacionalidad),
+    domicilio: [v(c.via), v(c.numeroVia), v(c.piso)].filter(Boolean).join(", "),
+    municipio: v(c.municipio), cp: v(c.codigoPostal), provincia: v(c.provincia),
+    telefono: v(c.telefono), email: v(c.email),
+  };
+}
+
 export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<DatosEncargo | null> {
   // Workspace: datos del despacho + mandatario. Replis si la migración no está aplicada.
   let wsRes = await admin.from("Workspace")
@@ -204,13 +221,18 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       return (em as EmpresaFiscal | null) ?? null;
     } catch { return null; }
   })();
-  const clientePersona = {
-    nombre: s(c.nombre), apellidos: s(c.apellidos), nie: s(c.numeroDocumento), pasaporte: s(c.pasaporte), nacionalidad: s(c.nacionalidad),
-    domicilio: [s(c.via), s(c.numeroVia), s(c.piso)].filter(Boolean).join(", "),
-    municipio: s(c.municipio), cp: s(c.codigoPostal), provincia: s(c.provincia),
-    telefono: s(c.telefono), email: s(c.email),
-  };
-  const trabajadorTxt = [`${clientePersona.nombre} ${clientePersona.apellidos}`.trim(), clientePersona.nie || clientePersona.pasaporte].filter(Boolean).join(" · ");
+  const clientePersona = personaEncargo(c);
+  let trabajadorTxt = [`${clientePersona.nombre} ${clientePersona.apellidos}`.trim(), clientePersona.nie || clientePersona.pasaporte].filter(Boolean).join(" · ");
+  // Expediente DE EMPRESA (sin titular persona): los trabajadores del lote, todos, en el
+  // contrato — «; » entre personas para que la hoja distinga uno de varios.
+  if (empresa && !exp.cliente) {
+    try {
+      const { data: trs } = await admin.from("ExpedienteTrabajador").select("cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte)").eq("expedienteId", exp.id).order("createdAt", { ascending: true });
+      trabajadorTxt = ((trs ?? []) as { cliente: Record<string, string | null> | Record<string, string | null>[] | null }[])
+        .map((t) => { const p1 = Array.isArray(t.cliente) ? t.cliente[0] : t.cliente; return p1 ? [`${p1.nombre ?? ""} ${p1.apellidos ?? ""}`.trim(), p1.numeroDocumento || p1.pasaporte].filter(Boolean).join(" · ") : ""; })
+        .filter(Boolean).join("; ");
+    } catch { trabajadorTxt = ""; }
+  }
   return {
     referencia: exp.referencia,
     fecha: new Date(),
@@ -561,7 +583,13 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   // el trabajador — él solo firma el mandato, que es lo que se le representa. Se nombra
   // bajo la línea para que nadie firme por error (verificación pedida el 18/09/2026).
   m.firmas("EL PROFESIONAL", d.trabajador !== undefined ? "EL CLIENTE (LA EMPRESA)" : "EL CLIENTE");
-  if (d.trabajador !== undefined) {
+  if (d.trabajador !== undefined && !d.trabajador.trim()) {
+    // Expediente DE EMPRESA que aún no tiene trabajadores: el contrato lo dice sin dejar
+    // un hueco punteado con nombre de nadie.
+    m.parrafo(`Firma por el cliente la persona con poder de representación de ${o(d.cliente.nombre, 40)}${d.cliente.nie ? `, CIF ${d.cliente.nie}` : ""}. Los trabajadores beneficiarios del encargo no son parte de este contrato: cada uno firma únicamente su mandato de representación.`, { size: 8.5 });
+  } else if (d.trabajador !== undefined && d.trabajador.includes(";")) {
+    m.parrafo(`Firma por el cliente la persona con poder de representación de ${o(d.cliente.nombre, 40)}${d.cliente.nie ? `, CIF ${d.cliente.nie}` : ""}. Los trabajadores ${d.trabajador} no son parte de este contrato: cada uno firma únicamente su mandato de representación.`, { size: 8.5 });
+  } else if (d.trabajador !== undefined) {
     m.parrafo(`Firma por el cliente la persona con poder de representación de ${o(d.cliente.nombre, 40)}${d.cliente.nie ? `, CIF ${d.cliente.nie}` : ""}. El trabajador ${o(d.trabajador, 30)} no es parte de este contrato: firma únicamente el mandato de representación.`, { size: 8, color: GRIS });
   }
   return m.bytes();
@@ -569,14 +597,16 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
 
 // ── 2) MANDATO DE REPRESENTACIÓN (modelo Consejo GA, adaptado a extranjería) ─
 
-export async function generarMandato(d: DatosEncargo): Promise<Uint8Array> {
+// `persona`: expediente DE EMPRESA → un mandato POR TRABAJADOR (cada uno es el mandante
+// de su propia representación); sin ella, la persona del expediente o el cliente.
+export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo): Promise<Uint8Array> {
   const m = await Maqueta.crear(d.despacho.logo);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo("MANDATO CON REPRESENTACIÓN");
   m.espacio(2);
 
   // Cliente-empresa: el mandante sigue siendo la PERSONA (es a ella a quien se representa).
-  const pm = d.persona ?? d.cliente;
+  const pm = persona ?? d.persona ?? d.cliente;
   const mandante = `${pm.nombre} ${pm.apellidos}`.trim();
   const notif = [pm.domicilio, pm.cp ? `CP ${pm.cp}` : "", pm.municipio, pm.provincia].filter(Boolean).join(", ");
 

@@ -253,7 +253,7 @@ export async function dispararAviso(
       .eq("id", opts.expedienteId)
       .maybeSingle();
     const exp = expRaw as ExpRow | null;
-    const cliente = uno(exp?.Cliente ?? null);
+    const cliente = uno(exp?.Cliente ?? null) ?? (exp ? await contactoSiEmpresa(admin, opts.expedienteId) : null);
     const gestoria = uno(exp?.Workspace ?? null)?.nombre ?? "Tu gestoría";
     const tokenBandeja = (uno(exp?.Workspace ?? null) as { emailEntranteToken?: string | null } | null)?.emailEntranteToken ?? null;
     const bandeja = tokenBandeja ? direccionEntrante(tokenBandeja) : null;
@@ -361,7 +361,8 @@ export async function enviarSeguimiento(
       .maybeSingle();
     if (yaEnviado) return;
 
-    const cliente = uno(exp.Cliente ?? null) as { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null;
+    const cliente = (uno(exp.Cliente ?? null) as { nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null)
+      ?? await contactoSiEmpresa(admin, opts.expedienteId);
     const ws = uno(exp.Workspace ?? null);
     const gestoria = ws?.nombre ?? "Tu gestoría";
     const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
@@ -480,6 +481,18 @@ const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;")
 // La empresa del expediente: quien PAGA la factura y quien CONTRATA en la hoja de
 // encargo — es la misma. Exportada para que la ruta del encargo manual resuelva el
 // destinatario con la misma regla que las facturas (21/09/2026, retorno de Luis).
+// Expediente DE EMPRESA (21/09/2026, sin titular persona): el interlocutor de los avisos,
+// el seguimiento, los recordatorios y la finalización es el CONTACTO DE LA EMPRESA. Devuelve
+// la misma forma que `uno(exp.Cliente)` para que cada función siga igual; con persona,
+// nunca se llama (el `??` no llega). Sin idioma: la empresa recibe en castellano.
+async function contactoSiEmpresa(
+  admin: SupabaseClient,
+  expedienteId: string,
+): Promise<{ nombre: string | null; email: string | null; telefono: string | null; idioma?: string | null } | null> {
+  const e = await empresaPagadora(admin, expedienteId);
+  return e ? { nombre: e.nombre || null, email: e.email || null, telefono: e.telefono || null, idioma: null } : null;
+}
+
 export async function empresaPagadora(
   admin: SupabaseClient,
   expedienteId: string,
@@ -709,7 +722,7 @@ export async function enviarFinalizacion(
       .maybeSingle();
     const exp = expRaw as { workspaceId: string; oficinaId?: string | null; referencia: string; estado: string; Cliente: { nombre: string | null; email: string | null } | { nombre: string | null; email: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
     if (!exp) return "ERROR";
-    const cliente = uno(exp.Cliente);
+    const cliente = uno(exp.Cliente) ?? await contactoSiEmpresa(admin, opts.expedienteId);
     const destino = (cliente?.email ?? "").trim();
     if (!destino) return "SIN_CONTACTO"; // sin email: el flujo sigue (se archiva igual), sin evento de envío
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
@@ -808,7 +821,7 @@ export async function enviarEncargoManual(
     const exp = expRaw as { workspaceId: string; oficinaId?: string | null; referencia: string; Cliente: { nombre: string | null } | { nombre: string | null }[] | null; Workspace: { nombre: string | null } | { nombre: string | null }[] | null } | null;
     if (!exp) return "ERROR";
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
-    const nombre = primerNombre(uno(exp.Cliente)?.nombre ?? "cliente");
+    const nombre = primerNombre(uno(exp.Cliente)?.nombre ?? (await contactoSiEmpresa(admin, opts.expedienteId))?.nombre ?? "cliente");
 
     const serviciosHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0"><tr><td style="background:#F8FAF7;border:1px solid #E2E8F0;border-radius:12px;padding:14px 18px">
       <p style="margin:0 0 6px;font-family:${FUENTE};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748b">Servicios contratados</p>
@@ -1166,7 +1179,7 @@ export async function enviarRecordatorioDocs(
       documentos: { tipo: string; estado: string }[] | null;
     } | null;
     if (!exp) return { enviado: false, faltan: 0, motivo: "error" };
-    const cliente = uno(exp.Cliente);
+    const cliente = uno(exp.Cliente) ?? await contactoSiEmpresa(admin, opts.expedienteId);
     const ws = uno(exp.Workspace);
     const gestoria = ws?.nombre ?? "Tu gestoría";
     const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
@@ -1286,7 +1299,7 @@ export async function enviarPropuestaRenovacion(
       .maybeSingle();
     const exp = expRaw as { portalToken: string | null; Cliente: { nombre: string | null; email: string | null; idioma?: string | null } | { nombre: string | null; email: string | null; idioma?: string | null }[] | null; Workspace: { id: string; nombre: string } | { id: string; nombre: string }[] | null } | null;
     if (!exp?.portalToken) return { enviado: false, motivo: "error" };
-    const cliente = uno(exp.Cliente);
+    const cliente = uno(exp.Cliente) ?? await contactoSiEmpresa(admin, opts.expedienteId);
     const gestoria = uno(exp.Workspace)?.nombre ?? "Tu gestoría";
     const lang = (esLangSoportada(cliente?.idioma) ? cliente!.idioma : "es") as Lang;
     const t = makeT(lang);

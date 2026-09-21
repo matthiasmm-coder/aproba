@@ -40,8 +40,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let datos = datosNormalizados(exp);
     let extra: ExtraFormulario | undefined;
     let sufijo = "";
-    if (clienteId && exp.familiaId) {
-      const { data: m } = await supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId).eq("familiaId", exp.familiaId).maybeSingle();
+    // Expediente DE EMPRESA: el trabajador del lote (misma mecánica que el miembro).
+    const esTrabajador = Boolean(clienteId) && exp.trabajadores.some((tr) => tr.id === clienteId);
+    if (clienteId && (exp.familiaId || esTrabajador)) {
+      const q = supabase.from("Cliente").select(FICHA_KEYS.join(", ")).eq("id", clienteId);
+      const { data: m } = await (esTrabajador ? q : q.eq("familiaId", exp.familiaId as string)).maybeSingle();
       if (!m) return NextResponse.json({ error: "Miembro no encontrado." }, { status: 404 });
       const row = m as unknown as Record<string, string | null>;
       const ficha: ClienteFicha = {};
@@ -192,7 +195,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const pmAct = act?.formulariosPorMiembro && typeof act.formulariosPorMiembro === "object" && !Array.isArray(act.formulariosPorMiembro)
       ? { ...(act.formulariosPorMiembro as Record<string, string[]>) } : null;
     seleccion = flatAct.includes(anadir.code) ? flatAct : [...flatAct, anadir.code];
-    if (anadir.clienteId && exp.familiaId) {
+    const esTrabajadorLote = Boolean(anadir.clienteId) && !exp.familiaId
+      && Boolean((await supabase.from("ExpedienteTrabajador").select("id").eq("expedienteId", id).eq("clienteId", anadir.clienteId as string).maybeSingle()).data);
+    if (anadir.clienteId && (exp.familiaId || esTrabajadorLote)) {
       const pm2 = pmAct ?? {};
       const propios = Array.isArray(pm2[anadir.clienteId]) ? pm2[anadir.clienteId] : [];
       anadirNuevo = !propios.includes(anadir.code);

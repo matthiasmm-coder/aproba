@@ -22,7 +22,10 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // p2Inicial: casilla p.2 forzada previamente (persistida) para inicializar el selector.
   const [applicants, p2Inicial] = await Promise.all([
     // Familia heterogénea: los solicitantes son los miembros CON servicio asignado.
-    exp.familiaId ? fetchSolicitantesDeFamilia(exp.familiaId, exp.serviciosAsignacion ? [...new Set(Object.values(exp.serviciosAsignacion).flat())] : null) : Promise.resolve([]),
+    exp.familiaId
+      ? fetchSolicitantesDeFamilia(exp.familiaId, exp.serviciosAsignacion ? [...new Set(Object.values(exp.serviciosAsignacion).flat())] : null)
+      // Expediente DE EMPRESA: un juego de formularios por TRABAJADOR del lote.
+      : Promise.resolve(exp.trabajadores.map((tr) => ({ id: tr.id, nombre: tr.nombre }))),
     createSupabaseServer().then((sb) => fetchP2Overrides(sb, id)),
   ]);
   // Selección inicial: si la lista ya fue CURADA (persistida, aunque esté vacía), ELLA es
@@ -54,9 +57,10 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     faltanPorPersona = applicants
       .map((a) => ({ id: a.id, nombre: a.nombre, campos: camposQueFaltan(porId[a.id]) }))
       .filter((x) => x.campos.length);
-  } else {
+  } else if (exp.clienteId) {
+    // Sin titular persona (expediente de empresa sin trabajadores aún) no hay ficha que reclamar.
     const campos = camposQueFaltan(exp.clienteFicha);
-    if (campos.length) faltanPorPersona = [{ id: exp.clienteId ?? "titular", nombre: exp.clienteNombre, campos }];
+    if (campos.length) faltanPorPersona = [{ id: exp.clienteId, nombre: exp.clienteNombre, campos }];
   }
 
   // Bloque «Representante a efectos de presentación» (el despacho). Si no está

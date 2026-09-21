@@ -25,7 +25,10 @@ export async function POST(req: Request) {
     // Cliente-EMPRESA (08/09/2026): el expediente es de un TRABAJADOR (clienteId o `nuevo`)
     // y la empresa contrata y paga (existente o creada al vuelo).
     empresaExistenteId?: string;
-    empresaNueva?: { razonSocial?: string; nif?: string; contactoNombre?: string; contactoEmail?: string; contactoTelefono?: string };
+    empresaNueva?: { razonSocial?: string; nif?: string; contactoNombre?: string; contactoEmail?: string; contactoTelefono?: string; domicilio?: string; codigoPostal?: string; municipio?: string; provincia?: string };
+    // Expediente DE EMPRESA (21/09/2026): trabajadores OPCIONALES al crear — existentes
+    // (varios) y/o uno nuevo (`nuevo`). Sin ninguno, el expediente nace solo con la empresa.
+    trabajadorIds?: string[];
     oficinaId?: string;
   };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
@@ -50,14 +53,16 @@ export async function POST(req: Request) {
     }
     miSede = sedeExplicita;
   }
-  const creaCliente = Boolean(body.familiaNueva?.nombre?.trim() || body.empresaNueva?.razonSocial?.trim() || (!body.clienteId?.trim() && !body.familiaExistenteId?.trim()));
+  const creaCliente = Boolean(body.familiaNueva?.nombre?.trim() || body.empresaNueva?.razonSocial?.trim() || (!body.clienteId?.trim() && !body.familiaExistenteId?.trim() && !body.empresaExistenteId?.trim()));
   if (creaCliente && ctx.requerida && !miSede) {
     return NextResponse.json({ error: "Estás en «Todas» (solo lectura). Elige la oficina en la que trabajas." }, { status: 400 });
   }
 
   let clienteId = "";
   let expedienteFamiliaId: string | null = null; // si != null → expediente FAMILIAR
-  let expedienteEmpresaId: string | null = null; // si != null → expediente de EMPRESA (trabajador + empleador)
+  let expedienteEmpresaId: string | null = null; // si != null → expediente de EMPRESA (sin titular persona)
+  let sedeExpediente: string | null = null;      // empresa: la sede la da la EMPRESA, no un cliente
+  const trabajadoresIniciales: string[] = [];    // empresa: trabajadores añadidos al crear
 
   if (body.familiaNueva?.nombre?.trim()) {
     // ── Familia NUEVA: crea la Familia + un titular (representante). El cliente rellenará
@@ -107,47 +112,68 @@ export async function POST(req: Request) {
     }
     expedienteFamiliaId = famId;
   } else if (body.empresaNueva?.razonSocial?.trim() || body.empresaExistenteId?.trim()) {
-    // ── EMPRESA (cliente-empresa, Asenjo Global 08/09/2026): la empresa contrata y paga
-    // (factura, hoja de encargo, presupuesto a su nombre); el expediente es del TRABAJADOR,
-    // que sigue siendo una persona con su ficha, su portal y sus formularios.
+    // ── EMPRESA (cliente-empresa 08/09/2026 → expediente DE EMPRESA 21/09/2026, Luis): la
+    // empresa contrata y paga (factura, hoja de encargo y presupuesto a su nombre) y el
+    // expediente es SUYO: nace sin titular persona (clienteId nulo, migración
+    // supabase/expediente-trabajadores.sql) y los trabajadores se le añaden — ahora
+    // (existentes y/o uno nuevo) o después, desde la ficha o el enlace de la empresa.
     const faltaMigracion = (msg: string) => /Empresa|empresaId|relation|column|does not exist|schema cache/i.test(msg);
     let empresaId = body.empresaExistenteId?.trim() || "";
+    let sedeEmpresa: string | null = null;
     if (empresaId) {
-      const { data: em, error: eE } = await admin.from("Empresa").select("id").eq("id", empresaId).eq("workspaceId", workspaceId).maybeSingle();
+      const { data: em, error: eE } = await admin.from("Empresa").select("id, oficinaId").eq("id", empresaId).eq("workspaceId", workspaceId).maybeSingle();
       if (eE) return NextResponse.json({ error: faltaMigracion(eE.message) ? "Falta la migración: ejecuta supabase/empresa.sql." : eE.message }, { status: 500 });
       if (!em) return NextResponse.json({ error: "Empresa no encontrada." }, { status: 404 });
+      sedeEmpresa = ((em as { oficinaId?: string | null }).oficinaId ?? null) || null;
+      // Empresa SIN sede: la del contexto/selector la ADOPTA (el expediente y sus
+      // trabajadores heredan). Desde «Todas» sin elegir → 400, como el resto de creaciones.
+      if (!sedeEmpresa) {
+        if (ctx.requerida && !miSede) {
+          return NextResponse.json({ error: "Esta empresa no tiene oficina. Estás en «Todas» (solo lectura): elige la oficina que la llevará." }, { status: 400 });
+        }
+        if (miSede) {
+          try { await admin.from("Empresa").update({ oficinaId: miSede }).eq("id", empresaId).eq("workspaceId", workspaceId); sedeEmpresa = miSede; } catch { /* columna sin migrar */ }
+        }
+      }
     } else {
       const en = body.empresaNueva!;
       empresaId = uuid();
       const { error: eE } = await admin.from("Empresa").insert({
         id: empresaId, workspaceId, razonSocial: en.razonSocial!.trim(),
         nif: en.nif?.trim().toUpperCase().replace(/[\s.\-]/g, "") || null,
+        domicilio: en.domicilio?.trim() || null, codigoPostal: en.codigoPostal?.trim() || null, municipio: en.municipio?.trim() || null, provincia: en.provincia?.trim() || null,
         contactoNombre: en.contactoNombre?.trim() || null, contactoEmail: en.contactoEmail?.trim() || null, contactoTelefono: en.contactoTelefono?.trim() || null,
         updatedAt: new Date().toISOString(), ...(miSede ? { oficinaId: miSede } : {}),
       });
       if (eE) return NextResponse.json({ error: faltaMigracion(eE.message) ? "Falta la migración: ejecuta supabase/empresa.sql." : eE.message }, { status: 500 });
+      sedeEmpresa = miSede;
     }
-    // El trabajador: existente (se ata a la empresa si no tenía) o creado al vuelo.
-    clienteId = body.clienteId?.trim() || "";
-    if (!clienteId) {
-      const nombre = body.nuevo?.nombre?.trim();
-      if (!nombre) return NextResponse.json({ error: "Falta el trabajador (la persona del expediente)." }, { status: 400 });
-      clienteId = uuid();
-      const { error } = await admin.from("Cliente").insert({
-        id: clienteId, workspaceId, nombre, apellidos: body.nuevo?.apellidos?.trim() || null, telefono: body.nuevo?.telefono?.trim() || null,
-        empresaId, updatedAt: new Date().toISOString(), ...(miSede ? { oficinaId: miSede } : {}),
-      });
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    } else {
-      const { data: c } = await admin.from("Cliente").select("id, empresaId, oficinaId").eq("id", clienteId).eq("workspaceId", workspaceId).maybeSingle();
+    expedienteEmpresaId = empresaId;
+    sedeExpediente = sedeEmpresa;
+
+    // Trabajadores al crear (opcionales). Existentes: se atan a la empresa si no tenían y
+    // heredan su sede si no la tenían. `clienteId` suelto = compat con «un trabajador».
+    const ids = [...new Set([...(body.trabajadorIds ?? []).map((x) => String(x).trim()), body.clienteId?.trim() || ""].filter(Boolean))];
+    for (const cid of ids) {
+      const { data: c } = await admin.from("Cliente").select("id, empresaId, oficinaId").eq("id", cid).eq("workspaceId", workspaceId).maybeSingle();
       if (!c) return NextResponse.json({ error: "Trabajador no encontrado." }, { status: 404 });
       const cl = c as { empresaId?: string | null; oficinaId?: string | null };
       const patch: Record<string, unknown> = {};
       if (!cl.empresaId) patch.empresaId = empresaId;
-      if (!cl.oficinaId && miSede) patch.oficinaId = miSede;
-      if (Object.keys(patch).length) await admin.from("Cliente").update(patch).eq("id", clienteId).eq("workspaceId", workspaceId);
+      if (!cl.oficinaId && sedeEmpresa) patch.oficinaId = sedeEmpresa;
+      if (Object.keys(patch).length) await admin.from("Cliente").update(patch).eq("id", cid).eq("workspaceId", workspaceId);
+      trabajadoresIniciales.push(cid);
     }
-    expedienteEmpresaId = empresaId;
+    const nombreNuevo = body.nuevo?.nombre?.trim();
+    if (nombreNuevo) {
+      const cid = uuid();
+      const { error } = await admin.from("Cliente").insert({
+        id: cid, workspaceId, nombre: nombreNuevo, apellidos: body.nuevo?.apellidos?.trim() || null, telefono: body.nuevo?.telefono?.trim() || null,
+        empresaId, updatedAt: new Date().toISOString(), ...(sedeEmpresa ? { oficinaId: sedeEmpresa } : {}),
+      });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      trabajadoresIniciales.push(cid);
+    }
   } else {
     // ── Modo INDIVIDUAL: cliente existente o creado al vuelo. (Compat: familiaId/parentesco
     // sueltos siguen adjuntando el cliente a una familia, sin hacer el expediente familiar.)
@@ -198,7 +224,7 @@ export async function POST(req: Request) {
   }
 
   // El expediente hereda la oficina de su cliente (multi-oficina).
-  const oficinaId = await oficinaDelCliente(admin, clienteId);
+  const oficinaId = clienteId ? await oficinaDelCliente(admin, clienteId) : sedeExpediente;
 
   // Referencia secuencial del año + inserción, con reintento ante colisión (dos creaciones
   // simultáneas calculan el mismo nº → violación de unicidad → recomputa en vez de 500 crudo).
@@ -213,13 +239,18 @@ export async function POST(req: Request) {
     const n = last ? Number(String(last.referencia).split("-")[2]) + 1 : 1;
     referencia = `EXP-${year}-${String(n).padStart(4, "0")}`;
     const fila: Record<string, unknown> = {
-      id: expedienteId, workspaceId, clienteId, referencia, portalToken,
+      id: expedienteId, workspaceId, clienteId: clienteId || null, referencia, portalToken,
       tipo: "OTRO", estado: "EN_PREPARACION", asignadoAId: user.id, updatedAt: new Date().toISOString(),
       ...(expedienteFamiliaId ? { familiaId: expedienteFamiliaId } : {}),
       ...(expedienteEmpresaId ? { empresaId: expedienteEmpresaId } : {}),
       ...(oficinaId ? { oficinaId } : {}), // multi-oficina: heredada del cliente
     };
     let { error: eExp } = await admin.from("Expediente").insert(fila);
+    // Expediente DE EMPRESA sin la migración que permite clienteId nulo: se dice cuál falta
+    // (antes de cualquier repli, que solo lo intentaría de nuevo con el mismo resultado).
+    if (eExp && !clienteId && /null value|not-null|23502/i.test(eExp.message)) {
+      return NextResponse.json({ error: "Falta la migración: ejecuta supabase/expediente-trabajadores.sql." }, { status: 500 });
+    }
     // Repli si falta alguna columna (familiaId, empresaId u oficinaId sin migrar): el
     // expediente se crea igual, sin el extra que la base no conoce.
     if (eExp && (expedienteFamiliaId || expedienteEmpresaId || oficinaId) && /familiaId|empresaId|oficinaId|column|schema cache|does not exist/i.test(eExp.message)) {
@@ -235,12 +266,31 @@ export async function POST(req: Request) {
 
   await admin.from("ExpedienteEvento").insert([
     { id: uuid(), expedienteId, tipo: "CREADO", descripcion: "Expediente creado", userId: user.id },
-    { id: uuid(), expedienteId, tipo: "NOTIFICACION_ENVIADA", descripcion: "Enlace del portal generado para el cliente", userId: user.id },
+    { id: uuid(), expedienteId, tipo: "NOTIFICACION_ENVIADA", descripcion: expedienteEmpresaId ? "Enlace del portal generado para la empresa" : "Enlace del portal generado para el cliente", userId: user.id },
   ]);
+
+  // Expediente de empresa: sus trabajadores iniciales, cada uno con el token de SU enlace.
+  if (expedienteEmpresaId && trabajadoresIniciales.length) {
+    const filas = trabajadoresIniciales.map((cid) => ({ id: uuid(), workspaceId, expedienteId, clienteId: cid, token: uuid().replace(/-/g, "") }));
+    const { error: eT } = await admin.from("ExpedienteTrabajador").insert(filas);
+    if (eT) {
+      const msg = /ExpedienteTrabajador|relation|does not exist|schema cache/i.test(eT.message) ? "Falta la migración: ejecuta supabase/expediente-trabajadores.sql." : eT.message;
+      return NextResponse.json({ error: `El expediente ${referencia} se creó, pero no se pudieron añadir los trabajadores: ${msg}` }, { status: 500 });
+    }
+    const { data: nombres } = await admin.from("Cliente").select("id, nombre, apellidos").in("id", trabajadoresIniciales);
+    const nombreDe = new Map((nombres ?? []).map((c) => [String(c.id), `${c.nombre} ${c.apellidos ?? ""}`.trim()]));
+    await admin.from("ExpedienteEvento").insert(trabajadoresIniciales.map((cid) => ({
+      id: uuid(), expedienteId, tipo: "COMENTARIO", descripcion: `Trabajador añadido al expediente: ${nombreDe.get(cid) ?? ""}`.trim(), userId: user.id,
+    })));
+  }
 
   // ── Cobro del excedente (best-effort; jamás rompe la creación) ──
   // Lógica compartida con «Iniciar renovación» (Vigía) — ver lib/overage.ts.
-  const extra = await cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia });
+  // Expediente de EMPRESA: cada trabajador es un trámite → una unidad por trabajador; un
+  // expediente que nace sin trabajadores no consume cuota (la consumirá cada alta).
+  const extra = expedienteEmpresaId
+    ? (await Promise.all(trabajadoresIniciales.map((cid) => cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia, unidad: cid })))).some(Boolean)
+    : await cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia });
 
-  return NextResponse.json({ ok: true, expedienteId, referencia, portalToken, extra, familiar: Boolean(expedienteFamiliaId), empresa: Boolean(expedienteEmpresaId) });
+  return NextResponse.json({ ok: true, expedienteId, referencia, portalToken, extra, familiar: Boolean(expedienteFamiliaId), empresa: Boolean(expedienteEmpresaId), trabajadores: trabajadoresIniciales.length });
 }

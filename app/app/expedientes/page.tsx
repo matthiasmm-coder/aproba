@@ -142,6 +142,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     clienteNombre: e.clienteNombre,
     clienteNacionalidad: e.clienteNacionalidad,
     empresaNombre: e.empresaNombre ?? null, // cliente-empresa: la tarjeta enseña quién contrata
+    nTrabajadores: e.nTrabajadores ?? null, // expediente DE EMPRESA: trabajadores del lote
     tipoLabel: e.tipoLabel,
     extrasLabels: e.extrasLabels,
     estado: e.estado,

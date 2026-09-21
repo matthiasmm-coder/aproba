@@ -1,5 +1,6 @@
 "use client";
 
+import { etiquetaTrabajadores } from "@/lib/trabajadores";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -18,6 +19,7 @@ export type BoardItem = {
   clienteNombre: string;
   clienteNacionalidad: string;
   empresaNombre?: string | null; // cliente-empresa: la tarjeta lo enseña bajo el nombre
+  nTrabajadores?: number | null; // expediente DE EMPRESA: trabajadores del lote (título = la empresa)
   tipoLabel: string;
   extrasLabels?: string[];
   estado: ExpedienteEstado;
@@ -91,13 +93,17 @@ function Card({ e, onArchive, preparado }: { e: BoardItem; onArchive: (e: BoardI
             <p className="min-w-0 truncate font-semibold leading-tight text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</p>
             {e.fechaLimite && !preparado && <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"><PlazoIcon className="h-3 w-3" />{e.fechaLimite}</span>}
           </div>
-          {e.empresaNombre && (
+          {/* Expediente DE EMPRESA: el título YA es la empresa; debajo, el lote. */}
+          {e.empresaNombre && e.empresaNombre === e.clienteNombre && typeof e.nTrabajadores === "number" && (
+            <p className="mt-0.5 truncate text-[12px] font-medium text-slate-600">{etiquetaTrabajadores(e.nTrabajadores, t)}</p>
+          )}
+          {e.empresaNombre && e.empresaNombre !== e.clienteNombre && (
             <p className="mt-0.5 flex items-center gap-1 truncate text-[12px] font-medium text-slate-600" title={e.empresaNombre}>
               <svg className="h-3 w-3 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 8h4M10 12h4" /></svg>
               <span className="truncate">{e.empresaNombre}</span>
             </p>
           )}
-          <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel} · ${e.clienteNacionalidad}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel} · {e.clienteNacionalidad}</p>
+          <p className="mt-0.5 truncate text-[13px] text-slate-500" title={`${e.tipoLabel}${e.clienteNacionalidad ? ` · ${e.clienteNacionalidad}` : ""}${e.extrasLabels?.length ? ` (+ ${e.extrasLabels.join(" + ")})` : ""}`}>{e.tipoLabel}{e.clienteNacionalidad ? ` · ${e.clienteNacionalidad}` : ""}</p>
         </div>
 
         {/* Grupo derecho de altura fija. En «Preparación» el anillo de completitud; en
@@ -209,6 +215,7 @@ export function BoardClient({ items, asignados, filtroInicial = null, avatares =
     if (asignado && e.asignadoA !== asignado) return false;
     if (!nq) return true;
     return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(e.tipoLabel).includes(nq) || norm(e.referencia).includes(nq)
+      || norm(e.empresaNombre ?? "").includes(nq)
       || (e.extrasLabels ?? []).some((l) => norm(l).includes(nq));
   };
 

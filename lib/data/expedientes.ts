@@ -1,3 +1,5 @@
+import { contarTrabajadores, fetchTrabajadoresDeExpediente } from "@/lib/data/trabajadores";
+import { esExpedienteDeEmpresa, type TrabajadorExpediente } from "@/lib/trabajadores";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
@@ -23,6 +25,9 @@ export type ExpedienteResumen = {
   referencia: string;
   clienteNombre: string;
   clienteNacionalidad: string;
+  // Expediente DE EMPRESA (sin titular persona): cuántos trabajadores lleva el lote.
+  // null = no es de empresa (o migración pendiente).
+  nTrabajadores?: number | null;
   servicioLabel?: string;   // servicio principal, sin el «+N» de los extras
   claves?: string[];        // claves del expediente (principal + extras)
   empresaNombre?: string | null; // cliente-empresa: quien contrata y paga (la tarjeta lo enseña)
@@ -259,6 +264,11 @@ export type ExpedienteDetalle = ExpedienteUI & {
   // null = expediente ordinario. Carga tolerante: sin la migración `empresa.sql` queda null.
   empresaId: string | null;
   empresa: EmpresaDeExpediente | null;
+  // Expediente DE EMPRESA (21/09/2026): sin titular persona (clienteId nulo), con los
+  // trabajadores del lote en ExpedienteTrabajador. `esDeEmpresa` distingue el modelo
+  // nuevo del antiguo «trabajador con empresa pagadora» (clienteId presente).
+  esDeEmpresa: boolean;
+  trabajadores: TrabajadorExpediente[];
   cita: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null; quien: string | null };
 };
 
@@ -368,8 +378,40 @@ async function adjuntarEmpresas(
       const n = String(e?.razonSocial ?? "").trim();
       if (n) nombres.set(f.id, n);
     }
-    for (const e of lista) { const n = nombres.get(e.id); if (n) e.empresaNombre = n; }
+    for (const e of lista) {
+      const n = nombres.get(e.id);
+      if (!n) continue;
+      e.empresaNombre = n;
+      // Expediente DE EMPRESA (sin titular): la tarjeta se titula con la empresa — antes
+      // salía «—» en el tablero, la búsqueda, el orden y el diálogo de archivar.
+      if (e.clienteNombre === "—") { e.clienteNombre = n; e.clienteNacionalidad = ""; }
+    }
+    // Recuento de trabajadores del lote (solo los de empresa; sin migración → nada).
+    const deEmpresa = lista.filter((e) => nombres.has(e.id)).map((e) => e.id);
+    if (deEmpresa.length) {
+      const cuentas = await contarTrabajadores(deEmpresa, supabase);
+      for (const e of lista) if (nombres.has(e.id)) e.nTrabajadores = cuentas.get(e.id) ?? 0;
+    }
   } catch { /* migración pendiente → tarjetas sin línea de empresa */ }
+}
+
+// Expediente DE EMPRESA: la empresa es el cliente. Se completa DESPUÉS de mapear (la
+// empresa y los trabajadores se leen en consultas aparte, tolerantes a la migración).
+async function completarEmpresa(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  det: ExpedienteDetalle,
+): Promise<void> {
+  Object.assign(det, await empresaDeExpediente(supabase, det.id));
+  det.esDeEmpresa = esExpedienteDeEmpresa({ empresaId: det.empresaId, clienteId: det.clienteId });
+  det.trabajadores = det.esDeEmpresa ? await fetchTrabajadoresDeExpediente(det.id, supabase) : [];
+  if (det.esDeEmpresa) {
+    det.clienteNombre = det.empresa?.razonSocial ?? det.clienteNombre;
+    det.clienteNacionalidad = "";
+    // Sin titular, el contacto del expediente es el de la empresa (cierre, avisos, popup).
+    det.clienteEmail = det.empresa?.contactoEmail ?? "";
+    det.clienteTelefono = det.empresa?.contactoTelefono ?? "";
+  }
 }
 
 function mapearDetalle(data: unknown): ExpedienteDetalle {
@@ -416,6 +458,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
     clienteNombre: `${e.cliente?.nombre ?? ""} ${e.cliente?.apellidos ?? ""}`.trim() || "—",
     // id del titular: el aviso de «faltan datos» enlaza a SU ficha para corregirla
     clienteId: (e.cliente as unknown as { id?: string } | null)?.id ?? null,
+    esDeEmpresa: false, // lo fija completarEmpresa (consulta aparte)
+    trabajadores: [],
     clienteNacionalidad: e.cliente?.nacionalidad ?? "—",
     clienteEmail: e.cliente?.email ?? "",
     clienteTelefono: e.cliente?.telefono ?? "",
@@ -508,7 +552,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   if (error) throw new Error(`Expediente ${id}: ${error.message}`);
   if (!data) return null;
   const det = mapearDetalle(data);
-  Object.assign(det, await empresaDeExpediente(supabase, id));
+  await completarEmpresa(supabase, det);
   return det;
 }
 
@@ -538,7 +582,10 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   }
   const { data, error } = res;
   if (error) throw new Error(`Expediente token: ${error.message}`);
-  return data ? mapearDetalle(data) : null;
+  if (!data) return null;
+  const det = mapearDetalle(data);
+  await completarEmpresa(admin, det);
+  return det;
 }
 
 // ── Notas de trabajo del expediente (pedido de Juan) ─────────────────────────
@@ -634,7 +681,9 @@ export function progresoDeExpediente(
     modoManual: e.modoTrabajo === "manual",
     validadoManual: Boolean(e.validadoAt),
     fichaRellenos: FICHA_CAMPOS.filter((c: { k: string }) => String(((e.cliente ?? {}) as Record<string, unknown>)[c.k] ?? "").trim()).length,
-    fichaTotal: FICHA_CAMPOS.length,
+    // Sin titular persona (expediente DE EMPRESA) no hay ficha que rellenar: el denominador
+    // pasa a 0 y la parte «Información» no lastra la completitud con un 0/20 perpetuo.
+    fichaTotal: e.cliente === null ? 0 : FICHA_CAMPOS.length,
     // El estado legado ya afirmaba en publico «documentacion validada»: no puede
     // des-afirmarse — el cliente lo vio marcado en su seguimiento. Se deriva del propio
     // valor mientras las filas antiguas existan: sin columna nueva ni UPDATE de remap.

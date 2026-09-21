@@ -28,16 +28,21 @@ export async function vigiaTrasFinalizar(admin: SupabaseClient, ws: string, w: E
   try {
     const tipoTramite = String(w.tipo ?? "OTRO");
     if (tipoTramite === "RENOVACION") {
-      await cerrarCicloRenovacion(admin, { expedienteRenovacionId: w.id, workspaceId: ws, clienteId: String(w.clienteId), tipoTramite });
+      await cerrarCicloRenovacion(admin, { expedienteRenovacionId: w.id, workspaceId: ws, clienteId: String(w.clienteId ?? ""), tipoTramite });
     }
     const meses = MESES_VALIDEZ[tipoTramite] ?? null;
     if (!meses) return;
     const fecha = new Date();
     fecha.setUTCMonth(fecha.getUTCMonth() + meses);
-    let titulares: string[] = [String(w.clienteId)];
+    let titulares: string[] = w.clienteId ? [String(w.clienteId)] : [];
     if (w.familiaId) {
       const { data: sols } = await admin.from("Cliente").select("id").eq("familiaId", w.familiaId).eq("workspaceId", ws).eq("esSolicitante", true);
       if (sols?.length) titulares = sols.map((s) => String(s.id));
+    } else if (!w.clienteId) {
+      // Expediente DE EMPRESA (sin titular): una caducidad por trabajador del lote. Antes
+      // `String(null)` sembraba un vencimiento para el cliente «null» (violación de FK).
+      const { data: trs } = await admin.from("ExpedienteTrabajador").select("clienteId").eq("expedienteId", w.id).eq("workspaceId", ws);
+      titulares = (trs ?? []).map((t) => String((t as { clienteId: string }).clienteId));
     }
     for (const clienteId of titulares) {
       await sembrarVencimiento(admin, { workspaceId: ws, clienteId, fecha: fecha.toISOString(), tipo: "TIE", expedienteId: w.id, fuente: "ESTIMADA" });

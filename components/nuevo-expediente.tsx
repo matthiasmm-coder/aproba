@@ -61,10 +61,13 @@ export function NuevoExpediente() {
   const [familiaSel, setFamiliaSel] = useState<FamiliaRow | null>(null);
   const [empresas, setEmpresas] = useState<EmpresaRow[]>([]);
   const [empresaSel, setEmpresaSel] = useState<EmpresaRow | null>(null);
-  // Trabajador de la empresa seleccionada: uno existente, o null = trabajador nuevo (formulario).
-  const [trabajadorSel, setTrabajadorSel] = useState<TrabajadorRow | null>(null);
+  // Expediente DE EMPRESA (21/09/2026, Luis): trabajadores OPCIONALES al crear — varios
+  // existentes (pastillas) y/o uno nuevo (formulario). Sin ninguno, el expediente nace solo
+  // con la empresa y los trabajadores se añaden desde su ficha.
+  const [trabajadoresSel, setTrabajadoresSel] = useState<TrabajadorRow[]>([]);
+  const [conTrabNuevo, setConTrabNuevo] = useState(false);
   const [trabNuevo, setTrabNuevo] = useState({ nombre: "", apellidos: "", telefono: "" });
-  const [nuevaEmp, setNuevaEmp] = useState({ razonSocial: "", nif: "", contactoNombre: "", contactoEmail: "", contactoTelefono: "" });
+  const [nuevaEmp, setNuevaEmp] = useState({ razonSocial: "", nif: "", contactoNombre: "", contactoEmail: "", contactoTelefono: "", domicilio: "", codigoPostal: "", municipio: "", provincia: "" });
   const [modoNuevo, setModoNuevo] = useState(false);
   const [tipoNuevo, setTipoNuevo] = useState<"individual" | "familia" | "empresa">("individual");
   const [nuevo, setNuevo] = useState({ nombre: "", apellidos: "", telefono: "" });
@@ -209,16 +212,16 @@ export function NuevoExpediente() {
   // caso la sede elegida ADOPTA al cliente (el expediente hereda; el invariante
   // «expediente = sede del cliente» se mantiene).
   const necesitaSede = modoNuevo || (!!seleccionado && !seleccionado.oficinaId) || (!!familiaSel && !familiaSel.oficinaId)
-    || (!!empresaSel && (trabajadorSel ? !trabajadorSel.oficinaId : !empresaSel.oficinaId));
+    || (!!empresaSel && !empresaSel.oficinaId);
   // Sede impuesta por la selección existente (cliente/familia ya anclados): se ENSEÑA, no se elige.
-  const sedeImpuesta = seleccionado?.oficinaId ?? familiaSel?.oficinaId ?? trabajadorSel?.oficinaId ?? empresaSel?.oficinaId ?? null;
+  const sedeImpuesta = seleccionado?.oficinaId ?? familiaSel?.oficinaId ?? empresaSel?.oficinaId ?? null;
 
   const canCrear = !creando && (
     modoNuevo
       ? (tipoNuevo === "familia" ? nuevaFam.nombre.trim().length > 0
-        : tipoNuevo === "empresa" ? nuevaEmp.razonSocial.trim().length > 0 && trabNuevo.nombre.trim().length > 0
+        : tipoNuevo === "empresa" ? nuevaEmp.razonSocial.trim().length > 0 && (!conTrabNuevo || trabNuevo.nombre.trim().length > 0)
         : nuevo.nombre.trim().length > 0)
-      : (!!seleccionado || !!familiaSel || (!!empresaSel && (!!trabajadorSel || trabNuevo.nombre.trim().length > 0)))
+      : (!!seleccionado || !!familiaSel || (!!empresaSel && (!conTrabNuevo || trabNuevo.nombre.trim().length > 0)))
   );
 
   async function crear() {
@@ -235,25 +238,27 @@ export function NuevoExpediente() {
       let tel: string;
       let empresaTxt = "";
       if (modoNuevo && tipoNuevo === "empresa") {
-        // Empresa nueva + su primer trabajador: el expediente nace a nombre del trabajador.
-        nombre = `${trabNuevo.nombre.trim()} ${trabNuevo.apellidos.trim()}`.trim();
-        tel = trabNuevo.telefono.trim();
+        // Empresa NUEVA: el expediente es DE LA EMPRESA (sin titular persona); trabajador nuevo opcional.
         empresaTxt = nuevaEmp.razonSocial.trim();
+        nombre = empresaTxt;
+        tel = nuevaEmp.contactoTelefono.trim();
         body = {
-          empresaNueva: { razonSocial: empresaTxt, nif: nuevaEmp.nif.trim(), contactoNombre: nuevaEmp.contactoNombre.trim(), contactoEmail: nuevaEmp.contactoEmail.trim(), contactoTelefono: nuevaEmp.contactoTelefono.trim() },
-          nuevo: { nombre: trabNuevo.nombre.trim(), apellidos: trabNuevo.apellidos.trim(), telefono: tel },
+          empresaNueva: {
+            razonSocial: empresaTxt, nif: nuevaEmp.nif.trim(), contactoNombre: nuevaEmp.contactoNombre.trim(), contactoEmail: nuevaEmp.contactoEmail.trim(), contactoTelefono: tel,
+            domicilio: nuevaEmp.domicilio.trim(), codigoPostal: nuevaEmp.codigoPostal.trim(), municipio: nuevaEmp.municipio.trim(), provincia: nuevaEmp.provincia.trim(),
+          },
+          ...(conTrabNuevo && trabNuevo.nombre.trim() ? { nuevo: { nombre: trabNuevo.nombre.trim(), apellidos: trabNuevo.apellidos.trim(), telefono: trabNuevo.telefono.trim() } } : {}),
         };
       } else if (empresaSel) {
+        // Empresa EXISTENTE: varios trabajadores existentes y/o uno nuevo — o ninguno todavía.
         empresaTxt = empresaSel.razonSocial;
-        if (trabajadorSel) {
-          nombre = `${trabajadorSel.nombre} ${trabajadorSel.apellidos ?? ""}`.trim();
-          tel = trabajadorSel.telefono ?? "";
-          body = { empresaExistenteId: empresaSel.id, clienteId: trabajadorSel.id };
-        } else {
-          nombre = `${trabNuevo.nombre.trim()} ${trabNuevo.apellidos.trim()}`.trim();
-          tel = trabNuevo.telefono.trim();
-          body = { empresaExistenteId: empresaSel.id, nuevo: { nombre: trabNuevo.nombre.trim(), apellidos: trabNuevo.apellidos.trim(), telefono: tel } };
-        }
+        nombre = empresaTxt;
+        tel = "";
+        body = {
+          empresaExistenteId: empresaSel.id,
+          trabajadorIds: trabajadoresSel.map((x) => x.id),
+          ...(conTrabNuevo && trabNuevo.nombre.trim() ? { nuevo: { nombre: trabNuevo.nombre.trim(), apellidos: trabNuevo.apellidos.trim(), telefono: trabNuevo.telefono.trim() } } : {}),
+        };
       } else if (modoNuevo && tipoNuevo === "familia") {
         nombre = nuevaFam.nombre.trim();
         tel = nuevaFam.telefono.trim();
@@ -323,7 +328,14 @@ export function NuevoExpediente() {
       setNombreCliente(nombre);
       setEsFamiliar(Boolean(d.familiar));
       setEmpresaNombre(d.empresa ? empresaTxt : "");
-      setMiembrosFam(familiaSel ? Math.max(1, familiaSel.miembros) : 1);
+      // Empresa: la tarifa es por trabajador (sin ninguno, una unidad — como /api/pagos).
+      setMiembrosFam(familiaSel ? Math.max(1, familiaSel.miembros) : d.empresa ? Math.max(1, Number(d.trabajadores) || 0) : 1);
+      if (d.empresa) {
+        // El portal de la EMPRESA llega en el lote 2: hasta entonces el expediente se trabaja
+        // en modo manual (el encargo se fija aquí; los trabajadores, desde la ficha).
+        setModo("manual");
+        void fetch(`/api/expedientes/${d.expedienteId}/modo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo: "manual" }) }).catch(() => {});
+      }
       setAjustado(servicios.claves.length > 0 || Boolean(servicios.packId));
       setExtraFacturado(Boolean(d.extra));
       setUsados((u) => (u ?? 0) + 1);
@@ -405,7 +417,7 @@ export function NuevoExpediente() {
           {/* Bascule existant / nouveau */}
           <div className="mt-5 inline-flex gap-1 rounded-lg bg-slate-100 p-1">
             <button onClick={() => { setModoNuevo(false); setError(null); }} className={`rounded-md px-4 py-2 text-sm font-medium transition ${!modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente existente")}</button>
-            <button onClick={() => { setModoNuevo(true); setSeleccionado(null); setFamiliaSel(null); setEmpresaSel(null); setTrabajadorSel(null); setError(null); }} data-guia={!modoNuevo && !seleccionado && !familiaSel && !empresaSel ? "cliente-nuevo" : undefined} className={`rounded-md px-4 py-2 text-sm font-medium transition ${modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente nuevo")}</button>
+            <button onClick={() => { setModoNuevo(true); setSeleccionado(null); setFamiliaSel(null); setEmpresaSel(null); setTrabajadoresSel([]); setError(null); }} data-guia={!modoNuevo && !seleccionado && !familiaSel && !empresaSel ? "cliente-nuevo" : undefined} className={`rounded-md px-4 py-2 text-sm font-medium transition ${modoNuevo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t("Cliente nuevo")}</button>
           </div>
 
           {!modoNuevo ? (
@@ -441,7 +453,7 @@ export function NuevoExpediente() {
                       const n = em.trabajadores.length;
                       return (
                         <div key={em.id}>
-                          <button onClick={() => { setEmpresaSel(em); setTrabajadorSel(null); setSeleccionado(null); setFamiliaSel(null); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                          <button onClick={() => { setEmpresaSel(em); setTrabajadoresSel([]); setConTrabNuevo(false); setSeleccionado(null); setFamiliaSel(null); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700"><EmpIcon className="h-4 w-4" /></span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium text-slate-800">{em.razonSocial}</span>
@@ -451,21 +463,21 @@ export function NuevoExpediente() {
                           </button>
                           {sel && (
                             <div className="ml-4 mt-1.5 border-l-2 border-aproba-200 pl-3">
-                              <p className="text-xs font-medium text-slate-600">{t("¿Para qué trabajador es el expediente?")}</p>
+                              <p className="text-xs font-medium text-slate-600">{t("¿Qué trabajadores entran en este expediente? Puedes añadirlos ahora o después, desde la ficha.")}</p>
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {em.trabajadores.map((tr) => {
-                                  const on = trabajadorSel?.id === tr.id;
+                                  const on = trabajadoresSel.some((x) => x.id === tr.id);
                                   return (
-                                    <button key={tr.id} type="button" onClick={() => setTrabajadorSel(tr)} className={`rounded-full border px-3 py-1 text-xs font-medium transition ${on ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"}`}>
+                                    <button key={tr.id} type="button" onClick={() => setTrabajadoresSel((l) => (on ? l.filter((x) => x.id !== tr.id) : [...l, tr]))} className={`rounded-full border px-3 py-1 text-xs font-medium transition ${on ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"}`}>
                                       {`${tr.nombre} ${tr.apellidos ?? ""}`.trim()}
                                     </button>
                                   );
                                 })}
-                                <button type="button" onClick={() => setTrabajadorSel(null)} className={`rounded-full border border-dashed px-3 py-1 text-xs font-medium transition ${!trabajadorSel ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}>
+                                <button type="button" onClick={() => setConTrabNuevo((v) => !v)} className={`rounded-full border border-dashed px-3 py-1 text-xs font-medium transition ${conTrabNuevo ? "border-aproba-600 bg-aproba-50 text-aproba-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}>
                                   + {t("Trabajador nuevo")}
                                 </button>
                               </div>
-                              {!trabajadorSel && (
+                              {conTrabNuevo && (
                                 <div className="mt-2 grid grid-cols-2 gap-3">
                                   <div>
                                     <label className="text-xs font-medium text-slate-600">{t("Nombre *")}</label>
@@ -497,7 +509,7 @@ export function NuevoExpediente() {
                     {famFiltradas.map((f) => {
                       const sel = familiaSel?.id === f.id;
                       return (
-                        <button key={f.id} onClick={() => { setFamiliaSel(f); setSeleccionado(null); setEmpresaSel(null); setTrabajadorSel(null); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                        <button key={f.id} onClick={() => { setFamiliaSel(f); setSeleccionado(null); setEmpresaSel(null); setTrabajadoresSel([]); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700"><FamIcon className="h-4 w-4" /></span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium text-slate-800">{f.nombre}</span>
@@ -515,7 +527,7 @@ export function NuevoExpediente() {
                   const nombre = `${c.nombre} ${c.apellidos ?? ""}`.trim();
                   const sel = seleccionado?.id === c.id;
                   return (
-                    <button key={c.id} onClick={() => { setSeleccionado(c); setFamiliaSel(null); setEmpresaSel(null); setTrabajadorSel(null); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                    <button key={c.id} onClick={() => { setSeleccionado(c); setFamiliaSel(null); setEmpresaSel(null); setTrabajadoresSel([]); }} className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-left transition ${sel ? "border-aproba-600 bg-aproba-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-xs font-semibold text-aproba-700">{iniciales(nombre)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-slate-800">{nombre}</span>
@@ -558,7 +570,29 @@ export function NuevoExpediente() {
                       <input type="email" value={nuevaEmp.contactoEmail} onChange={(e) => setNuevaEmp((f) => ({ ...f, contactoEmail: e.target.value }))} className={input} />
                     </div>
                   </div>
-                  <p className="mt-3 text-xs text-slate-500">{t("La empresa figura como cliente en la hoja de encargo y en las facturas. El expediente se abre a nombre del trabajador: él recibe el enlace y sube sus documentos.")}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium text-slate-700">{t("Domicilio fiscal")}</label>
+                      <input value={nuevaEmp.domicilio} onChange={(e) => setNuevaEmp((f) => ({ ...f, domicilio: e.target.value }))} placeholder={t("Calle, número, piso")} className={input} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-700">{t("Código postal")}</label>
+                      <input value={nuevaEmp.codigoPostal} onChange={(e) => setNuevaEmp((f) => ({ ...f, codigoPostal: e.target.value }))} className={input} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-700">{t("Municipio")}</label>
+                      <input value={nuevaEmp.municipio} onChange={(e) => setNuevaEmp((f) => ({ ...f, municipio: e.target.value }))} className={input} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium text-slate-700">{t("Provincia")}</label>
+                      <input value={nuevaEmp.provincia} onChange={(e) => setNuevaEmp((f) => ({ ...f, provincia: e.target.value }))} className={input} />
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">{t("El expediente es de la empresa: la hoja de encargo y las facturas van a su nombre. Los trabajadores se añaden ahora (opcional) o después, desde la ficha del expediente; cada uno tendrá sus documentos, sus formularios y su mandato.")}</p>
+                  <button type="button" onClick={() => setConTrabNuevo((v) => !v)} className={`mt-3 rounded-full border border-dashed px-3 py-1 text-xs font-medium transition ${conTrabNuevo ? "border-aproba-500 bg-aproba-50 text-aproba-700" : "border-slate-300 text-slate-500 hover:border-slate-400"}`}>
+                    + {t("Trabajador nuevo")}
+                  </button>
+                  {conTrabNuevo && (
                   <div className="mt-3 grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-slate-700">{t("Trabajador · nombre *")}</label>
@@ -575,6 +609,7 @@ export function NuevoExpediente() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               ) : tipoNuevo === "individual" ? (
                 <div className="mt-4 grid grid-cols-2 gap-4">
@@ -650,7 +685,7 @@ export function NuevoExpediente() {
 
           {empresaNombre && (
             <div className="mx-auto mt-4 max-w-md rounded-lg border border-aproba-200 bg-aproba-50/60 px-3 py-2 text-xs leading-relaxed text-aproba-800">
-              {t("El enlace es para el trabajador: él sube sus documentos. La empresa figura como cliente en la hoja de encargo y en las facturas.")}
+              {t("El expediente es de la empresa: la hoja de encargo y las facturas van a su nombre. Fija aquí el encargo; los trabajadores se añaden desde la ficha del expediente. El enlace para que la empresa complete los datos de sus trabajadores llegará en breve.")}
             </div>
           )}
 
@@ -669,6 +704,7 @@ export function NuevoExpediente() {
           {/* Cómo se va a trabajar este expediente. Es una decisión REAL del despacho:
               muchos trámites (contra-trámites, clientes que traen los papeles en mano)
               nunca pasan por el portal, y pedirles el enlace era ruido permanente. */}
+          {!empresaNombre && (
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             {/* focus-visible en verde de marca: el anillo azul por defecto del navegador
                 se quedaba pegado tras el clic y no era el color de Aproba. */}
@@ -691,6 +727,7 @@ export function NuevoExpediente() {
               <p className="mt-1 text-xs text-slate-500">{t("Los subes tú, sin enlace.")}</p>
             </button>
           </div>
+          )}
           {errorModo && <p role="alert" className="mt-2 text-xs text-red-600">{errorModo}</p>}
 
           {modo === "manual" ? (
@@ -755,7 +792,7 @@ export function NuevoExpediente() {
           <div className="mt-5 flex justify-center gap-3 text-sm">
             <Link href="/app/expedientes" className="font-semibold text-aproba-700 hover:underline">{t("Ir a Expedientes")}</Link>
             <span className="text-slate-300">·</span>
-            <button onClick={() => { setStep(0); setSeleccionado(null); setFamiliaSel(null); setEmpresaSel(null); setTrabajadorSel(null); setTrabNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaEmp({ razonSocial: "", nif: "", contactoNombre: "", contactoEmail: "", contactoTelefono: "" }); setEmpresaNombre(""); setModoNuevo(false); setTipoNuevo("individual"); setNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaFam({ nombre: "", titularNombre: "", titularApellidos: "", telefono: "" }); setQ(""); }} className="text-slate-500 hover:text-slate-800">
+            <button onClick={() => { setStep(0); setSeleccionado(null); setFamiliaSel(null); setEmpresaSel(null); setTrabajadoresSel([]); setTrabNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaEmp({ razonSocial: "", nif: "", contactoNombre: "", contactoEmail: "", contactoTelefono: "", domicilio: "", codigoPostal: "", municipio: "", provincia: "" }); setEmpresaNombre(""); setModoNuevo(false); setTipoNuevo("individual"); setNuevo({ nombre: "", apellidos: "", telefono: "" }); setNuevaFam({ nombre: "", titularNombre: "", titularApellidos: "", telefono: "" }); setQ(""); }} className="text-slate-500 hover:text-slate-800">
               {t("Crear otro")}
             </button>
           </div>

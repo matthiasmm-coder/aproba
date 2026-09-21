@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unidadesFacturables } from "@/lib/trabajadores";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
@@ -118,6 +119,17 @@ export async function POST(req: Request) {
   if (exp.familiaId) {
     const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);
     nMiembros = Math.max(1, count ?? 1);
+  } else {
+    // Expediente DE EMPRESA (sin titular persona): la tarifa es POR TRABAJADOR del lote —
+    // sin trabajadores todavía, una unidad (el anticipo de un encargo nunca es 0 €).
+    try {
+      const { data: x } = await admin.from("Expediente").select("empresaId, clienteId").eq("id", exp.id).maybeSingle();
+      const xx = x as { empresaId?: string | null; clienteId?: string | null } | null;
+      if (xx?.empresaId && !xx.clienteId) {
+        const { count } = await admin.from("ExpedienteTrabajador").select("id", { count: "exact", head: true }).eq("expedienteId", exp.id);
+        nMiembros = unidadesFacturables(count ?? 0);
+      }
+    } catch { /* migración pendiente → ×1 */ }
   }
 
   let baseImponible: number, iva: number, total: number;

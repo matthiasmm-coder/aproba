@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { fetchTrabajadoresDeExpediente } from "@/lib/data/trabajadores";
+import { unidadesFacturables } from "@/lib/trabajadores";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo";
+import { datosEncargo, generarHojaEncargo, generarMandato, personaEncargo } from "@/lib/encargo";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { serviciosDeExpediente, aplicarDescuento, asignacionValida, descuentoValido, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { totalDe, r2 } from "@/lib/facturas";
@@ -62,6 +64,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // empleador (retorno de Luis, 21/09/2026). Misma regla que las facturas: sin email de
   // la empresa NO se cae en el del trabajador; se dice y el gestor lo arregla.
   const empresa = await empresaPagadora(admin, exp.id);
+  // Expediente DE EMPRESA (sin titular persona): los trabajadores del lote — tarifa ×N y
+  // un mandato por persona. Con titular (modelo anterior), lista vacía y nada cambia.
+  const trabajadoresLote = empresa && !exp.clienteId ? await fetchTrabajadoresDeExpediente(exp.id, admin) : [];
   const emailFicha = (exp.cliente?.email ?? "").trim();
   const emailEmpresa = (empresa?.email ?? "").trim();
   const destino = emailIn || (empresa ? emailEmpresa : emailFicha);
@@ -95,6 +100,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (exp.familiaId) {
     const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);
     nMiembros = Math.max(1, count ?? 1);
+  } else if (empresa && !exp.clienteId) {
+    nMiembros = unidadesFacturables(trabajadoresLote.length);
   }
   const asignacion = asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion);
   const tarifa = tarifaAsignada(serviciosExp, asignacion, nMiembros);
@@ -134,11 +141,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           const { data: blob } = await admin.storage.from("documentos").download(w.mandatoPropioPath);
           if (blob) mandato = new Uint8Array(await blob.arrayBuffer());
         }
-        if (!mandato) mandato = await generarMandato(datos);
-        adjuntos = [
-          { filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") },
-          { filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(mandato).toString("base64") },
-        ];
+        adjuntos = [{ filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") }];
+        const slug = (n: string) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+        if (mandato) {
+          adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(mandato).toString("base64") });
+        } else if (empresa && !exp.clienteId) {
+          // Expediente DE EMPRESA: un mandato POR TRABAJADOR (cada uno firma el suyo: es a él
+          // a quien se representa). Sin trabajadores todavía, va solo la hoja.
+          for (const tr of trabajadoresLote) {
+            const pdf = await generarMandato(datos, personaEncargo({ ...tr.ficha, telefono: tr.telefono, email: tr.email }));
+            adjuntos.push({ filename: `mandato-${exp.referencia}-${slug(tr.nombre)}.pdf`, content: Buffer.from(pdf).toString("base64") });
+          }
+        } else {
+          adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(await generarMandato(datos)).toString("base64") });
+        }
       }
     }
   } catch (e) {
