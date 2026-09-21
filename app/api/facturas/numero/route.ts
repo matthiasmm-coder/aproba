@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { siguienteNumero } from "@/lib/factura-numero";
+import { siguienteNumero, interpretarUltimoNumero, ordinalDeNumero } from "@/lib/factura-numero";
+import { puedeGestionarEquipo } from "@/lib/planes";
 import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
 
 // Prochain numéro de la série du despacho.
@@ -62,4 +63,62 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({ numero: await siguienteNumero(admin, workspaceId, new Date().getFullYear(), prefijo) });
+}
+
+// ── ARRANQUE DE SERIE (Luis, Asenjo 21/09/2026) ──────────────────────────────────────
+// «Facturaba en Excel: mi última factura de este año es la 0312.» El administrador escribe
+// ese último número y la serie sigue desde el siguiente. Mecanismo: el número se consigna en
+// FacturaNumeroQuemado (la misma tabla que impide reutilizar el número de una factura
+// borrada), y siguienteNumero() —que une vivos y quemados— pasa a devolver max+1.
+// La serie solo AVANZA: fijar un número por debajo del máximo actual se rechaza (409),
+// porque una numeración correlativa nunca retrocede ni deja huecos rellenables.
+// Sin ?oficinaId → serie común del despacho; con oficinaId → la serie de SU prefijo.
+export async function POST(req: Request) {
+  const supa = await createSupabaseServer();
+  const { data: { user } } = await supa.auth.getUser();
+  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const admin = createSupabaseAdmin();
+  const { data: mem } = await admin.from("Membership").select("workspaceId, role").eq("userId", user.id).limit(1).maybeSingle();
+  if (!mem) return NextResponse.json({ error: "Sin despacho." }, { status: 403 });
+  if (!puedeGestionarEquipo(String((mem as { role?: string }).role ?? ""))) {
+    return NextResponse.json({ error: "Solo un administrador puede fijar la numeración de las facturas." }, { status: 403 });
+  }
+  const workspaceId = (mem as { workspaceId: string }).workspaceId;
+
+  const body = await req.json().catch(() => ({})) as { oficinaId?: string | null; ultimo?: string };
+  let prefijo = "";
+  const oficinaId = String(body.oficinaId ?? "").trim();
+  if (oficinaId) {
+    const { data: ofi } = await admin.from("Oficina").select("id, prefijoSerie").eq("id", oficinaId).eq("workspaceId", workspaceId).maybeSingle();
+    if (!ofi) return NextResponse.json({ error: "Oficina no encontrada." }, { status: 404 });
+    prefijo = String((ofi as { prefijoSerie?: string | null }).prefijoSerie ?? "").trim().toUpperCase();
+    if (!prefijo) {
+      return NextResponse.json({ error: "Esta oficina no tiene prefijo de serie guardado: guarda primero el prefijo, o fija el número en los datos de la gestoría (serie común)." }, { status: 409 });
+    }
+  }
+
+  const year = new Date().getFullYear();
+  const res = interpretarUltimoNumero(String(body.ultimo ?? ""), year, prefijo);
+  if ("error" in res) return NextResponse.json({ error: res.error }, { status: 400 });
+
+  const siguienteActual = await siguienteNumero(admin, workspaceId, year, prefijo);
+  const maxActual = ordinalDeNumero(siguienteActual) - 1;
+  if (res.n < maxActual) {
+    return NextResponse.json({
+      error: `La serie ya va por el nº ${maxActual}: la siguiente factura será la ${siguienteActual}. Una serie solo avanza (numeración correlativa), nunca retrocede.`,
+      siguiente: siguienteActual,
+    }, { status: 409 });
+  }
+  if (res.n === maxActual) return NextResponse.json({ ok: true, siguiente: siguienteActual, sinCambios: true });
+
+  const { error } = await admin.from("FacturaNumeroQuemado").upsert(
+    { id: crypto.randomUUID(), workspaceId, numero: res.numero },
+    { onConflict: "workspaceId,numero", ignoreDuplicates: true },
+  );
+  if (error) {
+    const falta = /FacturaNumeroQuemado|relation|does not exist|schema cache|PGRST205/i.test(error.message);
+    return NextResponse.json({ error: falta ? "Falta la migración: ejecuta supabase/factura-numeros-quemados.sql en Supabase." : error.message }, { status: 500 });
+  }
+  const siguiente = await siguienteNumero(admin, workspaceId, year, prefijo);
+  return NextResponse.json({ ok: true, siguiente, ultimo: res.numero });
 }

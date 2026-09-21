@@ -66,3 +66,33 @@ export async function siguienteNumero(admin: Admin, workspaceId: string, year = 
 export async function siguienteSerie(admin: Admin, workspaceId: string, cuantos: number, year = new Date().getFullYear(), prefijo = ""): Promise<string[]> {
   return calcularSerie(await emitidos(admin, workspaceId, year, prefijo), year, cuantos, prefijo);
 }
+
+// Ordinal de un número de factura («DG-2026-0312» → 312). Misma lectura que calcularSerie.
+export const ordinalDeNumero = (numero: string): number => {
+  const n = Number(String(numero).split("-").pop());
+  return Number.isFinite(n) ? n : 0;
+};
+
+// ── ARRANQUE DE SERIE (Luis, Asenjo 21/09/2026: «vengo de Excel, mi última factura es la 0312») ──
+// El despacho escribe el ÚLTIMO número emitido fuera de Aproba y la serie sigue desde el
+// siguiente (la route lo consigna en FacturaNumeroQuemado: max+1 sube y ya no baja).
+// Puro: entrada del gestor → número canónico de ESTA serie (año + prefijo) o motivo del rechazo.
+// Acepta «312», «0312», «2026-0312» y «DG-2026-0312»; el año y el prefijo, si vienen, deben
+// ser los de la serie (una serie solo se fija para el año en curso).
+export function interpretarUltimoNumero(entrada: string, year: number, prefijo = ""): { numero: string; n: number } | { error: string } {
+  const base = prefijo ? `${prefijo}-${year}` : `${year}`;
+  const v = String(entrada ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (!v) return { error: "Escribe el último número emitido." };
+  const partes = v.split("-");
+  let pref = "", anio = "", num = "";
+  if (partes.length === 1) [num] = partes;
+  else if (partes.length === 2) { if (/^\d{4}$/.test(partes[0])) [anio, num] = partes; else [pref, num] = partes; }
+  else if (partes.length === 3) [pref, anio, num] = partes;
+  else return { error: `Formato no reconocido. Escribe solo el número (p. ej. 0312) o el número completo (${base}-0312).` };
+  if (!/^\d{1,6}$/.test(num)) return { error: `Formato no reconocido. Escribe solo el número (p. ej. 0312) o el número completo (${base}-0312).` };
+  if (pref && pref !== prefijo) return { error: prefijo ? `El prefijo de esta serie es «${prefijo}», no «${pref}».` : `Esta serie no lleva prefijo (la siguiente sería ${base}-…).` };
+  if (anio && Number(anio) !== year) return { error: `Solo se puede fijar la serie del año en curso (${year}).` };
+  const n = Number(num);
+  if (!Number.isInteger(n) || n < 1) return { error: "El número debe ser mayor que 0." };
+  return { numero: `${base}-${String(n).padStart(PADDING, "0")}`, n };
+}

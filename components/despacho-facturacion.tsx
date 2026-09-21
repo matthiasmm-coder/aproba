@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import type { Despacho } from "@/lib/data/config";
+import { SerieFacturas } from "@/components/serie-facturas";
 
 // Ajustes › datos de facturación del despacho (encabezado de la factura).
 // Lo que se rellena aquí aparece en la cabecera de cada factura (PDF/impresión).
@@ -85,6 +86,9 @@ export function DespachoFacturacion({ inicial }: { inicial: Despacho }) {
           {estado === "saving" ? t("Guardando…") : t("Guardar datos de facturación")}
         </button>
       </div>
+
+      {/* Serie común del despacho: quien viene de Excel fija aquí su último número. */}
+      <SerieFacturas />
     </div>
   );
 }

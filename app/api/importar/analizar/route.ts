@@ -52,6 +52,7 @@ Campos de destino posibles para una columna (usa null si la columna no correspon
 - Cliente: nombre, apellidos, nombreCompleto (nombre Y apellidos juntos en una sola columna), sexo, fechaNacimiento, lugarNacimiento, paisNacimiento, nacionalidad, numeroDocumento (NIE/DNI), pasaporte, documento (columna que MEZCLA NIE y pasaportes), estadoCivil, nombrePadre, nombreMadre, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email, idioma, fechaCaducidad (caducidad de la TIE/residencia), fechaResolucion (fecha de RESOLUCIÓN de un expediente, típica de las listas de la regularización extraordinaria 2026)
 - Expediente: referencia, tramite (tipo de trámite en texto libre), estado, fechaPresentacion (fecha en que el expediente se PRESENTÓ ante la Administración — distinta de la de resolución), notas, importe (cantidad facturada/cobrada por el trámite en el pasado, p. ej. «690€», «300»)
 - Familia: familia (clave de agrupación familiar), parentesco
+- Empresa: empresa (razón social de la EMPRESA que contrata al trabajador / empleador; los trabajadores de una misma empresa quedan vinculados a ella)
 
 Responde SOLO con un JSON válido, sin markdown, con EXACTAMENTE esta forma:
 {

@@ -13,7 +13,7 @@ import { SERVICIO_A_TIPO } from "@/lib/tramites";
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
 export const CAMPOS_CLIENTE = [...FICHA_KEYS, "idioma", "fechaCaducidad"] as const;
 export const CAMPOS_EXPEDIENTE = ["referencia", "tramite", "estado", "fechaPresentacion", "notas", "importe"] as const;
-export const CAMPOS_ESPECIALES = ["nombreCompleto", "documento", "familia", "parentesco", "fechaResolucion"] as const;
+export const CAMPOS_ESPECIALES = ["nombreCompleto", "documento", "familia", "parentesco", "fechaResolucion", "empresa"] as const;
 export type CampoImport = (typeof CAMPOS_CLIENTE)[number] | (typeof CAMPOS_EXPEDIENTE)[number] | (typeof CAMPOS_ESPECIALES)[number];
 
 export const TODOS_LOS_CAMPOS: CampoImport[] = [...CAMPOS_CLIENTE, ...CAMPOS_EXPEDIENTE, ...CAMPOS_ESPECIALES];
@@ -136,6 +136,8 @@ export type FilaImportada = {
   fechaPresentacion: string;   // ISO o "" — fecha en que el expediente se PRESENTÓ ante la Administración
   familia: string;             // clave de agrupación libre ("" = sin familia)
   parentesco: string;
+  empresa: string;             // razón social de la empresa que contrata ("" = particular). Luis (Asenjo, 21/09/2026):
+                               // su Excel lleva la empresa de cada trabajador → Empresa + Cliente.empresaId al importar
   referencia: string;
   tramite: string;             // valor libre del archivo («Arraigo social», «Regularización DA 21»…)
   servicio: string | null;     // clave del catálogo (null = sin servicio en el historial)
@@ -153,7 +155,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", empresa: "", referencia: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -180,6 +182,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
         case "idioma": out.idioma = v.slice(0, 2).toLowerCase(); break;
         case "familia": out.familia = v; break;
         case "parentesco": out.parentesco = v.toUpperCase(); break;
+        case "empresa": out.empresa = v.slice(0, 160); break;
         case "referencia": out.referencia = v; break;
         case "tramite": tramiteBruto = v; break;
         case "estado": estadoBruto = v; break;

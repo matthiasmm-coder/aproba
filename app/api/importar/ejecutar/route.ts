@@ -101,7 +101,7 @@ export async function POST(req: Request) {
     for (const f of (fams ?? []) as { id: string; nombre: string }[]) familiasPorNombre.set(f.nombre.trim().toLowerCase(), f.id);
   }
 
-  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, serviciosCreados: 0, serviciosOmitidos: 0, expedientesCreados: 0, expedientesOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
+  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, empresas: 0, serviciosCreados: 0, serviciosOmitidos: 0, expedientesCreados: 0, expedientesOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
   const avisosExtra: string[] = [];
   const ahora = () => new Date().toISOString();
 
@@ -121,6 +121,51 @@ export async function POST(req: Request) {
       r.familias = nuevasFamilias.length;
     }
   }
+
+  // ── 1b. Empresas (Luis, Asenjo 21/09/2026: su Excel lleva la empresa de cada trabajador) ──
+  // Idempotente por razón social (sin mayúsculas ni espacios dobles): reimportar no duplica.
+  // El vínculo se pone en Cliente.empresaId (solo si estaba vacío) y en los expedientes en
+  // curso que se abran. Sin la migración empresa.sql → aviso y la cartera entra igual.
+  const claveEmpresa = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+  const empresasPorNombre = new Map<string, string>();
+  const nombreEmpresa = new Map<string, string>();
+  const empresaDeCliente = new Map<string, string | null>(); // clientes ya existentes → su empresa actual
+  const hayEmpresas = filas.some((f) => !f.excluir && Boolean(f.empresa.trim()));
+  let empresasActivas = hayEmpresas;
+  if (hayEmpresas) {
+    const { data: ems, error: eEms } = await admin.from("Empresa").select("id, razonSocial").eq("workspaceId", workspaceId);
+    if (eEms) {
+      empresasActivas = false;
+      avisosExtra.push("Empresas no vinculadas: falta ejecutar supabase/empresa.sql en Supabase.");
+    } else {
+      for (const e of (ems ?? []) as { id: string; razonSocial: string }[]) { empresasPorNombre.set(claveEmpresa(e.razonSocial), e.id); nombreEmpresa.set(e.id, e.razonSocial); }
+      const nuevasEmpresas: Record<string, unknown>[] = [];
+      for (const f of filas) {
+        const k = f.excluir ? "" : claveEmpresa(f.empresa);
+        if (!k || empresasPorNombre.has(k)) continue;
+        const id = uid();
+        const razonSocial = f.empresa.trim().replace(/\s+/g, " ");
+        empresasPorNombre.set(k, id); nombreEmpresa.set(id, razonSocial);
+        nuevasEmpresas.push({ id, workspaceId, razonSocial, updatedAt: ahora(), ...(oficinaImport ? { oficinaId: oficinaImport } : {}) });
+      }
+      if (nuevasEmpresas.length) {
+        let { error } = await admin.from("Empresa").insert(nuevasEmpresas);
+        // Repli si oficinaId no está migrada en Empresa: la empresa nace igual, sin sede.
+        if (error && oficinaImport && /oficinaId|column|schema cache|does not exist/i.test(error.message)) {
+          ({ error } = await admin.from("Empresa").insert(nuevasEmpresas.map(({ oficinaId: _o, ...rest }) => rest)));
+        }
+        if (error) {
+          empresasActivas = false; empresasPorNombre.clear();
+          avisosExtra.push(`Empresas no creadas (${error.message.slice(0, 80)}): los clientes entran sin vínculo.`);
+        } else r.empresas = nuevasEmpresas.length;
+      }
+      if (empresasActivas) {
+        const { data: ce } = await admin.from("Cliente").select("id, empresaId").eq("workspaceId", workspaceId);
+        for (const c of (ce ?? []) as { id: string; empresaId: string | null }[]) empresaDeCliente.set(c.id, c.empresaId);
+      }
+    }
+  }
+  const empresaDe = new Map<number, string>(); // índice de fila → empresaId (para el expediente en curso)
 
   // ── 2. Clientes: upsert (rellenar huecos, nunca machacar lo existente) ──
   const clienteDe = new Map<number, string>(); // índice de fila → clienteId
@@ -144,6 +189,8 @@ export async function POST(req: Request) {
       parentesco = titularDeFamilia.has(familiaId) ? "OTRO" : "TITULAR";
     }
     if (familiaId && parentesco === "TITULAR") titularDeFamilia.add(familiaId);
+    const empresaId = empresasActivas && f.empresa.trim() ? empresasPorNombre.get(claveEmpresa(f.empresa)) ?? null : null;
+    if (empresaId) empresaDe.set(i, empresaId);
 
     if (idExistente) {
       // Solo rellena campos vacíos (una migración nunca pisa datos ya trabajados).
@@ -154,6 +201,7 @@ export async function POST(req: Request) {
         if (v && !(actual?.[k] ?? "")) patch[k] = v;
       }
       if (familiaId && !actual?.familiaId) { patch.familiaId = familiaId; if (parentesco) patch.parentesco = parentesco; }
+      if (empresaId && !empresaDeCliente.get(idExistente)) patch.empresaId = empresaId; // una migración nunca cambia de empresa a nadie
       const efectivaCad = f.fechaCaducidad || f.caducidadDerivada; // migración nunca pisa una caducidad ya trabajada
       if (efectivaCad && !actual?.fechaCaducidad) { patch.fechaCaducidad = efectivaCad; patch.tipoVencimiento = "TIE"; }
       if (Object.keys(patch).length) {
@@ -174,6 +222,7 @@ export async function POST(req: Request) {
         ...(familiaId ? { familiaId, parentesco: parentesco || "OTRO", esSolicitante: false } : { esSolicitante: false }),
         ...((f.fechaCaducidad || f.caducidadDerivada) ? { fechaCaducidad: f.fechaCaducidad || f.caducidadDerivada, tipoVencimiento: "TIE" } : {}),
         ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
+        ...(empresaId ? { empresaId } : {}),
       });
     }
   }
@@ -181,8 +230,8 @@ export async function POST(req: Request) {
     const lote = nuevos.slice(i, i + 100);
     let { error } = await admin.from("Cliente").insert(lote);
     // Repli si oficinaId no está migrada: la cartera entra igual, sin sede.
-    if (error && oficinaImport && /oficinaId|column|schema cache|does not exist/i.test(error.message)) {
-      ({ error } = await admin.from("Cliente").insert(lote.map(({ oficinaId: _o, ...rest }) => rest)));
+    if (error && (oficinaImport || hayEmpresas) && /oficinaId|empresaId|column|schema cache|does not exist/i.test(error.message)) {
+      ({ error } = await admin.from("Cliente").insert(lote.map(({ oficinaId: _o, empresaId: _e, ...rest }) => rest)));
     }
     if (error) return NextResponse.json({ error: `Clientes: ${error.message}`, parcial: r }, { status: 500 });
   }
@@ -304,11 +353,12 @@ export async function POST(req: Request) {
             tipo, servicioClave: servicio, estado: f.estado, asignadoAId: user.id, notas, modoTrabajo: "MANUAL", updatedAt: ahora(),
             ...(f.estado === "PRESENTADO" && f.fechaPresentacion ? { fechaPresentacion: `${f.fechaPresentacion}T00:00:00.000Z` } : {}),
             ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
+            ...(empresaDe.get(i) ? { empresaId: empresaDe.get(i) } : {}),
           };
           let { error } = await admin.from("Expediente").insert(fila);
           // Repli si alguna columna opcional no está migrada (modoTrabajo, oficinaId): el expediente nace igual.
-          if (error && /modoTrabajo|oficinaId|fechaPresentacion|column|schema cache|does not exist/i.test(error.message)) {
-            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion;
+          if (error && /modoTrabajo|oficinaId|fechaPresentacion|empresaId|column|schema cache|does not exist/i.test(error.message)) {
+            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion; delete fila.empresaId;
             ({ error } = await admin.from("Expediente").insert(fila));
           }
           if (!error) { creado = true; n++; break; }
@@ -320,7 +370,8 @@ export async function POST(req: Request) {
         yaAbierto.add(`${clienteId}|${servicio}`);
         r.expedientesCreados++;
         const etiqueta = catalogoLabel.get(servicio) ?? TIPO_LABEL[tipo] ?? servicio;
-        eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? ` · presentado${f.fechaPresentacion ? " el " + f.fechaPresentacion.split("-").reverse().join("/") : ""}` : ""}`, userId: user.id });
+        const empresaTxt = empresaDe.get(i) ? ` · empresa ${nombreEmpresa.get(empresaDe.get(i)!) ?? ""}`.trimEnd() : "";
+        eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${empresaTxt}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? ` · presentado${f.fechaPresentacion ? " el " + f.fechaPresentacion.split("-").reverse().join("/") : ""}` : ""}`, userId: user.id });
         eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: "🖐 Modo manual: el despacho trabaja el expediente internamente (sin enlace al cliente). Se puede cambiar desde la ficha.", userId: user.id });
       }
       for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));

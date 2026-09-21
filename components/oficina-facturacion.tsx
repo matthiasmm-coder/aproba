@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
+import { SerieFacturas } from "@/components/serie-facturas";
 
 // Identidad fiscal de UNA oficina (fase 6): razón social, NIF, domicilio, email y
 // prefijo de serie. Si razón social o NIF están rellenos, las facturas de esta sede
@@ -110,6 +111,8 @@ export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = n
         {ok && <span className="text-sm font-medium text-aproba-700">✓ {t("Guardado")}</span>}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
+      {/* Serie propia de la sede (solo con prefijo): su último número emitido fuera de Aproba. */}
+      {d.prefijoSerie.trim() !== "" && <SerieFacturas oficinaId={oficinaId} prefijo={d.prefijoSerie} />}
     </div>
   );
 }

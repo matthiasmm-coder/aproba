@@ -95,12 +95,13 @@ try {
   for (const t of t3 ?? []) if (![existente.id, nuevoId].includes(t.clienteId)) creados.cli.push(t.clienteId);
   check("3 filas en la base", t3?.length === 3, String(t3?.length));
 
-  // 8) /j del expediente de empresa → página de espera (nunca «Julia»)
+  // 8) /j del expediente de empresa → portal de la EMPRESA (lote 2): saluda al contacto y
+  //    pide los datos de la empresa y de sus trabajadores (nunca «Julia», nunca ficha de persona).
   console.log("\n8. Portal");
   const { data: tok } = await admin.from("Expediente").select("portalToken").eq("id", expId).maybeSingle();
   const j = await (await fetch(`${BASE}/j/${tok.portalToken}`)).text();
-  // React separa los nodos de texto con <!-- --> en el SSR: se busca el nombre y la frase de espera.
-  check("/j muestra la espera de la empresa", /Enlace de (<!-- -->)?ZZE2E Talleres Ebro S\.L\./.test(j) && j.includes("está preparando este expediente") && !j.includes("Julia"));
+  const texto = j.replace(/<!-- -->/g, "");
+  check("/j abre el portal de la empresa (saluda a Ana Ruiz, pide los datos de la empresa y de sus trabajadores)", /Hola Ana Ruiz/.test(texto) && texto.includes("Datos de la empresa y de sus trabajadores") && !texto.includes("Julia"), texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 200));
 } catch (e) {
   ko++; console.log("  ✗ excepción:", e instanceof Error ? e.message : e);
 } finally {

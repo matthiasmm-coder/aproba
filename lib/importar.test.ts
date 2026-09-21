@@ -256,3 +256,15 @@ describe("fecha de presentación (15/09/2026)", () => {
     expect(f.fechaResolucion).toBe("2026-06-10");
   });
 });
+
+// Columna «empresa» (Luis, Asenjo 21/09/2026): la razón social viaja tal cual en la fila;
+// el vínculo (Empresa + Cliente.empresaId) lo hace el ejecutor, idempotente por nombre.
+describe("columna empresa", () => {
+  it("conserva la razón social limpia y queda vacía cuando la fila no la trae", () => {
+    const m: Mapeo = { ...mapeo, columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "empresa" }] };
+    const [a, b] = aplicarMapeo([["Amadou Ba", "  Talleres   Ebro S.L. "], ["Fatima Benali", ""]], m);
+    expect(a.empresa).toBe("Talleres Ebro S.L.");
+    expect(b.empresa).toBe("");
+    expect(a.ficha.nombre).toBe("Amadou");
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcularSiguiente, calcularSerie } from "./factura-numero";
+import { calcularSiguiente, calcularSerie, interpretarUltimoNumero, ordinalDeNumero } from "./factura-numero";
 
 describe("numeración de facturas", () => {
   it("empieza en 0001 cuando no hay ninguna", () => {
@@ -81,5 +81,33 @@ describe("números quemados: un número emitido no vuelve a salir", () => {
   it("los quemados respetan la serie de su prefijo de oficina", () => {
     const todos = ["DG-2026-0001", "DG-2026-0002", "2026-0009"];
     expect(calcularSiguiente(todos.filter((n) => n.startsWith("DG-")), 2026, "DG")).toBe("DG-2026-0003");
+  });
+});
+
+// Arranque de serie (Luis, 21/09/2026): el gestor escribe su último número y la serie sigue.
+describe("interpretarUltimoNumero", () => {
+  it("acepta el número suelto, con año y con prefijo, y lo deja canónico", () => {
+    expect(interpretarUltimoNumero("312", 2026)).toEqual({ numero: "2026-0312", n: 312 });
+    expect(interpretarUltimoNumero(" 0312 ", 2026)).toEqual({ numero: "2026-0312", n: 312 });
+    expect(interpretarUltimoNumero("2026-0312", 2026)).toEqual({ numero: "2026-0312", n: 312 });
+    expect(interpretarUltimoNumero("dg-2026-7", 2026, "DG")).toEqual({ numero: "DG-2026-0007", n: 7 });
+    expect(interpretarUltimoNumero("DG-7", 2026, "DG")).toEqual({ numero: "DG-2026-0007", n: 7 });
+  });
+  it("rechaza otro año, otro prefijo, el cero y los formatos raros", () => {
+    expect(interpretarUltimoNumero("2025-0312", 2026)).toHaveProperty("error");
+    expect(interpretarUltimoNumero("DG-2026-0312", 2026)).toHaveProperty("error");
+    expect(interpretarUltimoNumero("2026-0312", 2026, "DG")).toEqual({ numero: "DG-2026-0312", n: 312 });
+    expect(interpretarUltimoNumero("XX-2026-0312", 2026, "DG")).toHaveProperty("error");
+    expect(interpretarUltimoNumero("0", 2026)).toHaveProperty("error");
+    expect(interpretarUltimoNumero("", 2026)).toHaveProperty("error");
+    expect(interpretarUltimoNumero("factura 12", 2026)).toHaveProperty("error");
+    expect(interpretarUltimoNumero("1-2-3-4", 2026)).toHaveProperty("error");
+  });
+  it("quemar el último número hace que la serie siga desde el siguiente", () => {
+    const r = interpretarUltimoNumero("312", 2026);
+    if ("error" in r) throw new Error(r.error);
+    expect(calcularSiguiente(["2026-0002", r.numero], 2026)).toBe("2026-0313");
+    expect(ordinalDeNumero("DG-2026-0312")).toBe(312);
+    expect(ordinalDeNumero("raro")).toBe(0);
   });
 });

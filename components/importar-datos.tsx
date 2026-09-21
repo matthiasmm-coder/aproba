@@ -26,7 +26,7 @@ type Analisis = {
 
 type Resultado = {
   clientesCreados: number; clientesActualizados: number; clientesOmitidos: number;
-  familias: number; serviciosCreados: number; serviciosOmitidos: number; expedientesCreados?: number; expedientesOmitidos?: number;
+  familias: number; empresas?: number; serviciosCreados: number; serviciosOmitidos: number; expedientesCreados?: number; expedientesOmitidos?: number;
   vencimientos: number; avisos: string[];
 };
 
@@ -47,6 +47,7 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["tramite", "Trámite / servicio"], ["estado", "Estado del trámite"], ["fechaPresentacion", "Fecha de presentación"], ["importe", "Importe cobrado (histórico)"], ["referencia", "Referencia"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
+  { grupo: "Empresa", campos: [["empresa", "Empresa (razón social)"]] },
 ];
 
 // Cada estado de Aproba, en palabras y con su destino: en curso → tablero (si se abren expedientes),
@@ -391,6 +392,7 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                     {f.ficha.nacionalidad && <span>{f.ficha.nacionalidad}</span>}
                     {f.ficha.fechaNacimiento && <span>{t("nac.")} {fmtFecha(f.ficha.fechaNacimiento)}</span>}
                     {f.familia && <span className="rounded-full bg-slate-100 px-2 py-0.5">{f.familia}{f.parentesco ? ` · ${f.parentesco.toLowerCase()}` : ""}</span>}
+                    {f.empresa && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700" title={t("Empresa que contrata")}>{f.empresa}</span>}
                     {dup && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">{t("duplicado — no se importa")}</span>}
                     {sinNombre && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{t("sin nombre — no se importa")}</span>}
                   </div>
@@ -500,9 +502,10 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
             <Chip n={resultado.vencimientos} label={t("vencimientos Vigía")} />
             {(resultado.expedientesCreados ?? 0) > 0 && <Chip n={resultado.expedientesCreados ?? 0} label={t("expedientes abiertos")} />}
           </div>
-          {(resultado.familias > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0 || (resultado.expedientesOmitidos ?? 0) > 0) && (
+          {(resultado.familias > 0 || (resultado.empresas ?? 0) > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0 || (resultado.expedientesOmitidos ?? 0) > 0) && (
             <p className="mt-3 text-sm text-slate-500">
               {resultado.familias > 0 && `${resultado.familias} ${t("familias")} · `}
+              {(resultado.empresas ?? 0) > 0 && `${resultado.empresas} ${t("empresas nuevas")} · `}
               {resultado.clientesOmitidos > 0 && `${resultado.clientesOmitidos} ${t("clientes omitidos (duplicados)")} · `}
               {resultado.serviciosOmitidos > 0 && `${resultado.serviciosOmitidos} ${t("servicios ya en el historial")}`}
               {(resultado.expedientesOmitidos ?? 0) > 0 && ` · ${resultado.expedientesOmitidos} ${t("expedientes ya abiertos (no duplicados)")}`}
