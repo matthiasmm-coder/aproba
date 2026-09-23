@@ -53,7 +53,10 @@ export async function POST(req: Request) {
       system: sistema,
       messages: mensajes,
     });
-    const texto = res.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+    // El chat pinta el texto tal cual: si el modelo se salta la regla «sin markdown» (pasó
+    // en las pruebas del 23/09), los ** y los # se verían. Se quitan aquí.
+    const texto = res.content.filter((b) => b.type === "text").map((b) => b.text).join("\n")
+      .replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#{1,6}\s+/gm, "").trim();
     if (!texto) throw new Error("respuesta vacía");
     return NextResponse.json({ texto });
   } catch (e) {
