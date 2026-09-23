@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FACTURA_ESTADO_META, eur, ivaDe, totalDe, parseFecha, fmtFecha, MESES, type Factura, type FacturaEstado } from "@/lib/facturas";
+import { FACTURA_ESTADO_META, eur, importesFactura, parseFecha, fmtFecha, MESES, type Factura, type FacturaEstado } from "@/lib/facturas";
+import { csvFacturasEmitidas } from "@/lib/facturas-csv";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { DatosFacturacion } from "@/components/datos-facturacion";
 import type { Despacho } from "@/lib/data/config";
@@ -56,11 +57,11 @@ function FilaFactura({ f, esAdmin, t, vf }: { f: Factura; esAdmin: boolean; t: T
             medias es reclamar dinero que ya está cobrado. */}
         {f.entregado ? (
           <>
-            <span className="font-semibold text-slate-800">{eur(Math.max(0, totalDe(f.base) - f.entregado))}</span>
-            <span className="block text-[11px] text-slate-400">{t("de")} {eur(totalDe(f.base))} · {t("cobrado")} {eur(f.entregado)}</span>
+            <span className="font-semibold text-slate-800">{eur(Math.max(0, importesFactura(f).total - f.entregado))}</span>
+            <span className="block text-[11px] text-slate-400">{t("de")} {eur(importesFactura(f).total)} · {t("cobrado")} {eur(f.entregado)}</span>
           </>
         ) : (
-          <span className="font-semibold text-slate-800">{eur(totalDe(f.base))}</span>
+          <span className="font-semibold text-slate-800">{eur(importesFactura(f).total)}</span>
         )}
       </td>
       <td className="px-5 py-3 text-right">
@@ -165,9 +166,12 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
 
   // Una ANULADA no suma en «facturado»: la factura existe (numeración intacta) pero
   // se dejó sin efecto. Cobrado y pendiente ya la excluyen por su propio filtro.
-  const facturado = visibles.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDe(f.base), 0);
-  const cobrado = visibles.filter((f) => f.estado === "PAGADA").reduce((s, f) => s + totalDe(f.base), 0);
-  const pendiente = visibles.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((s, f) => s + totalDe(f.base), 0);
+  // Importes REALES, suplidos incluidos (antes totalDe(base) se los dejaba, 23/09/2026);
+  // lo pendiente descuenta las entregas a cuenta, como la línea de cada factura.
+  const totalDeF = (f: Factura) => importesFactura(f).total;
+  const facturado = visibles.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDeF(f), 0);
+  const cobrado = visibles.filter((f) => f.estado === "PAGADA").reduce((s, f) => s + totalDeF(f), 0);
+  const pendiente = visibles.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((s, f) => s + Math.max(0, totalDeF(f) - (f.entregado ?? 0)), 0);
   const vencidas = visibles.filter((f) => f.estado === "VENCIDA").length;
 
   const STATS = [
@@ -177,14 +181,8 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
   ];
 
   function exportarCSV() {
-    const num = (n: number) => n.toFixed(2).replace(".", ",");
-    const esc = (v: string | number) => {
-      const s = String(v);
-      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const header = ["Número", "Fecha", "Cliente", "Concepto", "Base", "IVA", "Total", "Estado", "Origen"];
-    const rows = visibles.map((f) => [f.numero, f.fecha, f.cliente, f.concepto, num(f.base), num(ivaDe(f.base)), num(totalDe(f.base)), FACTURA_ESTADO_META[f.estado].label, f.origen === "AUTOMATICA" ? "Automática" : "Manual"]);
-    const csv = "﻿" + [header, ...rows].map((r) => r.map(esc).join(";")).join("\n");
+    // NIF/CIF del cliente y suplidos en su columna (lib/facturas-csv.ts, pedido de Luis).
+    const csv = csvFacturasEmitidas(visibles);
 
     const nombre =
       mode === "mtd" ? `${MESES[HOY.getMonth()]}-${HOY.getFullYear()}`
@@ -332,7 +330,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
           <GrupoFacturas
             verifactu={verifactu}
             key={g.key} id={g.key} titulo={g.titulo} items={g.items}
-            subtotal={g.key === "borradores" ? undefined : g.items.reduce((s, f) => s + totalDe(f.base), 0)}
+            subtotal={g.key === "borradores" ? undefined : g.items.reduce((s, f) => s + importesFactura(f).total, 0)}
             cerrado={plegado[g.key] ?? true} onToggle={() => setPlegado((p) => ({ ...p, [g.key]: !(p[g.key] ?? true) }))}
             esAdmin={esAdmin} t={t}
           />

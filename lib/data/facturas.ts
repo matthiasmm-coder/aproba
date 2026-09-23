@@ -11,6 +11,8 @@ type Row = {
   clienteNombre: string;
   concepto: string;
   baseImponible: number | string;
+  iva?: number | string | null;
+  total?: number | string | null;
   estado: string;
   origen: string | null;
   momento: string | null;
@@ -27,7 +29,9 @@ type Row = {
 // lineas/suplidos/notas (Pro/Business) y archivadoAt son columnas nuevas. Se piden en el
 // SELECT; si la migración aún no se aplicó, se reintenta sin ellas, en cascada (repli propre):
 // completo → sin archivadoAt → base. Cada grupo de columnas tiene su propia migración.
-const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, estado, origen, momento, metodoPago, fechaEmision, fechaVencimiento, expedienteId";
+// iva y total existen desde el principio: van en la base de la cascada (el total incluye
+// los suplidos — la lista lo calculaba con totalDe(base) y se los dejaba, 23/09/2026).
+const COLS_BASE: string = "id, numero, clienteNombre, concepto, baseImponible, iva, total, estado, origen, momento, metodoPago, fechaEmision, fechaVencimiento, expedienteId";
 const SELECT_LIN: string = `${COLS_BASE}, lineas, suplidos, notas`;
 const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
 const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
@@ -62,6 +66,8 @@ function mapRow(f: Row): Factura {
     cliente: f.clienteNombre,
     concepto: f.concepto,
     base: Number(f.baseImponible),
+    iva: f.iva != null && f.iva !== "" ? Number(f.iva) : undefined,
+    total: f.total != null && f.total !== "" ? Number(f.total) : undefined,
     estado: f.estado as FacturaEstado,
     fecha: fmtFechaCorta(f.fechaEmision) ?? "—",
     vence: fmtFechaCorta(f.fechaVencimiento),

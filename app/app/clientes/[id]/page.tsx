@@ -93,8 +93,9 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
   // mismo despacho ya NO comparten facturas). El repli por nombre queda SOLO para:
   //   · facturas antiguas sin backfill y manuales de nombre libre (clienteId IS NULL);
   //   · el despliegue anterior a la migración factura-cliente-id.sql (columna ausente).
-  const FAC_COLS = "id, numero, concepto, baseImponible, estado, fechaEmision";
-  type FacRow = { id: string; numero: string; concepto: string; baseImponible: number | string; estado: string; fechaEmision: string | null };
+  // `total` = el guardado al emitir, suplidos incluidos (totalDe(base) se los dejaba, 23/09/2026).
+  const FAC_COLS = "id, numero, concepto, baseImponible, total, estado, fechaEmision";
+  type FacRow = { id: string; numero: string; concepto: string; baseImponible: number | string; total?: number | string | null; estado: string; fechaEmision: string | null };
   let facRows: FacRow[] = [];
   const porFk = await supabase.from("Factura").select(FAC_COLS).eq("clienteId", id);
   if (!porFk.error) {
@@ -114,13 +115,14 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
     numero: f.numero,
     concepto: f.concepto,
     base: Number(f.baseImponible),
+    total: f.total != null && f.total !== "" ? Number(f.total) : totalDe(Number(f.baseImponible)),
     estado: f.estado as FacturaEstado,
     fecha: fmtFechaCorta(f.fechaEmision) ?? "—",
   }));
 
   const nacionalidad = cliente.nacionalidad ?? "—";
   // Una ANULADA no cuenta como facturado: se dejó sin efecto (auditoría 06/08).
-  const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDe(f.base), 0);
+  const totalFacturado = facturas.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + f.total, 0);
 
   // Documentos sueltos del cliente (sin expediente). Defensivo: [] si falta la migración.
   let docsSueltos: DocSuelto[] = [];
@@ -252,7 +254,7 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
                     <p className="truncate text-sm font-medium text-slate-800">{f.concepto}</p>
                     <p className="font-mono text-xs text-slate-400">{f.numero} · {f.fecha}</p>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold text-slate-800">{eur(totalDe(f.base))}</span>
+                  <span className="shrink-0 text-sm font-semibold text-slate-800">{eur(f.total)}</span>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.pill}`}>{t(meta.label)}</span>
                 </Link>
               );

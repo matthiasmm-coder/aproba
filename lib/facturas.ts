@@ -57,12 +57,41 @@ export type Factura = {
   // Entregas a cuenta ya cobradas (pagos parciales). El SALDO no se guarda: se
   // calcula total - entregado allí donde se pinta. undefined = migración ausente.
   entregado?: number;
+  // Importes GUARDADOS al emitir (columnas iva/total). Mandan sobre el cálculo: el total
+  // incluye los suplidos, que totalDe(base) no ve.
+  iva?: number;
+  total?: number;
 };
 
 export const IVA = 0.21;
 export const r2 = (n: number) => Math.round(n * 100) / 100;
 export const ivaDe = (b: number) => r2(b * IVA);
 export const totalDe = (b: number) => r2(b * (1 + IVA));
+
+// Importes REALES de una factura: honorarios + IVA + suplidos (tasas, sin IVA). La lista,
+// sus totales, la ficha del cliente y el CSV usaban totalDe(base) y se dejaban los
+// suplidos (encontrado el 23/09/2026 al añadir el NIF al CSV que pidió Luis: 307,55 € de
+// menos en la lista de Juan). Manda lo guardado al emitir; si falta, se calcula igual que
+// totalesFactura.
+export function importesFactura(f: Pick<Factura, "base" | "suplidos" | "iva" | "total">) {
+  const base = r2(f.base);
+  const iva = typeof f.iva === "number" && Number.isFinite(f.iva) ? r2(f.iva) : ivaDe(base);
+  const deLista = r2((f.suplidos ?? []).reduce((a, s) => a + (Number(s.importe) || 0), 0));
+  if (typeof f.total === "number" && Number.isFinite(f.total)) {
+    // Sin la lista de suplidos (fila antigua), lo que falta hasta el total guardado lo son.
+    const suplidos = f.suplidos ? deLista : r2(f.total - base - iva);
+    return { base, iva, suplidos, total: r2(f.total) };
+  }
+  return { base, iva, suplidos: deLista, total: r2(base + iva + deLista) };
+}
+
+// NIF/CIF tal como va impreso en la factura, sin la etiqueta del snapshot («NIE/DNI …»,
+// «CIF/NIF …»). Un pasaporte conserva su etiqueta: no es un NIF y quien lleve la
+// contabilidad debe verlo.
+export function nifDeDocumento(documento: string | null | undefined): string {
+  const d = String(documento ?? "").trim();
+  return d.replace(/^(NIE\/DNI|CIF\/NIF|NIF\/CIF|NIE|DNI|NIF|CIF)\s+/i, "");
+}
 
 // Totales de una factura con líneas + suplidos. base e iva solo sobre honorarios; los
 // suplidos se suman al total pero NO llevan IVA ni entran en la base imponible.

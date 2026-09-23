@@ -37,6 +37,18 @@ export default async function Facturas({ searchParams }: { searchParams: Promise
     fetchFacturasRecibidas(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []),
     fetchExpedientesParaVincular().catch(() => []),
   ]);
+  // NIF/CIF del CSV: una factura emitida ANTES del snapshot fiscal se completa desde el
+  // cliente de su expediente y queda congelada — lo mismo que hacen su ficha y el export
+  // ZIP (lib/factura-datos-backfill.ts). Un borrador no: sus datos se congelan al emitir.
+  try {
+    const sinDatos = facturas.filter((f) => !f.clienteDatos && f.expedienteId && f.estado !== "BORRADOR").map((f) => f.id);
+    if (sinDatos.length) {
+      const { completarClienteDatosFacturas } = await import("@/lib/factura-datos-backfill");
+      const m = await completarClienteDatosFacturas(sinDatos);
+      for (const f of facturas) if (!f.clienteDatos && m.has(f.id)) f.clienteDatos = m.get(f.id)!;
+    }
+  } catch { /* sin backfill: el CSV sale con el NIF vacío en esas filas */ }
+
   // VERI*FACTU: chip por factura registrada (lectura bajo RLS; sin tabla → nada).
   let verifactu: Record<string, ChipVerifactu> | undefined;
   try {
