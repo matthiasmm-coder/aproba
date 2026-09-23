@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/components/avatar-gestor";
 import { useT } from "@/components/lang-provider";
-import { ArchiveIcon, VistasExpedientes } from "@/components/vistas-expedientes";
+import { ArchiveIcon, TablaIcon, VistasExpedientes } from "@/components/vistas-expedientes";
+import { ExpedientesTabla } from "@/components/expedientes-tabla";
+import type { FilaTabla } from "@/lib/expedientes-tabla";
+import { MODO_EXPEDIENTES_KEY, EVENTO_MODO_EXPEDIENTES } from "@/components/ancho-expedientes";
 import { SALIDAS, etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { construirArbol, grupoDe as grupoArbol, raizDe, temaDe, SIN_TEMA, type PackLite } from "@/lib/expedientes-arbol";
@@ -300,6 +303,30 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const [asignado, setAsignado] = useState("");
   const [tema, setTema] = useState("");
   const [view, setView] = useState<"curso" | "historial">(vistaInicial);
+  // MODO DE PRESENTACIÓN (prototipo local, 23/09/2026, pedido de Jennifer): «En curso» e
+  // «Historial» eligen QUÉ expedientes; «Por servicio» / «Tabla» elige CÓMO se ven. Se
+  // recuerda por navegador: quien trabaja en tabla aterriza siempre en tabla.
+  const [modo, setModo] = useState<"servicio" | "tabla">("servicio");
+  useEffect(() => {
+    try { const m = window.localStorage.getItem(MODO_EXPEDIENTES_KEY); if (m === "tabla" || m === "servicio") setModo(m); } catch { /* sin storage */ }
+  }, []);
+  const elegirModo = (m: "servicio" | "tabla") => {
+    setModo(m);
+    try { window.localStorage.setItem(MODO_EXPEDIENTES_KEY, m); } catch { /* sin storage */ }
+    window.dispatchEvent(new CustomEvent(EVENTO_MODO_EXPEDIENTES, { detail: m }));
+  };
+  // Filas de la tabla: una petición por vista (curso / historial), guardada mientras se navega.
+  const [filasTabla, setFilasTabla] = useState<Partial<Record<"curso" | "historial", FilaTabla[]>>>({});
+  const [errorTabla, setErrorTabla] = useState(false);
+  useEffect(() => {
+    if (modo !== "tabla" || filasTabla[view]) return;
+    let vivo = true; setErrorTabla(false);
+    fetch(`/api/expedientes/tabla${view === "historial" ? "?archivados=1" : ""}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => { if (vivo) setFilasTabla((m) => ({ ...m, [view]: (j.filas ?? []) as FilaTabla[] })); })
+      .catch(() => { if (vivo) setErrorTabla(true); });
+    return () => { vivo = false; };
+  }, [modo, view, filasTabla]);
   // La URL acompaña a la vista (?vista=historial) sin recargar: así un F5 — o el enlace
   // «Historial» desde Renovaciones — vuelve a abrir lo que se estaba mirando.
   const cambiarVista = (v: "curso" | "historial") => {
@@ -409,10 +436,14 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
 
   const grupoDe = (e: ItemLista) => grupoArbol(e, packs);
 
-  const pasa = (e: ItemLista) => {
+  const pasaFiltros = (e: ItemLista) => {
     if (soloEsperando && !esperandoCliente(e)) return false;
     if (asignado && e.asignadoA !== asignado) return false;
     if (tema && temaDe(e) !== tema) return false;
+    return true;
+  };
+  const pasa = (e: ItemLista) => pasaFiltros(e) && pasaTexto(e);
+  const pasaTexto = (e: ItemLista) => {
     const nq = norm(q.trim());
     if (!nq) return true;
     return norm(e.clienteNombre).includes(nq) || norm(e.clienteNacionalidad).includes(nq) || norm(grupoDe(e)).includes(nq)
@@ -420,6 +451,25 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       || (e.extrasLabels ?? []).some((l) => norm(l).includes(nq));
   };
 
+
+  // Tabla en curso = los MISMOS expedientes que enseñaría el árbol (búsqueda, tema,
+  // responsable, «esperando al cliente»): se cruza por id con el filtro de la lista.
+  // En el historial el árbol se pide al servidor por años; la tabla trae todo el archivo
+  // (con sus bandas por año) y filtra aquí por texto y responsable.
+  const filasTablaVisibles = useMemo(() => {
+    const todas = filasTabla[view] ?? [];
+    const nq = norm(q.trim());
+    // Buscar en la tabla encuentra también por NIE, pasaporte y nº de expediente oficial.
+    const textoTabla = (f: FilaTabla) => [f.nombre, f.nie, f.pasaporte, f.referencia, f.numeroOficial].some((x) => norm(x).includes(nq));
+    if (view === "curso") {
+      const porId = new Map(activos.filter(pasaFiltros).map((e) => [e.id, e]));
+      return todas.filter((f) => { const e = porId.get(f.id); return Boolean(e) && (!nq || pasaTexto(e!) || textoTabla(f)); });
+    }
+    return todas.filter((f) =>
+      (!asignado || (asignado === "Sin asignar" ? !f.tramitadoPor : f.tramitadoPor === asignado))
+      && (!nq || textoTabla(f)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filasTabla, view, activos, q, asignado, tema, soloEsperando]);
 
   const ordenPrioridad = (e: ItemLista) => e.progreso?.score ?? 50;
   const ordenarFilas = (l: ItemLista[]) =>
@@ -565,6 +615,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
           <p className="text-sm text-slate-500">
             {view === "curso"
               ? `${activos.length} ${t("en curso")}${nEsperando > 0 ? ` · ${nEsperando} ${t("esperando al cliente")}` : ""}`
+              // En tabla el historial sale ENTERO, con sus bandas por año: el recuento
+              // de «un año elegido» del árbol ya no describe lo que se ve.
+              : modo === "tabla"
+                ? `${filasTabla.historial?.length ?? totalArchivo} ${t("en el historial")}`
               : archivo && anioElegido !== null
                 ? `${totalResumen(resumenAnio)} ${t("en el historial")} · ${anioElegido || t("sin fecha")}`
                 : `${totalArchivo} ${t("en el historial")}`}
@@ -579,7 +633,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente, trámite, referencia…")} className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-8 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm" />
           {q && <button onClick={() => setQ("")} aria-label={t("Borrar")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-500">✕</button>}
         </div>
-        {temas.length > 0 && (
+        {temas.length > 0 && !(modo === "tabla" && view === "historial") && (
           <select value={tema} onChange={(e) => setTema(e.target.value)} aria-label={t("Tema")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
             <option value="">{t("Todos los temas")}</option>
             {temas.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -602,14 +656,26 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
         {/* AÑO (solo en el historial): un filtro, uno solo a la vez — así la carpeta no
             repite «2026» en cada línea cuando toda la pantalla ya es de 2026. Lista
             desplegable a la derecha del equipo (20/09, Matthias), no una fila de chips. */}
-        {view === "historial" && archivo && aniosArchivo.length > 0 && !busqueda && (
+        {view === "historial" && modo !== "tabla" && archivo && aniosArchivo.length > 0 && !busqueda && (
           <select value={anioElegido ?? ""} onChange={(e) => setAnio(e.target.value)} aria-label={t("Año")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
             {aniosArchivo.map((a) => <option key={a.anio || "sin"} value={a.anio}>{a.anio || t("Sin fecha")} ({a.n})</option>)}
           </select>
         )}
+        {/* CÓMO se ven: por servicio (el árbol de siempre) o en tabla (el Excel del gestor). */}
+        <div role="group" aria-label={t("Presentación")} className="ml-auto inline-flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
+          {([["servicio", t("Por servicio")], ["tabla", t("Tabla")]] as const).map(([m, label]) => (
+            <button key={m} type="button" onClick={() => elegirModo(m)} aria-pressed={modo === m}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${modo === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {m === "tabla"
+                ? <TablaIcon className="h-3.5 w-3.5" />
+                : <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>}
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {view === "historial" && totalArchivo > 0 && (
+      {view === "historial" && modo !== "tabla" && totalArchivo > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {[{ key: "", label: "Todas" }, ...SALIDAS.map((s) => ({ key: s.key as string, label: s.label })), { key: "sin", label: "Sin clasificar" }].map((c) => {
             const n = archivo
@@ -621,7 +687,16 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
         </div>
       )}
 
-      {archivo && view === "historial" ? (
+      {modo === "tabla" ? (
+        errorTabla ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">{t("No se pudo cargar la tabla.")}</p>
+        ) : !filasTabla[view] ? (
+          <p className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">{t("Cargando…")}</p>
+        ) : (
+          <ExpedientesTabla filas={filasTablaVisibles} conBuscador={false} nombreExport={view === "curso" ? "expedientes-en-curso" : "expedientes-historial"}
+            onNumeroOficial={(id, numero) => setFilasTabla((m) => ({ ...m, [view]: (m[view] ?? []).map((f) => (f.id === id ? { ...f, numeroOficial: numero } : f)) }))} />
+        )
+      ) : archivo && view === "historial" ? (
         // ARCHIVO DEL SERVIDOR: las carpetas salen de los recuentos; las filas se piden
         // al abrir un año. Buscar no recorre el árbol: pregunta al servidor.
         busqueda ? (

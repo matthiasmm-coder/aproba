@@ -268,3 +268,15 @@ describe("columna empresa", () => {
     expect(a.ficha.nombre).toBe("Amadou");
   });
 });
+
+// Nº de expediente OFICIAL (pedido de Matthias, 23/09/2026): antes la columna «Nº
+// expediente» del Excel del despacho solo podía ir a «referencia» (nota «ref. anterior»).
+describe("columna nº de expediente oficial", () => {
+  it("se lee limpio y en mayúsculas, aparte de la referencia interna", () => {
+    const m: Mapeo = { ...mapeo, columnas: [{ indice: 0, campo: "nombreCompleto" }, { indice: 1, campo: "numeroOficial" }, { indice: 2, campo: "referencia" }] };
+    const [a, b] = aplicarMapeo([["Oksana Koval", "  ba/0045/2025 ", "2024-118"], ["Karim Benali", "", ""]], m);
+    expect(a.numeroOficial).toBe("BA/0045/2025");
+    expect(a.referencia).toBe("2024-118");
+    expect(b.numeroOficial).toBe("");
+  });
+});

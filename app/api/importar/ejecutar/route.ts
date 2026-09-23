@@ -271,7 +271,8 @@ export async function POST(req: Request) {
         const fechaSrv = f.fechaResolucion || f.fechaPresentacion || ""; // fecha del servicio: resolución, o presentación si es lo único que hay
         const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
         // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
-        const existente = (f.referencia ? porRef.get(f.referencia) : undefined)
+        const refServicio = f.referencia || f.numeroOficial;
+        const existente = (refServicio ? porRef.get(refServicio) : undefined)
           ?? porCombo.get(combo)
           ?? (fechaSrv ? porClienteServicio.get(`${clienteId}|${f.servicio}`) : undefined);
         if (existente) {
@@ -287,7 +288,7 @@ export async function POST(req: Request) {
         }
         const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
         const rec: Rec = { id: uid(), importe: f.importe };
-        if (f.referencia) porRef.set(f.referencia, rec);
+        if (refServicio) porRef.set(refServicio, rec);
         porCombo.set(combo, rec);
         lote.push({
           id: rec.id, workspaceId, clienteId,
@@ -295,7 +296,7 @@ export async function POST(req: Request) {
           etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
           fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,
           estado: f.estado || "FINALIZADO",
-          referencia: f.referencia || null,
+          referencia: refServicio || null,
           notas: f.notas ? f.notas.slice(0, 1000) : null,
           importe: f.importe,
           origen: "MIGRACION",
@@ -327,12 +328,16 @@ export async function POST(req: Request) {
   if (mapeo.crearEnCurso) {
     const candidatas = filas.map((f, i) => ({ f, i })).filter(({ f, i }) => f.enCurso && clienteDe.has(i));
     if (candidatas.length) {
-      const { data: abiertos } = await admin.from("Expediente").select("clienteId, servicioClave, estado, archivadoAt").eq("workspaceId", workspaceId);
-      const yaAbierto = new Set<string>();
-      for (const e of (abiertos ?? []) as { clienteId: string; servicioClave: string | null; estado: string; archivadoAt: string | null }[]) {
-        if (e.archivadoAt || e.estado === "FINALIZADO") continue;
-        if (e.servicioClave) yaAbierto.add(`${e.clienteId}|${e.servicioClave}`);
+      let lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt, numeroOficial").eq("workspaceId", workspaceId);
+      if (lecturaAbiertos.error && /numeroOficial/i.test(lecturaAbiertos.error.message)) {
+        lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt").eq("workspaceId", workspaceId) as typeof lecturaAbiertos;
       }
+      const yaAbierto = new Map<string, { id: string; numeroOficial: string | null }>();
+      for (const e of (lecturaAbiertos.data ?? []) as { id: string; clienteId: string; servicioClave: string | null; estado: string; archivadoAt: string | null; numeroOficial?: string | null }[]) {
+        if (e.archivadoAt || e.estado === "FINALIZADO") continue;
+        if (e.servicioClave) yaAbierto.set(`${e.clienteId}|${e.servicioClave}`, { id: e.id, numeroOficial: e.numeroOficial ?? null });
+      }
+      let numerosCompletados = 0;
       const year = new Date().getFullYear();
       const { data: last } = await admin.from("Expediente").select("referencia").eq("workspaceId", workspaceId).like("referencia", `EXP-${year}-%`).order("referencia", { ascending: false }).limit(1).maybeSingle();
       let n = last ? Number(String(last.referencia).split("-")[2]) + 1 : 1;
@@ -341,7 +346,20 @@ export async function POST(req: Request) {
       for (const { f, i } of candidatas) {
         const clienteId = clienteDe.get(i)!;
         const servicio = f.servicio!;
-        if (yaAbierto.has(`${clienteId}|${servicio}`)) { r.expedientesOmitidos++; continue; }
+        const abierto = yaAbierto.get(`${clienteId}|${servicio}`);
+        if (abierto) {
+          r.expedientesOmitidos++;
+          // Ya existe: no se duplica, pero si le falta el nº oficial y el Excel lo trae, se
+          // COMPLETA (una migración rellena huecos, nunca pisa lo trabajado).
+          if (f.numeroOficial && !abierto.numeroOficial) {
+            const { error: eNum } = await admin.from("Expediente").update({ numeroOficial: f.numeroOficial, updatedAt: ahora() }).eq("id", abierto.id).eq("workspaceId", workspaceId);
+            if (!eNum) {
+              abierto.numeroOficial = f.numeroOficial; numerosCompletados++;
+              eventos.push({ id: uid(), expedienteId: abierto.id, tipo: "COMENTARIO", descripcion: `🏛 Nº de expediente de Extranjería: ${f.numeroOficial} (importado)`, userId: user.id });
+            }
+          }
+          continue;
+        }
         const expedienteId = uid();
         const tipo = SERVICIO_A_TIPO[servicio] ?? "OTRO";
         const notas = [f.referencia ? `Ref. anterior: ${f.referencia}` : "", f.notas].filter(Boolean).join("\n").slice(0, 1000) || null;
@@ -354,11 +372,12 @@ export async function POST(req: Request) {
             ...(f.estado === "PRESENTADO" && f.fechaPresentacion ? { fechaPresentacion: `${f.fechaPresentacion}T00:00:00.000Z` } : {}),
             ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
             ...(empresaDe.get(i) ? { empresaId: empresaDe.get(i) } : {}),
+            ...(f.numeroOficial ? { numeroOficial: f.numeroOficial } : {}),
           };
           let { error } = await admin.from("Expediente").insert(fila);
           // Repli si alguna columna opcional no está migrada (modoTrabajo, oficinaId): el expediente nace igual.
-          if (error && /modoTrabajo|oficinaId|fechaPresentacion|empresaId|column|schema cache|does not exist/i.test(error.message)) {
-            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion; delete fila.empresaId;
+          if (error && /modoTrabajo|oficinaId|fechaPresentacion|empresaId|numeroOficial|column|schema cache|does not exist/i.test(error.message)) {
+            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion; delete fila.empresaId; delete fila.numeroOficial;
             ({ error } = await admin.from("Expediente").insert(fila));
           }
           if (!error) { creado = true; n++; break; }
@@ -367,7 +386,8 @@ export async function POST(req: Request) {
           break;
         }
         if (!creado) continue;
-        yaAbierto.add(`${clienteId}|${servicio}`);
+        // El recién creado cuenta como abierto: dos filas del mismo cliente y trámite no abren dos.
+        yaAbierto.set(`${clienteId}|${servicio}`, { id: expedienteId, numeroOficial: f.numeroOficial || null });
         r.expedientesCreados++;
         const etiqueta = catalogoLabel.get(servicio) ?? TIPO_LABEL[tipo] ?? servicio;
         const empresaTxt = empresaDe.get(i) ? ` · empresa ${nombreEmpresa.get(empresaDe.get(i)!) ?? ""}`.trimEnd() : "";
@@ -375,6 +395,7 @@ export async function POST(req: Request) {
         eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: "🖐 Modo manual: el despacho trabaja el expediente internamente (sin enlace al cliente). Se puede cambiar desde la ficha.", userId: user.id });
       }
       for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));
+      if (numerosCompletados) avisosExtra.push(`${numerosCompletados} nº de expediente de Extranjería añadidos a expedientes que ya existían.`);
     }
   }
 

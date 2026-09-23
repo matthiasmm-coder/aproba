@@ -5,6 +5,7 @@ import { fetchRequerimientosDeExpediente } from "@/lib/data/requerimientos";
 import { urgenciaDe, plazoClave } from "@/lib/requerimientos";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
+import { NumeroOficial } from "@/components/numero-oficial";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
 import { EnlaceCliente } from "@/components/enlace-cliente";
@@ -71,6 +72,10 @@ export default async function ExpedienteDetail({
     fetchNotasExpediente(id),
     fetchRequerimientosDeExpediente(id),
   ]);
+  // Nº de expediente OFICIAL (Extranjería), consulta aparte: si la migración aún no está,
+  // la ficha sale igual y el campo simplemente no aparece.
+  const { data: filaNumero, error: errNumero } = await (await createSupabaseServer()).from("Expediente").select("numeroOficial").eq("id", id).maybeSingle();
+  const numeroOficial = errNumero ? null : String((filaNumero as { numeroOficial?: string | null } | null)?.numeroOficial ?? "");
   if (!e) notFound();
 
   const despachoEncargo = await encargoActivado();
@@ -270,7 +275,10 @@ export default async function ExpedienteDetail({
         {/* Móvil: título a ancho completo y acciones debajo; ≥sm: título + acciones en una fila. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="font-mono text-xs text-slate-400">{e.referencia}</p>
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-slate-400">
+              {e.referencia}
+              {numeroOficial !== null && <span className="font-sans"><NumeroOficial expedienteId={e.id} inicial={numeroOficial} variante="ficha" /></span>}
+            </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : e.esDeEmpresa ? ` · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : ` · ${e.clienteNacionalidad}`}</p>
             {/* También en familia (pedido por Juan): el cambio ajusta el precio base ×N como
