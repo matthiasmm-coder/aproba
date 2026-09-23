@@ -41,7 +41,9 @@ export function FacturaAcciones({
   // empresa y solo podían archivarla o eliminarla. Una emitida se retoca; una PAGADA no
   // (el dinero ya entró) y una ANULADA tampoco. El servidor vuelve a validarlo.
   const [editando, setEditando] = useState(false);
-  const editable = conEditar && !archivada && estado !== "PAGADA" && estado !== "ANULADA";
+  // Una RECTIFICATIVA no se edita (auditoría 23/09): cambiar el abono rompería «original +
+  // rectificativa = 0», que es su razón de ser. Si está mal, se anula y se emite otra.
+  const editable = conEditar && !archivada && !esRectificativa && estado !== "PAGADA" && estado !== "ANULADA";
   // Icono: cuadrado de 40 px en la barra, botón pequeño en la fila de la lista.
   const ico = enBarra ? "flex h-10 w-10 items-center justify-center rounded-lg" : "rounded p-1.5";
 
@@ -81,7 +83,19 @@ export function FacturaAcciones({
   }
 
   async function borrar() {
-    // Aviso reforzado para facturas ya emitidas/pagadas: rompe la numeración correlativa.
+    // Una COBRADA no se elimina (el servidor lo niega). Antes se pedía confirmar un borrado
+    // «definitivo» para luego contestar que no: era el callejón sin salida del que se quejó
+    // Luis («no permite eliminarlas»). Ahora se explica por qué y se ofrece la salida buena.
+    if (estado === "PAGADA") {
+      const deshacer = await confirmar({
+        titulo: t("Esta factura está cobrada"),
+        mensaje: t("Una factura cobrada no se puede eliminar: su número ya forma parte de la serie y el cobro consta. Si la marcaste como cobrada por error, deshaz el cobro y volverá a pendiente con el mismo número. Si lo que está mal es la factura, emite una rectificativa."),
+        confirmarLabel: t("Deshacer el cobro"),
+      });
+      if (deshacer) await descobrar(false);
+      return;
+    }
+    // Aviso reforzado para facturas ya emitidas: rompe la numeración correlativa.
     const emitida = estado !== "BORRADOR";
     const mensaje = emitida
       ? t("Vas a eliminar la factura {n} de forma definitiva. Es una factura ya emitida: borrarla rompe la numeración correlativa (lo habitual es emitir una rectificativa). ¿Continuar?").replace("{n}", numero)
@@ -111,7 +125,8 @@ export function FacturaAcciones({
       const res = await fetch(`/api/facturas/${id}/pagada`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metodo: "TRANSFERENCIA" }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo marcar como cobrada."));
-      router.refresh(); onDone?.();
+      // Solo refrescar: `onDone` es para salir tras BORRAR (la factura ya no existe).
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo marcar como cobrada."));
     } finally { setBusy(null); }
@@ -120,11 +135,11 @@ export function FacturaAcciones({
   // DESHACER EL COBRO (Luis, 21/09/2026): marcar «pagada» por error dejaba la factura en
   // un callejón sin salida. No es un error contable — la factura se emitió bien y solo el
   // estado del pago es falso —, así que vuelve a pendiente conservando su número.
-  async function descobrar() {
+  async function descobrar(preguntar = true) {
     const aviso = metodoPago === "TARJETA"
       ? t("Si el cobro se hizo con tarjeta en la plataforma, el dinero ya está en tu cuenta: deshacerlo aquí NO lo devuelve. ")
       : "";
-    if (!(await confirmar({
+    if (preguntar && !(await confirmar({
       titulo: t("Deshacer el cobro"),
       mensaje: aviso + t("La factura {n} volverá a estar pendiente de cobro. Conserva su número y su fecha; queda constancia en el historial. ¿Continuar?").replace("{n}", numero),
       confirmarLabel: t("Deshacer el cobro"),
@@ -134,7 +149,10 @@ export function FacturaAcciones({
       const res = await fetch(`/api/facturas/${id}/pagada`, { method: "DELETE" });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo deshacer el cobro."));
-      router.refresh(); onDone?.();
+      // ⚠️ Antes llamaba también a `onDone`, que en la ficha es «volver a la lista tras
+      // borrar»: esa navegación y el refresco se anulaban y la ficha se quedaba en «Pagada»
+      // aunque el cobro SÍ se había deshecho (auditoría 23/09). Aquí solo se refresca.
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo deshacer el cobro."));
     } finally { setBusy(null); }
@@ -160,6 +178,10 @@ export function FacturaAcciones({
     } finally { setBusy(null); }
   }
 
+  // En la barra de la ficha, «Deshacer el cobro» y «Emitir rectificativa» van con TEXTO
+  // (auditoría 23/09): eran dos iconos grises junto a archivar y borrar, y son justo las
+  // dos salidas que pidió Luis. En la fila de la lista siguen siendo iconos (la tabla).
+  const BTN_TEXTO = "inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-40";
   const puedeRectificar = !esRectificativa && !rectificadaPor && estado !== "BORRADOR" && estado !== "ANULADA" && !archivada;
 
   return (
@@ -191,13 +213,14 @@ export function FacturaAcciones({
           borrar una factura emitida (petición de Luis, 21/09/2026). */}
       {estado === "PAGADA" && !archivada && (
         <button
-          onClick={descobrar}
+          onClick={() => void descobrar()}
           disabled={busy !== null}
           title={t("Deshacer el cobro")}
           aria-label={t("Deshacer el cobro de la factura {n}").replace("{n}", numero)}
-          className={`${ico} text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40`}
+          className={enBarra ? BTN_TEXTO : `${ico} text-slate-300 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-40`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+          {enBarra && <span>{t("Deshacer el cobro")}</span>}
         </button>
       )}
       {/* Rectificativa: la vía correcta para corregir una factura emitida. */}
@@ -207,9 +230,10 @@ export function FacturaAcciones({
           disabled={busy !== null}
           title={t("Emitir rectificativa")}
           aria-label={t("Emitir una rectificativa de la factura {n}").replace("{n}", numero)}
-          className={`${ico} text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40`}
+          className={enBarra ? BTN_TEXTO : `${ico} text-slate-300 transition hover:bg-aproba-50 hover:text-aproba-700 disabled:opacity-40`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 15h6" /></svg>
+          {enBarra && <span>{t("Emitir rectificativa")}</span>}
         </button>
       )}
       {(estado === "EMITIDA" || estado === "VENCIDA") && (

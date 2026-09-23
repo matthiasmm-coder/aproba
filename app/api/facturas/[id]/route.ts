@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { esNumeroRectificativa } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
@@ -35,10 +36,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Valida propiedad bajo RLS antes de tocar nada.
-  const { data: f } = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto").eq("id", id).maybeSingle();
+  let lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto, rectificaId").eq("id", id).maybeSingle();
+  // Sin la migración de rectificativas, la columna no existe: se lee sin ella.
+  if (lectura.error && /rectificaId/i.test(lectura.error.message)) lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto").eq("id", id).maybeSingle() as typeof lectura;
+  const f = lectura.data as { id: string; estado: string; expedienteId: string | null; numero: string; concepto: string | null; rectificaId?: string | null } | null;
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
   // Integridad contable: una factura ya pagada NO se reescribe.
   if (f.estado === "PAGADA") return NextResponse.json({ error: "No se puede modificar una factura ya pagada." }, { status: 409 });
+  // Una RECTIFICATIVA tampoco (auditoría 23/09/2026): editar el abono rompería «original +
+  // rectificativa = 0». Si está mal, se anula y se emite otra.
+  if (f.rectificaId || esNumeroRectificativa(String(f.numero ?? ""))) {
+    return NextResponse.json({ error: "Una factura rectificativa no se modifica. Si está mal, anúlala y emite otra rectificativa." }, { status: 409 });
+  }
   // VERI*FACTU: un alta ya enviada a la AEAT congela la factura (la vía legal es la
   // subsanación o la rectificativa, no la edición). Lo que no llegó a enviarse sí se edita.
   if (await facturaCongeladaPorVerifactu(supabase, id)) {
@@ -115,7 +124,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Integridad contable (auditoría 06/08): una factura COBRADA nunca se elimina — el dinero
   // encajado desaparecería del historial y la numeración quedaría con huecos. El borrado
   // queda para errores NO cobrados; lo cobrado se corrige con rectificativa.
-  if (f.estado === "PAGADA") return NextResponse.json({ error: "Una factura pagada no se puede eliminar. Emite una rectificativa si necesitas corregirla." }, { status: 409 });
+  if (f.estado === "PAGADA") return NextResponse.json({ error: "Una factura cobrada no se puede eliminar. Si la marcaste como cobrada por error, deshaz el cobro; si lo que está mal es la factura, emite una rectificativa." }, { status: 409 });
 
   const { data: mem } = await supabase.from("Membership").select("role").eq("workspaceId", (f as { workspaceId: string }).workspaceId).eq("userId", user.id).maybeSingle();
   if (!puedeGestionarEquipo((mem as { role?: string } | null)?.role)) {

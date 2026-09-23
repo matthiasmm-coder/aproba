@@ -101,7 +101,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
               )}
             </>
           )}
-          {editable && f.estado !== "PAGADA" && !verifactu?.congelada && (
+          {editable && !esRect && f.estado !== "PAGADA" && !verifactu?.congelada && (
             <button onClick={() => setEditando(true)} className={`${BTN} border border-slate-300 text-slate-600 hover:border-aproba-300 hover:text-aproba-700`}>
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
               {t("Editar")}

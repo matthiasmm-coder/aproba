@@ -211,6 +211,9 @@ export async function POST(req: Request) {
     if (!o) return fail("Oficina no encontrada.", 404);
     const limpio = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max) || null;
     const prefijo = String(body.prefijoSerie ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || null;
+    // «R» es la serie de las RECTIFICATIVAS (R-2026-0001): una sede con ese prefijo mezclaría
+    // sus facturas normales con los abonos y el sistema las tomaría por rectificativas.
+    if (prefijo === "R") return fail("«R» está reservado a las facturas rectificativas. Elige otro prefijo.", 400);
     // El prefijo debe ser único en el despacho: dos sedes con «DG» compartirían serie sin querer.
     if (prefijo) {
       const { data: chocan } = await admin.from("Oficina").select("id")

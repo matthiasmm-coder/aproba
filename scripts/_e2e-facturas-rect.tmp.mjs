@@ -27,6 +27,8 @@ try {
   check("marcada como cobrada", r.status === 200 && r.j.estado === "PAGADA", JSON.stringify(r.j));
   r = await api(`/api/facturas/${facId}`, { method: "DELETE" });
   check("una pagada NO se puede eliminar (409)", r.status === 409 && /rectificativa/i.test(r.j.error ?? ""), `${r.status} ${r.j.error ?? ""}`);
+  // Auditoría 23/09: el mensaje señala también la salida si el cobro fue un error.
+  check("…y el mensaje ofrece deshacer el cobro", /deshaz el cobro/i.test(r.j.error ?? ""), r.j.error ?? "");
   r = await api(`/api/facturas/${facId}/pagada`, { method: "DELETE" });
   check("deshacer el cobro → 200 y vuelve a EMITIDA", r.status === 200 && r.j.estado === "EMITIDA", JSON.stringify(r.j));
   let { data: f1 } = await admin.from("Factura").select("estado, metodoPago, numero").eq("id", facId).maybeSingle();
@@ -71,6 +73,11 @@ try {
   check("una rectificativa no se rectifica → 409", r.status === 409, `${r.status} ${r.j.error ?? ""}`);
   r = await api(`/api/facturas/${crypto.randomUUID()}/rectificar`, { method: "POST", body: JSON.stringify({}) });
   check("una factura ajena/inexistente → 404", r.status === 404, String(r.status));
+  // Auditoría 23/09: editar el abono rompería «original + rectificativa = 0».
+  r = await api(`/api/facturas/${rectId}`, { method: "PUT", body: JSON.stringify({ concepto: "cambiado", baseImponible: 70 }) });
+  check("una rectificativa NO se edita (409)", r.status === 409 && /rectificativa no se modifica/i.test(r.j.error ?? ""), `${r.status} ${r.j.error ?? ""}`);
+  const { data: frIntacta } = await admin.from("Factura").select("total").eq("id", rectId).maybeSingle();
+  check("…y su importe sigue en negativo", Number(frIntacta?.total) < 0, JSON.stringify(frIntacta));
 
   // 5) Las pantallas
   console.log("\n5. Pantallas");

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { parseImporte } from "@/lib/importar";
 import { confirmar } from "@/components/confirm-dialog";
 import { eur } from "@/lib/facturas";
 import { csvFacturasRecibidas, fechaCortaISO, filtrarPeriodo, isoDeFecha, totalesDe, motivoNoPagable, MAX_SUBIDA_RECIBIDAS, type FacturaRecibida, type CamposFacturaRecibida } from "@/lib/facturas-recibidas";
@@ -350,12 +351,27 @@ function EditarRecibida({ f, expedientes, t, onCerrar, onGuardada }: { f: Factur
           {campo("proveedorIban", t("IBAN del proveedor"), { autoComplete: "off", placeholder: "ES00 0000 0000 0000 0000 0000", spellCheck: false })}
           {campo("numero", t("Nº de factura"), { autoComplete: "off" })}
           {campo("fecha", t("Fecha"), { type: "date" })}
-          {campo("tipoIva", t("IVA %"), { inputMode: "decimal" })}
+          {/* Orden de lectura de la propia factura (auditoría 23/09): base y total arriba,
+              luego cada impuesto con su porcentaje al lado de su importe. */}
           {campo("baseImponible", t("Base imponible"), { inputMode: "decimal" })}
+          {campo("total", t("Total a pagar"), { inputMode: "decimal" })}
+          {campo("tipoIva", t("IVA %"), { inputMode: "decimal" })}
           {campo("cuotaIva", t("Cuota IVA"), { inputMode: "decimal" })}
           {campo("tipoRetencion", t("Retención IRPF %"), { inputMode: "decimal" })}
           {campo("retencion", t("Retención IRPF"), { inputMode: "decimal" })}
-          {campo("total", t("Total"), { inputMode: "decimal" })}
+          {(() => {
+            // Comprobación en directo: base + IVA − retención = total. Si no cuadra, se dice
+            // cuánto debería ser; no se corrige solo (manda lo que pone la factura en papel).
+            const b = parseImporte(c.baseImponible), iv = parseImporte(c.cuotaIva), re = parseImporte(c.retencion) ?? 0, to = parseImporte(c.total);
+            if (b === null || iv === null || to === null) return null;
+            const esperado = Math.round((b + iv - re) * 100) / 100;
+            if (Math.abs(esperado - to) <= 0.05) return null;
+            return (
+              <p role="status" className="sm:col-span-2 -mt-1 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                {t("No cuadra: base + IVA − retención da")} <strong>{n2(esperado)} €</strong>
+              </p>
+            );
+          })()}
           <label className="block text-xs text-slate-500">
             <span className="mb-1 block font-medium uppercase tracking-wide text-slate-400">{t("Estado del pago")}</span>
             <select value={c.estado} onChange={set("estado")} className={`${inp} bg-white`}>
