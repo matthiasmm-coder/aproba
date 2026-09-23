@@ -9,6 +9,11 @@ import type { MercurioCampo } from "@/lib/mercurio";
 // una página informativa.
 const MERCURIO_URL = "https://mercurio.delegaciondelgobierno.gob.es/mercurio/";
 
+// Ficha pública de la extensión en el Chrome Web Store (publicada desde el 24/06/2026).
+// Fija en el código: el enlace dependía de una variable de entorno que nunca se puso, y
+// quien no tenía la extensión veía «Instala la extensión» sin ningún enlace (23/09/2026).
+const EXTENSION_URL = "https://chromewebstore.google.com/detail/aproba-para-mercurio/bfennpfmmlafloaheaidekpfildgacjg";
+
 export function RellenarMercurio({ campos, referencia, expedienteId, rellenos, total, ocultarTitulo = false }: { campos: MercurioCampo[]; referencia: string; expedienteId?: string; rellenos: number; total: number; ocultarTitulo?: boolean }) {
   const t = useT();
   // null = comprobando, true/false = extensión detectada o no.
@@ -61,13 +66,9 @@ export function RellenarMercurio({ campos, referencia, expedienteId, rellenos, t
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3">
           <p className="text-sm font-medium text-amber-800">{t("Instala la extensión «Aproba para Mercurio»")}</p>
           <p className="mt-0.5 text-xs text-amber-700">{t("Es necesaria para rellenar Mercurio automáticamente. Una vez instalada, recarga esta página.")}</p>
-          {/* URL del listing del Chrome Web Store — se cablea vía env en cuanto Google
-              apruebe la extensión (ya sometida). Sin env: aviso sin enlace, como antes. */}
-          {process.env.NEXT_PUBLIC_MERCURIO_EXT_URL && (
-            <a href={process.env.NEXT_PUBLIC_MERCURIO_EXT_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700">
-              {t("Instalar desde Chrome Web Store")} ↗
-            </a>
-          )}
+          <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700">
+            {t("Instalar desde Chrome Web Store")} ↗
+          </a>
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
