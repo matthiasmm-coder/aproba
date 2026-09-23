@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { mapFilaRecibida, COLS_RECIBIDA, COLS_RECIBIDA_BASE, faltaMigracionRecibidas, faltaColumna } from "@/lib/facturas-recibidas-guardar";
+import { mapFilaRecibida, COLS_RECIBIDA, COLS_RECIBIDA_PAGO, COLS_RECIBIDA_BASE, faltaMigracionRecibidas, faltaColumna } from "@/lib/facturas-recibidas-guardar";
 import type { FacturaRecibida } from "@/lib/facturas-recibidas";
 
 // Facturas recibidas del despacho (RLS). Sin migración → lista vacía (la sección se
@@ -17,9 +17,12 @@ export async function fetchFacturasRecibidas(sedes?: string[] | null, incluirSin
     }
     return q;
   };
+  const puedeReplegar = (msg: string) => faltaColumna(msg) && !/relation|does not exist/i.test(msg);
   let { data, error } = await consulta(COLS_RECIBIDA);
-  // Sin la migración de pago → columnas base (estado = pendiente, sin IBAN).
-  if (error && faltaColumna(error.message) && !/relation|does not exist/i.test(error.message)) ({ data, error } = await consulta(COLS_RECIBIDA_BASE));
+  // Sin la migración de retención → se pierde la línea de IRPF, nada más.
+  if (error && puedeReplegar(error.message)) ({ data, error } = await consulta(COLS_RECIBIDA_PAGO));
+  // Sin la de pago tampoco → columnas base (estado = pendiente, sin IBAN).
+  if (error && puedeReplegar(error.message)) ({ data, error } = await consulta(COLS_RECIBIDA_BASE));
   if (error) {
     if (faltaMigracionRecibidas(error.message)) return [];
     throw new Error(`Facturas recibidas: ${error.message}`);

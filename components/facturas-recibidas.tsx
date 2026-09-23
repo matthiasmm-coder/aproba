@@ -50,7 +50,11 @@ function Fila({ f, refDe, marcada, onMarcar, onEditar, onEliminar, onPagada, esA
         </div>
       </td>
       <td className="hidden px-3 py-2.5 text-right text-slate-500 md:table-cell">{f.baseImponible === null ? "—" : eur(f.baseImponible)}</td>
-      <td className="hidden px-3 py-2.5 text-right text-slate-500 md:table-cell">{f.cuotaIva === null ? "—" : `${eur(f.cuotaIva)}${f.tipoIva !== null ? ` (${f.tipoIva} %)` : ""}`}</td>
+      <td className="hidden px-3 py-2.5 text-right text-slate-500 md:table-cell">
+        {f.cuotaIva === null ? "—" : `${eur(f.cuotaIva)}${f.tipoIva !== null ? ` (${f.tipoIva} %)` : ""}`}
+        {/* Retención de IRPF: resta del total, así que se enseña en negativo bajo el IVA. */}
+        {f.retencion ? <span className="block text-[11px] text-amber-700">−{eur(f.retencion)}{f.tipoRetencion !== null ? ` (${t("IRPF")} ${f.tipoRetencion} %)` : ` ${t("IRPF")}`}</span> : null}
+      </td>
       <td className="px-3 py-2.5 text-right font-semibold text-slate-800 whitespace-nowrap">{f.total === null ? <span className="text-amber-600">—</span> : eur(f.total)}</td>
       <td className="px-2 py-2 text-right whitespace-nowrap">
         {f.estado === "PENDIENTE" && <button type="button" onClick={onPagada} className="text-xs font-medium text-aproba-700 hover:underline">{t("Pagada")}</button>}
@@ -221,7 +225,7 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
       {/* Stats: espejo de Facturado / Cobrado / Pendiente de cobro */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { label: t("Gastos"), value: eur(tot.total), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")} · ${t("base")} ${eur(tot.base)} · ${t("IVA")} ${eur(tot.iva)}`, tone: "text-slate-900" },
+          { label: t("Gastos"), value: eur(tot.total), sub: `${tot.n} ${tot.n === 1 ? t("factura") : t("facturas")} · ${t("base")} ${eur(tot.base)} · ${t("IVA")} ${eur(tot.iva)}${tot.retencion ? ` · ${t("IRPF")} −${eur(tot.retencion)}` : ""}`, tone: "text-slate-900" },
           { label: t("Pagado"), value: eur(totPag.total), sub: t("Pagadas"), tone: "text-aproba-700" },
           { label: t("Pendiente de pago"), value: eur(totPend.total), sub: nRevisar ? `${nRevisar} ${t("por revisar")}` : totPend.n ? `${totPend.n} ${t("facturas")}` : t("Al día"), tone: "text-amber-600" },
         ].map((c) => (
@@ -304,7 +308,7 @@ export function FacturasRecibidas({ items, expedientes, rangeFrom, rangeTo, esAd
 
 function EditarRecibida({ f, expedientes, t, onCerrar, onGuardada }: { f: FacturaRecibida; expedientes: ExpedienteVinculable[]; t: Traducir; onCerrar: () => void; onGuardada: (f: FacturaRecibida) => void }) {
   const [c, setC] = useState<Record<keyof CamposFacturaRecibida, string>>({
-    proveedorNombre: f.proveedorNombre, proveedorNif: f.proveedorNif, proveedorIban: fmtIban(f.proveedorIban), numero: f.numero, fecha: f.fecha, baseImponible: n2(f.baseImponible), tipoIva: n2(f.tipoIva), cuotaIva: n2(f.cuotaIva), total: n2(f.total),
+    proveedorNombre: f.proveedorNombre, proveedorNif: f.proveedorNif, proveedorIban: fmtIban(f.proveedorIban), numero: f.numero, fecha: f.fecha, baseImponible: n2(f.baseImponible), tipoIva: n2(f.tipoIva), cuotaIva: n2(f.cuotaIva), retencion: n2(f.retencion), tipoRetencion: n2(f.tipoRetencion), total: n2(f.total),
     concepto: f.concepto, notas: f.notas, expedienteId: f.expedienteId ?? "", estado: f.estado, fechaPago: f.fechaPago,
   });
   const [guardando, setGuardando] = useState(false);
@@ -349,6 +353,8 @@ function EditarRecibida({ f, expedientes, t, onCerrar, onGuardada }: { f: Factur
           {campo("tipoIva", t("IVA %"), { inputMode: "decimal" })}
           {campo("baseImponible", t("Base imponible"), { inputMode: "decimal" })}
           {campo("cuotaIva", t("Cuota IVA"), { inputMode: "decimal" })}
+          {campo("tipoRetencion", t("Retención IRPF %"), { inputMode: "decimal" })}
+          {campo("retencion", t("Retención IRPF"), { inputMode: "decimal" })}
           {campo("total", t("Total"), { inputMode: "decimal" })}
           <label className="block text-xs text-slate-500">
             <span className="mb-1 block font-medium uppercase tracking-wide text-slate-400">{t("Estado del pago")}</span>

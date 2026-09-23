@@ -21,6 +21,12 @@ export type FacturaRecibida = {
   baseImponible: number | null;
   tipoIva: number | null;        // porcentaje
   cuotaIva: number | null;
+  // RETENCIÓN DE IRPF (Luis, Asenjo, 23/09/2026). Muchas facturas de profesionales
+  // (abogados, procuradores, alquileres) llevan retención: base + IVA − retención = total.
+  // `total` es y sigue siendo el IMPORTE A PAGAR, ya descontada la retención — de ahí
+  // tira la orden SEPA, así que nunca se paga de más.
+  retencion: number | null;      // importe retenido, en positivo
+  tipoRetencion: number | null;  // porcentaje (15, 7, 2, 1…)
   total: number | null;
   concepto: string;
   notas: string;
@@ -39,7 +45,7 @@ export type FacturaRecibida = {
 };
 
 export type CamposFacturaRecibida = Pick<FacturaRecibida,
-  "proveedorNombre" | "proveedorNif" | "proveedorIban" | "numero" | "fecha" | "baseImponible" | "tipoIva" | "cuotaIva" | "total" | "concepto" | "notas" | "expedienteId" | "estado" | "fechaPago">;
+  "proveedorNombre" | "proveedorNif" | "proveedorIban" | "numero" | "fecha" | "baseImponible" | "tipoIva" | "cuotaIva" | "retencion" | "tipoRetencion" | "total" | "concepto" | "notas" | "expedienteId" | "estado" | "fechaPago">;
 
 export const MAX_ARCHIVO_RECIBIDA = 8 * 1024 * 1024;
 export const MIMES_RECIBIDA = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -56,6 +62,8 @@ export type ExtraccionFacturaCruda = {
   base_imponible?: number | string | null;
   tipo_iva?: number | string | null;
   cuota_iva?: number | string | null;
+  retencion?: number | string | null;
+  tipo_retencion?: number | string | null;
   total?: number | string | null;
   concepto?: string | null;
   moneda?: string | null;
@@ -77,7 +85,7 @@ const TIPOS_IVA = [21, 10, 4, 0];
 export const limpiarNif = (v: string): string => v.toUpperCase().replace(/[\s.\-]/g, "").slice(0, 20);
 
 export const CAMPOS_VACIOS: CamposFacturaRecibida = {
-  proveedorNombre: "", proveedorNif: "", proveedorIban: "", numero: "", fecha: "", baseImponible: null, tipoIva: null, cuotaIva: null, total: null, concepto: "", notas: "", expedienteId: null, estado: "PENDIENTE", fechaPago: "",
+  proveedorNombre: "", proveedorNif: "", proveedorIban: "", numero: "", fecha: "", baseImponible: null, tipoIva: null, cuotaIva: null, retencion: null, tipoRetencion: null, total: null, concepto: "", notas: "", expedienteId: null, estado: "PENDIENTE", fechaPago: "",
 };
 
 // Del JSON del modelo a campos coherentes: importes en número, fecha ISO, NIF limpio, y
@@ -89,13 +97,22 @@ export function normalizarFacturaLeida(cruda: ExtraccionFacturaCruda | null | un
   const confianza = Math.max(0, Math.min(1, typeof c.confianza === "number" ? c.confianza : 0));
   const avisos: string[] = [];
   let base = num(c.base_imponible), tipo = num(c.tipo_iva), cuota = num(c.cuota_iva), total = num(c.total);
+  let ret = num(c.retencion), tipoRet = num(c.tipo_retencion);
   if (tipo !== null && tipo > 100) tipo = null;
+  if (tipoRet !== null && (tipoRet > 100 || tipoRet < 0)) tipoRet = null;
+  if (ret !== null) ret = Math.abs(ret); // en la factura figura restando; aquí se guarda en positivo
   if (base !== null && cuota === null && tipo !== null) cuota = r2(base * tipo / 100);
-  if (total === null && base !== null) total = r2(base + (cuota ?? 0));
-  if (base === null && total !== null && tipo !== null) { base = r2(total / (1 + tipo / 100)); cuota = r2(total - base); }
-  if (cuota === null && base !== null && total !== null) cuota = r2(total - base);
+  if (base !== null && ret === null && tipoRet !== null) ret = r2(base * tipoRet / 100);
+  if (total === null && base !== null) total = r2(base + (cuota ?? 0) - (ret ?? 0));
+  // Despejar la base desde el total solo vale SIN retención: con ella hay dos incógnitas y
+  // la cuenta daría una base falsa (y un IVA falso) en toda factura de abogado o alquiler.
+  if (base === null && total !== null && tipo !== null && !ret) { base = r2(total / (1 + tipo / 100)); cuota = r2(total - base); }
+  if (cuota === null && base !== null && total !== null && !ret) cuota = r2(total - base);
   if (tipo === null && base && cuota !== null && base > 0) { const p = Math.round(cuota / base * 100); if (TIPOS_IVA.includes(p)) tipo = p; }
-  if (base !== null && cuota !== null && total !== null && Math.abs(base + cuota - total) > 0.05) avisos.push("Los importes no cuadran (base + IVA ≠ total)");
+  if (tipoRet === null && base && ret !== null && ret > 0 && base > 0) { const p = Math.round(ret / base * 100); if (p > 0 && p <= 100) tipoRet = p; }
+  if (base !== null && cuota !== null && total !== null && Math.abs(base + cuota - (ret ?? 0) - total) > 0.05) {
+    avisos.push(ret ? "Los importes no cuadran (base + IVA − retención ≠ total)" : "Los importes no cuadran (base + IVA ≠ total)");
+  }
   const fecha = normalizarFechaCsv(txt(c.fecha, 20));
   if (c.fecha && !fecha) avisos.push("Fecha no reconocida");
   const moneda = txt(c.moneda, 5).toUpperCase();
@@ -111,7 +128,7 @@ export function normalizarFacturaLeida(cruda: ExtraccionFacturaCruda | null | un
     proveedorIban,
     numero: txt(c.numero, 60),
     fecha,
-    baseImponible: base, tipoIva: tipo, cuotaIva: cuota, total,
+    baseImponible: base, tipoIva: tipo, cuotaIva: cuota, retencion: ret, tipoRetencion: tipoRet, total,
     concepto: txt(c.concepto, 240),
     notas: "",
     expedienteId: null,
@@ -135,7 +152,7 @@ export function normalizarCamposEditados(b: Partial<Record<keyof CamposFacturaRe
   if ("concepto" in b) out.concepto = txt(b.concepto, 240);
   if ("notas" in b) out.notas = txt(b.notas, 2000);
   if ("fecha" in b) out.fecha = normalizarFechaCsv(txt(b.fecha, 20));
-  for (const k of ["baseImponible", "tipoIva", "cuotaIva", "total"] as const) {
+  for (const k of ["baseImponible", "tipoIva", "cuotaIva", "retencion", "tipoRetencion", "total"] as const) {
     if (k in b) { const v = b[k]; out[k] = v === "" || v === null || v === undefined ? null : num(v as number | string); }
   }
   if ("expedienteId" in b) out.expedienteId = typeof b.expedienteId === "string" && b.expedienteId.trim() ? b.expedienteId.trim() : null;
@@ -179,18 +196,21 @@ export function agruparPorMes(items: FacturaRecibida[]): GrupoMes[] {
   return [...grupos.values()].sort((a, b) => (a.clave === "sin-fecha" ? -1 : b.clave === "sin-fecha" ? 1 : b.clave.localeCompare(a.clave)));
 }
 
-export function totalesDe(items: FacturaRecibida[]): { n: number; base: number; iva: number; total: number } {
-  return items.reduce((s, f) => ({ n: s.n + 1, base: r2(s.base + (f.baseImponible ?? 0)), iva: r2(s.iva + (f.cuotaIva ?? 0)), total: r2(s.total + (f.total ?? 0)) }), { n: 0, base: 0, iva: 0, total: 0 });
+// La retención también suma aquí: sin ella el resumen enseñaría base + IVA sin llegar
+// nunca al gasto (1.000 + 210 con un gasto de 1.060), y parecería un error de cuentas.
+export function totalesDe(items: FacturaRecibida[]): { n: number; base: number; iva: number; retencion: number; total: number } {
+  return items.reduce((s, f) => ({ n: s.n + 1, base: r2(s.base + (f.baseImponible ?? 0)), iva: r2(s.iva + (f.cuotaIva ?? 0)), retencion: r2(s.retencion + (f.retencion ?? 0)), total: r2(s.total + (f.total ?? 0)) }), { n: 0, base: 0, iva: 0, retencion: 0, total: 0 });
 }
 
 // CSV para quien lleve la contabilidad: «;» como separador, decimales con coma, BOM para Excel.
 export function csvFacturasRecibidas(items: FacturaRecibida[], referenciaDe?: (expedienteId: string) => string): string {
   const n = (v: number | null) => (v === null ? "" : v.toFixed(2).replace(".", ","));
   const esc = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const header = ["Fecha", "Proveedor", "NIF", "IBAN", "Número", "Concepto", "Base imponible", "IVA %", "Cuota IVA", "Total", "Estado", "Fecha de pago", "Expediente", "Origen", "Archivo", "Revisar"];
+  const header = ["Fecha", "Proveedor", "NIF", "IBAN", "Número", "Concepto", "Base imponible", "IVA %", "Cuota IVA", "Retención IRPF", "Retención %", "Total", "Estado", "Fecha de pago", "Expediente", "Origen", "Archivo", "Revisar"];
   const rows = items.map((f) => [
     f.fecha ? fechaCortaISO(f.fecha) : "", f.proveedorNombre, f.proveedorNif, f.proveedorIban, f.numero, f.concepto,
-    n(f.baseImponible), f.tipoIva === null ? "" : String(f.tipoIva), n(f.cuotaIva), n(f.total),
+    n(f.baseImponible), f.tipoIva === null ? "" : String(f.tipoIva), n(f.cuotaIva),
+    n(f.retencion), f.tipoRetencion === null ? "" : String(f.tipoRetencion), n(f.total),
     f.estado === "PAGADA" ? "Pagada" : "Pendiente", f.fechaPago ? fechaCortaISO(f.fechaPago) : "",
     f.expedienteId ? (referenciaDe?.(f.expedienteId) ?? f.expedienteId) : "", f.origen === "EMAIL" ? "Email" : "Subida", f.archivoNombre, f.revisar ? "sí" : "",
   ]);

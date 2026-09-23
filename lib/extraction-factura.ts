@@ -16,6 +16,7 @@ REGLAS:
 3. proveedor_nombre y proveedor_nif son los de quien EMITE la factura (no del destinatario). Nombre tal cual figura.
 4. numero = número de factura tal cual figura. fecha = fecha de EMISIÓN, en AAAA-MM-DD.
 5. Importes en número con punto decimal y sin símbolo: base_imponible (suma de bases), tipo_iva (porcentaje principal: 21, 10, 4 o 0; si hay varios, el de mayor base), cuota_iva (suma de todas las cuotas de IVA), total (importe total a pagar). Si figura retención de IRPF, el total es el importe final a pagar tras la retención.
+5b. retencion = importe RETENIDO de IRPF si la factura lo lleva (profesionales, alquileres), en POSITIVO aunque figure restando; tipo_retencion = su porcentaje (15, 7, 2, 1…). Ambos null si no hay retención. Ojo: la retención NO es el IVA.
 6. concepto = descripción breve (máx. 120 caracteres) de lo facturado.
 7. moneda = código ISO (EUR, USD…) si se distingue; null si no.
 8b. proveedor_iban = el IBAN de la cuenta del PROVEEDOR donde pide el pago (suele figurar junto a «forma de pago» o «transferencia»), tal cual, con o sin espacios; null si no figura. Nunca el IBAN del destinatario de la factura.
@@ -26,7 +27,8 @@ const PLANTILLA = `{
   "es_factura": true,
   "proveedor_nombre": null, "proveedor_nif": null, "proveedor_iban": null,
   "numero": null, "fecha": null,
-  "base_imponible": null, "tipo_iva": null, "cuota_iva": null, "total": null,
+  "base_imponible": null, "tipo_iva": null, "cuota_iva": null,
+  "retencion": null, "tipo_retencion": null, "total": null,
   "concepto": null, "moneda": null,
   "confianza": 0.0, "legible": true
 }`;

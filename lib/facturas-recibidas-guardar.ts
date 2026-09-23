@@ -25,7 +25,7 @@ export function mapFilaRecibida(r: Record<string, unknown>): FacturaRecibida {
   const n = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v));
   return {
     id: String(r.id), proveedorNombre: String(r.proveedorNombre ?? ""), proveedorNif: String(r.proveedorNif ?? ""), proveedorIban: String(r.proveedorIban ?? ""), numero: String(r.numero ?? ""),
-    fecha: typeof r.fecha === "string" ? r.fecha.slice(0, 10) : "", baseImponible: n(r.baseImponible), tipoIva: n(r.tipoIva), cuotaIva: n(r.cuotaIva), total: n(r.total),
+    fecha: typeof r.fecha === "string" ? r.fecha.slice(0, 10) : "", baseImponible: n(r.baseImponible), tipoIva: n(r.tipoIva), cuotaIva: n(r.cuotaIva), retencion: n(r.retencion), tipoRetencion: n(r.tipoRetencion), total: n(r.total),
     concepto: String(r.concepto ?? ""), notas: String(r.notas ?? ""), expedienteId: (r.expedienteId as string | null) ?? null, oficinaId: (r.oficinaId as string | null) ?? null,
     archivoNombre: String(r.archivoNombre ?? ""), archivoMime: String(r.archivoMime ?? ""), archivoSize: n(r.archivoSize), origen: r.origen === "EMAIL" ? "EMAIL" : "MANUAL",
     estado: r.estado === "PAGADA" ? "PAGADA" : "PENDIENTE", fechaPago: typeof r.fechaPago === "string" ? r.fechaPago.slice(0, 10) : "", ordenPago: String(r.ordenPago ?? ""),
@@ -36,9 +36,13 @@ export function mapFilaRecibida(r: Record<string, unknown>): FacturaRecibida {
 // Columnas de la 1.ª migración (facturas-recibidas.sql) y de la 2.ª (…-pago.sql): estado,
 // fechaPago, ordenPago, proveedorIban. Sin la 2.ª, todo repliega a la lista base.
 export const COLS_RECIBIDA_BASE = "id, proveedorNombre, proveedorNif, numero, fecha, baseImponible, tipoIva, cuotaIva, total, concepto, notas, expedienteId, oficinaId, archivoNombre, archivoMime, archivoSize, origen, revisar, confianza, createdAt";
-export const COLS_RECIBIDA = `${COLS_RECIBIDA_BASE}, proveedorIban, estado, fechaPago, ordenPago`;
+export const COLS_RECIBIDA_PAGO = `${COLS_RECIBIDA_BASE}, proveedorIban, estado, fechaPago, ordenPago`;
+// 3.ª migración (…-retencion.sql): retención de IRPF. Cada nivel repliega al anterior,
+// así que una migración que falte quita SUS columnas y no las de las otras.
+export const COLS_RECIBIDA = `${COLS_RECIBIDA_PAGO}, retencion, tipoRetencion`;
 export const faltaColumna = (msg: string) => /column|schema cache/i.test(msg);
 export const COLS_PAGO = ["proveedorIban", "estado", "fechaPago", "ordenPago"] as const;
+export const COLS_RETENCION = ["retencion", "tipoRetencion"] as const;
 
 // `forzar`: el gestor ha dicho que ES una factura (subida manual / botón de la bandeja) →
 // se archiva aunque la IA no la reconozca, marcada «revisar». Sin forzar (email), lo que
@@ -69,9 +73,15 @@ export async function guardarFacturaRecibida(admin: Admin, o: {
     origen: o.origen, bandejaId: o.bandejaId ?? null, confianza: leida.confianza, revisar: leida.revisar, creadoPorId: o.creadoPorId ?? null,
     updatedAt: new Date().toISOString(),
   };
+  const puedeReplegar = (msg: string) => faltaColumna(msg) && !faltaMigracionRecibidas(msg.replace(/column/i, ""));
   let ins = await admin.from("FacturaRecibida").insert(fila).select(COLS_RECIBIDA).single();
-  if (ins.error && faltaColumna(ins.error.message) && !faltaMigracionRecibidas(ins.error.message.replace(/column/i, ""))) {
-    // Sin la migración de pago: se quitan sus columnas y se reintenta.
+  if (ins.error && puedeReplegar(ins.error.message)) {
+    // Sin la migración de retención: se quitan SUS columnas y se reintenta con el resto.
+    for (const c of COLS_RETENCION) delete fila[c];
+    ins = await admin.from("FacturaRecibida").insert(fila).select(COLS_RECIBIDA_PAGO).single();
+  }
+  if (ins.error && puedeReplegar(ins.error.message)) {
+    // Sin la migración de pago tampoco: se cae a la lista base.
     for (const c of COLS_PAGO) delete fila[c];
     ins = await admin.from("FacturaRecibida").insert(fila).select(COLS_RECIBIDA_BASE).single();
   }

@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { normalizarFacturaLeida, normalizarCamposEditados, agruparPorMes, csvFacturasRecibidas, filtrarPeriodo, totalesDe, nombreEnZip, motivoNoPagable, camposParaDb, type FacturaRecibida } from "./facturas-recibidas";
 
+const r2 = (n: number) => Math.round(n * 100) / 100;
 const fila = (p: Partial<FacturaRecibida>): FacturaRecibida => ({
-  id: "f1", proveedorNombre: "Papelería Vallès", proveedorNif: "B12345678", proveedorIban: "ES3700490001502310107890", numero: "A-1", fecha: "2026-09-10", baseImponible: 100, tipoIva: 21, cuotaIva: 21, total: 121,
+  id: "f1", proveedorNombre: "Papelería Vallès", proveedorNif: "B12345678", proveedorIban: "ES3700490001502310107890", numero: "A-1", fecha: "2026-09-10", retencion: null, tipoRetencion: null, baseImponible: 100, tipoIva: 21, cuotaIva: 21, total: 121,
   concepto: "Material", notas: "", expedienteId: null, oficinaId: null, archivoNombre: "f.pdf", archivoMime: "application/pdf", archivoSize: 10, origen: "MANUAL", estado: "PENDIENTE", fechaPago: "", ordenPago: "", revisar: false, confianza: 0.9, createdAt: "2026-09-10T10:00:00Z", ...p,
 });
 
@@ -56,14 +57,15 @@ describe("facturas recibidas · listado y export", () => {
   });
   it("el periodo filtra por fecha de factura y conserva las sin fecha", () => {
     expect(filtrarPeriodo(items, "2026-09-01", "2026-09-30").map((x) => x.id).sort()).toEqual(["a", "c", "d"]);
-    expect(totalesDe(filtrarPeriodo(items, "2026-08-01", "2026-08-31"))).toEqual({ n: 2, base: 50, iva: 10.5, total: 60.5 });
+    expect(totalesDe(filtrarPeriodo(items, "2026-08-01", "2026-08-31"))).toEqual({ n: 2, base: 50, iva: 10.5, retencion: 0, total: 60.5 });
   });
   it("CSV con separador «;», decimales con coma, BOM y campos escapados", () => {
     const csv = csvFacturasRecibidas([items[1]], () => "EXP-1");
     const lineas = csv.split("\n");
     expect(lineas[0].startsWith("﻿Fecha;Proveedor")).toBe(true);
     // «;» separa: una coma dentro del nombre no se entrecomilla (mismo criterio que el CSV de emitidas).
-    expect(lineas[1]).toBe('02/08/2026;Alquiler, S.L.;B12345678;ES3700490001502310107890;A-1;Material;50,00;21;10,50;60,50;Pendiente;;;Subida;f.pdf;');
+    // Las dos columnas vacías tras «10,50» son la retención de IRPF y su porcentaje (23/09/2026).
+    expect(lineas[1]).toBe('02/08/2026;Alquiler, S.L.;B12345678;ES3700490001502310107890;A-1;Material;50,00;21;10,50;;;60,50;Pendiente;;;Subida;f.pdf;');
     expect(csvFacturasRecibidas([items[0]]).split("\n")[1]).toContain("EXP-1".length ? "Papelería Vallès" : "");
     expect(csvFacturasRecibidas([fila({ concepto: 'Con "comillas"; y punto y coma' })]).split("\n")[1]).toContain('"Con ""comillas""; y punto y coma"');
   });
@@ -99,5 +101,63 @@ describe("facturas recibidas · escritura en base", () => {
     expect(camposParaDb({ fecha: "", fechaPago: "", numero: "A" })).toEqual({ fecha: null, fechaPago: null, numero: "A" });
     expect(camposParaDb({ fecha: "2026-09-03" })).toEqual({ fecha: "2026-09-03" });
     expect(camposParaDb({ numero: "B" })).toEqual({ numero: "B" });
+  });
+});
+
+// RETENCIÓN DE IRPF (Luis, Asenjo, 23/09/2026). La factura del abogado o del alquiler
+// resta la retención: base + IVA − retención = total. Antes de esto, TODAS esas facturas
+// caían en «los importes no cuadran» y se marcaban para revisar sin motivo.
+describe("retención de IRPF", () => {
+  it("la lee, la guarda en positivo y el total cuadra", () => {
+    const r = normalizarFacturaLeida({
+      es_factura: true, confianza: 0.95, legible: true, proveedor_nombre: "Abogados Ruiz", fecha: "2026-09-10",
+      base_imponible: 1000, tipo_iva: 21, cuota_iva: 210, retencion: -150, tipo_retencion: 15, total: 1060,
+    });
+    expect(r.campos.retencion).toBe(150);        // la factura la escribe restando; aquí en positivo
+    expect(r.campos.tipoRetencion).toBe(15);
+    expect(r.campos.total).toBe(1060);           // el importe A PAGAR: de aquí sale la transferencia
+    expect(r.avisos).toEqual([]);                // ya no hay falso «no cuadran»
+    expect(r.revisar).toBe(false);
+  });
+
+  it("deduce el importe desde el porcentaje, y el porcentaje desde el importe", () => {
+    const a = normalizarFacturaLeida({ es_factura: true, confianza: 0.9, legible: true, proveedor_nombre: "X", fecha: "2026-09-10", base_imponible: 1000, tipo_iva: 21, tipo_retencion: 15 });
+    expect(a.campos.retencion).toBe(150);
+    expect(a.campos.total).toBe(1060);
+    const b = normalizarFacturaLeida({ es_factura: true, confianza: 0.9, legible: true, proveedor_nombre: "X", fecha: "2026-09-10", base_imponible: 1000, tipo_iva: 21, cuota_iva: 210, retencion: 70, total: 1140 });
+    expect(b.campos.tipoRetencion).toBe(7);
+  });
+
+  it("con retención NO despeja la base desde el total (daría una base falsa)", () => {
+    const r = normalizarFacturaLeida({ es_factura: true, confianza: 0.9, legible: true, proveedor_nombre: "X", fecha: "2026-09-10", tipo_iva: 21, retencion: 150, total: 1060 });
+    expect(r.campos.baseImponible).toBeNull();   // antes habría escrito 876,03 €
+  });
+
+  it("sigue avisando cuando de verdad no cuadra", () => {
+    const r = normalizarFacturaLeida({ es_factura: true, confianza: 0.9, legible: true, proveedor_nombre: "X", fecha: "2026-09-10", base_imponible: 1000, tipo_iva: 21, cuota_iva: 210, retencion: 150, total: 1200 });
+    expect(r.avisos.some((a) => /no cuadran/.test(a))).toBe(true);
+  });
+
+  it("sin retención nada cambia", () => {
+    const r = normalizarFacturaLeida({ es_factura: true, confianza: 0.95, legible: true, proveedor_nombre: "Papelería", fecha: "2026-09-10", base_imponible: 100, tipo_iva: 21, cuota_iva: 21, total: 121 });
+    expect(r.campos.retencion).toBeNull();
+    expect(r.campos.tipoRetencion).toBeNull();
+    expect(r.avisos).toEqual([]);
+  });
+
+  it("el resumen cuadra: base + IVA − retención = gasto", () => {
+    const t = totalesDe([fila({ baseImponible: 1000, cuotaIva: 210, retencion: 150, total: 1060 })]);
+    expect(t.base).toBe(1000);
+    expect(t.iva).toBe(210);
+    expect(t.retencion).toBe(150);
+    expect(r2(t.base + t.iva - t.retencion)).toBe(t.total);
+  });
+
+  it("el gestor puede corregirla a mano, y el CSV la lleva", () => {
+    expect(normalizarCamposEditados({ retencion: "150,00", tipoRetencion: "15" })).toEqual({ retencion: 150, tipoRetencion: 15 });
+    expect(normalizarCamposEditados({ retencion: "" })).toEqual({ retencion: null });
+    const csv = csvFacturasRecibidas([fila({ retencion: 150, tipoRetencion: 15, total: 1060 })]);
+    expect(csv.split("\n")[0]).toContain("Retención IRPF");
+    expect(csv.split("\n")[1]).toContain("150,00");
   });
 });
