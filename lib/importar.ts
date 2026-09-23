@@ -13,7 +13,7 @@ import { normalizarNumeroOficial } from "@/lib/expedientes-tabla";
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
 export const CAMPOS_CLIENTE = [...FICHA_KEYS, "idioma", "fechaCaducidad"] as const;
-export const CAMPOS_EXPEDIENTE = ["referencia", "numeroOficial", "tramite", "estado", "fechaPresentacion", "notas", "importe"] as const;
+export const CAMPOS_EXPEDIENTE = ["referencia", "numeroOficial", "tramite", "estado", "fechaPresentacion", "notas", "importe", "estadoCobro"] as const;
 export const CAMPOS_ESPECIALES = ["nombreCompleto", "documento", "familia", "parentesco", "fechaResolucion", "empresa"] as const;
 export type CampoImport = (typeof CAMPOS_CLIENTE)[number] | (typeof CAMPOS_EXPEDIENTE)[number] | (typeof CAMPOS_ESPECIALES)[number];
 
@@ -109,6 +109,17 @@ export function normalizarEstadoCivil(v: string): string {
 
 // Importe libre → número. «690€» → 690 ; «1.290,50 €» → 1290.5 ; «300» → 300. Formato
 // español (miles «.», decimal «,») y también inglés simple. null si no hay número válido.
+// Estado del cobro de una factura ANTERIOR a Aproba (columna de la plantilla, 24/09/2026).
+// Lo negativo manda: «No cobrada» o «Parcialmente cobrada» siguen pendientes.
+export type EstadoCobro = "COBRADA" | "PENDIENTE";
+export function normalizarEstadoCobro(v: string): EstadoCobro | null {
+  const s = v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  if (!s) return null;
+  if (/\b(no|pendiente|pend|parcial|parcialmente|impagad[ao]s?|debe|deuda|por cobrar|sin cobrar|sin pagar|a deber|pending|unpaid)\b/.test(s)) return "PENDIENTE";
+  if (/\b(cobrad[ao]s?|pagad[ao]s?|abonad[ao]s?|liquidad[ao]s?|saldad[ao]s?|cobrat|pagat|si|s|yes|ok|paid)\b/.test(s)) return "COBRADA";
+  return null;
+}
+
 export function parseImporte(v: string): number | null {
   let s = v.replace(/[^\d.,-]/g, "").trim(); // quita €, espacios, letras
   if (!s) return null;
@@ -146,6 +157,7 @@ export type FilaImportada = {
   estado: string;              // EstadoExpediente (resultado del servicio)
   notas: string;
   importe: number | null;      // importe facturado en el pasado (info; NO genera factura)
+  estadoCobro: EstadoCobro | ""; // ¿esa factura anterior está cobrada? (Luis, 24/09/2026) — tampoco genera factura
   enCurso: boolean;            // abre un expediente real (mapeo.crearEnCurso + servicio + estado vivo)
   excluir: boolean;            // el gestor la descartó en la revisión
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
@@ -157,7 +169,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", empresa: "", referencia: "", numeroOficial: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, enCurso: false, excluir: false, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", empresa: "", referencia: "", numeroOficial: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, estadoCobro: "", enCurso: false, excluir: false, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -191,6 +203,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
         case "estado": estadoBruto = v; break;
         case "notas": out.notas = v; break;
         case "importe": out.importe = parseImporte(v); break;
+        case "estadoCobro": { const x = normalizarEstadoCobro(v); if (x) out.estadoCobro = x; else out.avisos.push(`Estado del cobro no reconocido: «${v}» (usa «Cobrada» o «Pendiente»)`); break; }
         default: (ficha as Record<string, string>)[campo] = v;
       }
     }

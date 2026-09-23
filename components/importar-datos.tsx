@@ -44,7 +44,7 @@ const GRUPOS: { grupo: string; campos: [CampoImport, string][] }[] = [
     ["idioma", "Idioma"], ["fechaCaducidad", "Caducidad TIE (→ Vigía)"], ["fechaResolucion", "Fecha del trámite / resolución"],
   ] },
   { grupo: "Servicio realizado", campos: [
-    ["tramite", "Trámite / servicio"], ["estado", "Estado del trámite"], ["fechaPresentacion", "Fecha de presentación"], ["importe", "Importe cobrado (histórico)"], ["numeroOficial", "Nº de expediente (Extranjería)"], ["referencia", "Referencia interna del despacho"], ["notas", "Notas"],
+    ["tramite", "Trámite / servicio"], ["estado", "Estado del trámite"], ["fechaPresentacion", "Fecha de presentación"], ["importe", "Importe facturado (antes de Aproba)"], ["estadoCobro", "Estado del cobro (cobrada / pendiente)"], ["numeroOficial", "Nº de expediente (Extranjería)"], ["referencia", "Referencia interna del despacho"], ["notas", "Notas"],
   ] },
   { grupo: "Familia", campos: [["familia", "Familia (agrupación)"], ["parentesco", "Parentesco"]] },
   { grupo: "Empresa", campos: [["empresa", "Empresa (razón social)"]] },

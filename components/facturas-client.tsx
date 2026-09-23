@@ -9,6 +9,7 @@ import { DatosFacturacion } from "@/components/datos-facturacion";
 import type { Despacho } from "@/lib/data/config";
 import type { CobroPendiente } from "@/lib/data/facturas";
 import { CobrosPendientes } from "@/components/cobros-pendientes";
+import type { CobroPrevioPendiente } from "@/lib/data/cobros-previos";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
 import { FacturasRecibidas } from "@/components/facturas-recibidas";
@@ -124,7 +125,7 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
   );
 }
 
-export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas", verifactu }: { facturas: Factura[]; cobros: CobroPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas; verifactu?: Record<string, ChipVerifactu> }) {
+export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas", verifactu }: { facturas: Factura[]; cobros: CobroPendiente[]; previos?: CobroPrevioPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas; verifactu?: Record<string, ChipVerifactu> }) {
   const t = useT();
   // Emitidas (a clientes) o recibidas (de proveedores): dos vistas de la misma pestaña,
   // mismo periodo. `?vista=recibidas` abre la segunda (enlaces desde el email y la bandeja).
@@ -321,7 +322,7 @@ export function FacturasClient({ facturas, cobros, despacho, esAdmin, recibidas 
 
       {/* Cobros pendientes (morosos) — NO filtrado por periodo: una deuda es una deuda */}
       <div className="mt-6">
-        <CobrosPendientes cobros={cobros} />
+        <CobrosPendientes cobros={cobros} previos={previos} />
       </div>
 
       {/* Grupos plegables por estado */}

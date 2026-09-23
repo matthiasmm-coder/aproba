@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { eur } from "@/lib/facturas";
 import type { CobroPendiente } from "@/lib/data/facturas";
+import type { CobroPrevioPendiente } from "@/lib/data/cobros-previos";
 import { useT } from "@/components/lang-provider";
+import { MarcarCobroPrevio } from "@/components/cobro-previo";
+import Link from "next/link";
 
 // Vista de cobros pendientes (morosos): facturas EMITIDA/VENCIDA agrupadas por
 // cliente deudor, con los días de retraso y un botón «Recordar» que reenvía el
@@ -59,7 +62,10 @@ function BotonRecordar({ cobro }: { cobro: CobroPendiente }) {
   );
 }
 
-export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
+// `previos`: lo facturado ANTES de Aproba y aún pendiente (migración, columna «Estado del
+// cobro» — Luis, 24/09/2026). No son facturas de Aproba: van aparte, sin «Recordar», y se
+// marcan cobradas a mano.
+export function CobrosPendientes({ cobros, previos = [] }: { cobros: CobroPendiente[]; previos?: CobroPrevioPendiente[] }) {
   const t = useT();
 
   // Agrupar por cliente; ordenar los grupos por la deuda más antigua primero.
@@ -81,8 +87,9 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
   }, [cobros]);
 
   const totalPendiente = cobros.reduce((s, c) => s + (c.pendiente ?? c.total), 0);
+  const totalPrevios = previos.reduce((s, c) => s + (c.importe ?? 0), 0);
   const [abierto, setAbierto] = useState(false); // plegado por defecto (pedido de Matthias)
-  const plegable = cobros.length > 0;
+  const plegable = cobros.length > 0 || previos.length > 0;
 
   return (
     <div className="mb-6 rounded-2xl border border-slate-200 bg-white">
@@ -98,19 +105,24 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
           )}
           <div>
             <span className="text-sm font-semibold text-slate-800">{t("Cobros pendientes")}</span>
-            {cobros.length > 0 && (
+            {(cobros.length > 0 || previos.length > 0) && (
               <p className="mt-0.5 text-xs text-slate-400">
-                {grupos.length} {grupos.length === 1 ? t("cliente") : t("clientes")} · {cobros.length} {cobros.length === 1 ? t("factura") : t("facturas")}
+                {cobros.length > 0 && <>{grupos.length} {grupos.length === 1 ? t("cliente") : t("clientes")} · {cobros.length} {cobros.length === 1 ? t("factura") : t("facturas")}</>}
+                {cobros.length > 0 && previos.length > 0 && " · "}
+                {previos.length > 0 && <>{previos.length} {t("anteriores a Aproba")}</>}
               </p>
             )}
           </div>
         </div>
-        {cobros.length > 0 && (
-          <p className="shrink-0 text-lg font-bold tracking-tightest text-amber-600">{eur(totalPendiente)}</p>
+        {(cobros.length > 0 || totalPrevios > 0) && (
+          <div className="shrink-0 text-right">
+            {cobros.length > 0 && <p className="text-lg font-bold tracking-tightest text-amber-600">{eur(totalPendiente)}</p>}
+            {totalPrevios > 0 && <p className={cobros.length > 0 ? "text-[11px] text-slate-400" : "text-lg font-bold tracking-tightest text-amber-600"}>{cobros.length > 0 ? `+ ${eur(totalPrevios)} ${t("antes de Aproba")}` : eur(totalPrevios)}</p>}
+          </div>
         )}
       </button>
 
-      {cobros.length === 0 ? (
+      {cobros.length === 0 && previos.length === 0 ? (
         <p className="px-5 py-6 text-center text-sm text-slate-400">✓ {t("Estás al día. No hay cobros pendientes.")}</p>
       ) : abierto && (
         <div className="divide-y divide-slate-100">
@@ -152,6 +164,33 @@ export function CobrosPendientes({ cobros }: { cobros: CobroPendiente[] }) {
               </div>
             </div>
           ))}
+          {previos.length > 0 && (
+            <div className="px-5 py-3.5">
+              <p className="text-sm font-semibold text-slate-800">{t("Anteriores a Aproba")}</p>
+              <p className="mb-2 mt-0.5 text-xs text-slate-400">{t("Facturado en tu sistema anterior y pendiente según tu migración. No son facturas de Aproba: cuando te paguen, márcalo como cobrado.")}</p>
+              <div className="space-y-2">
+                {previos.map((c) => (
+                  <div key={`${c.tipo}-${c.id}`} className="flex items-center justify-between gap-3 rounded-lg bg-cream-50/60 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-slate-800">{c.cliente}</span>
+                        {c.importe != null
+                          ? <span className="shrink-0 font-semibold text-slate-800">{eur(c.importe)}</span>
+                          : <span className="shrink-0 text-[11px] text-slate-400">{t("importe sin indicar")}</span>}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-slate-400">
+                        {c.expedienteId
+                          ? <Link href={`/app/expedientes/${c.expedienteId}`} className="underline decoration-slate-300 hover:text-slate-600">{c.concepto}</Link>
+                          : <Link href={`/app/clientes/${c.clienteId}`} className="underline decoration-slate-300 hover:text-slate-600">{c.concepto}</Link>}
+                        {c.fecha ? ` · ${c.fecha}` : ""}
+                      </p>
+                    </div>
+                    <MarcarCobroPrevio tipo={c.tipo} id={c.id} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

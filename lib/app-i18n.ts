@@ -2382,6 +2382,16 @@ export const CA: Record<string, string> = {
   "Queda por facturar": "Queda per facturar",
   "Emitir ahora la factura final.": "Emet ara la factura final.",
   "El resto ya está facturado: nada pendiente.": "La resta ja està facturada: res pendent.",
+  // Cobros anteriores a Aproba (migración, «Estado del cobro», 24/09/2026)
+  "Marcar como cobrado": "Marcar com a cobrat",
+  "Facturado antes de Aproba": "Facturat abans d'Aproba",
+  "Volver a pendiente": "Tornar a pendent",
+  "Anteriores a Aproba": "Anteriors a Aproba",
+  "anteriores a Aproba": "anteriors a Aproba",
+  "antes de Aproba": "abans d'Aproba",
+  "importe sin indicar": "import sense indicar",
+  "No se pudo guardar el cobro.": "No s'ha pogut desar el cobrament.",
+  "Facturado en tu sistema anterior y pendiente según tu migración. No son facturas de Aproba: cuando te paguen, márcalo como cobrado.": "Facturat al teu sistema anterior i pendent segons la teva migració. No són factures d'Aproba: quan et paguin, marca-ho com a cobrat.",
 };
 
 export function translate(lang: Lang, es: string): string {

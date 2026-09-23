@@ -33,6 +33,7 @@ import { EliminarExpedienteButton } from "@/components/eliminar-expediente-butto
 import { ExportarZipButton } from "@/components/exportar-zip-button";
 import { DocumentoRow } from "@/components/documento-row";
 import { CobrosPanel } from "@/components/cobros-panel";
+import { CobroPrevioFicha } from "@/components/cobro-previo";
 import { CobroExternoLink } from "@/components/cobro-externo-link";
 import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
@@ -76,6 +77,15 @@ export default async function ExpedienteDetail({
   // la ficha sale igual y el campo simplemente no aparece.
   const { data: filaNumero, error: errNumero } = await (await createSupabaseServer()).from("Expediente").select("numeroOficial").eq("id", id).maybeSingle();
   const numeroOficial = errNumero ? null : String((filaNumero as { numeroOficial?: string | null } | null)?.numeroOficial ?? "");
+  // Lo facturado ANTES de Aproba (migración, «Estado del cobro»): consulta aparte por la
+  // misma razón — sin supabase/cobro-previo.sql, la ficha sale igual y la línea no aparece.
+  const { data: filaCobro, error: errCobro } = await (await createSupabaseServer()).from("Expediente").select("importePrevio, cobroPrevio").eq("id", id).maybeSingle();
+  const cobroPrevio = errCobro || !filaCobro ? null : (() => {
+    const c = filaCobro as { importePrevio?: number | string | null; cobroPrevio?: string | null };
+    const importe = c.importePrevio != null && c.importePrevio !== "" ? Number(c.importePrevio) : null;
+    const cobro: "COBRADA" | "PENDIENTE" | null = c.cobroPrevio === "COBRADA" || c.cobroPrevio === "PENDIENTE" ? c.cobroPrevio : null;
+    return importe != null || cobro ? { importe, cobro } : null;
+  })();
   if (!e) notFound();
 
   const despachoEncargo = await encargoActivado();
@@ -662,6 +672,7 @@ export default async function ExpedienteDetail({
             return prevista > 0 ? eur(r2(prevista)) : undefined;
           })()}
         >
+        {cobroPrevio && <CobroPrevioFicha expedienteId={e.id} importe={cobroPrevio.importe} cobro={cobroPrevio.cobro} />}
         <CobrosPanel
           ocultarTitulo
           ocultarCobroFuera

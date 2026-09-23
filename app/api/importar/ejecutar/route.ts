@@ -240,14 +240,21 @@ export async function POST(req: Request) {
   // ── 3. Historial de servicios (trámites del PASADO — NI expediente, NI portal, NI cuota) ──
   if (mapeo.crearHistorial) {
     try {
-      const { data: histExist } = await admin
+      // `cobro` (supabase/cobro-previo.sql, 24/09/2026): sin la migración se lee sin él.
+      let lecturaHist = await admin
         .from("ServicioHistorico")
-        .select("id, clienteId, servicioClave, fecha, referencia, importe")
+        .select("id, clienteId, servicioClave, fecha, referencia, importe, cobro")
         .eq("workspaceId", workspaceId);
+      let conCobro = true;
+      if (lecturaHist.error && /cobro/i.test(lecturaHist.error.message)) {
+        conCobro = false;
+        lecturaHist = await admin.from("ServicioHistorico").select("id, clienteId, servicioClave, fecha, referencia, importe").eq("workspaceId", workspaceId) as typeof lecturaHist;
+      }
+      const histExist = lecturaHist.data;
       // Índices por referencia y por (cliente+servicio+fecha) → id + importe: sirven para
       // dedup Y para RELLENAR huecos al reimportar (p. ej. añadir el importe a un servicio
       // ya migrado sin él). El reimport enriquece, no duplica.
-      type Rec = { id: string; importe: number | null; sinFecha?: boolean };
+      type Rec = { id: string; importe: number | null; sinFecha?: boolean; cobro?: string | null };
       const porRef = new Map<string, Rec>();
       const porCombo = new Map<string, Rec>();
       // Índice extra SIN fecha: un servicio ya migrado al que solo le falta la fecha.
@@ -255,14 +262,17 @@ export async function POST(req: Request) {
       // y después se añadió la fecha al Excel. Sin este índice, la fecha nueva cambia la
       // clave de dedup y el reimport DUPLICARÍA el historial en vez de completarlo.
       const porClienteServicio = new Map<string, Rec>();
-      for (const e of (histExist ?? []) as { id: string; clienteId: string; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null }[]) {
-        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha };
+      for (const e of (histExist ?? []) as { id: string; clienteId: string; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null; cobro?: string | null }[]) {
+        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha, cobro: e.cobro ?? null };
         if (e.referencia) porRef.set(e.referencia, rec);
         porCombo.set(`${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
         if (!e.fecha) porClienteServicio.set(`${e.clienteId}|${e.servicioClave ?? ""}`, rec);
       }
       const lote: Record<string, unknown>[] = [];
       const rellenos: { id: string; importe: number }[] = [];
+      // Estado del cobro al reimportar: se rellena si faltaba y SUBE de pendiente a cobrada
+      // (el cliente pagó desde entonces); nunca baja — lo marcado cobrado en Aproba manda.
+      const cobrosRellenados: { id: string; cobro: string }[] = [];
       const fechasRellenadas: { id: string; fecha: string }[] = [];
       for (let i = 0; i < filas.length; i++) {
         const f = filas[i];
@@ -278,6 +288,9 @@ export async function POST(req: Request) {
         if (existente) {
           r.serviciosOmitidos++;
           if (existente.importe == null && f.importe != null) { existente.importe = f.importe; rellenos.push({ id: existente.id, importe: f.importe }); }
+          if (conCobro && f.estadoCobro && (!existente.cobro || (existente.cobro === "PENDIENTE" && f.estadoCobro === "COBRADA"))) {
+            existente.cobro = f.estadoCobro; cobrosRellenados.push({ id: existente.id, cobro: f.estadoCobro });
+          }
           if (existente.sinFecha && fechaSrv) {
             existente.sinFecha = false;
             porClienteServicio.delete(`${clienteId}|${f.servicio}`);
@@ -287,7 +300,7 @@ export async function POST(req: Request) {
           continue;
         }
         const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
-        const rec: Rec = { id: uid(), importe: f.importe };
+        const rec: Rec = { id: uid(), importe: f.importe, cobro: f.estadoCobro || null };
         if (refServicio) porRef.set(refServicio, rec);
         porCombo.set(combo, rec);
         lote.push({
@@ -299,6 +312,7 @@ export async function POST(req: Request) {
           referencia: refServicio || null,
           notas: f.notas ? f.notas.slice(0, 1000) : null,
           importe: f.importe,
+          ...(conCobro && f.estadoCobro ? { cobro: f.estadoCobro } : {}),
           origen: "MIGRACION",
           updatedAt: ahora(),
         });
@@ -308,9 +322,12 @@ export async function POST(req: Request) {
         if (error) throw error;
       }
       for (const rl of rellenos) await admin.from("ServicioHistorico").update({ importe: rl.importe, updatedAt: ahora() }).eq("id", rl.id);
+      for (const cr of cobrosRellenados) await admin.from("ServicioHistorico").update({ cobro: cr.cobro, updatedAt: ahora() }).eq("id", cr.id);
       for (const fr of fechasRellenadas) await admin.from("ServicioHistorico").update({ fecha: `${fr.fecha}T00:00:00.000Z`, updatedAt: ahora() }).eq("id", fr.id);
       r.serviciosCreados = lote.length;
       if (rellenos.length) avisosExtra.push(`${rellenos.length} importes añadidos a servicios ya migrados.`);
+      if (cobrosRellenados.length) avisosExtra.push(`${cobrosRellenados.length} estados del cobro añadidos o actualizados en servicios ya migrados.`);
+      if (!conCobro && filas.some((f) => f.estadoCobro)) avisosExtra.push("El estado del cobro no se ha guardado: falta ejecutar supabase/cobro-previo.sql en Supabase.");
       if (fechasRellenadas.length) avisosExtra.push(`${fechasRellenadas.length} fechas añadidas a servicios ya migrados (no se han duplicado).`);
     } catch (e) {
       // Repli propre: si falta la migración servicio-historico.sql, el resto del import no se cae.
@@ -328,16 +345,26 @@ export async function POST(req: Request) {
   if (mapeo.crearEnCurso) {
     const candidatas = filas.map((f, i) => ({ f, i })).filter(({ f, i }) => f.enCurso && clienteDe.has(i));
     if (candidatas.length) {
-      let lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt, numeroOficial").eq("workspaceId", workspaceId);
+      // importePrevio/cobroPrevio (supabase/cobro-previo.sql): sin la migración, se lee sin ellos.
+      let conCobroPrevio = true;
+      let lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt, numeroOficial, importePrevio, cobroPrevio").eq("workspaceId", workspaceId);
+      if (lecturaAbiertos.error && /importePrevio|cobroPrevio/i.test(lecturaAbiertos.error.message)) {
+        conCobroPrevio = false;
+        lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt, numeroOficial").eq("workspaceId", workspaceId) as typeof lecturaAbiertos;
+      }
       if (lecturaAbiertos.error && /numeroOficial/i.test(lecturaAbiertos.error.message)) {
         lecturaAbiertos = await admin.from("Expediente").select("id, clienteId, servicioClave, estado, archivadoAt").eq("workspaceId", workspaceId) as typeof lecturaAbiertos;
       }
-      const yaAbierto = new Map<string, { id: string; numeroOficial: string | null }>();
-      for (const e of (lecturaAbiertos.data ?? []) as { id: string; clienteId: string; servicioClave: string | null; estado: string; archivadoAt: string | null; numeroOficial?: string | null }[]) {
+      type Abierto = { id: string; numeroOficial: string | null; importePrevio: number | null; cobroPrevio: string | null };
+      const yaAbierto = new Map<string, Abierto>();
+      for (const e of (lecturaAbiertos.data ?? []) as { id: string; clienteId: string; servicioClave: string | null; estado: string; archivadoAt: string | null; numeroOficial?: string | null; importePrevio?: number | string | null; cobroPrevio?: string | null }[]) {
         if (e.archivadoAt || e.estado === "FINALIZADO") continue;
-        if (e.servicioClave) yaAbierto.set(`${e.clienteId}|${e.servicioClave}`, { id: e.id, numeroOficial: e.numeroOficial ?? null });
+        if (e.servicioClave) yaAbierto.set(`${e.clienteId}|${e.servicioClave}`, { id: e.id, numeroOficial: e.numeroOficial ?? null, importePrevio: e.importePrevio != null ? Number(e.importePrevio) : null, cobroPrevio: e.cobroPrevio ?? null });
       }
       let numerosCompletados = 0;
+      let cobrosCompletados = 0;
+      const lineaCobro = (importe: number | null, cobro: string | null) =>
+        `💶 Facturado antes de Aproba${importe != null ? `: ${importe.toFixed(2).replace(".", ",")} €` : ""}${cobro === "COBRADA" ? " · cobrado" : cobro === "PENDIENTE" ? " · pendiente de cobro" : ""} (importado)`;
       const year = new Date().getFullYear();
       const { data: last } = await admin.from("Expediente").select("referencia").eq("workspaceId", workspaceId).like("referencia", `EXP-${year}-%`).order("referencia", { ascending: false }).limit(1).maybeSingle();
       let n = last ? Number(String(last.referencia).split("-")[2]) + 1 : 1;
@@ -358,6 +385,22 @@ export async function POST(req: Request) {
               eventos.push({ id: uid(), expedienteId: abierto.id, tipo: "COMENTARIO", descripcion: `🏛 Nº de expediente de Extranjería: ${f.numeroOficial} (importado)`, userId: user.id });
             }
           }
+          // Lo facturado antes de Aproba: se rellena si faltaba; el cobro SUBE de pendiente a
+          // cobrado (el cliente pagó desde entonces) y nunca baja.
+          if (conCobroPrevio) {
+            const cambios: Record<string, unknown> = {};
+            if (f.importe != null && abierto.importePrevio == null) cambios.importePrevio = f.importe;
+            if (f.estadoCobro && (!abierto.cobroPrevio || (abierto.cobroPrevio === "PENDIENTE" && f.estadoCobro === "COBRADA"))) cambios.cobroPrevio = f.estadoCobro;
+            if (Object.keys(cambios).length) {
+              const { error: eCob } = await admin.from("Expediente").update({ ...cambios, updatedAt: ahora() }).eq("id", abierto.id).eq("workspaceId", workspaceId);
+              if (!eCob) {
+                if ("importePrevio" in cambios) abierto.importePrevio = f.importe;
+                if ("cobroPrevio" in cambios) abierto.cobroPrevio = f.estadoCobro;
+                cobrosCompletados++;
+                eventos.push({ id: uid(), expedienteId: abierto.id, tipo: "COMENTARIO", descripcion: lineaCobro(abierto.importePrevio, abierto.cobroPrevio), userId: user.id });
+              }
+            }
+          }
           continue;
         }
         const expedienteId = uid();
@@ -373,11 +416,13 @@ export async function POST(req: Request) {
             ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
             ...(empresaDe.get(i) ? { empresaId: empresaDe.get(i) } : {}),
             ...(f.numeroOficial ? { numeroOficial: f.numeroOficial } : {}),
+            ...(conCobroPrevio && f.importe != null ? { importePrevio: f.importe } : {}),
+            ...(conCobroPrevio && f.estadoCobro ? { cobroPrevio: f.estadoCobro } : {}),
           };
           let { error } = await admin.from("Expediente").insert(fila);
           // Repli si alguna columna opcional no está migrada (modoTrabajo, oficinaId): el expediente nace igual.
-          if (error && /modoTrabajo|oficinaId|fechaPresentacion|empresaId|numeroOficial|column|schema cache|does not exist/i.test(error.message)) {
-            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion; delete fila.empresaId; delete fila.numeroOficial;
+          if (error && /modoTrabajo|oficinaId|fechaPresentacion|empresaId|numeroOficial|importePrevio|cobroPrevio|column|schema cache|does not exist/i.test(error.message)) {
+            delete fila.modoTrabajo; delete fila.oficinaId; delete fila.fechaPresentacion; delete fila.empresaId; delete fila.numeroOficial; delete fila.importePrevio; delete fila.cobroPrevio;
             ({ error } = await admin.from("Expediente").insert(fila));
           }
           if (!error) { creado = true; n++; break; }
@@ -387,15 +432,18 @@ export async function POST(req: Request) {
         }
         if (!creado) continue;
         // El recién creado cuenta como abierto: dos filas del mismo cliente y trámite no abren dos.
-        yaAbierto.set(`${clienteId}|${servicio}`, { id: expedienteId, numeroOficial: f.numeroOficial || null });
+        yaAbierto.set(`${clienteId}|${servicio}`, { id: expedienteId, numeroOficial: f.numeroOficial || null, importePrevio: f.importe, cobroPrevio: f.estadoCobro || null });
         r.expedientesCreados++;
         const etiqueta = catalogoLabel.get(servicio) ?? TIPO_LABEL[tipo] ?? servicio;
         const empresaTxt = empresaDe.get(i) ? ` · empresa ${nombreEmpresa.get(empresaDe.get(i)!) ?? ""}`.trimEnd() : "";
         eventos.push({ id: uid(), expedienteId, tipo: "CREADO", descripcion: `Expediente importado (migración) · ${etiqueta}${empresaTxt}${f.referencia ? ` · ref. anterior ${f.referencia}` : ""}${f.estado === "PRESENTADO" ? ` · presentado${f.fechaPresentacion ? " el " + f.fechaPresentacion.split("-").reverse().join("/") : ""}` : ""}`, userId: user.id });
         eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: "🖐 Modo manual: el despacho trabaja el expediente internamente (sin enlace al cliente). Se puede cambiar desde la ficha.", userId: user.id });
+        if (conCobroPrevio && (f.importe != null || f.estadoCobro)) eventos.push({ id: uid(), expedienteId, tipo: "COMENTARIO", descripcion: lineaCobro(f.importe, f.estadoCobro || null), userId: user.id });
       }
       for (let i = 0; i < eventos.length; i += 100) await admin.from("ExpedienteEvento").insert(eventos.slice(i, i + 100));
       if (numerosCompletados) avisosExtra.push(`${numerosCompletados} nº de expediente de Extranjería añadidos a expedientes que ya existían.`);
+      if (cobrosCompletados) avisosExtra.push(`${cobrosCompletados} expedientes que ya existían completados con lo facturado antes de Aproba.`);
+      if (!conCobroPrevio && candidatas.some(({ f }) => f.importe != null || f.estadoCobro)) avisosExtra.push("Lo facturado antes de Aproba no se ha guardado en los expedientes en curso: falta ejecutar supabase/cobro-previo.sql en Supabase.");
     }
   }
 
