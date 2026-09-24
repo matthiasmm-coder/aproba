@@ -190,7 +190,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Aproba no presenta en Mercurio ni firma por ti: la firma con tu certificado es tuya, y debe seguir siéndolo. Lo que ahorra es teclear dos veces: la extensión **Aproba para Mercurio**, para Chrome, rellena en el formulario los datos del extranjero que ya están en la ficha del expediente, y tú revisas, adjuntas, firmas y presentas. Los documentos del expediente se descargan de una vez, en un ZIP.",
+          "Aproba no presenta en Mercurio ni firma por ti: la firma con tu certificado es tuya, y debe seguir siéndolo. Lo que ahorra es teclear dos veces: la extensión **Aproba para Mercurio**, para Chrome, rellena en el formulario los datos del extranjero que ya están en la ficha del expediente, y tú revisas, adjuntas, firmas y presentas. Los documentos del expediente se descargan de una vez, en un ZIP, y la misma ficha rellena los [formularios EX y las tasas 790](/funciones/formularios-en-un-clic).",
       },
       {
         t: "faq",
@@ -290,7 +290,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Al generar un modelo EX, Aproba rellena el bloque 1 con los datos de la persona extranjera y reserva la casilla «Representante legal, en su caso» para el padre, la madre o el tutor cuando el expediente lo tiene: nunca pone ahí al despacho. El bloque 2 solo se rellena si el gestor marca «Presento yo la solicitud como representante»: salen la razón social, el NIF, el domicilio y el profesional con su título, deducido del colegio que el despacho declara en sus ajustes. La casilla está desmarcada por defecto, porque en la mayoría de expedientes el despacho no representa. El bloque 3 se deja en blanco y editable: elegir quién recibe las notificaciones no es una decisión que un programa deba tomar solo.",
+          "Al [generar un modelo EX](/funciones/formularios-en-un-clic), Aproba rellena el bloque 1 con los datos de la persona extranjera y reserva la casilla «Representante legal, en su caso» para el padre, la madre o el tutor cuando el expediente lo tiene: nunca pone ahí al despacho. El bloque 2 solo se rellena si el gestor marca «Presento yo la solicitud como representante»: salen la razón social, el NIF, el domicilio y el profesional con su título, deducido del colegio que el despacho declara en sus ajustes. La casilla está desmarcada por defecto, porque en la mayoría de expedientes el despacho no representa. El bloque 3 se deja en blanco y editable: elegir quién recibe las notificaciones no es una decisión que un programa deba tomar solo.",
       },
       {
         t: "faq",
@@ -386,7 +386,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Cada despacho tiene en Aproba una dirección de correo propia para documentos. El gestor reenvía el email del cliente, o el cliente escribe directamente, y los adjuntos entran solos: el sistema reconoce el tipo de documento, rellena con lo leído los campos vacíos de la ficha, coloca cada pieza en la casilla de su expediente y responde en el mismo hilo con lo que todavía falta. Si la ficha queda completa, los formularios EX del trámite llegan ya rellenados en esa misma respuesta. La misma entrada por WhatsApp está en fase de pruebas. El portal del cliente, en ocho idiomas, sigue disponible como opción, nunca como requisito.",
+          "Cada despacho tiene en Aproba una dirección de correo propia para documentos. El gestor reenvía el email del cliente, o el cliente escribe directamente, y los adjuntos entran solos: el sistema [reconoce el tipo de documento](/funciones/validacion-con-ia), rellena con lo leído los campos vacíos de la ficha, coloca cada pieza en la casilla de su expediente y responde en el mismo hilo con lo que todavía falta. Si la ficha queda completa, los formularios EX del trámite llegan ya rellenados en esa misma respuesta. La misma entrada por WhatsApp está en fase de pruebas. El [portal del cliente, en ocho idiomas](/cifras/8-idiomas), sigue disponible como opción, nunca como requisito.",
       },
       {
         t: "faq",
@@ -502,7 +502,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Los formularios EX que genera Aproba dejan editables el bloque «Domicilio a efectos de notificaciones» y la casilla DEHú, para decidirlo expediente a expediente. Requerimientos, citas y plazos se anotan en la ficha, con recordatorios al cliente en su idioma. Aproba no accede a la DEHú ni a la sede: la comparecencia es del profesional, con su certificado.",
+          "Los [formularios EX que genera Aproba](/funciones/formularios-en-un-clic) dejan editables el bloque «Domicilio a efectos de notificaciones» y la casilla DEHú, para decidirlo expediente a expediente. Cada requerimiento se anota en la ficha con su plazo, y Aproba avisa al despacho antes de que venza. Aproba no accede a la DEHú ni a la sede: la comparecencia es del profesional, con su certificado.",
       },
       {
         t: "faq",
@@ -594,7 +594,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Cada expediente en Aproba guarda la fecha de presentación en su historial y [Vigía](/#como-funciona) lleva los vencimientos de las renovaciones antes de que caduquen. Anotar la fecha de silencio el día del registro convierte la espera en una fecha.",
+          "Cada expediente en Aproba guarda la fecha de presentación en su historial y [Vigía, el radar de renovaciones](/funciones/radar-de-renovaciones), lleva los vencimientos de las renovaciones antes de que caduquen. Anotar la fecha de silencio el día del registro convierte la espera en una fecha.",
       },
       {
         t: "faq",
@@ -774,7 +774,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo resuelve Aproba",
         texto:
-          "Para una entidad colaboradora, Aproba registra cada expediente con su procedimiento, sus actuaciones y quién intervino, y genera la memoria de actividad del artículo 8.1.f en un clic; el mandato de representación se firma desde el propio expediente y deja constancia fidedigna. Para un despacho, Vigía fecha cada vencimiento y prepara las renovaciones de 2027 antes de que lleguen todas a la vez.",
+          "Para una entidad colaboradora, Aproba registra cada expediente con su procedimiento, sus actuaciones y quién intervino, y genera la memoria de actividad del artículo 8.1.f en un clic; el mandato de representación se firma desde el propio expediente y deja constancia fidedigna. Para un despacho, [Vigía](/funciones/radar-de-renovaciones) fecha cada vencimiento y prepara las renovaciones de 2027 antes de que lleguen todas a la vez.",
       },
       {
         t: "faq",
@@ -1112,7 +1112,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Y sí, nos afecta a nosotros también",
         texto:
-          "Aproba emite facturas por tus expedientes, así que esta obligación es también nuestra: la adaptación VeriFactu del módulo de facturación está en el plan de producto para estar lista antes de tu fecha, con la numeración correlativa y las anulaciones ya funcionando como el reglamento exige.",
+          "Aproba [emite facturas por tus expedientes](/funciones/facturas-automaticas), así que esta obligación es también nuestra: la adaptación VeriFactu del módulo de facturación está en el plan de producto para estar lista antes de tu fecha, con la numeración correlativa y las anulaciones ya funcionando como el reglamento exige.",
       },
       {
         t: "faq",
@@ -1232,7 +1232,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo resuelve Aproba",
         texto:
-          "Vigía es la parte de Aproba que se ocupa exactamente de esto: registra la caducidad de cada autorización, avisa con antelación y permite iniciar la renovación en un clic, reutilizando los datos y documentos del expediente anterior.",
+          "[Vigía](/funciones/radar-de-renovaciones) es la parte de Aproba que se ocupa exactamente de esto: registra la caducidad de cada autorización, avisa con antelación y permite iniciar la renovación en un clic, reutilizando los datos y documentos del expediente anterior.",
       },
       {
         t: "p",
@@ -1245,11 +1245,15 @@ export const ARTICULOS: Articulo[] = [
     slug: "subsanacion-regularizacion-plazo",
     titulo: "Subsanación de la regularización: el plazo es de 15 días",
     descripcion:
-      "Muchos despachos citan 10 días y el Real Decreto dice 15. No responder implica archivo automático del expediente. Qué revisar antes del 30 de septiembre de 2026.",
+      "El RD 316/2026 da 15 días para subsanar, no 10, y sin respuesta el expediente se archiva. Correos atiende hasta el 30 de septiembre de 2026: qué viene después.",
     fecha: "2026-08-22",
+    // 25/09/2026: al cerrar la ventanilla de Correos el 30/09, el artículo dejaba de servir. Se
+    // añade «qué viene después» y se corrige el recurso contra el silencio (arts. 122.1 y
+    // 124.1 de la Ley 39/2015: en cualquier momento, no «un mes»).
+    actualizado: "2026-09-25",
     tema: "Plazos",
     entradilla:
-      "La fase de subsanación de la regularización extraordinaria afecta a cientos de miles de expedientes y se cierra el 30 de septiembre de 2026. El plazo que circula por el sector no siempre es el correcto.",
+      "La fase de subsanación de la regularización extraordinaria afecta a cientos de miles de expedientes y se cierra el 30 de septiembre de 2026. El plazo que circula por el sector no siempre es el correcto, y esa fecha no alarga ningún requerimiento.",
     imagenAlt:
       "Ilustración: un calendario con una fecha rodeada en verde, un reloj de arena casi vacío y un sobre cerrado.",
     bloques: [
@@ -1280,7 +1284,12 @@ export const ARTICULOS: Articulo[] = [
       {
         t: "p",
         texto:
-          "Conviene tener presente además que el plazo máximo de resolución es de tres meses desde la presentación y que **el silencio es negativo**. Un expediente presentado en junio y no resuelto en septiembre no está simplemente «en trámite»: abre la puerta a recurso, con un mes para la alzada y dos para el contencioso.",
+          "Que Correos atienda hasta esa fecha **no alarga ningún requerimiento**: cada uno corre con el plazo que fija su notificación. Un requerimiento que vence el 18 de septiembre vence el 18, aunque la ventanilla siga abierta doce días más.",
+      },
+      {
+        t: "p",
+        texto:
+          "Conviene tener presente además que el plazo máximo de resolución es de tres meses desde la presentación y que **el silencio es negativo**. Un expediente presentado en junio y no resuelto en septiembre no está simplemente «en trámite»: se entiende desestimado y abre la puerta al recurso. Contra el silencio, el recurso administrativo puede interponerse **en cualquier momento** (arts. 122.1 y 124.1 de la Ley 39/2015); contra una denegación expresa, el plazo es de un mes, y el del contencioso, de dos.",
       },
       { t: "h2", texto: "Cómo organizarlo sin perder expedientes" },
       {
@@ -1291,6 +1300,26 @@ export const ARTICULOS: Articulo[] = [
           "**Contacto con el cliente el mismo día.** Si el documento lo tiene que aportar él, cada día que tardas en pedirlo sale de tus 15.",
           "**Acuse de lo presentado.** Guarda constancia de qué se aportó y cuándo: es lo primero que necesitarás si hay que recurrir un archivo.",
         ],
+      },
+      { t: "h2", texto: "Después del 30 de septiembre" },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "30/09/2026", titulo: "Cierra la atención en Correos", texto: "Solo para quien presentó en plazo. Cada requerimiento conserva el plazo que fija su notificación." },
+          { fecha: "3 meses desde la presentación", titulo: "Resolución o silencio negativo", texto: "Sin resolución, la solicitud se entiende desestimada; contra el silencio, el recurso no tiene plazo." },
+          {
+            fecha: "Mediados de 2027",
+            titulo: "Renovar las autorizaciones de un año",
+            texto: "Las concedidas en 2026 duran un año y vencerán casi a la vez: es [la ola de renovaciones de 2027](/articulos/renovaciones-2027-regularizacion-extraordinaria).",
+            destacado: true,
+          },
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Cada requerimiento se anota en la ficha del expediente con su plazo, y Aproba avisa al despacho antes de que venza. Para lo que viene después, [Vigía, el radar de renovaciones](/funciones/radar-de-renovaciones), guarda la caducidad de cada autorización concedida y prepara su renovación antes de que llegue 2027.",
       },
       {
         t: "nota",
@@ -1364,7 +1393,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo resuelve Aproba",
         texto:
-          "Aproba valida cada documento al recibirlo, avisa de lo que falta según el trámite y no deja presentar a ciegas: la lista de requisitos la fija el servicio, no la memoria de quien prepara el expediente.",
+          "Aproba [valida cada documento al recibirlo](/funciones/validacion-con-ia), avisa de lo que falta según el trámite y no deja presentar a ciegas: la lista de requisitos la fija el servicio, no la memoria de quien prepara el expediente.",
       },
     ],
   },

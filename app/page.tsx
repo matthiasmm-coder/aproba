@@ -10,10 +10,40 @@ import { DiaNoche } from "@/components/dia-noche";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 import { VideoDemo } from "@/components/video-demo";
+import { FRASE_DEFINICION } from "@/lib/paginas";
 
 // Canónica de la portada (higiene del sitemap, 14/09/2026): título y descripción siguen
 // viniendo del layout raíz.
 export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+// Datos estructurados de la portada (25/09/2026): Search Console daba a la marca «aproba»
+// una posición media de 6. Organization + WebSite le dicen a Google que «Aproba» es este
+// sitio. Invisible y sin JS: un <script type="application/ld+json"> no se ejecuta, pesa
+// menos de 1 kB y no toca el pintado de la página.
+const BASE = "https://aproba-software.com";
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${BASE}/#organizacion`,
+      name: "Aproba",
+      alternateName: "Aproba Software",
+      url: BASE,
+      logo: `${BASE}/icon-512.png`,
+      description: FRASE_DEFINICION,
+      sameAs: ["https://www.linkedin.com/company/aproba-software"],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${BASE}/#sitio`,
+      name: "Aproba",
+      url: BASE,
+      inLanguage: "es-ES",
+      publisher: { "@id": `${BASE}/#organizacion` },
+    },
+  ],
+};
 
 const PAINS = [
   "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",
@@ -136,6 +166,7 @@ const GeistMonoLanding = localFont({ src: "./fonts/GeistMono-landing.woff2", var
 export default function Landing() {
   return (
     <div className={`min-h-screen overflow-x-clip bg-cream-50 ${GeistMonoLanding.variable}`}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       {/* Sin JS, los <Reveal> quedarían en opacity-0: forzamos visible */}
       <noscript>
         <style>{`.opacity-0{opacity:1!important}.translate-y-4{transform:none!important}`}</style>

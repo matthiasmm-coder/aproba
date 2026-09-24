@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { ResetPasswordForm } from "@/components/reset-password-form";
 
-export const metadata = { title: "Nueva contraseña" };
+export const metadata = { title: "Nueva contraseña", robots: { index: false, follow: true } }; // página de servicio: fuera del buscador
 
 export default function ResetPassword() {
   return (

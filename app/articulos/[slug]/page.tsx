@@ -134,6 +134,15 @@ export default async function ArticuloPage({ params }: { params: Promise<{ slug:
         >
           Prueba 15 días gratis
         </Link>
+        {/* Enlace interno hacia la página pilar (25/09/2026): los artículos reciben casi todas
+            las impresiones de Google y las páginas que venden casi ninguna — este enlace les
+            pasa esa autoridad. Discreto, debajo del botón, sin competir con él. */}
+        <p className="mt-3 text-balance text-xs text-slate-500">
+          o mira{" "}
+          <Link href="/software-de-extranjeria" className="font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2 hover:text-aproba-800">
+            qué hace un software de extranjería como Aproba
+          </Link>
+        </p>
       </div>
 
       {otros.length > 0 && (

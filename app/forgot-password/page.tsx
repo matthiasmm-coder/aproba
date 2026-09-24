@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
 
-export const metadata = { title: "Recuperar contraseña" };
+export const metadata = { title: "Recuperar contraseña", robots: { index: false, follow: true } }; // página de servicio: fuera del buscador
 
 export default function ForgotPassword() {
   return (

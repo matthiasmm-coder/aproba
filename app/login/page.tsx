@@ -2,7 +2,9 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { LoginForm } from "@/components/login-form";
 
-export const metadata = { title: "Entrar", alternates: { canonical: "/login" } };
+// Sin indexar (25/09/2026): Bing la enseñaba en las búsquedas de la marca en lugar de las
+// páginas útiles. «follow» sigue en pie: los enlaces de la página cuentan.
+export const metadata = { title: "Entrar", alternates: { canonical: "/login" }, robots: { index: false, follow: true } };
 
 export default function Login() {
   // La cuenta de demostración solo se muestra en desarrollo o si se activa
