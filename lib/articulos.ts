@@ -32,6 +32,12 @@ export type Bloque =
   // Esquema de vías: varios nodos que convergen en un destino (p. ej. quién puede
   // presentar un expediente y ante quién). Cajas + flechas en CSS, legible en móvil.
   | { t: "esquema"; titulo: string; nodos: { titulo: string; texto?: string; cifra?: string; destacado?: boolean }[]; destino: { titulo: string; texto?: string }; nota?: string }
+  // Procedimiento paso a paso (25/09/2026, guía de Mercurio): pasos numerados y, en cada
+  // uno, `falla` = el punto exacto donde se atasca. Una guía se lee en orden; por eso no
+  // es una tabla ni una lista suelta.
+  | { t: "pasos"; titulo?: string; items: { titulo: string; texto: string; falla?: string }[]; nota?: string }
+  // Lista de comprobación (antes de firmar, antes de presentar): una marca por punto, sin JS.
+  | { t: "checklist"; titulo: string; items: string[]; nota?: string }
   // Preguntas frecuentes: además de pintarse, alimentan el JSON-LD FAQPage de la página.
   | { t: "faq"; items: { q: string; a: string }[] };
 
@@ -56,6 +62,159 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
+  {
+    // 25/09/2026 — primer artículo en formato GUÍA (bloques `pasos` y `checklist`), para
+    // que la serie no parezca calcada. Fuentes, todas leídas el 23-25/09: manual de usuario
+    // «Plataforma de Extranjería. Mercurio Iniciales» (SGAD, 22 págs.), ficha del
+    // procedimiento en sede.administracionespublicas.gob.es (/directorio/mercurio2), Ley
+    // 39/2015 consolidada (BOE, últ. mod. 06/11/2024: arts. 14.2.c, 30.2, 31.2, 32.4, 68,
+    // 73.1), ICAM 13/03/2024 (recursos por Mercurio) y la ficha pública de la extensión en
+    // Chrome Web Store (v0.2.1).
+    slug: "mercurio-extranjeria-presentar-paso-a-paso",
+    titulo: "Mercurio paso a paso: cómo presenta un despacho de extranjería",
+    descripcion:
+      "Guía de Mercurio para despachos: acceso por el Consejo General, adjuntos de 6 MB, firma con AutoFirma, el resguardo que acredita y el número de expediente.",
+    fecha: "2026-09-25",
+    tema: "Presentación telemática",
+    entradilla:
+      "Mercurio no es difícil: es estricto, y casi todos sus rechazos llegan al final. Un «nº» en el nombre de un archivo, un PDF de 7 MB o un certificado distinto del que abrió la sesión bloquean la presentación en los últimos pasos. Esta guía recorre los seis, con el punto exacto donde se atasca cada uno.",
+    imagenAlt:
+      "Tarjeta blanca con chip dorado en un soporte de aluminio sobre una mesa de terrazo claro; de ella parten trazos de circuito verde esmeralda que suben hasta un emblema circular suspendido sobre un taco de papel crema sujeto con una pinza de latón.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Mercurio es la aplicación de la sede electrónica para presentar solicitudes de extranjería por internet: autorizaciones iniciales, renovaciones, prórrogas y algunas modificaciones. También sirve para **aportar documentación a expedientes en trámite**, que es por donde puede entrar la respuesta a un requerimiento.",
+      },
+      {
+        t: "p",
+        texto:
+          "Para un profesional colegiado no es una opción: quien ejerce una profesión de colegiación obligatoria debe relacionarse por medios electrónicos en los trámites de esa profesión (art. 14.2.c de la Ley 39/2015). Si presenta en papel, se le requiere que subsane por vía electrónica y **la fecha de presentación pasa a ser la de la subsanación** (art. 68.4). En una renovación al límite de plazo, eso no es un detalle.",
+      },
+      { t: "h2", texto: "Seis pasos, y dónde se atasca cada uno" },
+      {
+        t: "pasos",
+        titulo: "Presentar en Mercurio",
+        items: [
+          {
+            titulo: "Entrar por el acceso de tu colectivo",
+            texto:
+              "En la sede: Procedimientos › Extranjería › «MERCURIO – Solicitudes de autorizaciones de Extranjería – Presentación Telemática». Junto al acceso individual hay accesos para **graduados sociales, gestores administrativos y abogacía**, que exigen estar dado de alta en el Consejo General correspondiente. Se elige la provincia y se entra con Cl@ve y un certificado personal instalado en el navegador.",
+            falla: "El certificado con el que entras es el único con el que podrás firmar en el paso 5: si en el equipo hay varios, elige ya el definitivo.",
+          },
+          {
+            titulo: "Elegir el modelo y rellenar las pestañas",
+            texto:
+              "Mercurio solo ofrece los modelos habilitados para presentación telemática y, en esa pantalla, comprueba si AutoFirma está instalada. Luego vienen las pestañas: las de datos (extranjero, reagrupante, presentador, domicilio de notificación, según el modelo), la del **tipo de autorización** y la de **anexos**, donde se autoriza o se deniega que la Administración consulte documentos por su cuenta.",
+            falla: "No deja cambiar de pestaña mientras falte un dato obligatorio: la ficha tiene que estar completa antes de abrir Mercurio, no durante.",
+          },
+          {
+            titulo: "Concluir: guardar no es presentar",
+            texto:
+              "**Concluir**, tras aceptar la cláusula de protección de datos, guarda la solicitud y ofrece dos salidas: **Descargar solicitud**, el impreso relleno para presentarlo en papel, y **Presentación electrónica**, que pide declarar que quien presenta es el sujeto legitimado.",
+            falla: "El impreso descargado no es una presentación: hasta el paso 5 no hay registro ni fecha.",
+          },
+          {
+            titulo: "Adjuntar la documentación",
+            texto:
+              "Se adjuntan tantos archivos como haga falta, con tres límites: **pdf, doc, jpg, tif o gif**; **6 MB por archivo**; y en el nombre, solo letras (con tilde y ñ), números, espacios, guiones, guion bajo, puntos y paréntesis. Cada archivo lleva un tipo del desplegable, y «Otros» pide una descripción. Incluye el justificante de la tasa ([790-052](/tasas/790-052), y también la [790-062](/tasas/790-062) si hay trabajo): si falta, la ficha oficial remite a llevarlo a la oficina, con retraso.",
+            falla: "Un PDF de 9 MB sacado del móvil, un PNG o un «Pasaporte nº 2.pdf»: ninguno pasa. Renombra y comprime antes de abrir Mercurio.",
+          },
+          {
+            titulo: "Comprobar, firmar y registrar",
+            texto:
+              "La comprobación resume lo que entrará en el registro y permite descargar el PDF con los datos a registrar: es el último momento para corregir. **Firmar y registrar** abre AutoFirma y solo hay que elegir el certificado. El resto es automático: firma de los datos y los adjuntos, registro a través de la plataforma GEISER y justificante.",
+            falla: "Con un certificado distinto del usado en Cl@ve, la aplicación no firma. Sin AutoFirma instalada, tampoco.",
+          },
+          {
+            titulo: "Descargar el resguardo, no la copia",
+            texto:
+              "Al final hay dos descargas. **Descargar resguardo** es el justificante de registro y **sí acredita** la presentación. **Descargar presentación** es una copia del formulario con los datos de registro y, como advierte el manual, **no es válida** para acreditarla.",
+            falla: "Archivar solo la «presentación» porque parece más completa. La fecha la acredita el resguardo: guárdalo en el expediente ese mismo día.",
+          },
+        ],
+        nota: "Fuente: manual «Mercurio Iniciales» (Secretaría General de Administración Digital) y ficha oficial del procedimiento.",
+      },
+      {
+        t: "checklist",
+        titulo: "Antes de pulsar «Firmar y registrar»",
+        items: [
+          "Cada archivo pesa menos de 6 MB y es pdf, doc, jpg, tif o gif.",
+          "Ningún nombre de archivo lleva «º», «ª», «&», comas ni apóstrofos.",
+          "Cada documento tiene su tipo, y los de «Otros», su descripción.",
+          "El justificante de la tasa va adjunto.",
+          "El domicilio de notificación es el de quien abrirá los requerimientos ([quién recibe las notificaciones](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias)).",
+          "El certificado que tienes a mano es el mismo con el que entraste por Cl@ve, y AutoFirma responde.",
+        ],
+      },
+      { t: "h2", texto: "Después del resguardo: el número de expediente" },
+      {
+        t: "p",
+        texto:
+          "El resguardo acredita la presentación, pero todavía no hay expediente. Cuando la oficina de extranjería recibe la solicitud le asigna un **ID de expediente**, que Mercurio devuelve en «Consultar solicitud existente» con cuatro datos: el identificador del formulario (arriba a la derecha en cada pantalla y en la copia descargada), la fecha de presentación, la nacionalidad y el año de nacimiento del solicitante.",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Al registrar", titulo: "Resguardo", texto: "Acredita la presentación y su fecha." },
+          {
+            fecha: "Al recibirla la oficina",
+            titulo: "ID de expediente",
+            texto: "Tres respuestas posibles: no encontrada, encontrada pero aún no recibida por la oficina, o recibida, con su número.",
+            destacado: true,
+          },
+          {
+            fecha: "En trámite",
+            titulo: "Estado",
+            texto: "Se consulta en infoext2, con captcha. Si vence el plazo sin resolución, rige el [silencio de cada trámite](/articulos/silencio-administrativo-extranjeria-plazos-2026).",
+          },
+          {
+            fecha: "Si hay requerimiento",
+            titulo: "Aportar documentación",
+            texto: "Por Mercurio, en el expediente en trámite. El plazo general es de diez días hábiles (arts. 68.1 y 73.1 de la Ley 39/2015).",
+          },
+        ],
+      },
+      { t: "h2", texto: "Fines de semana, festivos y caídas del sistema" },
+      {
+        t: "p",
+        texto:
+          "El registro electrónico admite presentaciones **todos los días del año, las 24 horas** (art. 31.2.a de la Ley 39/2015), pero en los plazos por días hábiles lo presentado en un día inhábil cuenta **a primera hora del primer día hábil siguiente** (art. 31.2.b), según el calendario de la sede. Presentar un sábado no gana un día: cuenta como el lunes.",
+      },
+      {
+        t: "p",
+        texto:
+          "Una caída tampoco amplía el plazo por sí sola: la Administración **puede** ampliar los plazos no vencidos, pero publicando en la sede la incidencia y la ampliación concreta (art. 32.4). Si Mercurio falla, anota el número de error y haz capturas: es lo que pide el formulario de incidencias de la sede, y la prueba de que se intentó. Y no apures al último día.",
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Aproba no presenta en Mercurio ni firma por ti: la firma con tu certificado es tuya, y debe seguir siéndolo. Lo que ahorra es teclear dos veces: la extensión **Aproba para Mercurio**, para Chrome, rellena en el formulario los datos del extranjero que ya están en la ficha del expediente, y tú revisas, adjuntas, firmas y presentas. Los documentos del expediente se descargan de una vez, en un ZIP.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Quién puede presentar por Mercurio?",
+            a: "El propio interesado, con certificado digital o DNI electrónico, y tres colectivos con acceso propio, dados de alta en su Consejo General: graduados sociales, gestores administrativos y abogacía (esta, además, adherida al convenio del CGAE con la Administración General del Estado).",
+          },
+          {
+            q: "¿Es obligatorio presentar por Mercurio?",
+            a: "Para quien ejerce una profesión de colegiación obligatoria, la vía electrónica sí lo es (art. 14.2.c de la Ley 39/2015), y Mercurio es la vía telemática específica de estos procedimientos. El art. 197.2 del RD 1155/2024 obligaba además a las personas físicas en siete procedimientos, pero el Tribunal Supremo lo anuló en julio de 2026, como explicamos en [notificaciones en extranjería](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias).",
+          },
+          {
+            q: "¿Qué hago si un archivo pesa más de 6 MB?",
+            a: "Mercurio no lo admite: el límite es por archivo, no por solicitud. Comprime el PDF o divídelo en varios archivos; el número de adjuntos no está limitado y cada parte lleva su tipo de documento.",
+          },
+          {
+            q: "¿Se pueden presentar recursos por Mercurio?",
+            a: "Sí. Desde 2024 Mercurio admite la presentación electrónica de recursos administrativos en materia de extranjería, según comunicó el Colegio de la Abogacía de Madrid; los abogados entran por el acceso de abogacía, adheridos al convenio del CGAE.",
+          },
+        ],
+      },
+    ],
+  },
   {
     slug: "representante-formulario-ex-quien-va-en-cada-casilla",
     titulo: "Representante en el formulario EX: quién va en cada casilla",
@@ -1239,6 +1398,8 @@ export function textoPlano(a: Articulo): string {
       if (b.t === "faq") return b.items.map((x) => `${x.q} ${x.a}`).join(" ");
       if (b.t === "barras") return [b.titulo, ...b.items.map((x) => x.etiqueta), b.nota ?? ""].join(" ");
       if (b.t === "esquema") return [b.titulo, ...b.nodos.map((n) => `${n.titulo} ${n.texto ?? ""}`), b.destino.titulo, b.destino.texto ?? "", b.nota ?? ""].join(" ");
+      if (b.t === "pasos") return [b.titulo ?? "", ...b.items.map((x) => `${x.titulo} ${x.texto} ${x.falla ?? ""}`), b.nota ?? ""].join(" ");
+      if (b.t === "checklist") return [b.titulo, ...b.items, b.nota ?? ""].join(" ");
       return b.texto;
     })
     .join(" ");

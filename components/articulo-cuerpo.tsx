@@ -220,6 +220,55 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
                 ))}
               </ol>
             );
+          case "pasos":
+            // Guía paso a paso (25/09/2026): un panel, un paso por fila, la cifra en verde como
+            // en «datos» y, debajo de cada paso, «Dónde se atasca» en ámbar muy suave — el
+            // único bloque con ámbar: marca un riesgo, no un dato.
+            return (
+              <figure key={i} className="my-8">
+                {b.titulo && <div className="mb-3"><Leyenda>{b.titulo}</Leyenda></div>}
+                <ol className="!m-0 !list-none divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white !pl-0">
+                  {b.items.map((p, j) => (
+                    <li key={j} className="!m-0 px-4 py-5 sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-x-4 sm:px-6 sm:py-6">
+                      {/* En móvil la cifra va encima del título («PASO 01») y el texto usa todo el ancho;
+                          en escritorio, columna propia con la cifra grande. */}
+                      <span aria-hidden className="block text-[11px] font-semibold uppercase leading-none tracking-[0.1em] text-aproba-700 tabular-nums sm:pt-0.5 sm:text-[1.75rem] sm:font-bold sm:normal-case sm:tracking-tightest">
+                        <span className="sm:hidden">Paso </span>{dosCifras(j)}
+                      </span>
+                      <div className="mt-2 sm:mt-0">
+                        <h3 className="!mb-0 !mt-0 !text-[15px] !leading-snug">{p.titulo}</h3>
+                        <p className="!mb-0 !mt-1.5 text-sm leading-relaxed text-slate-600">{conFormato(p.texto)}</p>
+                        {p.falla && (
+                          <p className="!mb-0 !mt-3 rounded-lg bg-amber-50/80 px-3 py-2.5 text-[13px] leading-snug text-slate-700 ring-1 ring-inset ring-amber-200/70">
+                            <span className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-amber-700">Dónde se atasca</span>
+                            {conFormato(p.falla)}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <NotaFigura texto={b.nota} />
+              </figure>
+            );
+          case "checklist":
+            return (
+              <figure key={i} className="my-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                <Leyenda>{b.titulo}</Leyenda>
+                <ul className="!mb-0 !mt-4 !list-none space-y-3 !pl-0">
+                  {b.items.map((x, j) => (
+                    <li key={j} className="!m-0 flex items-start gap-3 text-sm leading-relaxed text-slate-700">
+                      <svg aria-hidden viewBox="0 0 20 20" className="mt-[3px] h-[18px] w-[18px] shrink-0">
+                        <rect x="1" y="1" width="18" height="18" rx="5" className="fill-aproba-50 stroke-aproba-300" strokeWidth="1" />
+                        <path d="M5.8 10.3l2.7 2.7 5.7-6" fill="none" className="stroke-aproba-600" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span>{conFormato(x)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <NotaFigura texto={b.nota} />
+              </figure>
+            );
           case "faq":
             return (
               <section key={i} className="mt-10">
