@@ -199,12 +199,8 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
           onArchivar={() => { setErrorCierre(null); setLibre(false); setDialogo(true); }}
           onCambiar={() => { setResolucion(null); setCambiando(true); }}
           onArchivarSinResolucion={() => { setErrorCierre(null); setLibre(true); setDialogo(true); }}
-          extra={(retirar || error) ? (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              {retirar}
-              {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
-            </div>
-          ) : null}
+          onRetirar={completitud.manual && est === "EN_PREPARACION" ? () => void validar(false) : null}
+          error={error}
         />
         {popupCierre}
       </>

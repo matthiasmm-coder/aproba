@@ -2083,6 +2083,8 @@ export const CA: Record<string, string> = {
   "Todavía sin trabajadores.": "Encara sense treballadors.",
   "Requerimientos": "Requeriments",
   // Estado en Extranjería (sección unificada de la ficha, 24/09/2026)
+  "Desfavorable": "Desfavorable",
+  "Datos para la consulta oficial": "Dades per a la consulta oficial",
   "Requerimiento": "Requeriment",
   "¿Qué dice Extranjería?": "Què diu Estrangeria?",
   "consultado el": "consultat el",

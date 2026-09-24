@@ -29,7 +29,7 @@ try {
 
   console.log("\n1. La ficha: una sola sección «Estado en Extranjería»");
   let ficha = await pagina(`/app/expedientes/${expId}`);
-  check("la sección sale con «¿Qué dice Extranjería?» y sus cuatro respuestas", ficha.includes("Estado en Extranjería") && ficha.includes("¿Qué dice Extranjería?") && ["En trámite", "Requerimiento", "Resolución favorable", "Resolución desfavorable"].every((x) => ficha.includes(x)));
+  check("la sección sale con «¿Qué dice Extranjería?» y sus cuatro respuestas", ficha.includes("Estado en Extranjería") && ficha.includes("¿Qué dice Extranjería?") && ["En trámite", "Requerimiento", "Favorable", "Desfavorable"].every((x) => ficha.includes(x)));
   check("lleva el ancla #requerimientos (enlaces de la vista Requerimientos)", ficha.includes('id="requerimientos"'));
   check("«Consultar» vive en la sección (no en la cabecera)", ficha.includes("Consultar") && ficha.includes("Sin respuesta registrada"));
 
