@@ -246,7 +246,7 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Facturas")} ({facturas.length})</h2>
-            <Link href={`/app/facturas/nueva?cliente=${encodeURIComponent(nombre)}`} className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nueva")}</Link>
+            <Link href={`/app/facturas/nueva?cliente=${encodeURIComponent(nombre)}&clienteId=${encodeURIComponent(id)}`} className="text-sm font-semibold text-aproba-700 hover:underline">{t("+ Nueva")}</Link>
           </div>
           <div className="space-y-1">
             {facturas.map((f) => {

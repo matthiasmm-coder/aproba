@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
+import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { fmtFechaCorta } from "@/lib/tramites";
 import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
@@ -17,6 +18,9 @@ type Suplido = { concepto: string; importe: number };
 type Body = {
   numero?: string; oficinaId?: string | null; cliente?: string; concepto?: string; baseImponible?: number;
   avanzada?: boolean; lineas?: Linea[]; suplidos?: Suplido[]; notas?: string | null;
+  // Datos fiscales del cliente (24/09/2026): lo escrito manda; si no hay nada escrito y se
+  // eligió un cliente o una empresa de la lista, los de su ficha.
+  documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null;
 };
 
 export async function POST(req: Request) {
@@ -52,6 +56,22 @@ export async function POST(req: Request) {
   else { baseImponible = Number(body.baseImponible) || 0; iva = ivaDe(baseImponible); total = totalDe(baseImponible); }
   if (total <= 0) return NextResponse.json({ error: "El importe de la factura debe ser mayor que 0" }, { status: 400 });
 
+  // A quién se factura: el cliente o la empresa elegidos se validan contra MI despacho
+  // (anti-IDOR: un id ajeno no se enlaza ni presta sus datos fiscales).
+  let clienteId: string | null = null, empresaId: string | null = null;
+  let deFicha: ClienteDatosFactura | null = null;
+  const idCli = typeof body.clienteId === "string" ? body.clienteId.slice(0, 64) : "";
+  const idEmp = typeof body.empresaId === "string" ? body.empresaId.slice(0, 64) : "";
+  if (idCli) {
+    const { data: c } = await admin.from("Cliente").select("*").eq("id", idCli).eq("workspaceId", workspaceId).maybeSingle();
+    if (c) { clienteId = idCli; deFicha = datosFiscalesDeCliente(c as Record<string, string | null>); }
+  } else if (idEmp) {
+    const { data: e } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia").eq("id", idEmp).eq("workspaceId", workspaceId).maybeSingle();
+    if (e) { empresaId = idEmp; deFicha = datosFiscalesDeEmpresa(e as Record<string, string | null>); }
+  }
+  const escrito = datosFiscalesManuales(body.documento, body.direccion);
+  const clienteDatos = escrito ?? deFicha;
+
   const hoy = new Date();
   const vence = new Date(hoy.getTime() + 30 * 24 * 3600 * 1000);
   // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
@@ -62,9 +82,17 @@ export async function POST(req: Request) {
     clienteNombre: cliente, concepto, baseImponible, iva, total, estado: "EMITIDA", origen: "MANUAL",
     fechaEmision: hoy.toISOString(), fechaVencimiento: vence.toISOString(),
     ...(body.avanzada ? { lineas: ls, suplidos: ss, notas: body.notas?.trim() || null } : {}),
+    ...(clienteDatos ? { clienteDatos } : {}),
+    ...(clienteId ? { clienteId } : {}),
+    ...(empresaId ? { empresaId } : {}),
   };
   let { error } = await admin.from("Factura").insert(row);
   if (error && row.oficinaId && /oficinaId/i.test(error.message)) { delete row.oficinaId; ({ error } = await admin.from("Factura").insert(row)); }
+  // Repli si falta alguna columna opcional (clienteDatos, clienteId, empresaId): la factura nace igual.
+  if (error && /clienteDatos|clienteId|empresaId/i.test(error.message)) {
+    delete row.clienteDatos; delete row.clienteId; delete row.empresaId;
+    ({ error } = await admin.from("Factura").insert(row));
+  }
   if (error && body.avanzada && /lineas|suplidos|notas/i.test(error.message)) {
     return NextResponse.json({ error: "Falta la migración de facturas avanzadas: ejecuta supabase/factura-lineas.sql." }, { status: 500 });
   }
@@ -74,5 +102,5 @@ export async function POST(req: Request) {
   }
   // VERI*FACTU: registro de alta (si el NIF emisor lo tiene activo). Nunca frena la emisión.
   const verifactu = await registrarAltaSiActivo(admin, id);
-  return NextResponse.json({ ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), ...(verifactu ? { verifactu } : {}) });
+  return NextResponse.json({ ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), clienteDatos: row.clienteDatos ?? null, ...(verifactu ? { verifactu } : {}) });
 }

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { type Factura } from "@/lib/facturas";
+import { type Factura, datosFiscalesManuales } from "@/lib/facturas";
+import { cargarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { facturacionAvanzada } from "@/lib/planes";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
@@ -19,6 +20,9 @@ export default function NuevaFactura() {
   const [numero, setNumero] = useState("");
   // Prefill del cliente (?cliente=…) — p. ej. desde el botón "+ Nueva" de la ficha del cliente.
   const [clientePrefill] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("cliente") ?? "" : ""));
+  const [clienteIdPrefill] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("clienteId") ?? "" : ""));
+  // Clientes y empresas con NIF y domicilio (24/09/2026): la factura manual los congela.
+  const [opcionesFiscales, setOpcionesFiscales] = useState<ClienteFiscalOpcion[]>([]);
   const [cargando, setCargando] = useState(true);
   const avanzada = facturacionAvanzada(plan);
 
@@ -53,6 +57,7 @@ export default function NuevaFactura() {
       } catch { /* fallback */ }
       if (!activos.length) activos = DEFAULT_SERVICIOS.filter((s) => s.active).map((s) => ({ id: s.id, label: s.label, precio: s.precio }));
       setServicios(activos);
+      setOpcionesFiscales(await cargarClientesFiscales());
 
       // Próximo número de la serie anual (editable en modo avanzado). Lo da el
       // servidor: la numeración tiene un único punto de verdad (lib/factura-numero).
@@ -95,7 +100,8 @@ export default function NuevaFactura() {
       // VERI*FACTU en un único sitio — el navegador ya no inserta en Factura.
       const r = await fetch("/api/facturas", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas }),
+        body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
+          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error ?? t("No se pudo crear la factura. Vuelve a intentarlo."));
@@ -103,6 +109,8 @@ export default function NuevaFactura() {
         id: String(d.id), numero: String(d.numero), cliente: p.cliente, concepto: p.concepto, base: p.baseImponible,
         estado: "EMITIDA", fecha: String(d.fecha ?? ""), vence: d.vence ?? null,
         lineas: p.avanzada ? p.lineas : undefined, suplidos: p.avanzada ? p.suplidos : undefined, notas: p.avanzada ? p.notas : undefined,
+        // Lo que el servidor congeló (si eligió el cliente sin tocar los campos, los de su ficha).
+        clienteDatos: d.clienteDatos ?? datosFiscalesManuales(p.documento, p.direccion),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("No se pudo crear la factura. Vuelve a intentarlo."));
@@ -151,7 +159,12 @@ export default function NuevaFactura() {
           <FacturaEditor
             avanzada={avanzada}
             servicios={servicios}
-            inicial={{ numero, cliente: clientePrefill }}
+            inicial={(() => {
+              // Desde la ficha de un cliente («+ Nueva»): su NIF y domicilio ya rellenos.
+              const pre = clienteIdPrefill ? opcionesFiscales.find((o) => o.tipo === "cliente" && o.id === clienteIdPrefill) : undefined;
+              return pre ? { numero, cliente: pre.nombre, documento: pre.documento, direccion: pre.direccion, clienteId: pre.id } : { numero, cliente: clientePrefill };
+            })()}
+            fiscal={{ opciones: opcionesFiscales }}
             onSubmit={handleSubmit}
             submitLabel={t("Crear factura")}
             busy={creando}

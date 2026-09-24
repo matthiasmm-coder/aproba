@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { esNumeroRectificativa } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { ivaDe, totalDe, totalesFactura } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
+import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { puedeGestionarEquipo } from "@/lib/planes";
@@ -21,7 +22,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const sel = (cols: string) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle();
-  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId");
+  // clienteDatos/clienteId/empresaId: la edición de una factura manual rellena con ellos el
+  // NIF y el domicilio (24/09/2026). Repli sin ellos si faltan columnas.
+  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId");
+  if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, momento, estado, expedienteId");
   if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
   if (!res.data) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
@@ -54,7 +58,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Esta factura ya está registrada en VERI*FACTU (AEAT) y no se puede modificar. Anúlala y emite una nueva." }, { status: 409 });
   }
 
-  let body: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null; notificar?: boolean };
+  let body: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null; notificar?: boolean;
+    documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
   // Totales recalculados en el servidor (suplidos sin IVA).
@@ -83,6 +88,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.concepto?.trim()) patch.concepto = body.concepto.trim();
 
   const admin = createSupabaseAdmin();
+  // Datos fiscales del cliente (factura manual, 24/09/2026): solo si el formulario los
+  // manda. Lo escrito manda; vacío con un cliente/empresa elegido → los de su ficha;
+  // vacío del todo → se retiran. El cliente o la empresa se validan contra el despacho.
+  if ("documento" in body || "direccion" in body) {
+    const { data: wsF } = await admin.from("Factura").select("workspaceId").eq("id", id).maybeSingle();
+    const wsId = (wsF as { workspaceId?: string } | null)?.workspaceId ?? "";
+    let deFicha: ClienteDatosFactura | null = null;
+    let clienteId: string | null = null, empresaId: string | null = null;
+    if (typeof body.clienteId === "string" && body.clienteId) {
+      const { data: c } = await admin.from("Cliente").select("*").eq("id", body.clienteId.slice(0, 64)).eq("workspaceId", wsId).maybeSingle();
+      if (c) { clienteId = body.clienteId; deFicha = datosFiscalesDeCliente(c as Record<string, string | null>); }
+    } else if (typeof body.empresaId === "string" && body.empresaId) {
+      const { data: e } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia").eq("id", body.empresaId.slice(0, 64)).eq("workspaceId", wsId).maybeSingle();
+      if (e) { empresaId = body.empresaId; deFicha = datosFiscalesDeEmpresa(e as Record<string, string | null>); }
+    }
+    patch.clienteDatos = datosFiscalesManuales(body.documento, body.direccion) ?? deFicha;
+    // Una factura de expediente conserva su vínculo; una manual queda ligada a lo elegido.
+    if (!f.expedienteId) { patch.clienteId = clienteId; patch.empresaId = empresaId; }
+  }
   const { error: eUp } = await admin.from("Factura").update(patch).eq("id", id);
   // VERI*FACTU: si el alta estaba BLOQUEADA o sin enviar, la edición puede haberla
   // desbloqueado (p. ej. nº o importe corregidos) → se vuelve a intentar.

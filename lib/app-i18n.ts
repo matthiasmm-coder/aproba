@@ -2392,6 +2392,9 @@ export const CA: Record<string, string> = {
   "importe sin indicar": "import sense indicar",
   "No se pudo guardar el cobro.": "No s'ha pogut desar el cobrament.",
   "Facturado en tu sistema anterior y pendiente según tu migración. No son facturas de Aproba: cuando te paguen, márcalo como cobrado.": "Facturat al teu sistema anterior i pendent segons la teva migració. No són factures d'Aproba: quan et paguin, marca-ho com a cobrat.",
+  // Factura manual con NIF/CIF y domicilio (24/09/2026)
+  "sin NIF": "sense NIF",
+  "Salen en la factura. Si facturas a una empresa, su CIF es obligatorio.": "Surten a la factura. Si facturas a una empresa, el seu CIF és obligatori.",
 };
 
 export function translate(lang: Lang, es: string): string {

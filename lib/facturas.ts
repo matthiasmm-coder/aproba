@@ -85,6 +85,27 @@ export function importesFactura(f: Pick<Factura, "base" | "suplidos" | "iva" | "
   return { base, iva, suplidos: deLista, total: r2(base + iva + deLista) };
 }
 
+// Snapshot fiscal de una factura MANUAL («+ Nueva factura», 24/09/2026 — la 2026-0006 de
+// Luis salió sin NIF: el formulario no lo pedía). El gestor escribe el documento tal cual;
+// la etiqueta sale del formato, la misma que ponen los demás caminos: NIE/DNI y CIF
+// españoles; cualquier otra cosa, pasaporte (el caso de un cliente extranjero sin NIE).
+export function datosFiscalesManuales(documento: string | null | undefined, direccion: string | null | undefined): ClienteDatosFactura | null {
+  const doc = nifDeDocumento(String(documento ?? "").replace(/^Pasaporte\s+/i, "")).toUpperCase().replace(/[\s.\-]/g, "").slice(0, 30);
+  const dir = String(direccion ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  let etiquetado = "";
+  if (doc) {
+    if (/^[XYZ]\d{7}[A-Z]$/.test(doc) || /^\d{8}[A-Z]$/.test(doc)) etiquetado = `NIE/DNI ${doc}`;
+    else if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(doc)) etiquetado = `CIF/NIF ${doc}`;
+    else etiquetado = `Pasaporte ${doc}`;
+  }
+  if (!etiquetado && !dir) return null;
+  return { ...(etiquetado ? { documento: etiquetado } : {}), ...(dir ? { direccion: dir } : {}) };
+}
+
+// El número sin etiqueta, para rellenar el campo del formulario al editar.
+export const documentoSinEtiqueta = (documento: string | null | undefined) =>
+  nifDeDocumento(String(documento ?? "")).replace(/^Pasaporte\s+/i, "");
+
 // NIF/CIF tal como va impreso en la factura, sin la etiqueta del snapshot («NIE/DNI …»,
 // «CIF/NIF …»). Un pasaporte conserva su etiqueta: no es un NIF y quien lleve la
 // contabilidad debe verlo.

@@ -6,6 +6,8 @@ import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { facturacionAvanzada } from "@/lib/planes";
 import { FacturaEditor, type ServicioTarifa, type FacturaEditorInicial, type FacturaPayload } from "@/components/factura-editor";
+import { documentoSinEtiqueta } from "@/lib/facturas";
+import { cargarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 import { useT } from "@/components/lang-provider";
 import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
@@ -48,6 +50,9 @@ export function CobroFacturaModal({
   const [externo, setExterno] = useState(externoInicial);
   const [metodoExterno, setMetodoExterno] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "OTRO">("EFECTIVO");
   const [tieneExpediente, setTieneExpediente] = useState(false); // solo se puede reenviar si la factura está ligada a un expediente (cliente con portal/email)
+  // Factura MANUAL (sin expediente): se editan también su NIF/CIF y su domicilio, con la
+  // lista de clientes y empresas del despacho (24/09/2026). Con expediente, los pone el servidor.
+  const [fiscal, setFiscal] = useState<{ opciones: ClienteFiscalOpcion[] } | undefined>(undefined);
   const [forceAvanzada, setForceAvanzada] = useState(false); // editar una factura con líneas/suplidos usa el editor rico aunque el plan sea Starter (no perder datos)
   const avanzada = facturacionAvanzada(plan) || forceAvanzada;
 
@@ -71,7 +76,9 @@ export function CobroFacturaModal({
           const tieneAvanzado = (Array.isArray(fc.lineas) && fc.lineas.length > 0) || (Array.isArray(fc.suplidos) && fc.suplidos.length > 0);
           setForceAvanzada(tieneAvanzado);
           const lineas = Array.isArray(fc.lineas) && fc.lineas.length ? fc.lineas : [{ concepto: fc.concepto || "", base: Number(fc.baseImponible) || 0 }];
-          setInicial({ cliente: fc.clienteNombre ?? "", numero: fc.numero ?? "", lineas, suplidos: Array.isArray(fc.suplidos) ? fc.suplidos : [], notas: fc.notas ?? "", concepto: fc.concepto ?? "", base: Number(fc.baseImponible) || 0 });
+          if (!fc.expedienteId) setFiscal({ opciones: await cargarClientesFiscales() });
+          setInicial({ cliente: fc.clienteNombre ?? "", numero: fc.numero ?? "", lineas, suplidos: Array.isArray(fc.suplidos) ? fc.suplidos : [], notas: fc.notas ?? "", concepto: fc.concepto ?? "", base: Number(fc.baseImponible) || 0,
+            documento: documentoSinEtiqueta(fc.clienteDatos?.documento), direccion: fc.clienteDatos?.direccion ?? "", clienteId: fc.clienteId ?? null, empresaId: fc.empresaId ?? null });
         } catch (e) { setError(e instanceof Error ? e.message : t("No se pudo cargar la factura.")); }
       } else {
         // Vista previa del número: la da el servidor (lib/factura-numero), único punto
@@ -92,7 +99,8 @@ export function CobroFacturaModal({
   async function onSubmit(p: FacturaPayload) {
     setBusy(true); setError(null);
     try {
-      const factura = { numero: p.numero, clienteNombre: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas };
+      const factura = { numero: p.numero, clienteNombre: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
+        ...(fiscal ? { documento: p.documento ?? "", direccion: p.direccion ?? "", clienteId: p.clienteId ?? null, empresaId: p.empresaId ?? null } : {}) };
       const res = modo === "editar" && facturaId
         ? await fetch(`/api/facturas/${facturaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...factura, notificar }) })
         : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura, ...(externo ? { cobroExterno: metodoExterno } : {}) }) });
@@ -150,6 +158,7 @@ export function CobroFacturaModal({
             avanzada={avanzada}
             servicios={servicios}
             inicial={inicial}
+            fiscal={fiscal}
             onSubmit={onSubmit}
             busy={busy}
             error={error}

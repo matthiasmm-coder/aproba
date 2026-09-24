@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { eur, ivaDe, totalDe, totalesFactura, IVA, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
+import { buscarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 
 // Editor de factura REUTILIZABLE (formulario + estado + totales en vivo). Lo usan
 // /facturas/nueva y el popup de cobro del expediente. No persiste nada: al validar emite
@@ -18,6 +19,11 @@ export type ServicioTarifa = { id: string; label: string; precio: number };
 
 export type FacturaEditorInicial = {
   cliente?: string;
+  // Datos fiscales del cliente (factura manual): documento sin etiqueta y domicilio.
+  documento?: string;
+  direccion?: string;
+  clienteId?: string | null;
+  empresaId?: string | null;
   // avanzada
   numero?: string;
   lineas?: LineaFactura[];
@@ -40,6 +46,11 @@ export type FacturaPayload = {
   lineas?: LineaFactura[];
   suplidos?: Suplido[];
   notas?: string | null;
+  // Solo con `fiscal`: lo que se congela en la factura (el servidor pone la etiqueta).
+  documento?: string;
+  direccion?: string;
+  clienteId?: string | null;
+  empresaId?: string | null;
 };
 
 export function FacturaEditor({
@@ -51,7 +62,12 @@ export function FacturaEditor({
   busy = false,
   error,
   extra,
+  fiscal,
 }: {
+  // Factura MANUAL (24/09/2026): el gestor elige el cliente o la empresa de su lista y
+  // su NIF/CIF y domicilio se rellenan solos; si no está en Aproba, los escribe. Sin
+  // `fiscal` (cobro de un expediente) el servidor ya conoce al cliente.
+  fiscal?: { opciones: ClienteFiscalOpcion[] };
   avanzada: boolean;
   servicios: ServicioTarifa[];
   inicial?: FacturaEditorInicial;
@@ -63,6 +79,29 @@ export function FacturaEditor({
 }) {
   const t = useT();
   const [cliente, setCliente] = useState(inicial?.cliente ?? "");
+  const [documento, setDocumento] = useState(inicial?.documento ?? "");
+  const [direccion, setDireccion] = useState(inicial?.direccion ?? "");
+  // A quién está ligada la factura (elegido de la lista). Si luego se cambia el nombre a
+  // mano, deja de estarlo: el enlace nunca contradice lo impreso.
+  const [vinculo, setVinculo] = useState<{ tipo: "cliente" | "empresa"; id: string; nombre: string } | null>(
+    inicial?.clienteId ? { tipo: "cliente", id: inicial.clienteId, nombre: inicial?.cliente ?? "" }
+      : inicial?.empresaId ? { tipo: "empresa", id: inicial.empresaId, nombre: inicial?.cliente ?? "" } : null,
+  );
+  const [sugerir, setSugerir] = useState(false);
+  const sugerencias = useMemo(() => (fiscal && sugerir ? buscarClientesFiscales(fiscal.opciones, cliente) : []), [fiscal, sugerir, cliente]);
+  function escribirCliente(v: string) {
+    setCliente(v);
+    if (vinculo && v !== vinculo.nombre) setVinculo(null);
+    setSugerir(true);
+  }
+  function elegirCliente(o: ClienteFiscalOpcion) {
+    setCliente(o.nombre); setDocumento(o.documento); setDireccion(o.direccion);
+    setVinculo({ tipo: o.tipo, id: o.id, nombre: o.nombre }); setSugerir(false);
+  }
+  const extraFiscal = () => (fiscal ? {
+    documento: documento.trim(), direccion: direccion.trim(),
+    clienteId: vinculo?.tipo === "cliente" ? vinculo.id : null, empresaId: vinculo?.tipo === "empresa" ? vinculo.id : null,
+  } : {});
 
   // Simple (Starter)
   const [concepto, setConcepto] = useState(inicial?.concepto ?? (servicios[0]?.label || GENERICOS[0]));
@@ -102,10 +141,10 @@ export function FacturaEditor({
       onSubmit({
         avanzada: true, cliente: cliente.trim(), numero: numero.trim(),
         concepto: limpiasL.map((l) => l.concepto).join(" · ").slice(0, 200),
-        baseImponible: b, iva, total, lineas: limpiasL, suplidos: limpiasS, notas: notas.trim() || null,
+        baseImponible: b, iva, total, lineas: limpiasL, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
       });
     } else {
-      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum) });
+      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal() });
     }
   }
 
@@ -113,14 +152,50 @@ export function FacturaEditor({
   // iOS hace zoom al enfocar el campo y el diálogo se ve enorme y descolocado.
   const inp = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
+  // Campo «Cliente»: con `fiscal`, propone los clientes y empresas del despacho.
+  const campoCliente = (
+    <div className="relative">
+      <input value={cliente} onChange={(e) => escribirCliente(e.target.value)} onFocus={() => setSugerir(true)} onBlur={() => setTimeout(() => setSugerir(false), 150)}
+        placeholder={t("Nombre del cliente")} autoComplete="off" className={`mt-1.5 ${inp}`} />
+      {sugerencias.length > 0 && (
+        <div role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+          {sugerencias.map((o) => (
+            <button key={`${o.tipo}-${o.id}`} type="button" role="option" aria-selected={false} onMouseDown={(e) => { e.preventDefault(); elegirCliente(o); }}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-cream-50">
+              <span className="min-w-0 truncate font-medium text-slate-800">{o.nombre}{o.tipo === "empresa" && <span className="ml-2 rounded bg-slate-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("Empresa")}</span>}</span>
+              <span className="shrink-0 font-mono text-xs text-slate-400">{o.documento || t("sin NIF")}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  // NIF/CIF y domicilio: van impresos en la factura y en el CSV de emitidas.
+  const camposFiscales = fiscal ? (
+    <div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <label className="text-sm font-medium text-slate-700">{t("NIF / CIF")}</label>
+          <input value={documento} onChange={(e) => setDocumento(e.target.value)} placeholder="B12345678" autoComplete="off" className={`mt-1.5 ${inp} font-mono`} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-sm font-medium text-slate-700">{t("Domicilio")}</label>
+          <input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t("Calle, nº, CP, ciudad")} autoComplete="off" className={`mt-1.5 ${inp}`} />
+        </div>
+      </div>
+      <p className="mt-1.5 text-xs text-slate-400">{t("Salen en la factura. Si facturas a una empresa, su CIF es obligatorio.")}</p>
+    </div>
+  ) : null;
+
   return (
     <div>
       {!avanzada ? (
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium text-slate-700">{t("Cliente")}</label>
-            <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder={t("Nombre del cliente")} className={`mt-1.5 ${inp}`} />
+            {campoCliente}
           </div>
+          {camposFiscales}
           <div>
             <label className="text-sm font-medium text-slate-700">{t("Concepto")}</label>
             <select value={concepto} onChange={(e) => elegirConcepto(e.target.value)} className={`mt-1.5 ${inp} bg-white`}>
@@ -150,13 +225,14 @@ export function FacturaEditor({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <label className="text-sm font-medium text-slate-700">{t("Cliente")}</label>
-              <input value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder={t("Nombre del cliente")} className={`mt-1.5 ${inp}`} />
+              {campoCliente}
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">{t("Nº de factura")}</label>
               <input value={numero} onChange={(e) => setNumero(e.target.value)} className={`mt-1.5 ${inp} font-mono`} />
             </div>
           </div>
+          {camposFiscales}
 
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Honorarios (con IVA)")}</p>
