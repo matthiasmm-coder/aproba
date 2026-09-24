@@ -22,7 +22,7 @@ try {
   const { data: svs } = await admin.from("ServicioConfig").select("clave, label").eq("workspaceId", WS).limit(80);
   const sv = (svs ?? []).find((x) => x.clave === "arraigo_social") ?? (svs ?? []).find((x) => /arraigo/i.test(x.label ?? "")) ?? svs?.[0];
 
-  console.log("\n1. El campo: guardar, rastro, ficha, tabla, borrar");
+  console.log("\n1. El campo: guardar, rastro, ficha, fila de la lista, borrar");
   const cliId = crypto.randomUUID(), expId = crypto.randomUUID();
   await admin.from("Cliente").insert({ id: cliId, workspaceId: WS, nombre: "ZZNUM", apellidos: "Existente", numeroDocumento: "Z9990001A", updatedAt: now(), ...(sede ? { oficinaId: sede } : {}) });
   await admin.from("Expediente").insert({ id: expId, workspaceId: WS, clienteId: cliId, referencia: `ZZNUM-${Date.now()}`, portalToken: crypto.randomUUID().replace(/-/g, ""), tipo: "OTRO", servicioClave: sv.clave, estado: "EN_PREPARACION", updatedAt: now(), ...(sede ? { oficinaId: sede } : {}) });
@@ -33,8 +33,12 @@ try {
   check("deja rastro en el historial", (ev1 ?? []).some((x) => /Nº de expediente de Extranjería: 08\/555555\/2026/.test(x.descripcion)));
   const ficha = await (await fetch(`${BASE}/app/expedientes/${expId}`, { headers: { Cookie: cookies } })).text();
   check("la ficha lo enseña en la cabecera", ficha.includes("08/555555/2026") && /Nº expediente \(Extranjería\)/.test(ficha));
-  const tabla = await api("/api/expedientes/tabla");
-  check("la tabla lo recibe", (tabla.j.filas ?? []).some((f) => f.id === expId && f.numeroOficial === "08/555555/2026"), `${tabla.status}`);
+  // 24/09/2026: sin vista Tabla — el número vive en la FILA de la lista (y la ruta de la tabla ya no existe).
+  const lista = await (await fetch(`${BASE}/app/expedientes`, { headers: { Cookie: cookies } })).text();
+  check("la fila de la lista lo enseña", lista.includes("08/555555/2026") && !lista.includes('aria-label="Presentación"'));
+  // «tabla» cae ahora en /api/expedientes/[id], que no tiene GET → 405 (antes: 200 con las filas).
+  const viejaTabla = (await api("/api/expedientes/tabla")).status;
+  check("la ruta de la antigua tabla ya no existe", [404, 405].includes(viejaTabla), String(viejaTabla));
   r = await api(`/api/expedientes/${expId}/numero-oficial`, { method: "PATCH", body: JSON.stringify({ numeroOficial: "08/555555/2026" }) });
   check("el mismo valor → sin cambios, sin evento nuevo", r.j.sinCambios === true);
   r = await api(`/api/expedientes/${expId}/numero-oficial`, { method: "PATCH", body: JSON.stringify({ numeroOficial: "" }) });
