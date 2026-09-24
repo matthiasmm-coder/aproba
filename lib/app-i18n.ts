@@ -2082,6 +2082,13 @@ export const CA: Record<string, string> = {
   "Teléfono de contacto": "Telèfon de contacte",
   "Todavía sin trabajadores.": "Encara sense treballadors.",
   "Requerimientos": "Requeriments",
+  // Estado en Extranjería (sección unificada de la ficha, 24/09/2026)
+  "Requerimiento": "Requeriment",
+  "¿Qué dice Extranjería?": "Què diu Estrangeria?",
+  "consultado el": "consultat el",
+  "Requerimiento pendiente": "Requeriment pendent",
+  "Sin respuesta registrada": "Sense resposta registrada",
+  "No se pudo guardar el estado.": "No s'ha pogut desar l'estat.",
   "Total a pagar": "Total a pagar",
   "No cuadra: base + IVA − retención da": "No quadra: base + IVA − retenció dona",
   "Esta factura está cobrada": "Aquesta factura està cobrada",

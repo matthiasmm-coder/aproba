@@ -112,6 +112,10 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
           <span className="font-mono">{e.referencia}</span>
           {cerrado && e.presentadoEl && <span>· {t("presentado el")} {e.presentadoEl}</span>}
           {!cerrado && docs && docs.requeridos > 0 && <span>· {docs.recibidos}/{docs.requeridos} {t("docs")}</span>}
+          {/* Lo que dijo Extranjería en la última consulta (se anota en la ficha). */}
+          {!cerrado && e.estadoExtranjeria?.estado === "EN_TRAMITE" && (
+            <span className="text-slate-500">· {t("En trámite")} {new Date(e.estadoExtranjeria.at).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).slice(0, 5)}</span>
+          )}
         </span>
       </Link>
 

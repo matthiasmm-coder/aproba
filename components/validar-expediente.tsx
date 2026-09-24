@@ -8,6 +8,8 @@ import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { normalizarEstado, type Progreso } from "@/lib/progreso";
 import { etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { setArchivadoServidor } from "@/lib/archivo";
+import { EstadoExtranjeria, type DatosExtranjeria } from "@/components/estado-extranjeria";
+import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
 
 // Carta de completitud Y del ciclo (flujo v4, 03/09/2026, decisiones de Matthias): una
 // sola línea — anillo con el % dentro, las tres partes y EL botón del momento.
@@ -18,7 +20,9 @@ import { setArchivadoServidor } from "@/lib/archivo";
 //   Archivado   → chip con la salida + «Restaurar».
 // La respuesta de la Administración ya no es una etapa: se registra como salida (o se
 // reclasifica desde Archivados cuando llega).
-export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, archivado = false, salida = null }: {
+// 24/09/2026 (Matthias): en «Preparado» la carta ES la sección «Estado en Extranjería»
+// (components/estado-extranjeria.tsx) — consulta oficial, respuesta y requerimientos juntos.
+export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, archivado = false, salida = null, extranjeria }: {
   id: string;
   estado: string;
   fase: string; // "preparacion" | "preparado" (lib/progreso.ts)
@@ -28,6 +32,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   referencia?: string;
   archivado?: boolean;
   salida?: string | null;     // Expediente.salida (o null antes de la migración)
+  extranjeria?: DatosExtranjeria; // sección unificada (sin ella: los botones de siempre)
 }) {
   const t = useT();
   const router = useRouter();
@@ -43,6 +48,9 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   const [resolucion, setResolucion] = useState<Salida | null>(null);
   const [registrando, setRegistrando] = useState<Salida | null>(null);
   const [libre, setLibre] = useState(false); // archivar sin resolución (en trámite, desistido)
+  // «Cambiar» una resolución ya registrada: vuelve a enseñar los botones aunque el servidor
+  // la tenga (antes solo borraba el estado local, y tras recargar no hacía nada).
+  const [cambiando, setCambiando] = useState(false);
 
   async function validar(validado: boolean) {
     if (loading) return;
@@ -72,6 +80,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? t("No se pudo registrar la resolución."));
       setResolucion(s);
+      setCambiando(false);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("No se pudo registrar la resolución."));
@@ -152,12 +161,55 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   );
 
   const est = normalizarEstado(estado);
+  const resueltaActual: Salida | null = cambiando ? null : (resolucion
+    ?? ((salida === "concedido" || salida === "denegado") ? (salida as Salida) : null)
+    ?? (salidaDeEstado(estado) === "concedido" || salidaDeEstado(estado) === "denegado" ? salidaDeEstado(estado) : null));
   const primario = "rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60";
   const borde = "rounded-lg border border-aproba-300 px-3.5 py-2 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-60";
   const cerrado = archivado || Boolean(hecho);
   const salidaMostrada = hecho?.salida ?? salida ?? salidaDeEstado(estado);
 
   // «Pedir al cliente»: el mismo mensaje de WhatsApp que el alta, con su enlace /j.
+
+  const retirar = completitud.manual && est === "EN_PREPARACION" && (
+    <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>
+      {t("Retirar")}
+    </button>
+  );
+  const popupCierre = dialogo && (
+    <CerrarExpedienteDialog
+      referencia={referencia ?? ""}
+      salidaFijada={libre ? null : resueltaActual}
+      factura={finalizacion}
+      busy={loading}
+      fase={faseCierre}
+      error={errorCierre}
+      onClose={() => { if (!loading) setDialogo(false); }}
+      onConfirm={cerrar}
+    />
+  );
+
+  // «Preparado» con la sección unificada: estado en Extranjería + resolución + requerimientos.
+  if (!cerrado && fase === "preparado" && extranjeria) {
+    return (
+      <>
+        <EstadoExtranjeria
+          id={id} datos={extranjeria} resuelta={resueltaActual} ocupado={loading} registrando={registrando}
+          onResolver={(s) => void registrarResolucion(s)}
+          onArchivar={() => { setErrorCierre(null); setLibre(false); setDialogo(true); }}
+          onCambiar={() => { setResolucion(null); setCambiando(true); }}
+          onArchivarSinResolucion={() => { setErrorCierre(null); setLibre(true); setDialogo(true); }}
+          extra={(retirar || error) ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {retirar}
+              {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+            </div>
+          ) : null}
+        />
+        {popupCierre}
+      </>
+    );
+  }
 
   let acciones: React.ReactNode;
   if (cerrado) {
@@ -180,9 +232,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
     );
   } else {
     // La resolución ya registrada (local, o la columna del expediente/estado).
-    const resuelta: Salida | null = resolucion
-      ?? ((salida === "concedido" || salida === "denegado") ? (salida as Salida) : null)
-      ?? (salidaDeEstado(estado) === "concedido" || salidaDeEstado(estado) === "denegado" ? salidaDeEstado(estado) : null);
+    const resuelta = resueltaActual;
     acciones = (
       <>
         {resuelta ? (
@@ -193,7 +243,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
             <button onClick={() => { setErrorCierre(null); setLibre(false); setDialogo(true); }} disabled={loading} className={primario}>
               {t("Archivar")}
             </button>
-            <button onClick={() => setResolucion(null)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">
+            <button onClick={() => { setResolucion(null); setCambiando(true); }} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60">
               {t("Cambiar")}
             </button>
           </>
@@ -212,11 +262,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
             </button>
           </>
         )}
-        {completitud.manual && est === "EN_PREPARACION" && (
-          <button onClick={() => validar(false)} disabled={loading} className="text-xs font-medium text-slate-400 underline transition hover:text-slate-600 disabled:opacity-60" title={t("Devolver a Preparación")}>
-            {t("Retirar")}
-          </button>
-        )}
+        {retirar}
       </>
     );
   }
@@ -244,18 +290,13 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
       )}
       {acciones}
       {error && <p role="alert" className="w-full text-center text-xs text-red-600">{error}</p>}
-      {dialogo && (
-        <CerrarExpedienteDialog
-          referencia={referencia ?? ""}
-          salidaFijada={libre ? null : (resolucion ?? ((salida === "concedido" || salida === "denegado") ? (salida as Salida) : null) ?? (salidaDeEstado(estado) === "concedido" || salidaDeEstado(estado) === "denegado" ? salidaDeEstado(estado) : null))}
-          factura={finalizacion}
-          busy={loading}
-          fase={faseCierre}
-          error={errorCierre}
-          onClose={() => { if (!loading) setDialogo(false); }}
-          onConfirm={cerrar}
-        />
+      {/* Requerimientos fuera de «Preparado» (raro: antes de preparar, o ya archivado). */}
+      {extranjeria && extranjeria.requerimientos.length > 0 && (
+        <div className="w-full border-t border-slate-100 pt-3">
+          <RequerimientosExpediente expedienteId={id} inicial={extranjeria.requerimientos} compacto={cerrado} />
+        </div>
       )}
+      {popupCierre}
     </div>
   );
 }

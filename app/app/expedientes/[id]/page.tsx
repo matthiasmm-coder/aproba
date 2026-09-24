@@ -2,11 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
 import { fetchRequerimientosDeExpediente } from "@/lib/data/requerimientos";
-import { urgenciaDe, plazoClave } from "@/lib/requerimientos";
 import { NotasExpediente } from "@/components/notas-expediente";
-import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
 import { NumeroOficial } from "@/components/numero-oficial";
-import { ConsultarExtranjeria } from "@/components/consultar-extranjeria";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
 import { EnlaceCliente } from "@/components/enlace-cliente";
@@ -78,6 +75,10 @@ export default async function ExpedienteDetail({
   // la ficha sale igual y el campo simplemente no aparece.
   const { data: filaNumero, error: errNumero } = await (await createSupabaseServer()).from("Expediente").select("numeroOficial").eq("id", id).maybeSingle();
   const numeroOficial = errNumero ? null : String((filaNumero as { numeroOficial?: string | null } | null)?.numeroOficial ?? "");
+  // Estado en Extranjería (lo anotado en la última consulta), también aparte: sin
+  // supabase/estado-extranjeria.sql la sección sale igual, solo sin «en trámite».
+  const { data: filaEstadoExt, error: errEstadoExt } = await (await createSupabaseServer()).from("Expediente").select("estadoExtranjeria, estadoExtranjeriaAt").eq("id", id).maybeSingle();
+  const estadoExt = errEstadoExt ? null : (filaEstadoExt as { estadoExtranjeria?: string | null; estadoExtranjeriaAt?: string | null } | null);
   // Lo facturado ANTES de Aproba (migración, «Estado del cobro»): consulta aparte por la
   // misma razón — sin supabase/cobro-previo.sql, la ficha sale igual y la línea no aparece.
   const { data: filaCobro, error: errCobro } = await (await createSupabaseServer()).from("Expediente").select("importePrevio, cobroPrevio").eq("id", id).maybeSingle();
@@ -289,13 +290,6 @@ export default async function ExpedienteDetail({
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-slate-400">
               {e.referencia}
               {numeroOficial !== null && <span className="font-sans"><NumeroOficial expedienteId={e.id} inicial={numeroOficial} variante="ficha" /></span>}
-              {/* «Revisar directamente» (Jennifer, 24/09): una vez presentado, los datos de la
-                  consulta oficial listos para copiar y el enlace a la web de Extranjería. */}
-              {numeroOficial !== null && e.presentadoEl && (
-                <span className="font-sans">
-                  <ConsultarExtranjeria nie={e.clienteFicha?.numeroDocumento ?? ""} numeroOficial={numeroOficial} fechaPresentacion={e.presentadoEl} fechaNacimiento={e.clienteFicha?.fechaNacimiento ?? ""} />
-                </span>
-              )}
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : e.esDeEmpresa ? ` · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : ` · ${e.clienteNacionalidad}`}</p>
@@ -342,7 +336,7 @@ export default async function ExpedienteDetail({
       {/* Completitud + ciclo — CARTA PROPIA bajo la cabecera, SIEMPRE visible: el botón
           cambia con la columna (listo → presentado → aceptado/denegado → archivar), así
           que la carta acompaña al expediente hasta el final. */}
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div id="requerimientos" className="mt-4 scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <ValidarExpediente
           id={e.id}
           referencia={e.referencia}
@@ -351,6 +345,17 @@ export default async function ExpedienteDetail({
           completitud={progresoExp.completitud}
           archivado={archivadoExp}
           salida={salidaExp}
+          // En «Preparado» la carta es la sección «Estado en Extranjería» (24/09/2026): la
+          // consulta oficial, lo que respondió la Administración y los requerimientos.
+          extranjeria={{
+            numeroOficial,
+            nie: e.clienteFicha?.numeroDocumento ?? "",
+            fechaPresentacion: e.presentadoEl ?? "",
+            fechaNacimiento: e.clienteFicha?.fechaNacimiento ?? "",
+            estado: estadoExt?.estadoExtranjeria ?? null,
+            estadoAt: estadoExt?.estadoExtranjeriaAt ?? null,
+            requerimientos,
+          }}
           // Popup de cierre: mismo criterio que el botón de pago final del CobrosPanel
           // (queda resto, sin factura final viva, sin plan de cuotas).
           finalizacion={{
@@ -384,21 +389,6 @@ export default async function ExpedienteDetail({
 
       {/* Le parcours, de haut en bas */}
       <div className="mt-6 space-y-6">
-        {/* Requerimientos: el plazo de la Administración. Va ARRIBA del todo y abierto si
-            hay alguno pendiente — si vence, el expediente se tiene por desistido. */}
-        <SeccionPlegable
-          id="requerimientos"
-          titulo={t("Requerimientos")}
-          defaultOpen={requerimientos.some((r) => r.estado === "PENDIENTE")}
-          resumen={(() => {
-            const vivos = requerimientos.filter((r) => r.estado === "PENDIENTE");
-            if (!vivos.length) return requerimientos.length ? t("Aportados") : t("Ninguno");
-            const urgente = vivos.find((r) => ["VENCIDO", "HOY", "URGENTE"].includes(urgenciaDe(r))) ?? vivos[0];
-            const p = plazoClave(urgente); return t(p.clave).replace("{n}", String(p.n));
-          })()}
-        >
-          <RequerimientosExpediente expedienteId={e.id} inicial={requerimientos} />
-        </SeccionPlegable>
 
         {/* Notas de trabajo del gestor («cita solicitada», «a la espera de apostillas»…) */}
         <SeccionPlegable id="notas" titulo={t("Notas")} resumen={notas.length > 0 ? `${notas.length}` : t("Sin notas")}>

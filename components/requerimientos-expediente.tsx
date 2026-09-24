@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
@@ -25,7 +25,10 @@ const COLOR: Record<Urgencia, string> = {
   APORTADO: "border-slate-200 bg-slate-50 text-slate-500",
 };
 
-export function RequerimientosExpediente({ expedienteId, inicial }: { expedienteId: string; inicial: RequerimientoRow[] }) {
+// `compacto` (sección «Estado en Extranjería» de la ficha, 24/09/2026): sin el texto de
+// «sin requerimientos» ni el botón de añadir — allí el formulario lo abre el botón
+// «Requerimiento» de «¿Qué dice Extranjería?», que cambia `abrirSenal`.
+export function RequerimientosExpediente({ expedienteId, inicial, compacto = false, abrirSenal = 0 }: { expedienteId: string; inicial: RequerimientoRow[]; compacto?: boolean; abrirSenal?: number }) {
   const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -35,6 +38,12 @@ export function RequerimientosExpediente({ expedienteId, inicial }: { expediente
   const [avisarDias, setAvisarDias] = useState(AVISAR_DIAS_DEFECTO);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!abrirSenal) return;
+    setAbierto(true);
+    setFechaLimite((f) => f || iso(sumarDiasHabiles(new Date(), PLAZO_HABITUAL_DIAS)));
+  }, [abrirSenal]);
 
   const inp = "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[16px] sm:text-sm outline-none focus:border-aproba-600";
   const lbl = "text-[11px] font-medium uppercase tracking-wide text-slate-400";
@@ -86,7 +95,7 @@ export function RequerimientosExpediente({ expedienteId, inicial }: { expediente
 
   return (
     <div>
-      {inicial.length === 0 && !abierto && (
+      {inicial.length === 0 && !abierto && !compacto && (
         <p className="text-sm text-slate-500">{t("Sin requerimientos. Si la Administración te pide algo con plazo, anótalo aquí y Aproba te avisará antes de que venza.")}</p>
       )}
 
@@ -167,10 +176,10 @@ export function RequerimientosExpediente({ expedienteId, inicial }: { expediente
       ) : (
         <>
           {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
-          <button type="button" onClick={() => { setAbierto(true); if (!fechaLimite) proponerPlazo(); }}
+          {!compacto && <button type="button" onClick={() => { setAbierto(true); if (!fechaLimite) proponerPlazo(); }}
             className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400">
             {t("+ Añadir requerimiento")}
-          </button>
+          </button>}
         </>
       )}
     </div>

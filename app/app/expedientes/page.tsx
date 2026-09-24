@@ -155,6 +155,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     fechaLimite: e.fechaLimite,
     presentadoEl: e.presentadoEl,
     numeroOficial: e.numeroOficial ?? null, // la fila lo enseña y lo edita (Jennifer, 24/09)
+    estadoExtranjeria: e.estadoExtranjeria ?? null, // «En trámite · 24/09» en la fila
     archivado: e.archivado,
     salida: salidas.get(e.id) ?? null,
     validados: e.validados,

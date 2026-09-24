@@ -6,17 +6,19 @@ import { copiarTexto } from "@/lib/copiar";
 import { faltaParaConsultar } from "@/lib/numero-oficial";
 
 // «Consultar» el estado en Extranjería (Jennifer, 24/09/2026: «mirar si se puede revisar
-// directamente»). Vivía en la vista Tabla, retirada ese día; ahora va junto al nº oficial,
-// en la ficha. La web oficial (infoext2) pide NIE o nº de expediente, fecha de presentación
-// y año de nacimiento, y exige un captcha: Aproba no puede ni debe consultarla sola. Aquí
-// prepara los datos (un clic los copia) y abre la consulta; el captcha lo valida el gestor.
+// directamente»). Vivía en la vista Tabla, retirada ese día; ahora va en la sección «Estado
+// en Extranjería» de la ficha (components/estado-extranjeria.tsx). La web oficial (infoext2)
+// pide NIE o nº de expediente, fecha de presentación y año de nacimiento, y exige un
+// captcha: Aproba no puede ni debe consultarla sola. Aquí prepara los datos (un clic los
+// copia) y abre la consulta; el captcha lo valida el gestor.
 const INFOEXT = "https://infoext2.delegaciondelgobierno.gob.es/infoext2/consulta.html";
 
-export function ConsultarExtranjeria({ nie, numeroOficial, fechaPresentacion, fechaNacimiento }: {
+export function ConsultarExtranjeria({ nie, numeroOficial, fechaPresentacion, fechaNacimiento, alinear = "izquierda" }: {
   nie: string;
   numeroOficial: string;
   fechaPresentacion: string; // dd/mm/aaaa ("" = aún no presentado)
   fechaNacimiento: string;   // ISO aaaa-mm-dd
+  alinear?: "izquierda" | "derecha"; // hacia dónde se abre la ventanita (que no se salga de la carta)
 }) {
   const t = useT();
   const [abierto, setAbierto] = useState(false);
@@ -36,7 +38,7 @@ export function ConsultarExtranjeria({ nie, numeroOficial, fechaPresentacion, fe
         {t("Consultar")}
       </button>
       {abierto && (
-        <div className="absolute left-0 top-7 z-20 w-64 whitespace-normal rounded-xl border border-slate-200 bg-white p-3 text-left shadow-lg">
+        <div className={`absolute ${alinear === "derecha" ? "right-0" : "left-0"} top-7 z-20 w-64 whitespace-normal rounded-xl border border-slate-200 bg-white p-3 text-left shadow-lg`}>
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t("Estado en Extranjería")}</p>
           {datos.map(([k, v]) => (
             <button key={k} type="button" onClick={() => copiar(k, v)} className="mt-1.5 flex w-full items-center justify-between rounded-md px-1.5 py-1 text-xs hover:bg-slate-50">

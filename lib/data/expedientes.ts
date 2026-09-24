@@ -39,6 +39,7 @@ export type ExpedienteResumen = {
   fechaLimiteISO?: string; // brut, para calcular días restantes REALES (no el label dd/mm)
   presentadoEl?: string;   // dd/mm/aaaa — solo a partir de «Presentado»
   numeroOficial?: string | null; // nº que asigna Extranjería (Jennifer, 24/09/2026): la fila lo enseña y lo edita
+  estadoExtranjeria?: { estado: string; at: string } | null; // última consulta anotada («en trámite» + fecha)
   archivado: boolean; // servidor (archivadoAt) — igual para todo el equipo
   validados: number;
   total: number;
@@ -155,6 +156,16 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     }
   }
 
+  // Estado en Extranjería (24/09/2026): consulta aparte y tolerante — sin la migración
+  // supabase/estado-extranjeria.sql la lista sale igual. Solo trae los anotados (pocos).
+  const estadosExt = new Map<string, { estado: string; at: string }>();
+  {
+    const { data: ex, error: eEx } = await conFiltro(supabase.from("Expediente").select("id, estadoExtranjeria, estadoExtranjeriaAt").not("estadoExtranjeria", "is", null)).limit(5000);
+    if (!eEx) for (const x of (ex ?? []) as { id: string; estadoExtranjeria: string | null; estadoExtranjeriaAt: string | null }[]) {
+      if (x.estadoExtranjeria && x.estadoExtranjeriaAt) estadosExt.set(x.id, { estado: x.estadoExtranjeria, at: x.estadoExtranjeriaAt });
+    }
+  }
+
   const unoFam = (v: { nombre: string } | { nombre: string }[] | null | undefined) => (Array.isArray(v) ? v[0] ?? null : v ?? null);
   const lista: ExpedienteResumen[] = filas.map((e) => ({
     id: e.id,
@@ -185,6 +196,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
       ? fmtFechaCorta(e.fechaPresentacion ?? fechaEvento.get(e.id))
       : undefined,
     numeroOficial: (e as unknown as { numeroOficial?: string | null }).numeroOficial ?? null,
+    estadoExtranjeria: estadosExt.get(e.id) ?? null,
     archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,
