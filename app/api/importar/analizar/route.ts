@@ -14,7 +14,7 @@ export const maxDuration = 60; // parseo + una llamada al modelo
 
 const MAX_FILAS = 1500;
 const MAX_COLS = 40;
-const MODELO = "claude-opus-4-8"; // precisión ante todo (se importa UNA vez)
+const MODELO = "claude-opus-5-5"; // precisión ante todo (se importa UNA vez) — Opus 5.5 desde el 24/09/2026, esfuerzo «low»: mismo mapeo que 4.8, más barato y a la misma velocidad
 
 // Celda XLSX → string estable. cellDates:true entrega Date para las fechas → ISO
 // (nunca el formato en-US de raw:false, que volvería ambiguas las fechas dd/mm).
@@ -154,7 +154,8 @@ export async function POST(req: Request) {
   try {
     const res = await client.messages.create({
       model: MODELO,
-      max_tokens: 4096,
+      max_tokens: 8192, // Opus 5.5: el razonamiento cuenta dentro del límite
+      output_config: { effort: "low" },
       system: PROMPT_SISTEMA,
       messages: [{
         role: "user",

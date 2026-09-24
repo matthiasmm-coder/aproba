@@ -6,7 +6,19 @@ import Anthropic from "@anthropic-ai/sdk";
 // et évalue la qualité. Sortie structurée stricte via output_config.format :
 // l'API garantit un JSON conforme au schéma.
 
-export const MODELO_EXTRACTION = "claude-opus-4-8";
+// Opus 5.5 (24/09/2026, antes Opus 4.8): mismo resultado en nuestras lecturas, ~20 % más
+// barato (4 $/20 $ por M de tokens frente a 5 $/25 $). En 5.5 el razonamiento va SIEMPRE
+// encendido y se factura como salida: con esfuerzo «low» la lectura cuesta y tarda lo mismo
+// que antes; «medium» (el defecto de la API) la hacía un 30-90 % más lenta sin leer mejor.
+export const MODELO_EXTRACTION = "claude-opus-5-5";
+
+// Opciones de una lectura (modelo y esfuerzo). Por defecto, las de producción; el banco de
+// pruebas de modelos las cambia para comparar sobre la MISMA petición.
+export type EsfuerzoIA = "low" | "medium" | "high" | "xhigh" | "max";
+// `esfuerzo: null` = no mandar el parámetro (lo que hacía la petición con Opus 4.8).
+export type OpcionesLectura = { modelo?: string; esfuerzo?: EsfuerzoIA | null };
+export const ESFUERZO_EXTRACCION: EsfuerzoIA = "low";
+export const esfuerzoDe = (o: OpcionesLectura) => (o.esfuerzo === undefined ? ESFUERZO_EXTRACCION : o.esfuerzo);
 
 // La lectura IA no está disponible AHORA (sobrecarga, rate limit, timeout, sin clave).
 // Es un fallo TRANSITORIO y quien llama debe distinguirlo de «este papel no se entiende»:
@@ -42,6 +54,7 @@ REGLAS DE EXTRACCIÓN (estrictas):
 5. Nombres: separa "nombre" (de pila) y "apellidos" cuando el documento los distingue claramente; rellena además "nombre_completo" con el nombre tal cual aparece. Si solo hay un bloque de nombre, deja nombre/apellidos a null y usa nombre_completo.
 6. Importes (salario, saldo): número sin símbolo de moneda ni separador de miles (ej. 18000.50). La moneda va aparte en "moneda" (EUR, USD…).
 7. IBAN: cópialo tal cual; si solo se ve parcialmente, copia la parte visible.
+8. Nacionalidad y país: SIEMPRE en español, aunque el documento los escriba en otro idioma (p. ej. «Française» → «Francesa», «Moroccan» → «Marroquí»).
 
 EVALUACIÓN DE CALIDAD (muy importante para el gestor):
 - legibilidad: "legible" (todo claro), "parcial" (parte borrosa/cortada), "ilegible" (no se puede trabajar con esto).
@@ -130,6 +143,9 @@ export type ResultadoExtraccion = {
   alertas: string[];
   modelo: string;
   inputTokens: number;
+  // Tokens servidos desde / escritos en la caché de prompt (coste real: se cobran distinto).
+  cacheLectura?: number;
+  cacheEscritura?: number;
   outputTokens: number;
 };
 
@@ -138,7 +154,7 @@ export const MEDIA_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp"]);
 // Repli quand le modèle n'a pas renvoyé de JSON exploitable : on rend un résultat VALIDE
 // marqué RECHAZADO. Le document est enregistré, le client voit quoi refaire, et le gestor
 // garde la trace — au lieu d'un 502 qui perd l'upload et ne dit rien à personne.
-function respuestaIlegible(raw: string, inputTokens: number, outputTokens: number): ResultadoExtraccion {
+function respuestaIlegible(raw: string, inputTokens: number, outputTokens: number, modelo: string = MODELO_EXTRACTION): ResultadoExtraccion {
   console.error("[extraction] respuesta no-JSON del modelo:", raw.slice(0, 300));
   return {
     estado: "RECHAZADO",
@@ -148,7 +164,7 @@ function respuestaIlegible(raw: string, inputTokens: number, outputTokens: numbe
     campos: [],
     fechaCaducidad: null,
     alertas: ["No se ha podido leer el documento. Haz una foto más nítida, con buena luz y el documento completo dentro del encuadre."],
-    modelo: MODELO_EXTRACTION,
+    modelo,
     inputTokens,
     outputTokens,
   };
@@ -175,7 +191,8 @@ export async function prepararImagen(buffer: Buffer, mimeType: string): Promise<
   }
 }
 
-export async function extraerDocumento(buffer: Buffer, mimeType: string): Promise<ResultadoExtraccion> {
+export async function extraerDocumento(buffer: Buffer, mimeType: string, opciones: OpcionesLectura = {}): Promise<ResultadoExtraccion> {
+  const modelo = opciones.modelo ?? MODELO_EXTRACTION;
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Falta ANTHROPIC_API_KEY en .env.local — la validación IA no está configurada.");
   }
@@ -196,8 +213,9 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
   // (SYSTEM + instrucción + plantilla) sea idéntico en TODAS las extracciones y se
   // sirva de la caché (~10 % del precio). La imagen, única por documento, va al final.
   const res = await client.messages.create({
-    model: MODELO_EXTRACTION,
-    max_tokens: 4096,
+    model: modelo,
+    max_tokens: 8192, // cubre razonamiento + JSON (en Opus 5.5 el razonamiento cuenta dentro)
+    ...(esfuerzoDe(opciones) ? { output_config: { effort: esfuerzoDe(opciones) } } : {}),
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [
       {
@@ -236,10 +254,10 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
       try {
         cruda = JSON.parse(m[0]) as ExtraccionCruda;
       } catch {
-        return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens);
+        return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens, modelo);
       }
     } else {
-      return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens);
+      return respuestaIlegible(raw, res.usage.input_tokens, res.usage.output_tokens, modelo);
     }
   }
 
@@ -272,8 +290,10 @@ export async function extraerDocumento(buffer: Buffer, mimeType: string): Promis
     campos,
     fechaCaducidad: typeof cruda.fecha_caducidad === "string" && cruda.fecha_caducidad ? cruda.fecha_caducidad : null,
     alertas,
-    modelo: MODELO_EXTRACTION,
+    modelo,
     inputTokens: res.usage.input_tokens,
     outputTokens: res.usage.output_tokens,
+    cacheLectura: res.usage.cache_read_input_tokens ?? 0,
+    cacheEscritura: res.usage.cache_creation_input_tokens ?? 0,
   };
 }

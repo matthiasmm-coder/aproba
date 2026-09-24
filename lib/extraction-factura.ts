@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { MODELO_EXTRACTION, MEDIA_IMAGEN, prepararImagen } from "@/lib/extraction";
+import { MODELO_EXTRACTION, MEDIA_IMAGEN, prepararImagen, esfuerzoDe, type OpcionesLectura } from "@/lib/extraction";
 import { normalizarFacturaLeida, type ExtraccionFacturaCruda, type FacturaLeida } from "@/lib/facturas-recibidas";
 
 // LECTURA DE UNA FACTURA RECIBIDA (proveedor) con Claude Vision — 16/09/2026.
@@ -35,7 +35,7 @@ const PLANTILLA = `{
 
 const ILEGIBLE: FacturaLeida = normalizarFacturaLeida({ es_factura: false, confianza: 0, legible: false });
 
-export async function extraerFacturaRecibida(buffer: Buffer, mimeType: string): Promise<FacturaLeida & { inputTokens: number; outputTokens: number }> {
+export async function extraerFacturaRecibida(buffer: Buffer, mimeType: string, opciones: OpcionesLectura = {}): Promise<FacturaLeida & { inputTokens: number; outputTokens: number }> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY — la lectura de facturas no está configurada.");
   if (mimeType !== "application/pdf" && !MEDIA_IMAGEN.has(mimeType)) throw new Error(`Formato no soportado: ${mimeType}`);
   const client = new Anthropic();
@@ -47,8 +47,9 @@ export async function extraerFacturaRecibida(buffer: Buffer, mimeType: string): 
     : { type: "image" as const, source: { type: "base64" as const, media_type: img.mimeType as "image/jpeg" | "image/png" | "image/webp", data: b64 } };
 
   const res = await client.messages.create({
-    model: MODELO_EXTRACTION,
-    max_tokens: 1024,
+    model: opciones.modelo ?? MODELO_EXTRACTION,
+    max_tokens: 4096, // Opus 5.5: el razonamiento cuenta dentro (1024 se quedaba corto)
+    ...(esfuerzoDe(opciones) ? { output_config: { effort: esfuerzoDe(opciones) } } : {}),
     system: [{ type: "text", text: SYSTEM_FACTURA, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",

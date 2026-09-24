@@ -19,7 +19,7 @@ export const maxDuration = 60;
 const DEST = process.env.VEILLE_ALERT_EMAIL || "matthias.merlemounier@gmail.com";
 const UMBRAL_USD = Number(process.env.USO_IA_ALERTA_USD) || 3; // por workspace y día
 // Tarifa familia Opus ($/M tokens). Si el modelo cambia de familia, ajustar aquí.
-const USD_IN = 15, USD_OUT = 75;
+const USD_IN = 4, USD_OUT = 20; // Opus 5.5 (24/09/2026). Antes 15/75, la tarifa de Opus 4: triplicaba el coste real de Opus 4.8 (5/25).
 
 function autorizado(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
