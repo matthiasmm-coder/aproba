@@ -3,7 +3,10 @@
 // los nombres EXACTOS de los menús. Todo lo que el asistente sabe está aquí: si no está
 // escrito, debe decir que no lo sabe (nunca inventar pantallas ni botones).
 
-export const ASISTENTE_MODELO = "claude-haiku-4-5-20251001"; // rápido y barato: responde desde esta base, no razona de cero
+// Sonnet 5 desde el 24/09/2026 (antes Haiku 4.5, que Anthropic puede retirar desde el
+// 15/10/2026). Sin razonamiento (thinking «disabled», ver la ruta): responde desde esta
+// base, no razona de cero, y así va igual de rápido. 2 $/10 $ por M de tokens.
+export const ASISTENTE_MODELO = "claude-sonnet-5";
 
 // Qué ES Aproba y cómo se usa, pantalla por pantalla. Mantener sincronizado con el producto.
 const BASE = `

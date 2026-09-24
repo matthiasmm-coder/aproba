@@ -50,6 +50,8 @@ export async function POST(req: Request) {
     const res = await new Anthropic({ timeout: 25_000, maxRetries: 1 }).messages.create({
       model: ASISTENTE_MODELO,
       max_tokens: 700,
+      // Sonnet 5 razona por defecto: aquí no hace falta y cada respuesta tardaría más.
+      thinking: { type: "disabled" },
       system: sistema,
       messages: mensajes,
     });
