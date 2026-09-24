@@ -26,6 +26,7 @@ export type BoardItem = {
   asignadoA: string;
   fechaLimite?: string;
   presentadoEl?: string; // dd/mm/aaaa — cuándo se depositó en la Administración
+  numeroOficial?: string | null; // nº que asigna Extranjería (Jennifer, 24/09/2026)
   archivado?: boolean; // servidor — compartido por todo el equipo
   salida?: string | null; // Expediente.salida (flujo v4) — null antes de la migración o sin cerrar
   validados: number;

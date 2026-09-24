@@ -14,7 +14,6 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 import { BoardClient, type BoardItem } from "@/components/board-client";
 import { ExpedientesLista, type ItemLista, type PackLite } from "@/components/expedientes-lista";
-import { AnchoExpedientes } from "@/components/ancho-expedientes";
 
 export const metadata = { title: "Expedientes" };
 
@@ -155,6 +154,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     asignadoA: e.asignadoA,
     fechaLimite: e.fechaLimite,
     presentadoEl: e.presentadoEl,
+    numeroOficial: e.numeroOficial ?? null, // la fila lo enseña y lo edita (Jennifer, 24/09)
     archivado: e.archivado,
     salida: salidas.get(e.id) ?? null,
     validados: e.validados,
@@ -203,7 +203,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   return (
     // Mismo ancho que Inicio (dashboard-client): con dos columnas, el tablero no
     // necesita todo el ancho (pedido de Matthias, 03/09).
-    <AnchoExpedientes activo={vista !== "tablero"}>
+    <div className="mx-auto max-w-5xl">
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
       {expedientes.length >= TOPE_EXPEDIENTES && (
         <p className="mb-3 text-center text-xs text-slate-400">Mostrando los {TOPE_EXPEDIENTES} expedientes más recientes. Los más antiguos todavía no aparecen aquí.</p>
@@ -211,6 +211,6 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       {vista === "tablero"
         ? <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} avatares={avatares} />
         : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} requerimientos={requerimientos.length} requerimientosUrgentes={requerimientosUrgentes > 0} archivo={archivo} avatares={avatares} />}
-    </AnchoExpedientes>
+    </div>
   );
 }

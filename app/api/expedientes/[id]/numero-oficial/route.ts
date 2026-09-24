@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { normalizarNumeroOficial } from "@/lib/expedientes-tabla";
+import { normalizarNumeroOficial } from "@/lib/numero-oficial";
 
 // Nº de expediente OFICIAL (el que asigna Extranjería) — petición de Jennifer, 23/09/2026.
 // Lo escribe cualquier miembro del despacho: es un dato que llega con la resolución o el

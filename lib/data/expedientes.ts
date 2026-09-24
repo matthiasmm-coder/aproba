@@ -38,6 +38,7 @@ export type ExpedienteResumen = {
   fechaLimite?: string;
   fechaLimiteISO?: string; // brut, para calcular días restantes REALES (no el label dd/mm)
   presentadoEl?: string;   // dd/mm/aaaa — solo a partir de «Presentado»
+  numeroOficial?: string | null; // nº que asigna Extranjería (Jennifer, 24/09/2026): la fila lo enseña y lo edita
   archivado: boolean; // servidor (archivadoAt) — igual para todo el equipo
   validados: number;
   total: number;
@@ -93,7 +94,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
   const SEL_BASE = "id, referencia, tipo, servicioClave, oficinaId, modoTrabajo, validadoAt, fechaPresentacion, estado, fechaLimite, cliente:Cliente(nombre, apellidos, sexo, estadoCivil, fechaNacimiento, nacionalidad, lugarNacimiento, paisNacimiento, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia, telefono, email), asignadoA:User(nombre), documentos:Documento(estado, tipo, etiqueta)";
   // archivadoAt (servidor) y el join Familia son migraciones separadas → cadena de replis.
   const [conTodo, svc] = await Promise.all([
-    vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000),
+    vivos(conFiltro(supabase.from("Expediente").select(`${SEL_BASE}, serviciosExtra, docsExtra, archivadoAt, formulariosGenerados, tasaPath, fechaCita, numeroOficial, familia:Familia(nombre)`))).order("createdAt", { ascending: false }).limit(tope ?? 100000),
     // Map clave→label des services configurés du workspace (RLS) : permet
     // d'afficher le nom réel d'un service personnalisé (tipo OTRO) o renombrado.
     supabase.from("ServicioConfig").select("clave, label, docs, citaPresencial, oficinaId"),
@@ -183,6 +184,7 @@ export async function fetchExpedientesResumen(sedes?: string[] | null, incluirSi
     presentadoEl: POST.has(String(e.estado))
       ? fmtFechaCorta(e.fechaPresentacion ?? fechaEvento.get(e.id))
       : undefined,
+    numeroOficial: (e as unknown as { numeroOficial?: string | null }).numeroOficial ?? null,
     archivado: Boolean((e as unknown as { archivadoAt?: string | null }).archivadoAt),
     validados: (e.documentos ?? []).filter((d) => d.estado === "VALIDADO").length,
     total: (e.documentos ?? []).length,

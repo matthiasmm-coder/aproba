@@ -20,11 +20,6 @@ function RenovacionesIcon({ className = "" }: { className?: string }) {
 
 const RUTAS: Record<VistaExpedientes, string> = { curso: "/app/expedientes", historial: "/app/expedientes?vista=historial", renovaciones: "/app/vencimientos", requerimientos: "/app/requerimientos" };
 
-// Tabla (PROTOTIPO LOCAL, 23/09/2026, petición de Jennifer): icono del modo tabla de la lista.
-export function TablaIcon({ className = "" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></svg>;
-}
-
 // Requerimientos (21/09/2026, petición de Jennifer): un reloj, porque lo que define a
 // esta vista es el plazo. El contador va en ROJO cuando hay alguno vencido o que vence
 // hoy: es la única cifra de la pantalla que puede tumbar un expediente.
@@ -41,7 +36,7 @@ export function VistasExpedientes({ activa, totalHistorial = 0, totalRenovacione
   onCambiar?: (vista: "curso" | "historial") => void;
 }) {
   const t = useT();
-  const cls = (v: VistaExpedientes) => `flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${activa === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`;
+  const cls = (v: VistaExpedientes) => `flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition ${activa === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`;
   const n = (x: number) => x > 0 ? <span className="text-xs text-slate-400">{x}</span> : null;
   const contenido: Record<VistaExpedientes, React.ReactNode> = {
     curso: t("En curso"),
@@ -50,7 +45,9 @@ export function VistasExpedientes({ activa, totalHistorial = 0, totalRenovacione
     requerimientos: <><RequerimientosIcon className="h-3.5 w-3.5" />{t("Requerimientos")} {totalRequerimientos > 0 ? <span className={`text-xs ${requerimientosUrgentes ? "font-bold text-red-600" : "text-slate-400"}`}>{totalRequerimientos}</span> : null}</>,
   };
   return (
-    <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
+    // Cuatro pestañas no caben en un móvil (488 px): se desplazan dentro de su caja en vez
+    // de ensanchar toda la página (24/09/2026).
+    <div className="inline-flex max-w-full gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 [scrollbar-width:none]">
       {(["curso", "historial", "renovaciones", "requerimientos"] as const).map((v) =>
         onCambiar && v !== "renovaciones" && v !== "requerimientos"
           ? <button key={v} type="button" onClick={() => onCambiar(v)} className={cls(v)} aria-current={activa === v ? "page" : undefined}>{contenido[v]}</button>

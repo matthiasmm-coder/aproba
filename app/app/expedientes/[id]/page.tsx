@@ -6,6 +6,7 @@ import { urgenciaDe, plazoClave } from "@/lib/requerimientos";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
 import { NumeroOficial } from "@/components/numero-oficial";
+import { ConsultarExtranjeria } from "@/components/consultar-extranjeria";
 import { SeccionPlegable } from "@/components/seccion-plegable";
 import { InformacionCliente } from "@/components/informacion-cliente";
 import { EnlaceCliente } from "@/components/enlace-cliente";
@@ -288,6 +289,13 @@ export default async function ExpedienteDetail({
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-slate-400">
               {e.referencia}
               {numeroOficial !== null && <span className="font-sans"><NumeroOficial expedienteId={e.id} inicial={numeroOficial} variante="ficha" /></span>}
+              {/* «Revisar directamente» (Jennifer, 24/09): una vez presentado, los datos de la
+                  consulta oficial listos para copiar y el enlace a la web de Extranjería. */}
+              {numeroOficial !== null && e.presentadoEl && (
+                <span className="font-sans">
+                  <ConsultarExtranjeria nie={e.clienteFicha?.numeroDocumento ?? ""} numeroOficial={numeroOficial} fechaPresentacion={e.presentadoEl} fechaNacimiento={e.clienteFicha?.fechaNacimiento ?? ""} />
+                </span>
+              )}
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tightest text-slate-900">{familia ? familia.nombre : e.clienteNombre}</h1>
             <p className="text-slate-500">{etiquetaServicios}{familia ? ` · ${e.clienteNombre}` : e.esDeEmpresa ? ` · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : ` · ${e.clienteNacionalidad}`}</p>

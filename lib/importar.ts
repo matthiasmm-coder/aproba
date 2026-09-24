@@ -8,7 +8,7 @@ import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { normalizarFechaCsv } from "@/lib/csv-clientes";
 import { MESES_VALIDEZ, sumarMeses } from "@/lib/validez";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
-import { normalizarNumeroOficial } from "@/lib/expedientes-tabla";
+import { normalizarNumeroOficial } from "@/lib/numero-oficial";
 
 // ── Champs cibles ────────────────────────────────────────────────────────────────────
 // Ficha (colonnes Cliente, source unique lib/ficha.ts) + extras d'import.
