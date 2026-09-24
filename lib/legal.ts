@@ -21,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "12 de septiembre de 2026";
+export const ULTIMA_ACTUALIZACION = "24 de septiembre de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {
@@ -81,6 +81,14 @@ export const SUBENCARGADOS: Subencargado[] = [
     finalidad: "Solo si el despacho conecta su número de WhatsApp: recepción de los mensajes y documentos que sus clientes le envían a ese número y envío de los avisos del expediente desde él. La cuenta de WhatsApp Business es del despacho; Aproba accede por su cuenta.",
     ubicacion: "Irlanda (UE) y EE. UU.",
     garantia: "SCC de la UE y Marco de Privacidad de Datos UE-EE. UU. Los documentos recibidos se guardan en el almacenamiento de la UE; el despacho puede desconectar su número en cualquier momento.",
+  },
+  {
+    // 24/09/2026: antes de activar VERI*FACTU para el primer despacho (Asenjo). Sin
+    // activar, Verifacti no recibe nada: el envío solo sale para los NIF con el flag.
+    nombre: "Verifacti (Bilbabit, S.L.) — VERI*FACTU",
+    finalidad: "Solo si el despacho activa VERI*FACTU: registro de cada factura emitida en la Agencia Tributaria (datos de la factura y del cliente facturado: nombre, NIF o documento de identidad e importes).",
+    ubicacion: "España (infraestructura en el Espacio Económico Europeo).",
+    garantia: "Datos alojados en el EEE. Actúa como subencargado según su propio contrato de encargo (DPA); las transferencias fuera del EEE, solo a entidades adheridas al Marco de Privacidad de Datos UE-EE. UU. (capítulo V del RGPD).",
   },
   {
     nombre: "Cloudflare (Cloudflare, Inc.)",
