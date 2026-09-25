@@ -719,15 +719,19 @@ export function ClientPortal({
     <div className="portal-mobile min-h-screen bg-cream-50">
       {/* Barre supérieure (marque de la gestoría) */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
-          <div className="flex items-center gap-2">
+        {/* En un móvil de 390 px la fila no cabía (25/09/2026: 16 px fuera de pantalla, la
+            página se desplazaba de lado): la marca del despacho cede sitio — el nombre pasa a
+            dos líneas como mucho y, si hay logo, en pantallas estrechas manda el logo — y el
+            idioma y «con α» quedan siempre enteros. */}
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between gap-3 px-5">
+          <div className="flex min-w-0 items-center gap-2">
             {logoUrl
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={logoUrl} alt={nombreGestoria} className="h-[38px] w-auto max-w-[180px] object-contain" />
-              : <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>}
-            <span className="text-sm font-semibold text-slate-800">{nombreGestoria}</span>
+              ? <img src={logoUrl} alt={nombreGestoria} className="h-[38px] w-auto max-w-[120px] shrink-0 object-contain sm:max-w-[180px]" />
+              : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{inicialesGestoria}</span>}
+            <span className={`line-clamp-2 min-w-0 text-[13px] font-semibold leading-tight text-slate-800 sm:text-sm ${logoUrl ? "max-[419px]:hidden" : ""}`}>{nombreGestoria}</span>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2.5">
             {/* Idioma SIEMPRE accesible (antes solo vivía en el paso 0: un migrante que
                 reanudaba su sesión en el paso 2 ya no podía cambiar de idioma). */}
             {step > 0 && step < PASO_LISTO && (
