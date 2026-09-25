@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
+import { curva, escalaEje, eurCorto, pct, MESES_LARGOS_ES, type Punto } from "@/lib/estadisticas-facturacion";
 
 // Animation héro — un iPad qui recorre la interfaz del gestor. Realineada con la app el
 // 26/09/2026 (la anterior era del 13/09):
@@ -51,6 +52,20 @@ function Pill({ children, cls }: { children: React.ReactNode; cls: string }) {
 
 function Avatar({ txt, size = "h-5 w-5 text-[8px]" }: { txt: string; size?: string }) {
   return <span className={`flex shrink-0 items-center justify-center rounded-full bg-aproba-100 font-semibold text-aproba-700 ${size}`}>{txt}</span>;
+}
+
+// El equipo de la demo con su foto, como AvatarGestor en la app (los clientes siguen con
+// iniciales). public/equipo: 128 px en WebP, 2-3 KB cada una. La de Marta es la de su cuenta
+// en la demo; las de Diego y Nuria son retratos generados (personas que no existen).
+const FOTOS: Record<string, string> = {
+  "Marta Ribas": "/equipo/marta-ribas.webp",
+  "Diego Fuentes": "/equipo/diego-fuentes.webp",
+  "Nuria Camps": "/equipo/nuria-camps.webp",
+};
+
+function Foto({ nombre, size }: { nombre: string; size: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={FOTOS[nombre]} alt="" width={128} height={128} decoding="async" fetchPriority="low" className={`shrink-0 rounded-full object-cover ring-1 ring-aproba-100 ${size}`} />;
 }
 
 // Pastillas de oficina (multi-oficina, Business): «Todas» activa + las tres sedes de la demo.
@@ -193,9 +208,9 @@ function Inicio({ hoy }: { hoy: Date }) {
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-1.5">
           <p className="mb-0.5 text-[5.5px] font-bold uppercase tracking-wide text-slate-400">Carga del equipo · activos</p>
-          {([["MR", "Marta Ribas", 100, "14"], ["DF", "Diego Fuentes", 57, "8"], ["NC", "Nuria Camps", 29, "4"]] as [string, string, number, string][]).map(([i, l, pct, v]) => (
+          {([["Marta Ribas", 100, "14"], ["Diego Fuentes", 57, "8"], ["Nuria Camps", 29, "4"]] as [string, number, string][]).map(([l, pct, v]) => (
             <div key={l} className="flex items-center gap-1 py-[1px]">
-              <Avatar txt={i} size="h-2.5 w-2.5 text-[3.5px]" />
+              <Foto nombre={l} size="h-2.5 w-2.5" />
               <span className="w-[40px] truncate text-[5.5px] text-slate-600">{l}</span>
               <Barra pct={pct} />
               <span className="w-2.5 text-right text-[5.5px] font-semibold text-slate-700">{v}</span>
@@ -226,9 +241,9 @@ function Casilla({ ok, label }: { ok: boolean; label: string }) {
 function ExpedientesEnCurso() {
   type Fila = { n: string; ref: string; meta: string; num?: string; ok: [boolean, boolean, boolean, boolean]; who: string; plazo?: string };
   const filas: Fila[] = [
-    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs · En trámite", num: "08/2026/004512", ok: [true, true, true, true], who: "MR" },
-    { n: "Andrés Patiño", ref: "EXP-2026-0044", meta: "2/6 docs", ok: [true, false, false, false], who: "DF", plazo: "3 días" },
-    { n: "Aïcha Diallo Diaz", ref: "EXP-2026-0046", meta: "5/6 docs", ok: [true, false, true, true], who: "MR" },
+    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs · En trámite", num: "08/2026/004512", ok: [true, true, true, true], who: "Marta Ribas" },
+    { n: "Andrés Patiño", ref: "EXP-2026-0044", meta: "2/6 docs", ok: [true, false, false, false], who: "Diego Fuentes", plazo: "3 días" },
+    { n: "Aïcha Diallo Diaz", ref: "EXP-2026-0046", meta: "5/6 docs", ok: [true, false, true, true], who: "Nuria Camps" },
   ];
   const temas: [string, number][] = [["Residencia y trabajo", 7], ["Familia", 7], ["Nacionalidad", 5]];
   return (
@@ -272,7 +287,7 @@ function ExpedientesEnCurso() {
               <span className="flex shrink-0 gap-[2px]">
                 {(["Datos", "Docs", "Form.", "Cobro"] as const).map((l, i) => <Casilla key={l} ok={f.ok[i]} label={l} />)}
               </span>
-              <Avatar txt={f.who} size="h-3 w-3 text-[4.5px]" />
+              <Foto nombre={f.who} size="h-3 w-3" />
             </div>
           ))}
         </div>
@@ -386,24 +401,125 @@ function Clientes() {
   );
 }
 
-// ── Facturas › Estadísticas (estadisticas-vista.tsx) ────────────────
+// ── Facturas › Estadísticas (estadisticas-vista.tsx + estadisticas-graficos.tsx) ──
 // Un año de ejemplo, mes a mes (€ sin IVA): la maqueta enseña los meses ya vividos del año
 // del visitante, y las tarjetas SUMAN esos mismos meses — la gráfica y las cifras cuadran.
 const INGRESOS = [4230, 5120, 4610, 6340, 5460, 5930, 6810, 3920, 6150, 6480, 5790, 4870];
 const GASTOS = [2910, 3280, 3090, 3610, 3380, 3220, 3940, 2630, 3470, 3690, 3320, 2980];
 const N_EMITIDAS = [19, 23, 21, 27, 24, 25, 29, 17, 26, 27, 25, 21];
 const N_RECIBIDAS = [9, 11, 10, 12, 11, 10, 13, 8, 11, 12, 11, 9];
-const eur = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
+// El mismo formato que eur() de lib/facturas (el de las tarjetas y la ficha de la app).
+const eur = (n: number) => {
+  const [e, c] = n.toFixed(2).split(".");
+  return `${e.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${c} €`;
+};
+
+// Barra con las esquinas de arriba redondeadas (barra() de estadisticas-graficos).
+const barra = (x: number, w: number, yv: number, y0: number, r = 1.4) => {
+  const rr = Math.min(r, w / 2, y0 - yv);
+  return `M${x},${y0} V${yv + rr} Q${x},${yv} ${x + rr},${yv} H${x + w - rr} Q${x + w},${yv} ${x + w},${yv + rr} V${y0} Z`;
+};
+
+// Ficha flotante del mes, como al pasar el ratón en la app: a la derecha de la columna y,
+// si no cabe, a su izquierda. x y ancho en % de la gráfica.
+function FichaMes({ x, titulo, filas }: { x: number; titulo: string; filas: { color: string; label: string; valor: string; fuerte?: boolean }[] }) {
+  const w = 36;
+  const left = x + 3 + w > 99 ? x - 3 - w : x + 3;
+  return (
+    <div className="pointer-events-none absolute top-[2%] animate-aparecer rounded-md border border-slate-200/80 bg-white/95 px-1.5 py-[3px] shadow-[0_2px_8px_rgba(15,23,42,0.12)] backdrop-blur-sm" style={{ left: `${left}%`, width: `${w}%` }}>
+      <p className="text-[5px] font-semibold capitalize leading-none text-slate-900">{titulo}</p>
+      <div className="mt-[3px] space-y-[2px]">
+        {filas.map((f) => (
+          <div key={f.label} className="flex items-center justify-between gap-1 text-[4.3px] leading-none">
+            <span className="inline-flex items-center gap-[2px] text-slate-500"><span className={`inline-block h-[3px] w-[3px] rounded-full ${f.color}`} />{f.label}</span>
+            <span className={`tabular-nums ${f.fuerte ? "font-semibold text-slate-900" : "text-slate-700"}`}>{f.valor}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// «Ingresos y gastos por mes» de la app en miniatura (GraficoMensual): eje de importes,
+// barras con degradado que crecen, la curva monótona del resultado que se traza con su zona
+// sombreada, leyenda, y la ficha de un mes que aparece cuando la gráfica ya está dibujada.
+function GraficoMensual({ meses, anio }: { meses: number; anio: number }) {
+  const mesFicha = Math.min(6, meses - 1); // julio, el mejor mes (o el último vivido)
+  const [sel, setSel] = useState<number | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setSel(mesFicha), 1700);
+    return () => clearTimeout(t);
+  }, [mesFicha]);
+  const W = 300, H = 66, M = { l: 21, r: 2, t: 4, b: 10 };
+  const plotH = H - M.t - M.b;
+  const { desde, hasta, ticks } = escalaEje(0, Math.max(...INGRESOS.slice(0, meses)));
+  const y = (v: number) => M.t + (plotH * (hasta - v)) / (hasta - desde);
+  const gw = (W - M.l - M.r) / 12;
+  const bw = Math.min(7, gw * 0.3);
+  const cx = (i: number) => M.l + gw * i + gw / 2;
+  const pts: Punto[] = INGRESOS.slice(0, meses).map((v, i) => [cx(i), y(v - GASTOS[i])]);
+  const n = pts.length;
+  const res = sel != null ? INGRESOS[sel] - GASTOS[sel] : 0;
+  return (
+    <div>
+      <div className="relative">
+        <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full">
+          <defs>
+            <linearGradient id="hm-ing" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10B083" /><stop offset="100%" stopColor="#0D6E4D" /></linearGradient>
+            <linearGradient id="hm-gas" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#CBD5E1" /><stop offset="100%" stopColor="#94A3B8" /></linearGradient>
+            <linearGradient id="hm-res" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0F172A" stopOpacity="0.10" /><stop offset="100%" stopColor="#0F172A" stopOpacity="0" /></linearGradient>
+          </defs>
+          {ticks.map((v) => (
+            <g key={v}>
+              <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} strokeWidth={0.4} stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"} strokeDasharray={v === 0 ? undefined : "1.2 2"} />
+              <text x={M.l - 3} y={y(v) + 1.5} textAnchor="end" fontSize="4.3" fill="#94a3b8">{eurCorto(v)}</text>
+            </g>
+          ))}
+          {sel != null && <rect x={M.l + gw * sel + 1} y={M.t - 2.5} width={gw - 2} height={plotH + 5} rx={3} fill="#f1f5f9" className="animate-aparecer" />}
+          {pts.map((_, i) => (
+            <g key={i} style={{ opacity: sel != null && sel !== i ? 0.35 : 1 }} className="transition-opacity duration-300">
+              <path d={barra(cx(i) - bw - 0.7, bw, y(INGRESOS[i]), y(0))} fill="url(#hm-ing)" className="origin-bottom animate-crecer [transform-box:fill-box]" style={{ animationDelay: `${i * 40}ms` }} />
+              <path d={barra(cx(i) + 0.7, bw, y(GASTOS[i]), y(0))} fill="url(#hm-gas)" className="origin-bottom animate-crecer [transform-box:fill-box]" style={{ animationDelay: `${i * 40}ms` }} />
+            </g>
+          ))}
+          {n > 1 && <path d={`${curva(pts)} L${pts[n - 1][0]},${y(0)} L${pts[0][0]},${y(0)} Z`} fill="url(#hm-res)" className="animate-aparecer" style={{ animationDuration: "0.6s", animationDelay: "0.5s" }} />}
+          {n > 1 && <path d={curva(pts)} pathLength={1} strokeDasharray="1" fill="none" stroke="#1e293b" strokeWidth={0.9} strokeLinecap="round" className="animate-trazo" />}
+          {pts.map(([px, py], i) => (
+            <circle key={i} cx={px} cy={py} r={sel === i ? 1.9 : 1.3} fill="#fff" stroke="#1e293b" strokeWidth={0.75} className="animate-aparecer transition-[r] duration-200" style={{ animationDelay: "1.2s" }} />
+          ))}
+          {MESES.map((m, i) => (
+            <text key={m} x={cx(i)} y={H - 2.5} textAnchor="middle" fontSize="4.3" fill={sel === i ? "#0f172a" : "#64748b"} fontWeight={sel === i ? 600 : 400}>{m}</text>
+          ))}
+        </svg>
+        {sel != null && (
+          <FichaMes x={(cx(sel) / W) * 100} titulo={`${MESES_LARGOS_ES[sel]} ${anio}`} filas={[
+            { color: "bg-aproba-600", label: "Ingresos", valor: eur(INGRESOS[sel]) },
+            { color: "bg-slate-400", label: "Gastos", valor: eur(GASTOS[sel]) },
+            { color: "bg-slate-800", label: "Resultado", valor: eur(res), fuerte: true },
+            { color: "bg-transparent", label: "Margen", valor: pct(res / INGRESOS[sel]) },
+          ]} />
+        )}
+      </div>
+      <div className="mt-[3px] flex justify-center gap-1">
+        {[["bg-aproba-600", "Ingresos"], ["bg-slate-400", "Gastos"]].map(([c, l]) => (
+          <span key={l} className="inline-flex items-center gap-[2px] rounded-full bg-slate-50 px-1 py-[1px] text-[4.3px] leading-none text-slate-600 ring-1 ring-inset ring-slate-100">
+            <span className={`inline-block h-[3px] w-[3px] rounded-full ${c}`} />{l}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-[2px] rounded-full bg-slate-50 px-1 py-[1px] text-[4.3px] leading-none text-slate-600 ring-1 ring-inset ring-slate-100">
+          <svg width="5" height="2" aria-hidden><line x1="0.5" y1="1" x2="4.5" y2="1" stroke="#1e293b" strokeWidth="1" strokeLinecap="round" /></svg>Resultado
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function Estadisticas({ hoy }: { hoy: Date }) {
   const meses = Math.max(3, hoy.getMonth() + 1);
   const suma = (a: number[]) => a.slice(0, meses).reduce((t, x) => t + x, 0);
   const ing = suma(INGRESOS), gas = suma(GASTOS), res = ing - gas;
-  const rent = Math.round((res / ing) * 100);
-  // Gráfica apaisada: la tarjeta acaba por encima del botón «Ayuda» (si no, tapa «dic»).
-  const W = 200, H = 42, base = 39, max = 7000, paso = W / 12;
-  const y = (v: number) => base - (v / max) * 35;
-  const curva = INGRESOS.slice(0, meses).map((v, i) => `${(i * paso + paso / 2).toFixed(1)},${y(v - GASTOS[i]).toFixed(1)}`).join(" ");
+  const margen = res / ing;
+  const tarjeta = "rounded-lg border border-slate-200 bg-white px-1 py-1.5 text-center shadow-[0_1px_3px_rgba(15,23,42,0.05)]";
   const tarjetas: { l: string; v: string; cls: string; sub: string }[] = [
     { l: "Ingresos", v: eur(ing), cls: "text-slate-900", sub: `Sin IVA · ${suma(N_EMITIDAS)} facturas` },
     { l: "Gastos", v: eur(gas), cls: "text-slate-900", sub: `Sin IVA · ${suma(N_RECIBIDAS)} facturas` },
@@ -440,33 +556,23 @@ function Estadisticas({ hoy }: { hoy: Date }) {
       </div>
       <div className="mb-1 grid grid-cols-4 gap-1">
         {tarjetas.map((t) => (
-          <div key={t.l} className="rounded-lg border border-slate-200 bg-white px-1 py-1.5 text-center">
+          <div key={t.l} className={tarjeta}>
             <p className="text-[4.5px] font-semibold uppercase tracking-wide text-slate-400">{t.l}</p>
-            <p className={`text-[9px] font-bold tracking-tightest ${t.cls}`}>{t.v}</p>
+            <p className={`whitespace-nowrap text-[8.5px] font-bold tabular-nums tracking-tightest ${t.cls}`}>{t.v}</p>
             <p className="truncate text-[4.5px] text-slate-400">{t.sub}</p>
           </div>
         ))}
-        <div className="rounded-lg border border-slate-200 bg-white px-1 py-1.5 text-center">
+        <div className={tarjeta}>
           <p className="text-[4.5px] font-semibold uppercase tracking-wide text-slate-400">Rentabilidad</p>
-          <p className="text-[9px] font-bold tracking-tightest text-aproba-700">{rent} %</p>
-          <span className="mx-auto mt-[1px] block h-[2px] w-3/4 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-aproba-500" style={{ width: `${rent}%` }} /></span>
-          <p className="text-[4px] leading-tight text-slate-400">De cada 100 € que facturas, te quedan {rent} €.</p>
+          <p className="text-[8.5px] font-bold tabular-nums tracking-tightest text-aproba-700">{pct(margen)}</p>
+          <span className="mx-auto mt-[1px] block h-[2px] w-3/4 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-gradient-to-r from-aproba-400 to-aproba-600" style={{ width: `${Math.round(margen * 100)}%` }} /></span>
+          <p className="text-[4px] leading-tight text-slate-400">De cada 100 € que facturas, te quedan {eur(Math.round(margen * 10000) / 100)}.</p>
         </div>
       </div>
-      <div className="rounded-lg border border-slate-200 bg-white px-1.5 py-1">
+      <div className="rounded-lg border border-slate-200 bg-white px-1.5 pb-1 pt-1 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
         <p className="text-[6px] font-semibold text-slate-800">Ingresos y gastos por mes · {hoy.getFullYear()}</p>
-        <p className="text-[4.5px] text-slate-400">Sin IVA. La curva es el resultado de cada mes.</p>
-        <svg viewBox={`0 0 ${W} ${H + 6}`} className="mt-0.5 block w-full">
-          {[0, 1, 2].map((k) => <line key={k} x1="0" x2={W} y1={base - k * 17} y2={base - k * 17} stroke="#e2e8f0" strokeWidth="0.4" strokeDasharray={k ? "1.5 1.5" : undefined} />)}
-          {INGRESOS.slice(0, meses).map((v, i) => (
-            <g key={i}>
-              <rect x={i * paso + paso / 2 - 4.2} y={y(v)} width="3.8" height={base - y(v)} rx="0.8" fill="#10B083" />
-              <rect x={i * paso + paso / 2 + 0.4} y={y(GASTOS[i])} width="3.8" height={base - y(GASTOS[i])} rx="0.8" fill="#cbd5e1" />
-            </g>
-          ))}
-          <polyline points={curva} fill="none" stroke="#0f172a" strokeWidth="0.8" strokeLinejoin="round" strokeLinecap="round" />
-          {MESES.map((m, i) => <text key={m} x={i * paso + paso / 2} y={H + 2.5} textAnchor="middle" fontSize="3.6" fill="#94a3b8">{m}</text>)}
-        </svg>
+        <p className="mb-0.5 text-[4.5px] text-slate-400">Sin IVA. La curva es el resultado de cada mes.</p>
+        <GraficoMensual meses={meses} anio={hoy.getFullYear()} />
       </div>
     </div>
   );
@@ -523,7 +629,7 @@ const ESCENAS: { tab: number; ms: number; C: (p: { hoy: Date }) => React.ReactEl
   { tab: 1, ms: 3400, C: ExpedientesEnCurso },
   { tab: 1, ms: 3000, C: Renovaciones },
   { tab: 2, ms: 2600, C: Clientes },
-  { tab: 3, ms: 3400, C: Estadisticas },
+  { tab: 3, ms: 4300, C: Estadisticas },
   { tab: 4, ms: 2400, C: Ajustes },
 ];
 
@@ -588,7 +694,7 @@ export function HeroAnimation() {
                 </div>
                 {/* Usuario al pie, como en la app (no hay avatar en la cabecera) */}
                 <div className="mt-auto flex items-center gap-1.5 border-t border-slate-100 pt-2">
-                  <Avatar txt="MR" />
+                  <Foto nombre="Marta Ribas" size="h-5 w-5" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[7.5px] font-semibold text-slate-800">Marta Ribas</p>
                     <p className="truncate text-[5.5px] text-slate-400">Gestoría Vallès</p>
