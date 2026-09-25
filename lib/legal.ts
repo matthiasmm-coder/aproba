@@ -21,7 +21,7 @@ export const TITULAR = {
   emailLegal: "legal@aproba-software.com",
 } as const;
 
-export const ULTIMA_ACTUALIZACION = "24 de septiembre de 2026";
+export const ULTIMA_ACTUALIZACION = "25 de septiembre de 2026";
 
 // Autoridad de control (para el derecho de reclamación, RGPD/LOPDGDD).
 export const AEPD = {
@@ -43,14 +43,14 @@ export const SUBENCARGADOS: Subencargado[] = [
   {
     nombre: "Supabase (Supabase Inc.)",
     finalidad: "Alojamiento de la base de datos, autenticación y almacenamiento cifrado de documentos.",
-    ubicacion: "Unión Europea (infraestructura en región europea).",
-    garantia: "Datos alojados en la UE. Acuerdo de encargado (DPA) de Supabase.",
+    ubicacion: "Unión Europea: Fráncfort, Alemania (AWS eu-central-1).",
+    garantia: "Datos alojados en la UE, cifrados en reposo (AES-256) y en tránsito (TLS). Acuerdo de encargado (DPA) de Supabase.",
   },
   {
     nombre: "Anthropic (Anthropic PBC) — Claude",
     finalidad: "Validación y extracción asistida por IA de los documentos del expediente (p. ej. pasaporte, NIE). No se usan los datos para entrenar modelos.",
     ubicacion: "EE. UU.",
-    garantia: "Cláusulas Contractuales Tipo (SCC) de la UE. Los datos no se usan para entrenar modelos; retención limitada por el proveedor (eliminación en un máximo de 30 días), sin conservación permanente.",
+    garantia: "Cláusulas Contractuales Tipo (SCC) de la UE. Los datos no se usan para entrenar modelos. El proveedor borra las entradas y salidas en un plazo de 30 días, salvo que un contenido se marque por incumplir su política de uso (entonces puede conservarlo hasta 2 años) o que la ley obligue a conservarlo.",
   },
   {
     nombre: "Stripe (Stripe Payments Europe, Ltd.)",
@@ -67,7 +67,7 @@ export const SUBENCARGADOS: Subencargado[] = [
   {
     nombre: "Vercel (Vercel Inc.)",
     finalidad: "Alojamiento y entrega de la aplicación web.",
-    ubicacion: "EE. UU. con red de distribución global (edge).",
+    ubicacion: "Servidor de la aplicación en Fráncfort, Alemania (región fra1); las páginas se entregan desde su red global (edge). Empresa de EE. UU.",
     garantia: "SCC de la UE.",
   },
   {

@@ -64,7 +64,7 @@ export const BENEFICIOS: Beneficio[] = [
       { t: "ul", items: [
         `**Puedes verlo en tres minutos.** ${PRUEBA} Sube tú mismo una foto de un documento cualquiera y verás la lectura, la casilla y el veredicto.`,
         "**El porcentaje de confianza se enseña.** Cuando la lectura no es segura, lo dice, y el gestor decide. Un sistema que nunca duda no es más fiable, es menos honesto.",
-        "**Los documentos no entrenan ningún modelo.** La lectura se hace por API con Anthropic bajo condiciones comerciales que excluyen el uso de los datos para entrenar; el proveedor no conserva el contenido más de 30 días ([garantía completa](/garantias/tus-datos-no-entrenan-ia)).",
+        "**Los documentos no entrenan ningún modelo.** La lectura se hace por API con Anthropic bajo condiciones comerciales que excluyen el uso de los datos para entrenar; el proveedor borra el contenido en un plazo de 30 días, salvo que se marque por incumplir su política de uso ([garantía completa](/garantias/tus-datos-no-entrenan-ia)).",
         "**El cliente sabe qué repetir.** El estado del documento y la instrucción de volver a subirlo aparecen en el portal en su idioma ([8 idiomas](/cifras/8-idiomas)); el detalle técnico del motivo se escribe en español, para el gestor.",
       ] },
     ],
@@ -78,7 +78,7 @@ export const BENEFICIOS: Beneficio[] = [
     faq: [
       { q: "¿Qué documentos reconoce?", a: "Los habituales de un expediente de extranjería: pasaporte, NIE/TIE, empadronamiento, contratos, vida laboral, nóminas, antecedentes penales, informes de arraigo, certificados de nacimiento y matrimonio, resoluciones. Lo que no reconoce se guarda como «otros documentos» y se etiqueta a mano." },
       { q: "¿Puede equivocarse?", a: "Sí, y por eso enseña su confianza y deja el veredicto en manos del gestor. En la práctica, los errores vienen de fotos malas, y para eso está el rechazo con motivo: el cliente repite la foto sin que nadie le llame." },
-      { q: "¿Los documentos salen de la UE?", a: "Se guardan en la UE. Para la lectura se envían por API al proveedor del modelo (Anthropic, EE. UU.) amparados en cláusulas contractuales tipo, sin uso para entrenamiento y sin conservación más allá de 30 días. Está en el DPA." },
+      { q: "¿Los documentos salen de la UE?", a: "Se guardan en la UE. Para la lectura se envían por API al proveedor del modelo (Anthropic, EE. UU.) amparados en cláusulas contractuales tipo, sin uso para entrenamiento y con borrado en un plazo de 30 días, salvo contenido marcado por incumplir la política de uso del proveedor. Está en el DPA." },
     ],
   },
   {
@@ -496,20 +496,20 @@ export const BENEFICIOS: Beneficio[] = [
     descripcion: "Dónde se guardan la base de datos y los documentos (UE), cómo viajan (cifrados), qué proveedor toca qué dato y en qué casos un dato sale del EEE con garantías.",
     h1: "Datos alojados en la UE: dónde está exactamente cada cosa",
     entradilla: "«En la UE» es fácil de escribir. Aquí está el detalle: qué se guarda, dónde, con qué cifrado, y los dos casos en que un dato cruza una frontera y bajo qué garantía.",
-    actualizado: "2026-09-13",
+    actualizado: "2026-09-25",
     significa: [
       { t: "tabla", titulo: "Qué dato, dónde", encabezados: ["Dato", "Dónde se guarda", "Proveedor", "Garantía"], filas: [
-        ["Base de datos (clientes, expedientes, facturas)", "Unión Europea", "Supabase, región europea", "DPA del proveedor; cifrado en reposo y en tránsito"],
-        ["Documentos (pasaportes, contratos, PDF generados)", "Unión Europea", "Almacenamiento privado de Supabase", "Acceso por despacho (RLS) y enlaces temporales"],
+        ["Base de datos (clientes, expedientes, facturas)", "Unión Europea (Fráncfort)", "Supabase, AWS eu-central-1", "DPA del proveedor; cifrado en reposo (AES-256) y en tránsito"],
+        ["Documentos (pasaportes, contratos, PDF generados)", "Unión Europea (Fráncfort)", "Almacenamiento privado de Supabase", "Acceso por despacho (RLS) y enlaces temporales"],
         ["Emails a los clientes", "Entrega desde la UE (eu-west-1)", "Resend", "SCC de la UE"],
-        ["Aplicación web (páginas, API)", "Red global (edge)", "Vercel", "SCC de la UE; no almacena expedientes"],
-        ["Lectura de documentos por IA", "Tránsito a EE. UU., sin conservación > 30 días", "Anthropic", "SCC de la UE; sin entrenamiento"],
+        ["Aplicación web (páginas, API)", "Servidor en Fráncfort (UE); páginas desde la red global", "Vercel", "SCC de la UE; no almacena expedientes"],
+        ["Lectura de documentos por IA", "Tránsito a EE. UU.; borrado en 30 días salvo abuso marcado", "Anthropic", "SCC de la UE; sin entrenamiento"],
         ["Pagos de la suscripción", "Irlanda / EE. UU.", "Stripe", "SCC; PCI-DSS nivel 1; Aproba no guarda tarjetas"],
       ], nota: "Google (Calendar/Meet) y Meta (WhatsApp) solo intervienen si el despacho conecta su propia cuenta; figuran en la lista de subencargados." },
     ],
     afirmamos: [
       { t: "ul", items: [
-        "**Lo que se guarda está en la UE; lo que se procesa fuera, se dice.** Dos tratamientos cruzan el EEE: la lectura de documentos por el modelo de IA (Anthropic) y la infraestructura de pagos (Stripe). Ambos con cláusulas contractuales tipo y sin conservación de los documentos.",
+        "**Lo que se guarda y se ejecuta está en la UE; lo que se procesa fuera, se dice.** La base de datos, los documentos y el servidor de la aplicación están en Fráncfort. Dos tratamientos cruzan el EEE: la lectura de documentos por el modelo de IA (Anthropic, que borra el contenido en un plazo de 30 días) y la infraestructura de pagos (Stripe). Ambos con cláusulas contractuales tipo.",
         "**Cifrado de extremo a extremo del transporte y en reposo.** HTTPS obligatorio (HSTS), cifrado del almacenamiento, credenciales de terceros del despacho (Stripe, Google, WhatsApp) cifradas con clave propia.",
         "**Aislamiento por despacho.** Cada fila de la base de datos lleva su despacho y las políticas de acceso (RLS) impiden que una cuenta vea datos de otra, incluso ante un error del código.",
         "**La lista de proveedores es pública** y la misma en la [Política de privacidad](/legal/privacidad) y en el [DPA](/legal/dpa).",
@@ -522,7 +522,7 @@ export const BENEFICIOS: Beneficio[] = [
       ] },
     ],
     faq: [
-      { q: "¿Se puede pedir que la IA no lea los documentos?", a: "La lectura es el núcleo del producto; sin ella, Aproba sería un gestor documental. Lo que sí garantizamos es el marco: sin entrenamiento, sin conservación más allá de 30 días, con SCC." },
+      { q: "¿Se puede pedir que la IA no lea los documentos?", a: "La lectura es el núcleo del producto; sin ella, Aproba sería un gestor documental. Lo que sí garantizamos es el marco: sin entrenamiento, borrado en 30 días salvo contenido marcado por abuso, con SCC." },
       { q: "¿Hacéis copias de seguridad?", a: "Sí, automáticas, en la misma región europea, con la misma protección que los datos en vivo." },
     ],
   },
@@ -530,14 +530,14 @@ export const BENEFICIOS: Beneficio[] = [
     grupo: "garantias", slug: "tus-datos-no-entrenan-ia",
     tarjeta: "Tus datos no entrenan IA",
     titulo: "Tus documentos no entrenan ningún modelo de IA | Aproba",
-    descripcion: "Qué proveedor lee los documentos de tus clientes, bajo qué condiciones (sin entrenamiento, retención máxima de 30 días) y cómo verificarlo en sus contratos.",
+    descripcion: "Qué proveedor lee los documentos de tus clientes, bajo qué condiciones (sin entrenamiento, borrado en 30 días salvo abuso) y dónde verificarlo.",
     h1: "Tus datos no entrenan IA: qué proveedor, qué condiciones, cómo verificarlo",
     entradilla: "Un pasaporte que entra en Aproba se lee para rellenar un expediente y para nada más. Ni Aproba ni el proveedor del modelo lo usan para entrenar. Esto es lo que lo garantiza y dónde está escrito.",
-    actualizado: "2026-09-13",
+    actualizado: "2026-09-25",
     significa: [
       { t: "ul", items: [
         "**Quién lee.** Los documentos los lee un modelo de Anthropic (Claude) a través de su API comercial. No se usa ninguna cuenta de consumo ni herramienta gratuita.",
-        "**Bajo qué condiciones.** Las condiciones comerciales de la API de Anthropic excluyen el uso de las entradas y salidas de los clientes para entrenar sus modelos, y limitan la conservación a un máximo de 30 días para fines de seguridad y abuso.",
+        "**Bajo qué condiciones.** Las condiciones comerciales de la API de Anthropic excluyen el uso de las entradas y salidas de los clientes para entrenar sus modelos, y las borran en un plazo de 30 días. Solo las conservan más tiempo si un contenido se marca por incumplir la política de uso (hasta 2 años) o si la ley lo exige.",
         "**Qué hace Aproba con el resultado.** Los datos extraídos van a la ficha del cliente, en la UE. Aproba no entrena modelos propios con documentos de clientes ni cede documentos a terceros con ese fin.",
         "**Qué NO se usa.** Ninguna imagen ni dato de cliente se envía a proveedores de generación de imágenes ni a otros modelos; las ilustraciones del sitio se generan sin datos de nadie.",
       ] },
@@ -552,7 +552,7 @@ export const BENEFICIOS: Beneficio[] = [
     limites: [
       { t: "ul", items: [
         "**«No entrena» no es «no procesa».** El documento se envía al proveedor para leerlo; sin eso no hay lectura. La garantía es sobre el uso y la conservación, no sobre la ausencia de tratamiento.",
-        "**30 días es el máximo del proveedor**, no el tiempo habitual: el contenido no se conserva para el servicio, solo puede retenerse temporalmente por motivos de seguridad.",
+        "**30 días es la regla, con una excepción.** El contenido no se conserva para prestar el servicio: se borra en un plazo de 30 días. Anthropic solo lo guarda más tiempo si lo marca por incumplir su política de uso (hasta 2 años) o si la ley lo exige; un pasaporte leído para rellenar un expediente no es ese caso.",
       ] },
     ],
     fuentes: [
