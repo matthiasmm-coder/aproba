@@ -2327,6 +2327,12 @@ export const CA: Record<string, string> = {
   // Un servicio cobrado en varias facturas; tarjetas con lo de antes de Aproba (25/09/2026)
   "pagos": "pagaments",
   "Antes de Aproba:": "Abans d'Aproba:",
+  // Importar: la misma persona en varias filas (una por factura) = un cliente (25/09/2026)
+  "mismo cliente que la fila": "mateix client que la fila",
+  "Sus servicios se suman al mismo cliente": "Els seus serveis se sumen al mateix client",
+  "servicio de la empresa": "servei de l'empresa",
+  "clientes ya al día": "clients ja al dia",
+  "filas descartadas": "files descartades",
   // Facturas › Estadísticas (Luis, 25/09/2026)
   // Rentabilidad y gráficos premium (25/09/2026)
   "Rentabilidad": "Rendibilitat",

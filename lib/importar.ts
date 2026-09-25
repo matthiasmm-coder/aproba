@@ -160,6 +160,7 @@ export type FilaImportada = {
   estadoCobro: EstadoCobro | ""; // ¿esa factura anterior está cobrada? (Luis, 24/09/2026) — tampoco genera factura
   enCurso: boolean;            // abre un expediente real (mapeo.crearEnCurso + servicio + estado vivo)
   excluir: boolean;            // el gestor la descartó en la revisión
+  mismaQue: number | null;     // otra fila del archivo es la MISMA persona (lib/importar-personas.ts): comparten cliente
   avisos: string[];            // problemas de ESTA fila (nunca bloquean el lote)
 };
 
@@ -169,7 +170,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
 
   return filas.map((fila) => {
     const ficha: ClienteFicha = {};
-    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", empresa: "", referencia: "", numeroOficial: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, estadoCobro: "", enCurso: false, excluir: false, avisos: [] };
+    const out: FilaImportada = { ficha, idioma: "", fechaCaducidad: "", caducidadDerivada: "", fechaResolucion: "", fechaPresentacion: "", familia: "", parentesco: "", empresa: "", referencia: "", numeroOficial: "", tramite: "", servicio: null, estado: "", notas: "", importe: null, estadoCobro: "", enCurso: false, excluir: false, mismaQue: null, avisos: [] };
     let tramiteBruto = "";
     let estadoBruto = "";
     let resolucion = "";
@@ -281,16 +282,4 @@ export function aplicarOverrides(filas: FilaImportada[], overrides?: Record<numb
   }
 }
 
-// Duplicados DENTRO del archivo (por NIE/pasaporte/email) — el upsert cubre los de la base.
-export function marcarDuplicadosInternos(filas: FilaImportada[]): void {
-  const vistos = new Map<string, number>();
-  filas.forEach((f, i) => {
-    for (const clave of [f.ficha.numeroDocumento, f.ficha.pasaporte, f.ficha.email]) {
-      const k = (clave ?? "").trim().toLowerCase();
-      if (!k) continue;
-      const prev = vistos.get(k);
-      if (prev !== undefined && prev !== i) { f.avisos.push(`Duplicado en el archivo (fila ${prev + 1})`); return; }
-      vistos.set(k, i);
-    }
-  });
-}
+// La misma persona en varias filas (una por factura o por servicio): lib/importar-personas.ts.

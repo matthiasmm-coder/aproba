@@ -4,14 +4,31 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { sembrarVencimiento } from "@/lib/vencimientos";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
-import { FICHA_KEYS } from "@/lib/ficha";
-import { aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, type Mapeo, type OverrideFila, type FilaImportada } from "@/lib/importar";
+import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
+import { aplicarMapeo, aplicarOverrides, ESTADOS_EXPEDIENTE, type Mapeo, type OverrideFila } from "@/lib/importar";
+import { caducidadDeGrupo, crearIndicePersonas, fusionarFichas, marcarMismaPersona } from "@/lib/importar-personas";
+import { conceptoDeNotas, conceptoUtil, detectarPagos, type FilaPago } from "@/lib/historial-pagos";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_FILAS = 1500;
 const uid = () => crypto.randomUUID();
+
+// Cliente del despacho tal como lo lee la migración: la ficha ENTERA (para no pisar nada).
+type ClienteExistente = { id: string; familiaId?: string | null; fechaCaducidad?: string | null } & { [K in keyof ClienteFicha]?: string | null };
+
+// Todas las filas de una consulta, por páginas de 1.000 (el tope de la API de Supabase).
+async function leerTodo<T>(pagina: (desde: number, hasta: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await pagina(desde, desde + 999);
+    if (error) throw new Error(error.message);
+    const filas = (data ?? []) as T[];
+    out.push(...filas);
+    if (filas.length < 1000) return out;
+  }
+}
 
 // Parentesco libre → valores del modelo Familia (lib/familia PARENTESCOS).
 const PARENTESCO: Record<string, string> = {
@@ -73,26 +90,23 @@ export async function POST(req: Request) {
 
   const datos = body.primeraFilaEsCabecera === false ? brutas : brutas.slice(1);
   const filas = aplicarMapeo(datos.map((f) => f.map((c) => String(c ?? ""))), mapeo);
-  marcarDuplicadosInternos(filas);
-  aplicarOverrides(filas, body.overrides); // correcciones del gestor en la revisión
+  aplicarOverrides(filas, body.overrides); // correcciones del gestor en la revisión (antes de agrupar: su nombre cuenta)
+  marcarMismaPersona(filas);               // la misma persona en varias filas → un solo cliente
 
-  // ── Clientes existentes del despacho (match en memoria: 1 select, no N) ──
-  const { data: existentes } = await admin
-    .from("Cliente")
-    .select("id, nombre, apellidos, email, numeroDocumento, pasaporte, fechaNacimiento, familiaId")
-    .eq("workspaceId", workspaceId);
-  const porNie = new Map<string, string>();
-  const porPasaporte = new Map<string, string>();
-  const porEmail = new Map<string, string>();
-  const porIdentidad = new Map<string, string>();
-  const claveId = (n?: string | null, a?: string | null, f?: string | null) =>
-    `${(n ?? "").trim().toLowerCase()}|${(a ?? "").trim().toLowerCase()}|${(f ?? "").trim()}`;
-  for (const c of (existentes ?? []) as { id: string; nombre: string | null; apellidos: string | null; email: string | null; numeroDocumento: string | null; pasaporte: string | null; fechaNacimiento: string | null; familiaId: string | null }[]) {
-    if (c.numeroDocumento) porNie.set(c.numeroDocumento.toUpperCase(), c.id);
-    if (c.pasaporte) porPasaporte.set(c.pasaporte.toLowerCase(), c.id);
-    if (c.email) porEmail.set(c.email.toLowerCase(), c.id);
-    if (c.nombre) porIdentidad.set(claveId(c.nombre, c.apellidos, c.fechaNacimiento), c.id);
+  // ── Clientes existentes del despacho: TODOS (por páginas: sin rango, el select se quedaba
+  //    en 1.000 y el resto se duplicaba) y con TODOS los campos de la ficha (lo no leído se
+  //    tomaba por vacío y un reimport lo pisaba: el CP de Luis, 24/09/2026). ──
+  let existentes: ClienteExistente[];
+  try {
+    existentes = await leerTodo<ClienteExistente>((d, h) => admin.from("Cliente")
+      .select(`id, familiaId, fechaCaducidad, ${FICHA_KEYS.join(", ")}`).eq("workspaceId", workspaceId).order("id").range(d, h));
+  } catch (e) {
+    // Sin la cartera actual no se puede saber quién existe: mejor no importar que duplicar.
+    return NextResponse.json({ error: `No se pudo leer la cartera actual: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
   }
+  const existentePorId = new Map(existentes.map((c) => [c.id, c]));
+  const indiceDespacho = crearIndicePersonas<string>();
+  for (const c of existentes) indiceDespacho.añadir(c.id, c);
 
   // ── Familias del despacho (idempotencia por nombre) ──
   const familiasPorNombre = new Map<string, string>();
@@ -101,7 +115,12 @@ export async function POST(req: Request) {
     for (const f of (fams ?? []) as { id: string; nombre: string }[]) familiasPorNombre.set(f.nombre.trim().toLowerCase(), f.id);
   }
 
-  const r = { clientesCreados: 0, clientesActualizados: 0, clientesOmitidos: 0, familias: 0, empresas: 0, serviciosCreados: 0, serviciosOmitidos: 0, expedientesCreados: 0, expedientesOmitidos: 0, vencimientos: 0, avisos: [] as string[] };
+  const r = {
+    clientesCreados: 0, clientesActualizados: 0, clientesSinCambios: 0, clientesOmitidos: 0,
+    filasMismaPersona: 0, filasDescartadas: 0, familias: 0, empresas: 0,
+    serviciosCreados: 0, serviciosOmitidos: 0, serviciosEnlazados: 0, expedientesCreados: 0, expedientesOmitidos: 0,
+    vencimientos: 0, avisos: [] as string[],
+  };
   const avisosExtra: string[] = [];
   const ahora = () => new Date().toISOString();
 
@@ -160,72 +179,86 @@ export async function POST(req: Request) {
         } else r.empresas = nuevasEmpresas.length;
       }
       if (empresasActivas) {
-        const { data: ce } = await admin.from("Cliente").select("id, empresaId").eq("workspaceId", workspaceId);
-        for (const c of (ce ?? []) as { id: string; empresaId: string | null }[]) empresaDeCliente.set(c.id, c.empresaId);
+        const ce = await leerTodo<{ id: string; empresaId: string | null }>((d, h) => admin.from("Cliente").select("id, empresaId").eq("workspaceId", workspaceId).order("id").range(d, h)).catch(() => []);
+        for (const c of ce) empresaDeCliente.set(c.id, c.empresaId);
       }
     }
   }
   const empresaDe = new Map<number, string>(); // índice de fila → empresaId (para el expediente en curso)
 
-  // ── 2. Clientes: upsert (rellenar huecos, nunca machacar lo existente) ──
+  // ── 2. Clientes: UNA persona por grupo de filas (la misma persona llega en varias: una por
+  //    factura o por servicio). Se busca en el despacho con todo lo que trae el grupo y se crea,
+  //    o se completa, UNA vez: rellenar huecos, nunca machacar lo existente. ──
   const clienteDe = new Map<number, string>(); // índice de fila → clienteId
+  const vencimientoDe = new Map<string, { fecha: string; fuente: "REAL" | "ESTIMADA" }>(); // clienteId → caducidad del grupo
   const nuevos: Record<string, unknown>[] = [];
   const titularDeFamilia = new Set<string>();
+  const grupos = new Map<number, number[]>(); // primera fila de la persona → todas sus filas
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
-    if (f.excluir) { r.clientesOmitidos++; continue; } // descartada por el gestor en la revisión
-    if (!f.ficha.nombre?.trim()) { r.clientesOmitidos++; continue; }
-    if (f.avisos.some((a) => a.startsWith("Duplicado en el archivo"))) { r.clientesOmitidos++; continue; }
-    const nie = f.ficha.numeroDocumento?.toUpperCase();
-    const idExistente =
-      (nie && porNie.get(nie)) ||
-      (f.ficha.pasaporte && porPasaporte.get(f.ficha.pasaporte.toLowerCase())) ||
-      (f.ficha.email && porEmail.get(f.ficha.email.toLowerCase())) ||
-      porIdentidad.get(claveId(f.ficha.nombre, f.ficha.apellidos, f.ficha.fechaNacimiento));
-
-    const familiaId = mapeo.crearFamilias && f.familia ? familiasPorNombre.get(f.familia.trim().toLowerCase()) ?? null : null;
-    let parentesco = normParentesco(f.parentesco);
-    if (familiaId && !parentesco) {
-      parentesco = titularDeFamilia.has(familiaId) ? "OTRO" : "TITULAR";
+    if (f.excluir || !f.ficha.nombre?.trim()) {
+      // Descartada en la revisión, o sin persona (la de una empresa con servicio no: va a su ficha, paso 3).
+      if (f.excluir || !(f.empresa.trim() && f.servicio && mapeo.crearHistorial)) r.filasDescartadas++;
+      continue;
     }
+    const primera = f.mismaQue ?? i;
+    grupos.set(primera, [...(grupos.get(primera) ?? []), i]);
+  }
+  for (const [primera, indices] of grupos) {
+    const delGrupo = indices.map((k) => filas[k]);
+    r.filasMismaPersona += indices.length - 1;
+    const ficha = fusionarFichas(delGrupo.map((x) => x.ficha));
+    const { coincide: idExistente, choca } = indiceDespacho.buscar(ficha);
+    if (!idExistente && choca) filas[primera].avisos.push("Ya hay un cliente con este nombre y otros datos (documento, fecha de nacimiento u homónimos): se crea aparte — revísalo");
+
+    const conFamilia = delGrupo.find((x) => x.familia.trim());
+    const familiaId = mapeo.crearFamilias && conFamilia ? familiasPorNombre.get(conFamilia.familia.trim().toLowerCase()) ?? null : null;
+    let parentesco = normParentesco(delGrupo.find((x) => x.parentesco)?.parentesco ?? "");
+    if (familiaId && !parentesco) parentesco = titularDeFamilia.has(familiaId) ? "OTRO" : "TITULAR";
     if (familiaId && parentesco === "TITULAR") titularDeFamilia.add(familiaId);
-    const empresaId = empresasActivas && f.empresa.trim() ? empresasPorNombre.get(claveEmpresa(f.empresa)) ?? null : null;
-    if (empresaId) empresaDe.set(i, empresaId);
+    // La empresa de CADA fila (la que pagó ese servicio); el cliente queda ligado a la primera.
+    for (const k of indices) {
+      const e = empresasActivas && filas[k].empresa.trim() ? empresasPorNombre.get(claveEmpresa(filas[k].empresa)) ?? null : null;
+      if (e) empresaDe.set(k, e);
+    }
+    const empresaId = indices.map((k) => empresaDe.get(k)).find(Boolean) ?? null;
+    const cad = caducidadDeGrupo(delGrupo);
+    const idioma = delGrupo.find((x) => x.idioma)?.idioma ?? "";
 
     if (idExistente) {
       // Solo rellena campos vacíos (una migración nunca pisa datos ya trabajados).
-      const actual = (existentes ?? []).find((c) => c.id === idExistente) as Record<string, unknown> | undefined;
+      const actual = existentePorId.get(idExistente);
       const patch: Record<string, unknown> = {};
       for (const k of FICHA_KEYS) {
-        const v = (f.ficha as Record<string, string | undefined>)[k];
+        const v = (ficha as Record<string, string | undefined>)[k];
         if (v && !(actual?.[k] ?? "")) patch[k] = v;
       }
       if (familiaId && !actual?.familiaId) { patch.familiaId = familiaId; if (parentesco) patch.parentesco = parentesco; }
       if (empresaId && !empresaDeCliente.get(idExistente)) patch.empresaId = empresaId; // una migración nunca cambia de empresa a nadie
-      const efectivaCad = f.fechaCaducidad || f.caducidadDerivada; // migración nunca pisa una caducidad ya trabajada
-      if (efectivaCad && !actual?.fechaCaducidad) { patch.fechaCaducidad = efectivaCad; patch.tipoVencimiento = "TIE"; }
+      if (cad && !actual?.fechaCaducidad) { patch.fechaCaducidad = cad.fecha; patch.tipoVencimiento = "TIE"; } // nunca pisa una caducidad ya trabajada
       if (Object.keys(patch).length) {
-        const { error } = await admin.from("Cliente").update({ ...patch, updatedAt: ahora() }).eq("id", idExistente);
+        const { error } = await admin.from("Cliente").update({ ...patch, updatedAt: ahora() }).eq("id", idExistente).eq("workspaceId", workspaceId);
         if (!error) r.clientesActualizados++;
-      } else r.clientesOmitidos++;
-      clienteDe.set(i, idExistente);
+      } else r.clientesSinCambios++;
+      for (const k of indices) clienteDe.set(k, idExistente);
+      if (cad) vencimientoDe.set(idExistente, cad);
     } else {
       const id = uid();
-      clienteDe.set(i, id);
-      if (nie) porNie.set(nie, id);
-      if (f.ficha.email) porEmail.set(f.ficha.email.toLowerCase(), id);
-      porIdentidad.set(claveId(f.ficha.nombre, f.ficha.apellidos, f.ficha.fechaNacimiento), id);
+      for (const k of indices) clienteDe.set(k, id);
+      if (cad) vencimientoDe.set(id, cad);
       nuevos.push({
         id, workspaceId, updatedAt: ahora(),
-        ...Object.fromEntries(FICHA_KEYS.map((k) => [k, (f.ficha as Record<string, string | undefined>)[k] ?? null])),
-        ...(f.idioma ? { idioma: f.idioma } : {}),
+        ...Object.fromEntries(FICHA_KEYS.map((k) => [k, (ficha as Record<string, string | undefined>)[k] ?? null])),
+        ...(idioma ? { idioma } : {}),
         ...(familiaId ? { familiaId, parentesco: parentesco || "OTRO", esSolicitante: false } : { esSolicitante: false }),
-        ...((f.fechaCaducidad || f.caducidadDerivada) ? { fechaCaducidad: f.fechaCaducidad || f.caducidadDerivada, tipoVencimiento: "TIE" } : {}),
+        ...(cad ? { fechaCaducidad: cad.fecha, tipoVencimiento: "TIE" } : {}),
         ...(oficinaImport ? { oficinaId: oficinaImport } : {}),
         ...(empresaId ? { empresaId } : {}),
       });
     }
   }
+  r.clientesOmitidos = r.filasDescartadas + r.clientesSinCambios; // compatibilidad con pantallas anteriores
+  if (r.filasMismaPersona) avisosExtra.push(`${r.filasMismaPersona} filas eran de un cliente que ya venía en otra fila: sus servicios se han sumado a su ficha.`);
   for (let i = 0; i < nuevos.length; i += 100) {
     const lote = nuevos.slice(i, i + 100);
     let { error } = await admin.from("Cliente").insert(lote);
@@ -242,23 +275,30 @@ export async function POST(req: Request) {
     try {
       // `cobro` (supabase/cobro-previo.sql, 24/09/2026) y `empresaId` (supabase/servicio-
       // historico-empresa.sql, 25/09/2026): sin cada migración se lee sin la columna.
+      // `pagoDeId` (supabase/historial-pagos.sql, 25/09/2026): factura siguiente de un mismo servicio.
+      // Todo el historial del despacho, por páginas (pasado el millar, el dedup no veía el resto).
       let conCobro = true;
       let conEmpresaHist = true;
-      const colsHist = () => `id, clienteId, ${conEmpresaHist ? "empresaId, " : ""}servicioClave, fecha, referencia, importe${conCobro ? ", cobro" : ""}`;
-      let lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId);
-      if (lecturaHist.error && /empresaId/i.test(lecturaHist.error.message)) {
-        conEmpresaHist = false;
-        lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId) as typeof lecturaHist;
+      let conPagos = true;
+      const colsHist = () => `id, clienteId, ${conEmpresaHist ? "empresaId, " : ""}servicioClave, fecha, referencia, importe, notas${conCobro ? ", cobro" : ""}${conPagos ? ", pagoDeId" : ""}`;
+      type HistExistente = { id: string; clienteId: string | null; empresaId?: string | null; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null; notas: string | null; cobro?: string | null; pagoDeId?: string | null };
+      let histExist: HistExistente[] | null = null;
+      for (let intento = 0; intento < 4 && !histExist; intento++) {
+        try {
+          histExist = await leerTodo<HistExistente>((d, h) => admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId).order("id").range(d, h));
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          if (conPagos && /pagoDeId/i.test(m)) conPagos = false;
+          else if (conEmpresaHist && /empresaId/i.test(m)) conEmpresaHist = false;
+          else if (conCobro && /cobro/i.test(m)) conCobro = false;
+          else throw e;
+        }
       }
-      if (lecturaHist.error && /cobro/i.test(lecturaHist.error.message)) {
-        conCobro = false;
-        lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId) as typeof lecturaHist;
-      }
-      const histExist = lecturaHist.data;
+      if (!histExist) throw new Error("no se pudo leer el historial");
       // Índices por referencia y por (cliente+servicio+fecha) → id + importe: sirven para
       // dedup Y para RELLENAR huecos al reimportar (p. ej. añadir el importe a un servicio
       // ya migrado sin él). El reimport enriquece, no duplica.
-      type Rec = { id: string; importe: number | null; sinFecha?: boolean; cobro?: string | null };
+      type Rec = { id: string; importe: number | null; sinFecha?: boolean; cobro?: string | null; referencia: string | null };
       const porRef = new Map<string, Rec>();
       const porCombo = new Map<string, Rec>();
       // Índice extra SIN fecha: un servicio ya migrado al que solo le falta la fecha.
@@ -268,9 +308,9 @@ export async function POST(req: Request) {
       const porClienteServicio = new Map<string, Rec>();
       // Titular del historial: el cliente, o «E:<empresaId>» para lo facturado a una empresa
       // sin trabajador (consultas, informes).
-      for (const e of (histExist ?? []) as unknown as { id: string; clienteId: string | null; empresaId?: string | null; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null; cobro?: string | null }[]) {
+      for (const e of histExist) {
         const titular = e.clienteId ?? (e.empresaId ? `E:${e.empresaId}` : "");
-        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha, cobro: e.cobro ?? null };
+        const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha, cobro: e.cobro ?? null, referencia: e.referencia };
         if (e.referencia) porRef.set(e.referencia, rec);
         porCombo.set(`${titular}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
         if (!e.fecha) porClienteServicio.set(`${titular}|${e.servicioClave ?? ""}`, rec);
@@ -283,6 +323,8 @@ export async function POST(req: Request) {
       const loteEmpresa: Record<string, unknown>[] = [];
       let empresaSinMigrar = 0;
       const rellenos: { id: string; importe: number }[] = [];
+      const referenciasRellenadas: { id: string; referencia: string }[] = [];
+      const paraPagos: FilaPago[] = []; // servicios nuevos, para reconocer los pagos de un mismo servicio
       // Estado del cobro al reimportar: se rellena si faltaba y SUBE de pendiente a cobrada
       // (el cliente pagó desde entonces); nunca baja — lo marcado cobrado en Aproba manda.
       const cobrosRellenados: { id: string; cobro: string }[] = [];
@@ -300,14 +342,18 @@ export async function POST(req: Request) {
         const combo = `${titular}|${f.servicio}|${fechaSrv}`;
         // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
         const refServicio = f.referencia || f.numeroOficial;
+        // Mismo titular, servicio y fecha pero OTRO número = otro servicio (Yousupha, 26/05/2026:
+        // AGC0171 y AGC0172, uno por hijo; el 2º se perdía). Solo se juntan sin dos referencias distintas.
+        const compatible = (x: Rec | undefined) => (x && (!refServicio || !x.referencia || x.referencia === refServicio) ? x : undefined);
         const existente = (refServicio ? porRef.get(refServicio) : undefined)
-          ?? porCombo.get(combo)
-          ?? (fechaSrv ? porClienteServicio.get(`${titular}|${f.servicio}`) : undefined);
+          ?? compatible(porCombo.get(combo))
+          ?? (fechaSrv ? compatible(porClienteServicio.get(`${titular}|${f.servicio}`)) : undefined);
         // La fila no es un error: su servicio cuenta para la empresa.
         if (!clienteId) f.avisos = f.avisos.filter((a) => a !== "Fila sin nombre");
         if (existente) {
           r.serviciosOmitidos++;
           if (existente.importe == null && f.importe != null) { existente.importe = f.importe; rellenos.push({ id: existente.id, importe: f.importe }); }
+          if (!existente.referencia && refServicio) { existente.referencia = refServicio; porRef.set(refServicio, existente); referenciasRellenadas.push({ id: existente.id, referencia: refServicio }); }
           if (conCobro && f.estadoCobro && (!existente.cobro || (existente.cobro === "PENDIENTE" && f.estadoCobro === "COBRADA"))) {
             existente.cobro = f.estadoCobro; cobrosRellenados.push({ id: existente.id, cobro: f.estadoCobro });
           }
@@ -320,9 +366,15 @@ export async function POST(req: Request) {
           continue;
         }
         const tipo = SERVICIO_A_TIPO[f.servicio] ?? "OTRO";
-        const rec: Rec = { id: uid(), importe: f.importe, cobro: f.estadoCobro || null };
+        const rec: Rec = { id: uid(), importe: f.importe, cobro: f.estadoCobro || null, referencia: refServicio || null };
         if (refServicio) porRef.set(refServicio, rec);
         porCombo.set(combo, rec);
+        const etiqueta = catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio;
+        // El concepto ORIGINAL (texto del trámite o de la factura) cuando dice algo más que el
+        // servicio del catálogo: «CUENTA AJENA – BAKARY MANNEH», «… Primer pago (1-2)». Sin él,
+        // dos servicios de un mismo cliente parecían duplicados en el Historial.
+        const concepto = conceptoUtil(f.tramite, etiqueta);
+        paraPagos.push({ id: rec.id, titular, servicio: f.servicio, concepto, fecha: fechaSrv || null });
         (clienteId ? lote : loteEmpresa).push({
           id: rec.id, workspaceId,
           // Con trabajador y empresa, el trabajador es el titular y la empresa la que pagó (como
@@ -330,12 +382,11 @@ export async function POST(req: Request) {
           ...(clienteId
             ? { clienteId, ...(conEmpresaHist && empresaDe.get(i) ? { empresaId: empresaDe.get(i) } : {}) }
             : { clienteId: null, empresaId: empresaSola }),
-          tipo, servicioClave: f.servicio,
-          etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
+          tipo, servicioClave: f.servicio, etiqueta,
           fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,
           estado: f.estado || "FINALIZADO",
           referencia: refServicio || null,
-          notas: f.notas ? f.notas.slice(0, 1000) : null,
+          notas: [concepto, f.notas].filter(Boolean).join("\n").slice(0, 1000) || null,
           importe: f.importe,
           ...(conCobro && f.estadoCobro ? { cobro: f.estadoCobro } : {}),
           origen: "MIGRACION",
@@ -358,6 +409,23 @@ export async function POST(req: Request) {
       for (const rl of rellenos) await admin.from("ServicioHistorico").update({ importe: rl.importe, updatedAt: ahora() }).eq("id", rl.id);
       for (const cr of cobrosRellenados) await admin.from("ServicioHistorico").update({ cobro: cr.cobro, updatedAt: ahora() }).eq("id", cr.id);
       for (const fr of fechasRellenadas) await admin.from("ServicioHistorico").update({ fecha: `${fr.fecha}T00:00:00.000Z`, updatedAt: ahora() }).eq("id", fr.id);
+      for (const rr of referenciasRellenadas) await admin.from("ServicioHistorico").update({ referencia: rr.referencia, updatedAt: ahora() }).eq("id", rr.id);
+      // Un servicio cobrado en varias facturas («Primer pago (1-2)», «Segundo pago (2-2)»): cada
+      // factura siguiente apunta a la primera y el Historial lo enseña una vez. Se enlaza DESPUÉS
+      // de insertar (la primera puede ir en otro trozo), y solo lo que aún no tenía enlace.
+      if (conPagos) {
+        const insertados = new Set([...lote, ...loteEmpresa.slice(0, creadosEmpresa)].map((x) => x.id as string));
+        const yaEnlazados = new Set(histExist.filter((e) => e.pagoDeId).map((e) => e.id));
+        const enlaces = [...detectarPagos([
+          ...histExist.map((e) => ({ id: e.id, titular: e.clienteId ?? (e.empresaId ? `E:${e.empresaId}` : e.id), servicio: e.servicioClave ?? "", concepto: conceptoDeNotas(e.notas), fecha: e.fecha })),
+          ...paraPagos.filter((p) => insertados.has(p.id)),
+        ])].filter(([hijo]) => !yaEnlazados.has(hijo));
+        for (const [hijo, padre] of enlaces) {
+          const { error } = await admin.from("ServicioHistorico").update({ pagoDeId: padre, updatedAt: ahora() }).eq("id", hijo).eq("workspaceId", workspaceId).is("pagoDeId", null);
+          if (!error) r.serviciosEnlazados++;
+        }
+        if (r.serviciosEnlazados) avisosExtra.push(`${r.serviciosEnlazados} facturas eran otro pago de un servicio ya presente: el Historial enseña cada servicio una sola vez.`);
+      }
       r.serviciosCreados = lote.length + creadosEmpresa;
       if (rellenos.length) avisosExtra.push(`${rellenos.length} importes añadidos a servicios ya migrados.`);
       if (cobrosRellenados.length) avisosExtra.push(`${cobrosRellenados.length} estados del cobro añadidos o actualizados en servicios ya migrados.`);
@@ -483,14 +551,10 @@ export async function POST(req: Request) {
 
   // ── 4. Vigía: caducidad → vencimiento. Explícita (columna del Excel) = REAL; derivada
   //     del servicio + fecha de resolución (validez legal de la tarjeta) = ESTIMADA. ──
-  for (let i = 0; i < filas.length; i++) {
-    const f = filas[i];
-    const clienteId = clienteDe.get(i);
-    if (!clienteId) continue;
-    const efectiva = f.fechaCaducidad || f.caducidadDerivada;
-    if (!efectiva) continue;
+  //     UNA vez por cliente, con la caducidad de todas sus filas (la más reciente; la real manda).
+  for (const [clienteId, cad] of vencimientoDe) {
     try {
-      await sembrarVencimiento(admin, { workspaceId, clienteId, fecha: `${efectiva}T00:00:00.000Z`, tipo: "TIE", fuente: f.fechaCaducidad ? "REAL" : "ESTIMADA" });
+      await sembrarVencimiento(admin, { workspaceId, clienteId, fecha: `${cad.fecha}T00:00:00.000Z`, tipo: "TIE", fuente: cad.fuente });
       r.vencimientos++;
     } catch { /* Vigía sin migrar → sin vencimientos, el import no se cae */ }
   }

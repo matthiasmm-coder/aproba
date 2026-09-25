@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import { TelefonoInput } from "@/components/telefono-input";
 import {
-  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, ESTADOS_EXPEDIENTE, esEstadoEnCurso,
+  aplicarMapeo, aplicarOverrides, ESTADOS_EXPEDIENTE, esEstadoEnCurso,
   type CampoImport, type Mapeo, type OverrideFila, type FilaImportada,
 } from "@/lib/importar";
+import { marcarMismaPersona } from "@/lib/importar-personas";
 
 // Asistente de migración: cualquier Excel/CSV (o texto pegado) → la IA propone el mapeo y,
 // para CADA trámite, cuánto dura la tarjeta que produce (de ahí sale la renovación) → el
@@ -26,6 +27,7 @@ type Analisis = {
 
 type Resultado = {
   clientesCreados: number; clientesActualizados: number; clientesOmitidos: number;
+  clientesSinCambios?: number; filasMismaPersona?: number; filasDescartadas?: number; serviciosEnlazados?: number;
   familias: number; empresas?: number; serviciosCreados: number; serviciosOmitidos: number; expedientesCreados?: number; expedientesOmitidos?: number;
   vencimientos: number; avisos: string[];
 };
@@ -127,23 +129,29 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
   }
 
   // Vista previa local con el MISMO motor determinista que ejecuta el servidor
-  // (mapeo → duplicados → correcciones del gestor).
+  // (mapeo → correcciones del gestor → misma persona en varias filas).
   const previa = useMemo(() => {
     if (!analisis || !mapeo || paso !== 3) return null;
     const datos = mapeo.primeraFilaEsCabecera ? analisis.filas.slice(1) : analisis.filas;
     const filas = aplicarMapeo(datos, mapeo);
-    marcarDuplicadosInternos(filas);
     aplicarOverrides(filas, overrides);
-    const entra = (f: FilaImportada) => !f.excluir && Boolean(f.ficha.nombre?.trim()) && !f.avisos.some((a) => a.startsWith("Duplicado en el archivo"));
+    marcarMismaPersona(filas);
+    // Entra toda fila con persona —la misma persona en varias filas (una por factura) suma sus
+    // servicios a UN cliente— y la de una empresa sin persona con servicio (va a su ficha).
+    const deEmpresa = (f: FilaImportada) => !f.ficha.nombre?.trim() && Boolean(f.empresa.trim()) && Boolean(f.servicio) && mapeo.crearHistorial;
+    const entra = (f: FilaImportada) => !f.excluir && (Boolean(f.ficha.nombre?.trim()) || deEmpresa(f));
     const activas = filas.filter(entra);
+    const conCaducidad = new Set<number>();
+    filas.forEach((f, i) => { if (entra(f) && f.ficha.nombre?.trim() && (f.fechaCaducidad || f.caducidadDerivada)) conCaducidad.add(f.mismaQue ?? i); });
     return {
       filas,
       entra,
-      clientes: activas.length,
+      deEmpresa,
+      clientes: activas.filter((f) => f.ficha.nombre?.trim() && f.mismaQue == null).length,
       descartadas: filas.length - activas.length,
       servicios: mapeo.crearHistorial ? activas.filter((f) => f.servicio && !f.enCurso).length : 0,
       expedientes: mapeo.crearEnCurso ? activas.filter((f) => f.enCurso).length : 0,
-      renovaciones: activas.filter((f) => f.fechaCaducidad || f.caducidadDerivada).length,
+      renovaciones: conCaducidad.size,
     };
   }, [analisis, mapeo, paso, overrides]);
 
@@ -357,7 +365,6 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
 
           <div className="mt-4 space-y-3">
             {previa.filas.slice(0, visibles).map((f, i) => {
-              const dup = f.avisos.find((a) => a.startsWith("Duplicado en el archivo"));
               const sinNombre = !f.ficha.nombre?.trim();
               const dentro = previa.entra(f);
               const cad = f.fechaCaducidad || f.caducidadDerivada;
@@ -393,8 +400,10 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                     {f.ficha.fechaNacimiento && <span>{t("nac.")} {fmtFecha(f.ficha.fechaNacimiento)}</span>}
                     {f.familia && <span className="rounded-full bg-slate-100 px-2 py-0.5">{f.familia}{f.parentesco ? ` · ${f.parentesco.toLowerCase()}` : ""}</span>}
                     {f.empresa && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700" title={t("Empresa que contrata")}>{f.empresa}</span>}
-                    {dup && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">{t("duplicado — no se importa")}</span>}
-                    {sinNombre && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{t("sin nombre — no se importa")}</span>}
+                    {f.mismaQue != null && <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600" title={t("Sus servicios se suman al mismo cliente")}>{t("mismo cliente que la fila")} {f.mismaQue + 1}</span>}
+                    {sinNombre && (previa.deEmpresa(f)
+                      ? <span className="rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">{t("servicio de la empresa")}</span>
+                      : <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{t("sin nombre — no se importa")}</span>)}
                   </div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -445,8 +454,8 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
                     </div>
                   </div>
 
-                  {f.avisos.filter((a) => !a.startsWith("Duplicado en el archivo") && a !== "Fila sin nombre").length > 0 && (
-                    <p className="mt-2 text-xs text-amber-600">{f.avisos.filter((a) => !a.startsWith("Duplicado en el archivo") && a !== "Fila sin nombre").join(" · ")}</p>
+                  {f.avisos.filter((a) => a !== "Fila sin nombre").length > 0 && (
+                    <p className="mt-2 text-xs text-amber-600">{f.avisos.filter((a) => a !== "Fila sin nombre").join(" · ")}</p>
                   )}
                 </div>
               );
@@ -502,11 +511,12 @@ export function ImportarDatos({ oficinas = [] }: { oficinas?: { id: string; nomb
             <Chip n={resultado.vencimientos} label={t("vencimientos Vigía")} />
             {(resultado.expedientesCreados ?? 0) > 0 && <Chip n={resultado.expedientesCreados ?? 0} label={t("expedientes abiertos")} />}
           </div>
-          {(resultado.familias > 0 || (resultado.empresas ?? 0) > 0 || resultado.serviciosOmitidos > 0 || resultado.clientesOmitidos > 0 || (resultado.expedientesOmitidos ?? 0) > 0) && (
+          {(resultado.familias > 0 || (resultado.empresas ?? 0) > 0 || resultado.serviciosOmitidos > 0 || (resultado.clientesSinCambios ?? 0) > 0 || (resultado.filasDescartadas ?? 0) > 0 || (resultado.expedientesOmitidos ?? 0) > 0) && (
             <p className="mt-3 text-sm text-slate-500">
               {resultado.familias > 0 && `${resultado.familias} ${t("familias")} · `}
               {(resultado.empresas ?? 0) > 0 && `${resultado.empresas} ${t("empresas nuevas")} · `}
-              {resultado.clientesOmitidos > 0 && `${resultado.clientesOmitidos} ${t("clientes omitidos (duplicados)")} · `}
+              {(resultado.clientesSinCambios ?? 0) > 0 && `${resultado.clientesSinCambios} ${t("clientes ya al día")} · `}
+              {(resultado.filasDescartadas ?? 0) > 0 && `${resultado.filasDescartadas} ${t("filas descartadas")} · `}
               {resultado.serviciosOmitidos > 0 && `${resultado.serviciosOmitidos} ${t("servicios ya en el historial")}`}
               {(resultado.expedientesOmitidos ?? 0) > 0 && ` · ${resultado.expedientesOmitidos} ${t("expedientes ya abiertos (no duplicados)")}`}
             </p>

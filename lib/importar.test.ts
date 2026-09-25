@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  aplicarMapeo, aplicarOverrides, marcarDuplicadosInternos, partirNombreCompleto,
+  aplicarMapeo, aplicarOverrides, partirNombreCompleto,
   normalizarTelefono, esNie, parseImporte, type Mapeo,
   ESTADOS_EN_CURSO, esEstadoEnCurso,
 } from "./importar";
+import { marcarMismaPersona } from "./importar-personas";
 
 const mapeo: Mapeo = {
   columnas: [
@@ -160,14 +161,15 @@ describe("importar — motor determinista", () => {
     expect(f.estado).toBe("FINALIZADO");
   });
 
-  it("duplicados internos por NIE marcados una sola vez", () => {
+  it("mismo NIE en dos filas = la misma persona: la 2ª suma su servicio, no se descarta", () => {
     const filas = aplicarMapeo([
       ["Ana Pérez", "Y1111111Z", "", "", "", "", "", ""],
       ["Ana Perez Bis", "Y1111111Z", "", "", "", "", "", ""],
     ], mapeo);
-    marcarDuplicadosInternos(filas);
-    expect(filas[0].avisos).toEqual([]);
-    expect(filas[1].avisos.some((a) => a.includes("Duplicado"))).toBe(true);
+    marcarMismaPersona(filas);
+    expect(filas[0].mismaQue).toBeNull();
+    expect(filas[1].mismaQue).toBe(0);
+    expect(filas[1].avisos).toEqual([]);
   });
 
   it("helpers: nombre sin coma, teléfono 00-prefijo, NIE con separadores", () => {
