@@ -400,8 +400,9 @@ function Estadisticas({ hoy }: { hoy: Date }) {
   const suma = (a: number[]) => a.slice(0, meses).reduce((t, x) => t + x, 0);
   const ing = suma(INGRESOS), gas = suma(GASTOS), res = ing - gas;
   const rent = Math.round((res / ing) * 100);
-  const W = 200, H = 58, base = 50, max = 7000, paso = W / 12;
-  const y = (v: number) => base - (v / max) * 44;
+  // Gráfica apaisada: la tarjeta acaba por encima del botón «Ayuda» (si no, tapa «dic»).
+  const W = 200, H = 42, base = 39, max = 7000, paso = W / 12;
+  const y = (v: number) => base - (v / max) * 35;
   const curva = INGRESOS.slice(0, meses).map((v, i) => `${(i * paso + paso / 2).toFixed(1)},${y(v - GASTOS[i]).toFixed(1)}`).join(" ");
   const tarjetas: { l: string; v: string; cls: string; sub: string }[] = [
     { l: "Ingresos", v: eur(ing), cls: "text-slate-900", sub: `Sin IVA · ${suma(N_EMITIDAS)} facturas` },
@@ -456,7 +457,7 @@ function Estadisticas({ hoy }: { hoy: Date }) {
         <p className="text-[6px] font-semibold text-slate-800">Ingresos y gastos por mes · {hoy.getFullYear()}</p>
         <p className="text-[4.5px] text-slate-400">Sin IVA. La curva es el resultado de cada mes.</p>
         <svg viewBox={`0 0 ${W} ${H + 6}`} className="mt-0.5 block w-full">
-          {[0, 1, 2].map((k) => <line key={k} x1="0" x2={W} y1={base - k * 22} y2={base - k * 22} stroke="#e2e8f0" strokeWidth="0.4" strokeDasharray={k ? "1.5 1.5" : undefined} />)}
+          {[0, 1, 2].map((k) => <line key={k} x1="0" x2={W} y1={base - k * 17} y2={base - k * 17} stroke="#e2e8f0" strokeWidth="0.4" strokeDasharray={k ? "1.5 1.5" : undefined} />)}
           {INGRESOS.slice(0, meses).map((v, i) => (
             <g key={i}>
               <rect x={i * paso + paso / 2 - 4.2} y={y(v)} width="3.8" height={base - y(v)} rx="0.8" fill="#10B083" />
@@ -464,7 +465,7 @@ function Estadisticas({ hoy }: { hoy: Date }) {
             </g>
           ))}
           <polyline points={curva} fill="none" stroke="#0f172a" strokeWidth="0.8" strokeLinejoin="round" strokeLinecap="round" />
-          {MESES.map((m, i) => <text key={m} x={i * paso + paso / 2} y={H + 4} textAnchor="middle" fontSize="3.6" fill="#94a3b8">{m}</text>)}
+          {MESES.map((m, i) => <text key={m} x={i * paso + paso / 2} y={H + 2.5} textAnchor="middle" fontSize="3.6" fill="#94a3b8">{m}</text>)}
         </svg>
       </div>
     </div>
