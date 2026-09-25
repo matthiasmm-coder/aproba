@@ -7,6 +7,7 @@ import { PLANES, ROLES, TIPOS } from "./planes";
 import { FICHA_CAMPOS, GRUPOS } from "./ficha";
 import { ESTADO_REGISTRO_META } from "./verifactu";
 import { MESES_CORTOS_ES, MESES_LARGOS_ES } from "./estadisticas-facturacion";
+import { TIPOS_DOC_EMPRESA } from "./documentos-empresa";
 
 // Cobertura catalana de la app gestor. La mecánica del agujero (vista el 31/08/2026):
 // cada entrega de UI añade cadenas t("…") y, si nadie piensa en el catalán, caen al
@@ -61,6 +62,8 @@ describe("catalán · cobertura de la app gestor", () => {
       // meses de los gráficos de Facturas › Estadísticas (t(MESES_CORTOS_ES[i]))
       ...MESES_CORTOS_ES,
       ...MESES_LARGOS_ES,
+      // tipos de documento de la ficha de empresa (t(x) en el desplegable de subida)
+      ...TIPOS_DOC_EMPRESA,
       // estados VERI*FACTU (t(verifactu.label) en la ficha y la lista de facturas)
       ...Object.values(ESTADO_REGISTRO_META).map((m) => m.label),
       // labels de los modales de tasa (arrays locales al componente)

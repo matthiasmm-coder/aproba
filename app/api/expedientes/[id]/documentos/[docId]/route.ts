@@ -9,7 +9,7 @@ const limpiar = (s: string) => s.replace(/[^a-zA-Z0-9._-]+/g, "_");
 // Autorisation : la requête Documento passe par la session (RLS) → ne renvoie que
 // les documents du workspace du gestor (404 sinon). Le fichier lui-même est servi
 // via le service_role car le bucket `documentos` est privé (RGPD).
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string; docId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string; docId: string }> }) {
   const { id, docId } = await params;
 
   const supabase = await createSupabaseServer();
@@ -34,7 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return new Response(buffer, {
     headers: {
       "Content-Type": doc.mimeType || blob.type || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${limpiar(nombre)}"`,
+      "Content-Disposition": `${new URL(req.url).searchParams.get("ver") === "1" ? "inline" : "attachment"}; filename="${limpiar(nombre)}"`,
       "Cache-Control": "no-store",
     },
   });

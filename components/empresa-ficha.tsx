@@ -7,6 +7,8 @@ import { useT } from "@/components/lang-provider";
 import { eur, FACTURA_ESTADO_META, type FacturaEstado } from "@/lib/facturas";
 import { EmpresaEditor } from "@/components/empresa-editor";
 import { MarcarCobroPrevio } from "@/components/cobro-previo";
+import { DocumentosEmpresa } from "@/components/documentos-empresa";
+import type { DocEmpresaItem } from "@/lib/documentos-empresa";
 import type { EmpresaFicha } from "@/lib/data/empresas";
 
 // FICHA DE LA EMPRESA (18/09/2026, petición de Luis y Marta): la empresa que contrata y
@@ -15,7 +17,7 @@ import type { EmpresaFicha } from "@/lib/data/empresas";
 // 25/09/2026: una empresa puede ser cliente SIN trabajadores (consultas, informes): sus
 // expedientes propios, «+ Nuevo expediente» y lo que se le facturó antes de Aproba.
 
-export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
+export function EmpresaFichaView({ ficha, documentos = [], subidaDocumentos = true }: { ficha: EmpresaFicha; documentos?: DocEmpresaItem[]; subidaDocumentos?: boolean }) {
   const t = useT();
   const router = useRouter();
   const [editando, setEditando] = useState(false);
@@ -172,6 +174,9 @@ export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
           </ul>
         )}
       </div>
+
+      {/* Documentos: los de sus expedientes y trabajadores, y los de la empresa (25/09/2026). */}
+      <DocumentosEmpresa empresaId={ficha.id} trabajadores={ficha.trabajadores.map((w) => ({ id: w.id, nombre: w.nombre }))} docs={documentos} subidaDisponible={subidaDocumentos} />
 
       {/* Lo facturado ANTES de Aproba (historial importado): no son facturas de Aproba. */}
       {ficha.historial.length > 0 && (
