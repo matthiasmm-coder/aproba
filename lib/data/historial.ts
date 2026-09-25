@@ -16,6 +16,10 @@ export type FilaHistorial = {
   id: string; referencia: string; cliente: string; empresa: string; tipo: string;
   servicio: string; salida: string; estado: string; presentacion: string; anio: string; asignado: string;
   numeroOficial?: string | null; // lo añade fetchHistorialFilas (la función SQL no lo devuelve)
+  // Lo migrado de un sistema anterior (supabase/historial-migrados.sql): origen 'MIGRACION'
+  // y enlace a la ficha del titular. Sin la migración, las columnas no llegan.
+  origen?: string;
+  enlace?: string;
 };
 
 const args = (sedes?: string[] | null, incluirSinSede = false) => ({
@@ -63,8 +67,9 @@ export async function fetchHistorialFilas(f: FiltroFilas): Promise<FilaHistorial
   const filas = (data ?? []) as FilaHistorial[];
   // Nº oficial de Extranjería (Jennifer, 24/09/2026): la función SQL no lo devuelve; se
   // completa con UNA consulta por los ids de la página (≤ 200). Sin la columna, sin él.
-  if (filas.length) {
-    const { data: nums, error: eNum } = await supabase.from("Expediente").select("id, numeroOficial").in("id", filas.map((f) => f.id));
+  const deExpediente = filas.filter((f) => f.origen !== "MIGRACION");
+  if (deExpediente.length) {
+    const { data: nums, error: eNum } = await supabase.from("Expediente").select("id, numeroOficial").in("id", deExpediente.map((f) => f.id));
     if (!eNum) {
       const porId = new Map(((nums ?? []) as { id: string; numeroOficial: string | null }[]).map((x) => [x.id, x.numeroOficial]));
       for (const f of filas) f.numeroOficial = porId.get(f.id) ?? null;

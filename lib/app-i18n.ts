@@ -2296,6 +2296,10 @@ export const CA: Record<string, string> = {
   "Sin trabajadores: la empresa es cliente directa.": "Sense treballadors: l'empresa és clienta directa.",
   "pendiente de cobro": "pendent de cobrament",
   "Sin trabajadores": "Sense treballadors",
+  // Historial: lo migrado de un sistema anterior (25/09/2026)
+  "del": "del",
+  "Anterior a Aproba": "Anterior a Aproba",
+  "Traído de tu sistema anterior en la migración: se abre la ficha del cliente.": "Portat del teu sistema anterior en la migració: s'obre la fitxa del client.",
   // Facturas › Estadísticas (Luis, 25/09/2026)
   // Rentabilidad y gráficos premium (25/09/2026)
   "Rentabilidad": "Rendibilitat",

@@ -37,7 +37,9 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 export type { PackLite };
 // `tema`, `servicioLabel` y `claves` los resuelve el servidor desde el catálogo del
 // despacho (el campo «categoría» de Ajustes, el mismo que agrupa el portal del cliente).
-export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null };
+// `migrado`: servicio traído de un sistema anterior (ServicioHistorico, 25/09/2026): no hay
+// expediente detrás; la fila abre la ficha del cliente o de la empresa (`enlace`).
+export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null };
 
 const MEMORIA_ARBOL = "aproba.expedientes.arbol.v1";
 // Una carpeta abierta pinta 25 expedientes; el resto, a petición. Con 15 años de
@@ -99,6 +101,22 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
   const cat = cerrado ? categoriaDe(e) : null;
   const numeros = useContext(NumerosCtx);
   const numero = numeros.editados.get(e.id) ?? e.numeroOficial ?? "";
+  // Anterior a Aproba: sin expediente que abrir, numerar, reclasificar ni restaurar.
+  if (e.migrado) {
+    return (
+      <div className={`group flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
+        <Link href={e.enlace || "/app/clientes"} className="min-w-0 flex-1">
+          <span className="block min-w-0 truncate text-sm font-semibold text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-slate-400">
+            {e.empresaNombre && e.empresaNombre !== e.clienteNombre && <span className="truncate font-medium text-slate-500" title={e.empresaNombre}>{e.empresaNombre} ·</span>}
+            {e.referencia && <span className="font-mono">{e.referencia}</span>}
+            {e.presentadoEl && <span>{e.referencia ? "· " : ""}{t("del")} {e.presentadoEl}</span>}
+          </span>
+        </Link>
+        <span className="order-last shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 sm:order-none" title={t("Traído de tu sistema anterior en la migración: se abre la ficha del cliente.")}>{t("Anterior a Aproba")}</span>
+      </div>
+    );
+  }
   return (
     <div className={`group flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
       <Link href={`/app/expedientes/${e.id}`} data-guia={e.referencia === "EJEMPLO" ? "tarjeta-ejemplo" : undefined} className="min-w-0 flex-1">
@@ -496,6 +514,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       presentadoEl: f.presentacion || undefined, numeroOficial: f.numeroOficial ?? null, archivado: true, salida: f.salida || null,
       validados: 0, total: 0, tema: info?.tema ?? null, servicioLabel: info?.label ?? null,
       claves: f.servicio ? [f.servicio] : [], anio: f.anio || null,
+      migrado: f.origen === "MIGRACION", enlace: f.enlace || null,
     };
   }, [catalogoArchivo, etiquetaTipo]);
 
