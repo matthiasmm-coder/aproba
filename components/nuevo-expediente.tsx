@@ -155,9 +155,15 @@ export function NuevoExpediente() {
       try {
         const empRes = await supabase.from("Empresa").select("id, razonSocial, nif, oficinaId, trabajadores:Cliente(id, nombre, apellidos, telefono, oficinaId)").order("razonSocial");
         if (!empRes.error) {
-          setEmpresas(((empRes.data ?? []) as unknown as (Omit<EmpresaRow, "trabajadores"> & { trabajadores: TrabajadorRow[] | null })[]).map((e) => ({
+          const lista = ((empRes.data ?? []) as unknown as (Omit<EmpresaRow, "trabajadores"> & { trabajadores: TrabajadorRow[] | null })[]).map((e) => ({
             ...e, trabajadores: (e.trabajadores ?? []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre)),
-          })));
+          }));
+          setEmpresas(lista);
+          // «+ Nuevo expediente» desde la ficha de la empresa (25/09/2026): llega ya elegida,
+          // y la búsqueda la deja sola en la lista para que se vea qué está marcado.
+          const pre = new URLSearchParams(window.location.search).get("empresa");
+          const em = pre ? lista.find((e) => e.id === pre) : undefined;
+          if (em) { setEmpresaSel(em); setQ(em.razonSocial); }
         }
       } catch { /* sin empresas */ }
 
@@ -453,13 +459,13 @@ export function NuevoExpediente() {
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700"><EmpIcon className="h-4 w-4" /></span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium text-slate-800">{em.razonSocial}</span>
-                              <span className="block truncate text-xs text-slate-400">{em.nif ? `${em.nif} · ` : ""}{n} {n === 1 ? t("trabajador") : t("trabajadores")}</span>
+                              <span className="block truncate text-xs text-slate-400">{em.nif ? `${em.nif} · ` : ""}{n === 0 ? t("Sin trabajadores") : `${n} ${n === 1 ? t("trabajador") : t("trabajadores")}`}</span>
                             </span>
                             <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${sel ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300"}`}>{sel && <Check className="h-3 w-3" />}</span>
                           </button>
                           {sel && (
                             <div className="ml-4 mt-1.5 border-l-2 border-aproba-200 pl-3">
-                              <p className="text-xs font-medium text-slate-600">{t("¿Qué trabajadores entran en este expediente? Puedes añadirlos ahora o después, desde la ficha.")}</p>
+                              <p className="text-xs font-medium text-slate-600">{t("¿Qué trabajadores entran en este expediente? Ninguno si es para la propia empresa (una consulta, un informe). Puedes añadirlos ahora o después, desde la ficha.")}</p>
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {em.trabajadores.map((tr) => {
                                   const on = trabajadoresSel.some((x) => x.id === tr.id);

@@ -8,7 +8,10 @@ import type { EmpresaFiscal } from "@/lib/empresa";
 
 export type EmpresaResumen = { id: string; razonSocial: string; nif: string | null; trabajadores: number };
 export type TrabajadorEmpresa = { id: string; nombre: string; telefono: string | null; expedientes: { id: string; referencia: string; tipoLabel: string; estado: string }[] };
-export type EmpresaDetalle = EmpresaFiscal & { id: string; razonSocial: string; trabajadores: TrabajadorEmpresa[] };
+export type ExpedienteEmpresa = { id: string; referencia: string; tipoLabel: string; estado: string };
+// `expedientesPropios`: los expedientes DE LA EMPRESA sin trabajador titular (una consulta, un
+// informe…: 25/09/2026, Luis factura servicios a empresas que no tienen trabajadores).
+export type EmpresaDetalle = EmpresaFiscal & { id: string; razonSocial: string; trabajadores: TrabajadorEmpresa[]; expedientesPropios: ExpedienteEmpresa[] };
 
 const COLS = "id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia, contactoNombre, contactoEmail, contactoTelefono, oficinaId";
 
@@ -31,8 +34,18 @@ export async function fetchEmpresaDetalle(empresaId: string): Promise<EmpresaDet
     if (error || !data) return null;
     type Row = EmpresaFiscal & { id: string; razonSocial: string; clientes: { id: string; nombre: string; apellidos: string | null; telefono: string | null; expedientes: { id: string; referencia: string; tipo: string; estado: string }[] | null }[] | null };
     const e = data as unknown as Row;
+    // Expedientes de la propia empresa (sin trabajador titular). Los de un trabajador con
+    // empresa pagadora también llevan empresaId, pero ya salen bajo ese trabajador.
+    let expedientesPropios: ExpedienteEmpresa[] = [];
+    try {
+      const { data: ex, error: eEx } = await supabase.from("Expediente").select("id, referencia, tipo, estado, clienteId").eq("empresaId", empresaId).order("createdAt", { ascending: false });
+      if (!eEx) expedientesPropios = ((ex ?? []) as { id: string; referencia: string; tipo: string; estado: string; clienteId: string | null }[])
+        .filter((x) => !x.clienteId)
+        .map((x) => ({ id: x.id, referencia: x.referencia, tipoLabel: TIPO_LABEL[x.tipo] ?? x.tipo, estado: x.estado }));
+    } catch { /* sin expedientes de empresa */ }
     return {
       ...e,
+      expedientesPropios,
       trabajadores: (e.clientes ?? []).map((c) => ({
         id: c.id, nombre: `${c.nombre} ${c.apellidos ?? ""}`.trim(), telefono: c.telefono ?? null,
         expedientes: (c.expedientes ?? []).map((x) => ({ id: x.id, referencia: x.referencia, tipoLabel: TIPO_LABEL[x.tipo] ?? x.tipo, estado: x.estado })),
@@ -50,10 +63,15 @@ export type FacturaEmpresa = {
   fechaEmision: string | null; clienteNombre: string; expedienteId: string | null;
 };
 export type ServicioContratado = { clave: string; label: string; expedientes: number };
+// Historial IMPORTADO de la empresa (supabase/servicio-historico-empresa.sql, 25/09/2026):
+// lo que se le facturó ANTES de Aproba, con su importe y si se cobró. No son facturas de Aproba.
+export type HistorialEmpresa = { id: string; etiqueta: string; fecha: string | null; referencia: string | null; notas: string | null; importe: number | null; cobro: string | null };
 export type EmpresaFicha = EmpresaDetalle & {
   facturas: FacturaEmpresa[];
   servicios: ServicioContratado[];
   totales: { facturado: number; cobrado: number; pendiente: number };
+  historial: HistorialEmpresa[];
+  historialTotales: { importe: number; pendiente: number };
 };
 
 export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha | null> {
@@ -64,7 +82,7 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
   // Servicios contratados = los de los expedientes de sus trabajadores (principal + extra).
   // El label sale del catálogo del despacho (servicios propios incluidos), con repli al
   // catálogo de trámites y, en último caso, a la propia clave.
-  const expIds = detalle.trabajadores.flatMap((t) => t.expedientes.map((e) => e.id));
+  const expIds = [...detalle.trabajadores.flatMap((t) => t.expedientes.map((e) => e.id)), ...detalle.expedientesPropios.map((e) => e.id)];
   const servicios: ServicioContratado[] = [];
   const facturas: FacturaEmpresa[] = [];
   try {
@@ -107,12 +125,31 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
     facturas.push(...[...vistas.values()].sort((a, b) => String(b.fechaEmision ?? "").localeCompare(String(a.fechaEmision ?? "")) || b.numero.localeCompare(a.numero)));
   } catch { /* la ficha se enseña igual, sin estos bloques */ }
 
+  // Historial importado: sin la migración (columna empresaId) la lectura falla y queda vacío.
+  const historial: HistorialEmpresa[] = [];
+  try {
+    // `notas` lleva el concepto de la factura original: sin persona, es lo único que dice
+    // QUÉ se facturó cuando el servicio del catálogo es genérico («Otros trámites»).
+    let hr = await supabase.from("ServicioHistorico").select("id, etiqueta, tipo, fecha, referencia, notas, importe, cobro").eq("empresaId", empresaId).order("fecha", { ascending: false });
+    if (hr.error && /cobro/i.test(hr.error.message)) hr = await supabase.from("ServicioHistorico").select("id, etiqueta, tipo, fecha, referencia, notas, importe").eq("empresaId", empresaId).order("fecha", { ascending: false }) as typeof hr;
+    if (!hr.error) {
+      for (const h of (hr.data ?? []) as { id: string; etiqueta: string | null; tipo: string | null; fecha: string | null; referencia: string | null; notas: string | null; importe: number | string | null; cobro?: string | null }[]) {
+        historial.push({ id: h.id, etiqueta: h.etiqueta || TIPO_LABEL[h.tipo ?? ""] || h.tipo || "—", fecha: h.fecha, referencia: h.referencia, notas: h.notas, importe: h.importe != null ? Number(h.importe) : null, cobro: h.cobro ?? null });
+      }
+    }
+  } catch { /* sin historial importado */ }
+  const redondea = (n: number) => Math.round(n * 100) / 100;
+  const historialTotales = {
+    importe: redondea(historial.reduce((a, h) => a + (h.importe ?? 0), 0)),
+    pendiente: redondea(historial.filter((h) => h.cobro === "PENDIENTE").reduce((a, h) => a + (h.importe ?? 0), 0)),
+  };
+
   // «Anulada» no cuenta como facturado; «pendiente» es lo emitido y aún no cobrado.
   const vivas = facturas.filter((f) => f.estado !== "ANULADA" && f.estado !== "BORRADOR");
   const facturado = vivas.reduce((a, f) => a + f.total, 0);
   const cobrado = vivas.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + f.total, 0);
   return {
-    ...detalle, facturas, servicios,
+    ...detalle, facturas, servicios, historial, historialTotales,
     totales: { facturado: Math.round(facturado * 100) / 100, cobrado: Math.round(cobrado * 100) / 100, pendiente: Math.round((facturado - cobrado) * 100) / 100 },
   };
 }

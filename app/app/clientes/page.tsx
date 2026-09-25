@@ -125,15 +125,45 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     };
   });
 
+  // EMPRESA cliente directa (25/09/2026, migración de Luis): una empresa puede contratar
+  // consultas o informes sin tener ningún trabajador en el despacho. Agrupando solo desde
+  // los trabajadores, 10 de sus 15 empresas no salían en ninguna parte. Se leen todas las
+  // empresas con sus expedientes PROPIOS (clienteId nulo: los de sus trabajadores ya
+  // cuentan en cada trabajador) y lo facturado antes de Aproba. Réplicas de repli: sin la
+  // migración del historial de empresa, o sin el recuento, la lista queda como antes.
+  type EmpRow = {
+    id: string; razonSocial: string; nif: string | null; oficinaId?: string | null;
+    trabajadores?: { count: number }[] | null;
+    expedientes?: { tipo: string; createdAt: string; clienteId: string | null }[] | null;
+    historial?: Row["historial"];
+  };
+  const qe = (cols: string) => supabase.from("Empresa").select(cols).order("createdAt", { ascending: false }).limit(TOPE_CLIENTES);
+  let resEmp = await qe("id, razonSocial, nif, oficinaId, trabajadores:Cliente(count), expedientes:Expediente(tipo, createdAt, clienteId), historial:ServicioHistorico(etiqueta, tipo, fecha, createdAt)");
+  if (resEmp.error) resEmp = await qe("id, razonSocial, nif, oficinaId, trabajadores:Cliente(count), expedientes:Expediente(tipo, createdAt, clienteId)");
+  if (resEmp.error) resEmp = await qe("id, razonSocial, nif, oficinaId, trabajadores:Cliente(count)");
+  const empRows = resEmp.error ? [] : (((resEmp.data ?? []) as unknown[]) as EmpRow[]);
+  const empInfo = new Map(empRows.map((e) => [e.id, e]));
+  const sedesVista = filtroSede.sedes;
+  const enSede = (oficinaId: string | null | undefined) => !sedesVista?.length || (oficinaId ? sedesVista.includes(oficinaId) : incluirSinSede);
+  for (const e of empRows) {
+    if (empresas.has(e.id)) continue;
+    // Con trabajadores (en otra sede o fuera del tope), la empresa sale donde salen ellos.
+    if ((e.trabajadores?.[0]?.count ?? 0) > 0 || !enSede(e.oficinaId)) continue;
+    empresas.set(e.id, { nombre: e.razonSocial || "Empresa", nif: e.nif ?? null, miembros: [] });
+  }
+
   const entradasEmpresa: Cli[] = [...empresas.entries()].map(([id, g]) => {
     const miembros = g.miembros.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    const masReciente = [...miembros].sort((a, b) => b._ultimoAt.localeCompare(a._ultimoAt))[0];
+    const e = empInfo.get(id);
+    const propios = (e?.expedientes ?? []).filter((x) => !x.clienteId);
+    const propia = aCli({ id, nombre: "", apellidos: null, nacionalidad: null, expedientes: propios, historial: e?.historial ?? [] });
+    const masReciente = [...miembros, propia].filter((m) => m._ultimoAt).sort((a, b) => b._ultimoAt.localeCompare(a._ultimoAt))[0];
     return {
       id,
       nombre: g.nombre,
       nacionalidad: g.nif ?? "—", // en la fila de la empresa, la «nacionalidad» es su CIF
-      expedientes: miembros.reduce((n, m) => n + m.expedientes, 0),
-      ultimo: masReciente && masReciente._ultimoAt ? masReciente.ultimo : "—",
+      expedientes: miembros.reduce((n, m) => n + m.expedientes, 0) + propios.length,
+      ultimo: masReciente ? masReciente.ultimo : "—",
       empresa: true,
       miembros: miembros.map((m) => ({ id: m.id, nombre: m.nombre, parentesco: null, nacionalidad: m.nacionalidad, expedientes: m.expedientes, oficinaId: m.oficinaId })),
     };

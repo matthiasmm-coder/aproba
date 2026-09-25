@@ -209,7 +209,7 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
           const todosMarcados = idsFam.length > 0 && idsFam.every((id) => sel.has(id));
           return (
             <div key={c.id} className="border-b border-slate-50 last:border-0">
-              {multi && (
+              {multi && idsFam.length > 0 && (
                 // Cocher une famille = cocher TOUS ses membres : c'est eux qui portent
                 // l'oficina, la famille n'est qu'un regroupement.
                 <label className="flex cursor-pointer items-center pl-5 pt-3">
@@ -230,15 +230,16 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aproba-100 text-aproba-700"><EmpIcon className="h-4 w-4" /></span>
                     <span className="min-w-0">
                       <Link href={`/app/empresas/${c.id}`} className="block truncate font-medium text-slate-800 transition hover:text-aproba-700 hover:underline">{c.nombre}</Link>
-                      <span className="block text-xs text-slate-400">{c.miembros.length} {c.miembros.length === 1 ? t("trabajador") : t("trabajadores")}</span>
+                      {/* Cero trabajadores = empresa cliente directa (consultas, informes). */}
+                      <span className="block text-xs text-slate-400">{c.miembros.length === 0 ? t("Sin trabajadores") : `${c.miembros.length} ${c.miembros.length === 1 ? t("trabajador") : t("trabajadores")}`}</span>
                     </span>
-                    <button
+                    {c.miembros.length > 0 && <button
                       type="button" onClick={() => toggle(c.id)} aria-expanded={abierta}
                       aria-label={`${abierta ? t("Ocultar los trabajadores de") : t("Ver los trabajadores de")} ${c.nombre}`}
                       className="-m-1.5 shrink-0 rounded p-1.5 text-slate-300 transition hover:text-slate-500"
                     >
                       <svg className={`h-4 w-4 transition ${abierta ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                    </button>
+                    </button>}
                   </span>
                   <span className="hidden w-32 text-sm text-slate-500 sm:block">{c.nacionalidad}</span>
                   <span className="hidden w-40 truncate text-sm text-slate-500 sm:block">{t(c.ultimo)}</span>
@@ -316,7 +317,7 @@ export function ClientesList({ lista, oficinas = [], pestanaInicial }: {
             <div className="px-5 py-12 text-center">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aproba-50 text-aproba-600"><EmpIcon className="h-7 w-7" /></span>
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("Todavía no tienes empresas")}</p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cuando tu cliente es una empresa que contrata a un trabajador extranjero: la empresa figura en la hoja de encargo y en las facturas, y el expediente se abre a nombre del trabajador. Se crea desde «Nuevo cliente» o «Nuevo expediente».")}</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{t("Cuando tu cliente es una empresa: figura en la hoja de encargo y en las facturas, y el expediente se abre a nombre de un trabajador o de la propia empresa (una consulta, un informe). Se crea desde «Nuevo cliente» o «Nuevo expediente».")}</p>
               <Link href="/app/clientes/nuevo?modo=empresa" className="mt-4 inline-block rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva empresa")}</Link>
             </div>
           ) : (

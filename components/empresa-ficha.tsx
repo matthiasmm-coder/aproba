@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { eur, FACTURA_ESTADO_META, type FacturaEstado } from "@/lib/facturas";
 import { EmpresaEditor } from "@/components/empresa-editor";
+import { MarcarCobroPrevio } from "@/components/cobro-previo";
 import type { EmpresaFicha } from "@/lib/data/empresas";
 
 // FICHA DE LA EMPRESA (18/09/2026, petición de Luis y Marta): la empresa que contrata y
 // paga tiene su propia ficha, separada de la del trabajador. Aquí: sus datos fiscales, lo
 // que ha contratado, sus facturas y sus trabajadores — con «Añadir trabajador» sin salir.
+// 25/09/2026: una empresa puede ser cliente SIN trabajadores (consultas, informes): sus
+// expedientes propios, «+ Nuevo expediente» y lo que se le facturó antes de Aproba.
 
 export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
   const t = useT();
@@ -87,11 +90,16 @@ export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
         <Tarjeta label={t("Pendiente de cobro")} valor={eur(ficha.totales.pendiente)} tono={ficha.totales.pendiente > 0 ? "text-amber-600" : "text-slate-900"} />
       </div>
 
-      {/* Servicios contratados (de los expedientes de sus trabajadores) */}
+      {/* Servicios contratados (expedientes de la empresa y de sus trabajadores) */}
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-5 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Servicios contratados")}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Servicios contratados")}</p>
+          <Link href={`/app/expedientes/nuevo?empresa=${ficha.id}`} className="rounded-lg border border-aproba-300 px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50">
+            {t("+ Nuevo expediente")}
+          </Link>
+        </div>
         {ficha.servicios.length === 0 ? (
-          <p className="mt-1 text-sm text-slate-500">{t("Todavía sin expedientes: los servicios aparecen aquí en cuanto abras uno para un trabajador.")}</p>
+          <p className="mt-1 text-sm text-slate-500">{t("Todavía sin expedientes: ábrele uno a la empresa (una consulta, un informe…) o a uno de sus trabajadores.")}</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {ficha.servicios.map((s) => (
@@ -99,6 +107,16 @@ export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
                 {s.label}
                 <span className="rounded-full bg-white px-1.5 text-xs font-semibold text-slate-500">{s.expedientes}</span>
               </span>
+            ))}
+          </div>
+        )}
+        {ficha.expedientesPropios.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-slate-500">{t("Expedientes de la empresa")}:</span>
+            {ficha.expedientesPropios.map((x) => (
+              <Link key={x.id} href={`/app/expedientes/${x.id}`} className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] text-slate-600 transition hover:border-slate-400">
+                {x.referencia} · {x.tipoLabel}
+              </Link>
             ))}
           </div>
         )}
@@ -134,7 +152,7 @@ export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
           </div>
         )}
         {ficha.trabajadores.length === 0 ? (
-          !anadiendo && <p className="border-t border-slate-100 px-5 py-4 text-sm text-slate-500">{t("Todavía sin trabajadores.")}</p>
+          !anadiendo && <p className="border-t border-slate-100 px-5 py-4 text-sm text-slate-500">{t("Sin trabajadores: la empresa es cliente directa.")}</p>
         ) : (
           <ul className="divide-y divide-slate-50 border-t border-slate-100">
             {ficha.trabajadores.map((tr) => (
@@ -154,6 +172,40 @@ export function EmpresaFichaView({ ficha }: { ficha: EmpresaFicha }) {
           </ul>
         )}
       </div>
+
+      {/* Lo facturado ANTES de Aproba (historial importado): no son facturas de Aproba. */}
+      {ficha.historial.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturado antes de Aproba")} ({ficha.historial.length})</p>
+            <p className="text-xs text-slate-500">
+              {t("Total")} <span className="font-semibold text-slate-800">{eur(ficha.historialTotales.importe)}</span>
+              {ficha.historialTotales.pendiente > 0 && <> · {t("pendiente de cobro")} <span className="font-semibold text-amber-600">{eur(ficha.historialTotales.pendiente)}</span></>}
+            </p>
+          </div>
+          <div className="overflow-x-auto border-t border-slate-100">
+            <table className="w-full text-sm">
+              <tbody>
+                {ficha.historial.map((h) => (
+                  <tr key={h.id} className="border-b border-slate-50 last:border-0">
+                    <td className="whitespace-nowrap px-5 py-3 text-xs text-slate-500">{h.fecha ? new Date(h.fecha).toLocaleDateString("es-ES", { timeZone: "UTC" }) : "—"}</td>
+                    <td className="px-3 py-3 text-slate-700">
+                      {h.etiqueta}{h.referencia && <span className="ml-2 font-mono text-[11px] text-slate-400">{h.referencia}</span>}
+                      {h.notas && <span className="block line-clamp-2 text-xs text-slate-400">{h.notas}</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-slate-800">{h.importe != null ? eur(h.importe) : "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right">
+                      {h.cobro === "PENDIENTE"
+                        ? <div className="flex items-center justify-end gap-2"><span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">{t("Pendiente")}</span><MarcarCobroPrevio tipo="servicio" id={h.id} /></div>
+                        : h.cobro && <span className="rounded-full bg-aproba-50 px-2 py-0.5 text-xs font-semibold text-aproba-700">{t("Cobrada")}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Facturas emitidas a la empresa */}
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white">

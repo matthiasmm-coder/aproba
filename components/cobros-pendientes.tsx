@@ -181,7 +181,7 @@ export function CobrosPendientes({ cobros, previos = [] }: { cobros: CobroPendie
                       <p className="mt-0.5 truncate text-xs text-slate-400">
                         {c.expedienteId
                           ? <Link href={`/app/expedientes/${c.expedienteId}`} className="underline decoration-slate-300 hover:text-slate-600">{c.concepto}</Link>
-                          : <Link href={`/app/clientes/${c.clienteId}`} className="underline decoration-slate-300 hover:text-slate-600">{c.concepto}</Link>}
+                          : <Link href={c.empresaId ? `/app/empresas/${c.empresaId}` : `/app/clientes/${c.clienteId}`} className="underline decoration-slate-300 hover:text-slate-600">{c.concepto}</Link>}
                         {c.fecha ? ` · ${c.fecha}` : ""}
                       </p>
                     </div>

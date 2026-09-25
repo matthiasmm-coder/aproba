@@ -240,15 +240,19 @@ export async function POST(req: Request) {
   // ── 3. Historial de servicios (trámites del PASADO — NI expediente, NI portal, NI cuota) ──
   if (mapeo.crearHistorial) {
     try {
-      // `cobro` (supabase/cobro-previo.sql, 24/09/2026): sin la migración se lee sin él.
-      let lecturaHist = await admin
-        .from("ServicioHistorico")
-        .select("id, clienteId, servicioClave, fecha, referencia, importe, cobro")
-        .eq("workspaceId", workspaceId);
+      // `cobro` (supabase/cobro-previo.sql, 24/09/2026) y `empresaId` (supabase/servicio-
+      // historico-empresa.sql, 25/09/2026): sin cada migración se lee sin la columna.
       let conCobro = true;
+      let conEmpresaHist = true;
+      const colsHist = () => `id, clienteId, ${conEmpresaHist ? "empresaId, " : ""}servicioClave, fecha, referencia, importe${conCobro ? ", cobro" : ""}`;
+      let lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId);
+      if (lecturaHist.error && /empresaId/i.test(lecturaHist.error.message)) {
+        conEmpresaHist = false;
+        lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId) as typeof lecturaHist;
+      }
       if (lecturaHist.error && /cobro/i.test(lecturaHist.error.message)) {
         conCobro = false;
-        lecturaHist = await admin.from("ServicioHistorico").select("id, clienteId, servicioClave, fecha, referencia, importe").eq("workspaceId", workspaceId) as typeof lecturaHist;
+        lecturaHist = await admin.from("ServicioHistorico").select(colsHist()).eq("workspaceId", workspaceId) as typeof lecturaHist;
       }
       const histExist = lecturaHist.data;
       // Índices por referencia y por (cliente+servicio+fecha) → id + importe: sirven para
@@ -262,13 +266,22 @@ export async function POST(req: Request) {
       // y después se añadió la fecha al Excel. Sin este índice, la fecha nueva cambia la
       // clave de dedup y el reimport DUPLICARÍA el historial en vez de completarlo.
       const porClienteServicio = new Map<string, Rec>();
-      for (const e of (histExist ?? []) as { id: string; clienteId: string; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null; cobro?: string | null }[]) {
+      // Titular del historial: el cliente, o «E:<empresaId>» para lo facturado a una empresa
+      // sin trabajador (consultas, informes).
+      for (const e of (histExist ?? []) as unknown as { id: string; clienteId: string | null; empresaId?: string | null; servicioClave: string | null; fecha: string | null; referencia: string | null; importe: number | string | null; cobro?: string | null }[]) {
+        const titular = e.clienteId ?? (e.empresaId ? `E:${e.empresaId}` : "");
         const rec: Rec = { id: e.id, importe: e.importe != null ? Number(e.importe) : null, sinFecha: !e.fecha, cobro: e.cobro ?? null };
         if (e.referencia) porRef.set(e.referencia, rec);
-        porCombo.set(`${e.clienteId}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
-        if (!e.fecha) porClienteServicio.set(`${e.clienteId}|${e.servicioClave ?? ""}`, rec);
+        porCombo.set(`${titular}|${e.servicioClave ?? ""}|${(e.fecha ?? "").slice(0, 10)}`, rec);
+        if (!e.fecha) porClienteServicio.set(`${titular}|${e.servicioClave ?? ""}`, rec);
       }
       const lote: Record<string, unknown>[] = [];
+      // Lo facturado a una EMPRESA sin persona en la fila (Luis, 25/09/2026: consultas e
+      // informes a empresas sin ningún trabajador). Antes esas filas solo creaban la empresa
+      // y el servicio se perdía; ahora va al historial de la empresa. Lote aparte: si algo
+      // falla aquí, el historial de las personas entra igual.
+      const loteEmpresa: Record<string, unknown>[] = [];
+      let empresaSinMigrar = 0;
       const rellenos: { id: string; importe: number }[] = [];
       // Estado del cobro al reimportar: se rellena si faltaba y SUBE de pendiente a cobrada
       // (el cliente pagó desde entonces); nunca baja — lo marcado cobrado en Aproba manda.
@@ -277,14 +290,21 @@ export async function POST(req: Request) {
       for (let i = 0; i < filas.length; i++) {
         const f = filas[i];
         const clienteId = clienteDe.get(i);
-        if (!clienteId || !f.servicio || f.enCurso) continue; // en curso → expediente real (paso 3b), no historial
+        const empresaSola = !clienteId && !f.excluir && !f.ficha.nombre?.trim() && empresasActivas && f.empresa.trim()
+          ? empresasPorNombre.get(claveEmpresa(f.empresa)) ?? null
+          : null;
+        if ((!clienteId && !empresaSola) || !f.servicio || f.enCurso) continue; // en curso → expediente real (paso 3b), no historial
+        if (!clienteId && !conEmpresaHist) { empresaSinMigrar++; continue; }
+        const titular = clienteId ?? `E:${empresaSola}`;
         const fechaSrv = f.fechaResolucion || f.fechaPresentacion || ""; // fecha del servicio: resolución, o presentación si es lo único que hay
-        const combo = `${clienteId}|${f.servicio}|${fechaSrv}`;
+        const combo = `${titular}|${f.servicio}|${fechaSrv}`;
         // El mismo servicio ya migrado SIN fecha cuenta como el mismo: se completa, no se duplica.
         const refServicio = f.referencia || f.numeroOficial;
         const existente = (refServicio ? porRef.get(refServicio) : undefined)
           ?? porCombo.get(combo)
-          ?? (fechaSrv ? porClienteServicio.get(`${clienteId}|${f.servicio}`) : undefined);
+          ?? (fechaSrv ? porClienteServicio.get(`${titular}|${f.servicio}`) : undefined);
+        // La fila no es un error: su servicio cuenta para la empresa.
+        if (!clienteId) f.avisos = f.avisos.filter((a) => a !== "Fila sin nombre");
         if (existente) {
           r.serviciosOmitidos++;
           if (existente.importe == null && f.importe != null) { existente.importe = f.importe; rellenos.push({ id: existente.id, importe: f.importe }); }
@@ -293,7 +313,7 @@ export async function POST(req: Request) {
           }
           if (existente.sinFecha && fechaSrv) {
             existente.sinFecha = false;
-            porClienteServicio.delete(`${clienteId}|${f.servicio}`);
+            porClienteServicio.delete(`${titular}|${f.servicio}`);
             porCombo.set(combo, existente);            // ya tiene fecha: la próxima fila igual sí es un duplicado
             fechasRellenadas.push({ id: existente.id, fecha: fechaSrv });
           }
@@ -303,8 +323,9 @@ export async function POST(req: Request) {
         const rec: Rec = { id: uid(), importe: f.importe, cobro: f.estadoCobro || null };
         if (refServicio) porRef.set(refServicio, rec);
         porCombo.set(combo, rec);
-        lote.push({
-          id: rec.id, workspaceId, clienteId,
+        (clienteId ? lote : loteEmpresa).push({
+          id: rec.id, workspaceId,
+          ...(clienteId ? { clienteId } : { clienteId: null, empresaId: empresaSola }),
           tipo, servicioClave: f.servicio,
           etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
           fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,
@@ -321,10 +342,19 @@ export async function POST(req: Request) {
         const { error } = await admin.from("ServicioHistorico").insert(lote.slice(i, i + 100));
         if (error) throw error;
       }
+      let creadosEmpresa = 0;
+      for (let i = 0; i < loteEmpresa.length; i += 100) {
+        const trozo = loteEmpresa.slice(i, i + 100);
+        const { error } = await admin.from("ServicioHistorico").insert(trozo);
+        if (error) { avisosExtra.push(`Servicios facturados a empresas sin trabajador no registrados: ${error.message.slice(0, 100)}`); break; }
+        creadosEmpresa += trozo.length;
+      }
+      if (creadosEmpresa) avisosExtra.push(`${creadosEmpresa} servicios facturados a empresas sin trabajador: están en la ficha de cada empresa.`);
+      if (empresaSinMigrar) avisosExtra.push(`${empresaSinMigrar} servicios facturados a empresas sin trabajador no se han guardado: falta ejecutar supabase/servicio-historico-empresa.sql en Supabase.`);
       for (const rl of rellenos) await admin.from("ServicioHistorico").update({ importe: rl.importe, updatedAt: ahora() }).eq("id", rl.id);
       for (const cr of cobrosRellenados) await admin.from("ServicioHistorico").update({ cobro: cr.cobro, updatedAt: ahora() }).eq("id", cr.id);
       for (const fr of fechasRellenadas) await admin.from("ServicioHistorico").update({ fecha: `${fr.fecha}T00:00:00.000Z`, updatedAt: ahora() }).eq("id", fr.id);
-      r.serviciosCreados = lote.length;
+      r.serviciosCreados = lote.length + creadosEmpresa;
       if (rellenos.length) avisosExtra.push(`${rellenos.length} importes añadidos a servicios ya migrados.`);
       if (cobrosRellenados.length) avisosExtra.push(`${cobrosRellenados.length} estados del cobro añadidos o actualizados en servicios ya migrados.`);
       if (!conCobro && filas.some((f) => f.estadoCobro)) avisosExtra.push("El estado del cobro no se ha guardado: falta ejecutar supabase/cobro-previo.sql en Supabase.");

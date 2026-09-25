@@ -411,7 +411,7 @@ export function NuevoCliente() {
 
       {esEmpresa && (
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6">
-        <p className="mb-4 text-sm text-slate-500">{t("La empresa figura como cliente en la hoja de encargo y en las facturas (con su CIF y domicilio). Cada expediente se abre a nombre de un trabajador, que recibe el enlace y sube sus documentos.")}</p>
+        <p className="mb-4 text-sm text-slate-500">{t("La empresa figura como cliente en la hoja de encargo y en las facturas (con su CIF y domicilio). Sus expedientes se abren a nombre de un trabajador, que recibe el enlace y sube sus documentos, o de la propia empresa si no hay trabajador (una consulta, un informe).")}</p>
 
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-aproba-700">{t("Empresa")}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
