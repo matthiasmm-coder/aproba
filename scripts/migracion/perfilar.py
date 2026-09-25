@@ -28,6 +28,12 @@ RE_SENSIBLE = re.compile(r"observ|falta|coment|^\s*b\s*$|\ben b\b|\(b\)|negro|ef
 # Columnas de documento de identidad por su cabecera (antes que por sus valores: un nº de
 # factura «AGC0122.2026» parece un pasaporte).
 RE_CAB_DOC = re.compile(r"\bnie\b|\bnif\b|\bdni\b|\bcif\b|documento|pasaporte|identificaci", re.I)
+# Nombre de EMPRESA: forma jurídica o palabra de negocio. Un «CIF» válido con nombre de persona
+# es casi siempre un PASAPORTE que pasa el dígito de control por casualidad (Luis: 4 de 19).
+RE_EMPRESA = re.compile(r"\b(s\.?\s?l\.?(\s?[up]\.?)?|s\.?\s?a\.?(\s?u\.?)?|s\.?\s?coop\.?|c\.?\s?b\.?)(?=\W|$)"
+                        r"|sociedad|asociaci|fundaci|cooperativ|comunidad|ayuntamiento|abogados|asesor|consult|auditor"
+                        r"|ingenier|system|technolog|\blabs?\b|digital|transport|grupo|holding|solution|servicios"
+                        r"|centro|colegio|escuela|academia|entertain|inmobiliari|construcc", re.I)
 RE_CAB_NO_DOC = re.compile(r"factura|referencia|\bref\b|expediente|n[ºo°]\s*$", re.I)
 RE_ESTADO_COBRO = re.compile(r"cobr|pagad|pendiente|impagad", re.I)
 RE_PENDIENTE = re.compile(r"\b(no|pendiente|pte|parcial|impagad|debe|sin cobrar|por cobrar)", re.I)
@@ -48,6 +54,8 @@ def cif_valido(v):
     if not RE_CIF.match(v):
         return False
     digitos = v[1:8]
+    if digitos[:2] == "00":  # código de provincia imposible
+        return False
     pares = sum(int(digitos[i]) for i in (1, 3, 5))
     impares = sum(sum(divmod(int(digitos[i]) * 2, 10)) for i in (0, 2, 4, 6))
     control = (10 - (pares + impares) % 10) % 10
@@ -174,18 +182,24 @@ def perfil_hoja(nombre, filas, cab_forzada, salida):
     col_nombre = next((j for j in range(ncol) if re.search(r"nombre|cliente|titular|raz[oó]n", cab[j] or "", re.I) and tipos[j] == "texto"), None)
     por_doc = defaultdict(list)
     empresas = set()
+    cif_de_persona = {}  # «CIF» válido con nombre de persona → casi seguro un pasaporte
     for i, r in enumerate(datos):
+        nombre = str(r[col_nombre]).strip() if col_nombre is not None and col_nombre < len(r) and r[col_nombre] else ""
         for j in col_doc:
             v = doc(r[j]) if j < len(r) and r[j] not in (None, "") else ""
             if not v:
                 continue
-            if cif_valido(v):
+            if cif_valido(v) and (not nombre or RE_EMPRESA.search(nombre)):
                 empresas.add(v)
             else:
+                if cif_valido(v):
+                    cif_de_persona[v] = nombre
                 por_doc[v].append(i)
             break
     varias = {d: ix for d, ix in por_doc.items() if len(ix) > 1}
-    p(f"\n**Personas**: {len(por_doc)} documentos distintos · **empresas** (CIF válido): {len(empresas)}")
+    p(f"\n**Personas**: {len(por_doc)} documentos distintos · **empresas** (CIF válido y nombre de empresa): {len(empresas)}")
+    if cif_de_persona:
+        p(f"- {len(cif_de_persona)} documentos con forma de CIF pero **nombre de persona** → casi seguro pasaportes (se tratan como personas; confirmar): " + "; ".join(f"{n} {d}" for d, n in list(cif_de_persona.items())[:8]))
     if varias:
         dist = Counter(len(ix) for ix in varias.values())
         p(f"- {len(varias)} personas aparecen en varias filas ({', '.join(f'{n} filas: {c}' for n, c in sorted(dist.items()))}) → probablemente un **listado de facturas**: cada fila es un servicio, la persona se crea una vez.")
