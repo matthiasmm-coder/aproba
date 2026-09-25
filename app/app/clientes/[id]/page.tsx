@@ -14,6 +14,7 @@ import { EditarCliente } from "@/components/editar-cliente";
 import { EliminarClienteButton } from "@/components/eliminar-cliente-button";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { getT } from "@/lib/app-lang";
+import { agruparPagos, cobroDePagos, conceptoDeNotas, conceptoUtil, sinMarcaDePago } from "@/lib/historial-pagos";
 
 // Fiche client — RÉELLE (Supabase + RLS) : le cliente, ses expedientes et ses
 // facturas du workspace. Clé = id réel du cliente (plus de données démo).
@@ -134,27 +135,40 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
   // Historial de servicios: trámites del PASADO (migrados o cerrados). Defensivo: [] si la
   // tabla ServicioHistorico aún no está migrada. Se fusiona con los expedientes REALES para
   // que la ficha cuente UNA sola historia, venga de una migración o de un expediente.
-  let historicos: { id: string; tipo: string; etiqueta: string | null; fecha: string | null; estado: string | null; importe: number | string | null; cobro?: string | null }[] = [];
+  let historicos: { id: string; tipo: string; etiqueta: string | null; fecha: string | null; estado: string | null; importe: number | string | null; referencia: string | null; notas: string | null; cobro?: string | null; pagoDeId?: string | null }[] = [];
   try {
     // `cobro` = estado del cobro de lo facturado antes de Aproba (supabase/cobro-previo.sql);
-    // sin la migración se lee sin él.
+    // `pagoDeId` = factura siguiente de un mismo servicio (supabase/historial-pagos.sql).
+    // Sin cada migración se lee sin su columna.
     const leer = (cols: string) => supabase.from("ServicioHistorico").select(cols).eq("clienteId", id).order("fecha", { ascending: false });
-    let { data: hs, error: eh } = await leer("id, tipo, etiqueta, fecha, estado, importe, cobro");
-    if (eh && /cobro/i.test(eh.message)) ({ data: hs, error: eh } = await leer("id, tipo, etiqueta, fecha, estado, importe"));
+    const BASE = "id, tipo, etiqueta, fecha, estado, importe, referencia, notas";
+    let { data: hs, error: eh } = await leer(`${BASE}, cobro, pagoDeId`);
+    if (eh && /pagoDeId/i.test(eh.message)) ({ data: hs, error: eh } = await leer(`${BASE}, cobro`));
+    if (eh && /cobro/i.test(eh.message)) ({ data: hs, error: eh } = await leer(BASE));
     if (!eh) historicos = (hs ?? []) as unknown as typeof historicos;
   } catch { /* tabla aún no migrada */ }
 
   const servicios = [
     ...expedientes.map((e) => ({
       id: e.id, href: `/app/expedientes/${e.id}` as string | undefined,
-      label: TIPO_LABEL[e.tipo] ?? e.tipo, sub: e.referencia, importado: false,
+      label: TIPO_LABEL[e.tipo] ?? e.tipo, sub: e.referencia, detalle: null as string | null, importado: false,
       estado: e.estado, importe: null as number | null, cobro: null as string | null, orden: new Date(e.createdAt).getTime() || 0,
     })),
-    ...historicos.map((h) => ({
-      id: h.id, href: undefined as string | undefined,
-      label: h.etiqueta || TIPO_LABEL[h.tipo] || h.tipo, sub: fmtFechaCorta(h.fecha) ?? "—", importado: true,
-      estado: h.estado || "FINALIZADO", importe: h.importe != null ? Number(h.importe) : null, cobro: h.cobro ?? null, orden: h.fecha ? (new Date(h.fecha).getTime() || 0) : 0,
-    })),
+    // Lo migrado es una fila por FACTURA: un servicio cobrado en varias sale UNA vez, con sus
+    // números, su total y su cobro; y el concepto distingue dos servicios iguales (25/09/2026).
+    ...agruparPagos(historicos).map(({ principal: h, pagos }) => {
+      const label = h.etiqueta || TIPO_LABEL[h.tipo] || h.tipo;
+      const concepto = conceptoDeNotas(h.notas);
+      const refs = pagos.map((p) => p.referencia).filter(Boolean).join(" + ");
+      return {
+        id: h.id, href: undefined as string | undefined,
+        label, sub: [fmtFechaCorta(h.fecha) ?? "—", refs, pagos.length > 1 ? `${pagos.length} ${t("pagos")}` : ""].filter(Boolean).join(" · "),
+        detalle: conceptoUtil(pagos.length > 1 && concepto ? sinMarcaDePago(concepto) : concepto, label), importado: true,
+        estado: h.estado || "FINALIZADO",
+        importe: pagos.some((p) => p.importe != null) ? pagos.reduce((a, p) => a + (p.importe != null ? Number(p.importe) : 0), 0) : null,
+        cobro: cobroDePagos(pagos.map((p) => p.cobro)), orden: h.fecha ? (new Date(h.fecha).getTime() || 0) : 0,
+      };
+    }),
   ].sort((a, b) => b.orden - a.orden);
   // Total facturado en el PASADO (histórico migrado) — informativo, NO son facturas emitidas.
   const historicoTotal = servicios.reduce((s, x) => s + (x.importe ?? 0), 0);
@@ -195,7 +209,8 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
           </div>
           <div className="hidden gap-6 text-center sm:flex">
             <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{servicios.length}</p><p className="text-xs text-slate-400">{t("servicios")}</p></div>
-            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
+            {/* Todo lo facturado: facturas de Aproba MÁS lo de antes de Aproba (25/09/2026). */}
+            <div><p className="text-2xl font-bold tracking-tightest text-slate-900">{eur(totalFacturado + historicoTotal)}</p><p className="text-xs text-slate-400">{t("facturado")}</p></div>
           </div>
         </div>
       </div>
@@ -229,6 +244,8 @@ export default async function ClienteDetail({ params, searchParams }: { params: 
                       {s.cobro === "PENDIENTE" && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700">{t("Pendiente de cobro")}</span>}
                       {s.cobro === "COBRADA" && <span className="shrink-0 text-aproba-700">· {t("cobrado")}</span>}
                     </div>
+                    {/* Concepto de la factura migrada: distingue dos servicios iguales (sus dos hijos). */}
+                    {s.detalle && <p className="mt-0.5 truncate text-xs text-slate-500" title={s.detalle}>{s.detalle}</p>}
                   </div>
                 </>
               );

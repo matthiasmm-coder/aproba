@@ -325,7 +325,11 @@ export async function POST(req: Request) {
         porCombo.set(combo, rec);
         (clienteId ? lote : loteEmpresa).push({
           id: rec.id, workspaceId,
-          ...(clienteId ? { clienteId } : { clienteId: null, empresaId: empresaSola }),
+          // Con trabajador y empresa, el trabajador es el titular y la empresa la que pagó (como
+          // en los expedientes en curso, paso 3b): la ficha de la empresa cuenta esa factura.
+          ...(clienteId
+            ? { clienteId, ...(conEmpresaHist && empresaDe.get(i) ? { empresaId: empresaDe.get(i) } : {}) }
+            : { clienteId: null, empresaId: empresaSola }),
           tipo, servicioClave: f.servicio,
           etiqueta: catalogoLabel.get(f.servicio) ?? TIPO_LABEL[tipo] ?? f.servicio,
           fecha: fechaSrv ? `${fechaSrv}T00:00:00.000Z` : null,

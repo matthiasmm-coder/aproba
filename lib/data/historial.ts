@@ -20,6 +20,10 @@ export type FilaHistorial = {
   // y enlace a la ficha del titular. Sin la migración, las columnas no llegan.
   origen?: string;
   enlace?: string;
+  // Concepto de la factura migrada y nº de facturas del servicio (supabase/historial-pagos.sql):
+  // «CUENTA AJENA – BAKARY MANNEH», o 2 si se cobró en dos pagos. Sin la migración, no llegan.
+  detalle?: string;
+  pagos?: number;
 };
 
 const args = (sedes?: string[] | null, incluirSinSede = false) => ({

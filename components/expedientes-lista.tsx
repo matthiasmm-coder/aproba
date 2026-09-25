@@ -14,6 +14,7 @@ import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
 import { construirArbol, grupoDe as grupoArbol, raizDe, temaDe, SIN_TEMA, type PackLite } from "@/lib/expedientes-arbol";
 import { anioPorDefecto, aniosDelResumen, construirArbolHistorial, filtrarResumen, salidasDelResumen, totalResumen, type CarpetaServicio, type CatalogoLite } from "@/lib/historial-arbol";
 import type { FilaHistorial, ResumenHistorial } from "@/lib/data/historial";
+import { conceptoUtil, sinMarcaDePago } from "@/lib/historial-pagos";
 import type { ExpedienteEstado } from "@/lib/types";
 import { esperaAlCliente as esperandoCliente } from "@/lib/progreso";
 import type { BoardItem } from "@/components/board-client";
@@ -39,7 +40,8 @@ export type { PackLite };
 // despacho (el campo «categoría» de Ajustes, el mismo que agrupa el portal del cliente).
 // `migrado`: servicio traído de un sistema anterior (ServicioHistorico, 25/09/2026): no hay
 // expediente detrás; la fila abre la ficha del cliente o de la empresa (`enlace`).
-export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null };
+// `detalle`: concepto de la factura migrada; `pagos`: facturas del servicio (historial-pagos.sql).
+export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null; detalle?: string | null; pagos?: number };
 
 const MEMORIA_ARBOL = "aproba.expedientes.arbol.v1";
 // Una carpeta abierta pinta 25 expedientes; el resto, a petición. Con 15 años de
@@ -103,6 +105,10 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
   const numero = numeros.editados.get(e.id) ?? e.numeroOficial ?? "";
   // Anterior a Aproba: sin expediente que abrir, numerar, reclasificar ni restaurar.
   if (e.migrado) {
+    // El concepto de la factura distingue dos servicios del mismo cliente (sus dos hijos);
+    // un servicio cobrado en varias facturas llega en UNA fila con sus números (25/09/2026).
+    const pagos = e.pagos ?? 1;
+    const concepto = conceptoUtil(pagos > 1 && e.detalle ? sinMarcaDePago(e.detalle) : e.detalle, e.servicioLabel || e.tipoLabel);
     return (
       <div className={`group flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
         <Link href={e.enlace || "/app/clientes"} className="min-w-0 flex-1">
@@ -111,6 +117,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
             {e.empresaNombre && e.empresaNombre !== e.clienteNombre && <span className="truncate font-medium text-slate-500" title={e.empresaNombre}>{e.empresaNombre} ·</span>}
             {e.referencia && <span className="font-mono">{e.referencia}</span>}
             {e.presentadoEl && <span>{e.referencia ? "· " : ""}{t("del")} {e.presentadoEl}</span>}
+            {pagos > 1 && <span>· {pagos} {t("pagos")}</span>}
+            {concepto && <span className="min-w-0 truncate text-slate-500" title={concepto}>· {concepto}</span>}
           </span>
         </Link>
         <span className="order-last shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 sm:order-none" title={t("Traído de tu sistema anterior en la migración: se abre la ficha del cliente.")}>{t("Anterior a Aproba")}</span>
@@ -515,6 +523,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       validados: 0, total: 0, tema: info?.tema ?? null, servicioLabel: info?.label ?? null,
       claves: f.servicio ? [f.servicio] : [], anio: f.anio || null,
       migrado: f.origen === "MIGRACION", enlace: f.enlace || null,
+      detalle: f.detalle || null, pagos: Number(f.pagos) || 1,
     };
   }, [catalogoArchivo, etiquetaTipo]);
 

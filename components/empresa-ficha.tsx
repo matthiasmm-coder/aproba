@@ -45,12 +45,15 @@ export function EmpresaFichaView({ ficha, documentos = [], subidaDocumentos = tr
     } finally { setGuardando(false); }
   }
 
-  const Tarjeta = ({ label, valor, tono = "text-slate-900" }: { label: string; valor: string; tono?: string }) => (
+  const Tarjeta = ({ label, valor, tono = "text-slate-900", nota }: { label: string; valor: string; tono?: string; nota?: string }) => (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center">
       <p className="text-xs text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-bold tracking-tightest ${tono}`}>{valor}</p>
+      {nota && <p className="mt-0.5 text-[11px] text-slate-400">{nota}</p>}
     </div>
   );
+  // Las tarjetas incluyen lo facturado antes de Aproba: se dice cuánto, para que cuadre.
+  const antes = ficha.historialTotales.importe > 0 ? `${t("Antes de Aproba:")} ${eur(ficha.historialTotales.importe)}` : undefined;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -87,7 +90,7 @@ export function EmpresaFichaView({ ficha, documentos = [], subidaDocumentos = tr
 
       {/* Dinero: lo que esta empresa ha generado */}
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Tarjeta label={t("Facturado")} valor={eur(ficha.totales.facturado)} />
+        <Tarjeta label={t("Facturado")} valor={eur(ficha.totales.facturado)} nota={antes} />
         <Tarjeta label={t("Cobrado")} valor={eur(ficha.totales.cobrado)} tono="text-aproba-700" />
         <Tarjeta label={t("Pendiente de cobro")} valor={eur(ficha.totales.pendiente)} tono={ficha.totales.pendiente > 0 ? "text-amber-600" : "text-slate-900"} />
       </div>

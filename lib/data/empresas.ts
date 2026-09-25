@@ -69,9 +69,10 @@ export type HistorialEmpresa = { id: string; etiqueta: string; fecha: string | n
 export type EmpresaFicha = EmpresaDetalle & {
   facturas: FacturaEmpresa[];
   servicios: ServicioContratado[];
+  // Todo lo facturado a la empresa: sus facturas de Aproba MÁS lo de antes de Aproba.
   totales: { facturado: number; cobrado: number; pendiente: number };
   historial: HistorialEmpresa[];
-  historialTotales: { importe: number; pendiente: number };
+  historialTotales: { importe: number; cobrado: number; pendiente: number };
 };
 
 export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha | null> {
@@ -139,17 +140,25 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
     }
   } catch { /* sin historial importado */ }
   const redondea = (n: number) => Math.round(n * 100) / 100;
+  const suma = (filas: HistorialEmpresa[]) => redondea(filas.reduce((a, h) => a + (h.importe ?? 0), 0));
   const historialTotales = {
-    importe: redondea(historial.reduce((a, h) => a + (h.importe ?? 0), 0)),
-    pendiente: redondea(historial.filter((h) => h.cobro === "PENDIENTE").reduce((a, h) => a + (h.importe ?? 0), 0)),
+    importe: suma(historial),
+    cobrado: suma(historial.filter((h) => h.cobro === "COBRADA")),
+    pendiente: suma(historial.filter((h) => h.cobro === "PENDIENTE")),
   };
 
   // «Anulada» no cuenta como facturado; «pendiente» es lo emitido y aún no cobrado.
   const vivas = facturas.filter((f) => f.estado !== "ANULADA" && f.estado !== "BORRADOR");
   const facturado = vivas.reduce((a, f) => a + f.total, 0);
   const cobrado = vivas.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + f.total, 0);
+  // Las tarjetas suman lo facturado ANTES de Aproba (Luis, 25/09/2026): con un historial
+  // migrado de 12.523,50 €, «Facturado 0,00 €» contaba otra historia que la de la ficha.
   return {
     ...detalle, facturas, servicios, historial, historialTotales,
-    totales: { facturado: Math.round(facturado * 100) / 100, cobrado: Math.round(cobrado * 100) / 100, pendiente: Math.round((facturado - cobrado) * 100) / 100 },
+    totales: {
+      facturado: redondea(facturado + historialTotales.importe),
+      cobrado: redondea(cobrado + historialTotales.cobrado),
+      pendiente: redondea(facturado - cobrado + historialTotales.pendiente),
+    },
   };
 }
