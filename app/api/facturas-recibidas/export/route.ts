@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const fallidas: string[] = [];
   for (const f of items) {
     const p = pathDe.get(f.id);
-    if (!p) { fallidas.push(f.archivoNombre); continue; }
+    if (!p) continue; // importada de una hoja de cálculo: sus datos van en el CSV, no hay archivo
     const dl = await admin.storage.from("documentos").download(p);
     if (dl.error || !dl.data) { fallidas.push(f.archivoNombre); continue; }
     entries.push({ name: `archivos/${nombreEnZip(f)}`, data: new Uint8Array(await dl.data.arrayBuffer()) });

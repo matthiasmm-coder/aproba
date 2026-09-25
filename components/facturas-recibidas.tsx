@@ -43,6 +43,8 @@ function Fila({ f, refDe, marcada, onMarcar, onEditar, onEliminar, onPagada, esA
           {f.estado === "PAGADA" && f.fechaPago && <span className="rounded-full bg-aproba-100 px-1.5 py-0.5 text-[10px] font-semibold text-aproba-700">{t("Pagada")} {fechaCortaISO(f.fechaPago)}</span>}
           {f.revisar && <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">{t("revisar")}</span>}
           {f.origen === "EMAIL" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{t("email")}</span>}
+          {/* Importada de la hoja de cálculo del despacho (migración): datos sin el PDF. */}
+          {!f.archivoNombre && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{t("sin PDF")}</span>}
         </div>
         <div className="text-[11px] text-slate-400">
           {[f.proveedorNif, f.numero ? `${t("nº")} ${f.numero}` : "", f.concepto].filter(Boolean).join(" · ")}
@@ -340,7 +342,9 @@ function EditarRecibida({ f, expedientes, t, onCerrar, onGuardada }: { f: Factur
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-slate-900">{t("Factura recibida")}</h3>
-            <a href={`/api/facturas-recibidas/${f.id}/archivo`} target="_blank" rel="noreferrer" className="text-xs font-medium text-aproba-700 hover:underline">{f.archivoNombre}</a>
+            {f.archivoNombre
+              ? <a href={`/api/facturas-recibidas/${f.id}/archivo`} target="_blank" rel="noreferrer" className="text-xs font-medium text-aproba-700 hover:underline">{f.archivoNombre}</a>
+              : <span className="text-xs text-slate-400">{t("Sin documento: importada de tu hoja de cálculo.")}</span>}
           </div>
           {f.revisar && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{t("Revisa los datos leídos")}</span>}
         </div>
