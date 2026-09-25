@@ -81,9 +81,32 @@ export function estadisticasToXlsx(
   XLSX.utils.book_append_sheet(wb, hoja(filasT, [16, 16, 15, 16, 15, 13, 14, 14, 17, 14, 17], Object.fromEntries(cabT.slice(1).map((_, i) => [i + 1, EUR]))), "Trimestres");
 
   // 3. Meses
-  const cabM = ["Mes", "Ingresos (sin IVA)", "Gastos (sin IVA)", "Resultado", "IVA repercutido", "IVA soportado", "Importadas sin desglose (IVA incl.)", "Facturas emitidas", "Facturas recibidas"];
-  const filasM: Celda[][] = [cabM, ...est.meses.map((m) => [`${MESES_CORTOS_ES[m.mes - 1]} ${est.periodo.anio}`, m.ingresos, m.gastos, m.resultado, m.ivaRepercutido, m.ivaSoportado, m.ingresosSinDesglose, m.nEmitidas, m.nRecibidas])];
-  XLSX.utils.book_append_sheet(wb, hoja(filasM, [12, 16, 16, 14, 15, 14, 22, 12, 12], { 1: EUR, 2: EUR, 3: EUR, 4: EUR, 5: EUR, 6: EUR }), "Meses");
+  const cabM = ["Mes", "Ingresos (sin IVA)", "Gastos (sin IVA)", "Resultado", "Margen", "IVA repercutido", "IVA soportado", "Importadas sin desglose (IVA incl.)", "Facturas emitidas", "Facturas recibidas"];
+  const filasM: Celda[][] = [cabM, ...est.meses.map((m, i) => [`${MESES_CORTOS_ES[m.mes - 1]} ${est.periodo.anio}`, m.ingresos, m.gastos, m.resultado, est.rentabilidad.margenMensual[i], m.ivaRepercutido, m.ivaSoportado, m.ingresosSinDesglose, m.nEmitidas, m.nRecibidas])];
+  XLSX.utils.book_append_sheet(wb, hoja(filasM, [12, 16, 16, 14, 10, 15, 14, 22, 12, 12], { 1: EUR, 2: EUR, 3: EUR, 4: PCT, 5: EUR, 6: EUR, 7: EUR }), "Meses");
+
+  // Rentabilidad del periodo y reparto por servicio (la lista completa, no el top 10).
+  const ren = est.rentabilidad;
+  const wsRen = hoja([
+    ["Indicador", "Valor"],
+    ["Rentabilidad (resultado / ingresos)", ren.margen],
+    ["Cobertura de gastos (ingresos / gastos)", ren.cobertura],
+    ["Punto de equilibrio: gasto medio mensual (sin IVA)", ren.sinGastos ? null : ren.gastoMedioMensual],
+    ["Ingreso medio mensual (sin IVA)", ren.ingresoMedioMensual],
+    ["Meses del periodo", ren.meses],
+    ["Ticket medio (por factura, sin IVA)", ren.ticketMedio],
+    ["Clientes distintos", ren.clientes],
+    ["Ingreso medio por cliente (sin IVA)", ren.ingresoMedioCliente],
+    [null, null],
+    [ren.sinGastos ? "Sin gastos registrados en el periodo: la rentabilidad y el punto de equilibrio no se pueden calcular." : "Los gastos no se reparten por servicio: la hoja «Servicios» dice qué servicios facturan más y a qué precio medio.", null],
+  ], [52, 16], { 1: EUR });
+  const fmt = (fila: number, z: string) => { const cell = wsRen[XLSX.utils.encode_cell({ r: fila, c: 1 })]; if (cell) cell.z = z; };
+  fmt(1, PCT); fmt(2, '0.00"x"'); fmt(5, "0"); fmt(7, "0");
+  XLSX.utils.book_append_sheet(wb, wsRen, "Rentabilidad");
+  XLSX.utils.book_append_sheet(wb, hoja(
+    [["Servicio", "Facturas", "Ingresos (sin IVA)", "Facturado con IVA", "Ticket medio", "% de los ingresos"], ...ren.porServicio.map((sv) => [sv.servicio, sv.n, sv.base, sv.total, sv.ticket, sv.cuota])],
+    [48, 10, 17, 17, 13, 16], { 2: EUR, 3: EUR, 4: EUR, 5: PCT },
+  ), "Servicios");
 
   // 4-5. Rankings COMPLETOS del periodo (el informe solo enseña el top).
   const completo = calcularEstadisticas(mov.emitidas, mov.recibidas, est.periodo, { top: 100000 });

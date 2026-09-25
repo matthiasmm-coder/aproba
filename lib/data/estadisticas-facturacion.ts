@@ -1,6 +1,8 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchEntregasDeFacturas, totalEntregado } from "@/lib/entregas";
 import { importesFactura } from "@/lib/facturas";
+import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { TIPO_A_SERVICIO, TIPO_LABEL } from "@/lib/tramites";
 import { resolverOficina } from "@/lib/data/oficina-filtro";
 import { calcularEstadisticas, type Estadisticas, type MovEmitida, type MovRecibida, type Periodo } from "@/lib/estadisticas-facturacion";
 
@@ -42,14 +44,32 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
   const enSede = (oficinaId: string | null | undefined) => !sedes?.length || (oficinaId ? sedes.includes(oficinaId) : incluirSinSede);
   const sinFecha = { emitidas: 0, recibidas: 0 };
 
+  // Nombre del servicio de una factura de Aproba: el del catálogo del despacho (el mismo que
+  // lleva el historial importado, así «Renovación de TIE» no sale partido en dos).
+  const catalogo = new Map<string, string>();
+  try {
+    const { data: mem } = await supabase.from("Membership").select("workspaceId").limit(1).maybeSingle();
+    const ws = (mem as { workspaceId?: string } | null)?.workspaceId;
+    if (ws) for (const sv of await fetchServiciosDeWorkspace(supabase, ws, null)) catalogo.set(sv.id, sv.label);
+  } catch { /* sin catálogo: etiquetas genéricas */ }
+  const servicioDe = (exp: { tipo?: string | null; servicioClave?: string | null } | null, concepto: string) => {
+    if (exp) {
+      const clave = exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo ?? ""] ?? "";
+      return catalogo.get(clave) ?? TIPO_LABEL[exp.tipo ?? ""] ?? "";
+    }
+    // Sin expediente: una cita previa cobrada, o una factura manual (su concepto es el servicio).
+    return /^cita previa/i.test(concepto) ? "Citas previas" : concepto.slice(0, 80);
+  };
+
   // ── 1. Facturas de Aproba: emitidas, pagadas y vencidas (ni borradores ni anuladas).
   //      Una rectificativa entra con sus importes negativos y neutraliza a la original.
-  type FilaFactura = { id: string; numero?: string | null; concepto?: string | null; clienteNombre: string | null; baseImponible: unknown; iva: unknown; total: unknown; suplidos?: { importe: number }[] | null; estado: string; fechaEmision: string | null; oficinaId?: string | null };
+  type FilaFactura = { id: string; numero?: string | null; concepto?: string | null; expediente?: unknown; clienteNombre: string | null; baseImponible: unknown; iva: unknown; total: unknown; suplidos?: { importe: number }[] | null; estado: string; fechaEmision: string | null; oficinaId?: string | null };
   const leerFacturas = (cols: string, conSede: boolean) => todas<FilaFactura>((d, h) => {
     const q = supabase.from("Factura").select(cols).in("estado", ["EMITIDA", "PAGADA", "VENCIDA"]);
     return (conSede ? porSede(q) : q).order("id").range(d, h) as unknown as PromiseLike<{ data: FilaFactura[] | null; error: { message: string } | null }>;
   });
-  let rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId", true);
+  let rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId, expediente:Expediente(tipo, servicioClave)", true);
+  if (rf.error && FALTA_COLUMNA.test(rf.error.message)) rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId", true);
   if (rf.error && FALTA_COLUMNA.test(rf.error.message)) rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, estado, fechaEmision", false);
   if (rf.error) throw new Error(`Estadísticas (facturas): ${rf.error.message}`);
   // Lo ya cobrado a cuenta de las que siguen vivas (pagos parciales).
@@ -64,7 +84,11 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
       suplidos: Array.isArray(f.suplidos) ? f.suplidos.map((s) => ({ concepto: "", importe: Number(s.importe) || 0 })) : undefined,
     });
     const cobrado = f.estado === "PAGADA" ? imp.total : Math.min(imp.total, totalEntregado(entregas[f.id] ?? []));
-    emitidas.push({ fecha: f.fechaEmision.slice(0, 10), base: imp.base, iva: imp.iva, total: imp.total, cobrado, cliente: f.clienteNombre ?? "", fuente: "APROBA", ref: f.numero ?? "", concepto: f.concepto ?? "" });
+    emitidas.push({
+      fecha: f.fechaEmision.slice(0, 10), base: imp.base, iva: imp.iva, total: imp.total, cobrado, cliente: f.clienteNombre ?? "", fuente: "APROBA",
+      ref: f.numero ?? "", concepto: f.concepto ?? "",
+      servicio: servicioDe(uno(f.expediente as { tipo?: string | null; servicioClave?: string | null } | null), f.concepto ?? ""),
+    });
   }
 
   // ── 2. Facturado ANTES de Aproba (historial importado con importe). Su sede es la del
@@ -95,6 +119,7 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
       ref: h.referencia ?? "",
       // El concepto original (notas «Factura: …») dice más que la etiqueta genérica del servicio.
       concepto: (h.notas ?? "").replace(/^Factura:\s*/i, "") || (h.etiqueta ?? ""),
+      servicio: h.etiqueta ?? "",
     });
   }
 

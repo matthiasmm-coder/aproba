@@ -34,6 +34,10 @@ const config: Config = {
         float: "0 20px 50px -12px rgba(14,140,95,0.25), 0 8px 24px rgba(15,23,42,0.08)",
       },
       keyframes: {
+        // Gráficos de Facturas › Estadísticas: barras que crecen, líneas que se trazan.
+        crecer: { "0%": { transform: "scaleY(0)" }, "100%": { transform: "scaleY(1)" } },
+        trazo: { "0%": { strokeDashoffset: "1" }, "100%": { strokeDashoffset: "0" } },
+        aparecer: { "0%": { opacity: "0", transform: "translateY(4px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
         floaty: {
           "0%,100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
@@ -75,6 +79,9 @@ const config: Config = {
         "blob-slow": "blob 16s ease-in-out infinite",
         fadein: "fadein 0.5s ease-out forwards",
         marquee: "marquee 50s linear infinite",
+        crecer: "crecer 0.7s cubic-bezier(0.2,0.8,0.2,1) both",
+        trazo: "trazo 1.1s cubic-bezier(0.4,0,0.2,1) 0.25s both",
+        aparecer: "aparecer 0.15s ease-out both",
       },
     },
   },

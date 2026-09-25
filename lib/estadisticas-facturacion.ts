@@ -26,6 +26,7 @@ export type MovEmitida = {
   fuente: FuenteEmitida;
   ref?: string;           // nº de factura (o referencia importada): solo para el detalle exportado
   concepto?: string;
+  servicio?: string;      // servicio del catálogo (rentabilidad por servicio); vacío = «Sin servicio»
 };
 
 export type MovRecibida = {
@@ -74,6 +75,20 @@ export type Mes = {
   nRecibidas: number;
 };
 export type TrimestreResumen = Resumen & { trimestre: Trimestre };
+export type ServicioRentable = { servicio: string; n: number; base: number; total: number; ticket: number | null; cuota: number };
+export type Rentabilidad = {
+  margen: number | null;             // resultado / ingresos (null sin ingresos)
+  cobertura: number | null;          // ingresos / gastos: cuántas veces cubren los ingresos los gastos
+  meses: number;                     // meses del periodo ya empezados (≥ 1)
+  ingresoMedioMensual: number;
+  gastoMedioMensual: number;         // = punto de equilibrio: lo que hay que facturar al mes
+  ticketMedio: number | null;        // ingreso medio por factura (con desglose)
+  clientes: number;                  // clientes distintos del periodo
+  ingresoMedioCliente: number | null;
+  porServicio: ServicioRentable[];   // de más a menos ingresos
+  margenMensual: (number | null)[];  // 12 meses del año; null = sin ingresos ese mes
+  sinGastos: boolean;                // sin gastos registrados: el margen del 100 % no dice nada
+};
 export type Ranking = { nombre: string; base: number; total: number; n: number; cuota: number };
 export type Estadisticas = {
   periodo: Periodo;
@@ -85,9 +100,11 @@ export type Estadisticas = {
   topProveedores: Ranking[];
   fuentes: { aproba: number; anteriores: number; recibidas: number };
   anios: number[];          // años con datos (más el elegido), del más reciente al más antiguo
+  rentabilidad: Rentabilidad;
 };
 
 export const MESES_CORTOS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+export const MESES_LARGOS_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 // Céntimos: sumar cientos de importes en coma flotante deja restos de 0,01 € a la vista.
 const c = (n: number | null | undefined) => Math.round((Number(n) || 0) * 100);
@@ -188,10 +205,11 @@ export function calcularEstadisticas(emitidas: MovEmitida[], recibidas: MovRecib
   }));
 
   const anios = [...new Set([...em.map((m) => anioDe(m.fecha)), ...re.map((m) => anioDe(m.fecha)), periodo.anio])].sort((a, b) => b - a);
+  const resumen = resumir(emP, reP);
 
   return {
     periodo,
-    resumen: resumir(emP, reP),
+    resumen,
     anterior: emA.length || reA.length ? resumir(emA, reA) : null,
     meses,
     trimestres,
@@ -203,6 +221,53 @@ export function calcularEstadisticas(emitidas: MovEmitida[], recibidas: MovRecib
       recibidas: reP.length,
     },
     anios,
+    rentabilidad: calcularRentabilidad(emP, resumen, meses, mesesTranscurridos(periodo, hoy)),
+  };
+}
+
+// Meses del periodo ya empezados: un año en curso a 25/09 lleva 9 meses, no 12 (si no, el
+// gasto medio mensual — el punto de equilibrio — saldría un 25 % más bajo de la cuenta).
+export function mesesTranscurridos(p: Periodo, hoy: string | null): number {
+  const total = p.trimestre === 0 ? 12 : 3;
+  if (!hoy || !fechaValida(hoy) || anioDe(hoy) > p.anio) return total; // periodo pasado: entero
+  if (anioDe(hoy) < p.anio) return 1;                                  // periodo futuro
+  const primero = p.trimestre === 0 ? 1 : (p.trimestre - 1) * 3 + 1;
+  return Math.max(1, Math.min(total, mesDe(hoy) - primero + 1));
+}
+
+function calcularRentabilidad(emP: MovEmitida[], r: Resumen, meses: Mes[], nMeses: number): Rentabilidad {
+  const conDesglose = emP.filter((m) => m.base != null);
+  const clientes = new Set(emP.map((m) => clave(m.cliente || "Sin nombre"))).size;
+  const g = new Map<string, { servicio: string; n: number; nBase: number; base: number; total: number }>();
+  for (const m of emP) {
+    const nom = (m.servicio ?? "").trim() || "Sin servicio";
+    const k = clave(nom);
+    const x = g.get(k) ?? { servicio: nom, n: 0, nBase: 0, base: 0, total: 0 };
+    x.n++; x.total += c(m.total);
+    if (m.base != null) { x.nBase++; x.base += c(m.base); }
+    g.set(k, x);
+  }
+  const baseTotal = c(r.ingresos.base);
+  const porServicio = [...g.values()]
+    .sort((a, b) => b.base - a.base || b.total - a.total || a.servicio.localeCompare(b.servicio, "es"))
+    .map((x) => ({
+      servicio: x.servicio, n: x.n, base: eu(x.base), total: eu(x.total),
+      ticket: x.nBase ? Math.round(x.base / x.nBase) / 100 : null,
+      cuota: baseTotal > 0 ? Math.round((x.base / baseTotal) * 1000) / 1000 : 0,
+    }));
+  const sinGastos = r.gastos.n === 0;
+  return {
+    margen: sinGastos ? null : r.margen,
+    cobertura: r.gastos.base > 0 ? Math.round((r.ingresos.base / r.gastos.base) * 100) / 100 : null,
+    meses: nMeses,
+    ingresoMedioMensual: Math.round((r.ingresos.base / nMeses) * 100) / 100,
+    gastoMedioMensual: Math.round((r.gastos.base / nMeses) * 100) / 100,
+    ticketMedio: conDesglose.length ? Math.round(c(r.ingresos.base) / conDesglose.length) / 100 : null,
+    clientes,
+    ingresoMedioCliente: clientes ? Math.round(c(r.ingresos.base) / clientes) / 100 : null,
+    porServicio,
+    margenMensual: meses.map((m) => (m.ingresos > 0 ? Math.round((m.resultado / m.ingresos) * 1000) / 1000 : null)),
+    sinGastos,
   };
 }
 
@@ -254,3 +319,30 @@ export function escalaEje(min: number, max: number, n = 4): { desde: number; has
   for (let v = desde; v <= hasta + paso / 2; v += paso) ticks.push(Math.round(v * 100) / 100);
   return { desde, hasta, ticks };
 }
+
+// ── Geometría de los gráficos (pantalla y PDF) ──────────────────────────────────────────
+// Curva monótona (Fritsch-Carlson): suave, pero sin sobrepasar los puntos.
+export type Punto = [number, number];
+type P = Punto;
+type Tramo = { x0: number; y0: number; c1x: number; c1y: number; c2x: number; c2y: number; x1: number; y1: number };
+export function tramos(pts: P[]): Tramo[] {
+  const n = pts.length;
+  if (n < 2) return [];
+  const dx: number[] = [], m: number[] = [];
+  for (let i = 0; i < n - 1; i++) { dx.push(pts[i + 1][0] - pts[i][0]); m.push((pts[i + 1][1] - pts[i][1]) / (dx[i] || 1)); }
+  const t: number[] = [m[0]];
+  for (let i = 1; i < n - 1; i++) t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
+  t.push(m[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+    const a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b;
+    if (h > 9) { const k = 3 / Math.sqrt(h); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  return pts.slice(0, -1).map(([x0, y0], i) => {
+    const [x1, y1] = pts[i + 1];
+    const h = dx[i] / 3;
+    return { x0, y0, c1x: x0 + h, c1y: y0 + t[i] * h, c2x: x1 - h, c2y: y1 - t[i + 1] * h, x1, y1 };
+  });
+}
+export const curva = (pts: P[]) => (pts.length ? `M${pts[0][0]},${pts[0][1]}` + tramos(pts).map((s) => ` C${s.c1x},${s.c1y} ${s.c2x},${s.c2y} ${s.x1},${s.y1}`).join("") : "");
+export const curvaInversa = (pts: P[]) => tramos(pts).reverse().map((s) => ` C${s.c2x},${s.c2y} ${s.c1x},${s.c1y} ${s.x0},${s.y0}`).join("");

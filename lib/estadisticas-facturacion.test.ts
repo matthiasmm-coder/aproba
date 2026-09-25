@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calcularEstadisticas, resumir, enPeriodo, periodoDeParams, nombrePeriodo, slugPeriodo, variacion,
-  eurCorto, pct, escalaEje, ultimoMesConDatos,
+  eurCorto, pct, escalaEje, ultimoMesConDatos, mesesTranscurridos, tramos, curva,
   type MovEmitida, type MovRecibida,
 } from "./estadisticas-facturacion";
 
@@ -152,5 +152,74 @@ describe("estadísticas de facturación · formatos y ejes", () => {
   it("último mes con datos", () => {
     const e = calcularEstadisticas([emi({ fecha: "2026-09-01" })], [rec({ fecha: "2026-03-01" })], { anio: 2026, trimestre: 0 });
     expect(ultimoMesConDatos(e.meses)).toBe(9);
+  });
+});
+
+describe("estadísticas de facturación · rentabilidad", () => {
+  const em = [
+    emi({ fecha: "2026-01-10", base: 600, iva: 126, total: 726, cliente: "Ana", servicio: "Nacionalidad española" }),
+    emi({ fecha: "2026-02-10", base: 60, iva: 12.6, total: 72.6, cliente: "Luis", servicio: "Consulta de extranjería" }),
+    emi({ fecha: "2026-02-11", base: 40, iva: 8.4, total: 48.4, cliente: "ANA", servicio: "consulta de extranjería" }),
+    emi({ fecha: "2026-03-01", base: null, iva: null, total: 121, cliente: "Otra", servicio: "" , fuente: "ANTERIOR" }),
+  ];
+  const re = [rec({ fecha: "2026-01-05", base: 300, iva: 63, total: 363 })];
+
+  it("margen, cobertura, punto de equilibrio y ticket medio del periodo en curso", () => {
+    const r = calcularEstadisticas(em, re, { anio: 2026, trimestre: 1 }, { hoy: "2026-02-20" }).rentabilidad;
+    expect(r.meses).toBe(2); // enero y febrero: marzo aún no ha empezado
+    expect(r.margen).toBe(0.571); // (700 - 300) / 700
+    expect(r.cobertura).toBe(2.33);
+    expect(r.gastoMedioMensual).toBe(150);
+    expect(r.ingresoMedioMensual).toBe(350);
+    expect(r.ticketMedio).toBe(233.33); // 700 / 3 facturas con desglose
+    expect(r.clientes).toBe(3); // Ana y ANA son la misma
+    expect(r.ingresoMedioCliente).toBe(233.33);
+    expect(r.sinGastos).toBe(false);
+  });
+
+  it("rentabilidad por servicio: agrupa sin mayúsculas, ticket medio y cuota", () => {
+    const r = calcularEstadisticas(em, re, { anio: 2026, trimestre: 0 }, { hoy: "2026-12-31" }).rentabilidad;
+    expect(r.porServicio.map((s) => s.servicio)).toEqual(["Nacionalidad española", "Consulta de extranjería", "Sin servicio"]);
+    expect(r.porServicio[1]).toMatchObject({ n: 2, base: 100, ticket: 50, cuota: 0.143 });
+    expect(r.porServicio[2]).toMatchObject({ n: 1, base: 0, total: 121, ticket: null });
+  });
+
+  it("sin gastos registrados, no presume de un 100 % de margen", () => {
+    const r = calcularEstadisticas(em, [], { anio: 2026, trimestre: 0 }, { hoy: "2026-12-31" }).rentabilidad;
+    expect(r.sinGastos).toBe(true);
+    expect(r.margen).toBeNull();
+    expect(r.cobertura).toBeNull();
+  });
+
+  it("margen mes a mes (null sin ingresos)", () => {
+    const r = calcularEstadisticas(em, re, { anio: 2026, trimestre: 0 }, { hoy: "2026-12-31" }).rentabilidad;
+    expect(r.margenMensual[0]).toBe(0.5); // (600 - 300) / 600
+    expect(r.margenMensual[1]).toBe(1);
+    expect(r.margenMensual[2]).toBeNull(); // marzo: solo una importada sin desglose
+  });
+
+  it("meses transcurridos", () => {
+    expect(mesesTranscurridos({ anio: 2026, trimestre: 0 }, "2026-09-25")).toBe(9);
+    expect(mesesTranscurridos({ anio: 2026, trimestre: 3 }, "2026-09-25")).toBe(3);
+    expect(mesesTranscurridos({ anio: 2026, trimestre: 3 }, "2026-08-02")).toBe(2);
+    expect(mesesTranscurridos({ anio: 2025, trimestre: 0 }, "2026-09-25")).toBe(12);
+    expect(mesesTranscurridos({ anio: 2026, trimestre: 4 }, "2026-09-25")).toBe(1);
+    expect(mesesTranscurridos({ anio: 2027, trimestre: 0 }, "2026-09-25")).toBe(1);
+    expect(mesesTranscurridos({ anio: 2026, trimestre: 1 }, null)).toBe(3);
+  });
+});
+
+describe("estadísticas de facturación · curvas", () => {
+  it("la curva suave no inventa picos: un tramo plano sigue plano y nada sobrepasa los puntos", () => {
+    const pts: [number, number][] = [[0, 100], [10, 40], [20, 40], [30, 90], [40, 10]];
+    const ts = tramos(pts);
+    expect(ts).toHaveLength(4);
+    expect([ts[1].c1y, ts[1].c2y]).toEqual([40, 40]); // 40 → 40: plano
+    for (const t of ts) {
+      const lo = Math.min(t.y0, t.y1), hi = Math.max(t.y0, t.y1);
+      for (const cy of [t.c1y, t.c2y]) { expect(cy).toBeGreaterThanOrEqual(lo - 1e-9); expect(cy).toBeLessThanOrEqual(hi + 1e-9); }
+    }
+    expect(curva(pts).startsWith("M0,100 C")).toBe(true);
+    expect(curva([])).toBe("");
   });
 });

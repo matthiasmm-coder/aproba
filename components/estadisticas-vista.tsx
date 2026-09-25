@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { variacion, pct, type Estadisticas, type Periodo, type Ranking } from "@/lib/estadisticas-facturacion";
 import { eur } from "@/lib/facturas";
-import { GraficoMensual, GraficoAcumulado } from "@/components/estadisticas-graficos";
+import { GraficoMensual, GraficoAcumulado, GraficoMargen } from "@/components/estadisticas-graficos";
 
 // Pantalla de Facturas › Estadísticas (componente de servidor): recibe las cifras ya
 // calculadas y el traductor t() de lib/app-lang (se lo pasa la página; la mención de
@@ -9,29 +9,42 @@ import { GraficoMensual, GraficoAcumulado } from "@/components/estadisticas-graf
 
 type Tono = "normal" | "bueno" | "malo" | "aviso";
 
-function Tarjeta({ label, valor, sub, delta, tono = "normal", deltaInverso = false, vsLabel }: {
-  label: string; valor: string; sub?: React.ReactNode; delta?: number | null; tono?: Tono; deltaInverso?: boolean; vsLabel?: string;
+function Tarjeta({ label, valor, sub, delta, tono = "normal", deltaInverso = false, vsLabel, extra }: {
+  label: string; valor: string; sub?: React.ReactNode; delta?: number | null; tono?: Tono; deltaInverso?: boolean; vsLabel?: string; extra?: React.ReactNode;
 }) {
   const color = tono === "bueno" ? "text-aproba-700" : tono === "malo" ? "text-red-600" : tono === "aviso" ? "text-amber-600" : "text-slate-900";
   // Subir es bueno en ingresos y resultado; en gastos, lo bueno es bajar.
   const favorable = delta != null && (deltaInverso ? delta < 0 : delta > 0);
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5">
+    <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center shadow-card">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${color}`}>{valor}</p>
+      <p className={`mt-1.5 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${color}`}>{valor}</p>
+      {extra}
       {delta != null && (
-        <p className={`mt-0.5 text-xs font-semibold tabular-nums ${delta === 0 ? "text-slate-400" : favorable ? "text-aproba-700" : "text-amber-600"}`}>
+        <p className={`mt-1 text-xs font-semibold tabular-nums ${delta === 0 ? "text-slate-400" : favorable ? "text-aproba-700" : "text-amber-600"}`}>
           {delta > 0 ? "▲" : delta < 0 ? "▼" : "="} {pct(Math.abs(delta))} <span className="font-normal text-slate-400">{vsLabel}</span>
         </p>
       )}
-      {sub && <p className="mt-0.5 text-xs text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs leading-relaxed text-slate-500">{sub}</p>}
+    </div>
+  );
+}
+
+// Métrica de la sección Rentabilidad: más discreta que las tarjetas de arriba.
+function Metrica({ label, valor, sufijo, sub, nota }: { label: string; valor: string; sufijo?: string; sub: React.ReactNode; nota?: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center rounded-xl bg-slate-50/80 px-4 py-4 text-center ring-1 ring-inset ring-slate-100">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1.5 whitespace-nowrap text-base font-bold tabular-nums tracking-tight text-slate-900 sm:text-xl">{valor}{sufijo && <span className="ml-0.5 text-xs font-semibold text-slate-400 sm:text-sm">{sufijo}</span>}</p>
+      <p className="mt-1 text-xs leading-relaxed text-slate-500">{sub}</p>
+      {nota && <p className="mt-1 text-xs font-semibold">{nota}</p>}
     </div>
   );
 }
 
 function Top({ titulo, filas, vacio, t }: { titulo: string; filas: Ranking[]; vacio: string; t: (s: string) => string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
+    <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-card">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{titulo}</p>
       {filas.length === 0 ? <p className="mt-2 text-sm text-slate-400">{vacio}</p> : (
         <ol className="mt-2 space-y-2.5">
@@ -43,7 +56,7 @@ function Top({ titulo, filas, vacio, t }: { titulo: string; filas: Ranking[]; va
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-aproba-500" style={{ width: `${Math.max(2, Math.round(f.cuota * 100))}%` }} />
+                  <div className="h-full rounded-full bg-gradient-to-r from-aproba-400 to-aproba-600" style={{ width: `${Math.max(2, Math.round(f.cuota * 100))}%` }} />
                 </div>
                 <span className="shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-slate-400">{pct(f.cuota)} · {f.n} {f.n === 1 ? t("factura") : t("facturas")}</span>
               </div>
@@ -60,6 +73,7 @@ export function EstadisticasVista({ est, periodo, sinFechaRecibidas = 0, error =
 }) {
   const r = est.resumen;
   const a = est.anterior;
+  const ren = est.rentabilidad;
   const href = (anio: number, tri: number) => `/app/facturas/estadisticas?anio=${anio}${tri ? `&t=${tri}` : ""}`;
   const qExport = `anio=${periodo.anio}${periodo.trimestre ? `&t=${periodo.trimestre}` : ""}`;
   const resaltar = periodo.trimestre ? [1, 2, 3].map((k) => (periodo.trimestre - 1) * 3 + k) : [];
@@ -123,7 +137,7 @@ export function EstadisticasVista({ est, periodo, sinFechaRecibidas = 0, error =
 
       {error && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{t("No se pudieron cargar las cifras")}: {error}</p>}
 
-      {/* Cifras del periodo */}
+      {/* Cifras del periodo: cuatro y cuatro, contenido centrado */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tarjeta label={t("Ingresos")} valor={eur(r.ingresos.base)} delta={a ? variacion(r.ingresos.base, a.ingresos.base) : null} vsLabel={vs}
           sub={<>{t("Sin IVA")} · {r.ingresos.n} {r.ingresos.n === 1 ? t("factura") : t("facturas")}
@@ -131,12 +145,21 @@ export function EstadisticasVista({ est, periodo, sinFechaRecibidas = 0, error =
         <Tarjeta label={t("Gastos")} valor={eur(r.gastos.base)} delta={a ? variacion(r.gastos.base, a.gastos.base) : null} deltaInverso vsLabel={vs}
           sub={<>{t("Sin IVA")} · {r.gastos.n} {r.gastos.n === 1 ? t("factura") : t("facturas")}</>} />
         <Tarjeta label={t("Resultado")} valor={eur(r.resultado)} tono={r.resultado < 0 ? "malo" : r.resultado > 0 ? "bueno" : "normal"}
-          delta={a ? variacion(r.resultado, a.resultado) : null} vsLabel={vs}
-          sub={r.margen != null ? <>{t("Margen")} {pct(r.margen)}</> : t("Ingresos menos gastos")} />
+          delta={a ? variacion(r.resultado, a.resultado) : null} vsLabel={vs} sub={t("Ingresos menos gastos")} />
+        <Tarjeta label={t("Rentabilidad")} valor={ren.margen != null ? pct(ren.margen) : "—"}
+          tono={ren.margen == null ? "normal" : ren.margen < 0 ? "malo" : "bueno"}
+          extra={ren.margen != null && (
+            <div className="mt-2 h-1.5 w-full max-w-[150px] overflow-hidden rounded-full bg-slate-100">
+              <div className={`h-full rounded-full ${ren.margen < 0 ? "bg-red-500" : "bg-gradient-to-r from-aproba-400 to-aproba-600"}`} style={{ width: `${Math.min(100, Math.max(3, Math.abs(ren.margen) * 100))}%` }} />
+            </div>
+          )}
+          sub={ren.margen != null
+            ? t("De cada 100 € que facturas, te quedan {importe}.").replace("{importe}", eur(Math.round(ren.margen * 10000) / 100))
+            : t("Registra tus gastos en Recibidas para calcularla.")} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tarjeta label={r.ivaNeto >= 0 ? t("IVA a ingresar (estimado)") : t("IVA a compensar (estimado)")} valor={eur(Math.abs(r.ivaNeto))}
           sub={<>{t("Repercutido")} {eur(r.ingresos.iva)} − {t("soportado")} {eur(r.gastos.iva)}</>} />
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Tarjeta label={t("Pendiente de cobro")} valor={eur(r.ingresos.pendiente)} tono={r.ingresos.pendiente > 0 ? "aviso" : "normal"}
           sub={<>{t("Cobrado")} {eur(r.ingresos.cobrado)} {t("de")} {eur(r.ingresos.total)} {t("facturados con IVA")}</>} />
         <Tarjeta label={t("Pendiente de pago")} valor={eur(r.gastos.pendiente)}
@@ -147,19 +170,82 @@ export function EstadisticasVista({ est, periodo, sinFechaRecibidas = 0, error =
 
       {/* Curvas */}
       <div className="mt-4 grid grid-cols-1 gap-4">
-        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-800">{t("Ingresos y gastos por mes")} · {periodo.anio}</h2>
+        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-card">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-slate-900">{t("Ingresos y gastos por mes")} · {periodo.anio}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{t("Sin IVA. La curva es el resultado de cada mes.")}</p>
+          </div>
           <GraficoMensual meses={est.meses} anio={periodo.anio} resaltar={resaltar} />
         </section>
-        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-800">{t("Acumulado del año")} · {periodo.anio}</h2>
+        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-card">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-slate-900">{t("Acumulado del año")} · {periodo.anio}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{t("La zona verde es el beneficio que llevas acumulado.")}</p>
+          </div>
           <GraficoAcumulado meses={est.meses} anio={periodo.anio} />
         </section>
       </div>
 
+      {/* Rentabilidad: cuánto queda de lo que se factura y qué servicios lo dan */}
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-card">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">{t("Rentabilidad")} · {etiquetaPeriodo}</h2>
+          <p className="mt-0.5 text-xs text-slate-400">{t("Cuánto te queda de lo que facturas, y qué servicios te lo dan.")}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metrica label={t("Punto de equilibrio")} valor={ren.sinGastos ? "—" : eur(ren.gastoMedioMensual)} sufijo={ren.sinGastos ? undefined : t("/mes")}
+            sub={ren.sinGastos ? t("Registra tus gastos en Recibidas para calcularlo.") : t("Lo que necesitas facturar al mes, sin IVA, para cubrir tus gastos.")}
+            nota={!ren.sinGastos && ren.ingresoMedioMensual > 0 && (
+              <span className={ren.ingresoMedioMensual >= ren.gastoMedioMensual ? "text-aproba-700" : "text-amber-600"}>
+                {t("Facturas de media {importe} al mes").replace("{importe}", eur(ren.ingresoMedioMensual))}
+              </span>
+            )} />
+          <Metrica label={t("Cobertura de gastos")} valor={ren.cobertura != null ? `${ren.cobertura.toFixed(1).replace(".", ",")}×` : "—"}
+            sub={ren.cobertura != null
+              ? t("Tus ingresos cubren {n} veces tus gastos.").replace("{n}", ren.cobertura.toFixed(1).replace(".", ","))
+              : t("Registra tus gastos en Recibidas para calcularla.")} />
+          <Metrica label={t("Ticket medio")} valor={ren.ticketMedio != null ? eur(ren.ticketMedio) : "—"} sub={t("Ingreso medio por factura, sin IVA.")} />
+          <Metrica label={t("Por cliente")} valor={ren.ingresoMedioCliente != null ? eur(ren.ingresoMedioCliente) : "—"}
+            sub={t("Ingreso medio por cliente · {n} clientes").replace("{n}", String(ren.clientes))} />
+        </div>
+
+        <div className="mt-6">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Margen mes a mes")} · {periodo.anio}</p>
+          <GraficoMargen margenes={ren.margenMensual} anio={periodo.anio} media={ren.margen} resaltar={resaltar} />
+        </div>
+
+        <div className="mt-6">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("Por servicio")} · {etiquetaPeriodo}</p>
+          {ren.porServicio.length === 0 ? <p className="mt-2 text-sm text-slate-400">{t("Sin facturas emitidas en el periodo.")}</p> : (
+            <ol className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
+              {ren.porServicio.slice(0, 10).map((sv, k) => (
+                <li key={sv.servicio}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate text-slate-700"><span className="mr-1.5 tabular-nums text-slate-300">{k + 1}</span>{sv.servicio === "Sin servicio" ? t("Sin servicio") : sv.servicio}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{eur(sv.base)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-gradient-to-r from-aproba-400 to-aproba-600" style={{ width: `${Math.max(2, Math.round(sv.cuota * 100))}%` }} />
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-slate-400">
+                      {sv.n} {sv.n === 1 ? t("factura") : t("facturas")}{sv.ticket != null && <> · {t("media")} {eur(sv.ticket)}</>} · {pct(sv.cuota)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="mt-3 text-xs text-slate-400">
+            {t("Los gastos no se reparten por servicio: aquí ves qué servicios facturan más y a qué precio medio.")}
+            {ren.porServicio.length > 10 && <> {t("La lista completa está en el Excel ({n} servicios).").replace("{n}", String(ren.porServicio.length))}</>}
+          </p>
+        </div>
+      </section>
+
       {/* Por trimestre: la hoja «Resumen Trimestres» */}
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white">
-        <h2 className="px-5 pb-2 pt-4 text-sm font-semibold text-slate-800">{t("Por trimestre")} · {periodo.anio}</h2>
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-card">
+        <h2 className="px-5 pb-2 pt-4 text-sm font-semibold text-slate-900">{t("Por trimestre")} · {periodo.anio}</h2>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] whitespace-nowrap text-sm tabular-nums">
             <thead>
