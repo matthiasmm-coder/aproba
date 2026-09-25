@@ -106,7 +106,7 @@ export async function estadisticasToPdf(est: Estadisticas, emisor: EmisorPdf, ex
     r.ingresos.sinDesglose > 0 ? `+ ${eur(r.ingresos.sinDesgloseTotal)} importados` : `${facturas(r.ingresos.n)}${dIng != null ? ` · ${conSigno(dIng)} vs ${vsAnio}` : ""}`, VERDE);
   bloque(M + anchoB, anchoB, "Gastos (sin IVA)", eur(r.gastos.base), `${facturas(r.gastos.n)}${dGas != null ? ` · ${conSigno(dGas)} vs ${vsAnio}` : ""}`);
   bloque(M + 2 * anchoB, anchoB, "Resultado", eur(r.resultado), r.margen != null ? `Margen ${pct(r.margen)}` : "Ingresos menos gastos", r.resultado < 0 ? ROJO : OSCURO);
-  bloque(M + 3 * anchoB, anchoB, r.ivaNeto >= 0 ? "IVA a ingresar (estim.)" : "IVA a compensar (estim.)", eur(Math.abs(r.ivaNeto)), `Rep. ${eur(r.ingresos.iva)} - sop. ${eur(r.gastos.iva)}`);
+  bloque(M + 3 * anchoB, anchoB, r.ivaNeto >= 0 ? "IVA a ingresar (estim.)" : "IVA a compensar (estim.)", eur(Math.abs(r.ivaNeto)), "Repercutido - soportado");
   y -= 58;
   bloque(M, anchoB, "Pendiente de cobro", eur(r.ingresos.pendiente), `Cobrado ${eur(r.ingresos.cobrado)}`, r.ingresos.pendiente > 0 ? AMBAR : OSCURO);
   bloque(M + anchoB, anchoB, "Pendiente de pago", eur(r.gastos.pendiente), `Pagado ${eur(r.gastos.pagado)}`);
