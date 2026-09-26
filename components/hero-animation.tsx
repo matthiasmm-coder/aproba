@@ -96,6 +96,13 @@ function Chip({ texto, n, reloj = false }: { texto: string; n: number; reloj?: b
   );
 }
 
+// Carpeta abierta / cerrada (CarpetaIcon en la app): temas y servicios llevan carpeta.
+function Carpeta({ abierta, className }: { abierta: boolean; className: string }) {
+  return abierta
+    ? <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>
+    : <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>;
+}
+
 // El reloj de los requerimientos (RequerimientosIcon en la app).
 function Reloj({ className }: { className: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
@@ -254,20 +261,25 @@ function ExpedientesEnCurso() {
         <Chip texto="Requerimientos" n={1} reloj />
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        {/* Tema abierto: borde verde a la izquierda, como en la app */}
-        <div className="border-l-2 border-l-aproba-500 bg-aproba-50/30">
-          <div className="flex items-center gap-1 px-1.5 py-1">
+        {/* Como en la app (26/09): el TEMA es una banda de título con carpeta, el SERVICIO
+            una subcarpeta con su recuento en pastilla, y cada expediente cuelga de su
+            servicio por una guía vertical. */}
+        <div className="border-l-2 border-l-aproba-500">
+          <div className="flex items-center gap-1 bg-aproba-50/60 px-1.5 py-1">
             <Chevron abierto />
-            <span className="flex-1 truncate text-[7px] font-semibold text-slate-800">Arraigo</span>
+            <Carpeta abierta className="h-2 w-2 shrink-0 text-aproba-600" />
+            <span className="flex-1 truncate text-[7.5px] font-bold text-slate-900">Arraigo</span>
             <span className="flex h-2.5 min-w-[10px] items-center justify-center rounded-full bg-aproba-600 px-0.5 text-[5px] font-semibold text-white">7</span>
           </div>
-          <div className="flex items-center gap-1 border-t border-slate-50 py-[2px] pl-4 pr-1.5">
+          <div className="flex items-center gap-1 border-t border-slate-100 py-[3px] pl-4 pr-1.5">
             <Chevron abierto />
-            <span className="flex-1 truncate text-[6px] text-slate-500">Arraigo sociolaboral</span>
-            <span className="text-[5px] text-slate-300">7</span>
+            <Carpeta abierta className="h-[7px] w-[7px] shrink-0 text-slate-400" />
+            <span className="flex-1 truncate text-[6px] font-semibold text-slate-600">Arraigo sociolaboral</span>
+            <span className="rounded-full bg-slate-100 px-[3px] text-[4.5px] font-semibold text-slate-500">7</span>
           </div>
           {filas.map((f) => (
-            <div key={f.ref} className="border-t border-slate-50 bg-white py-1 pl-6 pr-1.5">
+            <div key={f.ref} className="relative border-t border-slate-50 bg-white py-[3px] pl-[34px] pr-1.5">
+            <span aria-hidden className="absolute inset-y-0 left-[19px] w-px bg-slate-200" />
             <div className="flex items-center gap-1">
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1">
@@ -296,9 +308,10 @@ function ExpedientesEnCurso() {
           ))}
         </div>
         {temas.map(([t, n]) => (
-          <div key={t} className="flex items-center gap-1 border-t border-slate-100 px-1.5 py-[3px]">
+          <div key={t} className="flex items-center gap-1 border-t border-slate-200 bg-slate-50/70 px-1.5 py-[3px]">
             <Chevron />
-            <span className="flex-1 truncate text-[7px] font-semibold text-slate-800">{t}</span>
+            <Carpeta abierta={false} className="h-2 w-2 shrink-0 text-slate-400" />
+            <span className="flex-1 truncate text-[7.5px] font-bold text-slate-900">{t}</span>
             <span className="flex h-2.5 min-w-[10px] items-center justify-center rounded-full bg-aproba-600 px-0.5 text-[5px] font-semibold text-white">{n}</span>
           </div>
         ))}
