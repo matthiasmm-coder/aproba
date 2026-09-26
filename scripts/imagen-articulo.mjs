@@ -20,6 +20,11 @@ if (!KEY) { console.error("✗ Falta OPENAI_API_KEY (entorno o .env.local)"); pr
 // bodegón fotográfico, luz de estudio, fondo verde muy oscuro, latón y papel crema, un
 // acento de luz verde. Nada de texto ni banderas.
 const PROMPTS = {
+  // 26/09/2026 — variante C elegida entre cinco: la única con DIEZ fichas exactas (los
+  // modelos cuentan mal: la A salió con 14 y las rejillas de 2×5 con 12 y 15). Salieron
+  // 6 verdes y 4 en blanco, no 7 y 3: el alt describe lo que se ve.
+  "requerimiento-extranjeria-plazo-10-dias-como-responder":
+    "Photorealistic premium editorial still life photograph for a legal-tech article about administrative deadlines. Bright, airy, soft morning daylight coming from the right. A pale ash-wood desk against a warm white plaster wall. Camera at a gentle three-quarter angle, slightly above the desk, shallow depth of field. On the desk, one single straight row of EXACTLY TEN small square cream ceramic tiles, evenly spaced with small equal gaps, all ten fully visible, none stacked, none overlapping, none cut off by the frame. Counting from the left: tiles one to seven are inlaid with crisp, vivid emerald-green printed-circuit patterns (fine circuit traces, solder pads and tiny nodes with sharp vector-like edges and solid saturated colour, softly glowing); tiles eight, nine and ten are plain blank cream ceramic. So the row reads: seven emerald tiles, then three plain tiles, ten in total. Behind the row, a single blank cream sheet of paper rests in a clear acrylic letter tray, held by a polished brass paper clip. A slim brass pen lies parallel to the row. Palette: cream, pale ash wood, warm white, brushed brass and vivid emerald green. Clean, minimal, calm, high-end, magazine quality. STRICT RULE: the image contains ZERO typography. No letters, no digits, no numbers, no symbols, no logos, nothing written or engraved on the tiles, the sheet, the tray or anywhere; the paper is completely blank. No bell. No people, no hands.",
   // 25/09/2026 — variante A elegida entre dos (terrazo, primera vez; la B, con un ala de
   // latón como guiño a Mercurio, quedaba recargada y sus iconos de documento parecían de interfaz).
   "mercurio-extranjeria-presentar-paso-a-paso":

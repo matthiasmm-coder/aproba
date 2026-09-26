@@ -63,6 +63,137 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    // 26/09/2026 — el requerimiento, pedido por Matthias tras llevar los requerimientos a la
+    // lista de Expedientes y a la campana. Fuente única: Ley 39/2015 consolidada (BOE, últ.
+    // mod. 06/11/2024), leída el 26/09: arts. 22.1.a, 30.2, 30.3, 30.5, 30.7, 31.2.b, 32.1-3,
+    // 41.5, 43.2, 68.1-2, 73.1-3 y 95.1-2. El ejemplo (1 → 16/10/2026) se contó a mano: el
+    // lunes 12 es la Fiesta Nacional. Lo que se dice de Aproba sale del código
+    // (lib/requerimientos.ts, lib/requerimientos-escaner.ts, lib/alertas.ts).
+    slug: "requerimiento-extranjeria-plazo-10-dias-como-responder",
+    titulo: "Requerimiento en extranjería: los 10 días y cómo responder",
+    descripcion:
+      "Qué es un requerimiento de extranjería, cómo se cuentan los diez días hábiles, cuándo pedir la ampliación y qué pasa si no se contesta, según la Ley 39/2015.",
+    fecha: "2026-09-26",
+    tema: "Procedimiento",
+    entradilla:
+      "Un requerimiento no es una denegación: es la Administración diciendo qué falta antes de resolver. Pero solo da diez días hábiles, empieza a contar al día siguiente de la notificación y, si se deja pasar, se tiene al solicitante por desistido o se resuelve sin lo que faltaba. Esto dice la ley, con un ejemplo contado día a día.",
+    imagenAlt:
+      "Diez fichas de cerámica crema en fila sobre un escritorio de madera clara: las seis primeras llevan circuitos verde esmeralda y las cuatro últimas siguen en blanco; detrás, un folio en blanco en una bandeja de metacrilato, sujeto con una pinza dorada.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "El requerimiento llega cuando la oficina de extranjería, al revisar un expediente, echa algo en falta: un documento, una traducción, un dato que no cuadra. A menudo nace de un [error documental](/articulos/errores-documentales-retrasan-expediente-extranjeria) que se pudo ver antes de presentar. La **Ley 39/2015** fija el plazo para responder, cómo se cuenta y qué pasa si no se contesta.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "10 días", etiqueta: "hábiles para contestar, desde el día siguiente a la notificación (arts. 68.1 y 73.1)" },
+          { valor: "+5 días", etiqueta: "de ampliación como máximo, pedida antes de que venza el plazo (arts. 68.2 y 32.3)" },
+          { valor: "10 + 10", etiqueta: "días: diez naturales para abrir la notificación electrónica y diez hábiles para contestar" },
+          { valor: "Pausa", etiqueta: "en el plazo para resolver: puede suspenderse mientras dura el requerimiento (art. 22.1.a)" },
+        ],
+      },
+      { t: "h2", texto: "Dos requerimientos que se parecen y no acaban igual" },
+      {
+        t: "p",
+        texto:
+          "El primero es el de **subsanación de la solicitud** (art. 68.1): la solicitud no reúne los requisitos o le faltan documentos preceptivos, y se conceden diez días advirtiendo que, si no se completa, **se tendrá al solicitante por desistido**, previa resolución. El segundo llega con el expediente en marcha: la Administración pide cumplir un **trámite** o completar un acto que no reúne los requisitos (art. 73). También son diez días, pero lo que está en juego es **el derecho a ese trámite**, no la solicitud entera.",
+      },
+      {
+        t: "tabla",
+        titulo: "Qué pasa si no se contesta",
+        encabezados: ["Requerimiento", "Plazo", "Si no se atiende"],
+        filas: [
+          ["Subsanar la solicitud (art. 68.1)", "**10 días hábiles**, ampliables hasta 5 (art. 68.2)", "Desistimiento, previa resolución: la solicitud se archiva"],
+          ["Cumplir un trámite (art. 73)", "**10 días hábiles**, salvo que la norma fije otro", "Puede darse por perdido el trámite; aun así, se admite si llega antes o dentro del día en que se notifica la resolución que da el plazo por pasado (art. 73.3)"],
+          ["Expediente parado por causa del interesado (art. 95)", "**3 meses** desde la advertencia", "Caducidad y archivo, solo si lo pendiente era indispensable para resolver"],
+        ],
+        nota: "Fuente: Ley 39/2015, texto consolidado del BOE (última modificación, 6 de noviembre de 2024).",
+      },
+      { t: "h2", texto: "Cómo se cuentan los diez días" },
+      {
+        t: "p",
+        texto:
+          "El plazo empieza **el día siguiente a la notificación** (art. 30.3). En papel, cuenta el día de la entrega. En electrónico, el día en que se abre o, si nadie la abre y esa vía era obligatoria o elegida, el día en que se entiende rechazada, **diez días naturales** después de la puesta a disposición (art. 43.2), y el procedimiento sigue (art. 41.5): lo explicamos en [quién recibe las notificaciones](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias).",
+      },
+      {
+        t: "p",
+        texto:
+          "Desde ahí cuentan solo los **días hábiles**: fuera sábados, domingos y festivos (art. 30.2), los nacionales y los autonómicos o locales del calendario oficial de días inhábiles (art. 30.7). Si el último día es inhábil, el plazo acaba el primer hábil siguiente (art. 30.5). Un ejemplo de este otoño:",
+      },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Jueves 1 de octubre de 2026", titulo: "Se abre la notificación", texto: "Ese día no cuenta." },
+          { fecha: "Viernes 2 de octubre", titulo: "Día 1", texto: "El plazo arranca al día siguiente (art. 30.3)." },
+          { fecha: "Lunes 12 de octubre", titulo: "No cuenta", texto: "Fiesta Nacional de España: inhábil en todo el territorio, como los fines de semana." },
+          {
+            fecha: "Viernes 16 de octubre",
+            titulo: "Día 10: último día",
+            texto: "Si no hay festivo autonómico o local por medio. Saltando solo los fines de semana saldría el jueves 15.",
+            destacado: true,
+          },
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "Mercurio registra a cualquier hora, pero lo presentado en sábado, domingo o festivo cuenta como presentado **a primera hora del siguiente día hábil** (art. 31.2.b): no gana tiempo, como explicamos en la [guía de Mercurio](/articulos/mercurio-extranjeria-presentar-paso-a-paso).",
+      },
+      { t: "h2", texto: "Si el documento no llega a tiempo" },
+      {
+        t: "p",
+        texto:
+          "Un certificado de antecedentes penales que hay que pedir en el país de origen no siempre se consigue en dos semanas. La ley da margen, pero **solo si se pide pronto**: la petición y la decisión tienen que llegar antes del vencimiento, y un plazo vencido ya no se amplía (art. 32.3).",
+      },
+      {
+        t: "checklist",
+        titulo: "Antes del día 10",
+        items: [
+          "**Pedir la ampliación por escrito**, explicando la dificultad: hasta cinco días más (arts. 68.2 y 32.1). La decisión no se puede recurrir por separado (art. 32.3).",
+          "**Si hay que hacer gestiones en el extranjero**, invocar el art. 32.2: en esos procedimientos la ampliación máxima se aplica «en todo caso».",
+          "**Aportar lo que ya se tiene** y explicar lo que falta, con la prueba de que se ha pedido: una respuesta parcial a tiempo deja constancia de la diligencia; el silencio, no.",
+          "**Contestar punto por punto**, en el orden del requerimiento, con el número de expediente.",
+          "**Guardar el justificante de registro** en el expediente el mismo día: es lo que acredita la fecha.",
+        ],
+      },
+      { t: "h2", texto: "El requerimiento también mueve la fecha del silencio" },
+      {
+        t: "p",
+        texto:
+          "La Administración puede **suspender el plazo máximo para resolver** desde que notifica el requerimiento hasta que se cumple o, si no se cumple, hasta que vence el plazo concedido (art. 22.1.a). En una renovación con [silencio positivo](/articulos/silencio-administrativo-extranjeria-plazos-2026), la fecha en que se entiende concedida se corre esos días. Si contestas a los tres días, el reloj se para tres días; si esperas al último, unas dos semanas. Responder pronto también acerca la resolución.",
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Aproba no lee la DEHú ni la sede: el requerimiento lo anotas en la ficha del expediente, con lo que piden y la fecha límite que figura en él. El botón «Calcular 10 días hábiles» propone esa fecha saltando los fines de semana; no conoce los festivos, así que solo puede equivocarse hacia el lado seguro (en el ejemplo marcaría el jueves 15), y manda la fecha que tú dejes. Después avisa al despacho por correo al entrar en el margen que elijas, a tres días, a uno, el día del vencimiento y el siguiente si sigue pendiente. En Expedientes, cada expediente con requerimiento muestra los días que quedan y el filtro «Requerimientos» los reúne; la campana del encabezado junta lo que está por vencer, también las [renovaciones](/funciones/radar-de-renovaciones). Al cliente no le escribe por su cuenta.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Los diez días de un requerimiento son hábiles o naturales?",
+            a: "Hábiles: no cuentan sábados, domingos ni festivos (art. 30.2 de la Ley 39/2015). Los diez días naturales son otros: los que hay para abrir una notificación electrónica antes de que se entienda rechazada (art. 43.2).",
+          },
+          {
+            q: "¿Desde cuándo cuenta el plazo del requerimiento?",
+            a: "Desde el día siguiente a la notificación (art. 30.3): el siguiente al día en que se abrió o, si nadie la abrió, al día en que se entendió rechazada, diez días naturales después de la puesta a disposición.",
+          },
+          {
+            q: "¿Se puede pedir más plazo para contestar?",
+            a: "Sí: hasta cinco días más si aportar los documentos presenta dificultades especiales (art. 68.2). Hay que pedirlo antes de que venza, porque un plazo vencido no se amplía (art. 32.3).",
+          },
+          {
+            q: "¿Qué pasa si contesto tarde?",
+            a: "Depende del requerimiento. Si era de subsanación de la solicitud, la ley prevé tener al solicitante por desistido, mediante resolución (art. 68.1). Si era para cumplir un trámite, la respuesta todavía se admite si llega antes o dentro del día en que se notifica la resolución que da el plazo por transcurrido (art. 73.3).",
+          },
+        ],
+      },
+    ],
+  },
+  {
     // 25/09/2026 — primer artículo en formato GUÍA (bloques `pasos` y `checklist`), para
     // que la serie no parezca calcada. Fuentes, todas leídas el 23-25/09: manual de usuario
     // «Plataforma de Extranjería. Mercurio Iniciales» (SGAD, 22 págs.), ficha del
@@ -565,7 +696,7 @@ export const ARTICULOS: Articulo[] = [
       {
         t: "p",
         texto:
-          "La segunda trampa es la notificación electrónica. Si el interesado eligió ese canal o está obligado a usarlo, la resolución se publica en la sede y **se da por notificada a los diez días hábiles**, la haya abierto alguien o no. El silencio que el despacho cree estar esperando puede ser una denegación ya notificada que nadie leyó, con el plazo de recurso corriendo. [Los errores de seguimiento](/articulos/errores-documentales-retrasan-expediente-extranjeria), no los jurídicos, son los que más expedientes cuestan.",
+          "La segunda trampa es la notificación electrónica. Si el interesado eligió ese canal o está obligado a usarlo, la resolución se pone a disposición en la sede y, **si nadie la abre en diez días naturales, se entiende rechazada** y el procedimiento sigue como si se hubiera leído (arts. 43.2 y 41.5). El silencio que el despacho cree estar esperando puede ser una denegación ya notificada que nadie leyó, con el plazo de recurso corriendo. [Los errores de seguimiento](/articulos/errores-documentales-retrasan-expediente-extranjeria), no los jurídicos, son los que más expedientes cuestan.",
       },
       { t: "h2", texto: "El día que vence el plazo" },
       { t: "h3", texto: "Si el silencio es positivo" },

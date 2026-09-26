@@ -346,7 +346,7 @@ export const BENEFICIOS: Beneficio[] = [
     descripcion: "Las cinco causas habituales de requerimiento por defecto de forma en extranjería, cuáles elimina Aproba por construcción y de dónde sale el 80 %.",
     h1: "−80 % errores administrativos: cuáles son y por qué desaparecen",
     entradilla: "Un requerimiento de subsanación casi nunca viene del fondo del caso: viene de un dato mal tecleado, un documento caducado o una tasa equivocada. Estas son las causas y lo que Aproba hace con cada una.",
-    actualizado: "2026-09-13",
+    actualizado: "2026-09-26",
     significa: [
       { t: "p", texto: "Llamamos error administrativo al defecto de forma que provoca un requerimiento o un retraso sin que el caso tenga ningún problema de fondo. En nuestra experiencia con despachos de extranjería se concentran en cinco causas." },
       { t: "tabla", titulo: "Las cinco causas y qué hace Aproba", encabezados: ["Causa del requerimiento", "Qué la provoca", "Con Aproba"], filas: [
@@ -371,7 +371,7 @@ export const BENEFICIOS: Beneficio[] = [
       ] },
     ],
     faq: [
-      { q: "¿Qué pasa si aun así llega un requerimiento?", a: "Se registra en el expediente con su plazo, el cliente recibe la lista de lo que hay que aportar y el tablero lo devuelve a Preparación hasta subsanar." },
+      { q: "¿Qué pasa si aun así llega un requerimiento?", a: "Lo anotas en la ficha del expediente con su fecha límite, y Aproba avisa al despacho antes de que venza y muestra en Expedientes los días que quedan. Al cliente no le escribe por su cuenta: si hay que pedirle algo, le mandas su enlace de siempre." },
       { q: "¿Contáis los errores de la Administración?", a: "No: la cifra habla de los errores del expediente que presentas, no de los que comete quien lo resuelve." },
     ],
   },
