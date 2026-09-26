@@ -86,7 +86,7 @@ export async function escanearRequerimientos(admin: SupabaseClient): Promise<{ a
       const email = owner ? (await admin.auth.admin.getUserById(owner.userId as string)).data.user?.email ?? null : null;
       if (email && process.env.RESEND_API_KEY) {
         const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://aproba-software.com").replace(/\/$/, "");
-        const url = `${appUrl}/app/requerimientos`;
+        const url = `${appUrl}/app/expedientes?filtro=requerimientos`;
         const { data: wsRow } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
         const gestoria = (wsRow as { nombre?: string } | null)?.nombre ?? "Tu gestoría";
         const n = lista.length;

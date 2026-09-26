@@ -7,16 +7,17 @@ import { useRouter } from "next/navigation";
 import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/components/avatar-gestor";
 import { useT } from "@/components/lang-provider";
-import { ArchiveIcon, VistasExpedientes } from "@/components/vistas-expedientes";
+import { ArchiveIcon, RequerimientosIcon, VistasExpedientes } from "@/components/vistas-expedientes";
 import { NumeroOficial } from "@/components/numero-oficial";
 import { SALIDAS, etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { loadArchivados, setArchivadoServidor } from "@/lib/archivo";
-import { construirArbol, grupoDe as grupoArbol, raizDe, temaDe, SIN_TEMA, type PackLite } from "@/lib/expedientes-arbol";
+import { construirArbol, grupoDe as grupoArbol, raizDe, type PackLite } from "@/lib/expedientes-arbol";
 import { anioPorDefecto, aniosDelResumen, construirArbolHistorial, filtrarResumen, salidasDelResumen, totalResumen, type CarpetaServicio, type CatalogoLite } from "@/lib/historial-arbol";
 import type { FilaHistorial, ResumenHistorial } from "@/lib/data/historial";
 import { conceptoUtil, sinMarcaDePago } from "@/lib/historial-pagos";
 import type { ExpedienteEstado } from "@/lib/types";
 import { esperaAlCliente as esperandoCliente } from "@/lib/progreso";
+import { diasRestantes, plazoClave, urgenciaDe } from "@/lib/requerimientos";
 import type { BoardItem } from "@/components/board-client";
 
 // EXPEDIENTES — 18/09/2026 (Matthias, tras la reunión con Luis y Marta Asenjo).
@@ -41,7 +42,41 @@ export type { PackLite };
 // `migrado`: servicio traído de un sistema anterior (ServicioHistorico, 25/09/2026): no hay
 // expediente detrás; la fila abre la ficha del cliente o de la empresa (`enlace`).
 // `detalle`: concepto de la factura migrada; `pagos`: facturas del servicio (historial-pagos.sql).
-export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null; detalle?: string | null; pagos?: number };
+// Un requerimiento PENDIENTE, lo justo para la fila (26/09/2026): los días que quedan y lo
+// que hay que aportar a la Administración («Qué te piden» y, si los hay, los documentos).
+export type ReqFila = { asunto: string; docs: string[]; fechaLimite: string; avisarDias: number };
+export type ReqFuera = ReqFila & { expedienteId: string; referencia: string; clienteNombre: string };
+export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null; detalle?: string | null; pagos?: number; requerimientos?: ReqFila[] };
+
+// Color del plazo, el mismo que tenía la vista «Requerimientos»: rojo si vence hoy o ya
+// venció, ámbar cuando entra en el aviso, gris si hay tiempo.
+const COLOR_PLAZO: Record<string, string> = {
+  VENCIDO: "bg-red-50 text-red-700", HOY: "bg-red-50 text-red-700",
+  URGENTE: "bg-amber-100 text-amber-800", PROXIMO: "bg-amber-50 text-amber-700", TRANQUILO: "bg-slate-100 text-slate-600",
+};
+const queAportar = (rs: ReqFila[]) => rs.flatMap((r) => [r.asunto, ...r.docs]).map((x) => x.trim()).filter(Boolean).join(" · ");
+
+// La línea del requerimiento: «Requerimiento · Quedan 4 días · Aportar: …».
+function LineaRequerimiento({ rs }: { rs: ReqFila[] }) {
+  const t = useT();
+  if (!rs.length) return null;
+  const r = rs[0]; // el más urgente (vienen por fecha límite)
+  const u = urgenciaDe({ estado: "PENDIENTE", fechaLimite: r.fechaLimite, avisarDias: r.avisarDias });
+  const p = plazoClave({ estado: "PENDIENTE", fechaLimite: r.fechaLimite, avisarDias: r.avisarDias });
+  const aportar = queAportar(rs);
+  return (
+    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+      {/* max-w-full y sin shrink-0: en un móvil estrecho la pastilla pasa a dos líneas en
+          vez de montarse sobre la foto del responsable. */}
+      <span className={`inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${COLOR_PLAZO[u] ?? COLOR_PLAZO.TRANQUILO}`}>
+        <RequerimientosIcon className="h-3 w-3 shrink-0" />
+        <span>{rs.length > 1 ? `${rs.length} ${t("requerimientos")}` : t("Requerimiento")} · <span className="whitespace-nowrap">{t(p.clave).replace("{n}", String(p.n))}</span></span>
+      </span>
+      {/* Dos líneas como mucho (en el móvil, una sola cortaba justo lo que hay que aportar). */}
+      {aportar && <span className="line-clamp-2 min-w-0 text-slate-600" title={aportar}><span className="font-medium">{t("Aportar")}:</span> {aportar}</span>}
+    </span>
+  );
+}
 
 const MEMORIA_ARBOL = "aproba.expedientes.arbol.v1";
 // Una carpeta abierta pinta 25 expedientes; el resto, a petición. Con 15 años de
@@ -143,6 +178,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
             <span className="text-slate-500">· {t("En trámite")} {new Date(e.estadoExtranjeria.at).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).slice(0, 5)}</span>
           )}
         </span>
+        {/* Requerimiento pendiente (26/09): los días que quedan y lo que hay que aportar. */}
+        {!cerrado && <LineaRequerimiento rs={e.requerimientos ?? []} />}
       </Link>
 
       {/* Nº de expediente de Extranjería (Jennifer, 24/09): se lee y se corrige en la fila.
@@ -315,7 +352,7 @@ function useArchivoServidor() {
   return { filas, cargando, error, pedir, pedirMas, quitar };
 }
 
-export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, vistaInicial = "curso", renovaciones = 0, requerimientos = 0, requerimientosUrgentes = false, archivo = null, avatares = {}, carpetasVacias = [] }: {
+export function ExpedientesLista({ items, asignados, temas, packs = [], filtroInicial = null, vistaInicial = "curso", renovaciones = 0, requerimientosTotal = 0, requerimientosFuera = [], archivo = null, avatares = {}, carpetasVacias = [] }: {
   items: ItemLista[];
   asignados: string[];
   temas: string[];
@@ -325,14 +362,17 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   archivo?: { resumen: ResumenHistorial[]; catalogo: CatalogoLite[]; etiquetasTipo?: Record<string, string> } | null;
   // `?filtro=esperando` viene de Inicio («N esperando cliente →»). Sin esto, el enlace
   // llevaba a la lista COMPLETA: el gestor pulsaba un recuento y no veía ese recuento.
-  filtroInicial?: "esperando" | null;
+  // `?filtro=requerimientos`: el enlace de los avisos por email y la antigua vista.
+  filtroInicial?: "esperando" | "requerimientos" | null;
   // `?vista=historial`: la pestaña «Historial» de la pantalla de renovaciones vuelve aquí
   // abriendo directamente el archivo. Y el recuento de la pestaña «Renovaciones» (el
   // mismo número que el KPI «Caducan pronto» del Inicio).
   vistaInicial?: "curso" | "historial";
   renovaciones?: number;
-  requerimientos?: number;
-  requerimientosUrgentes?: boolean;
+  // Requerimientos PENDIENTES del despacho (el número del filtro) y los que cuelgan de
+  // expedientes que no están en la lista (archivados o más allá del tope).
+  requerimientosTotal?: number;
+  requerimientosFuera?: ReqFuera[];
   // Fotos del equipo por nombre: la fila pinta la foto del responsable, no sus iniciales.
   avatares?: Avatares;
   // Carpetas de Ajustes que hoy no llevan ningún expediente: se pintan igual, vacías.
@@ -342,7 +382,6 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const router = useRouter();
   const [q, setQ] = useState("");
   const [asignado, setAsignado] = useState("");
-  const [tema, setTema] = useState("");
   const [view, setView] = useState<"curso" | "historial">(vistaInicial);
   const [numerosEditados, setNumerosEditados] = useState<Map<string, string>>(() => new Map());
   const guardarNumero = useCallback((id: string, numero: string) => setNumerosEditados((m) => new Map(m).set(id, numero)), []);
@@ -355,7 +394,15 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     if (v === "historial") url.searchParams.set("vista", "historial"); else url.searchParams.delete("vista");
     window.history.replaceState(window.history.state, "", url.pathname + (url.search || ""));
   };
-  const [soloEsperando, setSoloEsperando] = useState(filtroInicial === "esperando");
+  // Las pastillas de «En curso» (26/09/2026): «Esperando al cliente» y «Requerimientos».
+  // Una a la vez; al pulsarla, el árbol se abre entero para enseñar SUS expedientes.
+  const [filtroChip, setFiltroChip] = useState<"esperando" | "requerimientos" | null>(filtroInicial);
+  const soloEsperando = filtroChip === "esperando";
+  const soloRequerimientos = filtroChip === "requerimientos";
+  // Lo que se pliega a mano CON una pastilla puesta: no se recuerda (la próxima vez que
+  // se pulse, vuelve a abrirse todo) y se olvida al cambiar de pastilla.
+  const [cerradosFiltro, setCerradosFiltro] = useState<Set<string>>(new Set());
+  useEffect(() => { setCerradosFiltro(new Set()); }, [filtroChip]);
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   // El plegado se RECUERDA entre visitas (localStorage, por navegador): al volver, el
   // gestor encuentra sus carpetas como las dejó — como en su disco. Dos conjuntos porque
@@ -410,9 +457,11 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   // un solo servicio nace abierta con su tema, y aun así su flecha tiene que plegarla.
   // Antes su estado colgaba de la clave de la RAÍZ mientras el clic escribía la del
   // grupo: la flecha no hacía nada (reportado por Matthias el 19/09).
+  const conPastilla = view === "curso" && filtroChip !== null;
   const estaAbierto = (k: string, porDefecto = abiertoPorDefecto) =>
-    Boolean(q.trim()) || (porDefecto ? !cerrados.has(k) : abiertos.has(k));
+    Boolean(q.trim()) || (conPastilla ? !cerradosFiltro.has(k) : porDefecto ? !cerrados.has(k) : abiertos.has(k));
   const toggle = (k: string, porDefecto = abiertoPorDefecto) => {
+    if (conPastilla) { setCerradosFiltro((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; }); return; }
     if (porDefecto) setCerrados((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
     else setAbiertos((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   };
@@ -458,8 +507,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
 
   const pasaFiltros = (e: ItemLista) => {
     if (soloEsperando && !esperandoCliente(e)) return false;
+    if (soloRequerimientos && !(e.requerimientos?.length)) return false;
     if (asignado && e.asignadoA !== asignado) return false;
-    if (tema && temaDe(e) !== tema) return false;
     return true;
   };
   const pasa = (e: ItemLista) => pasaFiltros(e) && pasaTexto(e);
@@ -474,9 +523,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
 
 
   const ordenPrioridad = (e: ItemLista) => e.progreso?.score ?? 50;
+  const diasReq = (e: ItemLista) => (e.requerimientos?.length ? diasRestantes(e.requerimientos[0].fechaLimite) : Infinity);
   const ordenarFilas = (l: ItemLista[]) =>
     view === "curso"
-      ? [...l].sort((a, b) => ordenPrioridad(a) - ordenPrioridad(b))
+      ? [...l].sort((a, b) => (soloRequerimientos ? diasReq(a) - diasReq(b) : 0) || ordenPrioridad(a) - ordenPrioridad(b))
       : [...l].sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre, "es"));
 
   // Un solo árbol por vista. Los dos bloques («Te toca a ti» / «Esperando al cliente»)
@@ -490,10 +540,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       temas, packs, porAnios: view === "historial", ordenarFilas,
       etiquetaSinClasificar: t("Sin clasificar"), etiquetaSinFecha: t("Sin fecha"),
       // Solo en «En curso»: el archivo se recorre para buscar, no para ver la estructura.
-      carpetasVacias: view === "curso" && !q.trim() && !tema && !asignado && !soloEsperando ? carpetasVacias : [],
+      carpetasVacias: view === "curso" && !q.trim() && !asignado && !filtroChip ? carpetasVacias : [],
     }) }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, activos, historial, q, asignado, tema, catFiltro, temas, packs, soloEsperando, carpetasVacias]);
+  }, [view, activos, historial, q, asignado, catFiltro, temas, packs, filtroChip, carpetasVacias]);
 
   const total = bloques.reduce((a, b) => a + b.arbol.reduce((x, r) => x + r.n, 0), 0);
 
@@ -506,7 +556,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     for (const e of activos.filter(pasa)) m.set(raizDe(e, packs), (m.get(raizDe(e, packs)) ?? 0) + 1);
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activos, packs, q, asignado, tema, soloEsperando, numerosEditados]);
+  }, [activos, packs, q, asignado, filtroChip, numerosEditados]);
 
   // ── ARCHIVO SERVIDOR ───────────────────────────────────────────────────────
   const archivoSrv = useArchivoServidor();
@@ -527,10 +577,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     };
   }, [catalogoArchivo, etiquetaTipo]);
 
-  // Recuentos ya filtrados por tema/responsable (las pastillas de salida cuentan sobre eso).
+  // Recuentos ya filtrados por responsable (las pastillas de salida cuentan sobre eso).
   const resumenBase = useMemo(
-    () => (archivo ? filtrarResumen(archivo.resumen, { asignado: asignado || null, tema: tema && tema !== SIN_TEMA ? tema : null }, catalogoArchivo) : []),
-    [archivo, asignado, tema, catalogoArchivo],
+    () => (archivo ? filtrarResumen(archivo.resumen, { asignado: asignado || null, tema: null }, catalogoArchivo) : []),
+    [archivo, asignado, catalogoArchivo],
   );
   // El AÑO es un filtro, uno a la vez (el corriente al entrar). La lista de años se
   // calcula ANTES de filtrar por año, si no desaparecerían los demás.
@@ -545,8 +595,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const arbolArchivo = useMemo(() => (archivo ? construirArbolHistorial(
     filtrarResumen(resumenAnio, { salida: catFiltro || null }, catalogoArchivo),
     { catalogo: catalogoArchivo, temas, etiquetaSinClasificar: t("Sin clasificar"), etiquetaTipo,
-      carpetasVacias: !q.trim() && !tema && !asignado && !catFiltro ? carpetasVacias : [] },
-  ) : []), [archivo, resumenAnio, catFiltro, catalogoArchivo, temas, t, etiquetaTipo, carpetasVacias, q, tema, asignado]);
+      carpetasVacias: !q.trim() && !asignado && !catFiltro ? carpetasVacias : [] },
+  ) : []), [archivo, resumenAnio, catFiltro, catalogoArchivo, temas, t, etiquetaTipo, carpetasVacias, q, asignado]);
   const totalArchivo = archivo ? totalResumen(archivo.resumen) : historial.length;
 
   // Búsqueda en el archivo: la hace el SERVIDOR (si no, buscar solo miraría lo ya traído).
@@ -607,6 +657,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   })();
 
   const nEsperando = activos.filter(esperandoCliente).length;
+  const requerimientosUrgentes = [...activos.flatMap((e) => e.requerimientos ?? []), ...requerimientosFuera].some((r) => diasRestantes(r.fechaLimite) <= 0);
   const filtrosAsignado = asignados.filter((a) => a !== "Sin asignar");
   const chip = (activo: boolean) => `rounded-full border px-2.5 py-1 text-xs font-medium transition ${activo ? "border-aproba-500 bg-aproba-50 text-aproba-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`;
 
@@ -625,7 +676,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 : `${totalArchivo} ${t("en el historial")}`}
           </p>
         </div>
-        <VistasExpedientes activa={view} totalHistorial={totalArchivo} totalRenovaciones={renovaciones} totalRequerimientos={requerimientos} requerimientosUrgentes={requerimientosUrgentes} onCambiar={cambiarVista} />
+        <VistasExpedientes activa={view} totalHistorial={totalArchivo} totalRenovaciones={renovaciones} onCambiar={cambiarVista} />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -634,13 +685,6 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar cliente, trámite, referencia…")} className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-8 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm" />
           {q && <button onClick={() => setQ("")} aria-label={t("Borrar")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-500">✕</button>}
         </div>
-        {temas.length > 0 && (
-          <select value={tema} onChange={(e) => setTema(e.target.value)} aria-label={t("Tema")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
-            <option value="">{t("Todos los temas")}</option>
-            {temas.map((x) => <option key={x} value={x}>{x}</option>)}
-            <option value={SIN_TEMA}>{t("Otros trámites")}</option>
-          </select>
-        )}
         {filtrosAsignado.length > 0 && (
           <select value={asignado} onChange={(e) => setAsignado(e.target.value)} aria-label={t("Responsable")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
             <option value="">{t("Todo el equipo")}</option>
@@ -650,8 +694,16 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
         {/* «Esperando al cliente» a la DERECHA del equipo (21/09, Matthias): primero se
             elige de quién son los expedientes, luego se afina por estado. */}
         {view === "curso" && (nEsperando > 0 || soloEsperando) && (
-          <button type="button" onClick={() => setSoloEsperando((v) => !v)} className={chip(soloEsperando)}>
+          <button type="button" onClick={() => setFiltroChip((f) => (f === "esperando" ? null : "esperando"))} aria-pressed={soloEsperando} className={chip(soloEsperando)}>
             {t("Esperando al cliente")} <span className="opacity-70">{nEsperando}</span>
+          </button>
+        )}
+        {/* «Requerimientos» (26/09/2026): era una vista; ahora filtra «En curso» y abre las
+            carpetas. El número va en ROJO si alguno vence hoy o ya venció. */}
+        {view === "curso" && (requerimientosTotal > 0 || soloRequerimientos) && (
+          <button type="button" onClick={() => setFiltroChip((f) => (f === "requerimientos" ? null : "requerimientos"))} aria-pressed={soloRequerimientos} className={`inline-flex items-center gap-1 ${chip(soloRequerimientos)}`}>
+            <RequerimientosIcon className="h-3 w-3" />
+            {t("Requerimientos")} <span className={requerimientosUrgentes ? "font-bold text-red-600" : "opacity-70"}>{requerimientosTotal}</span>
           </button>
         )}
         {/* AÑO (solo en el historial): un filtro, uno solo a la vez — así la carpeta no
@@ -796,6 +848,23 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                 </div>
               )}
             </section>
+          ))}
+        </div>
+      )}
+
+      {/* Requerimientos de expedientes que no están en «En curso» (archivados): la vista
+          «Requerimientos» los enseñaba, así que el filtro también — ningún plazo se pierde. */}
+      {view === "curso" && soloRequerimientos && requerimientosFuera.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-2xl bg-white">
+          <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("En expedientes archivados")}</p>
+          {requerimientosFuera.map((r, i) => (
+            <Link key={`${r.expedienteId}-${i}`} href={`/app/expedientes/${r.expedienteId}#requerimientos`} className="block border-t border-slate-50 px-4 py-2.5 transition hover:bg-cream-50">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{r.clienteNombre}</span>
+                {r.referencia && <span className="shrink-0 font-mono text-xs text-slate-400">{r.referencia}</span>}
+              </span>
+              <LineaRequerimiento rs={[r]} />
+            </Link>
           ))}
         </div>
       )}

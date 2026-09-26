@@ -5,7 +5,6 @@ import { temaEfectivo, unificarTemas } from "@/lib/temas";
 import { fetchHistorialResumen } from "@/lib/data/historial";
 import { fetchRenovacionesPropuestas, fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
-import { diasRestantes } from "@/lib/requerimientos";
 import { fetchAvataresEquipo } from "@/lib/data/equipo";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { normTema } from "@/lib/servicios";
@@ -13,7 +12,7 @@ import { catalogoDeSede } from "@/lib/multi-servicio";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { PastillasOficina } from "@/components/pastillas-oficina";
 import { BoardClient, type BoardItem } from "@/components/board-client";
-import { ExpedientesLista, type ItemLista, type PackLite } from "@/components/expedientes-lista";
+import { ExpedientesLista, type ItemLista, type PackLite, type ReqFila } from "@/components/expedientes-lista";
 
 export const metadata = { title: "Expedientes" };
 
@@ -34,10 +33,16 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
   const [cargados, propuestas, requerimientos] = await Promise.all([
     fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_EXPEDIENTES, resumenArchivo !== null),
     fetchRenovacionesPropuestas(),
-    fetchRequerimientosPendientes(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []), // pestaña «Requerimientos»
+    fetchRequerimientosPendientes(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => []), // filtro «Requerimientos»
   ]);
-  // Requerimientos vivos del despacho: contador de la pestaña, en rojo si alguno vence hoy o ya venció.
-  const requerimientosUrgentes = requerimientos.filter((r) => diasRestantes(r.fechaLimite) <= 0).length;
+  // Requerimientos PENDIENTES por expediente (26/09/2026): viajan con su fila, que enseña
+  // los días que quedan y lo que hay que aportar. Vienen ordenados por fecha límite: el
+  // primero de cada expediente es el más urgente.
+  const reqPorExp = new Map<string, ReqFila[]>();
+  for (const r of requerimientos) {
+    const fila: ReqFila = { asunto: r.asunto, docs: r.docs, fechaLimite: r.fechaLimite, avisarDias: r.avisarDias };
+    reqPorExp.set(r.expedienteId, [...(reqPorExp.get(r.expedienteId) ?? []), fila]);
+  }
   // Una renovación PROPUESTA y sin respuesta no es todavía trabajo en curso: vive en la
   // vista Renovaciones («Esperando respuesta») y entra aquí cuando el cliente acepta.
   const expedientes = cargados.filter((e) => !propuestas.has(e.id));
@@ -181,8 +186,15 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
     // El año sale del cierre; si el expediente se presentó, su fecha manda (es la que
     // recuerda el gestor: «la nacionalidad de 2023»).
     const anio = (e.presentadoEl?.slice(-4) || anioDeExp.get(e.id)) ?? null;
-    return { ...e, tema: cat?.tema ?? null, servicioLabel: cat?.label ?? e.tipoLabel, claves, anio };
+    return { ...e, tema: cat?.tema ?? null, servicioLabel: cat?.label ?? e.tipoLabel, claves, anio, requerimientos: reqPorExp.get(e.id) ?? [] };
   });
+  // Requerimientos de expedientes que NO están en la lista (archivados, o más allá del
+  // tope): la vista «Requerimientos» los enseñaba; el filtro los lista bajo el árbol para
+  // que ningún plazo quede fuera de la vista.
+  const enLista = new Set(itemsLista.filter((e) => !e.archivado).map((e) => e.id));
+  const requerimientosFuera = requerimientos
+    .filter((r) => !enLista.has(r.expedienteId))
+    .map((r) => ({ expedienteId: r.expedienteId, referencia: r.referencia, clienteNombre: r.clienteNombre, asunto: r.asunto, docs: r.docs, fechaLimite: r.fechaLimite, avisarDias: r.avisarDias }));
 
   // TODAS las carpetas raíz de Ajustes. Cada vista pinta las que le falten (el árbol no
   // duplica las que ya tienen expedientes): así «En curso» y el historial enseñan las
@@ -211,7 +223,7 @@ export default async function Board({ searchParams }: { searchParams: Promise<{ 
       )}
       {vista === "tablero"
         ? <BoardClient items={items} asignados={asignados} filtroInicial={filtro === "esperando" ? "esperando" : null} avatares={avatares} />
-        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" ? "esperando" : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} requerimientos={requerimientos.length} requerimientosUrgentes={requerimientosUrgentes > 0} archivo={archivo} avatares={avatares} />}
+        : <ExpedientesLista items={itemsLista} asignados={asignados} temas={temas} packs={packs} carpetasVacias={carpetasRaiz} filtroInicial={filtro === "esperando" || filtro === "requerimientos" ? filtro : null} vistaInicial={vista === "historial" ? "historial" : "curso"} renovaciones={renovaciones} requerimientosTotal={requerimientos.length} requerimientosFuera={requerimientosFuera} archivo={archivo} avatares={avatares} />}
     </div>
   );
 }

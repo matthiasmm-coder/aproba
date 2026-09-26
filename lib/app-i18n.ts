@@ -2083,6 +2083,10 @@ export const CA: Record<string, string> = {
   "Teléfono de contacto": "Telèfon de contacte",
   "Todavía sin trabajadores.": "Encara sense treballadors.",
   "Requerimientos": "Requeriments",
+  // Filtro «Requerimientos» de «En curso» y línea del requerimiento en la fila (26/09/2026)
+  "requerimientos": "requeriments",
+  "Aportar": "Aportar",
+  "En expedientes archivados": "En expedients arxivats",
   // Estado en Extranjería (sección unificada de la ficha, 24/09/2026)
   "Desfavorable": "Desfavorable",
   "Datos para la consulta oficial": "Dades per a la consulta oficial",
