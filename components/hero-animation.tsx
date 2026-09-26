@@ -88,8 +88,17 @@ function Desplegable({ texto }: { texto: string }) {
   );
 }
 
-function Chip({ texto, n }: { texto: string; n: number }) {
-  return <span className="shrink-0 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[5.5px] font-medium text-slate-500">{texto} <span className="text-slate-400">{n}</span></span>;
+function Chip({ texto, n, reloj = false }: { texto: string; n: number; reloj?: boolean }) {
+  return (
+    <span className="flex shrink-0 items-center gap-[2px] rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[5.5px] font-medium text-slate-500">
+      {reloj && <Reloj className="h-[5px] w-[5px]" />}{texto} <span className="text-slate-400">{n}</span>
+    </span>
+  );
+}
+
+// El reloj de los requerimientos (RequerimientosIcon en la app).
+function Reloj({ className }: { className: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
 }
 
 function Barra({ pct }: { pct: number }) {
@@ -105,7 +114,8 @@ function Titulo({ texto, sub }: { texto: string; sub: React.ReactNode }) {
   );
 }
 
-// Las cuatro vistas de Expedientes (components/vistas-expedientes.tsx), en miniatura.
+// Las tres vistas de Expedientes (components/vistas-expedientes.tsx), en miniatura.
+// «Requerimientos» dejó de ser una vista el 26/09: es una pastilla de «En curso».
 function Vistas({ activa }: { activa: "curso" | "renovaciones" }) {
   const cls = (on: boolean) => `flex items-center gap-[2px] whitespace-nowrap rounded px-[3px] py-0.5 ${on ? "bg-white font-semibold text-slate-900 shadow-sm" : ""}`;
   const i = "h-[5px] w-[5px]";
@@ -119,10 +129,6 @@ function Vistas({ activa }: { activa: "curso" | "renovaciones" }) {
       <span className={cls(activa === "renovaciones")}>
         <svg className={i} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/></svg>
         Renovaciones <span className="text-slate-400">3</span>
-      </span>
-      <span className={cls(false)}>
-        <svg className={i} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        Requerimientos <span className="text-slate-400">2</span>
       </span>
     </div>
   );
@@ -228,9 +234,9 @@ function Casilla({ ok, label }: { ok: boolean; label: string }) {
 }
 
 function ExpedientesEnCurso() {
-  type Fila = { n: string; ref: string; meta: string; num?: string; ok: [boolean, boolean, boolean, boolean]; who: string; plazo?: string };
+  type Fila = { n: string; ref: string; meta: string; num?: string; ok: [boolean, boolean, boolean, boolean]; who: string; plazo?: string; req?: { plazo: string; aportar: string } };
   const filas: Fila[] = [
-    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs · En trámite", num: "08/2026/004512", ok: [true, true, true, true], who: "Marta Ribas" },
+    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs · En trámite", num: "08/2026/004512", ok: [true, true, true, true], who: "Marta Ribas", req: { plazo: "Quedan 2 días", aportar: "Contrato de trabajo firmado y alta en la Seguridad Social" } },
     { n: "Andrés Patiño", ref: "EXP-2026-0044", meta: "2/6 docs", ok: [true, false, false, false], who: "Diego Fuentes", plazo: "3 días" },
     { n: "Aïcha Diallo Diaz", ref: "EXP-2026-0046", meta: "5/6 docs", ok: [true, false, true, true], who: "Nuria Camps" },
   ];
@@ -243,9 +249,9 @@ function ExpedientesEnCurso() {
       </div>
       <div className="mb-1.5 flex items-center gap-1">
         <Buscador texto="Buscar cliente, trámite, referencia…" cls="min-w-0 flex-1" />
-        <Desplegable texto="Todos los temas" />
         <Desplegable texto="Todo el equipo" />
         <Chip texto="Esperando al cliente" n={6} />
+        <Chip texto="Requerimientos" n={1} reloj />
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         {/* Tema abierto: borde verde a la izquierda, como en la app */}
@@ -261,7 +267,8 @@ function ExpedientesEnCurso() {
             <span className="text-[5px] text-slate-300">7</span>
           </div>
           {filas.map((f) => (
-            <div key={f.ref} className="flex items-center gap-1 border-t border-slate-50 bg-white py-1 pl-6 pr-1.5">
+            <div key={f.ref} className="border-t border-slate-50 bg-white py-1 pl-6 pr-1.5">
+            <div className="flex items-center gap-1">
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1">
                   <span className="truncate text-[6.5px] font-semibold text-slate-900">{f.n}</span>
@@ -277,10 +284,19 @@ function ExpedientesEnCurso() {
               </span>
               <Foto nombre={f.who} size="h-3 w-3" />
             </div>
+            {/* Requerimiento pendiente, a lo ancho de la fila (en la maqueta no cabe junto a
+                las casillas): los días que quedan y lo que hay que aportar. */}
+            {f.req && (
+              <p className="mt-[2px] flex min-w-0 items-center gap-[3px] text-[4.5px]">
+                <span className="inline-flex shrink-0 items-center gap-[2px] rounded bg-amber-100 px-[3px] py-[0.5px] font-semibold text-amber-800"><Reloj className="h-[5px] w-[5px]" />Requerimiento · {f.req.plazo}</span>
+                <span className="truncate text-slate-600"><span className="font-medium">Aportar:</span> {f.req.aportar}</span>
+              </p>
+            )}
+            </div>
           ))}
         </div>
         {temas.map(([t, n]) => (
-          <div key={t} className="flex items-center gap-1 border-t border-slate-100 px-1.5 py-1">
+          <div key={t} className="flex items-center gap-1 border-t border-slate-100 px-1.5 py-[3px]">
             <Chevron />
             <span className="flex-1 truncate text-[7px] font-semibold text-slate-800">{t}</span>
             <span className="flex h-2.5 min-w-[10px] items-center justify-center rounded-full bg-aproba-600 px-0.5 text-[5px] font-semibold text-white">{n}</span>
