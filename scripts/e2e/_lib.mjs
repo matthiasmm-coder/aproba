@@ -60,7 +60,10 @@ export async function contexto() {
 
   ctxCache = {
     user, ws, oficinas: ofis, cookie, accessToken: at,
-    madrid: ofis.find((o) => /Madrid/i.test(o.nombre)) ?? ofis[1],
+    // Mono-oficina (la demo desde el 26/09): no hay vista «Todas»; crear sin sede es lo normal
+    // y se estampa en la única oficina. Los escenarios 01-04 lo comprueban así.
+    multiSede: ofis.length >= 2,
+    madrid: ofis.find((o) => /Madrid/i.test(o.nombre)) ?? ofis[1] ?? ofis[0],
     zaragoza: ofis.find((o) => /Zaragoza/i.test(o.nombre)) ?? ofis[ofis.length - 1],
   };
   return ctxCache;

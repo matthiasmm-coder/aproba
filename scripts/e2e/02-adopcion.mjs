@@ -5,11 +5,12 @@ export const nombre = "02 Adopción (existente sin sede)";
 export async function run() {
   const v = verificador(nombre);
   const fx = colector();
-  const { ws, madrid, zaragoza } = await contexto();
+  const { ws, madrid, zaragoza, multiSede } = await contexto();
   try {
     const c1 = await fx.cliente();
     const r1 = await api("/api/expedientes", { body: { clienteId: c1 } });
-    v.ok(r1.status === 400 && /no tiene oficina/i.test(r1.d.error ?? ""), "existente sin sede en Todas → 400");
+    if (multiSede) v.ok(r1.status === 400 && /no tiene oficina/i.test(r1.d.error ?? ""), "existente sin sede en Todas → 400");
+    else { fx.expediente(r1.d.expedienteId); v.ok(r1.status === 200 && Boolean(r1.d.expedienteId), `mono-oficina: existente sin sede → se crea sin preguntar (${r1.status})`); }
 
     const r2 = await api("/api/expedientes", { body: { clienteId: c1, oficinaId: madrid.id } });
     fx.expediente(r2.d.expedienteId);
@@ -28,7 +29,8 @@ export async function run() {
     await fx.cliente({ familiaId: fam, parentesco: "TITULAR" });
     await fx.cliente({ familiaId: fam, parentesco: "CONYUGE" });
     const r4 = await api("/api/expedientes", { body: { familiaExistenteId: fam } });
-    v.ok(r4.status === 400 && /familia no tiene oficina/i.test(r4.d.error ?? ""), "familia sin sede en Todas → 400");
+    if (multiSede) v.ok(r4.status === 400 && /familia no tiene oficina/i.test(r4.d.error ?? ""), "familia sin sede en Todas → 400");
+    else { fx.expediente(r4.d.expedienteId); v.ok(r4.status === 200 && Boolean(r4.d.expedienteId), `mono-oficina: familia sin sede → se crea sin preguntar (${r4.status})`); }
 
     const r5 = await api("/api/expedientes", { body: { familiaExistenteId: fam, oficinaId: madrid.id } });
     fx.expediente(r5.d.expedienteId);

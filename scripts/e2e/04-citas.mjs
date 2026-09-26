@@ -5,13 +5,22 @@ export const nombre = "04 Citas (sede de la factura)";
 export async function run() {
   const v = verificador(nombre);
   const fx = colector();
-  const { zaragoza, madrid } = await contexto();
+  const { zaragoza, madrid, multiSede } = await contexto();
   const base = { nombre: "ZZE2E Cita", fecha: "2026-09-01", hora: "10:00", duracion: 30, notificar: false };
   const borrarCita = async (id) => { if (id) await admin.from("CitaPrevia").delete().eq("id", id); };
   let c1 = null, c2 = null;
   try {
-    const r1 = await api("/api/citas-previas", { body: { ...base } });
-    v.ok(r1.status === 400 && /Elige la oficina/i.test(r1.d.error ?? ""), "cita sin cliente en Todas → 400");
+    // Mono-oficina: sin «Todas», la cita sin cliente se crea en la única oficina (y se borra luego).
+    let c0 = null;
+    if (multiSede) {
+      const r1 = await api("/api/citas-previas", { body: { ...base } });
+      v.ok(r1.status === 400 && /Elige la oficina/i.test(r1.d.error ?? ""), "cita sin cliente en Todas → 400");
+    } else {
+      const r1 = await api("/api/citas-previas", { body: { ...base } });
+      c0 = r1.d.id ?? null;
+      v.ok(r1.status === 200 && Boolean(c0), `mono-oficina: cita sin cliente → se crea (${r1.status})`);
+      await borrarCita(c0);
+    }
 
     const r2 = await api("/api/citas-previas", { body: { ...base, oficinaId: zaragoza.id, precio: 60, email: "zze2e@example.com", cobrar: true, cobroTransferencia: true } });
     c1 = r2.d.id ?? null;

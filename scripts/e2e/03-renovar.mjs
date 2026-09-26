@@ -5,15 +5,19 @@ export const nombre = "03 Renovación Vigía (adopción)";
 export async function run() {
   const v = verificador(nombre);
   const fx = colector();
-  const { madrid } = await contexto();
+  const { madrid, multiSede } = await contexto();
   try {
     // Desde el 11/09 (91ca3f3) una renovación se PROPONE por email: sin email, la ruta
     // devuelve 400 a propósito. El fixture usa el sumidero de Resend — nunca un buzón real.
     const cli = await fx.cliente({ email: "delivered@resend.dev" });
     const venc = await fx.vencimiento(cli);
 
-    const r1 = await api(`/api/vencimientos/${venc}/renovar`);
-    v.ok(r1.status === 400 && /no tiene oficina/i.test(r1.d.error ?? ""), "renovar sin sede en Todas → 400");
+    // Mono-oficina: no hay «Todas» — la renovación se lanza directamente y se estampa en la
+    // única oficina (el mismo check de abajo lo verifica); una segunda llamada ya no procede.
+    if (multiSede) {
+      const r1 = await api(`/api/vencimientos/${venc}/renovar`);
+      v.ok(r1.status === 400 && /no tiene oficina/i.test(r1.d.error ?? ""), "renovar sin sede en Todas → 400");
+    }
 
     const r2 = await api(`/api/vencimientos/${venc}/renovar`, { sede: madrid.id });
     fx.expediente(r2.d.expedienteId);
