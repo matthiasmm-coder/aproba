@@ -28,6 +28,7 @@ export type DatosEncargo = {
     nombre: string; apellidos: string; nie: string; pasaporte: string; nacionalidad: string;
     domicilio: string; municipio: string; cp: string; provincia: string;
     telefono: string; email: string;
+    via?: string; numeroVia?: string; piso?: string;
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
   servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; precioOculto?: boolean; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
@@ -86,6 +87,8 @@ type ExpRow = {
 export type PersonaEncargo = {
   nombre: string; apellidos: string; nie: string; pasaporte: string; nacionalidad: string;
   domicilio: string; municipio: string; cp: string; provincia: string; telefono: string; email: string;
+  // Desglose del domicilio: el mandato oficial del Consejo pide calle y nº en casillas aparte.
+  via?: string; numeroVia?: string; piso?: string;
 };
 export function personaEncargo(c: Record<string, string | null | undefined>): PersonaEncargo {
   const v = (x: string | null | undefined) => String(x ?? "").trim();
@@ -94,6 +97,7 @@ export function personaEncargo(c: Record<string, string | null | undefined>): Pe
     domicilio: [v(c.via), v(c.numeroVia), v(c.piso)].filter(Boolean).join(", "),
     municipio: v(c.municipio), cp: v(c.codigoPostal), provincia: v(c.provincia),
     telefono: v(c.telefono), email: v(c.email),
+    via: v(c.via), numeroVia: v(c.numeroVia), piso: v(c.piso),
   };
 }
 

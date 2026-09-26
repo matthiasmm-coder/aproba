@@ -712,7 +712,7 @@ export function formulariosDelTramite(tipoEnum: string, claves?: string | (strin
 // del Ministerio solo declaran «/Helv» en sus recursos (/DR). Mientras nadie edite, se ve
 // bien (la apariencia ya está dibujada); en cuanto el gestor escribe en una casilla, el
 // visor regenera esa apariencia y no encuentra la fuente. Se devuelve el nombre real.
-function normalizarFuenteDA(form: PDFForm) {
+export function normalizarFuenteDA(form: PDFForm) {
   let nombre = "Helv";
   try {
     const dr = form.acroForm.dict.context.lookup(form.acroForm.dict.get(PDFName.of("DR"))) as { get(k: unknown): unknown } | undefined;

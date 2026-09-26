@@ -1,3 +1,4 @@
+import { mandatoConsejoValido } from "@/lib/mandato-modelos";
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -142,7 +143,21 @@ export async function POST(req: Request) {
       patchEncargo.mandatoPropioPath = null;
     }
 
+    // Modelo oficial del Consejo (supabase/mandato-consejo.sql): se guarda aparte para que,
+    // sin la migración, el resto del bloque se guarde igual y el aviso sea exacto.
+    let consejo: ReturnType<typeof mandatoConsejoValido> | undefined;
+    if (form.has("mandatoConsejo")) {
+      try { consejo = mandatoConsejoValido(JSON.parse(str("mandatoConsejo"))); } catch { consejo = null; }
+    }
+
     const { error: eEnc } = await r.admin.from("Workspace").update(patchEncargo).eq("id", r.workspaceId);
+    if (!eEnc && consejo !== undefined) {
+      const { error: eCon } = await r.admin.from("Workspace").update({ mandatoConsejo: consejo }).eq("id", r.workspaceId);
+      if (eCon) {
+        const falta = /mandatoConsejo|schema cache|column/i.test(eCon.message);
+        return NextResponse.json({ error: falta ? "Se ha guardado todo menos el mandato del Consejo: falta la migración supabase/mandato-consejo.sql en Supabase." : eCon.message }, { status: falta ? 409 : 500 });
+      }
+    }
     if (eEnc) {
       const faltaNuevas = /encargoFormasPago|portalOcultarPrecios|mandatoPropioPath/i.test(eEnc.message);
       const falta = /hojaEncargoActiva|mandatario|schema cache|column/i.test(eEnc.message);

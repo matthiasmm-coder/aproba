@@ -3,7 +3,8 @@ import { fetchTrabajadoresDeExpediente } from "@/lib/data/trabajadores";
 import { unidadesFacturables } from "@/lib/trabajadores";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarHojaEncargo, generarMandato, personaEncargo } from "@/lib/encargo";
+import { datosEncargo, generarHojaEncargo, personaEncargo } from "@/lib/encargo";
+import { mandatoDelExpediente } from "@/lib/mandato";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { serviciosDeExpediente, aplicarDescuento, asignacionValida, descuentoValido, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
@@ -127,8 +128,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let adjuntos: { filename: string; content: string }[] = [];
   let motivoSinAdjuntos: string | null = null;
   try {
-    const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva, mandatoPropioPath").eq("id", exp.workspaceId).maybeSingle();
-    const w = ws as { hojaEncargoActiva?: boolean; mandatoPropioPath?: string | null } | null;
+    const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", exp.workspaceId).maybeSingle();
+    const w = ws as { hojaEncargoActiva?: boolean } | null;
     if (!w?.hojaEncargoActiva) {
       motivoSinAdjuntos = "hoja_desactivada";
     } else {
@@ -137,24 +138,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         motivoSinAdjuntos = "sin_servicio";
       } else {
         const hoja = await generarHojaEncargo(datos);
-        let mandato: Uint8Array | null = null;
-        if (w.mandatoPropioPath) {
-          const { data: blob } = await admin.storage.from("documentos").download(w.mandatoPropioPath);
-          if (blob) mandato = new Uint8Array(await blob.arrayBuffer());
-        }
         adjuntos = [{ filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") }];
         const slug = (n: string) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
-        if (mandato) {
-          adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(mandato).toString("base64") });
-        } else if (empresa && !exp.clienteId) {
+        // El mandato sale de lib/mandato (modelo del Consejo, propio o el de Aproba), PLANO:
+        // va al cliente por email.
+        if (empresa && !exp.clienteId) {
           // Expediente DE EMPRESA: un mandato POR TRABAJADOR (cada uno firma el suyo: es a él
-          // a quien se representa). Sin trabajadores todavía, va solo la hoja.
+          // a quien se representa). El propio no se rellena: va una sola vez. Sin
+          // trabajadores todavía, va solo la hoja (salvo el propio, que no depende de nadie).
+          if (!trabajadoresLote.length) {
+            const m = await mandatoDelExpediente(admin, exp, datos, undefined, { editable: false });
+            if (m.origen === "propio") adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(m.bytes).toString("base64") });
+          }
           for (const tr of trabajadoresLote) {
-            const pdf = await generarMandato(datos, personaEncargo({ ...tr.ficha, telefono: tr.telefono, email: tr.email }));
-            adjuntos.push({ filename: `mandato-${exp.referencia}-${slug(tr.nombre)}.pdf`, content: Buffer.from(pdf).toString("base64") });
+            const m = await mandatoDelExpediente(admin, exp, datos, personaEncargo({ ...tr.ficha, telefono: tr.telefono, email: tr.email }), { editable: false });
+            if (m.origen === "propio") { adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(m.bytes).toString("base64") }); break; }
+            adjuntos.push({ filename: `mandato-${exp.referencia}-${slug(tr.nombre)}.pdf`, content: Buffer.from(m.bytes).toString("base64") });
           }
         } else {
-          adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(await generarMandato(datos)).toString("base64") });
+          const m = await mandatoDelExpediente(admin, exp, datos, undefined, { editable: false });
+          adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(m.bytes).toString("base64") });
         }
       }
     }

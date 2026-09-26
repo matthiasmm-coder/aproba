@@ -1,0 +1,12 @@
+-- Mandato OFICIAL del Consejo General de Gestores Administrativos (pedido por Juan, 26/09/2026).
+-- Si el despacho lo activa (Ajustes › Hoja de encargo y mandato), Aproba rellena el impreso
+-- oficial del Consejo —extranjería o nacionalidad, con su formato y su logo— con los datos
+-- del cliente y del gestor; los demás trámites siguen con el mandato de siempre.
+--
+-- "mandatoConsejo" JSONB: { "activo": true, "porServicio": { "<clave>": "extranjeria" | "nacionalidad" | "general" } }
+--   porServicio solo guarda las EXCEPCIONES al modelo por defecto de cada servicio
+--   (lib/mandato-modelos.ts: nacionalidad → nacionalidad; tráfico, títulos, FNMT… → el de
+--   siempre; el resto → extranjería). NULL = desactivado.
+--
+-- Aditiva e idempotente.
+ALTER TABLE "Workspace" ADD COLUMN IF NOT EXISTS "mandatoConsejo" JSONB;

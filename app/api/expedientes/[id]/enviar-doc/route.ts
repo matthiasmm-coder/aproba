@@ -3,7 +3,8 @@ import { empresaPagadora } from "@/lib/notificaciones";
 import { Resend } from "resend";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarHojaEncargo, generarMandato } from "@/lib/encargo";
+import { datosEncargo, generarHojaEncargo } from "@/lib/encargo";
+import { mandatoDelExpediente } from "@/lib/mandato";
 import { emailLayout } from "@/lib/notificaciones";
 import { logoDelWorkspace } from "@/lib/marca";
 import { direccionEntrante } from "@/lib/email-entrante";
@@ -45,7 +46,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       adjuntos.push({ filename: `presupuesto-${own.referencia}.pdf`, content: Buffer.from(await generarHojaEncargo(datos, "presupuesto")) });
     } else {
       adjuntos.push({ filename: `hoja-de-encargo-${own.referencia}.pdf`, content: Buffer.from(await generarHojaEncargo(datos)) });
-      adjuntos.push({ filename: `mandato-${own.referencia}.pdf`, content: await mandatoPdf(admin, own.workspaceId as string, datos) });
+      // Mismo criterio que la descarga (lib/mandato), pero PLANO: sale hacia el cliente.
+      const ex = exp as { tipo: string; servicioClave?: string | null };
+      const m = await mandatoDelExpediente(admin, { workspaceId: own.workspaceId as string, tipo: ex.tipo, servicioClave: ex.servicioClave ?? null }, datos, undefined, { editable: false });
+      adjuntos.push({ filename: `mandato-${own.referencia}.pdf`, content: Buffer.from(m.bytes) });
     }
   } catch (e) {
     console.error("[enviar-doc] PDF", e instanceof Error ? e.message : e);
@@ -97,20 +101,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : `✍️ Hoja de encargo y mandato enviados por email a ${para}`,
   });
   return NextResponse.json({ ok: true, enviado: true, para });
-}
-
-// Mandato PROPIO del despacho (Ajustes) si lo hay — el mismo criterio que la descarga.
-async function mandatoPdf(admin: ReturnType<typeof createSupabaseAdmin>, workspaceId: string, datos: Awaited<ReturnType<typeof datosEncargo>>): Promise<Buffer> {
-  try {
-    const { data: wsm } = await admin.from("Workspace").select("mandatoPropioPath").eq("id", workspaceId).maybeSingle();
-    const path = (wsm as { mandatoPropioPath?: string | null } | null)?.mandatoPropioPath;
-    if (path) {
-      const { data: blob, error } = await admin.storage.from("documentos").download(path);
-      if (!error && blob) return Buffer.from(await blob.arrayBuffer());
-      console.error("[enviar-doc] mandato propio ilocalizable, repli al generado:", path, error?.message);
-    }
-  } catch { /* columna sin migrar → mandato generado */ }
-  return Buffer.from(await generarMandato(datos!));
 }
 
 const escapar = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));

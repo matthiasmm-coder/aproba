@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarHojaEncargo, generarMandato, personaEncargo, type PersonaEncargo } from "@/lib/encargo";
+import { datosEncargo, generarHojaEncargo, personaEncargo, type PersonaEncargo } from "@/lib/encargo";
+import { mandatoDelExpediente } from "@/lib/mandato";
 
 // El GESTOR descarga la hoja de encargo / el mandato desde la ficha del expediente
 // (p. ej. para imprimirlos en el despacho). Autorización: sesión + RLS — el
@@ -55,28 +56,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const datos = await datosEncargo(admin, exp);
   if (!datos) return NextResponse.json({ error: "Configura primero el servicio del expediente." }, { status: 409 });
 
-  // Mandato PROPIO del despacho (Ajustes): si hay un modelo subido, se sirve TAL CUAL
-  // (sin relleno automático) en lugar del generado — petición de Juan 06/08.
-  if (doc === "mandato") {
-    try {
-      const { data: wsm } = await admin.from("Workspace").select("mandatoPropioPath").eq("id", exp.workspaceId).maybeSingle();
-      const path = (wsm as { mandatoPropioPath?: string | null } | null)?.mandatoPropioPath;
-      if (path) {
-        const { data: blob, error: eDl } = await admin.storage.from("documentos").download(path);
-        if (!eDl && blob) {
-          return new Response(Buffer.from(await blob.arrayBuffer()), {
-            headers: {
-              "Content-Type": "application/pdf",
-              "Content-Disposition": `attachment; filename="mandato-${exp.referencia}.pdf"`,
-              "Cache-Control": "no-store",
-            },
-          });
-        }
-        console.error("[encargo] mandato propio ilocalizable, repli al generado:", path, eDl?.message);
-      }
-    } catch { /* columna sin migrar → mandato generado */ }
-  }
-
   // Mandato de un trabajador del lote: pertenencia bajo RLS (anti-IDOR) y su ficha.
   let persona: PersonaEncargo | undefined;
   let sufijo = "";
@@ -89,7 +68,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
   let bytes: Uint8Array;
   try {
-    bytes = doc === "mandato" ? await generarMandato(datos, persona) : await generarHojaEncargo(datos, doc === "presupuesto" ? "presupuesto" : "encargo");
+    // Mandato: modelo oficial del Consejo, propio o el de Aproba (lib/mandato); el gestor lo
+    // descarga EDITABLE para completar lo que haga falta.
+    bytes = doc === "mandato"
+      ? (await mandatoDelExpediente(admin, exp, datos, persona, { editable: true })).bytes
+      : await generarHojaEncargo(datos, doc === "presupuesto" ? "presupuesto" : "encargo");
   } catch (e) {
     // Un dato con carácter no imprimible no debe romper la descarga con un 500 opaco.
     console.error("[encargo] generación PDF", e instanceof Error ? e.message : e);

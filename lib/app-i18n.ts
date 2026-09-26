@@ -2099,6 +2099,15 @@ export const CA: Record<string, string> = {
   "Documento pedido sin respuesta · {n} días": "Document demanat sense resposta · {n} dies",
   "Renovación": "Renovació",
   "TIE": "TIE",
+  // Mandato oficial del Consejo General de Gestores Administrativos (Juan, 26/09/2026)
+  "Mandato oficial del Consejo General de Gestores Administrativos": "Mandat oficial del Consell General de Gestors Administratius",
+  "En extranjería y nacionalidad, Aproba rellena el impreso oficial del Consejo, con su formato y su logo, con los datos del cliente y los tuyos. Los demás trámites siguen con el mandato de siempre.": "En estrangeria i nacionalitat, Aproba omple l'imprès oficial del Consell, amb el seu format i el seu logotip, amb les dades del client i les teves. La resta de tràmits continuen amb el mandat de sempre.",
+  "El impreso pide tu nº de colegiado y tu Colegio: rellénalos arriba.": "L'imprès demana el teu núm. de col·legiat i el teu Col·legi: omple'ls a dalt.",
+  "Qué mandato lleva cada servicio": "Quin mandat porta cada servei",
+  "Aproba lo propone según el nombre del servicio: cámbialo donde no acierte.": "Aproba el proposa segons el nom del servei: canvia'l on no l'encerti.",
+  "Mandato de": "Mandat de",
+  "El de siempre": "El de sempre",
+  "Extranjería": "Estrangeria",
   // «Generar presupuesto»: ventana con el precio de ESTE expediente (Juan, 26/09/2026)
   "generar presupuesto": "generar pressupost",
   "Presupuesto": "Pressupost",

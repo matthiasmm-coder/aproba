@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "@/components/lang-provider";
+import { modeloPorDefecto, type MandatoConsejoConfig, type ModeloMandato } from "@/lib/mandato-modelos";
 
 // Ajustes → «Hoja de encargo y mandato»: interruptor + datos del mandatario
 // (el gestor persona física que firma el mandato). Solo administradores —
@@ -16,9 +17,11 @@ export type EncargoConfigInicial = {
   // Opciones 06/08 (supabase/portal-encargo-opciones.sql):
   encargoFormasPago: string;      // una por línea; "" = lista automática
   mandatoPropio: boolean;         // hay un modelo de mandato PDF subido
+  // Modelo oficial del Consejo (26/09/2026, Juan) — null = desactivado o sin migración.
+  mandatoConsejo?: MandatoConsejoConfig | null;
 };
 
-export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
+export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoConfigInicial; servicios?: { id: string; label: string }[] }) {
   const t = useT();
   const [activa, setActiva] = useState(inicial.hojaEncargoActiva);
   const [nombre, setNombre] = useState(inicial.mandatarioNombre);
@@ -29,6 +32,8 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
   const [mandatoPropio, setMandatoPropio] = useState(inicial.mandatoPropio);
   const [mandatoFile, setMandatoFile] = useState<File | null>(null);
   const [quitarMandato, setQuitarMandato] = useState(false);
+  const [consejo, setConsejo] = useState(Boolean(inicial.mandatoConsejo?.activo));
+  const [modelos, setModelos] = useState<Record<string, ModeloMandato>>(inicial.mandatoConsejo?.porServicio ?? {});
   const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +51,12 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
       fd.set("encargoFormasPago", formasPago);
       if (mandatoFile) fd.set("mandatoPropio", mandatoFile);
       if (quitarMandato) fd.set("quitarMandatoPropio", "1");
+      // Solo se guardan las EXCEPCIONES: lo que coincide con el modelo propuesto sigue a la
+      // propuesta (si el servicio cambia de nombre, la propuesta se recalcula).
+      const excepciones = Object.fromEntries(servicios
+        .filter((sv) => modelos[sv.id] && modelos[sv.id] !== modeloPorDefecto(sv))
+        .map((sv) => [sv.id, modelos[sv.id]]));
+      fd.set("mandatoConsejo", JSON.stringify({ activo: consejo, porServicio: excepciones }));
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
@@ -83,7 +94,7 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
       </div>
 
       {activa && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={lbl}>{t("Profesional que firma el mandato")}</label>
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} className={inp} placeholder={t("Nombre y apellidos")} />
@@ -112,6 +123,44 @@ export function EncargoConfig({ inicial }: { inicial: EncargoConfigInicial }) {
               placeholder={t("Transferencia bancaria — IBAN ES00 0000 0000 0000 0000 0000\nBizum: 600 000 000\nPago con tarjeta mediante enlace seguro")}
             />
             <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se imprimen tal cual en el apartado de pago de la hoja. Vacío = lista automática (IBAN activo + tarjeta si está configurada).")}</p>
+          </div>
+
+          {/* Modelo OFICIAL del Consejo General (26/09/2026, Juan): Aproba rellena el impreso
+              del Consejo en extranjería y nacionalidad; el resto sigue con el de siempre. */}
+          <div className="sm:col-span-2 rounded-lg border border-slate-200 p-3">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input type="checkbox" checked={consejo} onChange={(e) => setConsejo(e.target.checked)} className="mt-0.5 accent-aproba-600" />
+              <span className="text-xs leading-relaxed text-slate-600">
+                <b className="block text-sm font-semibold text-slate-800">{t("Mandato oficial del Consejo General de Gestores Administrativos")}</b>
+                {t("En extranjería y nacionalidad, Aproba rellena el impreso oficial del Consejo, con su formato y su logo, con los datos del cliente y los tuyos. Los demás trámites siguen con el mandato de siempre.")}
+              </span>
+            </label>
+            {consejo && (!colegiado.trim() || !colegio.trim()) && (
+              <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800">{t("El impreso pide tu nº de colegiado y tu Colegio: rellénalos arriba.")}</p>
+            )}
+            {consejo && servicios.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-semibold text-aproba-700">{t("Qué mandato lleva cada servicio")} ({servicios.length})</summary>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Aproba lo propone según el nombre del servicio: cámbialo donde no acierte.")}</p>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {servicios.map((sv) => (
+                    <li key={sv.id} className="flex items-center justify-between gap-3 py-1.5">
+                      <span className="min-w-0 truncate text-xs text-slate-700" title={sv.label}>{sv.label}</span>
+                      <select
+                        value={modelos[sv.id] ?? modeloPorDefecto(sv)}
+                        onChange={(e) => setModelos((m) => ({ ...m, [sv.id]: e.target.value as ModeloMandato }))}
+                        aria-label={`${t("Mandato de")} ${sv.label}`}
+                        className="min-w-0 max-w-[48%] shrink-0 rounded-md border border-slate-300 bg-white px-2 py-1 text-[16px] text-slate-700 outline-none focus:border-aproba-600 sm:text-xs"
+                      >
+                        <option value="extranjeria">{t("Extranjería")}</option>
+                        <option value="nacionalidad">{t("Nacionalidad")}</option>
+                        <option value="general">{t("El de siempre")}</option>
+                      </select>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
 
           <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">

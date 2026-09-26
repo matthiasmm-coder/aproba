@@ -1,3 +1,4 @@
+import { mandatoConsejoValido, type MandatoConsejoConfig } from "@/lib/mandato-modelos";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { combinarAvisos, DEFAULT_AVISOS, esCanalAvisos, type Aviso, type CanalAvisos } from "@/lib/avisos";
@@ -278,6 +279,8 @@ export type Despacho = {
   // (El antiguo global portalOcultarPrecios se retiró: ahora es ServicioConfig.precioOculto.)
   encargoFormasPago: string | null;
   mandatoPropioPath: string | null;
+  // Modelo oficial del Consejo (supabase/mandato-consejo.sql) — null pre-migración o desactivado.
+  mandatoConsejo: MandatoConsejoConfig | null;
 };
 
 export async function fetchDespacho(): Promise<Despacho> {
@@ -309,6 +312,15 @@ export async function fetchDespacho(): Promise<Despacho> {
     canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
     encargoFormasPago: (ws.encargoFormasPago as string | null) ?? null,
     mandatoPropioPath: (ws.mandatoPropioPath as string | null) ?? null,
+    // Aparte, para no alargar la cadena de replis de arriba: sin migrar, null.
+    mandatoConsejo: await (async () => {
+      try {
+        const r = await q("mandatoConsejo");
+        if (r.error) return null;
+        const w = (r.data as { Workspace?: Record<string, unknown> | Record<string, unknown>[] } | null)?.Workspace;
+        return mandatoConsejoValido((Array.isArray(w) ? w[0] : w)?.mandatoConsejo);
+      } catch { return null; }
+    })(),
   };
 }
 

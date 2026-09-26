@@ -180,7 +180,7 @@ export default async function Ajustes() {
     fetchAvisosConfig().catch(() => ({ avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true })),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoPropioPath: null, mandatoConsejo: null })),
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
     fetchCarpetasConfig().catch(() => []), // sin migración de carpetas → catálogo plano
@@ -380,7 +380,9 @@ export default async function Ajustes() {
                     mandatarioColegio: despacho.mandatarioColegio ?? "",
                     encargoFormasPago: despacho.encargoFormasPago ?? "",
                     mandatoPropio: Boolean(despacho.mandatoPropioPath),
+                    mandatoConsejo: despacho.mandatoConsejo,
                   }}
+                  servicios={servicios.filter((s) => s.active !== false && (s.label ?? "").trim()).map((s) => ({ id: s.id, label: s.label.trim() }))}
                 />
               );
               if (!conPastillas) return panelDespacho;

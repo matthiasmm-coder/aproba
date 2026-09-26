@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosEncargo, generarMandato, personaEncargo } from "@/lib/encargo";
+import { datosEncargo, personaEncargo } from "@/lib/encargo";
+import { mandatoDelExpediente } from "@/lib/mandato";
 import { trabajadorPorToken } from "@/lib/trabajador-token";
 
 // El MANDATO de representación del trabajador, desde su enlace individual (/t/<token>):
@@ -15,21 +16,9 @@ export async function GET(req: Request) {
   const tr = await trabajadorPorToken(admin, token);
   if (!tr) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
-  const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva, mandatoPropioPath").eq("id", tr.exp.workspaceId).maybeSingle();
-  const w = ws as { hojaEncargoActiva?: boolean; mandatoPropioPath?: string | null } | null;
+  const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", tr.exp.workspaceId).maybeSingle();
+  const w = ws as { hojaEncargoActiva?: boolean } | null;
   if (!w?.hojaEncargoActiva) return NextResponse.json({ error: "Función no activada" }, { status: 404 });
-
-  // Mandato PROPIO del despacho: se sirve tal cual (igual que en el portal).
-  if (w.mandatoPropioPath) {
-    try {
-      const { data: blob } = await admin.storage.from("documentos").download(w.mandatoPropioPath);
-      if (blob) {
-        return new Response(Buffer.from(await blob.arrayBuffer()), {
-          headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="mandato-${tr.exp.referencia}.pdf"`, "Cache-Control": "no-store" },
-        });
-      }
-    } catch { /* repli al generado */ }
-  }
 
   const { data: expRow } = await admin.from("Expediente").select("*, cliente:Cliente(*)").eq("id", tr.exp.id).maybeSingle();
   const datos = expRow ? await datosEncargo(admin, expRow as never) : null;
@@ -37,7 +26,9 @@ export async function GET(req: Request) {
 
   let bytes: Uint8Array;
   try {
-    bytes = await generarMandato(datos, personaEncargo({ ...tr.cliente.ficha, nombre: tr.cliente.nombre, apellidos: tr.cliente.apellidos }));
+    // Mismo mandato que el resto de salidas (lib/mandato: Consejo, propio o Aproba), plano.
+    const row = expRow as { workspaceId: string; tipo: string; servicioClave?: string | null };
+    bytes = (await mandatoDelExpediente(admin, row, datos, personaEncargo({ ...tr.cliente.ficha, nombre: tr.cliente.nombre, apellidos: tr.cliente.apellidos }), { editable: false })).bytes;
   } catch (e) {
     console.error("[trabajador encargo] PDF", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "No se pudo generar el documento." }, { status: 500 });
