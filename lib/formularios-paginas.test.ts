@@ -49,3 +49,22 @@ describe("páginas de tasa", () => {
     expect(new Set(PAGINAS_TASAS.map((p) => p.ruta)).size).toBe(PAGINAS_TASAS.length);
   });
 });
+
+// 26/09/2026: ninguna ficha de modelo depende solo del índice /formularios. Recibe enlaces
+// de sus vecinas (cadena anterior/siguiente) y de los trámites que la usan.
+import { PAGINAS_MODELOS as _PM, MODELOS as _M, otrosModelos } from "@/lib/formularios-paginas";
+import { PAGINAS_TRAMITES as _PT } from "@/lib/tramites-paginas";
+describe("fichas de modelo · enlazado interno", () => {
+  const enlacesA = (ruta: string) => [..._PM, ..._PT].filter((p) => p.ruta !== ruta && JSON.stringify(p.bloques).includes(`](${ruta})`)).length;
+  it.each(_M.map((m) => [m.code, m] as const))("%s recibe al menos 2 enlaces de otras fichas o trámites", (_c, m) => {
+    expect(enlacesA(`/formularios/${m.slug}`)).toBeGreaterThanOrEqual(2);
+  });
+  it("«Otros modelos» solo enlaza fichas que existen, nunca a sí misma, 6 como mucho", () => {
+    for (const m of _M) {
+      const o = otrosModelos(m);
+      expect(o.length).toBeGreaterThan(0);
+      expect(o.length).toBeLessThanOrEqual(6);
+      expect(o.some((x) => x.code === m.code)).toBe(false);
+    }
+  });
+});

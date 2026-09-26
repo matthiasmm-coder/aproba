@@ -104,6 +104,10 @@ export function paginaDeTasa(t: TasaOficial): PaginaPublica {
       "**No decide el importe por ti.** El importe y el epígrafe son los del propio generador oficial en el momento de emitirlo.",
       "**No presenta el expediente.** La presentación es un acto del profesional, con su certificado.",
     ] },
+    // Otras tasas (26/09/2026): la 790-006 no la lleva ningún trámite por defecto y solo
+    // recibía el enlace del índice /tasas; así cada ficha enlaza a las otras cuatro.
+    { t: "h2", texto: "Otras tasas que genera Aproba" },
+    { t: "ul", items: TASAS_PAGINAS.filter((x) => x.code !== t.code).map((x) => `[${x.code} · ${x.organismo}](${rutaTasa(x)}): ${x.para}`) },
     { t: "faq", items: [
       { q: "¿El impreso es el oficial?", a: t.mecanismo === "captcha" ? "Sí: el que devuelve la propia Sede, con su código de barras y su número de justificante. Aproba no dibuja un impreso parecido." : "Sí: es el PDF que sirve la Sede de Justicia, descargado en el momento, con su número de justificante único." },
       { q: "¿Se puede añadir a un expediente que no la lleva por defecto?", a: "Sí. En el expediente hay un selector de tasas: sale la que corresponde al trámite y añades otra cuando el caso lo pide." },
@@ -117,7 +121,7 @@ export function paginaDeTasa(t: TasaOficial): PaginaPublica {
     etiqueta: "Tasa oficial",
     h1: `Tasa ${t.code}: ${t.para}`,
     entradilla: `${t.queEs} Aquí, qué trámites la llevan y cómo sale del expediente sin volver a teclear los datos del cliente.`,
-    actualizado: "2026-09-20",
+    actualizado: "2026-09-26",
     migas: [{ nombre: "Tasas", ruta: "/tasas" }, { nombre: t.code, ruta: rutaTasa(t) }],
     bloques,
     cta: { titulo: `Genera una ${t.code} de prueba`, texto: "15 días gratis, sin tarjeta, con un expediente de ejemplo ya resuelto." },

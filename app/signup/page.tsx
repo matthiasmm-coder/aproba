@@ -2,7 +2,9 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { SignupForm } from "@/components/signup-form";
 
-export const metadata = { title: "Empieza gratis", alternates: { canonical: "/signup" } };
+// noindex (26/09/2026): un formulario de 39 palabras no responde a ninguna búsqueda; Google
+// lo tenía en «Descubierta: sin indexar». Los enlaces que salen de aquí se siguen.
+export const metadata = { title: "Empieza gratis", alternates: { canonical: "/signup" }, robots: { index: false, follow: true } };
 
 export default function Signup() {
   return (

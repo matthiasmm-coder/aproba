@@ -69,6 +69,22 @@ export const tramitesDelModelo = (code: string): Tramite[] => TRAMITES.filter((t
 const A_REPRESENTANTE = { ruta: "/articulos/representante-formulario-ex-quien-va-en-cada-casilla", titulo: "Representante en el formulario EX: quién va en cada casilla" };
 const lista = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs.at(-1)}`);
 
+// Otros modelos (26/09/2026): los dos vecinos del listado y los que comparten trámite.
+// Cada ficha recibe así enlaces de sus hermanas, no solo del índice /formularios (que
+// era su único enlace y las dejaba en «Descubierta: sin indexar»). Vecinos primero, en
+// círculo (el último enlaza al primero): así cada ficha recibe al menos dos enlaces.
+export function otrosModelos(m: ModeloOficial): ModeloOficial[] {
+  const n = MODELOS.length;
+  const i = MODELOS.findIndex((x) => x.code === m.code);
+  const vecinos = [MODELOS[(i - 1 + n) % n], MODELOS[(i + 1) % n]].map((x) => x.code);
+  const hermanos = tramitesDelModelo(m.code).flatMap((t) => t.formularios.map((f) => f.code));
+  return [...new Set([...vecinos, ...hermanos])]
+    .filter((c) => c !== m.code)
+    .map((c) => MODELOS.find((x) => x.code === c))
+    .filter((x): x is ModeloOficial => Boolean(x))
+    .slice(0, 6);
+}
+
 export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
   const ts = tramitesDelModelo(m.code);
   const tasas = [...new Set(ts.flatMap((t) => t.tasas))];
@@ -95,6 +111,8 @@ export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
     { t: "h2", texto: "Lo que Aproba deja en blanco a propósito" },
     { t: "p", texto: `Dos casillas no se rellenan solas, y es una decisión, no un olvido. La **«Representante legal, en su caso»** de la sección 1 es la del representante legal **del extranjero** — el padre, la madre o el tutor de un menor —, no la del despacho: ponerse ahí es un error corriente. Y el **«Domicilio a efectos de notificaciones»** decide quién recibe las notificaciones del expediente, con los plazos que eso arrastra: esa la decides tú, caso por caso. Está contado en [${A_REPRESENTANTE.titulo}](${A_REPRESENTANTE.ruta}).` },
     { t: "nota", titulo: "Quién presenta", texto: "Aproba rellena el impreso; la presentación la hace el profesional, con su certificado o su convenio. El modelo sale editable: se corrige antes de imprimir o de subirlo." },
+    { t: "h2", texto: "Otros modelos" },
+    { t: "ul", items: otrosModelos(m).map((o) => `[${o.code} · ${o.corto ?? o.nombre}](${rutaModelo(o)})`) },
     { t: "faq", items: [
       { q: `¿El ${m.code} sale rellenado o hay que teclearlo?`, a: "Sale rellenado con los datos que la IA leyó de los documentos del cliente y con los de tu despacho. Es editable: cualquier campo se corrige antes de imprimir." },
       ...(ts.length ? [{ q: `¿En qué trámite lo usa Aproba?`, a: `En ${lista(ts.map((t) => t.nombre.toLowerCase()))}. Si tu despacho lo usa en otro, lo añades desde el selector de modelos del expediente.` }] : [{ q: "¿Por qué no aparece solo en mi expediente?", a: "Porque no está asociado a ningún servicio del catálogo por defecto. Lo eliges en el selector de modelos del expediente, y si tu despacho lo usa a menudo, creas el servicio correspondiente en Ajustes." }]),
@@ -110,7 +128,7 @@ export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
     etiqueta: "Modelo oficial",
     h1: `Modelo ${m.code}: ${m.nombre}`,
     entradilla: `${m.queEs} Aquí, qué rellena Aproba en él, qué deja en blanco a propósito y en qué trámite encaja.`,
-    actualizado: "2026-09-20",
+    actualizado: "2026-09-26",
     migas: [{ nombre: "Formularios", ruta: "/formularios" }, { nombre: m.code, ruta: rutaModelo(m) }],
     bloques,
     cta: { titulo: `Genera un ${m.code} con datos reales`, texto: "15 días gratis, sin tarjeta: la cuenta de prueba trae un expediente de ejemplo con sus documentos ya validados." },

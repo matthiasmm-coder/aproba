@@ -366,19 +366,23 @@ export const TRAMITES: Tramite[] = [
 export const rutaTramite = (t: Pick<Tramite, "slug">) => `/tramites/${t.slug}`;
 export const getTramite = (slug: string) => TRAMITES.find((t) => t.slug === slug);
 
-const TASA_LABEL: Record<string, string> = {
-  "790-012": "790-012 (Policía)",
-  "790-052": "790-052 (autorizaciones de residencia)",
-  "790-062": "790-062 (autorizaciones de trabajo)",
-  "790-026": "790-026 (Justicia, nacionalidad)",
-  "790-006": "790-006 (Justicia, antecedentes penales)",
+const TASA_DESC: Record<string, string> = {
+  "790-012": "Policía",
+  "790-052": "autorizaciones de residencia",
+  "790-062": "autorizaciones de trabajo",
+  "790-026": "Justicia, nacionalidad",
+  "790-006": "Justicia, antecedentes penales",
 };
 const lista = (xs: string[]) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs.at(-1)}`;
 
 // La página de cada trámite, montada con el mismo motor de bloques que el resto del sitio.
 export function paginaDeTramite(t: Tramite): PaginaPublica {
-  const modelos = t.formularios.map((f) => `**${f.code}** (${f.nombre})`);
-  const tasas = t.tasas.map((c) => `**${TASA_LABEL[c] ?? c}**`);
+  // Cada modelo y cada tasa enlazan a su ficha (26/09/2026): sin estos enlaces, las fichas
+  // solo recibían el de su índice y Google las dejaba en «Descubierta: sin indexar». Las
+  // rutas se escriben aquí (= rutaModelo / rutaTasa) para no importar en círculo; el test
+  // comprueba que cada enlace lleva a una ficha que existe.
+  const modelos = t.formularios.map((f) => `[${f.code}](/formularios/${f.code.toLowerCase()}) (${f.nombre})`);
+  const tasas = t.tasas.map((c) => `[${c}](/tasas/${c})${TASA_DESC[c] ? ` (${TASA_DESC[c]})` : ""}`);
   const otros = t.relacionados.map((s) => getTramite(s)).filter((x): x is Tramite => Boolean(x));
   const bloques: Bloque[] = [
     { t: "datos", items: [
@@ -419,7 +423,7 @@ export function paginaDeTramite(t: Tramite): PaginaPublica {
     etiqueta: "Trámite",
     h1: t.h1,
     entradilla: t.entradilla,
-    actualizado: "2026-09-20",
+    actualizado: "2026-09-26",
     migas: [{ nombre: "Trámites", ruta: "/tramites" }, { nombre: t.nombre, ruta: rutaTramite(t) }],
     bloques,
     cta: { titulo: `Prueba un expediente de ${t.nombre.toLowerCase()}`, texto: "15 días gratis, sin tarjeta. La cuenta de prueba trae un expediente de ejemplo ya resuelto para ver el flujo completo." },

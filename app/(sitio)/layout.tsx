@@ -30,12 +30,14 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/" className="hover:text-slate-700">Inicio</Link>
             <Link href="/software-de-extranjeria" className="hover:text-slate-700">Software de extranjería</Link>
+            <Link href="/que-es-aproba" className="hover:text-slate-700">Qué es Aproba</Link>
             <Link href="/precios" className="hover:text-slate-700">Precios</Link>
             <Link href="/tramites" className="hover:text-slate-700">Trámites</Link>
             <Link href="/formularios" className="hover:text-slate-700">Formularios</Link>
             <Link href="/tasas" className="hover:text-slate-700">Tasas</Link>
             <Link href="/para/gestorias" className="hover:text-slate-700">Para gestorías</Link>
             <Link href="/para/abogados" className="hover:text-slate-700">Para abogados</Link>
+            <Link href="/caso-real" className="hover:text-slate-700">Caso real</Link>
             <Link href="/articulos" className="hover:text-slate-700">Artículos</Link>
             <Link href="/legal/aviso-legal" className="hover:text-slate-700">Aviso legal</Link>
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>

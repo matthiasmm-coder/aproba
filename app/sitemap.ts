@@ -10,7 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const paginas: { ruta: string; prioridad: number }[] = [
     { ruta: "/", prioridad: 1 },
     { ruta: "/articulos", prioridad: 0.8 },
-    { ruta: "/signup", prioridad: 0.5 },
     { ruta: "/legal/aviso-legal", prioridad: 0.2 },
     { ruta: "/legal/privacidad", prioridad: 0.2 },
     { ruta: "/legal/cookies", prioridad: 0.2 },

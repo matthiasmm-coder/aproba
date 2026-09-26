@@ -26,3 +26,22 @@ describe("páginas de trámite · fieles al producto", () => {
     for (const t of TRAMITES) for (const r of t.relacionados) expect(slugs.has(r), `${t.slug} → ${r}`).toBe(true);
   });
 });
+
+// 26/09/2026: cada trámite enlaza las fichas de sus modelos y de sus tasas. Un enlace a
+// una ficha que no existe sería un 404 servido a Google desde 12 páginas.
+import { MODELOS } from "@/lib/formularios-paginas";
+import { TASAS_PAGINAS } from "@/lib/tasas-paginas";
+describe("páginas de trámite · enlaces a las fichas", () => {
+  const texto = (p: (typeof PAGINAS_TRAMITES)[number]) => JSON.stringify(p.bloques);
+  it.each(TRAMITES.map((t) => [t.slug, t] as const))("%s", (slug, t) => {
+    const p = PAGINAS_TRAMITES.find((x) => x.ruta === `/tramites/${slug}`)!;
+    for (const f of t.formularios) {
+      expect(MODELOS.some((m) => m.slug === f.code.toLowerCase()), `ficha de ${f.code}`).toBe(true);
+      expect(texto(p)).toContain(`](/formularios/${f.code.toLowerCase()})`);
+    }
+    for (const c of t.tasas) {
+      expect(TASAS_PAGINAS.some((x) => x.slug === c), `ficha de la tasa ${c}`).toBe(true);
+      expect(texto(p)).toContain(`](/tasas/${c})`);
+    }
+  });
+});
