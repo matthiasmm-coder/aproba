@@ -3,6 +3,8 @@ import { esExpedienteDeEmpresa, type TrabajadorExpediente } from "@/lib/trabajad
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
+import type { PresupuestoOpciones, TarifasPropias } from "@/lib/tarifas-propias";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import { TIPO_LABEL, DOC_LABEL, FORM_LABEL, fmtFechaCorta, dedupDocs, unirDocsPedidos } from "@/lib/tramites";
@@ -269,6 +271,10 @@ export type ExpedienteDetalle = ExpedienteUI & {
   docsExtra: string[]; // documentos pedidos a mano SOLO en este expediente
   suplidosOverride: { concepto: string; importe: number }[] | null; // null = usar los del servicio
   descuento: Descuento | null; // null = sin descuento
+  // Honorarios propios de ESTE expediente (26/09/2026, Juan) y opciones del presupuesto:
+  // null = precio del catálogo, 30 días y sin nota. Se rellenan aparte (completarPresupuesto).
+  tarifasPropias: TarifasPropias | null;
+  presupuestoOpciones: PresupuestoOpciones | null;
   serviciosAsignacion: ServiciosAsignacion | null; // familia heterogénea: servicio → miembros
   formulariosPorMiembro: Record<string, string[]> | null; // curación de formularios por miembro
   fechaPresentacion?: string | null; // sellada al marcar «presentado»
@@ -409,6 +415,14 @@ async function adjuntarEmpresas(
   } catch { /* migración pendiente → tarjetas sin línea de empresa */ }
 }
 
+// Honorarios propios + opciones del presupuesto (supabase/expediente-presupuesto.sql):
+// lectura aparte para no alargar las cadenas de replis de DETALLE_SELECT. Sin migrar → null.
+async function completarPresupuesto(client: Parameters<typeof leerPresupuestoExp>[0], det: ExpedienteDetalle): Promise<void> {
+  const { tarifasPropias, opciones } = await leerPresupuestoExp(client, det.id);
+  det.tarifasPropias = tarifasPropias;
+  det.presupuestoOpciones = opciones;
+}
+
 // Expediente DE EMPRESA: la empresa es el cliente. Se completa DESPUÉS de mapear (la
 // empresa y los trabajadores se leen en consultas aparte, tolerantes a la migración).
 async function completarEmpresa(
@@ -514,6 +528,8 @@ function mapearDetalle(data: unknown): ExpedienteDetalle {
         .filter((x) => x.concepto && x.importe > 0);
     })(),
     descuento: descuentoValido((e as { descuento?: unknown }).descuento),
+    tarifasPropias: null, // completarPresupuesto
+    presupuestoOpciones: null,
     serviciosAsignacion: asignacionValida((e as { serviciosAsignacion?: unknown }).serviciosAsignacion),
     formulariosPorMiembro: (() => { const v = (e as { formulariosPorMiembro?: unknown }).formulariosPorMiembro; return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, string[]> : null; })(),
     portalToken: e.portalToken ?? null,
@@ -567,6 +583,7 @@ export async function fetchExpedienteDetalle(id: string): Promise<ExpedienteDeta
   if (!data) return null;
   const det = mapearDetalle(data);
   await completarEmpresa(supabase, det);
+  await completarPresupuesto(supabase, det);
   return det;
 }
 
@@ -599,6 +616,7 @@ export async function fetchExpedienteDetallePorToken(token: string): Promise<Exp
   if (!data) return null;
   const det = mapearDetalle(data);
   await completarEmpresa(admin, det);
+  await completarPresupuesto(admin, det);
   return det;
 }
 

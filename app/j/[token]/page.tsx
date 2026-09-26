@@ -9,6 +9,8 @@ import { logoDelWorkspace, marcaPorPortalToken, contactoDelDespacho, type Contac
 import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
 import type { Metadata } from "next";
 import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
+import { conTarifasPropias } from "@/lib/tarifas-propias";
 import { fetchStripeKeyDeWorkspace } from "@/lib/cobros-tarjeta";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
@@ -133,6 +135,9 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       portalToken = token;
       clienteIdioma = exp.cliente?.idioma ?? "es";
       servicios = await fetchServiciosDeWorkspace(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+      // Precio propio del expediente (presupuesto a medida, 26/09/2026): el cliente ve y paga
+      // el mismo importe que su presupuesto y su hoja de encargo (solo en SUS servicios).
+      servicios = conTarifasPropias(servicios, (await leerPresupuestoExp(admin, (exp as { id: string }).id)).tarifasPropias);
       // Packs del despacho: el cliente puede elegir uno en vez de un solo trámite.
       packs = await fetchPacksDeWorkspace(admin, exp.workspace.id);
 

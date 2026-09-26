@@ -2,6 +2,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { TIPO_LABEL, TIPO_A_SERVICIO } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { leerTarifasPropiasDe } from "@/lib/data/tarifas-propias";
 import { serviciosDeExpediente, tarifaDeServicios, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
 import { anticipoPagado } from "@/lib/facturas";
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
@@ -140,17 +141,19 @@ export async function fetchFacturaFamiliaPrefill(familiaId: string): Promise<Fac
       (m.nombre ?? "").trim() || (m.apellidos ?? "").trim() || "Miembro";
     const lineas: LineaPrefill[] = [];
     const expedientesTotales = miembros.flatMap((m) => m.expedientes ?? []);
+    // Honorarios propios de cada expediente (presupuesto a medida): misma regla que /api/pagos.
+    const tarifasDe = await leerTarifasPropiasDe(supabase, expedientesTotales.map((e) => e.id));
     // Multi-servicio: base = SUMA de los restos (principal + extras), label compuesto.
-    const lineaDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null }) => {
-      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
+    const lineaDe = (e: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null }) => {
+      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo, tarifasPropias: tarifasDe.get(e.id) }, servicios);
       return { label: labelServicios(svs, TIPO_LABEL[e.tipo] ?? e.tipo), base: tarifaDeServicios(svs).resto };
     };
     // Rebaja que le toca al PAGO FINAL (misma regla que /api/pagos y la ficha): las líneas
     // del prefill son brutas, así que la diferencia va como descuento del modal. Si el
     // anticipo ya se cobró, restoPendiente hace caer aquí el descuento entero.
     const r2 = (n: number) => Math.round(n * 100) / 100;
-    const rebajaRestoDe = (e: { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosAsignacion?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }, n: number) => {
-      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo }, servicios);
+    const rebajaRestoDe = (e: { id: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; descuento?: unknown; serviciosAsignacion?: unknown; facturas?: { momento: string | null; estado: string; baseImponible: number | string | null }[] | null }, n: number) => {
+      const svs = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipo, tarifasPropias: tarifasDe.get(e.id) }, servicios);
       // Tarifa YA multiplicada por la asignación de miembros (sin asignación = ×n clásico);
       // aplicarDescuento con nMiembros=1 — misma regla que /api/pagos y la ficha.
       const tarifa = tarifaAsignada(svs, asignacionValida(e.serviciosAsignacion), n);

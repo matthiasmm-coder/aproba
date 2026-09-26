@@ -25,6 +25,7 @@ import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { EnviarDocButton } from "@/components/enviar-doc-button";
+import { PresupuestoBoton } from "@/components/presupuesto-modal";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
@@ -117,7 +118,10 @@ export default async function ExpedienteDetail({
   // usar todas las filas mezcladas elegía un ganador al azar — distinto del tablero y
   // del portal /j (que ya cascadea). Tarifa, docs y cita salen del MISMO catálogo.
   const serviciosSede = catalogoDeSede(servicios, e.oficinaId);
-  const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, serviciosSede);
+  // Con los honorarios propios del expediente (presupuesto a medida) si los tiene; la
+  // ventana del presupuesto necesita también el precio del CATÁLOGO, sin ellos.
+  const serviciosExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum, tarifasPropias: e.tarifasPropias }, serviciosSede);
+  const serviciosCatalogoExp = serviciosDeExpediente({ servicioClave: e.servicioClave, serviciosExtra: e.serviciosExtra, tipo: e.tipoEnum }, serviciosSede);
   // Lo que hay que reunir = documentos del servicio + los que el gestor pidió a mano
   // en ESTA ficha. Un solo resolutor para la ficha, el portal, el progreso y el aviso.
   const docsRequeridos = docsDeExpediente(serviciosExp, e.docsExtra);
@@ -468,9 +472,20 @@ export default async function ExpedienteDetail({
             <p className="mb-3 -mt-1 text-xs text-slate-500">
               {/* El presupuesto es la misma hoja ANTES de la firma: se manda al cliente
                   que aún no ha encargado nada. Por eso va primero, y con su propia frase. */}
-              <a href={`/api/expedientes/${e.id}/encargo?doc=presupuesto`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("presupuesto (PDF)")}</a>
-              {" · "}
-              <EnviarDocButton expedienteId={e.id} doc="presupuesto" />
+              {/* «Generar presupuesto» abre una ventana para personalizarlo (precio de ESTE
+                  expediente, descuento, validez, observaciones) y descargarlo o enviarlo —
+                  pedido por Juan, 26/09/2026. */}
+              <PresupuestoBoton
+                expedienteId={e.id}
+                referencia={e.referencia}
+                servicios={serviciosCatalogoExp.map((s) => ({ id: s.id, label: s.label, anticipo: s.anticipo, resto: s.resto, precioOculto: s.precioOculto, porcentaje: s.porcentaje }))}
+                tarifasPropias={e.tarifasPropias}
+                asignacion={e.serviciosAsignacion}
+                nMiembros={nMiembrosExp}
+                descuento={e.descuento}
+                opciones={e.presupuestoOpciones}
+                suplidosTotal={suplidosExp.reduce((a, x) => a + x.importe, 0)}
+              />
               {" · "}
               {t("Para firmar:")}{" "}
               <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>

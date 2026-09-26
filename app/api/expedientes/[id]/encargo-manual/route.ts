@@ -5,6 +5,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { datosEncargo, generarHojaEncargo, generarMandato, personaEncargo } from "@/lib/encargo";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { serviciosDeExpediente, aplicarDescuento, asignacionValida, descuentoValido, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { totalDe, r2 } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
@@ -87,7 +88,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Servicios contratados — mismo catálogo cascadado que las facturas y la ficha.
   const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null);
-  const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo }, catalogo);
+  const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo, tarifasPropias: (await leerPresupuestoExp(admin, exp.id)).tarifasPropias }, catalogo);
   const serviciosLabels = serviciosExp.length
     ? serviciosExp.map((s) => s.label)
     : [TIPO_LABEL[exp.tipo] ?? exp.tipo];

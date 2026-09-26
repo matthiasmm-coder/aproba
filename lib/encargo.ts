@@ -7,6 +7,8 @@ import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento,
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchServiciosDeWorkspace } from "./data/config";
 import { TIPO_A_SERVICIO } from "./tramites";
+import { conTarifasPropias, VALIDEZ_PRESUPUESTO_DIAS, type PresupuestoOpciones } from "./tarifas-propias";
+import { leerPresupuestoExp } from "./data/tarifas-propias";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOJA DE ENCARGO + MANDATO DE REPRESENTACIÓN (petición del 1er cliente real).
@@ -43,6 +45,8 @@ export type DatosEncargo = {
   // representado ante la Administración (la persona extranjera), no la empresa que paga.
   persona?: DatosEncargo["cliente"];
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
+  // Solo el PRESUPUESTO: validez y observaciones que el gestor fijó al generarlo (26/09/2026).
+  presupuesto: PresupuestoOpciones;
 };
 
 const s = (v: unknown) => String(v ?? "").trim();
@@ -146,7 +150,11 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
     .filter((clave) => clave && clave !== principal.id)
     .map((clave) => catalogo.find((x) => x.id === clave))
     .filter((x): x is NonNullable<typeof x> => Boolean(x));
-  const listaServicios = [principal, ...extras];
+  // Honorarios propios del expediente (presupuesto con precio a medida, Juan 26/09/2026):
+  // sustituyen a la tarifa del catálogo en el presupuesto Y en la hoja de encargo, que
+  // tienen que prometer lo mismo que luego factura /api/pagos.
+  const presu = await leerPresupuestoExp(admin, exp.id);
+  const listaServicios = conTarifasPropias([principal, ...extras], presu.tarifasPropias);
 
   // Medios de pago reales del despacho: IBAN activo + tarjeta si está configurada.
   // Formas de pago PROPIAS del despacho (Ajustes, una por línea): si existen, mandan
@@ -273,6 +281,7 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
       : null,
     medios,
+    presupuesto: presu.opciones ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "" },
   };
 }
 
@@ -409,7 +418,6 @@ class Maqueta {
 // facturado no puedan divergir. Cambia el título, añade validez y quita lo contractual
 // (encargo, protección de datos y firmas). Pedido por un despacho el 08/09/2026.
 export type ModoEncargo = "encargo" | "presupuesto";
-const DIAS_VALIDEZ = 30;
 
 export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "encargo"): Promise<Uint8Array> {
   const esPres = modo === "presupuesto";
@@ -419,7 +427,7 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   m.titulo(esPres ? "PRESUPUESTO" : "HOJA DE ENCARGO PROFESIONAL");
   m.parrafo(`Fecha: ${fechaLarga(d.fecha)}`, { size: 8.5, color: GRIS });
   if (esPres) {
-    const hasta = new Date(d.fecha.getTime() + DIAS_VALIDEZ * 86400000);
+    const hasta = new Date(d.fecha.getTime() + d.presupuesto.validezDias * 86400000);
     m.parrafo(`Válido hasta el ${fechaLarga(hasta)}`, { size: 8.5, color: GRIS });
   }
   m.espacio(4);
@@ -568,6 +576,12 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   for (const medio of d.medios) m.parrafo(`- ${medio}`, { sangria: 8 });
 
   if (esPres) {
+    // Observaciones que el gestor escribió al generar el presupuesto (solo aquí: la hoja
+    // de encargo y la factura no las repiten).
+    if (d.presupuesto.nota) {
+      m.seccion("7. OBSERVACIONES");
+      m.parrafo(d.presupuesto.nota);
+    }
     m.espacio(8);
     m.parrafo("Este presupuesto es informativo y no supone encargo. Al aceptarlo se emite la hoja de encargo profesional, que recoge estas mismas condiciones.", { size: 9 });
     return m.bytes();

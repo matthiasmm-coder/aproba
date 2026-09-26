@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
+import { conTarifasPropias } from "@/lib/tarifas-propias";
 import { aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, tarifaAsignada } from "@/lib/multi-servicio";
 import { SERVICIO_A_TIPO, TIPO_LABEL } from "@/lib/tramites";
 import { reconciliarProgresoDocs } from "@/lib/documentos-upload";
@@ -120,9 +122,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // que el gestor facture la diferencia a mano — si no, el anticipo de un servicio
   // añadido a mitad de expediente no se cobraría NUNCA por ninguna vía.
   try {
-    const serviciosFinales = [principalFinal, ...extrasFinal]
+    const serviciosFinales = conTarifasPropias([principalFinal, ...extrasFinal]
       .map((c) => servicios.find((s) => s.id === c))
-      .filter((s): s is NonNullable<typeof s> => Boolean(s));
+      .filter((s): s is NonNullable<typeof s> => Boolean(s)), (await leerPresupuestoExp(admin, id)).tarifasPropias);
     let nMiembros = 1;
     if (exp.familiaId) {
       const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", exp.familiaId);

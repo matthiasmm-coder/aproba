@@ -3,6 +3,7 @@ import { unidadesFacturables } from "@/lib/trabajadores";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { serviciosDeExpediente, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
@@ -156,7 +157,10 @@ export async function POST(req: Request) {
     // × SUS miembros asignados (familia heterogénea, pedido de Juan); sin asignación,
     // todos los servicios ×N — el comportamiento clásico, garantizado por tarifaAsignada.
     const catalogo = await fetchServiciosDeWorkspace(admin, exp.workspaceId, exp.oficinaId ?? null);
-    const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo }, catalogo);
+    // Honorarios propios del expediente (si el gestor los fijó en el presupuesto) mandan
+    // sobre el catálogo — el mismo importe que prometieron el presupuesto y la hoja.
+    const { tarifasPropias } = await leerPresupuestoExp(admin, exp.id);
+    const serviciosExp = serviciosDeExpediente({ servicioClave: exp.servicioClave, serviciosExtra: exp.serviciosExtra, tipo: exp.tipo, tarifasPropias }, catalogo);
     const asignacion = asignacionValida((exp as { serviciosAsignacion?: unknown }).serviciosAsignacion);
     const tarifa = tarifaAsignada(serviciosExp, asignacion, nMiembros);
     // Descuento del expediente (pedido por Juan): rebaja los honorarios sobre la tarifa

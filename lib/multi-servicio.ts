@@ -2,6 +2,7 @@ import { TIPO_A_SERVICIO } from "@/lib/tramites";
 import { dedupDocs, unirDocsPedidos } from "@/lib/tramites";
 import { docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import type { Servicio } from "@/lib/servicios";
+import { conTarifasPropias } from "@/lib/tarifas-propias";
 
 // Multi-servicio: un expediente tiene UN servicio principal (servicioClave, repli
 // TIPO_A_SERVICIO[tipo]) y 0..N extras (Expediente.serviciosExtra text[]). Este módulo
@@ -15,6 +16,9 @@ export type ExpConServicios = {
   servicioClave?: string | null;
   serviciosExtra?: string[] | null;
   tipo: string; // tipoEnum
+  // Honorarios propios de ESTE expediente (jsonb, lib/tarifas-propias): sustituyen a la
+  // tarifa del catálogo. Las superficies de dinero lo pasan; las de documentos no lo necesitan.
+  tarifasPropias?: unknown;
 };
 
 // ── Catálogo por sede (cascade multi-oficina) ────────────────────────────────
@@ -41,12 +45,14 @@ export function clavesDeExpediente(exp: ExpConServicios): string[] {
   return out;
 }
 
-// Servicios resueltos contra el catálogo del workspace (los no encontrados se filtran).
+// Servicios resueltos contra el catálogo del workspace (los no encontrados se filtran),
+// con los honorarios propios del expediente si los tiene (26/09/2026, Juan).
 export function serviciosDeExpediente(exp: ExpConServicios, catalogo: Servicio[]): Servicio[] {
   const byId = new Map(catalogo.map((s) => [s.id, s]));
-  return clavesDeExpediente(exp)
+  const resueltos = clavesDeExpediente(exp)
     .map((c) => byId.get(c))
     .filter((s): s is Servicio => Boolean(s));
+  return conTarifasPropias(resueltos, exp.tarifasPropias);
 }
 
 // Unión deduplicada de los documentos requeridos (por label exacto, orden estable
@@ -199,7 +205,7 @@ export function miembrosDeServicio(asignacion: ServiciosAsignacion | null | unde
 // reparto del descuento y restoPendiente quedan intactos al céntimo. Sin asignación
 // devuelve exactamente tarifaDeServicios ×N — retrocompatible por construcción.
 export function tarifaAsignada(
-  servicios: Servicio[],
+  servicios: Pick<Servicio, "id" | "anticipo" | "resto">[],
   asignacion: ServiciosAsignacion | null | undefined,
   nMiembros: number,
 ): { anticipo: number; resto: number } {

@@ -39,7 +39,11 @@ export async function contexto() {
   const { data: mem } = await admin.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle();
   const ws = mem.workspaceId;
   const { data: ofis } = await admin.from("Oficina").select("id, nombre, orden").eq("workspaceId", ws).order("orden");
-  if ((ofis ?? []).length < 2) throw new Error("le ws de test doit avoir ≥2 oficinas");
+  if (!(ofis ?? []).length) throw new Error("le ws de test n'a aucune oficina");
+  // 26/09/2026 : la démo est passée en Pro avec UNE seule oficina (« Oficina Barcelona »,
+  // décision Matthias pour la landing). Les scénarios multi-sede tournent alors sur la même
+  // oficina : ils vérifient toujours l'estampillage, plus la séparation entre deux sedes.
+  if (ofis.length < 2) console.log(`  ⚠️ ws de test mono-oficina (${ofis[0].nombre}) : checks multi-sede sur une seule oficina`);
 
   const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: user.email });
   const vr = await fetch(`${URL_SB}/auth/v1/verify?token=${link.properties.hashed_token}&type=magiclink&redirect_to=${BASE}`, { redirect: "manual" });

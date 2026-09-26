@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
+import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { honorariosCobrados, tieneCuotas } from "@/lib/facturas";
 import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, serviciosDeExpediente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
 
@@ -51,7 +52,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const full = resFull.data;
     if (full) {
       const f = full as { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId: string | null; serviciosAsignacion?: unknown };
-      const svs = serviciosDeExpediente(f, servicios);
+      const svs = serviciosDeExpediente({ ...f, tarifasPropias: (await leerPresupuestoExp(admin, id)).tarifasPropias }, servicios);
       let nMiembros = 1;
       if (f.familiaId) {
         const { count } = await admin.from("Cliente").select("id", { count: "exact", head: true }).eq("familiaId", f.familiaId);
