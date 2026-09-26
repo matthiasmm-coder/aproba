@@ -243,7 +243,7 @@ function Casilla({ ok, label }: { ok: boolean; label: string }) {
 function ExpedientesEnCurso() {
   type Fila = { n: string; ref: string; meta: string; num?: string; ok: [boolean, boolean, boolean, boolean]; who: string; plazo?: string; req?: { plazo: string; aportar: string } };
   const filas: Fila[] = [
-    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs · En trámite", num: "08/2026/004512", ok: [true, true, true, true], who: "Marta Ribas", req: { plazo: "Quedan 2 días", aportar: "Contrato de trabajo firmado y alta en la Seguridad Social" } },
+    { n: "Julia Mendoza Restrepo", ref: "EXP-2026-0041", meta: "6/6 docs", num: "08/2026/004512", ok: [true, true, true, true], who: "Marta Ribas", req: { plazo: "Quedan 2 días", aportar: "Contrato de trabajo firmado y alta en la Seguridad Social" } },
     { n: "Andrés Patiño", ref: "EXP-2026-0044", meta: "2/6 docs", ok: [true, false, false, false], who: "Diego Fuentes", plazo: "3 días" },
     { n: "Aïcha Diallo Diaz", ref: "EXP-2026-0046", meta: "5/6 docs", ok: [true, false, true, true], who: "Nuria Camps" },
   ];

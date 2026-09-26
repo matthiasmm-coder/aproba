@@ -48,11 +48,11 @@ export type ReqFila = { asunto: string; docs: string[]; fechaLimite: string; avi
 export type ReqFuera = ReqFila & { expedienteId: string; referencia: string; clienteNombre: string };
 export type ItemLista = BoardItem & { tema?: string | null; servicioLabel?: string | null; claves?: string[]; anio?: string | null; migrado?: boolean; enlace?: string | null; detalle?: string | null; pagos?: number; requerimientos?: ReqFila[] };
 
-// Color del plazo, el mismo que tenía la vista «Requerimientos»: rojo si vence hoy o ya
-// venció, ámbar cuando entra en el aviso, gris si hay tiempo.
+// Color del plazo (26/09/2026, Matthias: «más visible»): siempre el ámbar de las fechas
+// límite de la plataforma, más intenso a 3 días o menos, y rojo si vence hoy o ya venció.
 const COLOR_PLAZO: Record<string, string> = {
   VENCIDO: "bg-red-50 text-red-700", HOY: "bg-red-50 text-red-700",
-  URGENTE: "bg-amber-100 text-amber-800", PROXIMO: "bg-amber-50 text-amber-700", TRANQUILO: "bg-slate-100 text-slate-600",
+  URGENTE: "bg-amber-100 text-amber-800", PROXIMO: "bg-amber-50 text-amber-700", TRANQUILO: "bg-amber-50 text-amber-700",
 };
 const queAportar = (rs: ReqFila[]) => rs.flatMap((r) => [r.asunto, ...r.docs]).map((x) => x.trim()).filter(Boolean).join(" · ");
 
@@ -190,10 +190,8 @@ function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onRe
           <span className="font-mono">{e.referencia}</span>
           {cerrado && e.presentadoEl && <span>· {t("presentado el")} {e.presentadoEl}</span>}
           {!cerrado && docs && docs.requeridos > 0 && <span>· {docs.recibidos}/{docs.requeridos} {t("docs")}</span>}
-          {/* Lo que dijo Extranjería en la última consulta (se anota en la ficha). */}
-          {!cerrado && e.estadoExtranjeria?.estado === "EN_TRAMITE" && (
-            <span className="text-slate-500">· {t("En trámite")} {new Date(e.estadoExtranjeria.at).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).slice(0, 5)}</span>
-          )}
+          {/* «En trámite dd/mm» ya no va en la fila (26/09/2026, Matthias: recargaba la
+              línea); lo último que dijo Extranjería se ve en la ficha. */}
         </span>
         {/* Requerimiento pendiente (26/09): los días que quedan y lo que hay que aportar. */}
         {!cerrado && <LineaRequerimiento rs={e.requerimientos ?? []} />}
