@@ -238,59 +238,87 @@ details[open] > .faq-body {
   .tabla-articulo tr:last-child td:last-child { padding-bottom: 0.7rem; }
 }
 
-/* ── «El día y la noche» (components/dia-noche.tsx) ─────────────────────────
-   Una sola clase (.dn-on) dispara la secuencia; --i (índice de fila) escalona:
-   1) filas SIN aparecen (0-500 ms) y se tachan una a una (desde 700 ms);
-   2) flecha (900 ms); 3) filas CON entran con la marca dibujándose y un destello
-   (desde 1 000 ms); 4) la tarjeta CON respira una vez al final. */
-.dn-item {
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.45s ease, transform 0.45s ease;
-}
-.dn-sin .dn-item { transition-delay: calc(var(--i) * 90ms); }
-/* La tarjeta CON arranca con su propia clase (.dn-go): en escritorio llega a la vez que
-   la rejilla → espera 1 s a que termine el tachado; en móvil está bajo el pliegue y se
-   enciende al llegar a ella, casi sin espera. */
-.dn-con { --dn-espera: 150ms; }
-@media (min-width: 768px) { .dn-con { --dn-espera: 1000ms; } }
-.dn-con .dn-item { transform: translateX(10px); transition-delay: calc(var(--dn-espera) + var(--i) * 130ms); }
-.dn-on .dn-sin .dn-item, .dn-go .dn-item { opacity: 1; transform: none; }
+/* ── «El día y la noche» (components/dia-noche.tsx) — rehecho el 26/09/2026 ──────────
+   ESTADO FINAL POR DEFECTO (sin JS, reduced-motion o ya a la vista al cargar).
+   .dn-a / .dnc-a = armado fuera de pantalla · .dn-on / .dnc-on = entra y se anima.
+   Secuencia (escritorio, ≈ 1,6 s): filas que suben (45 ms entre filas, visibles en 0,6 s)
+   → tachado que se DIBUJA de izquierda a derecha → flecha que salta y empuja → pastillas
+   CON que se rellenan de verde con la marca blanca dibujándose y un barrido de luz por
+   fila → la tarjeta CON se eleva. Curvas «expo» (rápidas al principio, suaves al final). */
+.dn-con { --dnc: 60ms; }
+@media (min-width: 768px) { .dn-con { --dnc: 140ms; } }
 
-/* tachado: line-through que aparece por color (funciona en filas de varias líneas) */
-.dn-sin .dn-text {
-  text-decoration: line-through;
-  text-decoration-color: transparent;
-  text-decoration-thickness: 2px;
-  transition: text-decoration-color 0.4s ease, color 0.4s ease;
-  transition-delay: calc(700ms + var(--i) * 110ms);
+/* filas: suben y aparecen */
+.dn-a .dn-sin .dn-item, .dnc-a .dn-item { opacity: 0; transform: translateY(8px); }
+.dn-on .dn-sin .dn-item, .dnc-on .dn-item {
+  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i) * 45ms);
 }
-.dn-on .dn-sin .dn-text { text-decoration-color: rgb(239 68 68 / 0.55); color: #94a3b8; }
-.dn-sin .dn-x { transition: transform 0.3s ease, color 0.3s ease; transition-delay: calc(700ms + var(--i) * 110ms); }
-.dn-on .dn-sin .dn-x { transform: scale(0.85); color: #fca5a5; }
+.dnc-on .dn-item { transition-delay: calc(var(--dnc) + var(--i) * 45ms); }
 
-/* flecha */
-.dn-arrow { opacity: 0; transform: translate(-50%, -50%) scale(0.6); transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); transition-delay: 900ms; }
-.dn-on .dn-arrow { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-
-/* marca que se dibuja + destello de la fila */
-.dn-check path { stroke-dasharray: 26; stroke-dashoffset: 26; transition: stroke-dashoffset 0.4s ease; transition-delay: calc(var(--dn-espera) + 150ms + var(--i) * 130ms); }
-.dn-go .dn-check path { stroke-dashoffset: 0; }
-.dn-go .dn-item { animation: dnflash 0.9s ease-out both; animation-delay: calc(var(--dn-espera) + 100ms + var(--i) * 130ms); }
-@keyframes dnflash {
-  0% { background-color: transparent; }
-  35% { background-color: #ecfdf5; }
-  100% { background-color: transparent; }
+/* tachado dibujado: un fondo de 2 px sobre un span EN LÍNEA → recorre también la 2.ª línea */
+.dn-tachar {
+  background-image: linear-gradient(rgb(239 68 68 / 0.62), rgb(239 68 68 / 0.62));
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 100% 2px;
+  color: #94a3b8;
 }
-/* la tarjeta CON respira una vez cuando todo está encendido */
-.dn-go.dn-con-card { animation: dnglow 1.3s ease-out calc(var(--dn-espera) + 900ms) 1; }
-@keyframes dnglow {
-  0%, 100% { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06); }
-  50% { box-shadow: 0 0 0 8px rgb(16 176 131 / 0.16), 0 14px 36px rgb(14 140 95 / 0.2); }
+.dn-a .dn-tachar { background-size: 0% 2px; color: #475569; }
+.dn-on .dn-tachar {
+  transition: background-size 0.42s cubic-bezier(0.65, 0, 0.35, 1), color 0.35s ease;
+  transition-delay: calc(260ms + var(--i) * 70ms);
+}
+/* la X: gris mientras la fila «vale», roja al tacharse */
+.dn-x { background-color: #fef2f2; color: #f87171; box-shadow: inset 0 0 0 1px #fee2e2; }
+.dn-a .dn-x { background-color: #f1f5f9; color: #94a3b8; box-shadow: inset 0 0 0 1px #e2e8f0; }
+.dn-on .dn-x {
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  transition-delay: calc(300ms + var(--i) * 70ms);
+}
+
+/* flecha: salta con rebote y da un empujón hacia la columna CON */
+.dn-arrow { transform: translate(-50%, -50%); }
+.dn-a .dn-arrow { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+.dn-on .dn-arrow {
+  transition: opacity 0.3s ease, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: 200ms;
+}
+.dn-on .dn-arrow svg { animation: dnempuje 0.7s cubic-bezier(0.4, 0, 0.2, 1) 800ms 1 both; }
+@keyframes dnempuje { 0%, 100% { transform: translateX(0); } 45% { transform: translateX(4px); } }
+
+/* pastilla CON: verde rellena con la marca blanca (estado final) */
+.dn-check { background-color: #0e8c5f; color: #fff; box-shadow: 0 2px 6px -1px rgb(14 140 95 / 0.45); }
+.dn-check path { stroke-dasharray: 26; stroke-dashoffset: 0; }
+.dnc-a .dn-check { background-color: #ecfdf5; box-shadow: inset 0 0 0 1px #a7f3d0; transform: scale(0.7); }
+.dnc-a .dn-check path { stroke-dashoffset: 26; }
+.dnc-on .dn-check {
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: calc(var(--dnc) + 280ms + var(--i) * 70ms);
+}
+.dnc-on .dn-check path {
+  transition: stroke-dashoffset 0.35s cubic-bezier(0.65, 0, 0.35, 1);
+  transition-delay: calc(var(--dnc) + 380ms + var(--i) * 70ms);
+}
+/* barrido de luz por fila CON (una vez) */
+.dn-con .dn-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 15%, rgb(16 176 131 / 0.16) 50%, transparent 85%);
+  transform: translateX(-110%);
+}
+.dnc-on .dn-item::after { animation: dnbarrido 0.8s cubic-bezier(0.4, 0, 0.2, 1) calc(var(--dnc) + 300ms + var(--i) * 70ms) 1 both; }
+@keyframes dnbarrido { to { transform: translateX(110%); } }
+
+/* tarjeta CON: se eleva al final, con una sombra verde */
+.dn-con-card { transform: translateY(-3px); box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 22px 48px -18px rgb(14 140 95 / 0.38); }
+.dnc-a.dn-con-card { transform: none; box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06); }
+.dnc-on.dn-con-card {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.8s ease;
+  transition-delay: calc(var(--dnc) + 700ms);
 }
 @media (prefers-reduced-motion: reduce) {
-  .dn-item, .dn-arrow { opacity: 1; transform: none; transition: none; }
-  .dn-arrow { transform: translate(-50%, -50%); }
-  .dn-check path { stroke-dashoffset: 0; }
-  .dn-go .dn-item, .dn-go.dn-con-card { animation: none; }
+  .dn-arrow svg, .dn-con .dn-item::after { animation: none; }
 }
