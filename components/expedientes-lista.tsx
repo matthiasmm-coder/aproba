@@ -56,7 +56,9 @@ const COLOR_PLAZO: Record<string, string> = {
 };
 const queAportar = (rs: ReqFila[]) => rs.flatMap((r) => [r.asunto, ...r.docs]).map((x) => x.trim()).filter(Boolean).join(" · ");
 
-// La línea del requerimiento: «Requerimiento · Quedan 4 días · Aportar: …».
+// La línea del requerimiento: «Requerimiento · Quedan 4 días». Lo que hay que aportar ya
+// no se escribe en la fila (26/09/2026, Matthias: recargaba la interfaz): sale al pasar el
+// ratón por la pastilla, y entero en la ficha.
 function LineaRequerimiento({ rs }: { rs: ReqFila[] }) {
   const t = useT();
   if (!rs.length) return null;
@@ -65,15 +67,13 @@ function LineaRequerimiento({ rs }: { rs: ReqFila[] }) {
   const p = plazoClave({ estado: "PENDIENTE", fechaLimite: r.fechaLimite, avisarDias: r.avisarDias });
   const aportar = queAportar(rs);
   return (
-    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+    <span className="mt-1 flex min-w-0 items-center text-xs">
       {/* max-w-full y sin shrink-0: en un móvil estrecho la pastilla pasa a dos líneas en
           vez de montarse sobre la foto del responsable. */}
-      <span className={`inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${COLOR_PLAZO[u] ?? COLOR_PLAZO.TRANQUILO}`}>
+      <span title={aportar ? `${t("Aportar")}: ${aportar}` : undefined} className={`inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${COLOR_PLAZO[u] ?? COLOR_PLAZO.TRANQUILO}`}>
         <RequerimientosIcon className="h-3 w-3 shrink-0" />
         <span>{rs.length > 1 ? `${rs.length} ${t("requerimientos")}` : t("Requerimiento")} · <span className="whitespace-nowrap">{t(p.clave).replace("{n}", String(p.n))}</span></span>
       </span>
-      {/* Dos líneas como mucho (en el móvil, una sola cortaba justo lo que hay que aportar). */}
-      {aportar && <span className="line-clamp-2 min-w-0 text-slate-600" title={aportar}><span className="font-medium">{t("Aportar")}:</span> {aportar}</span>}
     </span>
   );
 }
