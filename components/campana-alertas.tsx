@@ -6,8 +6,8 @@ import { useT } from "@/components/lang-provider";
 import type { Alerta } from "@/lib/alertas";
 
 // LA CAMPANA (26/09/2026, Matthias): a la izquierda de «+ Nuevo expediente». La pastilla
-// cuenta lo que pide un gesto hoy (lib/alertas.ts): roja si algo ya venció o caducó,
-// ámbar si no. Se consulta al entrar, al volver a la pestaña, cada 5 minutos y al abrirla:
+// cuenta lo que pide un gesto hoy (lib/alertas.ts), en el VERDE de la marca (Matthias: nada
+// de rojo en el número); lo vencido o caducado se ve en rojo dentro del panel. Se consulta al entrar, al volver a la pestaña, cada 5 minutos y al abrirla:
 // el layout no se vuelve a pintar al navegar, así que no puede traer las alertas él.
 const CADA = 5 * 60_000;
 const TOPE = 8; // por sección; el resto, en su vista
@@ -56,7 +56,6 @@ export function CampanaAlertas() {
 
   const lista = alertas ?? [];
   const n = lista.length;
-  const critica = lista.some((a) => a.nivel === "critico");
   const reqs = lista.filter((a) => a.clase === "requerimiento");
   const rens = lista.filter((a) => a.clase !== "requerimiento");
   const plazo = (a: Alerta) => t(a.plazo.clave).replace("{n}", String(a.plazo.n));
@@ -95,7 +94,7 @@ export function CampanaAlertas() {
       >
         <CampanaIcon className="h-5 w-5" />
         {n > 0 && (
-          <span className={`absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-cream-50 ${critica ? "bg-red-500" : "bg-amber-500"}`}>
+          <span className={`absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-cream-50 bg-aproba-600`}>
             {n > 99 ? "99+" : n}
           </span>
         )}
