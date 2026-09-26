@@ -97,6 +97,20 @@ function PlazoIcon({ className = "" }: { className?: string }) {
 function ChevronIcon({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>;
 }
+// Carpeta (tema y servicio): lo que se abre lleva carpeta; el expediente, no.
+function CarpetaIcon({ abierta, className = "" }: { abierta: boolean; className?: string }) {
+  return abierta
+    ? <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></svg>
+    : <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>;
+}
+
+// Sangría y guía vertical de las filas según de qué cuelgan (26/09/2026, Matthias: «no se
+// distinguen los expedientes de los servicios y de los temas»). La guía cae bajo la flecha
+// de la carpeta madre; la sangría deja el nombre a la derecha del título de la carpeta.
+type Colgado = { sangria: string; guia?: string };
+const EN_TEMA: Colgado = { sangria: "pl-10 sm:pl-16", guia: "left-[1.45rem]" };
+const EN_SERVICIO: Colgado = { sangria: "pl-16 sm:pl-20", guia: "left-[2.45rem]" };
+const EN_ANIO: Colgado = { sangria: "pl-[4.75rem] sm:pl-24", guia: "left-[3.95rem]" };
 
 // Casilla de una sección de la ficha: verde con ✓ cuando está lista, hueca cuando no.
 // La etiqueta se lee SIEMPRE (19/09): en el móvil se veían cuatro círculos sin saber de
@@ -123,10 +137,11 @@ function Casilla({ ok, label, corto }: { ok: boolean; label: string; corto?: str
 // búsqueda lo encuentra sin recargar la página.
 const NumerosCtx = createContext<{ editados: Map<string, string>; guardar: (id: string, numero: string) => void }>({ editados: new Map(), guardar: () => {} });
 
-function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasificar }: {
+function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onReclasificar }: {
   e: ItemLista;
   cerrado: boolean;
   sangria?: string;
+  guia?: string;
   onArchive?: (e: ItemLista) => void;
   onRestaurar?: (id: string) => void;
   onReclasificar?: (e: ItemLista, s: Salida) => void;
@@ -145,7 +160,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
     const pagos = e.pagos ?? 1;
     const concepto = conceptoUtil(pagos > 1 && e.detalle ? sinMarcaDePago(e.detalle) : e.detalle, e.servicioLabel || e.tipoLabel);
     return (
-      <div className={`group flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
+      <div className={`group relative flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
+        {guia && <span aria-hidden className={`pointer-events-none absolute inset-y-0 w-px bg-slate-200 ${guia}`} />}
         <Link href={e.enlace || "/app/clientes"} className="min-w-0 flex-1">
           <span className="block min-w-0 truncate text-sm font-semibold text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-slate-400">
@@ -161,7 +177,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
     );
   }
   return (
-    <div className={`group flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
+    <div className={`group relative flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-50 py-2.5 pr-3 transition hover:bg-cream-50 ${sangria}`}>
+      {guia && <span aria-hidden className={`pointer-events-none absolute inset-y-0 w-px bg-slate-200 ${guia}`} />}
       <Link href={`/app/expedientes/${e.id}`} data-guia={e.referencia === "EJEMPLO" ? "tarjeta-ejemplo" : undefined} className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="min-w-0 truncate text-sm font-semibold text-slate-900" title={e.clienteNombre}>{e.clienteNombre}</span>
@@ -225,8 +242,8 @@ function Fila({ e, cerrado, sangria = "pl-9", onArchive, onRestaurar, onReclasif
 }
 
 // Filas por tranches: las primeras TRANCHE y un botón para traer las siguientes.
-function ListaFilas({ lista, cerrado, sangria, onArchive, onRestaurar, onReclasificar }: {
-  lista: ItemLista[]; cerrado: boolean; sangria: string;
+function ListaFilas({ lista, cerrado, sangria, guia, onArchive, onRestaurar, onReclasificar }: {
+  lista: ItemLista[]; cerrado: boolean; sangria: string; guia?: string;
   onArchive?: (e: ItemLista) => void; onRestaurar?: (id: string) => void; onReclasificar?: (e: ItemLista, s: Salida) => void;
 }) {
   const t = useT();
@@ -235,13 +252,14 @@ function ListaFilas({ lista, cerrado, sangria, onArchive, onRestaurar, onReclasi
   return (
     <>
       {lista.slice(0, tope).map((e) => (
-        <Fila key={e.id} e={e} cerrado={cerrado} sangria={sangria} onArchive={onArchive} onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
+        <Fila key={e.id} e={e} cerrado={cerrado} sangria={sangria} guia={guia} onArchive={onArchive} onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
       ))}
       {restantes > 0 && (
         <button
           type="button" onClick={() => setTope((v) => v + TRANCHE)}
-          className={`w-full border-t border-slate-50 py-2.5 pr-3 text-left text-xs font-semibold text-aproba-700 transition hover:bg-cream-50 ${sangria}`}
+          className={`relative w-full border-t border-slate-50 py-2.5 pr-3 text-left text-xs font-semibold text-aproba-700 transition hover:bg-cream-50 ${sangria}`}
         >
+          {guia && <span aria-hidden className={`pointer-events-none absolute inset-y-0 w-px bg-slate-200 ${guia}`} />}
           {t("Ver los {n} restantes").replace("{n}", String(restantes))}
         </button>
       )}
@@ -249,19 +267,31 @@ function ListaFilas({ lista, cerrado, sangria, onArchive, onRestaurar, onReclasi
   );
 }
 
+// Tres pesos bien distintos (26/09/2026): el TEMA es una banda de título (fondo, carpeta,
+// 15 px en negrita); el SERVICIO, una subcarpeta (carpeta pequeña, seminegrita, recuento en
+// pastilla); el EXPEDIENTE, una fila sin carpeta, colgada de su servicio por la guía.
 function Nivel({ titulo, n, enCurso, abierto, onToggle, raiz = false, anio = false, vacia = false, children }: { titulo: string; n?: number; enCurso?: number; abierto: boolean; onToggle: () => void; raiz?: boolean; anio?: boolean; vacia?: boolean; children: React.ReactNode }) {
+  const boton = raiz
+    ? `px-4 py-3 ${abierto && !vacia ? "bg-aproba-50/60 hover:bg-aproba-50" : "bg-slate-50/70 hover:bg-slate-100/70"}`
+    : anio ? "border-t border-slate-100 py-1.5 pl-14 pr-4 hover:bg-cream-50/60"
+    : "border-t border-slate-100 py-2 pl-8 pr-4 hover:bg-cream-50/60";
   return (
-    <div className={raiz ? `border-l-2 border-t border-slate-100 first:border-t-0 ${abierto ? "border-l-aproba-500 bg-aproba-50/20" : "border-l-transparent"}` : ""}>
+    <div className={raiz ? `border-l-2 border-t border-slate-200 first:border-t-0 ${abierto ? "border-l-aproba-500" : "border-l-transparent"}` : ""}>
       <button
         type="button" onClick={onToggle} aria-expanded={abierto}
-        className={`flex w-full items-center gap-2 text-left transition hover:bg-cream-50/60 ${raiz ? "px-4 py-2.5" : anio ? "border-t border-slate-50 py-1.5 pl-14 pr-4" : "border-t border-slate-50 py-2 pl-9 pr-4"}`}
+        className={`flex w-full items-center text-left transition ${anio ? "gap-2" : "gap-1.5"} ${boton}`}
       >
-        <ChevronIcon className={`h-3.5 w-3.5 shrink-0 transition-transform ${vacia ? "text-transparent" : "text-slate-300"} ${abierto ? "rotate-90" : ""}`} />
-        <span className={`min-w-0 flex-1 truncate ${raiz ? `text-sm font-semibold ${vacia ? "text-slate-400" : "text-slate-800"}` : anio ? "text-[12px] font-medium tabular-nums text-slate-400" : "text-[13px] text-slate-500"}`}>{titulo}</span>
+        <ChevronIcon className={`h-3.5 w-3.5 shrink-0 transition-transform ${vacia ? "text-transparent" : raiz ? "text-slate-400" : "text-slate-300"} ${abierto ? "rotate-90" : ""}`} />
+        {!anio && (
+          <CarpetaIcon abierta={abierto && !vacia} className={`shrink-0 ${raiz ? `h-4 w-4 ${vacia ? "text-slate-300" : abierto ? "text-aproba-600" : "text-slate-400"}` : "h-3.5 w-3.5 text-slate-400"}`} />
+        )}
+        <span className={`min-w-0 flex-1 truncate ${raiz ? `text-[15px] font-bold tracking-tight ${vacia ? "text-slate-400" : "text-slate-900"}` : anio ? "text-[12px] font-medium tabular-nums text-slate-400" : "text-[13px] font-semibold text-slate-600"}`}>{titulo}</span>
         {vacia && <span className="shrink-0 text-[11px] text-slate-300">{"—"}</span>}
         {/* Círculo verde = expedientes EN CURSO de ese tema. Nada si no hay ninguno
             (un tema solo con historial no debe pedir atención). */}
-        {typeof n === "number" && <span className={`shrink-0 text-xs tabular-nums ${raiz ? "font-semibold text-slate-400" : "text-slate-300"}`}>{n}</span>}
+        {typeof n === "number" && (raiz || anio
+          ? <span className={`shrink-0 text-xs tabular-nums ${raiz ? "font-semibold text-slate-400" : "text-slate-300"}`}>{n}</span>
+          : <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{n}</span>)}
         {typeof enCurso === "number" && enCurso > 0 && (
           <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-aproba-600 px-1.5 text-[11px] font-semibold tabular-nums text-white">{enCurso}</span>
         )}
@@ -285,7 +315,7 @@ function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onRecla
   const filas = srv.filas.get(clave);
   if (!filas) {
     return (
-      <p className="border-t border-slate-50 py-2.5 pl-14 pr-4 text-xs text-slate-400">
+      <p className={`relative border-t border-slate-50 py-2.5 pr-4 text-xs text-slate-400 ${EN_SERVICIO.sangria}`}>
         {srv.cargando.has(clave) ? t("Cargando…") : t("Abriendo…")}
       </p>
     );
@@ -294,13 +324,14 @@ function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onRecla
   const faltan = Math.max(0, carpeta.n - filas.length);
   return (
     <>
-      <ListaFilas lista={filas} cerrado sangria="pl-[4.5rem]" onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
+      <ListaFilas lista={filas} cerrado {...EN_SERVICIO} onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
       {faltan > 0 && (
         <button
           type="button" disabled={srv.cargando.has(clave)}
           onClick={() => srv.pedirMas(clave, { ...query, offset: String(filas.length) }, aItem)}
-          className="w-full border-t border-slate-50 py-2.5 pl-14 pr-3 text-left text-xs font-semibold text-aproba-700 transition hover:bg-cream-50 disabled:opacity-50"
+          className={`relative w-full border-t border-slate-50 py-2.5 pr-3 text-left text-xs font-semibold text-aproba-700 transition hover:bg-cream-50 disabled:opacity-50 ${EN_SERVICIO.sangria}`}
         >
+          <span aria-hidden className={`pointer-events-none absolute inset-y-0 w-px bg-slate-200 ${EN_SERVICIO.guia}`} />
           {srv.cargando.has(clave) ? t("Cargando…") : t("Ver los {n} restantes").replace("{n}", String(faltan))}
         </button>
       )}
@@ -808,7 +839,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                     >
                       {/* Servicio sin tema (o sin clasificar): las filas cuelgan de la raíz. */}
                       {r.filas.length > 0 && (
-                        <ListaFilas lista={r.filas} cerrado={view === "historial"} sangria="pl-9"
+                        <ListaFilas lista={r.filas} cerrado={view === "historial"} {...EN_TEMA}
                           onArchive={(x) => { setErrorCierre(null); setDialogo(x); }}
                           onRestaurar={restaurar}
                           onReclasificar={(x, sal) => void reclasificar(x, sal)} />
@@ -828,14 +859,14 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                                   const abiertoAnio = g.anios!.length === 1 ? abierto : estaAbierto(ka);
                                   return (
                                     <Nivel key={ka} titulo={an.nombre} n={an.lista.length} abierto={abiertoAnio} onToggle={() => toggle(ka)} anio>
-                                      <ListaFilas lista={an.lista} cerrado sangria="pl-[4.5rem]"
+                                      <ListaFilas lista={an.lista} cerrado {...EN_ANIO}
                                         onRestaurar={restaurar}
                                         onReclasificar={(x, sal) => void reclasificar(x, sal)} />
                                     </Nivel>
                                   );
                                 })
                               : (
-                                <ListaFilas lista={g.lista} cerrado={view === "historial"} sangria="pl-14"
+                                <ListaFilas lista={g.lista} cerrado={view === "historial"} {...EN_SERVICIO}
                                   onArchive={(x) => { setErrorCierre(null); setDialogo(x); }}
                                   onRestaurar={restaurar}
                                   onReclasificar={(x, sal) => void reclasificar(x, sal)} />
