@@ -62,6 +62,18 @@ export const MODELOS: ModeloOficial[] = [
   M("MI-F", "Movilidad internacional · familiar (Ley 14/2013)", "Solicitud referida a los familiares del titular de una autorización de la Ley 14/2013.", { corto: "Movilidad internacional · familiar" }),
 ];
 
+// Lo que PUBLICA el Ministerio en «Modelos de solicitud» (leído el 26/09/2026): los EX de
+// «Modelos generales» y los MI de «Apoyo a emprendedores». No es lo que rellena Aproba
+// (eso es MODELOS): /formularios dice las dos cosas y la diferencia (hoy, el MI-T-Audiovisual).
+// Si el Ministerio publica o retira un modelo, la vigilancia (lib/veille-ex.ts) avisa:
+// entonces se cambian aquí la lista y la fecha. El test comprueba que MODELOS ⊂ OFICIALES.
+export const OFICIALES = {
+  fuente: "https://www.inclusion.gob.es/web/migraciones/informacion-util/modelos-de-solicitud",
+  consultado: "2026-09-26",
+  ex: ["EX-00", "EX-01", "EX-02", "EX-03", "EX-04", "EX-06", "EX-07", "EX-09", "EX-10", "EX-11", "EX-13", "EX-15", "EX-16", "EX-17", "EX-18", "EX-19", "EX-20", "EX-21", "EX-22", "EX-23", "EX-24", "EX-25", "EX-26", "EX-28", "EX-29", "EX-31", "EX-32"],
+  mi: ["MI-T", "MI-T-Audiovisual", "MI-TIE", "MI-F"],
+};
+
 export const rutaModelo = (m: Pick<ModeloOficial, "slug">) => `/formularios/${m.slug}`;
 export const getModelo = (slug: string) => MODELOS.find((m) => m.slug === slug);
 export const tramitesDelModelo = (code: string): Tramite[] => TRAMITES.filter((t) => t.formularios.some((f) => f.code === code));

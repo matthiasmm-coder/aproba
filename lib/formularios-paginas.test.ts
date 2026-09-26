@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODELOS, PAGINAS_MODELOS, tramitesDelModelo } from "@/lib/formularios-paginas";
+import { MODELOS, OFICIALES, PAGINAS_MODELOS, tramitesDelModelo } from "@/lib/formularios-paginas";
 import { PAGINAS_TASAS, TASAS_PAGINAS, tramitesDeTasa } from "@/lib/tasas-paginas";
 import { FORM_LABEL, formularioOficialDisponible } from "@/lib/ex-forms";
 import { TASAS } from "@/lib/tasas";
@@ -28,6 +28,14 @@ describe("páginas de modelo oficial", () => {
       expect(p.descripcion.length, p.ruta).toBeLessThanOrEqual(160);
     }
     expect(new Set(PAGINAS_MODELOS.map((p) => p.ruta)).size).toBe(PAGINAS_MODELOS.length);
+  });
+  // /formularios cuenta lo que publica el Ministerio y lo que rellena Aproba: un modelo de
+  // Aproba que no esté en la lista oficial haría mentir a una de las dos cifras.
+  it("todo modelo de Aproba está en la lista oficial del Ministerio, sin duplicados", () => {
+    const oficiales = [...OFICIALES.ex, ...OFICIALES.mi];
+    expect(new Set(oficiales).size).toBe(oficiales.length);
+    for (const m of MODELOS) expect(oficiales, m.code).toContain(m.code);
+    expect(OFICIALES.consultado).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 

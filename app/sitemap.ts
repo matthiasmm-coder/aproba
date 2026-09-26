@@ -44,8 +44,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: pg.ruta === "/software-de-extranjeria" ? 0.9
       : pg.ruta.startsWith("/formularios/") || pg.ruta.startsWith("/tasas/") ? 0.6
       : pg.ruta.startsWith("/tramites/") ? 0.7 : 0.8,
-  })), ...["/tramites", "/formularios", "/tasas"].map((ruta) => ({
-    url: `${base}${ruta}`, lastModified: new Date("2026-09-20"), changeFrequency: "monthly" as const, priority: 0.8,
+  })), ...([["/tramites", "2026-09-20"], ["/formularios", "2026-09-26"], ["/tasas", "2026-09-20"]] as const).map(([ruta, fecha]) => ({
+    url: `${base}${ruta}`, lastModified: new Date(fecha), changeFrequency: "monthly" as const, priority: 0.8,
   }))];
 
   // Las páginas «beneficio explicado» de la portada (lib/beneficios): una por tarjeta.
