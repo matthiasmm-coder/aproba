@@ -124,7 +124,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {/* Multi-oficina : n'apparaît qu'à partir de 2 sedes (le composant s'efface seul). */}
           </div>
           {/* La campana (26/09/2026, Matthias): a la izquierda de «+ Nuevo expediente». */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* gap-3/4: la pastilla de la campana no debe rozar el botón (Matthias, 26/09). */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <CampanaAlertas />
             <Link href="/app/expedientes/nuevo" data-guia="nuevo-expediente" className="rounded-lg bg-aproba-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 sm:px-4">
               <span className="sm:hidden">{t("+ Nuevo")}</span><span className="hidden sm:inline">{t("+ Nuevo expediente")}</span>

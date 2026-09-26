@@ -721,7 +721,7 @@ export function HeroAnimation() {
                     <Pill cls="bg-aproba-100 text-aproba-700">Pro</Pill>
                   </div>
                   {/* La campana de alertas (26/09/2026), a la izquierda del botón, como en la app. */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2.5">
                     <span className="relative text-slate-500">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
                       <span className="absolute -right-[3px] -top-[3px] flex h-[7px] min-w-[7px] items-center justify-center rounded-full bg-red-500 px-[1px] text-[4.5px] font-bold text-white ring-1 ring-cream-50">3</span>
