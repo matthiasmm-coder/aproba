@@ -17,6 +17,8 @@ import { curva, escalaEje, eurCorto, pct, MESES_LARGOS_ES, type Punto } from "@/
 // Seis escenas sobre cinco entradas: Expedientes se queda iluminada en «En curso» y en
 // «Renovaciones». Las fechas (agenda, caducidades, meses de la gráfica) salen del día del
 // visitante tras montar: la maqueta no envejece en la landing.
+// Plan Pro con una sola oficina (26/09, Matthias): sin la barra de oficinas ni sus casillas,
+// que solo salen con varias sedes — más legible, y es el plan de la mayoría de despachos.
 
 const TABS = [
   { label: "Inicio", icon: "home" },
@@ -66,18 +68,6 @@ const FOTOS: Record<string, string> = {
 function Foto({ nombre, size }: { nombre: string; size: string }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={FOTOS[nombre]} alt="" width={128} height={128} decoding="async" fetchPriority="low" className={`shrink-0 rounded-full object-cover ring-1 ring-aproba-100 ${size}`} />;
-}
-
-// Pastillas de oficina (multi-oficina, Business): «Todas» activa + las tres sedes de la demo.
-function Oficinas() {
-  return (
-    <div className="mb-1.5 flex justify-center gap-1">
-      <span className="rounded-full bg-aproba-600 px-1.5 py-0.5 text-[6px] font-semibold text-white">Todas</span>
-      {["Oficina Barcelona", "Oficina Zaragoza", "Oficina Madrid"].map((o) => (
-        <span key={o} className="rounded-full border border-slate-300 bg-white px-1.5 py-0.5 text-[6px] font-medium text-slate-600">{o}</span>
-      ))}
-    </div>
-  );
 }
 
 function Buscador({ texto, cls = "" }: { texto: string; cls?: string }) {
@@ -163,9 +153,8 @@ function Inicio({ hoy }: { hoy: Date }) {
   const citas: Record<number, string> = { 1: "10:30 Karim B.", 3: "12:00 Ioana P.", 4: "9:15 Liu W." };
   return (
     <div>
-      <Oficinas />
       <span className="text-[12px] font-bold tracking-tightest text-slate-900">Hola, Marta</span>
-      <div className="mt-1 grid grid-cols-4 gap-1.5">
+      <div className="mt-1.5 grid grid-cols-4 gap-1.5">
         {kpis.map((k) => (
           <div key={k.l} className="rounded-lg border border-slate-200 bg-white p-1.5 text-center">
             <span className="mx-auto flex h-4 w-4 items-center justify-center rounded bg-slate-100 text-slate-500"><KpiIcon name={k.icon} /></span>
@@ -175,7 +164,7 @@ function Inicio({ hoy }: { hoy: Date }) {
           </div>
         ))}
       </div>
-      <div className="mt-1.5 rounded-lg border border-slate-200 bg-white p-1.5">
+      <div className="mt-2 rounded-lg border border-slate-200 bg-white p-1.5">
         <div className="mb-1 flex items-center justify-between gap-1">
           <span className="text-[7.5px] font-semibold text-slate-800">Agenda</span>
           <div className="flex items-center gap-1">
@@ -186,7 +175,7 @@ function Inicio({ hoy }: { hoy: Date }) {
         </div>
         <div className="grid grid-cols-7 gap-0.5">
           {["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"].map((d, i) => (
-            <div key={d} className={`h-[30px] rounded border p-0.5 text-center ${i === hoyIdx ? "border-aproba-100 bg-aproba-50/40" : "border-slate-100"}`}>
+            <div key={d} className={`h-[36px] rounded border p-0.5 text-center ${i === hoyIdx ? "border-aproba-100 bg-aproba-50/40" : "border-slate-100"}`}>
               <p className="text-[4.5px] font-semibold text-slate-400">{d}</p>
               <p className={`mx-auto text-[6px] font-semibold ${i === hoyIdx ? "flex h-2.5 w-2.5 items-center justify-center rounded-full bg-aproba-600 text-white" : "text-slate-700"}`}>{sumarDias(lunes, i).getDate()}</p>
               {citas[i] && <p className="mt-0.5 truncate rounded bg-aproba-50 px-0.5 text-[4px] font-medium text-aproba-700">{citas[i]}</p>}
@@ -194,7 +183,7 @@ function Inicio({ hoy }: { hoy: Date }) {
           ))}
         </div>
       </div>
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
         <div className="rounded-lg border border-slate-200 bg-white p-1.5">
           <p className="mb-0.5 text-[5.5px] font-bold uppercase tracking-wide text-slate-400">Por servicios</p>
           {([["Arraigo sociolaboral", 100, "7"], ["Renovación de TIE", 71, "5"], ["Reagrupación familiar", 57, "4"]] as [string, number, string][]).map(([l, pct, v]) => (
@@ -248,7 +237,6 @@ function ExpedientesEnCurso() {
   const temas: [string, number][] = [["Residencia y trabajo", 7], ["Familia", 7], ["Nacionalidad", 5]];
   return (
     <div>
-      <Oficinas />
       <div className="mb-1.5 flex items-end justify-between gap-1.5">
         <Titulo texto="Expedientes" sub="26 en curso · 6 esperando al cliente" />
         <Vistas activa="curso" />
@@ -262,7 +250,7 @@ function ExpedientesEnCurso() {
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         {/* Tema abierto: borde verde a la izquierda, como en la app */}
         <div className="border-l-2 border-l-aproba-500 bg-aproba-50/30">
-          <div className="flex items-center gap-1 px-1.5 py-[3px]">
+          <div className="flex items-center gap-1 px-1.5 py-1">
             <Chevron abierto />
             <span className="flex-1 truncate text-[7px] font-semibold text-slate-800">Arraigo</span>
             <span className="flex h-2.5 min-w-[10px] items-center justify-center rounded-full bg-aproba-600 px-0.5 text-[5px] font-semibold text-white">7</span>
@@ -273,7 +261,7 @@ function ExpedientesEnCurso() {
             <span className="text-[5px] text-slate-300">7</span>
           </div>
           {filas.map((f) => (
-            <div key={f.ref} className="flex items-center gap-1 border-t border-slate-50 bg-white py-[3px] pl-6 pr-1.5">
+            <div key={f.ref} className="flex items-center gap-1 border-t border-slate-50 bg-white py-1 pl-6 pr-1.5">
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1">
                   <span className="truncate text-[6.5px] font-semibold text-slate-900">{f.n}</span>
@@ -292,7 +280,7 @@ function ExpedientesEnCurso() {
           ))}
         </div>
         {temas.map(([t, n]) => (
-          <div key={t} className="flex items-center gap-1 border-t border-slate-100 px-1.5 py-[3px]">
+          <div key={t} className="flex items-center gap-1 border-t border-slate-100 px-1.5 py-1">
             <Chevron />
             <span className="flex-1 truncate text-[7px] font-semibold text-slate-800">{t}</span>
             <span className="flex h-2.5 min-w-[10px] items-center justify-center rounded-full bg-aproba-600 px-0.5 text-[5px] font-semibold text-white">{n}</span>
@@ -316,7 +304,6 @@ function Renovaciones({ hoy }: { hoy: Date }) {
   ];
   return (
     <div>
-      <Oficinas />
       <div className="mb-1 flex items-end justify-between gap-1.5">
         <Titulo texto="Expedientes" sub="3 caducan en 60 días · 1 ya caducadas" />
         <Vistas activa="renovaciones" />
@@ -329,11 +316,11 @@ function Renovaciones({ hoy }: { hoy: Date }) {
         <Chip texto="Esperando respuesta" n={1} />
       </div>
       {grupos.map((g) => (
-        <div key={g.titulo} className="mb-1">
+        <div key={g.titulo} className="mb-1.5">
           <p className={`mb-0.5 text-[5.5px] font-bold uppercase tracking-wide ${g.tono}`}>{g.titulo}</p>
           <div className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
             {g.filas.map((v) => (
-              <div key={v.n} className="flex items-center gap-1.5 px-2 py-[3px]">
+              <div key={v.n} className="flex items-center gap-1.5 px-2 py-1">
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${v.dot}`} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[7px] font-semibold text-slate-800">{v.n}</p>
@@ -353,14 +340,14 @@ function Renovaciones({ hoy }: { hoy: Date }) {
 // ── Clientes (app/app/clientes) ─────────────────────────────────────
 function Clientes() {
   const rows = [
-    { n: "Aïcha Diallo Diaz", of: "Oficina Barcelona", p: "Senegal", tr: "Arraigo sociolaboral", i: "AD", x: "2" },
-    { n: "Andrés Patiño", of: "Oficina Barcelona", p: "Colombia", tr: "Arraigo sociolaboral", i: "AP", x: "1" },
-    { n: "Fatima El Amrani", of: "Oficina Zaragoza", p: "Marruecos", tr: "Renovación TIE", i: "FE", x: "3" },
-    { n: "Ioana Popescu", of: "Oficina Madrid", p: "Rumanía", tr: "Asignación de NIE", i: "IP", x: "2" },
+    { n: "Aïcha Diallo Diaz", p: "Senegal", tr: "Arraigo sociolaboral", i: "AD", x: "2" },
+    { n: "Andrés Patiño", p: "Colombia", tr: "Arraigo sociolaboral", i: "AP", x: "1" },
+    { n: "Fatima El Amrani", p: "Marruecos", tr: "Renovación TIE", i: "FE", x: "3" },
+    { n: "Ioana Popescu", p: "Rumanía", tr: "Asignación de NIE", i: "IP", x: "2" },
+    { n: "Karim Benali", p: "Argelia", tr: "Arraigo familiar", i: "KB", x: "2" },
   ];
   return (
     <div>
-      <Oficinas />
       <div className="mb-1.5 flex items-center justify-between gap-1.5">
         <Titulo texto="Clientes" sub="24 clientes · 2 familias · 3 empresas" />
         <div className="flex shrink-0 items-center gap-1">
@@ -384,12 +371,8 @@ function Clientes() {
         {rows.map((r, i) => (
           <div key={r.n} className={`flex items-center gap-1.5 px-2 py-1 ${i < rows.length - 1 ? "border-b border-slate-100" : ""}`}>
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <span className="h-2 w-2 shrink-0 rounded-sm border border-slate-300 bg-white" />
-              <Avatar txt={r.i} />
-              <div className="min-w-0">
-                <p className="truncate text-[7.5px] font-medium text-slate-800">{r.n}</p>
-                <p className="truncate text-[5px] text-slate-400">{r.of}</p>
-              </div>
+              <Avatar txt={r.i} size="h-4 w-4 text-[6px]" />
+              <p className="min-w-0 truncate text-[7.5px] font-medium text-slate-800">{r.n}</p>
             </div>
             <span className="w-[40px] truncate text-[6.5px] text-slate-500">{r.p}</span>
             <span className="w-[60px] truncate text-[6.5px] text-slate-500">{r.tr}</span>
@@ -450,7 +433,7 @@ function GraficoMensual({ meses, anio }: { meses: number; anio: number }) {
     const t = setTimeout(() => setSel(mesFicha), 1700);
     return () => clearTimeout(t);
   }, [mesFicha]);
-  const W = 300, H = 66, M = { l: 21, r: 2, t: 4, b: 10 };
+  const W = 300, H = 80, M = { l: 21, r: 2, t: 5, b: 11 };
   const plotH = H - M.t - M.b;
   const { desde, hasta, ticks } = escalaEje(0, Math.max(...INGRESOS.slice(0, meses)));
   const y = (v: number) => M.t + (plotH * (hasta - v)) / (hasta - desde);
@@ -527,7 +510,6 @@ function Estadisticas({ hoy }: { hoy: Date }) {
   ];
   return (
     <div>
-      <Oficinas />
       <div className="mb-1 flex items-center justify-between gap-1.5">
         <Titulo texto="Facturas" sub="Tu facturación de un vistazo: lo emitido frente a lo recibido." />
         <div className="flex shrink-0 items-center gap-1">
@@ -597,7 +579,7 @@ function Ajustes() {
     { icon: "plug", label: "Integraciones", sub: "Email entrante · bandeja · Google Meet" },
     { icon: "doc", label: "Hoja de encargo y mandato", sub: "Activada — el cliente firma desde su portal" },
     { icon: "card", label: "Facturación y métodos de pago", sub: "Serie 2026 · cuenta bancaria · cobro con tarjeta" },
-    { icon: "team", label: "Plan y equipo", sub: "Business · 3 usuarios · 3 oficinas" },
+    { icon: "team", label: "Plan y equipo", sub: "Pro · 3 usuarios · 1 oficina" },
     { icon: "building", label: "Despacho y cuenta", sub: "Datos de tu gestoría y de tu usuario" },
   ];
   return (
@@ -708,7 +690,7 @@ export function HeroAnimation() {
                 <div className="flex h-8 items-center justify-between border-b border-slate-200 bg-cream-50 px-3">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[9px] font-semibold text-slate-700">Gestoría Vallès</span>
-                    <Pill cls="bg-aproba-100 text-aproba-700">Business</Pill>
+                    <Pill cls="bg-aproba-100 text-aproba-700">Pro</Pill>
                   </div>
                   <span className="rounded-md bg-aproba-600 px-1.5 py-0.5 text-[7px] font-semibold text-white">+ Nuevo expediente</span>
                 </div>
