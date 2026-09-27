@@ -391,6 +391,26 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Testimonio — Juan Santiago Prado Telles (Gestoría Valencia), cliente desde julio de
+          2026. Texto y firma VALIDADOS por él el 27/09/2026: resumen de su email, con su
+          consentimiento escrito para publicarlo. Justo antes de los precios: la prueba de un
+          colega pesa donde se decide. Solo texto (nada que cargar: el LCP no se toca). */}
+      <section className="border-t border-aproba-200 bg-aproba-50 py-16 md:py-20">
+        <Reveal className="mx-auto max-w-3xl px-6 text-center">
+          <figure>
+            <svg className="mx-auto h-9 w-9 text-aproba-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
+            <blockquote className="mt-5 text-xl font-semibold leading-snug tracking-tightest text-slate-900 sm:text-2xl md:text-[28px]">
+              «Realmente me está funcionando muy bien. Mi idea es que prácticamente todos los asuntos que entren en la gestoría se gestionen desde Aproba.»
+            </blockquote>
+            <figcaption className="mt-7">
+              <span className="block font-semibold text-slate-900">Juan Santiago Prado Telles</span>
+              <span className="mt-0.5 block text-sm text-slate-600">Gestor Administrativo – Col. nº 2387</span>
+              <span className="block text-sm text-slate-600">Iltre. Colegio de Gestores Administrativos de Valencia</span>
+            </figcaption>
+          </figure>
+        </Reveal>
+      </section>
+
       {/* Precios */}
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
