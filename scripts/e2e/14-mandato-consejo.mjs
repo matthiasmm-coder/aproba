@@ -73,7 +73,9 @@ export async function run() {
     const bGeneral = await mandato("arraigo_laboral");
     const tGeneral = bGeneral ? await textoPdf(bGeneral) : "";
     const fG = bGeneral ? await camposPdf(bGeneral) : {};
-    v.ok(/con car[aá]cter general/i.test(tGeneral) && !/SOLICITUD DE TRAMITES/i.test(tGeneral), "«General» → impreso general del Consejo");
+    // Marcador: la DGT. «con carácter general» NO sirve: el mandato de Aproba también lo dice.
+    const DGT = /Direcci[oó]n General de Tr[aá]fico/i;
+    v.ok(DGT.test(tGeneral) && !/SOLICITUD DE TRAMITES/i.test(tGeneral) && Object.keys(fG).length > 0, "«General» → impreso general del Consejo");
     v.ok(fG.mandante1 === "ZZE2E Mandato" && fG.mandante1_dni === "Y0000000Z" && fG.notif_num === "7" && fG.notif_cp === "08001" && fG.notif_localidad === "Barcelona",
       `general: cliente en sus casillas (${fG.mandante1} · ${fG.mandante1_dni} · nº ${fG.notif_num} · ${fG.notif_cp} ${fG.notif_localidad})`);
     v.ok(fG.gestor1_colegiado === "9999" && fG.colegio === "Barcelona" && Boolean(fG.gestor1) && Boolean(fG.despacho) && fG.mandante2 === "" && fG.gestor2 === "",
@@ -83,7 +85,7 @@ export async function run() {
     const bGen = await mandato("nie");
     const tGen = bGen ? await textoPdf(bGen) : "";
     const nGen = bGen ? Object.keys(await camposPdf(bGen)).length : -1;
-    v.ok(Boolean(bGen) && !/SOLICITUD DE TRAMITES/i.test(tGen) && !/con car[aá]cter general/i.test(tGen) && /MANDATO CON REPRESENTACI/i.test(tGen) && nGen === 0, "«El de siempre» → mandato de Aproba");
+    v.ok(Boolean(bGen) && !/SOLICITUD DE TRAMITES/i.test(tGen) && !DGT.test(tGen) && /MANDATO CON REPRESENTACI/i.test(tGen) && nGen === 0, "«El de siempre» → mandato de Aproba");
   } finally {
     if (antes) await admin.from("Workspace").update(antes).eq("id", ws);
     await fx.limpiar();
