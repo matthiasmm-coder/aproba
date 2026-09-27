@@ -24,6 +24,7 @@ export type Oficina = {
   logoUrl: string | null; // logo de facturación propio (null → el del despacho)
   // hoja de encargo por sede (hojaEncargoActiva null = heredar) + punteros «mismas que»
   hojaEncargoActiva: boolean | null;
+  mandatoActivo: boolean | null; // 27/09/2026 (mandato-activo.sql): null = sigue a la hoja de la sede
   mandatarioNombre: string | null;
   mandatarioDni: string | null;
   mandatarioColegiado: string | null;
@@ -57,6 +58,12 @@ export async function fetchOficinas(): Promise<Oficina[]> {
   type Fila = { id: string; nombre: string; direccion: string | null; telefono: string | null; orden: number; razonSocial?: string | null; nif?: string | null; domicilio?: string | null; domicilioActividad?: string | null; emailFacturacion?: string | null; prefijoSerie?: string | null; logoUrl?: string | null; hojaEncargoActiva?: boolean | null; mandatarioNombre?: string | null; mandatarioDni?: string | null; mandatarioColegiado?: string | null; mandatarioColegio?: string | null; encargoFormasPago?: string | null; avisosComoOficinaId?: string | null; encargoComoOficinaId?: string | null };
   const filas = res.data as unknown as Fila[];
   if (!filas.length) return [];
+  // Interruptor del mandato por sede, aparte: sin supabase/mandato-activo.sql, todos null.
+  const mandatoAct = new Map<string, boolean | null>();
+  try {
+    const { data: ma, error: eMa } = await supabase.from("Oficina").select("id, mandatoActivo").eq("workspaceId", ws);
+    if (!eMa) for (const r of (ma ?? []) as { id: string; mandatoActivo?: boolean | null }[]) mandatoAct.set(r.id, r.mandatoActivo ?? null);
+  } catch { /* sin migrar */ }
 
   // Décomptes en une passe (les listes sont courtes : 2-4 oficinas par despacho).
   const [{ data: cls }, { data: mms }] = await Promise.all([
@@ -80,6 +87,7 @@ export async function fetchOficinas(): Promise<Oficina[]> {
     prefijoSerie: o.prefijoSerie ?? null,
     logoUrl: o.logoUrl ?? null,
     hojaEncargoActiva: o.hojaEncargoActiva ?? null,
+    mandatoActivo: mandatoAct.get(o.id) ?? null,
     mandatarioNombre: o.mandatarioNombre ?? null,
     mandatarioDni: o.mandatarioDni ?? null,
     mandatarioColegiado: o.mandatarioColegiado ?? null,

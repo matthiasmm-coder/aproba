@@ -1,4 +1,5 @@
 import type { EmpresaPortal } from "@/components/datos-empresa";
+import { ENCARGO_APAGADO, type EncargoActivo } from "@/lib/encargo-activo";
 import { ClientPortal } from "@/components/client-portal";
 import { PortalCompletado } from "@/components/portal-completado";
 import { PropuestaRenovacion, type ServicioPropuesto } from "@/components/propuesta-renovacion";
@@ -71,7 +72,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   let valido = false;
   let clienteIdioma = "es";
   let tarjetaActiva = false;
-  let encargoActivo = false;
+  let firmas: EncargoActivo = ENCARGO_APAGADO; // hoja y mandato, cada uno su interruptor
   let familia: { familiaId: string; miembros: MiembroInicial[] } | undefined;
   // Expediente DE EMPRESA (sin titular persona): la empresa es el cliente del portal.
   let empresa: EmpresaPortal | undefined;
@@ -242,10 +243,9 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       // botones de descarga darían 409 al cliente (dead link).
       const claveServicio = exp.servicioClave ?? (exp.tipo ? TIPO_A_SERVICIO[exp.tipo] : undefined);
       const servicioResuelve = Boolean(claveServicio) && servicios.some((sv) => sv.id === claveServicio);
-      {
-        const { hojaEncargoActivaEfectiva } = await import("@/lib/facturacion-oficina");
-        const delDespacho = Boolean((exp.workspace as { hojaEncargoActiva?: boolean }).hojaEncargoActiva);
-        encargoActivo = (await hojaEncargoActivaEfectiva(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null, delDespacho)) && servicioResuelve;
+      if (servicioResuelve) {
+        const { encargoActivoEfectivo } = await import("@/lib/facturacion-oficina");
+        firmas = await encargoActivoEfectivo(admin, exp.workspace.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
       }
       // (Los precios ocultos son ahora POR SERVICIO — ServicioConfig.precioOculto —
       // y el portal los deriva de la propia lista de servicios.)
@@ -321,7 +321,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
       logoUrl={logoUrl}
       token={portalToken}
       tarjetaActiva={tarjetaActiva}
-      encargoActivo={encargoActivo}
+      firmas={firmas}
       familia={familia}
       empresa={empresa}
       servicioInicial={servicioInicial}

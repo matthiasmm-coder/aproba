@@ -8,8 +8,9 @@ import { useT } from "@/components/lang-provider";
 // bloque como base (de la gestoría o de otra sede), aparece AQUÍ editable, y se
 // retoca lo que cambie. El puntero «la misma que X» solo sobrevive como estado
 // legado: convertir en copia o desvincular.
-type Datos = { hojaEncargoActiva: boolean | null; mandatarioNombre: string; mandatarioDni: string; mandatarioColegiado: string; mandatarioColegio: string; encargoFormasPago: string };
-export type FuenteEncargo = { id: string | null; nombre: string; bloque: Omit<Datos, "hojaEncargoActiva"> & { hojaEncargoActiva: boolean } };
+// mandatoActivo (27/09/2026): el interruptor del mandato de la sede; null = sigue a su hoja.
+type Datos = { hojaEncargoActiva: boolean | null; mandatoActivo: boolean | null; mandatarioNombre: string; mandatarioDni: string; mandatarioColegiado: string; mandatarioColegio: string; encargoFormasPago: string };
+export type FuenteEncargo = { id: string | null; nombre: string; bloque: Omit<Datos, "hojaEncargoActiva" | "mandatoActivo"> & { hojaEncargoActiva: boolean; mandatoActivo: boolean } };
 
 export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuentes }: {
   oficinaId: string; nombre: string; inicial: Datos; comoOficinaId: string | null;
@@ -102,14 +103,23 @@ export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuen
     <div className="rounded-xl border border-slate-200 bg-white p-5">
       <h3 className="text-sm font-semibold text-slate-800">{t("Hoja de encargo de")} {nombre}</h3>
       <div className="mt-4 space-y-3">
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={Boolean(d.hojaEncargoActiva)}
-            onChange={(e) => setD({ ...d, hojaEncargoActiva: e.target.checked })}
-            className="h-4 w-4 rounded border-slate-300 accent-aproba-600" />
-          {t("Hoja de encargo activada (el cliente firma desde su portal)")}
-        </label>
+        {/* Cada documento, su interruptor (27/09/2026), como en el bloque de la gestoría. */}
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={Boolean(d.hojaEncargoActiva)}
+              onChange={(e) => setD({ ...d, hojaEncargoActiva: e.target.checked })}
+              className="h-4 w-4 rounded border-slate-300 accent-aproba-600" />
+            {t("Hoja de encargo activada")}
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={d.mandatoActivo ?? Boolean(d.hojaEncargoActiva)}
+              onChange={(e) => setD({ ...d, mandatoActivo: e.target.checked })}
+              className="h-4 w-4 rounded border-slate-300 accent-aproba-600" />
+            {t("Mandatos activados")}
+          </label>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div><label className={lbl}>{t("Profesional que firma el mandato")}</label>
+          <div><label className={lbl}>{t("Profesional responsable")}</label>
             <input value={d.mandatarioNombre} onChange={(e) => setD({ ...d, mandatarioNombre: e.target.value })} maxLength={120} className={inp} /></div>
           <div><label className={lbl}>DNI/NIE</label>
             <input value={d.mandatarioDni} onChange={(e) => setD({ ...d, mandatarioDni: e.target.value })} maxLength={20} className={inp} /></div>
@@ -128,7 +138,7 @@ export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuen
           {ok && <span className="text-sm font-medium text-aproba-700">✓ {t("Guardado")}</span>}
           {error && <span className="text-sm text-red-600">{error}</span>}
           <button type="button" disabled={busy}
-            onClick={() => correr(async () => { await api({ action: "encargo", oficinaId, hojaEncargoActiva: null }); setD({ ...d, hojaEncargoActiva: null }); })}
+            onClick={() => correr(async () => { await api({ action: "encargo", oficinaId, hojaEncargoActiva: null, mandatoActivo: null }); setD({ ...d, hojaEncargoActiva: null, mandatoActivo: null }); })}
             className="ml-auto text-xs font-medium text-slate-400 transition hover:text-red-600 disabled:opacity-50">
             {t("Quitar configuración propia (volver a heredar)")}
           </button>

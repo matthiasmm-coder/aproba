@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { EncargoActivo } from "@/lib/encargo-activo";
 import { AprobaMark } from "./logo";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
 import type { MiembroInicial } from "@/components/datos-familia";
@@ -12,9 +13,9 @@ import { LANGS, makeT, esRTL, esLangSoportada, type Lang } from "@/lib/portal-i1
 // empresa (/j). Una sola página: documentos → «enviados».
 const LANG_KEY = "aproba.portal.lang";
 
-export function PortalTrabajador({ token, idiomaInicial, gestoria, logoUrl, empresa, clienteId, nombre, apellidos, docs, encargoActivo }: {
+export function PortalTrabajador({ token, idiomaInicial, gestoria, logoUrl, empresa, clienteId, nombre, apellidos, docs, firmas }: {
   token: string; idiomaInicial: string | null; gestoria: string; logoUrl: string | null; empresa: string;
-  clienteId: string; nombre: string; apellidos: string | null; docs: string[]; encargoActivo: boolean;
+  clienteId: string; nombre: string; apellidos: string | null; docs: string[]; firmas: EncargoActivo;
 }) {
   const [lang, setLang] = useState<Lang>(esLangSoportada(idiomaInicial) ? (idiomaInicial as Lang) : "es");
   const [listo, setListo] = useState(false);
@@ -86,7 +87,7 @@ export function PortalTrabajador({ token, idiomaInicial, gestoria, logoUrl, empr
                 miembros={[miembro]}
                 docsComunes={[]}
                 docsPorMiembro={{ [clienteId]: docs }}
-                encargoActivo={encargoActivo}
+                firmas={firmas}
                 endpointDocs="/api/trabajador/documentos"
                 urlMandatoDe={() => `/api/trabajador/encargo?token=${token}`}
                 onBack={() => {}}

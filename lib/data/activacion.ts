@@ -9,7 +9,7 @@ import { REFERENCIA_EJEMPLO, EMAIL_CLIENTE_EJEMPLO } from "@/lib/ejemplo-marca";
 export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<DatosActivacion> {
   const cnt = (tabla: string) => supabase.from(tabla).select("id", { count: "exact", head: true });
   const evento = (marca: string) => supabase.from("ExpedienteEvento").select("id", { count: "exact", head: true }).like("descripcion", `%${marca}%`);
-  const [svc, cta, cli, mem, sub, exp, enlaces, subidas, ejemplo, docsExp, docsCli, ws, primerCli, svcPrecio, avisos] = await Promise.all([
+  const [svc, cta, cli, mem, sub, exp, enlaces, subidas, ejemplo, docsExp, docsCli, ws, primerCli, svcPrecio, avisos, mandAct] = await Promise.all([
     cnt("ServicioConfig"), cnt("CuentaBancaria"),
     cnt("Cliente").or(`email.is.null,email.neq.${EMAIL_CLIENTE_EJEMPLO}`),
     cnt("Membership"),
@@ -22,6 +22,8 @@ export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<Da
     supabase.from("Cliente").select("id").or(`email.is.null,email.neq.${EMAIL_CLIENTE_EJEMPLO}`).limit(1).maybeSingle(),
     supabase.from("ServicioConfig").select("id", { count: "exact", head: true }).or("anticipo.gt.0,resto.gt.0"),
     supabase.from("AvisoConfig").select("id", { count: "exact", head: true }).or("clave.like.custom_%,activo.eq.false"),
+    // Aparte: sin supabase/mandato-activo.sql la columna no existe y no debe tumbar la fila de arriba.
+    supabase.from("Workspace").select("mandatoActivo").order("createdAt", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const wsFila = (ws.error ? null : ws.data) as { createdAt?: string; nif?: string | null; hojaEncargoActiva?: boolean | null } | null;
   const ej = ejemplo.data as { id: string; formulariosGenerados?: string[] | null } | null;
@@ -38,7 +40,8 @@ export async function fetchDatosActivacion(supabase: SupabaseClient): Promise<Da
     primerClienteId: (primerCli.data as { id?: string } | null)?.id ?? null,
     serviciosConPrecio: svcPrecio.error ? 0 : (svcPrecio.count ?? 0),
     datosFiscales: Boolean(String(wsFila?.nif ?? "").trim()),
-    hojaEncargoActiva: Boolean(wsFila?.hojaEncargoActiva),
+    // «Activa la hoja de encargo y el mandato»: hecho con cualquiera de los dos (27/09/2026).
+    hojaEncargoActiva: Boolean(wsFila?.hojaEncargoActiva) || (!mandAct.error && Boolean((mandAct.data as { mandatoActivo?: boolean | null } | null)?.mandatoActivo)),
     avisosPersonalizados: avisos.error ? 0 : (avisos.count ?? 0),
   };
 }

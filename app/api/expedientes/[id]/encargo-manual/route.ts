@@ -12,6 +12,8 @@ import { totalDe, r2 } from "@/lib/facturas";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { empresaPagadora, enviarEncargoManual } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { encargoActivoEfectivo } from "@/lib/facturacion-oficina";
+import { ENCARGO_APAGADO, algunoActivo } from "@/lib/encargo-activo";
 
 // ALTA EN MODO MANUAL — el correo del encargo (22/08, pedido de Matthias). El gestor
 // eligió los servicios en el alta y validó lo que va a salir; aquí se compone y envía
@@ -121,27 +123,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     factura = { facturaId: f.id as string, numero: f.numero as string, total: Number(f.total) };
   }
 
-  // Hoja de encargo + mandato adjuntos — solo si la gestoría activó la función en
-  // Ajustes (misma puerta que el portal del cliente). El fallo de generación degrada a
-  // «sin adjuntos» avisando: el alta no puede quedarse bloqueada por un PDF.
+  // Hoja de encargo y mandato adjuntos — cada uno si SU interruptor está activado en
+  // Ajustes (27/09/2026; misma puerta que el portal del cliente). El fallo de generación
+  // degrada a «sin adjuntos» avisando: el alta no puede quedarse bloqueada por un PDF.
   let adjuntos: { filename: string; content: string }[] = [];
   let motivoSinAdjuntos: string | null = null;
+  let firmas = ENCARGO_APAGADO;
   try {
-    const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", exp.workspaceId).maybeSingle();
-    const w = ws as { hojaEncargoActiva?: boolean } | null;
-    if (!w?.hojaEncargoActiva) {
+    firmas = await encargoActivoEfectivo(admin, exp.workspaceId, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+    if (!algunoActivo(firmas)) {
       motivoSinAdjuntos = "hoja_desactivada";
     } else {
       const datos = await datosEncargo(admin, exp);
       if (!datos) {
         motivoSinAdjuntos = "sin_servicio";
       } else {
-        const hoja = await generarHojaEncargo(datos);
-        adjuntos = [{ filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") }];
+        if (firmas.hoja) {
+          const hoja = await generarHojaEncargo(datos);
+          adjuntos.push({ filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") });
+        }
         const slug = (n: string) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
         // El mandato sale de lib/mandato (modelo del Consejo o el de Aproba), PLANO: va al
         // cliente por email.
-        if (empresa && !exp.clienteId) {
+        if (!firmas.mandato) {
+          // Mandato desactivado: solo la hoja.
+        } else if (empresa && !exp.clienteId) {
           // Expediente DE EMPRESA: un mandato POR TRABAJADOR (cada uno firma el suyo: es a él
           // a quien se representa). Sin trabajadores todavía, va solo la hoja.
           for (const tr of trabajadoresLote) {
@@ -165,6 +171,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     serviciosLabels,
     factura,
     adjuntos: adjuntos.length ? adjuntos : undefined,
+    // Lo que DE VERDAD va adjunto (un PDF que falla no se anuncia en el email).
+    firmas: { hoja: adjuntos.some((a) => a.filename.startsWith("hoja-de-encargo-")), mandato: adjuntos.some((a) => a.filename.startsWith("mandato-")) },
     baseUrl: baseUrlFromRequest(req),
     totalTramite,
   });

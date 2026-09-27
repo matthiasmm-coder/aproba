@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { activoDeBloque, ENCARGO_APAGADO, type EncargoActivo } from "@/lib/encargo-activo";
 
 // FACTURACIÓN POR OFICINA (fase 6 del multi-oficina).
 //
@@ -135,18 +136,31 @@ export async function prefijoDeExpediente(cli: Cli, expedienteId: string): Promi
   } catch { return ""; }
 }
 
-// Porte «hoja de encargo» EFFECTIVE d'un expediente : décision de sa sede si elle en a
-// une (pointeur «usar los mismos que X» compris, un salto), sinon celle du despacho.
-export async function hojaEncargoActivaEfectiva(cli: Cli, workspaceId: string, oficinaId: string | null, delDespacho: boolean): Promise<boolean> {
-  if (!oficinaId) return delDespacho;
+// Interruptores EFECTIVOS «hoja de encargo» y «mandato» de un expediente (27/09/2026 : un
+// interruptor par document). Décision de sa sede si elle a un bloc propre (hojaEncargoActiva
+// non null, pointeur «usar los mismos que X» compris, un saut), sinon celle du despacho.
+// mandatoActivo null ou colonne absente (avant supabase/mandato-activo.sql) = suit la hoja,
+// comme avant. Tolérant : sur toute erreur, ce que dit le despacho (ou tout éteint).
+export async function encargoActivoEfectivo(cli: Cli, workspaceId: string, oficinaId: string | null): Promise<EncargoActivo> {
+  const leer = async (tabla: "Workspace" | "Oficina", id: string, extra = "") => {
+    const r = await cli.from(tabla).select(`hojaEncargoActiva, mandatoActivo${extra}`).eq("id", id).maybeSingle();
+    if (!r.error) return r.data as Record<string, unknown> | null;
+    const r2 = await cli.from(tabla).select(`hojaEncargoActiva${extra}`).eq("id", id).maybeSingle();
+    return r2.error ? null : (r2.data as Record<string, unknown> | null);
+  };
+  let despacho: EncargoActivo = ENCARGO_APAGADO;
   try {
-    const { data: of } = await cli.from("Oficina").select("hojaEncargoActiva, encargoComoOficinaId").eq("id", oficinaId).maybeSingle();
-    let fila = of as { hojaEncargoActiva?: boolean | null; encargoComoOficinaId?: string | null } | null;
-    const ref = fila?.encargoComoOficinaId ?? null;
+    despacho = activoDeBloque(await leer("Workspace", workspaceId) as never);
+  } catch { return ENCARGO_APAGADO; }
+  if (!oficinaId) return despacho;
+  try {
+    let fila = await leer("Oficina", oficinaId, ", encargoComoOficinaId");
+    const ref = (fila?.encargoComoOficinaId as string | null | undefined) ?? null;
     if (ref) {
-      const { data: dest } = await cli.from("Oficina").select("hojaEncargoActiva").eq("id", ref).maybeSingle();
-      if (dest) fila = dest as typeof fila;
+      const dest = await leer("Oficina", ref);
+      if (dest) fila = dest;
     }
-    return fila?.hojaEncargoActiva ?? delDespacho;
-  } catch { return delDespacho; }
+    const propia = fila && fila.hojaEncargoActiva !== null && fila.hojaEncargoActiva !== undefined;
+    return propia ? activoDeBloque(fila as never) : despacho;
+  } catch { return despacho; }
 }

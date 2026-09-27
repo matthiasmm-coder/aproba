@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { camposMandatoConsejo, colegioTerritorial, mandatoConsejoValido, modeloDeServicio, modeloPorDefecto, partirDomicilio } from "@/lib/mandato-modelos";
+import { camposMandatoConsejo, colegioTerritorial, mandatoConsejoValido, modeloDeServicio, modeloPorDefecto, modelosDeServicios, partirDomicilio } from "@/lib/mandato-modelos";
 
 describe("mandato del Consejo · qué modelo toca", () => {
   it("catálogo real de Juan: extranjería por defecto, nacionalidad aparte, lo ajeno con el general", () => {
@@ -29,6 +29,19 @@ describe("mandato del Consejo · qué modelo toca", () => {
     expect(modeloDeServicio(svc, { activo: true, porServicio: { srv_55uwf6x: "siempre" } })).toBe("siempre");
     // «siempre» nunca es un defecto: solo por elección expresa.
     expect(modeloDeServicio({ id: "x", label: "Canje de permiso de conducir" }, { activo: true, porServicio: {} })).toBe("general");
+  });
+
+  it("multi-servicio: un mandato por modelo distinto, el principal primero", () => {
+    const on = { activo: true, porServicio: {} };
+    // Casos reales de Juan (27/09): NIE + CUE + alta de autónomo → extranjería Y general.
+    const nie = { id: "srv_nie", label: "Asignación de NIE" }, cue = { id: "residencia_ue", label: "Permiso de residencia de ciudadano de la UE (CUE)" };
+    const autonomo = { id: "srv_aut", label: "Alta de autónomo / coordinación alta autónomo" };
+    expect(modelosDeServicios([nie, cue, autonomo], on)).toEqual(["extranjeria", "general"]);
+    expect(modelosDeServicios([autonomo, cue], on)).toEqual(["general", "extranjeria"]);
+    expect(modelosDeServicios([nie, cue], on)).toEqual(["extranjeria"]);
+    // Sin el Consejo: uno solo, el de Aproba.
+    expect(modelosDeServicios([nie, autonomo], null)).toEqual(["siempre"]);
+    expect(modelosDeServicios([], on)).toEqual(["siempre"]);
   });
 
   it("config leída con defensa", () => {

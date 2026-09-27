@@ -9,10 +9,13 @@ import { emailLayout } from "@/lib/notificaciones";
 import { logoDelWorkspace } from "@/lib/marca";
 import { direccionEntrante } from "@/lib/email-entrante";
 import { baseUrlFromRequest } from "@/lib/base-url";
+import { encargoActivoEfectivo } from "@/lib/facturacion-oficina";
+import { firmaTexto } from "@/lib/encargo-activo";
 
 // El gestor manda al cliente, sin descargar ni adjuntar a mano:
 //   ?doc=presupuesto → el presupuesto (informativo, no compromete).
-//   ?doc=encargo     → hoja de encargo + mandato, para firmar y devolver.
+//   ?doc=encargo     → hoja de encargo y/o mandato (los que estén activados en Ajustes,
+//                      27/09/2026), para firmar y devolver.
 // Los PDF son los MISMOS que los enlaces de descarga (una sola fuente de precios).
 // RLS valida que el expediente es del workspace del usuario.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -40,16 +43,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const datos = exp ? await datosEncargo(admin, exp as never) : null;
   if (!datos) return NextResponse.json({ error: "Configura primero el servicio del expediente." }, { status: 409 });
 
+  // Qué documentos para firmar están activados (cada uno su interruptor, como en el portal).
+  const firmas = doc === "encargo"
+    ? await encargoActivoEfectivo(admin, own.workspaceId as string, ((own as { oficinaId?: string | null }).oficinaId ?? null))
+    : { hoja: false, mandato: false };
+  const ft = firmaTexto(firmas);
+  if (doc === "encargo" && !ft) return NextResponse.json({ error: "Activa la hoja de encargo o el mandato en Ajustes." }, { status: 409 });
+
   const adjuntos: { filename: string; content: Buffer }[] = [];
   try {
     if (doc === "presupuesto") {
       adjuntos.push({ filename: `presupuesto-${own.referencia}.pdf`, content: Buffer.from(await generarHojaEncargo(datos, "presupuesto")) });
     } else {
-      adjuntos.push({ filename: `hoja-de-encargo-${own.referencia}.pdf`, content: Buffer.from(await generarHojaEncargo(datos)) });
-      // Mismo criterio que la descarga (lib/mandato), pero PLANO: sale hacia el cliente.
-      const ex = exp as { tipo: string; servicioClave?: string | null };
-      const m = await mandatoDelExpediente(admin, { workspaceId: own.workspaceId as string, tipo: ex.tipo, servicioClave: ex.servicioClave ?? null }, datos, undefined, { editable: false });
-      adjuntos.push({ filename: `mandato-${own.referencia}.pdf`, content: Buffer.from(m.bytes) });
+      if (firmas.hoja) adjuntos.push({ filename: `hoja-de-encargo-${own.referencia}.pdf`, content: Buffer.from(await generarHojaEncargo(datos)) });
+      if (firmas.mandato) {
+        // Mismo criterio que la descarga (lib/mandato), pero PLANO: sale hacia el cliente.
+        const ex = exp as { tipo: string; servicioClave?: string | null };
+        const m = await mandatoDelExpediente(admin, { workspaceId: own.workspaceId as string, tipo: ex.tipo, servicioClave: ex.servicioClave ?? null }, datos, undefined, { editable: false });
+        adjuntos.push({ filename: `mandato-${own.referencia}.pdf`, content: Buffer.from(m.bytes) });
+      }
     }
   } catch (e) {
     console.error("[enviar-doc] PDF", e instanceof Error ? e.message : e);
@@ -65,8 +77,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       + `<p>Te adjuntamos el presupuesto de <b>${servicios}</b>, con el detalle de honorarios y de las tasas previstas.</p>`
       + `<p>Es informativo y no supone ningún compromiso. Si estás de acuerdo, respóndenos a este email y preparamos la hoja de encargo.</p>`
     : `<p>Hola${nombreCli ? ` ${escapar(nombreCli)}` : ""},</p>`
-      + `<p>Te adjuntamos la <b>hoja de encargo</b> de ${servicios} y el <b>mandato de representación</b>.</p>`
-      + `<p>Para empezar, fírmalos y devuélvenoslos: puedes subirlos desde tu enlace o responder a este email con las fotos.</p>`;
+      + `<p>Te adjuntamos ${ft?.queHtml ?? ""} (${servicios}).</p>`
+      + `<p>Para empezar, fírma${ft?.lo} y devuélvenos${ft?.lo}: puedes subir${ft?.lo} desde tu enlace o responder a este email con las fotos.</p>`;
 
   if (!process.env.RESEND_API_KEY) return NextResponse.json({ ok: true, enviado: false, para });
 
@@ -80,13 +92,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     html: emailLayout({
       gestoria, titulo, cuerpoHtml: cuerpo,
       logoUrl: await logoDelWorkspace(admin, own.workspaceId as string, ((own as { oficinaId?: string | null }).oficinaId ?? null)),
-      preheader: doc === "presupuesto" ? "Presupuesto adjunto en PDF" : "Hoja de encargo y mandato adjuntos",
+      preheader: doc === "presupuesto" ? "Presupuesto adjunto en PDF" : `${(ft?.adjunto ?? "").replace(/^./, (c) => c.toUpperCase())}`,
       // Solo en el encargo: el enlace lleva justo a donde se suben los firmados.
       cta: doc === "encargo" && portal ? { url: `${baseUrlFromRequest(req)}/j/${portal}`, label: "Subir los documentos firmados" } : null,
     }),
     text: doc === "presupuesto"
       ? `${titulo}. Adjuntamos el presupuesto en PDF. Es informativo y no supone compromiso.`
-      : `${titulo}. Adjuntamos la hoja de encargo y el mandato de representación. Fírmalos y devuélvenoslos.`,
+      : `${titulo}. Adjuntamos ${ft?.que}. Fírma${ft?.lo} y devuélvenos${ft?.lo}.`,
     attachments: adjuntos,
   });
   if (error) {
@@ -98,7 +110,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     id: crypto.randomUUID(), expedienteId: id, tipo: "NOTIFICACION_ENVIADA", userId: user.id,
     descripcion: doc === "presupuesto"
       ? `📄 Presupuesto enviado por email a ${para}`
-      : `✍️ Hoja de encargo y mandato enviados por email a ${para}`,
+      : `✍️ ${(ft?.enviado ?? "").replace(/^./, (c) => c.toUpperCase())} por email a ${para}`,
   });
   return NextResponse.json({ ok: true, enviado: true, para });
 }

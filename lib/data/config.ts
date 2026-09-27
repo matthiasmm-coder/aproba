@@ -280,6 +280,9 @@ export type Despacho = {
   encargoFormasPago: string | null;
   // Modelo oficial del Consejo (supabase/mandato-consejo.sql) — null pre-migración o desactivado.
   mandatoConsejo: MandatoConsejoConfig | null;
+  // Interruptor del MANDATO (supabase/mandato-activo.sql, 27/09/2026) — null = sin migrar o
+  // nunca tocado: sigue a la hoja (lib/encargo-activo).
+  mandatoActivo: boolean | null;
 };
 
 export async function fetchDespacho(): Promise<Despacho> {
@@ -317,6 +320,15 @@ export async function fetchDespacho(): Promise<Despacho> {
         if (r.error) return null;
         const w = (r.data as { Workspace?: Record<string, unknown> | Record<string, unknown>[] } | null)?.Workspace;
         return mandatoConsejoValido((Array.isArray(w) ? w[0] : w)?.mandatoConsejo);
+      } catch { return null; }
+    })(),
+    mandatoActivo: await (async () => {
+      try {
+        const r = await q("mandatoActivo");
+        if (r.error) return null;
+        const w = (r.data as { Workspace?: Record<string, unknown> | Record<string, unknown>[] } | null)?.Workspace;
+        const v = (Array.isArray(w) ? w[0] : w)?.mandatoActivo;
+        return typeof v === "boolean" ? v : null;
       } catch { return null; }
     })(),
   };

@@ -79,6 +79,9 @@ export function Seguimiento({
   // hito que el cliente ya vio marcado no puede apagarse.
   const est5 = normalizarEstado(estado);
   const docsReales = docs.filter((d) => !DOCS_FIRMA.includes(d.label));
+  // Hoja y mandato tienen cada uno su interruptor (27/09/2026): solo el enlace de lo que se pide.
+  const conHoja = docs.some((d) => d.label === DOCS_FIRMA[0]);
+  const conMandato = docs.some((d) => d.label === DOCS_FIRMA[1]);
   const hayDocs = docsReales.length > 0;
   const todosValidados = hayDocs && docsReales.every((d) => d.status === "ok");
   const hayFormularios = formularios.length > 0 || tasaDisponible || (miembros ?? []).some((m) => m.tieneTasa || (m.formularios ?? []).length > 0);
@@ -317,14 +320,18 @@ export function Seguimiento({
           {docs.some((d) => DOCS_FIRMA.includes(d.label) && d.status !== "ok") && (
             <div className="mb-3 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
               <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
-              <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t("firma.intro")}</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t(conHoja && conMandato ? "firma.intro" : "firma.introUno")}</p>
+              <div className={`mt-3 grid gap-2 ${conHoja && conMandato ? "sm:grid-cols-2" : ""}`}>
+                {conHoja && (
                 <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                   <Download className="h-4 w-4" />{t("firma.hoja")}
                 </a>
+                )}
+                {conMandato && (
                 <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                   <Download className="h-4 w-4" />{t("firma.mandato")}
                 </a>
+                )}
               </div>
             </div>
           )}

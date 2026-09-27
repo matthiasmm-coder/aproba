@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { datosEncargo, personaEncargo } from "@/lib/encargo";
 import { mandatoDelExpediente } from "@/lib/mandato";
 import { trabajadorPorToken } from "@/lib/trabajador-token";
+import { encargoActivoEfectivo } from "@/lib/facturacion-oficina";
 
 // El MANDATO de representación del trabajador, desde su enlace individual (/t/<token>):
 // es él quien lo firma (es a él a quien se representa). Solo el suyo — nunca la hoja de
@@ -16,9 +17,9 @@ export async function GET(req: Request) {
   const tr = await trabajadorPorToken(admin, token);
   if (!tr) return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
 
-  const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", tr.exp.workspaceId).maybeSingle();
-  const w = ws as { hojaEncargoActiva?: boolean } | null;
-  if (!w?.hojaEncargoActiva) return NextResponse.json({ error: "Función no activada" }, { status: 404 });
+  // El interruptor del MANDATO (27/09/2026: ya no el de la hoja), resuelto como en /t.
+  const activo = await encargoActivoEfectivo(admin, tr.exp.workspaceId, tr.exp.oficinaId ?? null);
+  if (!activo.mandato) return NextResponse.json({ error: "Función no activada" }, { status: 404 });
 
   const { data: expRow } = await admin.from("Expediente").select("*, cliente:Cliente(*)").eq("id", tr.exp.id).maybeSingle();
   const datos = expRow ? await datosEncargo(admin, expRow as never) : null;
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
 
   let bytes: Uint8Array;
   try {
-    // Mismo mandato que el resto de salidas (lib/mandato: Consejo, propio o Aproba), plano.
+    // Mismo mandato que el resto de salidas (lib/mandato: Consejo o Aproba), plano.
     const row = expRow as { workspaceId: string; tipo: string; servicioClave?: string | null };
     bytes = (await mandatoDelExpediente(admin, row, datos, personaEncargo({ ...tr.cliente.ficha, nombre: tr.cliente.nombre, apellidos: tr.cliente.apellidos }), { editable: false })).bytes;
   } catch (e) {

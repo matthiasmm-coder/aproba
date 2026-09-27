@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { labelADocTipo } from "@/lib/tramites";
 import { makeT, docLabel, docHelp, parentescoI18n, type Lang } from "@/lib/portal-i18n";
 import type { MiembroInicial } from "@/components/datos-familia";
+import { DOC_HOJA_FIRMADA, DOC_MANDATO_FIRMADO, ENCARGO_APAGADO, docsFirma, type EncargoActivo } from "@/lib/encargo-activo";
 
 type Estado = { status: "pending" | "analyzing" | "validado" | "alerta"; alertas?: string[] };
 
@@ -22,10 +23,9 @@ const esMenor = (m: MiembroInicial) => {
 // (subida réelle → análisis IA) + avertissement si tout n'est pas validé (on peut continuer).
 // Hoja de encargo / mandato: UN solo par para toda la familia (común, clienteId null),
 // con botón de descarga — nunca por miembro. Mismas etiquetas que DOCS_FIRMA en /j.
-const FIRMA_LABELS = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 export function DocumentosFamiliaPortal({
-  token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], encargoActivo, onBack, onContinue, modo = "familia",
+  token, lang, miembros, docsComunes, docsPorMiembro, docsPropios = [], firmas = ENCARGO_APAGADO, onBack, onContinue, modo = "familia",
   endpointDocs = "/api/portal/documentos", urlMandatoDe,
 }: {
   token: string; lang: Lang; miembros: MiembroInicial[];
@@ -42,15 +42,15 @@ export function DocumentosFamiliaPortal({
   // Etiquetas pedidas A MANO por el gestor: se enseñan tal cual, sin traducir
   // («Título homologado» no puede salir como «Diplôme»).
   docsPropios?: string[];
-  encargoActivo?: boolean; onBack: () => void; onContinue: () => void;
+  firmas?: EncargoActivo; onBack: () => void; onContinue: () => void; // hoja / mandato: cada uno su interruptor
 }) {
   const t = useMemo(() => makeT(lang), [lang]);
   const trab = modo === "trabajador";
   const emp = modo === "empresa" || trab;
   const esFirma = (l: string) => { const tp = labelADocTipo(l); return tp === "HOJA_ENCARGO" || tp === "MANDATO"; };
   // Trabajador: la hoja de encargo no es suya (la firma la empresa) → sin bloque común.
-  const firmaLabels = encargoActivo && !trab ? (emp ? [FIRMA_LABELS[0]] : FIRMA_LABELS) : [];
-  const firmaPorMiembro = useMemo(() => (encargoActivo && emp ? [FIRMA_LABELS[1]] : []), [encargoActivo, emp]);
+  const firmaLabels = trab ? [] : emp ? (firmas.hoja ? [DOC_HOJA_FIRMADA] : []) : docsFirma(firmas);
+  const firmaPorMiembro = useMemo(() => (firmas.mandato && emp ? [DOC_MANDATO_FIRMADO] : []), [firmas.mandato, emp]);
   const mandatoUrl = (clienteId: string) => (urlMandatoDe ? urlMandatoDe(clienteId) : `/api/portal/encargo?token=${token}&doc=mandato&clienteId=${clienteId}`);
   const comunes = docsComunes.filter((l) => !esFirma(l));
   const propios = new Set(docsPropios.map((d) => d.trim().toLowerCase()));
@@ -227,13 +227,15 @@ export function DocumentosFamiliaPortal({
         <div className="mt-6">
           <div className="rounded-xl border border-aproba-200 bg-aproba-50 p-4">
             <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
-            <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t(emp ? "emp.firma.intro" : "firma.intro")}</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t(emp ? (firmas.mandato ? "emp.firma.intro" : "emp.firma.introSoloHoja") : firmaLabels.length > 1 ? "firma.intro" : "firma.introUno")}</p>
+            <div className={`mt-3 grid gap-2 ${firmaLabels.length > 1 ? "sm:grid-cols-2" : ""}`}>
+              {firmas.hoja && (
               <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                 {t("firma.hoja")}
               </a>
-              {!emp && (
+              )}
+              {!emp && firmas.mandato && (
               <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                 {t("firma.mandato")}

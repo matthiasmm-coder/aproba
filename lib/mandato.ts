@@ -2,20 +2,26 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarMandato, type DatosEncargo, type PersonaEncargo } from "@/lib/encargo";
 import { rellenarMandatoConsejo } from "@/lib/mandato-consejo";
-import { camposMandatoConsejo, mandatoConsejoValido, modeloDeServicio, type ModeloConsejo } from "@/lib/mandato-modelos";
+import { camposMandatoConsejo, mandatoConsejoValido, modelosDeServicios, type ModeloMandato } from "@/lib/mandato-modelos";
+import { unirPdfs } from "@/lib/pdf-unir";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 
 // EL MANDATO de un expediente, decidido en UN solo sitio (26/09/2026) para todas las salidas
-// —descarga del gestor, email al cliente, portal, trabajador, encargo manual—:
-//   1. Modelo OFICIAL del Consejo (si el despacho lo activó): el impreso que toque al servicio
-//      —extranjería, nacionalidad o general— rellenado (lib/mandato-consejo).
-//   2. Si no, el mandato que maqueta Aproba con los datos del expediente (generarMandato).
+// —descarga del gestor, email al cliente, portal, trabajador, encargo manual—.
+//   · Cada servicio lleva su modelo: el OFICIAL del Consejo que toque (extranjería,
+//     nacionalidad o general) si el despacho lo eligió, o el que maqueta Aproba.
+//   · Expediente MULTI-SERVICIO (27/09/2026): un mandato por cada modelo DISTINTO, todos en UN
+//     solo PDF (el cliente firma cada página y sube un archivo). Un NIE con un alta de autónomo
+//     lleva el de extranjería Y el general; si todos coinciden, uno solo, como siempre.
 // El «mandato propio» subido en PDF (06/08) se retiró el 27/09/2026: ningún despacho lo usaba
 // y salía sin rellenar; la columna Workspace.mandatoPropioPath queda en la base, sin leerse.
 // `editable`: solo la descarga del gestor; lo que va al cliente sale plano.
 
 export type ExpMandato = { workspaceId: string; tipo: string; servicioClave?: string | null };
-export type MandatoGenerado = { bytes: Uint8Array; origen: ModeloConsejo | "aproba" };
+export type MandatoGenerado = { bytes: Uint8Array; modelos: ModeloMandato[] };
+
+// Prefijo de los campos de cada impreso cuando van varios en el mismo PDF (lib/pdf-unir).
+const PREFIJO: Record<ModeloMandato, string> = { extranjeria: "ext_", nacionalidad: "nac_", general: "gen_", siempre: "apr_" };
 
 export async function mandatoDelExpediente(
   admin: SupabaseClient,
@@ -24,22 +30,28 @@ export async function mandatoDelExpediente(
   persona?: PersonaEncargo,
   opts: { editable: boolean } = { editable: false },
 ): Promise<MandatoGenerado> {
-  // Columnas leídas por separado y con tolerancia: sin su migración, cada una vale null.
+  // Columna leída aparte y con tolerancia: sin su migración, vale null (el de Aproba).
   let cfg: ReturnType<typeof mandatoConsejoValido> = null;
   try {
     const { data, error } = await admin.from("Workspace").select("mandatoConsejo").eq("id", exp.workspaceId).maybeSingle();
     if (!error) cfg = mandatoConsejoValido((data as { mandatoConsejo?: unknown } | null)?.mandatoConsejo);
   } catch { /* supabase/mandato-consejo.sql sin aplicar */ }
 
-  // El servicio PRINCIPAL decide (datosEncargo lo resolvió el primero, con su etiqueta).
-  const clave = exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo] ?? "";
-  const modelo = modeloDeServicio({ id: clave, label: datos.servicios[0]?.label ?? "" }, cfg);
-  if (modelo !== "siempre") {
-    // El mandante es la PERSONA representada (cliente-empresa: el trabajador, no la empresa).
-    const pm = persona ?? datos.persona ?? datos.cliente;
-    const campos = camposMandatoConsejo(modelo, { mandante: pm, mandatario: datos.mandatario, despachoNombre: datos.despacho.nombre, despachoDomicilio: datos.despacho.domicilio });
-    return { bytes: await rellenarMandatoConsejo(modelo, campos, opts), origen: modelo };
-  }
+  // Los servicios del expediente tal como los resolvió datosEncargo (principal primero).
+  const principal = exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo] ?? "";
+  const servicios = datos.servicios.length
+    ? datos.servicios.map((sv, i) => ({ id: sv.clave ?? (i === 0 ? principal : ""), label: sv.labelBase ?? sv.label }))
+    : [{ id: principal, label: "" }];
+  const modelos = modelosDeServicios(servicios, cfg);
 
-  return { bytes: await generarMandato(datos, persona), origen: "aproba" };
+  // El mandante es la PERSONA representada (cliente-empresa: el trabajador, no la empresa).
+  const pm = persona ?? datos.persona ?? datos.cliente;
+  const uno = async (m: ModeloMandato) => m === "siempre"
+    ? generarMandato(datos, persona)
+    : rellenarMandatoConsejo(m, camposMandatoConsejo(m, { mandante: pm, mandatario: datos.mandatario, despachoNombre: datos.despacho.nombre, despachoDomicilio: datos.despacho.domicilio }), opts);
+
+  if (modelos.length === 1) return { bytes: await uno(modelos[0]), modelos };
+  const partes = [];
+  for (const m of modelos) partes.push({ bytes: await uno(m), prefijo: PREFIJO[m] });
+  return { bytes: await unirPdfs(partes, opts), modelos };
 }

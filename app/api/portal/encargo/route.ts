@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { datosEncargo, generarHojaEncargo, personaEncargo, type PersonaEncargo } from "@/lib/encargo";
 import { mandatoDelExpediente } from "@/lib/mandato";
+import { encargoActivoEfectivo } from "@/lib/facturacion-oficina";
 
 // El CLIENTE descarga desde su portal la hoja de encargo y el mandato ya
 // cumplimentados (los firma y los vuelve a subir como documentos del expediente).
-// Autorización: el portalToken (mismo nivel de acceso que /j). Solo si la
-// gestoría tiene la función activada en Ajustes.
+// Autorización: el portalToken (mismo nivel de acceso que /j). Cada documento solo si
+// SU interruptor está activado (Ajustes; el de la sede si tiene bloque propio).
 
 const SELECT = "id, referencia, tipo, servicioClave, serviciosExtra, suplidosOverride, descuento, serviciosAsignacion, familiaId, workspaceId, oficinaId, cliente:Cliente(*)";
 const SELECT_SIN_ASIG = SELECT.replace(", serviciosAsignacion", "");
@@ -31,13 +32,13 @@ export async function GET(req: Request) {
   const exp = res.data as unknown as {
     id: string; referencia: string; tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null;
     suplidosOverride?: { concepto: string; importe: number }[] | null; serviciosAsignacion?: unknown; familiaId?: string | null; workspaceId: string;
-    cliente: Record<string, string | null> | null;
+    oficinaId?: string | null; cliente: Record<string, string | null> | null;
   } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado" }, { status: 404 });
 
-  // La función debe estar activada por la gestoría (columna con repli pre-migración).
-  const { data: ws } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", exp.workspaceId).maybeSingle();
-  if (!(ws as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva) {
+  // Hoja y mandato tienen cada uno su interruptor (27/09/2026), resuelto como en /j.
+  const activo = await encargoActivoEfectivo(admin, exp.workspaceId, exp.oficinaId ?? null);
+  if (doc === "mandato" ? !activo.mandato : !activo.hoja) {
     return NextResponse.json({ error: "Función no activada" }, { status: 404 });
   }
 

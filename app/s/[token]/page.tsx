@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ENCARGO_APAGADO } from "@/lib/encargo-activo";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { logoDelWorkspace, marcaPorPortalToken } from "@/lib/marca";
 import { metadataPortal, TEXTOS_PORTAL } from "@/lib/portal-metadata";
@@ -79,21 +80,21 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const serviciosExp = serviciosDeExpediente(exp, servicios);
   const servicio = servicios.find((s) => s.id === (exp.servicioClave ?? TIPO_A_SERVICIO[exp.tipo]));
   const cita = citaDeServicios(serviciosExp);
-  // Hoja de encargo + mandato firmados: huecos adicionales si la gestoría lo activó.
-  let encargoActivo = false;
+  // Hoja de encargo y mandato firmados: huecos adicionales, cada uno si SU interruptor está
+  // activado (27/09/2026). Solo si el servicio resuelve (mismo criterio que datosEncargo) →
+  // sin dead link.
+  let firmas = ENCARGO_APAGADO;
   try {
-    const { data: wsc } = await admin.from("Workspace").select("hojaEncargoActiva").eq("id", ws.id).maybeSingle();
-    // Solo si el servicio resuelve (mismo criterio que datosEncargo) → sin dead link.
-    {
-      const { hojaEncargoActivaEfectiva } = await import("@/lib/facturacion-oficina");
-      const delDespacho = Boolean((wsc as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva);
-      encargoActivo = (await hojaEncargoActivaEfectiva(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null, delDespacho)) && Boolean(servicio)
-    };
+    if (servicio) {
+      const { encargoActivoEfectivo } = await import("@/lib/facturacion-oficina");
+      firmas = await encargoActivoEfectivo(admin, ws.id, (exp as { oficinaId?: string | null }).oficinaId ?? null);
+    }
   } catch { /* pre-migración */ }
+  const docsFirmaSeg = [...(firmas.hoja ? [DOC_LABEL.HOJA_ENCARGO] : []), ...(firmas.mandato ? [DOC_LABEL.MANDATO] : [])];
   // Firma PRIMERO (mismo orden que /j y que las secciones de familia): el cliente
   // descarga en el bloque de arriba y sube en los primeros huecos de la lista.
   const requeridos: string[] = [
-    ...sinQuitados(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : [], (exp as { docsExtra?: unknown }).docsExtra),
+    ...sinQuitados(docsFirmaSeg, (exp as { docsExtra?: unknown }).docsExtra),
     ...docsDeExpediente(serviciosExp, (exp as { docsExtra?: unknown }).docsExtra),
   ];
 
@@ -180,7 +181,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     const fam = docsFamiliaPorServicios(serviciosExp, asignacion, lista.map((r) => ({ id: r.id, fechaNacimiento: r.fechaNacimiento ?? null })), (exp as { docsExtra?: unknown }).docsExtra);
     const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO, ...fam.comunes].map(labelADocTipo));
     docsFamiliares = [
-      ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO, DOC_LABEL.MANDATO] : []).map((l) => segDoc(l, null, "comunes")),
+      ...docsFirmaSeg.map((l) => segDoc(l, null, "comunes")),
       ...fam.comunes.map((l) => segDoc(l, null, "comunes")),
       ...lista.flatMap((r) => (fam.porMiembro[r.id] ?? []).map((l) => segDoc(l, r.id, r.id, !tiposComunes.has(labelADocTipo(l))))),
     ];
@@ -225,9 +226,9 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
     const rep = docsEmpresaPorTrabajador(serviciosExp, asignacion, lista.map((r) => ({ id: r.id, fechaNacimiento: r.fechaNacimiento ?? null })), (exp as { docsExtra?: unknown }).docsExtra);
     const tiposComunes = new Set([DOC_LABEL.HOJA_ENCARGO, ...rep.comunes].map(labelADocTipo));
     docsFamiliares = [
-      ...(encargoActivo ? [DOC_LABEL.HOJA_ENCARGO] : []).map((l) => segDoc(l, null, "comunes")),
+      ...(firmas.hoja ? [DOC_LABEL.HOJA_ENCARGO] : []).map((l) => segDoc(l, null, "comunes")),
       ...rep.comunes.map((l) => segDoc(l, null, "comunes")),
-      ...lista.flatMap((r) => [...(encargoActivo ? [DOC_LABEL.MANDATO] : []), ...(rep.porMiembro[r.id] ?? [])].map((l) => segDoc(l, r.id, r.id, !tiposComunes.has(labelADocTipo(l))))),
+      ...lista.flatMap((r) => [...(firmas.mandato ? [DOC_LABEL.MANDATO] : []), ...(rep.porMiembro[r.id] ?? [])].map((l) => segDoc(l, r.id, r.id, !tiposComunes.has(labelADocTipo(l))))),
     ];
     gruposDocs = [
       ...(docsFamiliares.some((d) => d.grupo === "comunes") ? [{ id: "comunes", chip: "__empresa__" }] : []),

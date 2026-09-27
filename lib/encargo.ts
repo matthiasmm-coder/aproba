@@ -31,7 +31,9 @@ export type DatosEncargo = {
     via?: string; numeroVia?: string; piso?: string;
   };
   // Multi-servicio: principal primero (debe resolver — si no, 409), extras después.
-  servicios: { label: string; desc: string; anticipo: number; resto: number; noIncluye: string; precioOculto?: boolean; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
+  // clave + labelBase (27/09/2026): qué mandato lleva cada servicio (lib/mandato) — el label
+  // de una familia heterogénea lleva los nombres de los miembros añadidos.
+  servicios: { label: string; clave?: string; labelBase?: string; desc: string; anticipo: number; resto: number; noIncluye: string; precioOculto?: boolean; suplidos: { concepto: string; importe: number }[]; porcentaje?: number; porcentajeSobre?: string }[];
   // Override manual de tasas/suplidos del expediente (si el gestor los ajustó): lista PLANA
   // que sustituye a los suplidos por servicio en §5. null = usar los de cada servicio.
   suplidosOverride: { concepto: string; importe: number }[] | null;
@@ -265,7 +267,7 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
         : "";
       const r2n = (x: number) => Math.round(x * n * 100) / 100;
       return {
-        label: sv.label + (conAsignacion ? ` (${nombres})` : ""), desc: sv.desc,
+        label: sv.label + (conAsignacion ? ` (${nombres})` : ""), clave: sv.id, labelBase: sv.label, desc: sv.desc,
         anticipo: conAsignacion ? r2n(sv.anticipo) : sv.anticipo,
         resto: conAsignacion ? r2n(sv.resto) : sv.resto,
         noIncluye: s((sv as { noIncluye?: string }).noIncluye),

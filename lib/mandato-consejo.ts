@@ -4,6 +4,7 @@ import path from "node:path";
 import { PDFDocument, PDFName, PDFString, PDFTextField, StandardFonts, type PDFForm } from "pdf-lib";
 import { normalizarFuenteDA } from "@/lib/ex-forms";
 import type { ModeloConsejo } from "@/lib/mandato-modelos";
+import { quitarAnotacionesMuertas } from "@/lib/pdf-unir";
 
 // Rellena el IMPRESO OFICIAL del Consejo General (forms/mandatos/consejo-*.pdf: extranjería,
 // nacionalidad o general) con las casillas de camposMandatoConsejo. Se escribe en los campos
@@ -49,7 +50,7 @@ export async function rellenarMandatoConsejo(
   }
   form.updateFieldAppearances(helv);
   if (opts.editable) { normalizarFuenteDA(form); daEnUnaLinea(form); }
-  else form.flatten();
+  else { form.flatten(); quitarAnotacionesMuertas(pdf); }
   return pdf.save();
 }
 

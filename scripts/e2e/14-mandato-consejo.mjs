@@ -2,7 +2,9 @@
 // activado en el despacho, un trámite de extranjería sale en el impreso del Consejo (editable
 // para el gestor, plano para el cliente), la nacionalidad en el suyo, un servicio marcado
 // «General» en el general del Consejo y uno marcado «El de Aproba» sigue con el mandato de
-// Aproba. La config de la demo se restaura en finally.
+// Aproba. Multi-servicio (27/09/2026): un mandato por modelo, en UN solo PDF. Interruptores
+// separados hoja/mandato (si supabase/mandato-activo.sql está aplicada). La config de la demo
+// se restaura en finally.
 import { PDFDocument } from "pdf-lib";
 import { contexto, api, colector, verificador, admin, BASE } from "./_lib.mjs";
 
@@ -23,12 +25,18 @@ export async function run() {
   const v = verificador(nombre);
   const fx = colector();
   const { ws, madrid, cookie } = await contexto();
-  const { data: antes } = await admin.from("Workspace").select("hojaEncargoActiva, mandatarioColegiado, mandatarioColegio, mandatoConsejo").eq("id", ws).maybeSingle();
+  // mandatoActivo solo existe tras supabase/mandato-activo.sql: se lee aparte.
+  const COLS = "hojaEncargoActiva, mandatarioColegiado, mandatarioColegio, mandatoConsejo";
+  const { error: sinCol } = await admin.from("Workspace").select("mandatoActivo").eq("id", ws).maybeSingle();
+  const conInterruptor = !sinCol;
+  const cols = conInterruptor ? `${COLS}, mandatoActivo` : COLS;
+  const { data: antes } = await admin.from("Workspace").select(cols).eq("id", ws).maybeSingle();
   try {
     const { error: eCfg } = await admin.from("Workspace").update({
       hojaEncargoActiva: true, mandatarioColegiado: "9999",
       mandatarioColegio: "Colegio Oficial de Gestores Administrativos de Barcelona",
       mandatoConsejo: { activo: true, porServicio: { nie: "siempre", arraigo_laboral: "general" } },
+      ...(conInterruptor ? { mandatoActivo: true } : {}),
     }).eq("id", ws);
     v.ok(!eCfg, `config de prueba en la demo (${eCfg?.message ?? "ok"})`);
 
@@ -86,11 +94,44 @@ export async function run() {
     const tGen = bGen ? await textoPdf(bGen) : "";
     const nGen = bGen ? Object.keys(await camposPdf(bGen)).length : -1;
     v.ok(Boolean(bGen) && !/SOLICITUD DE TRAMITES/i.test(tGen) && !DGT.test(tGen) && /MANDATO CON REPRESENTACI/i.test(tGen) && nGen === 0, "«El de Aproba» → mandato de Aproba");
+
+    // 6) MULTI-SERVICIO: renovación de TIE (extranjería) + arraigo laboral (general) → los DOS
+    //    impresos en un solo PDF. Gestor: editable, campos con prefijo; cliente: plano.
+    await api(`/api/expedientes/${id}/servicio`, { body: { clave: "renovacion_tie" } });
+    const rx = await api(`/api/expedientes/${id}/servicio`, { body: { extras: ["arraigo_laboral"] } });
+    v.ok(rx.status === 200, `servicio adicional añadido (${rx.status} ${rx.d.error ?? ""})`);
+    const rm = await fetch(`${BASE}/api/expedientes/${id}/encargo?doc=mandato`, { headers: { cookie } });
+    const bMix = rm.ok ? Buffer.from(await rm.arrayBuffer()) : null;
+    const pMix = bMix ? (await PDFDocument.load(bMix)).getPageCount() : 0;
+    const fMix = bMix ? await camposPdf(bMix) : {};
+    v.ok(pMix === 2 && fMix["ext_Dña"] === "ZZE2E Mandato" && fMix["gen_mandante1"] === "ZZE2E Mandato" && fMix["gen_gestor1_colegiado"] === "9999",
+      `multi-servicio (gestor): extranjería + general en un PDF de ${pMix} páginas, campos sin chocar`);
+    if (exp?.portalToken) {
+      const rpm = await fetch(`${BASE}/api/portal/encargo?token=${exp.portalToken}&doc=mandato`);
+      const bpm = rpm.ok ? Buffer.from(await rpm.arrayBuffer()) : null;
+      const tpm = bpm ? await textoPdf(bpm) : "";
+      const npm = bpm ? Object.keys(await camposPdf(bpm)).length : -1;
+      v.ok(/SOLICITUD DE TRAMITES DE EXTRANJER/i.test(tpm) && DGT.test(tpm) && npm === 0, `multi-servicio (cliente): los dos impresos, aplanados (${npm} campos)`);
+    }
+
+    // 7) Interruptores SEPARADOS (supabase/mandato-activo.sql): cada documento, el suyo.
+    if (conInterruptor && exp?.portalToken) {
+      const estado = async () => ({
+        hoja: (await fetch(`${BASE}/api/portal/encargo?token=${exp.portalToken}&doc=hoja`)).status,
+        mandato: (await fetch(`${BASE}/api/portal/encargo?token=${exp.portalToken}&doc=mandato`)).status,
+      });
+      await admin.from("Workspace").update({ hojaEncargoActiva: true, mandatoActivo: false }).eq("id", ws);
+      const a = await estado();
+      v.ok(a.hoja === 200 && a.mandato === 404, `solo la hoja → hoja ${a.hoja}, mandato ${a.mandato}`);
+      await admin.from("Workspace").update({ hojaEncargoActiva: false, mandatoActivo: true }).eq("id", ws);
+      const b = await estado();
+      v.ok(b.hoja === 404 && b.mandato === 200, `solo el mandato → hoja ${b.hoja}, mandato ${b.mandato}`);
+    } else if (!conInterruptor) console.log("  ⚠️ supabase/mandato-activo.sql sin aplicar: interruptores separados no comprobados");
   } finally {
     if (antes) await admin.from("Workspace").update(antes).eq("id", ws);
     await fx.limpiar();
   }
-  const { data: despues } = await admin.from("Workspace").select("hojaEncargoActiva, mandatarioColegiado, mandatarioColegio, mandatoConsejo").eq("id", ws).maybeSingle();
+  const { data: despues } = await admin.from("Workspace").select(cols).eq("id", ws).maybeSingle();
   v.ok(JSON.stringify(despues) === JSON.stringify(antes), "config de la demo restaurada");
   return v.resumen();
 }

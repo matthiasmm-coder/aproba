@@ -55,6 +55,18 @@ export function modeloDeServicio(s: { id: string; label: string }, cfg: MandatoC
   return cfg.porServicio[s.id] ?? modeloPorDefecto(s);
 }
 
+// Expediente MULTI-SERVICIO (27/09/2026): un mandato por cada MODELO distinto entre sus
+// servicios, en el orden de los servicios (el principal primero). Un NIE con un alta de
+// autónomo necesita el de extranjería Y el general; si todos coinciden, uno solo.
+export function modelosDeServicios(servicios: { id: string; label: string }[], cfg: MandatoConsejoConfig | null): ModeloMandato[] {
+  const out: ModeloMandato[] = [];
+  for (const s of servicios) {
+    const m = modeloDeServicio(s, cfg);
+    if (!out.includes(m)) out.push(m);
+  }
+  return out.length ? out : ["siempre"];
+}
+
 // «AV. DE LAS CORTES VALENCIANAS 46, 5 E, CP 46015 - VALENCIA» → calle, número, CP y
 // localidad, que el impreso pide en casillas separadas. Si no se reconoce, todo a «calle».
 export function partirDomicilio(domicilio: string): { calle: string; numero: string; cp: string; localidad: string } {

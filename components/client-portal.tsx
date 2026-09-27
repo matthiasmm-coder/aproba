@@ -19,6 +19,7 @@ import { DatosFamilia, type MiembroInicial } from "@/components/datos-familia";
 import { DatosEmpresa, type EmpresaPortal } from "@/components/datos-empresa";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
 import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, docsExtraPlanos, sinQuitados } from "@/lib/familia";
+import { ENCARGO_APAGADO, docsFirma, type EncargoActivo } from "@/lib/encargo-activo";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -30,7 +31,6 @@ const LANG_KEY = "aproba.portal.lang";
 // Hoja de encargo + mandato firmados: labels ES fijos (labelADocTipo los mapea a
 // HOJA_ENCARGO/MANDATO en el servidor). Nivel módulo → reutilizado por el
 // inicializador de reprise Y el render.
-const DOCS_FIRMA = ["Hoja de encargo firmada", "Mandato de representación firmado"];
 
 // Champs obligatoires : tous sauf « piso / puerta » et les deux documents — pour
 // NIE/pasaporte la règle est « AU MOINS UN des deux » (primera solicitud = souvent
@@ -63,7 +63,7 @@ export function ClientPortal({
   logoUrl = null,
   token,
   tarjetaActiva,
-  encargoActivo,
+  firmas: firmasProp,
   familia,
   empresa = null,
   servicioInicial,
@@ -87,7 +87,7 @@ export function ClientPortal({
   logoUrl?: string | null; // logo del despacho (cabecera); sin él, las iniciales
   token?: string;
   tarjetaActiva?: boolean; // la gestoría acepta tarjeta → opción de pago con tarjeta
-  encargoActivo?: boolean; // hoja de encargo + mandato: descarga y firma en el portal
+  firmas?: EncargoActivo; // hoja de encargo / mandato: descarga y firma en el portal (cada uno su interruptor)
   // Expediente FAMILIAR: la etapa Datos recoge la ficha de cada miembro (multi-membre).
   familia?: { familiaId: string; miembros: MiembroInicial[] };
   // Expediente DE EMPRESA (21/09/2026): la empresa es el cliente y cada trabajador, solicitante.
@@ -113,6 +113,7 @@ export function ClientPortal({
   docsSubidos?: { tipo: string; estado: string; etiqueta?: string | null }[];
   docsExtra?: string[]; // documentos pedidos a mano por el gestor en este expediente
 }) {
+  const firmas: EncargoActivo = firmasProp ?? ENCARGO_APAGADO;
   // Paso inicial = primer jalón incompleto (solo con token real y servicio ya elegido).
   // Grupo (familia o empresa): mismos pasos «datos de todos → trámite → documentos por persona».
   const esGrupo = Boolean(familia) || Boolean(empresa);
@@ -183,7 +184,7 @@ export function ClientPortal({
         .flatMap((c) => catalogo.find((x) => x.id === c)?.docs ?? []),
       ...docsExtraPlanos(docsExtra), // pedidos a mano: sin ellos, lo ya enviado volvía a pedirse
     ].filter((l) => sinQuitados([l], docsExtra).length > 0));
-    const labels = [...(encargoActivo && token ? DOCS_FIRMA : []), ...base];
+    const labels = [...(token ? docsFirma(firmas) : []), ...base];
     // Emparejado ÚNICO (lib/tramites): un documento llena UNA casilla. Antes casaba
     // por tipo y dos documentos propios (los dos OTRO) marcaban las dos casillas.
     const casados = emparejarDocs(labels, docsSubidos);
@@ -342,7 +343,7 @@ export function ClientPortal({
   // Firma PRIMERO (pedido de Matthias): descargar arriba → firmar → subir en los
   // primeros huecos, sin buscarlos al final de la lista. MISMO orden que el seeding
   // de reanudación (arriba) — si divergen, los estados se pintan en slots equivocados.
-  const requiredDocs = [...sinQuitados(encargoActivo && token ? DOCS_FIRMA : [], docsExtra), ...docsBase];
+  const requiredDocs = [...sinQuitados(token ? docsFirma(firmas) : [], docsExtra), ...docsBase];
   const allValidated = requiredDocs.length > 0 && requiredDocs.every((_, i) => docs[i]?.status === "validado");
   const nValidados = requiredDocs.filter((_, i) => docs[i]?.status === "validado").length;
   // Docs «completos» = el servicio no pide ninguno, o todos están validados. Si no,
@@ -1268,7 +1269,7 @@ export function ClientPortal({
             docsComunes={docsFam.comunes}
             docsPorMiembro={docsFam.porMiembro}
             docsPropios={docsExtraLimpios}
-            encargoActivo={encargoActivo && Boolean(token)}
+            firmas={token ? firmas : ENCARGO_APAGADO}
             onBack={() => setStep(serviciosFijados ? 0 : 1)}
             onContinue={proceder}
           />
@@ -1282,21 +1283,25 @@ export function ClientPortal({
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={onArchivo} />
 
             {/* Documentos para FIRMAR: descarga → firma → subida en los huecos de abajo */}
-            {encargoActivo && token && (
+            {token && (firmas.hoja || firmas.mandato) && (
               <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
                 <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
                 <p className="mt-1 text-xs leading-relaxed text-aproba-700">
-                  {empresaNombre ? t("firma.introEmpresa", { empresa: empresaNombre }) : t("firma.intro")}
+                  {!(firmas.hoja && firmas.mandato) ? t("firma.introUno") : empresaNombre ? t("firma.introEmpresa", { empresa: empresaNombre }) : t("firma.intro")}
                 </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className={`mt-3 grid gap-2 ${firmas.hoja && firmas.mandato ? "sm:grid-cols-2" : ""}`}>
+                  {firmas.hoja && (
                   <a href={`/api/portal/encargo?token=${token}&doc=hoja`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                     {empresaNombre ? t("firma.hojaEmpresa") : t("firma.hoja")}
                   </a>
+                  )}
+                  {firmas.mandato && (
                   <a href={`/api/portal/encargo?token=${token}&doc=mandato`} className="flex items-center justify-center gap-2 rounded-lg border border-aproba-300 bg-white px-3 py-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-100">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
                     {empresaNombre ? t("firma.mandatoTuyo") : t("firma.mandato")}
                   </a>
+                  )}
                 </div>
               </div>
             )}

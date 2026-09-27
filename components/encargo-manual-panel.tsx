@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { activoDeBloque, type EncargoActivo } from "@/lib/encargo-activo";
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { eur, totalDe, r2 } from "@/lib/facturas";
@@ -40,7 +41,8 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
   // Cliente-empresa: la hoja de encargo es de la empresa y va a SU contacto (21/09).
   const [empresa, setEmpresa] = useState<{ razonSocial: string; contactoEmail: string } | null>(null);
   const [email, setEmail] = useState("");
-  const [hojaActiva, setHojaActiva] = useState<boolean | null>(null);
+  // Hoja y mandato: cada uno su interruptor (27/09/2026). null = aún sin leer.
+  const [firmas, setFirmas] = useState<EncargoActivo | null>(null);
   const [busy, setBusy] = useState(false);
   const [fase, setFase] = useState(""); // qué se está haciendo durante el envío
   const [error, setError] = useState<string | null>(null);
@@ -82,9 +84,10 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
         } else if (cli?.email) setEmail(cli.email);
       } catch { /* sin estado previo */ }
       try {
-        const { data: ws } = await sb.from("Workspace").select("hojaEncargoActiva").limit(1).maybeSingle();
-        setHojaActiva(Boolean((ws as { hojaEncargoActiva?: boolean } | null)?.hojaEncargoActiva));
-      } catch { setHojaActiva(null); /* columna sin migrar: se sabrá al enviar */ }
+        let r = await sb.from("Workspace").select("hojaEncargoActiva, mandatoActivo").limit(1).maybeSingle();
+        if (r.error) r = await sb.from("Workspace").select("hojaEncargoActiva").limit(1).maybeSingle() as typeof r;
+        setFirmas(activoDeBloque(r.data as { hojaEncargoActiva?: boolean; mandatoActivo?: boolean | null } | null));
+      } catch { setFirmas(null); /* columna sin migrar: se sabrá al enviar */ }
     })();
   }, [t, expedienteId]);
 
@@ -217,13 +220,13 @@ export function EncargoManualPanel({ expedienteId, nMiembros = 1 }: {
           )}
           <p>
             <span className="text-slate-400">{t("Para firmar")}: </span>
-            {hojaActiva === false
-              ? <span className="text-amber-700">{t("la hoja de encargo está desactivada en Ajustes — el email irá sin ella")}</span>
+            {firmas && !firmas.hoja && !firmas.mandato
+              ? <span className="text-amber-700">{t("la hoja de encargo y el mandato están desactivados en Ajustes — el email irá sin ellos")}</span>
               : (
                 <span className="font-medium text-slate-800">
-                  <a href={`/api/expedientes/${expedienteId}/encargo?doc=hoja`} target="_blank" rel="noopener noreferrer" className="text-aproba-700 underline">{t("hoja de encargo")}</a>
-                  {" + "}
-                  <a href={`/api/expedientes/${expedienteId}/encargo?doc=mandato`} target="_blank" rel="noopener noreferrer" className="text-aproba-700 underline">{t("mandato")}</a>
+                  {(firmas?.hoja ?? true) && <a href={`/api/expedientes/${expedienteId}/encargo?doc=hoja`} target="_blank" rel="noopener noreferrer" className="text-aproba-700 underline">{t("hoja de encargo")}</a>}
+                  {(firmas?.hoja ?? true) && (firmas?.mandato ?? true) && " + "}
+                  {(firmas?.mandato ?? true) && <a href={`/api/expedientes/${expedienteId}/encargo?doc=mandato`} target="_blank" rel="noopener noreferrer" className="text-aproba-700 underline">{t("mandato")}</a>}
                   <span className="text-slate-400"> ({t("adjuntos en PDF — ábrelos para revisarlos")})</span>
                 </span>
               )}

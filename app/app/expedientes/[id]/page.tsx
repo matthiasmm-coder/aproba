@@ -47,15 +47,21 @@ import { camposMercurioFlat } from "@/lib/mercurio";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
+import { ENCARGO_APAGADO, algunoActivo, type EncargoActivo } from "@/lib/encargo-activo";
 
 export const metadata = { title: "Expediente" };
 
-// hoja de encargo/mandato: enlaces de descarga del gestor si la función está activada
-async function encargoActivado(): Promise<boolean> {
+// Hoja de encargo / mandato: enlaces de descarga del gestor, cada uno si SU interruptor
+// está activado (27/09/2026), resuelto como en el portal (la sede del expediente manda).
+async function encargoActivado(oficinaId: string | null): Promise<EncargoActivo> {
   try {
-    const { fetchDespacho } = await import("@/lib/data/config");
-    return (await fetchDespacho()).hojaEncargoActiva;
-  } catch { return false; }
+    const sb = await createSupabaseServer();
+    const { data: m } = await sb.from("Membership").select("workspaceId").limit(1).maybeSingle();
+    const ws = (m as { workspaceId?: string } | null)?.workspaceId;
+    if (!ws) return ENCARGO_APAGADO;
+    const { encargoActivoEfectivo } = await import("@/lib/facturacion-oficina");
+    return await encargoActivoEfectivo(sb, ws, oficinaId);
+  } catch { return ENCARGO_APAGADO; }
 }
 
 export default async function ExpedienteDetail({
@@ -91,7 +97,7 @@ export default async function ExpedienteDetail({
   })();
   if (!e) notFound();
 
-  const despachoEncargo = await encargoActivado();
+  const despachoEncargo = await encargoActivado(e.oficinaId);
 
   // Équipe, pour le sélecteur « Asignado a » du pied de fiche. Traspasar peut
   // n'importe quel membre — y compris l'asistente (voir components/asignar-expediente).
@@ -433,7 +439,7 @@ export default async function ExpedienteDetail({
         {/* Empresa contratante (cliente-empresa): datos fiscales + trabajadores */}
         {empresa && (
           <SeccionPlegable id="empresa" titulo={t("Empresa")} resumen={e.esDeEmpresa ? `${empresa.razonSocial} · ${etiquetaTrabajadores(e.trabajadores.length, t)}` : empresa.razonSocial}>
-            <EmpresaExpedienteSection empresa={empresa} expedienteId={e.id} trabajadores={e.trabajadores} esDeEmpresa={e.esDeEmpresa} despachoEncargo={despachoEncargo} />
+            <EmpresaExpedienteSection empresa={empresa} expedienteId={e.id} trabajadores={e.trabajadores} esDeEmpresa={e.esDeEmpresa} despachoEncargo={despachoEncargo.mandato} />
           </SeccionPlegable>
         )}
 
@@ -468,7 +474,7 @@ export default async function ExpedienteDetail({
               ? `${e.documentos.filter((d) => d.estado === "VALIDADO").length}/${e.documentos.length} ${t("validados")}`
               : undefined}
         >
-          {despachoEncargo && (
+          {algunoActivo(despachoEncargo) && (
             <p className="mb-3 -mt-1 text-xs text-slate-500">
               {/* El presupuesto es la misma hoja ANTES de la firma: se manda al cliente
                   que aún no ha encargado nada. Por eso va primero, y con su propia frase. */}
@@ -488,9 +494,13 @@ export default async function ExpedienteDetail({
               />
               {" · "}
               {t("Para firmar:")}{" "}
-              <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
-              {" · "}
-              <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
+              {despachoEncargo.hoja && (
+                <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
+              )}
+              {despachoEncargo.hoja && despachoEncargo.mandato && " · "}
+              {despachoEncargo.mandato && (
+                <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
+              )}
               {" · "}
               <EnviarDocButton expedienteId={e.id} doc="encargo" />
             </p>

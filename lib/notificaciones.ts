@@ -10,6 +10,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { docsFaltantes } from "@/lib/tramites";
 import { serviciosDeExpediente, docsDeExpediente } from "@/lib/multi-servicio";
 import { logoDelExpediente } from "@/lib/marca";
+import { firmaTexto, type EncargoActivo } from "@/lib/encargo-activo";
 
 // Avisos automáticos au client — email (Resend) et/ou WhatsApp (Twilio) selon le canal
 // choisi par le workspace (Ajustes → Notificaciones al cliente : EMAIL | WHATSAPP | AMBOS).
@@ -806,6 +807,7 @@ export async function enviarEncargoManual(
     serviciosLabels: string[]; // etiquetas de los servicios contratados
     factura?: { facturaId: string; numero: string; total: number } | null;
     adjuntos?: { filename: string; content: string }[]; // hoja/mandato en base64
+    firmas?: EncargoActivo; // qué va adjunto (27/09/2026: hoja y mandato por separado)
     baseUrl?: string;
     // Precio TOTAL del trámite con IVA (honorarios + tasas), calculado en el servidor.
     // Sin él, la factura del anticipo se leía como el precio entero — lo señaló Matthias.
@@ -854,8 +856,10 @@ export async function enviarEncargoManual(
     }
 
     const responder = await emailDeRespuesta(admin, exp.workspaceId);
-    const firmaHtml = opts.adjuntos?.length
-      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos la <strong>hoja de encargo</strong> y el <strong>mandato de representación</strong>. Por favor, fírmalos y ${responder ? "envíanoslos respondiendo a este correo" : "háznoslos llegar"} para que podamos actuar en tu nombre.</p>`
+    // Lo que va adjunto (la hoja, el mandato o los dos), con su concordancia.
+    const ft = opts.adjuntos?.length ? firmaTexto(opts.firmas ?? { hoja: true, mandato: true }) : null;
+    const firmaHtml = ft
+      ? `<p style="margin:18px 0 0;font-family:${FUENTE};font-size:14px;color:#475569;line-height:1.65">Te adjuntamos ${ft.queHtml}. Por favor, fírma${ft.lo} y ${responder ? `envíanos${ft.lo} respondiendo a este correo` : `háznos${ft.lo} llegar`} para que podamos actuar en tu nombre.</p>`
       : "";
 
     const html = emailLayout({
@@ -893,7 +897,7 @@ export async function enviarEncargoManual(
             ? [`${parcial ? "Pago inicial" : "A pagar"} — factura ${opts.factura.numero}: ${fmtEur(opts.factura.total)}.`]
             : []),
           ...(parcial ? [`Resto al finalizar: ${fmtEur(restoDespues)}.`] : []),
-          ...(opts.adjuntos?.length ? ["Adjuntamos la hoja de encargo y el mandato para firmar."] : []),
+          ...(ft ? [`Adjuntamos ${ft.que} para firmar.`] : []),
         ].join("\n"),
         attachments: opts.adjuntos?.length ? opts.adjuntos : undefined,
         ...(responder ? { replyTo: responder } : {}),
@@ -907,7 +911,7 @@ export async function enviarEncargoManual(
     const partes = [
       opts.serviciosLabels.join(" + "),
       ...(opts.factura ? [`factura ${opts.factura.numero} (${fmtEur(opts.factura.total)})`] : []),
-      ...(opts.adjuntos?.length ? ["hoja de encargo y mandato adjuntos"] : []),
+      ...(ft ? [ft.adjunto] : []),
     ].join(" · ");
     const { sufijo } = iconoYSufijo(estado, null);
     await admin.from("ExpedienteEvento").insert({

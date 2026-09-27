@@ -126,6 +126,15 @@ export async function POST(req: Request) {
     }
 
     const { error: eEnc } = await r.admin.from("Workspace").update(patchEncargo).eq("id", r.workspaceId);
+    // El interruptor del MANDATO (supabase/mandato-activo.sql, 27/09/2026), aparte por la
+    // misma razón: sin la migración, la hoja y lo demás se guardan igual.
+    if (!eEnc && form.has("mandatoActivo")) {
+      const { error: eMa } = await r.admin.from("Workspace").update({ mandatoActivo: str("mandatoActivo") === "1" }).eq("id", r.workspaceId);
+      if (eMa) {
+        const falta = /mandatoActivo|schema cache|column/i.test(eMa.message);
+        return NextResponse.json({ error: falta ? "Se ha guardado todo menos el interruptor de los mandatos: falta la migración supabase/mandato-activo.sql en Supabase." : eMa.message }, { status: falta ? 409 : 500 });
+      }
+    }
     if (!eEnc && consejo !== undefined) {
       const { error: eCon } = await r.admin.from("Workspace").update({ mandatoConsejo: consejo }).eq("id", r.workspaceId);
       if (eCon) {

@@ -21,7 +21,7 @@ export function TrabajadoresExpediente({ expedienteId, trabajadores, candidatos,
   expedienteId: string;
   trabajadores: TrabajadorExpediente[];
   candidatos: Candidato[]; // trabajadores de la empresa que aún no están en el lote
-  despachoEncargo: boolean; // hoja/mandato activos en Ajustes → enlace al mandato de cada uno
+  despachoEncargo: boolean; // MANDATO activo en Ajustes (27/09/2026: su propio interruptor) → enlace al de cada uno
 }) {
   const t = useT();
   const router = useRouter();

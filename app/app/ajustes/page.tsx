@@ -1,4 +1,5 @@
 import { fetchServiciosConfig, fetchAvisosConfig, fetchCuentasBancarias, fetchDespacho, fetchPacksConfig, fetchCarpetasConfig } from "@/lib/data/config";
+import { activoDeBloque } from "@/lib/encargo-activo";
 import { DEFAULT_SERVICIOS } from "@/lib/servicios";
 import { DEFAULT_AVISOS } from "@/lib/avisos";
 import { fetchEquipo } from "@/lib/data/equipo";
@@ -180,7 +181,7 @@ export default async function Ajustes() {
     fetchAvisosConfig().catch(() => ({ avisos: DEFAULT_AVISOS, desdeDb: false, fallo: true })),
     fetchCuentasBancarias().catch(() => []), // table pas encore migrée → liste vide
     fetchEquipo().catch(() => null),
-    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoConsejo: null })),
+    fetchDespacho().catch(() => ({ nombre: "Mi despacho", nif: null, domicilio: null, domicilioActividad: null, emailFacturacion: null, logoUrl: null, hojaEncargoActiva: false, mandatarioNombre: null, mandatarioDni: null, mandatarioColegiado: null, mandatarioColegio: null, canalAvisos: "EMAIL" as const, encargoFormasPago: null, mandatoConsejo: null, mandatoActivo: null })),
     fetchPacksConfig().catch(() => []),
     fetchOficinas().catch(() => []), // table pas encore migrée → liste vide
     fetchCarpetasConfig().catch(() => []), // sin migración de carpetas → catálogo plano
@@ -360,7 +361,10 @@ export default async function Ajustes() {
           <AjustesSection
             id="encargo"
             title={t("Hoja de encargo y mandato")}
-            subtitle={despacho.hojaEncargoActiva ? t("Activada — el cliente firma desde su portal") : t("Desactivada")}
+            subtitle={(() => {
+              const a = activoDeBloque(despacho);
+              return a.hoja && a.mandato ? t("Hoja de encargo y mandatos activados") : a.hoja ? t("Hoja de encargo activada") : a.mandato ? t("Mandatos activados") : t("Desactivados");
+            })()}
             icon={IconEncargo}
           >
             {/* Luis (Asenjo, 15/09) no encontró dónde poner el domicilio de actividad: el campo
@@ -374,6 +378,7 @@ export default async function Ajustes() {
                 <EncargoConfig
                   inicial={{
                     hojaEncargoActiva: despacho.hojaEncargoActiva,
+                    mandatoActivo: activoDeBloque(despacho).mandato,
                     mandatarioNombre: despacho.mandatarioNombre ?? "",
                     mandatarioDni: despacho.mandatarioDni ?? "",
                     mandatarioColegiado: despacho.mandatarioColegiado ?? "",
@@ -402,6 +407,7 @@ export default async function Ajustes() {
                               /* la gestoría (bloc du despacho) + les sedes avec bloc propre */
                               { id: null, nombre: t("la gestoría"), bloque: {
                                 hojaEncargoActiva: Boolean(despacho.hojaEncargoActiva),
+                                mandatoActivo: activoDeBloque(despacho).mandato,
                                 mandatarioNombre: despacho.mandatarioNombre ?? "", mandatarioDni: despacho.mandatarioDni ?? "",
                                 mandatarioColegiado: despacho.mandatarioColegiado ?? "", mandatarioColegio: despacho.mandatarioColegio ?? "",
                                 encargoFormasPago: despacho.encargoFormasPago ?? "",
@@ -411,12 +417,14 @@ export default async function Ajustes() {
                                 bloque: x.orden === -1
                                   ? {
                                       hojaEncargoActiva: Boolean(despacho.hojaEncargoActiva),
+                                      mandatoActivo: activoDeBloque(despacho).mandato,
                                       mandatarioNombre: despacho.mandatarioNombre ?? "", mandatarioDni: despacho.mandatarioDni ?? "",
                                       mandatarioColegiado: despacho.mandatarioColegiado ?? "", mandatarioColegio: despacho.mandatarioColegio ?? "",
                                       encargoFormasPago: despacho.encargoFormasPago ?? "",
                                     }
                                   : {
                                       hojaEncargoActiva: Boolean(x.hojaEncargoActiva),
+                                      mandatoActivo: activoDeBloque(x).mandato,
                                       mandatarioNombre: x.mandatarioNombre ?? "", mandatarioDni: x.mandatarioDni ?? "",
                                       mandatarioColegiado: x.mandatarioColegiado ?? "", mandatarioColegio: x.mandatarioColegio ?? "",
                                       encargoFormasPago: x.encargoFormasPago ?? "",
@@ -425,6 +433,7 @@ export default async function Ajustes() {
                             ]}
                             inicial={{
                               hojaEncargoActiva: o.hojaEncargoActiva,
+                              mandatoActivo: o.mandatoActivo,
                               mandatarioNombre: o.mandatarioNombre ?? "",
                               mandatarioDni: o.mandatarioDni ?? "",
                               mandatarioColegiado: o.mandatarioColegiado ?? "",

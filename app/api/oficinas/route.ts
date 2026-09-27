@@ -310,6 +310,13 @@ export async function POST(req: Request) {
     const { error } = await admin.from("Oficina").update(patch).eq("id", o.id);
     if (error) return fail(/hojaEncargo|mandatario|column|schema cache/i.test(error.message)
       ? "Falta la migración: ejecuta supabase/config-por-oficina.sql." : error.message, 500);
+    // Interruptor del mandato de la sede (27/09/2026), aparte: null = sigue a su hoja.
+    if ("mandatoActivo" in body) {
+      const v = body.mandatoActivo === null || body.mandatoActivo === undefined ? null : Boolean(body.mandatoActivo);
+      const { error: eMa } = await admin.from("Oficina").update({ mandatoActivo: v }).eq("id", o.id);
+      if (eMa) return fail(/mandatoActivo|column|schema cache/i.test(eMa.message)
+        ? "Se ha guardado todo menos el interruptor de los mandatos: ejecuta supabase/mandato-activo.sql." : eMa.message, 409);
+    }
     return NextResponse.json({ ok: true });
   }
 

@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { ENCARGO_APAGADO } from "@/lib/encargo-activo";
 import { trabajadorPorToken } from "@/lib/trabajador-token";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { asignacionValida, serviciosDeExpediente } from "@/lib/multi-servicio";
@@ -51,15 +52,15 @@ export default async function PaginaTrabajador({ params }: { params: Promise<{ t
   const rep = docsEmpresaPorTrabajador(serviciosExp, asignacionValida(exp.serviciosAsignacion), [{ id: cliente.id, fechaNacimiento: cliente.ficha.fechaNacimiento ?? null }], exp.docsExtra);
   const docs = rep.porMiembro[cliente.id] ?? [];
 
-  // Mandato descargable solo si la gestoría activó la hoja de encargo y el servicio resuelve
-  // (mismo criterio que /j: si no, el botón daría un 409).
-  let encargoActivo = false;
+  // Mandato descargable solo si la gestoría activó el MANDATO (27/09/2026: su propio
+  // interruptor) y el servicio resuelve (mismo criterio que /j: si no, el botón daría un 409).
+  let firmas = ENCARGO_APAGADO;
   try {
-    const { hojaEncargoActivaEfectiva } = await import("@/lib/facturacion-oficina");
+    const { encargoActivoEfectivo } = await import("@/lib/facturacion-oficina");
     const claveServicio = exp.servicioClave ?? (exp.tipo ? TIPO_A_SERVICIO[exp.tipo] : undefined);
     const resuelve = Boolean(claveServicio) && servicios.some((sv) => sv.id === claveServicio);
-    encargoActivo = w ? (await hojaEncargoActivaEfectiva(admin, w.id, exp.oficinaId ?? null, Boolean(w.hojaEncargoActiva))) && resuelve : false;
-  } catch { encargoActivo = false; }
+    if (w && resuelve) firmas = await encargoActivoEfectivo(admin, w.id, exp.oficinaId ?? null);
+  } catch { firmas = ENCARGO_APAGADO; }
 
   return (
     <PortalTrabajador
@@ -72,7 +73,7 @@ export default async function PaginaTrabajador({ params }: { params: Promise<{ t
       nombre={cliente.nombre}
       apellidos={cliente.apellidos}
       docs={docs}
-      encargoActivo={encargoActivo}
+      firmas={firmas}
     />
   );
 }
