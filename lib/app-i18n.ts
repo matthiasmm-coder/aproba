@@ -138,7 +138,7 @@ export const CA: Record<string, string> = {
   "Cambiar el nombre del despacho": "Canviar el nom del despatx",
   "No se pudo cambiar el nombre.": "No s'ha pogut canviar el nom.",
   "Hoja de encargo y mandato": "Full d'encàrrec i mandat",
-  "El cliente descarga desde su portal la hoja de encargo y el mandato de representación ya cumplimentados, los firma y los vuelve a subir con su documentación.": "El client descarrega des del seu portal el full d'encàrrec i el mandat de representació ja emplenats, els signa i els torna a pujar amb la seva documentació.",
+  "El cliente los descarga ya rellenos desde su portal, los firma y los sube.": "El client els descarrega ja emplenats des del seu portal, els signa i els puja.",
   "Profesional que firma el mandato": "Professional que signa el mandat",
   "Nº de colegiado (opcional)": "Núm. de col·legiat (opcional)",
   "Colegio profesional (opcional)": "Col·legi professional (opcional)",
@@ -2101,7 +2101,8 @@ export const CA: Record<string, string> = {
   "TIE": "TIE",
   // Mandato oficial del Consejo General de Gestores Administrativos (Juan, 26/09/2026)
   "Mandato oficial del Consejo General de Gestores Administrativos": "Mandat oficial del Consell General de Gestors Administratius",
-  "Aproba rellena el impreso oficial del Consejo que toque a cada trámite —extranjería, nacionalidad o general (tráfico y demás Administraciones)—, con su formato y su logo, con los datos del cliente y los tuyos.": "Aproba omple l'imprès oficial del Consell que correspongui a cada tràmit —estrangeria, nacionalitat o general (trànsit i la resta d'Administracions)—, amb el seu format i el seu logotip, amb les dades del client i les teves.",
+  "Aproba rellena el que toque —extranjería, nacionalidad o general— con tus datos y los del cliente.": "Aproba omple el que correspongui —estrangeria, nacionalitat o general— amb les teves dades i les del client.",
+  "Se entrega tal cual, sin rellenar. Sin archivo, Aproba genera el suyo.": "Es lliura tal qual, sense emplenar. Sense fitxer, Aproba en genera un.",
   "El impreso pide tu nº de colegiado y tu Colegio: rellénalos arriba.": "L'imprès demana el teu núm. de col·legiat i el teu Col·legi: omple'ls a dalt.",
   "Qué mandato lleva cada servicio": "Quin mandat porta cada servei",
   "Aproba lo propone según el nombre del servicio: cámbialo donde no acierte.": "Aproba el proposa segons el nom del servei: canvia'l on no l'encerti.",

@@ -79,7 +79,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
         <div>
           <h3 className="text-sm font-semibold text-slate-800">{t("Hoja de encargo y mandato")}</h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            {t("El cliente descarga desde su portal la hoja de encargo y el mandato de representación ya cumplimentados, los firma y los vuelve a subir con su documentación.")}
+            {t("El cliente los descarga ya rellenos desde su portal, los firma y los sube.")}
           </p>
         </div>
         <button
@@ -133,7 +133,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
               <input type="checkbox" checked={consejo} onChange={(e) => setConsejo(e.target.checked)} className="mt-0.5 accent-aproba-600" />
               <span className="text-xs leading-relaxed text-slate-600">
                 <b className="block text-sm font-semibold text-slate-800">{t("Mandato oficial del Consejo General de Gestores Administrativos")}</b>
-                {t("Aproba rellena el impreso oficial del Consejo que toque a cada trámite —extranjería, nacionalidad o general (tráfico y demás Administraciones)—, con su formato y su logo, con los datos del cliente y los tuyos.")}
+                {t("Aproba rellena el que toque —extranjería, nacionalidad o general— con tus datos y los del cliente.")}
               </span>
             </label>
             {consejo && (!colegiado.trim() || !colegio.trim()) && (
@@ -185,7 +185,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
                 className="mx-auto block w-auto text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-aproba-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-aproba-700"
               />
             )}
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se entrega TAL CUAL al cliente (sin relleno automático de datos). Vacío = mandato generado por Aproba con los datos del expediente.")}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se entrega tal cual, sin rellenar. Sin archivo, Aproba genera el suyo.")}</p>
           </div>
 
         </div>
