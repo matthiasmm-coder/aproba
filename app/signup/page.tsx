@@ -4,7 +4,11 @@ import { SignupForm } from "@/components/signup-form";
 
 // noindex (26/09/2026): un formulario de 39 palabras no responde a ninguna búsqueda; Google
 // lo tenía en «Descubierta: sin indexar». Los enlaces que salen de aquí se siguen.
-export const metadata = { title: "Empieza gratis", alternates: { canonical: "/signup" }, robots: { index: false, follow: true } };
+export const metadata = {
+  title: { absolute: "Prueba Aproba gratis 15 días · Software de extranjería" },
+  description: "Crea tu cuenta de Aproba: 15 días de prueba gratis y sin tarjeta. Dentro te espera un expediente de ejemplo ya resuelto.",
+  alternates: { canonical: "/signup" }, robots: { index: false, follow: true },
+};
 
 export default function Signup() {
   return (

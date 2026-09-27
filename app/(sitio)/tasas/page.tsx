@@ -40,7 +40,9 @@ export default function TasasIndice() {
           return (
             <Link key={t.code} href={rutaTasa(t)} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-300">
               <p className="font-semibold text-slate-900">{t.code} <span className="font-normal text-slate-600">· {t.organismo}</span></p>
-              <p className="mt-1 text-sm text-slate-500">{ts.length ? ts.map((x) => x.nombre).join(" · ") : "Se añade desde el selector del expediente"}</p>
+              <p className="mt-1 text-sm font-medium text-slate-700">{t.titulo}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{t.queEs}</p>
+              <p className="mt-2 text-xs text-slate-500">{ts.length ? `En Aproba: ${ts.map((x) => x.nombre).join(" · ")}` : "Se añade desde el selector del expediente"}</p>
             </Link>
           );
         })}

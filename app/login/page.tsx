@@ -4,7 +4,11 @@ import { LoginForm } from "@/components/login-form";
 
 // Sin indexar (25/09/2026): Bing la enseñaba en las búsquedas de la marca en lugar de las
 // páginas útiles. «follow» sigue en pie: los enlaces de la página cuentan.
-export const metadata = { title: "Entrar", alternates: { canonical: "/login" }, robots: { index: false, follow: true } };
+export const metadata = {
+  title: { absolute: "Entrar en Aproba · Software para gestorías de extranjería" },
+  description: "Accede a tu cuenta de Aproba para seguir tus expedientes de extranjería, los documentos de tus clientes y sus renovaciones.",
+  alternates: { canonical: "/login" }, robots: { index: false, follow: true },
+};
 
 export default function Login() {
   // La cuenta de demostración solo se muestra en desarrollo o si se activa

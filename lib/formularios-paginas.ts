@@ -133,9 +133,17 @@ export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
   ];
   // El <title> lleva el nombre oficial entero; `corto` solo existe donde no cabía.
   const nombreCorto = m.corto ?? m.nombre;
+  // «Formulario …» (lo que se busca) y, si queda corto para Bing (< 45), qué hace Aproba con
+  // él; nunca más de 65 (si no cabe, sin «Formulario»). Visto en Bing Webmaster, 28/09/2026.
+  const tituloSeo = (() => {
+    const a = `Formulario ${m.code} · ${nombreCorto} | Aproba`;
+    const b = `Formulario ${m.code} · ${nombreCorto}: rellenado automático | Aproba`;
+    if (a.length < 45 && b.length <= 65) return b;
+    return a.length <= 65 ? a : `${m.code} · ${nombreCorto} | Aproba`;
+  })();
   return {
     ruta: rutaModelo(m),
-    titulo: `${m.code} · ${nombreCorto} | Aproba`,
+    titulo: tituloSeo,
     descripcion: `${m.code} — ${m.nombre}: qué es el impreso, en qué trámite lo usa un despacho y qué rellena Aproba con los datos validados del cliente.`.slice(0, 160),
     etiqueta: "Modelo oficial",
     h1: `Modelo ${m.code}: ${m.nombre}`,

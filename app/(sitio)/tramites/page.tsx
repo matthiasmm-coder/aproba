@@ -40,7 +40,8 @@ export default function TramitesIndice() {
         {TRAMITES.map((t) => (
           <Link key={t.slug} href={rutaTramite(t)} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-aproba-300">
             <p className="font-semibold text-slate-900">{t.nombre}</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{t.entradilla}</p>
+            <p className="mt-2 text-xs text-slate-500">
               {t.formularios.length ? t.formularios.map((f) => f.code).join(", ") : "Sin modelo EX"}
               {t.tasas.length ? ` · tasa ${t.tasas.join(", ")}` : ""}
               {t.plazo ? ` · ${t.plazo.meses}, silencio ${t.plazo.silencio.toLowerCase()}` : ""}
