@@ -18,19 +18,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const a = getArticulo(slug);
   if (!a) return { title: "Artículo no encontrado" };
   return {
-    title: a.titulo,
+    title: a.tituloSeo ?? a.titulo,
     description: a.descripcion,
     alternates: { canonical: `/articulos/${a.slug}` },
     openGraph: {
       type: "article",
       url: `/articulos/${a.slug}`,
-      title: a.titulo,
+      title: a.tituloSeo ?? a.titulo,
       description: a.descripcion,
       publishedTime: a.fecha,
       modifiedTime: a.actualizado ?? a.fecha,
       images: [{ url: imagenDe(a), width: 1536, height: 1024, alt: a.imagenAlt }],
     },
-    twitter: { card: "summary_large_image", title: a.titulo, description: a.descripcion, images: [imagenDe(a)] },
+    twitter: { card: "summary_large_image", title: a.tituloSeo ?? a.titulo, description: a.descripcion, images: [imagenDe(a)] },
   };
 }
 

@@ -44,6 +44,9 @@ export type Bloque =
 export type Articulo = {
   slug: string;
   titulo: string;          // <h1> y <title>
+  // <title> propio cuando el del h1 no recoge cómo se busca (28/09/2026, datos de Search
+  // Console: posición 2-4, CTR ~0). El h1, el índice y el JSON-LD siguen con `titulo`.
+  tituloSeo?: string;
   descripcion: string;     // meta description — 140-160 caracteres, con la intención de búsqueda
   fecha: string;           // ISO (publicación)
   actualizado?: string;    // ISO — si se revisa, cuenta para el frescor en buscadores
@@ -349,8 +352,11 @@ export const ARTICULOS: Articulo[] = [
   {
     slug: "representante-formulario-ex-quien-va-en-cada-casilla",
     titulo: "Representante en el formulario EX: quién va en cada casilla",
+    // 28/09/2026 — «datos del representante a efectos de presentación de la solicitud»:
+    // posición 2,4 y 0 clics; el resultado no decía el nombre de la casilla que se busca.
+    tituloSeo: "Datos del representante en el formulario EX: qué poner",
     descripcion:
-      "El EX pide un representante tres veces y no es la misma persona: el tutor del extranjero, el profesional que presenta y quien recibe las notificaciones.",
+      "«Datos del representante a efectos de presentación de la solicitud», representante legal y domicilio de notificaciones: quién va en cada casilla del EX.",
     fecha: "2026-09-18",
     tema: "Formularios",
     entradilla:
@@ -533,8 +539,11 @@ export const ARTICULOS: Articulo[] = [
   {
     slug: "notificaciones-electronicas-extranjeria-quien-recibe-10-dias",
     titulo: "Notificaciones en extranjería: quién las recibe y los 10 días",
+    // 28/09/2026 — la página nº 1 (783 impresiones en 3 meses, posición 4,4, CTR 1,4 %): se
+    // busca «notificación extranjería»; «DEHú» y «10 días», en el título del resultado.
+    tituloSeo: "Notificación de extranjería: DEHú, quién la recibe, 10 días",
     descripcion:
-      "Quién recibe las notificaciones de un expediente de extranjería, la regla de los diez días naturales, la sentencia del Supremo de 2026 y cómo organizarlo.",
+      "Dónde se consulta una notificación de extranjería (DEHú), quién la recibe cuando hay representante y qué pasa si no se abre en 10 días.",
     fecha: "2026-09-12",
     tema: "Procedimiento",
     entradilla:
