@@ -118,31 +118,6 @@ export async function POST(req: Request) {
       encargoFormasPago: str("encargoFormasPago").slice(0, 1200).trim() || null,
     };
 
-    // Modelo de mandato PROPIO (PDF): se guarda en Storage y se referencia por columna.
-    // Se entrega tal cual (sin relleno) — decisión documentada en la migración.
-    const fMandato = form.get("mandatoPropio");
-    if (fMandato instanceof File && fMandato.size > 0) {
-      if (fMandato.type !== "application/pdf") {
-        return NextResponse.json({ error: "El modelo de mandato debe ser un PDF." }, { status: 400 });
-      }
-      if (fMandato.size > 8 * 1024 * 1024) {
-        return NextResponse.json({ error: "El PDF del mandato supera los 8 MB." }, { status: 400 });
-      }
-      const pathMandato = `plantillas/${r.workspaceId}/mandato-propio.pdf`;
-      const buf = Buffer.from(await fMandato.arrayBuffer());
-      // El MIME lo declara el navegador y se puede falsear: comprobamos la firma real del
-      // fichero. Un no-PDF servido tal cual rompería la descarga de TODOS los clientes.
-      if (!buf.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
-        return NextResponse.json({ error: "El fichero no es un PDF válido." }, { status: 400 });
-      }
-      const { error: eUp } = await r.admin.storage.from("documentos").upload(pathMandato, buf, { contentType: "application/pdf", upsert: true });
-      if (eUp) return NextResponse.json({ error: `No se pudo guardar el PDF: ${eUp.message}` }, { status: 500 });
-      patchEncargo.mandatoPropioPath = pathMandato;
-    } else if (str("quitarMandatoPropio") === "1") {
-      await r.admin.storage.from("documentos").remove([`plantillas/${r.workspaceId}/mandato-propio.pdf`]).catch(() => {});
-      patchEncargo.mandatoPropioPath = null;
-    }
-
     // Modelo oficial del Consejo (supabase/mandato-consejo.sql): se guarda aparte para que,
     // sin la migración, el resto del bloque se guarde igual y el aviso sea exacto.
     let consejo: ReturnType<typeof mandatoConsejoValido> | undefined;
@@ -159,7 +134,7 @@ export async function POST(req: Request) {
       }
     }
     if (eEnc) {
-      const faltaNuevas = /encargoFormasPago|portalOcultarPrecios|mandatoPropioPath/i.test(eEnc.message);
+      const faltaNuevas = /encargoFormasPago|portalOcultarPrecios/i.test(eEnc.message);
       const falta = /hojaEncargoActiva|mandatario|schema cache|column/i.test(eEnc.message);
       return NextResponse.json({ error: faltaNuevas
         ? "Falta la migración: ejecuta supabase/portal-encargo-opciones.sql en Supabase."

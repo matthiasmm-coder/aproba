@@ -278,7 +278,6 @@ export type Despacho = {
   // Opciones portal/encargo (supabase/portal-encargo-opciones.sql) — replis pre-migración.
   // (El antiguo global portalOcultarPrecios se retiró: ahora es ServicioConfig.precioOculto.)
   encargoFormasPago: string | null;
-  mandatoPropioPath: string | null;
   // Modelo oficial del Consejo (supabase/mandato-consejo.sql) — null pre-migración o desactivado.
   mandatoConsejo: MandatoConsejoConfig | null;
 };
@@ -287,7 +286,7 @@ export async function fetchDespacho(): Promise<Despacho> {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
   // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
-  let res = await q("nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago, mandatoPropioPath");
+  let res = await q("nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
   // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
@@ -311,7 +310,6 @@ export async function fetchDespacho(): Promise<Despacho> {
     mandatarioColegio: (ws.mandatarioColegio as string | null) ?? null,
     canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
     encargoFormasPago: (ws.encargoFormasPago as string | null) ?? null,
-    mandatoPropioPath: (ws.mandatoPropioPath as string | null) ?? null,
     // Aparte, para no alargar la cadena de replis de arriba: sin migrar, null.
     mandatoConsejo: await (async () => {
       try {

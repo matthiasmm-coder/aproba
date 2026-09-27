@@ -4,8 +4,8 @@
 // ESPECÍFICO de extranjería, otro de nacionalidad por residencia y uno GENERAL (ante todas las
 // Administraciones y en particular la DGT: el canje de un permiso de conducir, una
 // homologación…). Quiere que Aproba rellene EL IMPRESO OFICIAL que toque a cada trámite —con
-// su formato y su logo— en lugar de su mandato maquetado. «siempre» = el de siempre (el propio
-// subido en Ajustes, o el que maqueta Aproba), por si un servicio no debe llevar ninguno.
+// su formato y su logo— en lugar de su mandato maquetado. «siempre» = el mandato que maqueta
+// Aproba (etiqueta «El de Aproba»), por si un servicio no debe llevar ninguno del Consejo.
 //
 // Módulo PURO: qué modelo toca a cada servicio y qué va en cada casilla. El relleno del PDF
 // vive en lib/mandato-consejo.ts; la decisión final, en lib/mandato.ts.

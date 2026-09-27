@@ -20,7 +20,7 @@ describe("mandato del Consejo · qué modelo toca", () => {
     expect(m("srv_04ztiti", "Antecedentes penales españoles apostillados")).toBe("general");
   });
 
-  it("desactivado → el de siempre; activo → la excepción del despacho manda", () => {
+  it("desactivado → el de Aproba; activo → la excepción del despacho manda", () => {
     const svc = { id: "srv_55uwf6x", label: "ROMANE - GESTIONES VARIAS" };
     expect(modeloDeServicio(svc, null)).toBe("siempre");
     expect(modeloDeServicio(svc, { activo: false, porServicio: { srv_55uwf6x: "general" } })).toBe("siempre");

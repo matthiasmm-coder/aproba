@@ -5,17 +5,17 @@ import { rellenarMandatoConsejo } from "@/lib/mandato-consejo";
 import { camposMandatoConsejo, mandatoConsejoValido, modeloDeServicio, type ModeloConsejo } from "@/lib/mandato-modelos";
 import { TIPO_A_SERVICIO } from "@/lib/tramites";
 
-// EL MANDATO de un expediente, decidido en UN solo sitio (26/09/2026). Antes cada salida
-// —descarga del gestor, email al cliente, portal, trabajador, encargo manual— repetía su
-// propia lógica del «mandato propio». Orden:
+// EL MANDATO de un expediente, decidido en UN solo sitio (26/09/2026) para todas las salidas
+// —descarga del gestor, email al cliente, portal, trabajador, encargo manual—:
 //   1. Modelo OFICIAL del Consejo (si el despacho lo activó): el impreso que toque al servicio
 //      —extranjería, nacionalidad o general— rellenado (lib/mandato-consejo).
-//   2. Mandato PROPIO subido en Ajustes: tal cual, sin relleno (petición de Juan, 06/08).
-//   3. El mandato que maqueta Aproba con los datos del expediente (generarMandato).
+//   2. Si no, el mandato que maqueta Aproba con los datos del expediente (generarMandato).
+// El «mandato propio» subido en PDF (06/08) se retiró el 27/09/2026: ningún despacho lo usaba
+// y salía sin rellenar; la columna Workspace.mandatoPropioPath queda en la base, sin leerse.
 // `editable`: solo la descarga del gestor; lo que va al cliente sale plano.
 
 export type ExpMandato = { workspaceId: string; tipo: string; servicioClave?: string | null };
-export type MandatoGenerado = { bytes: Uint8Array; origen: ModeloConsejo | "propio" | "aproba" };
+export type MandatoGenerado = { bytes: Uint8Array; origen: ModeloConsejo | "aproba" };
 
 export async function mandatoDelExpediente(
   admin: SupabaseClient,
@@ -40,16 +40,6 @@ export async function mandatoDelExpediente(
     const campos = camposMandatoConsejo(modelo, { mandante: pm, mandatario: datos.mandatario, despachoNombre: datos.despacho.nombre, despachoDomicilio: datos.despacho.domicilio });
     return { bytes: await rellenarMandatoConsejo(modelo, campos, opts), origen: modelo };
   }
-
-  try {
-    const { data } = await admin.from("Workspace").select("mandatoPropioPath").eq("id", exp.workspaceId).maybeSingle();
-    const path = (data as { mandatoPropioPath?: string | null } | null)?.mandatoPropioPath;
-    if (path) {
-      const { data: blob, error } = await admin.storage.from("documentos").download(path);
-      if (!error && blob) return { bytes: new Uint8Array(await blob.arrayBuffer()), origen: "propio" };
-      console.error("[mandato] mandato propio ilocalizable, repli al generado:", path, error?.message);
-    }
-  } catch { /* columna sin migrar → el generado */ }
 
   return { bytes: await generarMandato(datos, persona), origen: "aproba" };
 }

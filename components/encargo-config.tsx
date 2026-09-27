@@ -16,7 +16,6 @@ export type EncargoConfigInicial = {
   mandatarioColegio: string;
   // Opciones 06/08 (supabase/portal-encargo-opciones.sql):
   encargoFormasPago: string;      // una por línea; "" = lista automática
-  mandatoPropio: boolean;         // hay un modelo de mandato PDF subido
   // Modelo oficial del Consejo (26/09/2026, Juan) — null = desactivado o sin migración.
   mandatoConsejo?: MandatoConsejoConfig | null;
 };
@@ -29,9 +28,6 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
   const [colegiado, setColegiado] = useState(inicial.mandatarioColegiado);
   const [colegio, setColegio] = useState(inicial.mandatarioColegio);
   const [formasPago, setFormasPago] = useState(inicial.encargoFormasPago);
-  const [mandatoPropio, setMandatoPropio] = useState(inicial.mandatoPropio);
-  const [mandatoFile, setMandatoFile] = useState<File | null>(null);
-  const [quitarMandato, setQuitarMandato] = useState(false);
   const [consejo, setConsejo] = useState(Boolean(inicial.mandatoConsejo?.activo));
   const [modelos, setModelos] = useState<Record<string, ModeloMandato>>(inicial.mandatoConsejo?.porServicio ?? {});
   const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -49,8 +45,6 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
       fd.set("mandatarioColegiado", colegiado);
       fd.set("mandatarioColegio", colegio);
       fd.set("encargoFormasPago", formasPago);
-      if (mandatoFile) fd.set("mandatoPropio", mandatoFile);
-      if (quitarMandato) fd.set("quitarMandatoPropio", "1");
       // Solo se guardan las EXCEPCIONES: lo que coincide con el modelo propuesto sigue a la
       // propuesta (si el servicio cambia de nombre, la propuesta se recalcula).
       const excepciones = Object.fromEntries(servicios
@@ -60,8 +54,6 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
       const res = await fetch("/api/ajustes/despacho", { method: "POST", body: fd });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar."));
-      if (mandatoFile) { setMandatoPropio(true); setMandatoFile(null); }
-      if (quitarMandato) { setMandatoPropio(false); setQuitarMandato(false); }
       setEstado("saved");
       window.setTimeout(() => setEstado("idle"), 2500);
     } catch (e) {
@@ -126,8 +118,9 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
           </div>
 
           {/* Modelo OFICIAL del Consejo General (26/09/2026, Juan): Aproba rellena el impreso
-              del Consejo que toque (extranjería, nacionalidad o general); «El de siempre», solo
-              en los servicios que el despacho marque. */}
+              del Consejo que toque (extranjería, nacionalidad o general); «El de Aproba», solo
+              en los servicios que el despacho marque. (El «modelo de mandato propio» subido
+              en PDF se retiró el 27/09: nadie lo usaba y salía sin rellenar.) */}
           <div className="sm:col-span-2 rounded-lg border border-slate-200 p-3">
             <label className="flex cursor-pointer items-start gap-2.5">
               <input type="checkbox" checked={consejo} onChange={(e) => setConsejo(e.target.checked)} className="mt-0.5 accent-aproba-600" />
@@ -156,7 +149,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
                         <option value="extranjeria">{t("Extranjería")}</option>
                         <option value="nacionalidad">{t("Nacionalidad")}</option>
                         <option value="general">{t("General")}</option>
-                        <option value="siempre">{t("El de siempre")}</option>
+                        <option value="siempre">{t("El de Aproba")}</option>
                       </select>
                     </li>
                   ))}
@@ -164,30 +157,6 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
               </details>
             )}
           </div>
-
-          <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-            <label className={lbl}>{t("Modelo de mandato propio (PDF)")}</label>
-            {mandatoPropio && !quitarMandato ? (
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <span className="text-xs font-medium text-aproba-700">✓ {t("Modelo propio activo — las descargas de mandato sirven tu PDF")}</span>
-                <button type="button" onClick={() => setQuitarMandato(true)} className="text-xs font-semibold text-red-600 hover:underline">{t("Quitar y volver al generado")}</button>
-              </div>
-            ) : quitarMandato ? (
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <span className="text-xs text-slate-500">{t("Se volverá al mandato generado al guardar.")}</span>
-                <button type="button" onClick={() => setQuitarMandato(false)} className="text-xs font-semibold text-slate-600 hover:underline">{t("Cancelar")}</button>
-              </div>
-            ) : (
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setMandatoFile(e.target.files?.[0] ?? null)}
-                className="mx-auto block w-auto text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-aproba-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-aproba-700"
-              />
-            )}
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se entrega tal cual, sin rellenar. Sin archivo, Aproba genera el suyo.")}</p>
-          </div>
-
         </div>
       )}
 

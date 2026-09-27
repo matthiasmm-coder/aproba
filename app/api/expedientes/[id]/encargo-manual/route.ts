@@ -17,8 +17,7 @@ import { baseUrlFromRequest } from "@/lib/base-url";
 // eligió los servicios en el alta y validó lo que va a salir; aquí se compone y envía
 // UN solo email al cliente: servicios contratados + factura inicial si la hay (el
 // llamante la emitió antes vía /api/pagos con sinEmail) + hoja de encargo y mandato
-// ADJUNTOS para firmar (solo si la función está activada en Ajustes; el mandato propio
-// del despacho, si existe, viaja tal cual — misma regla que las descargas).
+// ADJUNTOS para firmar (solo si la función está activada en Ajustes).
 //
 // Autorización: sesión + RLS (el expediente solo resuelve dentro de su workspace); el
 // admin entra después únicamente para componer (PDF, factura, email). NO idempotente:
@@ -140,19 +139,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const hoja = await generarHojaEncargo(datos);
         adjuntos = [{ filename: `hoja-de-encargo-${exp.referencia}.pdf`, content: Buffer.from(hoja).toString("base64") }];
         const slug = (n: string) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
-        // El mandato sale de lib/mandato (modelo del Consejo, propio o el de Aproba), PLANO:
-        // va al cliente por email.
+        // El mandato sale de lib/mandato (modelo del Consejo o el de Aproba), PLANO: va al
+        // cliente por email.
         if (empresa && !exp.clienteId) {
           // Expediente DE EMPRESA: un mandato POR TRABAJADOR (cada uno firma el suyo: es a él
-          // a quien se representa). El propio no se rellena: va una sola vez. Sin
-          // trabajadores todavía, va solo la hoja (salvo el propio, que no depende de nadie).
-          if (!trabajadoresLote.length) {
-            const m = await mandatoDelExpediente(admin, exp, datos, undefined, { editable: false });
-            if (m.origen === "propio") adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(m.bytes).toString("base64") });
-          }
+          // a quien se representa). Sin trabajadores todavía, va solo la hoja.
           for (const tr of trabajadoresLote) {
             const m = await mandatoDelExpediente(admin, exp, datos, personaEncargo({ ...tr.ficha, telefono: tr.telefono, email: tr.email }), { editable: false });
-            if (m.origen === "propio") { adjuntos.push({ filename: `mandato-${exp.referencia}.pdf`, content: Buffer.from(m.bytes).toString("base64") }); break; }
             adjuntos.push({ filename: `mandato-${exp.referencia}-${slug(tr.nombre)}.pdf`, content: Buffer.from(m.bytes).toString("base64") });
           }
         } else {

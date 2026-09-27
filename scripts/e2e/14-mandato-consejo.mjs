@@ -1,7 +1,7 @@
 // Mandato OFICIAL del Consejo General de Gestores Administrativos (pedido por Juan, 26/09/2026):
 // activado en el despacho, un trámite de extranjería sale en el impreso del Consejo (editable
 // para el gestor, plano para el cliente), la nacionalidad en el suyo, un servicio marcado
-// «General» en el general del Consejo y uno marcado «El de siempre» sigue con el mandato de
+// «General» en el general del Consejo y uno marcado «El de Aproba» sigue con el mandato de
 // Aproba. La config de la demo se restaura en finally.
 import { PDFDocument } from "pdf-lib";
 import { contexto, api, colector, verificador, admin, BASE } from "./_lib.mjs";
@@ -81,11 +81,11 @@ export async function run() {
     v.ok(fG.gestor1_colegiado === "9999" && fG.colegio === "Barcelona" && Boolean(fG.gestor1) && Boolean(fG.despacho) && fG.mandante2 === "" && fG.gestor2 === "",
       `general: gestor en la 1.ª fila, despacho «${fG.despacho}», el resto en blanco`);
 
-    // 5) Servicio marcado «El de siempre» → el mandato de Aproba (sin campos, sin el impreso).
+    // 5) Servicio marcado «El de Aproba» → el mandato de Aproba (sin campos, sin el impreso).
     const bGen = await mandato("nie");
     const tGen = bGen ? await textoPdf(bGen) : "";
     const nGen = bGen ? Object.keys(await camposPdf(bGen)).length : -1;
-    v.ok(Boolean(bGen) && !/SOLICITUD DE TRAMITES/i.test(tGen) && !DGT.test(tGen) && /MANDATO CON REPRESENTACI/i.test(tGen) && nGen === 0, "«El de siempre» → mandato de Aproba");
+    v.ok(Boolean(bGen) && !/SOLICITUD DE TRAMITES/i.test(tGen) && !DGT.test(tGen) && /MANDATO CON REPRESENTACI/i.test(tGen) && nGen === 0, "«El de Aproba» → mandato de Aproba");
   } finally {
     if (antes) await admin.from("Workspace").update(antes).eq("id", ws);
     await fx.limpiar();
