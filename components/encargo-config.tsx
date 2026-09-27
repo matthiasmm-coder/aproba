@@ -126,13 +126,14 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
           </div>
 
           {/* Modelo OFICIAL del Consejo General (26/09/2026, Juan): Aproba rellena el impreso
-              del Consejo en extranjería y nacionalidad; el resto sigue con el de siempre. */}
+              del Consejo que toque (extranjería, nacionalidad o general); «El de siempre», solo
+              en los servicios que el despacho marque. */}
           <div className="sm:col-span-2 rounded-lg border border-slate-200 p-3">
             <label className="flex cursor-pointer items-start gap-2.5">
               <input type="checkbox" checked={consejo} onChange={(e) => setConsejo(e.target.checked)} className="mt-0.5 accent-aproba-600" />
               <span className="text-xs leading-relaxed text-slate-600">
                 <b className="block text-sm font-semibold text-slate-800">{t("Mandato oficial del Consejo General de Gestores Administrativos")}</b>
-                {t("En extranjería y nacionalidad, Aproba rellena el impreso oficial del Consejo, con su formato y su logo, con los datos del cliente y los tuyos. Los demás trámites siguen con el mandato de siempre.")}
+                {t("Aproba rellena el impreso oficial del Consejo que toque a cada trámite —extranjería, nacionalidad o general (tráfico y demás Administraciones)—, con su formato y su logo, con los datos del cliente y los tuyos.")}
               </span>
             </label>
             {consejo && (!colegiado.trim() || !colegio.trim()) && (
@@ -154,7 +155,8 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
                       >
                         <option value="extranjeria">{t("Extranjería")}</option>
                         <option value="nacionalidad">{t("Nacionalidad")}</option>
-                        <option value="general">{t("El de siempre")}</option>
+                        <option value="general">{t("General")}</option>
+                        <option value="siempre">{t("El de siempre")}</option>
                       </select>
                     </li>
                   ))}

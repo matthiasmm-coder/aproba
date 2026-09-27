@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { camposMandatoConsejo, colegioTerritorial, mandatoConsejoValido, modeloDeServicio, modeloPorDefecto, partirDomicilio } from "@/lib/mandato-modelos";
 
 describe("mandato del Consejo · qué modelo toca", () => {
-  it("catálogo real de Juan: extranjería por defecto, nacionalidad aparte, lo ajeno con el de siempre", () => {
+  it("catálogo real de Juan: extranjería por defecto, nacionalidad aparte, lo ajeno con el general", () => {
     const m = (id: string, label: string) => modeloPorDefecto({ id, label });
     expect(m("nacionalidad", "Nacionalidad española")).toBe("nacionalidad");
     expect(m("arraigo_social", "Residencia por arraigo")).toBe("extranjeria");
@@ -20,16 +20,19 @@ describe("mandato del Consejo · qué modelo toca", () => {
     expect(m("srv_04ztiti", "Antecedentes penales españoles apostillados")).toBe("general");
   });
 
-  it("desactivado → siempre el de siempre; activo → la excepción del despacho manda", () => {
+  it("desactivado → el de siempre; activo → la excepción del despacho manda", () => {
     const svc = { id: "srv_55uwf6x", label: "ROMANE - GESTIONES VARIAS" };
-    expect(modeloDeServicio(svc, null)).toBe("general");
-    expect(modeloDeServicio(svc, { activo: false, porServicio: {} })).toBe("general");
+    expect(modeloDeServicio(svc, null)).toBe("siempre");
+    expect(modeloDeServicio(svc, { activo: false, porServicio: { srv_55uwf6x: "general" } })).toBe("siempre");
     expect(modeloDeServicio(svc, { activo: true, porServicio: {} })).toBe("extranjeria");
     expect(modeloDeServicio(svc, { activo: true, porServicio: { srv_55uwf6x: "general" } })).toBe("general");
+    expect(modeloDeServicio(svc, { activo: true, porServicio: { srv_55uwf6x: "siempre" } })).toBe("siempre");
+    // «siempre» nunca es un defecto: solo por elección expresa.
+    expect(modeloDeServicio({ id: "x", label: "Canje de permiso de conducir" }, { activo: true, porServicio: {} })).toBe("general");
   });
 
   it("config leída con defensa", () => {
-    expect(mandatoConsejoValido({ activo: true, porServicio: { a: "nacionalidad", b: "otro", c: "general" } })).toEqual({ activo: true, porServicio: { a: "nacionalidad", c: "general" } });
+    expect(mandatoConsejoValido({ activo: true, porServicio: { a: "nacionalidad", b: "otro", c: "general", d: "siempre" } })).toEqual({ activo: true, porServicio: { a: "nacionalidad", c: "general", d: "siempre" } });
     expect(mandatoConsejoValido(null)).toBeNull();
     expect(mandatoConsejoValido({ activo: "sí" })).toEqual({ activo: false, porServicio: {} });
   });
@@ -55,6 +58,7 @@ describe("mandato del Consejo · casillas", () => {
     const d = {
       mandante: { nombre: "Ana", apellidos: "Pérez Gómez", nie: "Y1234567Z", pasaporte: "", domicilio: "Calle Luna, 12, 3º B", via: "Calle Luna", numeroVia: "12", piso: "3º B", municipio: "Valencia", cp: "46002", telefono: "600111222", email: "ana@example.com" },
       mandatario: { nombre: "Gestor Prueba", dni: "00000000T", colegiado: "1234", colegio: "Colegio Oficial de Gestores Administrativos de Valencia" },
+      despachoNombre: "Gestoría Prueba",
       despachoDomicilio: "Calle Falsa 1, 46001 Valencia",
     };
     const ex = camposMandatoConsejo("extranjeria", d);
@@ -77,11 +81,33 @@ describe("mandato del Consejo · casillas", () => {
     const d = {
       mandante: { nombre: "Li", apellidos: "Wei", nie: "", pasaporte: "E1234567", domicilio: "Av. del Puerto 7, 2ª", municipio: "Valencia", cp: "46011", telefono: "", email: "" },
       mandatario: { nombre: "G", dni: "", colegiado: "", colegio: "" },
+      despachoNombre: "",
       despachoDomicilio: "",
     };
     const ex = camposMandatoConsejo("extranjeria", d);
     expect(ex.n).toBe("Av. del Puerto 7, 2ª");
     expect(ex.n0001).toBe("");
     expect(ex.DNI).toBe("E1234567");
+  });
+
+  it("general: un mandante, el gestor en la 1.ª fila, el despacho con su nombre y su domicilio partido", () => {
+    const d = {
+      mandante: { nombre: "Ana", apellidos: "Pérez Gómez", nie: "", pasaporte: "P1234567", domicilio: "Calle Luna, 12, 3º B", via: "Calle Luna", numeroVia: "12", piso: "3º B", municipio: "Valencia", cp: "46002", telefono: "600111222", email: "ana@example.com" },
+      mandatario: { nombre: "Gestor Prueba", dni: "00000000T", colegiado: "1234", colegio: "Ilustre Colegio Oficial de Gestores Administrativos de Valencia" },
+      despachoNombre: "Gestoría Prueba",
+      despachoDomicilio: "C/ Mayor, nº 12, 3º B, 28013 Madrid",
+    };
+    const g = camposMandatoConsejo("general", d);
+    expect(g).toEqual({
+      mandante1: "Ana Pérez Gómez", mandante1_dni: "P1234567",
+      notif_localidad: "Valencia", notif_calle: "Calle Luna, 3º B", notif_num: "12", notif_cp: "46002",
+      gestor1: "Gestor Prueba", gestor1_dni: "00000000T", gestor1_colegiado: "1234", colegio: "Valencia",
+      despacho: "Gestoría Prueba", despacho_localidad: "Madrid", despacho_calle: "C/ Mayor", despacho_num: "12, 3º B", despacho_cp: "28013",
+      firma1_lugar: "Madrid", firma2_lugar: "Madrid",
+    });
+    // Ni teléfono ni email: el impreso general no los pide. Mandante 2, representado y
+    // gestores 2-3, en blanco (no se envían).
+    expect(Object.keys(g)).not.toContain("mandante2");
+    expect(Object.keys(g)).not.toContain("gestor2");
   });
 });

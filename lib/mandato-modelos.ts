@@ -1,24 +1,28 @@
 // MANDATO OFICIAL DEL CONSEJO GENERAL DE GESTORES ADMINISTRATIVOS (pedido por Juan, 26/09/2026).
 //
-// El Consejo publica sus modelos de «mandato con representación» como PDF rellenables
-// (AcroForm): uno ESPECÍFICO para trámites de extranjería y otro para la nacionalidad por
-// residencia. Juan (gestor colegiado) quiere que Aproba rellene EL IMPRESO OFICIAL —con su
-// formato y su logo— en lugar de su propio mandato maquetado. Los trámites que no son de
-// extranjería (un canje de permiso de conducir, una homologación…) siguen con el mandato
-// de siempre.
+// Juan (gestor colegiado) usa TRES modelos de «mandato con representación» del Consejo: uno
+// ESPECÍFICO de extranjería, otro de nacionalidad por residencia y uno GENERAL (ante todas las
+// Administraciones y en particular la DGT: el canje de un permiso de conducir, una
+// homologación…). Quiere que Aproba rellene EL IMPRESO OFICIAL que toque a cada trámite —con
+// su formato y su logo— en lugar de su mandato maquetado. «siempre» = el de siempre (el propio
+// subido en Ajustes, o el que maqueta Aproba), por si un servicio no debe llevar ninguno.
 //
 // Módulo PURO: qué modelo toca a cada servicio y qué va en cada casilla. El relleno del PDF
 // vive en lib/mandato-consejo.ts; la decisión final, en lib/mandato.ts.
 //
-// Plantillas: forms/mandatos/consejo-{extranjeria,nacionalidad}.pdf, VACÍAS (el ejemplar de
-// Juan traía sus datos de gestor: se vaciaron y se eliminaron los flujos huérfanos).
+// Plantillas: forms/mandatos/consejo-{extranjeria,nacionalidad,general}.pdf, VACÍAS. Los
+// ejemplares de Juan venían rellenos (sus datos y, en el general, los de un cliente suyo): se
+// vaciaron y se quitaron los objetos huérfanos. El general era un PDF PLANO: sus 30 campos se
+// crearon en las posiciones de las cajas de ese ejemplar (escaladas ×0,9417, el encaje de A4 en
+// Letter que aplica su primer flujo), con nombres legibles (mandante1, gestor1_colegiado…).
 
-export type ModeloMandato = "extranjeria" | "nacionalidad" | "general";
+export type ModeloMandato = "extranjeria" | "nacionalidad" | "general" | "siempre";
+export type ModeloConsejo = Exclude<ModeloMandato, "siempre">;
 
 // Config del despacho (Workspace.mandatoConsejo, jsonb): activo + excepciones por servicio.
 export type MandatoConsejoConfig = { activo: boolean; porServicio: Record<string, ModeloMandato> };
 
-const MODELOS: ModeloMandato[] = ["extranjeria", "nacionalidad", "general"];
+const MODELOS: ModeloMandato[] = ["extranjeria", "nacionalidad", "general", "siempre"];
 
 export function mandatoConsejoValido(x: unknown): MandatoConsejoConfig | null {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
@@ -37,8 +41,9 @@ export function mandatoConsejoValido(x: unknown): MandatoConsejoConfig | null {
 const NO_EXTRANJERIA = /(conduc|tr[aá]fico|\bdgt\b|homolog|equivalen|fnmt|certificado digital|aut[oó]nom|nota simple|registr(o|al) (civil|de la propiedad)|pareja de hecho|matrimonio|casamiento|antecedentes penales espa|hacienda|\birpf\b|\brenta\b|n[oó]mina)/i;
 
 // Modelo por defecto de un servicio: la nacionalidad tiene el suyo; lo claramente ajeno a
-// extranjería, el de siempre; todo lo demás (arraigos, TIE, NIE, CUE, estudios, UGE,
-// requerimientos, recursos…), el de extranjería. El despacho lo corrige servicio a servicio.
+// extranjería, el GENERAL del Consejo; todo lo demás (arraigos, TIE, NIE, CUE, estudios, UGE,
+// requerimientos, recursos…), el de extranjería. El despacho lo corrige servicio a servicio
+// («siempre» solo por elección expresa).
 export function modeloPorDefecto(s: { id: string; label: string }): ModeloMandato {
   if (s.id === "nacionalidad" || /nacionalidad/i.test(s.label)) return "nacionalidad";
   if (NO_EXTRANJERIA.test(s.label)) return "general";
@@ -46,7 +51,7 @@ export function modeloPorDefecto(s: { id: string; label: string }): ModeloMandat
 }
 
 export function modeloDeServicio(s: { id: string; label: string }, cfg: MandatoConsejoConfig | null): ModeloMandato {
-  if (!cfg?.activo) return "general";
+  if (!cfg?.activo) return "siempre";
   return cfg.porServicio[s.id] ?? modeloPorDefecto(s);
 }
 
@@ -91,13 +96,15 @@ export type PersonaMandato = {
 export type DatosMandatoConsejo = {
   mandante: PersonaMandato;
   mandatario: { nombre: string; dni: string; colegiado: string; colegio: string };
+  despachoNombre: string;      // el general lo pide: «y al despacho profesional ____»
   despachoDomicilio: string;
 };
 
 // Valor de cada casilla del impreso (nombres REALES del AcroForm, sondeados el 26/09/2026 con
 // scripts/probe-campos-acroform.mjs). Lo que se deja vacío lo completa el gestor o se firma a
 // mano: el segundo mandante, la representación de un tercero y las fechas de firma.
-export function camposMandatoConsejo(modelo: Exclude<ModeloMandato, "general">, d: DatosMandatoConsejo): Record<string, string> {
+export function camposMandatoConsejo(modelo: ModeloConsejo, d: DatosMandatoConsejo): Record<string, string> {
+  if (modelo === "general") return camposGeneral(d);
   const p = d.mandante;
   // Extranjería tiene casilla propia para el nº de la calle («n0001», 16 pt); el de
   // nacionalidad no: allí el número va con la calle.
@@ -131,6 +138,35 @@ export function camposMandatoConsejo(modelo: Exclude<ModeloMandato, "general">, 
     campos["n0001"] = via ? num : "";
     campos["Administrativos de"] = colegio; // «…y al Colegio Oficial de Gestores Administrativos de ____, en concepto de MANDATARIOS»
   }
+  for (const k of Object.keys(campos)) campos[k] = (campos[k] ?? "").trim();
+  return campos;
+}
+
+// Modelo GENERAL (campos creados por nosotros sobre el PDF plano del Consejo). Tres gestores
+// posibles: va el mandatario de Ajustes; los otros dos, en blanco para completar a mano.
+function camposGeneral(d: DatosMandatoConsejo): Record<string, string> {
+  const p = d.mandante;
+  const via = (p.via ?? "").trim(), num = (p.numeroVia ?? "").trim(), piso = (p.piso ?? "").trim();
+  const g = partirDomicilio(d.despachoDomicilio);
+  const campos: Record<string, string> = {
+    mandante1: `${p.nombre} ${p.apellidos}`.replace(/\s+/g, " ").trim(),
+    mandante1_dni: p.nie || p.pasaporte,
+    notif_localidad: p.municipio,
+    notif_calle: via ? [via, piso].filter(Boolean).join(", ") : p.domicilio,
+    notif_num: via ? num : "",
+    notif_cp: p.cp,
+    gestor1: d.mandatario.nombre,
+    gestor1_dni: d.mandatario.dni,
+    gestor1_colegiado: d.mandatario.colegiado,
+    colegio: colegioTerritorial(d.mandatario.colegio),
+    despacho: d.despachoNombre,
+    despacho_localidad: g.localidad,
+    despacho_calle: g.calle,
+    despacho_num: g.numero,
+    despacho_cp: g.cp,
+    firma1_lugar: g.localidad,
+    firma2_lugar: g.localidad,
+  };
   for (const k of Object.keys(campos)) campos[k] = (campos[k] ?? "").trim();
   return campos;
 }

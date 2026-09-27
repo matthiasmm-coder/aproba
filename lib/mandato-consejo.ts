@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, PDFName, PDFString, PDFTextField, StandardFonts, type PDFForm } from "pdf-lib";
 import { normalizarFuenteDA } from "@/lib/ex-forms";
-import type { ModeloMandato } from "@/lib/mandato-modelos";
+import type { ModeloConsejo } from "@/lib/mandato-modelos";
 
-// Rellena el IMPRESO OFICIAL del Consejo General (forms/mandatos/consejo-*.pdf) con las
-// casillas de camposMandatoConsejo. Se escribe en los campos del propio AcroForm: el
-// formato, el texto legal y el logo del Consejo quedan intactos.
+// Rellena el IMPRESO OFICIAL del Consejo General (forms/mandatos/consejo-*.pdf: extranjería,
+// nacionalidad o general) con las casillas de camposMandatoConsejo. Se escribe en los campos
+// del propio AcroForm: el formato, el texto legal y el logo del Consejo quedan intactos.
 //   editable: true  → descarga del GESTOR (puede completar el segundo mandante, la
 //                     representación de un tercero…), fuente /Helv como declara el impreso.
 //   editable: false → lo que sale hacia el CLIENTE (portal, email): aplanado, como los EX.
@@ -21,7 +21,7 @@ const TOPE = 9;      // cuerpo máximo: el del texto impreso alrededor
 const MINIMO = 5.5;  // por debajo no se lee; mejor que corte el visor a que sea ilegible
 
 export async function rellenarMandatoConsejo(
-  modelo: Exclude<ModeloMandato, "general">,
+  modelo: ModeloConsejo,
   campos: Record<string, string>,
   opts: { editable: boolean },
 ): Promise<Uint8Array> {
