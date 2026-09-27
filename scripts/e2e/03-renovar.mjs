@@ -20,7 +20,9 @@ export async function run() {
     }
 
     const r2 = await api(`/api/vencimientos/${venc}/renovar`, { sede: madrid.id });
-    fx.expediente(r2.d.expedienteId);
+    // La propuesta NO incrementa UsoMensual (solo al aceptar, app/api/portal/renovacion):
+    // se borra sin descontarla del contador.
+    fx.expediente(r2.d.expedienteId, { cuenta: false });
     if (r2.d.expedienteId) {
       const { data: c } = await admin.from("Cliente").select("oficinaId").eq("id", cli).maybeSingle();
       const { data: e } = await admin.from("Expediente").select("oficinaId").eq("id", r2.d.expedienteId).maybeSingle();

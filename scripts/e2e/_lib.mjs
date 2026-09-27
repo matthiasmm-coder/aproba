@@ -82,7 +82,11 @@ export async function api(path, { sede = "todas", method = "POST", body = null }
 
 // ── Fixtures réversibles ─────────────────────────────────────────────────────
 export function colector() {
-  const c = { clientes: [], expedientes: [], familias: [], vencimientos: [], facturas: [] };
+  // `expedientes` = créés par une route qui INCRÉMENTE UsoMensual (cobrarOverageSiProcede,
+  // lib/overage.ts) ; `expedientesSinCuota` = créés SANS incrément (proposition de
+  // renouvellement Vigía : elle ne compte que quand le client ACCEPTE). Les deux sont
+  // supprimés ; seuls les premiers redescendent le compteur.
+  const c = { clientes: [], expedientes: [], expedientesSinCuota: [], familias: [], vencimientos: [], facturas: [] };
   return {
     c,
     cliente: async (props = {}) => {
@@ -110,15 +114,16 @@ export function colector() {
       c.vencimientos.push(id);
       return id;
     },
-    expediente: (id) => { if (id) c.expedientes.push(id); },
+    expediente: (id, { cuenta = true } = {}) => { if (id) (cuenta ? c.expedientes : c.expedientesSinCuota).push(id); },
     factura: (id) => { if (id) c.facturas.push(id); },
     limpiar: async () => {
       const { ws } = await contexto();
       for (const f of c.facturas) await admin.from("Factura").delete().eq("id", f);
-      for (const e of c.expedientes) await admin.from("Expediente").delete().eq("id", e);
+      for (const e of [...c.expedientes, ...c.expedientesSinCuota]) await admin.from("Expediente").delete().eq("id", e);
       for (const v of c.vencimientos) await admin.from("Vencimiento").delete().eq("id", v);
       for (const cl of c.clientes) await admin.from("Cliente").delete().eq("id", cl);
       for (const fa of c.familias) await admin.from("Familia").delete().eq("id", fa);
+      if (c.expedientesSinCuota.length) console.log(`  UsoMensual: ${c.expedientesSinCuota.length} expediente(s) sans incrément supprimé(s), compteur non touché pour eux`);
       if (c.expedientes.length) {
         // Le compteur est MONOTONE par conception (il ne baisse pas quand on supprime) ;
         // sur le ws de TEST on le remet à son niveau d'avant le run pour ne pas fausser
