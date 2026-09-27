@@ -66,6 +66,192 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    // 28/09/2026 — «automatización extranjería» (Matthias: palabras clave donde no aparecíamos).
+    // Fuentes leídas el 28/09: Tribuna de Segovia, 14/08/2024 (Ministerio de Justicia, robots
+    // en la nacionalidad por residencia, «de 3 o 4 años» al plazo legal de un año, Ester Pérez,
+    // DG de Seguridad Jurídica y Fe Pública); Infobae/agencias, 30/01/2026 (Policía Nacional,
+    // cita automática de TIE en L'Hospitalet y Girona: SMS o email en una semana, más de 20 de
+    // 60 procedimientos, objetivo «al menos el 50 %»). Lo que se dice de Aproba sale del
+    // producto (funciones publicadas en /funciones).
+    slug: "automatizar-despacho-extranjeria-que-si-que-no",
+    titulo: "Automatizar un despacho de extranjería: qué sí y qué no",
+    tituloSeo: "Automatización en extranjería: qué sí y qué no (2026)",
+    descripcion:
+      "Automatización en extranjería: la Administración ya robotiza la nacionalidad y las citas de TIE. Qué puede automatizar un despacho y qué no debe.",
+    fecha: "2026-09-28",
+    tema: "Gestión del despacho",
+    entradilla:
+      "La Administración ya automatiza su lado del expediente: robots que revisan la nacionalidad, citas de TIE que llegan solas por SMS. En el despacho, buena parte del trabajo de un expediente se puede automatizar sin perder el control; otra parte no debe automatizarse nunca.",
+    imagenAlt:
+      "Un clasificador de metacrilato de tres bandejas con folios crema recorridos por trazos de circuito verde esmeralda, sobre una mesa de abedul claro; al lado, un folio en blanco con una pluma estilográfica negra y dorada.",
+    bloques: [
+      { t: "h2", texto: "La Administración ya automatiza su parte" },
+      {
+        t: "ul",
+        items: [
+          "**Nacionalidad por residencia.** El Ministerio de Justicia robotizó la revisión de las solicitudes: «varios robots» comprueban los requisitos —años de residencia, exámenes, antecedentes penales, informes policiales—. Según la directora general de Seguridad Jurídica y Fe Pública, los expedientes pasaron de tardar tres o cuatro años a resolverse dentro del año legal, muchos en menos (agosto de 2024).",
+          "**Citas de la TIE.** Desde enero de 2026 la Policía Nacional prueba en L'Hospitalet de Llobregat, y también en Girona, la cita automática: tras la resolución favorable, la cita para la tarjeta llega en una semana por SMS o por email. Cubre más de 20 de los 60 procedimientos, busca acabar con la reventa de citas y aspira a que al menos la mitad sean automáticas.",
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "Del lado de la Administración, lo mecánico va a ir cada vez más rápido. Del lado del despacho, lo mecánico es justo lo que se come las horas: pedir documentos, comprobarlos, teclear impresos, avisar al cliente, facturar, vigilar plazos. Es también lo que mejor se automatiza.",
+      },
+      { t: "h2", texto: "Qué puede automatizar un despacho, y qué no" },
+      {
+        t: "tabla",
+        titulo: "El expediente, tarea por tarea",
+        encabezados: ["Tarea", "¿Se automatiza?", "Cómo"],
+        filas: [
+          ["Recibir los documentos del cliente", "**Sí**", "Un enlace por expediente, o el WhatsApp y el email reenviados, que dejan cada archivo en su casilla ([recibir documentos](/articulos/recibir-documentos-clientes-extranjeria-whatsapp-email))"],
+          ["Comprobar que un documento sirve", "**En gran parte**", "La IA mira si se lee, si es el documento pedido y si está en vigor; lo dudoso vuelve al gestor ([validación con IA](/funciones/validacion-con-ia))"],
+          ["Rellenar los formularios EX y las tasas 790", "**Sí**", "Con los datos ya validados, sobre el impreso oficial y editable ([formularios en un clic](/funciones/formularios-en-un-clic))"],
+          ["Avisar al cliente en cada paso", "**Sí**", "En su idioma, sin llamadas de «¿cómo va lo mío?» ([avisos automáticos](/funciones/avisos-automaticos))"],
+          ["Facturar", "**Sí**", "Anticipo y resto desde el expediente, con VeriFactu ([facturación](/funciones/facturas-automaticas))"],
+          ["Vigilar plazos y renovaciones", "**Sí**", "Requerimientos con su plazo y renovaciones antes de caducar ([radar de renovaciones](/funciones/radar-de-renovaciones))"],
+          ["Presentar en Mercurio", "**No**", "Se firma con el certificado del profesional; como mucho, se rellenan los datos del formulario ([Mercurio paso a paso](/articulos/mercurio-extranjeria-presentar-paso-a-paso))"],
+          ["Elegir el domicilio de notificaciones", "**No**", "Decide quién recibe los requerimientos ([quién va en cada casilla](/articulos/representante-formulario-ex-quien-va-en-cada-casilla))"],
+          ["Decidir el trámite y la estrategia", "**No**", "Arraigo o reagrupación, recurrir o no: es el trabajo del profesional"],
+        ],
+      },
+      { t: "h2", texto: "La regla para no equivocarse" },
+      {
+        t: "p",
+        texto:
+          "**Automatizar lo que se puede comprobar después; no automatizar lo que compromete al cliente sin que nadie lo mire.** La firma y la presentación son actos del profesional, con su certificado. La valoración jurídica —si procede un arraigo, si conviene recurrir— no se delega en una máquina. Y la IA que lee documentos se equivoca a veces: por eso lo que no tiene claro se marca, y lo decide el gestor.",
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Aproba automatiza la parte mecánica del expediente —recibir, validar, rellenar, avisar, facturar, vigilar— y deja al gestor las decisiones y la firma. El reparto tiene cifra: [de 3 horas a 30 minutos por expediente](/cifras/de-3-horas-a-30-minutos), con el cálculo a la vista.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Qué se puede automatizar en un despacho de extranjería?",
+            a: "Lo mecánico: recibir y clasificar los documentos del cliente, comprobar que se leen y están en vigor, rellenar los formularios EX y las tasas 790, avisar al cliente, facturar y vigilar plazos y renovaciones.",
+          },
+          {
+            q: "¿Puede un programa presentar la solicitud en Mercurio por mí?",
+            a: "No debería: la presentación se firma con el certificado del profesional. Lo que sí puede hacer es rellenar los datos del formulario para que tú revises, adjuntes, firmes y presentes.",
+          },
+          {
+            q: "¿La Administración también automatiza?",
+            a: "Sí. El Ministerio de Justicia robotizó la revisión de la nacionalidad por residencia, y la Policía Nacional prueba desde enero de 2026 la cita automática de la TIE, que llega por SMS o email.",
+          },
+          {
+            q: "¿La IA sustituye al gestor?",
+            a: "No. Revisa documentos y rellena impresos. Las decisiones —qué trámite, qué domicilio de notificaciones, si se recurre— y la firma siguen siendo del profesional.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    // 28/09/2026 — «extranjería expediente» (Matthias: palabras clave donde no aparecíamos).
+    // Lo que se busca es consultar el estado. Fuentes leídas el 28/09: sede.administraciones-
+    // publicas.gob.es › infoext2 (qué cubre, «no disponible para los ciudadanos de la UNIÓN
+    // EUROPEA», SMS 651 714 610 con «NIE …» o «EXPE …» de 15 caracteres, 902 02 22 22, «datos de
+    // carácter meramente informativo»); infoext2.delegaciondelgobierno.gob.es («Entrada con
+    // Cl@ve» / «Entrada con Formulario»); los campos del formulario, los que usa ya el botón
+    // «Consultar» de Aproba (components/consultar-extranjeria.tsx, visto con Jennifer el 24/09);
+    // nacionalidad: «Consulta telemática de expedientes de nacionalidad española por
+    // residencia», sede del Ministerio de Justicia. Ninguna etiqueta de estado inventada.
+    slug: "consultar-estado-expediente-extranjeria",
+    titulo: "Cómo consultar el estado de un expediente de extranjería",
+    tituloSeo: "Expediente de extranjería: cómo consultar su estado (2026)",
+    descripcion:
+      "Cómo consultar el estado de un expediente de extranjería: por internet (Cl@ve o formulario con NIE o nº de expediente), por SMS al 651 714 610 y qué hacer.",
+    fecha: "2026-09-28",
+    tema: "Procedimiento",
+    entradilla:
+      "La consulta oficial del estado de un expediente de extranjería tiene tres puertas —internet con Cl@ve, internet con un formulario y un SMS— y una advertencia que casi nadie lee: lo que responde es informativo. Qué pide cada una, qué no cubre y qué hacer con lo que dice.",
+    imagenAlt:
+      "Una lupa de latón con mango de nogal sobre una carpeta crema atada con una cinta verde salvia, en una mesa de travertino claro; a través de la lente, una línea de circuito verde esmeralda une dos nodos.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Presentada la solicitud, el expediente queda en manos de la oficina de extranjería y empieza la pregunta de todos los días: «¿cómo va lo mío?». La Administración la contesta en su sede, con el servicio **«Información sobre el estado de tramitación de los expedientes de extranjería»**, que da el estado en el que se encuentra una **autorización de extranjería**.",
+      },
+      { t: "h2", texto: "Tres formas de consultarlo" },
+      {
+        t: "tabla",
+        titulo: "La consulta oficial del estado",
+        encabezados: ["Vía", "Qué pide", "Sirve para"],
+        filas: [
+          ["Internet, **«Entrada con Cl@ve»**", "Identificarse con Cl@ve", "El propio interesado"],
+          ["Internet, **«Entrada con Formulario»**", "NIE o nº de expediente, fecha de presentación y año de nacimiento, más un captcha", "Quien tenga esos datos: el cliente o su gestor"],
+          ["SMS al **651 714 610**", "«NIE» y el NIE (p. ej. «NIE X00000111L»), o «EXPE» y el nº de expediente de 15 caracteres (p. ej. «EXPE 280020101234567»)", "Cualquier móvil"],
+        ],
+        nota: "Hay además un teléfono de información, el 902 02 22 22. El servicio no está disponible para los ciudadanos de la Unión Europea.",
+      },
+      {
+        t: "p",
+        texto:
+          "El NIE va como lo pide la sede: **X, Y o Z en mayúscula, ocho cifras** (con ceros delante si faltan) y la letra final. Y una advertencia práctica: la consulta avisa de que el certificado electrónico de **persona jurídica** no sirve cuando se actúa en representación de terceros. Para consultar el expediente de un cliente, lo directo es el formulario, que solo pide los datos del expediente.",
+      },
+      { t: "h2", texto: "Lo que dice la consulta, y lo que no" },
+      {
+        t: "p",
+        texto:
+          "La propia sede lo advierte: son **«datos de carácter meramente informativo»**. La consulta no notifica nada. Ni un requerimiento ni una resolución empiezan a contar desde que aparecen ahí, sino desde su **notificación**, electrónica o en papel ([quién la recibe y los 10 días](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias)). Lo que sí hace es decir hacia dónde mirar:",
+      },
+      {
+        t: "ul",
+        items: [
+          "**Si todavía no aparece**, puede que la oficina no haya grabado la solicitud. Presentada por Mercurio, el **ID de expediente** existe cuando la oficina la recibe ([cómo obtenerlo](/articulos/mercurio-extranjeria-presentar-paso-a-paso)).",
+          "**Si figura en trámite**, lo que cuenta es el plazo de resolución de ese trámite: si vence sin respuesta, rige su [silencio administrativo](/articulos/silencio-administrativo-extranjeria-plazos-2026).",
+          "**Si pide documentación**, busca la notificación del requerimiento: el plazo corre desde ella, no desde la consulta ([los 10 días y cómo responder](/articulos/requerimiento-extranjeria-plazo-10-dias-como-responder)).",
+          "**Si figura como resuelto**, la resolución llega notificada; hasta entonces no hay nada que recoger. Si es favorable y lleva tarjeta, lo siguiente es la cita para las huellas de la TIE.",
+        ],
+      },
+      { t: "h2", texto: "Lo que no se consulta aquí" },
+      {
+        t: "ul",
+        items: [
+          "**La nacionalidad por residencia.** La tramita el Ministerio de Justicia, no una oficina de extranjería, y tiene su propia **«Consulta telemática de expedientes de nacionalidad española por residencia»** en la sede de Justicia ([plazos y tasas de la nacionalidad](/articulos/nacionalidad-por-residencia-plazos-tasas-2026)).",
+          "**Los ciudadanos de la Unión Europea.** El servicio no está disponible para ellos.",
+          "**La cita previa**, que es otro servicio de la misma sede.",
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "Un despacho con cuarenta expedientes abiertos no puede consultarlos uno a uno cada mañana. En Aproba cada expediente guarda su **nº de expediente oficial**, la fecha de presentación y el año de nacimiento del cliente; el botón **«Consultar»** los enseña listos para copiar y abre la consulta oficial. El captcha lo resuelves tú: Aproba no consulta por su cuenta, ni debe hacerlo. Los requerimientos, con su plazo, y la resolución quedan en el mismo expediente, y la campana de avisos te recuerda lo que vence.",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Cómo consulto un expediente de extranjería por SMS?",
+            a: "Envía al 651 714 610 la palabra «NIE» y tu NIE (por ejemplo, «NIE X00000111L») o la palabra «EXPE» y el número de expediente de 15 caracteres (por ejemplo, «EXPE 280020101234567»).",
+          },
+          {
+            q: "¿Qué datos necesito para consultarlo por internet?",
+            a: "Con Cl@ve, ninguno más. Con el formulario: el NIE o el número de expediente, la fecha de presentación y el año de nacimiento, más un captcha.",
+          },
+          {
+            q: "¿Lo que dice la consulta sustituye a la notificación?",
+            a: "No. La sede advierte que son datos de carácter meramente informativo: los plazos de un requerimiento o de un recurso cuentan desde la notificación, no desde que el estado cambia en la consulta.",
+          },
+          {
+            q: "¿Dónde se consulta un expediente de nacionalidad?",
+            a: "En la sede electrónica del Ministerio de Justicia, con su «Consulta telemática de expedientes de nacionalidad española por residencia». No en la de extranjería.",
+          },
+          {
+            q: "¿Puede consultarlo mi gestor o mi abogado?",
+            a: "Sí: el formulario solo pide los datos del expediente, así que quien los tenga puede consultarlo. La consulta avisa, eso sí, de que el certificado de persona jurídica no sirve para actuar en nombre de terceros.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     // 26/09/2026 — el requerimiento, pedido por Matthias tras llevar los requerimientos a la
     // lista de Expedientes y a la campana. Fuente única: Ley 39/2015 consolidada (BOE, últ.
     // mod. 06/11/2024), leída el 26/09: arts. 22.1.a, 30.2, 30.3, 30.5, 30.7, 31.2.b, 32.1-3,
@@ -206,9 +392,13 @@ export const ARTICULOS: Articulo[] = [
     // Chrome Web Store (v0.2.1).
     slug: "mercurio-extranjeria-presentar-paso-a-paso",
     titulo: "Mercurio paso a paso: cómo presenta un despacho de extranjería",
+    // 28/09/2026 — se busca «extranjería mercurio» / «mercurio extranjería» (página 2 en Search
+    // Console): el título del resultado empieza por lo que se escribe.
+    tituloSeo: "Mercurio Extranjería: cómo presentar paso a paso (2026)",
     descripcion:
-      "Guía de Mercurio para despachos: acceso por el Consejo General, adjuntos de 6 MB, firma con AutoFirma, el resguardo que acredita y el número de expediente.",
+      "Mercurio extranjería paso a paso: quién puede presentar, adjuntos de 6 MB, AutoFirma, cómo aportar documentación, el resguardo y el número de expediente.",
     fecha: "2026-09-25",
+    actualizado: "2026-09-28",
     tema: "Presentación telemática",
     entradilla:
       "Mercurio no es difícil: es estricto, y casi todos sus rechazos llegan al final. Un «nº» en el nombre de un archivo, un PDF de 7 MB o un certificado distinto del que abrió la sesión bloquean la presentación en los últimos pasos. Esta guía recorre los seis, con el punto exacto donde se atasca cada uno.",
@@ -218,7 +408,7 @@ export const ARTICULOS: Articulo[] = [
       {
         t: "p",
         texto:
-          "Mercurio es la aplicación de la sede electrónica para presentar solicitudes de extranjería por internet: autorizaciones iniciales, renovaciones, prórrogas y algunas modificaciones. También sirve para **aportar documentación a expedientes en trámite**, que es por donde puede entrar la respuesta a un requerimiento.",
+          "Mercurio es la aplicación de la sede electrónica para presentar solicitudes de extranjería por internet: autorizaciones iniciales, renovaciones, prórrogas y algunas modificaciones. También sirve para **aportar documentación a expedientes en trámite**, que es por donde puede entrar la respuesta a un requerimiento. El módulo de solicitudes nuevas es el que su manual llama **«Mercurio Iniciales»**.",
       },
       {
         t: "p",
@@ -320,6 +510,23 @@ export const ARTICULOS: Articulo[] = [
         texto:
           "Una caída tampoco amplía el plazo por sí sola: la Administración **puede** ampliar los plazos no vencidos, pero publicando en la sede la incidencia y la ampliación concreta (art. 32.4). Si Mercurio falla, anota el número de error y haz capturas: es lo que pide el formulario de incidencias de la sede, y la prueba de que se intentó. Y no apures al último día.",
       },
+      { t: "h2", texto: "Aportar documentación a un expediente en trámite" },
+      {
+        t: "p",
+        texto:
+          "La sede describe Mercurio con dos usos: presentar las solicitudes nuevas y las renovaciones, y **«adjuntar documentación a procedimientos de extranjería que estén en trámite»**. El segundo es el que se usa para contestar un requerimiento o para completar un expediente con un documento que llegó tarde. Hace falta que el expediente ya exista: por eso conviene tener el **ID de expediente** a mano (el apartado anterior explica cómo obtenerlo) y el [plazo del requerimiento](/articulos/requerimiento-extranjeria-plazo-10-dias-como-responder) apuntado.",
+      },
+      {
+        t: "p",
+        texto:
+          "Lo que vale para la solicitud vale aquí: se firma con el mismo certificado, y lo que acredita la entrega y su fecha es el **resguardo**, un fichero electrónico firmado con el certificado del servidor del Ministerio. Guárdalo en el expediente el mismo día. Un escrito breve que enumere lo que se aporta, documento a documento, ahorra a la oficina buscarlo y a ti un segundo requerimiento.",
+      },
+      { t: "h2", texto: "Mercurio no notifica" },
+      {
+        t: "p",
+        texto:
+          "Mercurio sirve para **presentar y aportar**; no es el buzón del expediente. Los requerimientos y la resolución llegan por notificación: electrónica (en la DEHú) o en papel, según quién sea el interesado y qué **domicilio a efectos de notificaciones** figure en la solicitud. Quién la recibe y qué pasa si nadie la abre en diez días está en [notificaciones en extranjería](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias).",
+      },
       {
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
@@ -336,6 +543,14 @@ export const ARTICULOS: Articulo[] = [
           {
             q: "¿Es obligatorio presentar por Mercurio?",
             a: "Para quien ejerce una profesión de colegiación obligatoria, la vía electrónica sí lo es (art. 14.2.c de la Ley 39/2015), y Mercurio es la vía telemática específica de estos procedimientos. El art. 197.2 del RD 1155/2024 obligaba además a las personas físicas en siete procedimientos, pero el Tribunal Supremo lo anuló en julio de 2026, como explicamos en [notificaciones en extranjería](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias).",
+          },
+          {
+            q: "¿Puede un extranjero presentar su propia solicitud por Mercurio, sin gestor?",
+            a: "Sí, si tiene con qué identificarse: la sede pide un «certificado digital reconocido por cualquiera de las entidades oficiales de certificación nacionales, o el DNI electrónico». Sin certificado, la solicitud se presenta en papel en la oficina de extranjería, o la presenta un profesional por su acceso.",
+          },
+          {
+            q: "¿Dónde llegan las notificaciones de lo presentado por Mercurio?",
+            a: "No a Mercurio: llegan por notificación electrónica (DEHú) o en papel, según quién sea el interesado y el domicilio a efectos de notificaciones que figure en la solicitud. Lo explicamos en [notificaciones en extranjería](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias).",
           },
           {
             q: "¿Qué hago si un archivo pesa más de 6 MB?",
@@ -1186,9 +1401,13 @@ export const ARTICULOS: Articulo[] = [
   {
     slug: "verifactu-despachos-extranjeria-fechas-2027",
     titulo: "VeriFactu para despachos de extranjería: fechas y obligaciones",
+    // 28/09/2026 — se busca «verifactu extranjería»; casi todo lo que sale habla de facturas a
+    // clientes extranjeros, que es el día a día de un despacho de extranjería.
+    tituloSeo: "VeriFactu en extranjería: fechas y clientes extranjeros",
     descripcion:
-      "VeriFactu será obligatorio el 1 de enero de 2027 para sociedades y el 1 de julio para autónomos. Qué exige el RD 1007/2023 y cómo preparar el despacho.",
+      "VeriFactu en extranjería: obligatorio en 2027 (sociedades el 1 de enero, autónomos el 1 de julio), clientes con NIE o pasaporte y qué exige el RD 1007/2023.",
     fecha: "2026-08-26",
+    actualizado: "2026-09-28",
     tema: "Facturación",
     entradilla:
       "2027 no solo trae la ola de renovaciones: también cambia las reglas de la factura de tu propio despacho. VeriFactu deja de ser un rumor y pasa a tener fechas firmes, sanciones concretas y una lista corta de cosas que conviene hacer antes.",
@@ -1248,11 +1467,34 @@ export const ARTICULOS: Articulo[] = [
           "**Decide modalidad**: «VERI*FACTU» (remisión inmediata a la AEAT) o no remisión con conservación local firmada. Para un despacho pequeño, la remisión simplifica la carga de conservación.",
         ],
       },
+      { t: "h2", texto: "VeriFactu y clientes extranjeros" },
+      {
+        t: "p",
+        texto:
+          "La pregunta que más se repite en un despacho de extranjería: si el cliente es extranjero, ¿su factura entra en VeriFactu? **Sí.** La Dirección General de Tributos lo precisó en la **consulta vinculante V0100-26, de 20 de enero de 2026**: lo que decide no es dónde está ni de dónde es el cliente, sino que quien factura sea un empresario o profesional establecido en España que emite con un sistema informático. Que la operación esté exenta o se declare en el 303, el 390 o el 349 no cambia nada.",
+      },
+      {
+        t: "tabla",
+        titulo: "Cómo se identifica al cliente en el registro de la factura",
+        encabezados: ["El cliente tiene", "Cómo va en el registro", "A tener en cuenta"],
+        filas: [
+          ["**NIE** (o DNI)", "Como NIF", "La AEAT lo contrasta con su censo"],
+          ["**NIE que aún no figura en el censo** de la AEAT", "Identificador «no censado» (tipo 07, país ES)", "Puede pasar con un NIE recién asignado; el registro lo admite"],
+          ["**Solo pasaporte**", "Identificador de otro país: pasaporte (tipo 03) y su país", "El pasaporte y la nacionalidad ya están en la ficha del expediente"],
+          ["**Ningún documento**", "Factura simplificada", "Solo hasta 400 € (art. 4 del RD 1619/2012); por encima, hay que identificarlo"],
+        ],
+        nota: "Para comprobar si un NIE ya está en el censo, la AEAT tiene la consulta «Comprobación de un NIF de terceros a efectos censales».",
+      },
+      {
+        t: "p",
+        texto:
+          "El consejo práctico: pide el NIE o el pasaporte **al abrir el expediente, no al facturar**. En extranjería el documento de identidad es lo primero que llega; si la ficha ya lo tiene, la factura sale bien identificada sin volver a pedírselo al cliente.",
+      },
       {
         t: "nota",
         titulo: "Y sí, nos afecta a nosotros también",
         texto:
-          "Aproba [emite facturas por tus expedientes](/funciones/facturas-automaticas), así que esta obligación es también nuestra: la adaptación VeriFactu del módulo de facturación está en el plan de producto para estar lista antes de tu fecha, con la numeración correlativa y las anulaciones ya funcionando como el reglamento exige.",
+          "Aproba [emite facturas por tus expedientes](/funciones/facturas-automaticas), así que esta obligación es también nuestra, y está hecha: con VeriFactu activado, cada factura se registra en la AEAT al emitirse (a través de Verifacti), lleva su **QR tributario** y ya no se modifica: se anula con su registro de anulación o se corrige con una rectificativa. Los clientes con NIE, con pasaporte o todavía sin censar se identifican como pide el registro. Se activa por despacho, en Ajustes › Facturación.",
       },
       {
         t: "faq",
@@ -1260,6 +1502,14 @@ export const ARTICULOS: Articulo[] = [
           {
             q: "¿VeriFactu me afecta si soy autónomo?",
             a: "Sí. Los autónomos en estimación directa entran el 1 de julio de 2027 (las sociedades, el 1 de enero). Solo quedan fuera los acogidos al SII y los territorios forales, que tienen sistema propio.",
+          },
+          {
+            q: "¿VeriFactu se aplica a las facturas de clientes extranjeros?",
+            a: "Sí. Según la consulta vinculante V0100-26 de la DGT (20 de enero de 2026), lo determinante es que quien factura esté establecido en España y use un sistema informático de facturación, no la nacionalidad ni la residencia del cliente.",
+          },
+          {
+            q: "¿Cómo se identifica a un cliente que solo tiene pasaporte?",
+            a: "Con su pasaporte y su país, como identificador de otro país (tipo 03). Si tiene NIE, va su NIE; y si el NIE aún no figura en el censo de la AEAT, se registra como «no censado». Sin ningún documento, la factura solo puede ser simplificada, hasta 400 €.",
           },
           {
             q: "¿Puedo seguir facturando con Excel o Word?",

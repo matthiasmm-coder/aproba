@@ -141,7 +141,7 @@ export const PAGINAS: PaginaPublica[] = [
         "**Seguir el expediente por estados.** Qué falta, qué está listo, qué se ha presentado, qué se ha resuelto. Con todo el equipo viendo lo mismo, no cada uno su Excel.",
         "**Avisar al cliente sin que llame.** Cada avance (documento recibido, validado, presentado, resuelto) genera un aviso automático en el idioma del cliente.",
         "**Vigilar las renovaciones.** Cada TIE, pasaporte y NIE con su fecha; un aviso con antelación; y la renovación iniciada con un clic reutilizando el expediente anterior. Es donde se decide si el cliente vuelve a ti o a otro.",
-        "**Facturar el trámite tal como se cobra.** Anticipo y resto, suplidos (las tasas) sin IVA, descuentos, familias con varios miembros, empresas que pagan por su trabajador.",
+        "**Facturar el trámite tal como se cobra.** Anticipo y resto, suplidos (las tasas) sin IVA, descuentos, familias con varios miembros, [empresas que pagan por su trabajador](/funciones/extranjeria-para-empresas).",
         "**Cumplir con los datos.** Servidores en la UE, cifrado, contrato de encargado del tratamiento y la garantía de que los documentos no entrenan ningún modelo.",
       ] },
 

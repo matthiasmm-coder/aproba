@@ -25,7 +25,7 @@ export type Beneficio = {
   faq: { q: string; a: string }[];
   fuentes?: { nombre: string; url: string }[]; // documentos externos citados
   // Captura REAL de Aproba (cuenta demo) que ilustra el beneficio: public/beneficios/<slug>.jpg.
-  // Solo las seis FUNCIONES la llevan (decisión Matthias 13/09): cifras y garantías van sin captura.
+  // Solo las FUNCIONES la llevan (decisión Matthias 13/09): cifras y garantías van sin captura.
   captura?: { w: number; h: number; alt: string; pie: string };
 };
 
@@ -263,20 +263,24 @@ export const BENEFICIOS: Beneficio[] = [
   {
     grupo: "funciones", slug: "facturas-automaticas",
     tarjeta: "Facturas automáticas",
-    titulo: "Facturas automáticas desde el expediente | Aproba",
-    descripcion: "Anticipo y resto, tasas como suplidos sin IVA, descuentos, familias y empresas, cobro por tarjeta opcional. La factura sale del expediente y se exporta.",
-    h1: "Facturas automáticas: la factura sale del expediente",
-    entradilla: "Un trámite de extranjería se cobra de una manera concreta: anticipo al encargar, resto después, tasas aparte. Aproba factura así, desde el expediente, sin copiar datos a otro programa.",
-    actualizado: "2026-09-13",
+    // 28/09/2026 — se busca «software facturación extranjería» y no aparecíamos: el título no
+    // decía ni «software», ni «facturación», ni «extranjería».
+    titulo: "Software de facturación para despachos de extranjería | Aproba",
+    descripcion: "Facturación de extranjería desde el expediente: anticipo y resto, tasas como suplidos sin IVA, VeriFactu, clientes con NIE o pasaporte, empresas y familias.",
+    h1: "Facturación para despachos de extranjería: la factura sale del expediente",
+    entradilla: "Un trámite de extranjería se cobra de una manera concreta: anticipo al encargar, resto después, tasas aparte, y un cliente que a menudo solo tiene pasaporte. Aproba factura así, desde el expediente, con VeriFactu y sin copiar datos a otro programa.",
+    actualizado: "2026-09-28",
     captura: { w: 1600, h: 577, alt: "Bloque «Cobro del expediente»: pago inicial al firmar, pago final al terminar y el botón para solicitar el pago", pie: "El cobro dentro del expediente: anticipo al firmar, resto al terminar, descuento y suplidos a un clic; cada pago genera su factura." },
     significa: [
       { t: "ul", items: [
         "**Anticipo y resto** configurados por servicio: la primera factura se emite cuando el cliente completa el portal; la última, cuando toca.",
         "**Suplidos sin IVA.** Las tasas 790 y otros suplidos entran en la factura separados de los honorarios, con su tratamiento fiscal.",
         "**Descuentos** en porcentaje o en euros por expediente, reflejados en el portal, la hoja de encargo y la factura al céntimo.",
-        "**Familias y empresas.** Precio por miembro o distinto para cada uno; o una empresa que contrata y paga mientras el trabajador sigue siendo el titular.",
+        "**Familias y empresas.** Precio por miembro o distinto para cada uno; o una empresa que contrata y paga mientras el trabajador sigue siendo el titular ([extranjería para empresas](/funciones/extranjeria-para-empresas)).",
         "**Cobro.** Por defecto, transferencia al IBAN del despacho; opcionalmente, tarjeta con la cuenta Stripe del propio despacho (el dinero nunca pasa por Aproba); y cobro externo (efectivo, TPV) registrado en la factura.",
         "**Exportación.** PDF por factura, CSV para Excel y ZIP de todas, para tu gestoría contable o tu programa.",
+        "**VeriFactu.** Cada factura emitida se registra en la AEAT en el momento, a través de Verifacti, y lleva su código QR tributario. Una factura emitida ya no se modifica: se anula, con su registro de anulación, o se corrige con una rectificativa (serie R).",
+        "**Clientes extranjeros.** Con NIE, la factura va a su nombre y número; con solo pasaporte, se registra como identificador de otro país; sin identificación, factura simplificada hasta 400 €. Si un NIE recién asignado aún no figura en el censo de la AEAT, Aproba lo registra de la forma que la AEAT admite.",
       ] },
     ],
     afirmamos: [
@@ -284,12 +288,13 @@ export const BENEFICIOS: Beneficio[] = [
         "**Reglas de integridad que no se pueden desactivar.** Un número de factura nunca se reutiliza; una factura emitida no se borra (se archiva); los datos fiscales del cliente quedan congelados en cada factura, aunque la ficha cambie después. Están verificadas por pruebas automáticas en cada versión.",
         `**Mira una en el ejemplo.** ${PRUEBA} Trae su factura de ejemplo: anticipo, suplido y total, tal como la vería el cliente.`,
         "**Los cálculos son comprobables.** Honorarios × miembros, descuento, suplidos sin IVA, IVA sobre honorarios: cada línea de la factura enseña su base.",
+        "**El registro VeriFactu se ve.** Cada factura enseña su estado ante la AEAT en la lista de facturas, y el PDF lleva el QR tributario con su leyenda: cualquiera puede comprobarla en la sede de la AEAT.",
       ] },
     ],
     limites: [
       { t: "ul", items: [
         "**No es un programa de contabilidad.** Emite y exporta; los asientos siguen en A3, Holded o el que uses.",
-        "**VeriFactu.** La obligación de facturación verificable llega el 1 de enero de 2027 (sociedades) y el 1 de julio de 2027 (autónomos). La facturación de Aproba ya cumple la base —numeración correlativa, nada se reutiliza ni se borra— y publicaremos la fecha de adaptación completa con antelación. No afirmamos hoy lo que no está.",
+        "**VeriFactu se activa por despacho,** con el NIF del despacho, en Ajustes › Facturación. La obligación empieza el 1 de enero de 2027 para sociedades y el 1 de julio de 2027 para autónomos ([qué cambia y cuándo](/articulos/verifactu-despachos-extranjeria-fechas-2027)).",
         "**Planes Pro y Business.** Starter no incluye la facturación integrada.",
       ] },
     ],
@@ -297,6 +302,52 @@ export const BENEFICIOS: Beneficio[] = [
       { q: "¿Puedo emitir una factura a mano?", a: "Sí, y se integra en la misma numeración; las automáticas no la pisan." },
       { q: "¿Qué pasa si la familia cambia después de emitir?", a: "Una factura emitida no cambia. Si el expediente cambia de composición antes del pago, Aproba la realinea con una nueva y deja la anterior anulada, con rastro." },
       { q: "¿El cliente ve la factura en el portal?", a: "Sí: la ve, la descarga y, si el despacho lo ha activado, la paga con tarjeta desde ahí." },
+      { q: "¿La facturación de Aproba cumple VeriFactu?", a: "Sí. Con VeriFactu activado, cada factura se registra en la AEAT al emitirse, lleva su QR tributario y ya no se puede modificar: se anula con su registro o se corrige con una rectificativa. Se activa por despacho en Ajustes › Facturación." },
+      { q: "¿Cómo se factura a un cliente que solo tiene pasaporte?", a: "A su nombre y con su pasaporte: Aproba lo registra en VeriFactu como identificador de otro país, con su país. Sin ningún documento, la factura solo puede ser simplificada, hasta 400 €." },
+    ],
+  },
+  {
+    // 28/09/2026 — «empresas extranjería» (Matthias: palabras clave donde no aparecíamos). Lo
+    // que se busca son despachos que llevan la extranjería de una empresa. Todo lo que se
+    // afirma existe en el producto: cliente-empresa (08-18/09), expediente de empresa con N
+    // trabajadores, portal de la empresa y enlace por trabajador (21/09), documentos de la
+    // empresa (25/09). Captura: los componentes REALES de la ficha (sección «Empresa»), con
+    // datos ficticios, en una página temporal (como las demás, 1600 px de ancho).
+    grupo: "funciones", slug: "extranjeria-para-empresas",
+    tarjeta: "Extranjería para empresas",
+    titulo: "Extranjería para empresas: un expediente por trabajador | Aproba",
+    descripcion: "Extranjería para empresas con Aproba: la empresa encarga, firma la hoja de encargo y paga; cada trabajador lleva su expediente, su mandato y su enlace.",
+    h1: "Extranjería para empresas: la empresa encarga, cada trabajador tiene su expediente",
+    entradilla: "Cuando el cliente del despacho es una empresa que contrata a trabajadores extranjeros, hay dos papeles distintos: quien encarga y paga, y quien es representado. Aproba los separa sin que tengas que pensarlo, y lleva un lote de trabajadores como un solo expediente.",
+    actualizado: "2026-09-28",
+    captura: { w: 1600, h: 1336, alt: "Sección «Empresa» de un expediente: la empresa contratante con su CIF y su contacto, y tres trabajadores con su enlace, su mandato en PDF y si ya se presentó", pie: "Un expediente de empresa: la empresa contrata y firma la hoja de encargo; cada trabajador tiene su enlace, su mandato y su fecha de presentación." },
+    significa: [
+      { t: "ul", items: [
+        "**La empresa encarga y paga.** La hoja de encargo, el presupuesto y las facturas salen a nombre de la empresa, con su CIF y su domicilio fiscal. El trabajador no recibe ninguna factura.",
+        "**Cada trabajador es titular de lo suyo.** Sus documentos, sus formularios EX, su tasa y su mandato van a su nombre: es a él a quien se representa.",
+        "**Un expediente para todo el lote.** Se abre con los datos de la empresa y los trabajadores se añaden después, desde la ficha o desde el portal de la empresa; el precio se multiplica por trabajador.",
+        "**El portal de la empresa.** Con un solo enlace, la empresa completa sus datos fiscales y los de cada trabajador, firma la hoja de encargo y sube la documentación, una sección por trabajador. Cada trabajador puede recibir además su propio enlace, que solo le enseña sus documentos y su mandato.",
+        "**Todos los documentos de la empresa, en su ficha.** CIF, escrituras, poderes y los documentos de cada trabajador, con búsqueda, vista previa y descarga en ZIP.",
+        "**Renovaciones por trabajador.** Al cerrar el expediente, cada trabajador queda con su propio vencimiento vigilado.",
+      ] },
+    ],
+    afirmamos: [
+      { t: "ul", items: [
+        "**Nació de un despacho que lleva extranjería de empresas.** Cada regla —quién firma la hoja, quién el mandato, a nombre de quién sale la factura— salió de sus peticiones y está cubierta por pruebas automáticas en cada versión.",
+        "**La factura a la empresa, comprobable.** Cada factura guarda el CIF y el domicilio fiscal de la empresa del momento en que se emitió, aunque su ficha cambie después; con VeriFactu activado, se registra además en la AEAT.",
+      ] },
+    ],
+    limites: [
+      { t: "ul", items: [
+        "**No es un programa de recursos humanos** ni de nóminas: lleva el expediente de extranjería de cada trabajador, no su relación laboral.",
+        "**Aproba no presenta por ti.** La presentación en Mercurio y la firma con tu certificado siguen siendo tuyas ([cómo se presenta](/articulos/mercurio-extranjeria-presentar-paso-a-paso)).",
+      ] },
+    ],
+    faq: [
+      { q: "¿A nombre de quién sale la factura?", a: "De la empresa, con su CIF y su domicilio fiscal. El trabajador no recibe facturas, aunque el expediente sea suyo." },
+      { q: "¿Quién firma la hoja de encargo y quién el mandato?", a: "La hoja de encargo, la empresa, que es quien encarga el trabajo. El mandato, cada trabajador el suyo, porque es a él a quien se representa." },
+      { q: "¿Se puede añadir un trabajador más tarde?", a: "Sí: se añade al expediente de la empresa desde la ficha o desde el portal de la empresa, y el precio se ajusta por trabajador." },
+      { q: "¿La empresa ve los documentos de todos sus trabajadores?", a: "En su portal, sí: una sección por trabajador. El enlace individual de cada trabajador, en cambio, solo muestra lo suyo." },
     ],
   },
 

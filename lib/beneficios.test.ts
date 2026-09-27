@@ -14,9 +14,10 @@ describe("beneficios de la portada", () => {
       expect(() => rutaDeTarjeta(t)).not.toThrow();
     }
   });
-  it("14 páginas, rutas únicas, títulos ≤ 65 y descripciones ≤ 160", () => {
-    expect(BENEFICIOS).toHaveLength(14);
-    expect(new Set(BENEFICIOS.map(rutaDe)).size).toBe(14);
+  it("15 páginas, rutas únicas, títulos ≤ 65 y descripciones ≤ 160", () => {
+    // 28/09/2026: + /funciones/extranjeria-para-empresas.
+    expect(BENEFICIOS).toHaveLength(15);
+    expect(new Set(BENEFICIOS.map(rutaDe)).size).toBe(15);
     for (const b of BENEFICIOS) {
       expect(b.titulo.length, b.slug).toBeLessThanOrEqual(65);
       expect(b.descripcion.length, b.slug).toBeLessThanOrEqual(160);
