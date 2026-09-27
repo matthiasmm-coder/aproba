@@ -346,7 +346,7 @@ export default function Landing() {
             <span aria-hidden="true" className="absolute inset-x-0 top-0 z-10 h-[3px] bg-gradient-to-r from-aproba-300 via-aproba-600 to-aproba-300" />
             <svg aria-hidden="true" className="pointer-events-none absolute -right-7 -top-12 h-36 w-36 text-aproba-50 sm:-right-6 sm:-top-14 sm:h-48 sm:w-48" viewBox="0 0 24 24" fill="currentColor"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
             <svg aria-hidden="true" className="relative h-8 w-8 text-aproba-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
-            <blockquote className="relative mt-5 text-[21px] font-medium leading-[1.5] tracking-[-0.015em] text-slate-900 sm:text-[27px] sm:leading-[1.42]">
+            <blockquote className="relative mt-5 text-[16.8px] font-medium leading-[1.5] tracking-[-0.01em] text-slate-900 sm:text-[21.6px] sm:leading-[1.45]">
               Realmente me está funcionando muy bien. Mi idea es que{" "}
               <span className="bg-[linear-gradient(transparent_62%,#D1FAE5_62%)] [-webkit-box-decoration-break:clone] [box-decoration-break:clone]">prácticamente todos los asuntos que entren en la gestoría</span>{" "}
               se gestionen desde Aproba.
