@@ -314,6 +314,31 @@ export default function Landing() {
               <VideoDemo />
             </div>
           </Reveal>
+
+          {/* Testimonio — Juan Santiago Prado Telles (Gestoría Valencia), cliente desde julio
+              de 2026. Texto y firma VALIDADOS por él el 27/09/2026 (resumen de su email, con
+              su consentimiento escrito). Justo bajo el vídeo: lo que acabas de ver, dicho por
+              un gestor colegiado que lo usa. Tarjeta «carta»: hilo de color, comillas al fondo,
+              la frase clave subrayada. Solo texto y SVG: nada que cargar. */}
+          <Reveal className="mt-16">
+            <figure className="relative mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white px-7 pb-8 pt-10 text-left shadow-float ring-1 ring-slate-900/[0.06] sm:px-12 sm:pb-10 sm:pt-12">
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 z-10 h-[3px] bg-gradient-to-r from-aproba-300 via-aproba-600 to-aproba-300" />
+              <svg aria-hidden="true" className="pointer-events-none absolute -right-7 -top-12 h-36 w-36 text-aproba-50 sm:-right-6 sm:-top-14 sm:h-48 sm:w-48" viewBox="0 0 24 24" fill="currentColor"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
+              <svg aria-hidden="true" className="relative h-8 w-8 text-aproba-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
+              <blockquote className="relative mt-5 text-[21px] font-medium leading-[1.5] tracking-[-0.015em] text-slate-900 sm:text-[27px] sm:leading-[1.42]">
+                Realmente me está funcionando muy bien. Mi idea es que{" "}
+                <span className="bg-[linear-gradient(transparent_62%,#D1FAE5_62%)] [-webkit-box-decoration-break:clone] [box-decoration-break:clone]">prácticamente todos los asuntos que entren en la gestoría</span>{" "}
+                se gestionen desde Aproba.
+              </blockquote>
+              <figcaption className="relative mt-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-slate-100 pt-6">
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold text-slate-900">Juan Santiago Prado Telles</span>
+                  <span className="mt-0.5 block text-sm leading-snug text-slate-500">Gestor Administrativo · Iltre. Colegio de Gestores Administrativos de Valencia</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-aproba-50 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-aproba-700 ring-1 ring-inset ring-aproba-200">Col. nº 2387</span>
+              </figcaption>
+            </figure>
+          </Reveal>
         </div>
       </section>
 
@@ -389,26 +414,6 @@ export default function Landing() {
             <Link href="/legal/dpa" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">DPA</Link>.
           </p>
         </div>
-      </section>
-
-      {/* Testimonio — Juan Santiago Prado Telles (Gestoría Valencia), cliente desde julio de
-          2026. Texto y firma VALIDADOS por él el 27/09/2026: resumen de su email, con su
-          consentimiento escrito para publicarlo. Justo antes de los precios: la prueba de un
-          colega pesa donde se decide. Solo texto (nada que cargar: el LCP no se toca). */}
-      <section className="border-t border-aproba-200 bg-aproba-50 py-16 md:py-20">
-        <Reveal className="mx-auto max-w-3xl px-6 text-center">
-          <figure>
-            <svg className="mx-auto h-9 w-9 text-aproba-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.6 5.5C6 7 3.8 10 3.8 13.9c0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L9.6 5.5Zm9.4 0c-3.6 1.5-5.8 4.5-5.8 8.4 0 2.9 1.8 4.6 4 4.6 2 0 3.5-1.5 3.5-3.4 0-1.9-1.3-3.2-3-3.2-.4 0-.8.1-1 .2.5-1.9 2-3.6 4-4.6L19 5.5Z" /></svg>
-            <blockquote className="mt-5 text-xl font-semibold leading-snug tracking-tightest text-slate-900 sm:text-2xl md:text-[28px]">
-              «Realmente me está funcionando muy bien. Mi idea es que prácticamente todos los asuntos que entren en la gestoría se gestionen desde Aproba.»
-            </blockquote>
-            <figcaption className="mt-7">
-              <span className="block font-semibold text-slate-900">Juan Santiago Prado Telles</span>
-              <span className="mt-0.5 block text-sm text-slate-600">Gestor Administrativo – Col. nº 2387</span>
-              <span className="block text-sm text-slate-600">Iltre. Colegio de Gestores Administrativos de Valencia</span>
-            </figcaption>
-          </figure>
-        </Reveal>
       </section>
 
       {/* Precios */}
