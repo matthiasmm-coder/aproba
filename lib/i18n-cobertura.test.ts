@@ -36,7 +36,11 @@ describe("catalán · cobertura de la app gestor", () => {
       const s = readFileSync(f, "utf8");
       // Perímetro: el t() del app gestor — no el del portal cliente (portal-i18n).
       if (!s.includes("lang-provider") && !s.includes("app-lang")) continue;
-      for (const m of s.matchAll(/\bt\(([^()]{1,400}?)\)/g)) {
+      // Argumentos de t(…) hasta el ")" que la cierra: literales "…" (pueden llevar
+      // paréntesis, p. ej. «Suplidos (sin IVA)») o caracteres que no son paréntesis ni
+      // comillas. El patrón anterior, [^()], se saltaba en silencio toda cadena con
+      // paréntesis: 61 claves sin catalán el 28/09/2026. Una llamada anidada sigue fuera.
+      for (const m of s.matchAll(/\bt\(((?:"(?:[^"\\\n]|\\.)*"|[^()"]){1,400})\)/g)) {
         for (const lit of m[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
           // El regex lee el FUENTE: «\n» son dos caracteres. En el objeto CA importado
           // son un salto de línea real — se desescapa antes de comparar.
