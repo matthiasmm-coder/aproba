@@ -675,6 +675,8 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   // «Residencia ciudadano UE» = tarjeta de FAMILIAR de ciudadano UE (EX-19) antes que el
   // registro del propio ciudadano (EX-18): así lo describe el servicio del catálogo.
   residencia_ue: ["EX-19", "EX-18"],
+  // Familiar de persona con nacionalidad española (RD 1155/2024): EX-24, inicial y renovación.
+  familiar_espanol: ["EX-24"],
   autorizacion_regreso: ["EX-13"], regreso: ["EX-13"],
   brexit: ["EX-23", "EX-20", "EX-21", "EX-22"],
   modificacion: ["EX-26"],

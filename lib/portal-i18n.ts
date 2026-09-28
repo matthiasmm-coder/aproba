@@ -705,6 +705,10 @@ export const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
     label: { es: "Nacionalidad española", en: "Spanish nationality", fr: "Nationalité espagnole", it: "Cittadinanza spagnola", de: "Spanische Staatsbürgerschaft" },
     desc: { es: "Solicitar la nacionalidad", en: "Apply for nationality", fr: "Demander la nationalité", it: "Richiedere la cittadinanza", de: "Staatsbürgerschaft beantragen" },
   },
+  familiar_espanol: {
+    label: { es: "Familiar de ciudadano español", en: "Family member of a Spanish citizen", fr: "Membre de la famille d'un citoyen espagnol", it: "Familiare di cittadino spagnolo", de: "Angehörige spanischer Staatsbürger" },
+    desc: { es: "Residencia como familiar de una persona española", en: "Residence as the family member of a Spanish citizen", fr: "Titre de séjour comme membre de la famille d'un Espagnol", it: "Residenza come familiare di un cittadino spagnolo", de: "Aufenthalt als Angehörige einer spanischen Person" },
+  },
   arraigo_laboral: {
     label: { es: "Arraigo laboral", en: "Work roots (arraigo laboral)", fr: "Arraigo laboral", it: "Arraigo laboral", de: "Arraigo laboral" },
     desc: { es: "Residencia por arraigo laboral", en: "Residence by work roots", fr: "Titre de séjour pour ancrage professionnel", it: "Permesso per radicamento lavorativo", de: "Aufenthalt durch berufliche Verwurzelung" },

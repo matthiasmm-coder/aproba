@@ -84,12 +84,20 @@ export function fmtPct(v: number): string {
 
 export const STORAGE_KEY = "aproba.servicios.v1";
 
-// Catalogue par défaut. Les 4 premiers actifs ; les autres proposés à activer.
+// Catalogue par défaut. Les 5 premiers actifs ; les autres proposés à activer.
 export const DEFAULT_SERVICIOS: Servicio[] = [
   { id: "arraigo_social", label: "Arraigo social", desc: "Residencia por arraigo", active: true, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Certificado de empadronamiento", "Contrato de trabajo", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" , categoria: "Arraigo" },
   { id: "renovacion_tie", label: "Renovación de TIE", desc: "Renovar tu tarjeta de residencia", active: true, precio: 180, anticipo: 80, resto: 100, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
   { id: "reagrupacion", label: "Reagrupación familiar", desc: "Traer a tu familia", active: true, precio: 420, anticipo: 200, resto: 220, docs: ["Pasaporte", "Libro de familia", "Justificante de vivienda", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" , categoria: "Familia" },
   { id: "nacionalidad", label: "Nacionalidad española", desc: "Solicitar la nacionalidad", active: true, precio: 600, anticipo: 300, resto: 300, docs: ["Pasaporte", "Certificado de nacimiento", "Certificado de empadronamiento", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" , categoria: "Nacionalidad" },
+  // Familiar de persona con nacionalidad española (RD 1155/2024, arts. 93-98; Hoja 18 del
+  // Ministerio): modelo EX-24, también para renovar. El procedimiento es GRATUITO (sin
+  // 790-052); la TIE posterior lleva la 790-012. El 28/09/2026, los cuatro despachos que lo
+  // tramitaban se habían creado su propio servicio porque el catálogo no lo traía: va
+  // activo por defecto. Documentos de la Hoja 18 (ni empadronamiento ni medios económicos).
+  // «DNI del familiar español» no dice «pasaporte» a propósito: dedupDocs lo fundiría con
+  // el pasaporte del solicitante.
+  { id: "familiar_espanol", label: "Familiar de ciudadano español", desc: "Residencia como familiar de una persona española", active: true, precio: 300, anticipo: 150, resto: 150, docs: ["Pasaporte", "DNI del familiar español", "Justificante del vínculo familiar", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" , categoria: "Familia" },
   { id: "arraigo_laboral", label: "Arraigo laboral", desc: "Residencia por arraigo laboral", active: false, precio: 350, anticipo: 150, resto: 200, docs: ["Pasaporte", "Informe de vida laboral", "Certificado de empadronamiento", "Antecedentes penales"], citaPresencial: true, citaQuien: "cliente" , categoria: "Arraigo" },
   { id: "larga_duracion", label: "Residencia de larga duración", desc: "Residencia permanente", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["TIE actual", "Certificado de empadronamiento", "Justificante de medios económicos"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
   { id: "nie", label: "Asignación de NIE", desc: "Obtener tu número de identidad", active: false, precio: 90, anticipo: 90, resto: 0, docs: ["Pasaporte"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
@@ -105,6 +113,20 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
   // de Extranjería, y lleva sus propios modelos (MI-T, MI-TIE, MI-F) y la tasa 790-038.
   { id: "movilidad_internacional", label: "Movilidad internacional (Ley 14/2013)", desc: "Inversores, emprendedores, profesionales altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte", "Titulación o experiencia profesional", "Contrato, proyecto empresarial o justificación de la inversión", "Seguro médico", "Antecedentes penales"], citaPresencial: false, citaQuien: "cliente" , categoria: "Trabajo" },
 ];
+
+// Un servicio PROPIO del despacho (srv_…) cuyo nombre designa sin duda un trámite del
+// catálogo se trata como ese trámite al proponer modelos y tasas (el gestor puede quitarlos).
+// 28/09/2026: los despachos que llevan familiares de españoles se habían creado el suyo
+// («Familiar Español», «Residencia de familiar de ciudadano español»…) y su pantalla
+// Formularios nacía vacía. Solo reglas inequívocas: ante la duda (modificación, comunitario,
+// arraigo…), se queda la clave propia y no se propone nada.
+export function claveDelCatalogo(clave?: string | null, label?: string | null): string | null {
+  if (!clave || !clave.startsWith("srv_") || !label) return clave ?? null;
+  const n = label.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  if (/\bfamiliar(es)?\b/.test(n) && /\bespanol(a|es|as)?\b/.test(n)
+    && !/comunitari|\bue\b|\bunion\b|europe|modificacion|reagrupacion|arraigo|^nacionalidad/.test(n)) return "familiar_espanol";
+  return clave;
+}
 
 // Garantit que chaque service a anticipo/resto/precio cohérents, même si la config
 // a été persistée avant l'ajout du fractionnement du paiement. Invariant : precio = anticipo + resto.

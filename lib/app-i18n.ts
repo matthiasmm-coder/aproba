@@ -1266,6 +1266,9 @@ export const CA: Record<string, string> = {
   "Justificante de vivienda": "Justificant d'habitatge",
   "Justificante del nuevo supuesto": "Justificant del nou supòsit",
   "Justificante del vínculo familiar": "Justificant del vincle familiar",
+  "DNI del familiar español": "DNI del familiar espanyol",
+  "Familiar de ciudadano español": "Familiar de ciutadà espanyol",
+  "Residencia como familiar de una persona española": "Residència com a familiar d'una persona espanyola",
   "Hoja de encargo firmada": "Full d'encàrrec signat",
   "Mandato de representación firmado": "Mandat de representació signat",
 

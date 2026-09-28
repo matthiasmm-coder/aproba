@@ -24,6 +24,7 @@ export const TEMA_POR_CLAVE: Record<string, string> = {
   brexit: "Residencia",
   modificacion: "Residencia",
   reagrupacion: "Familia",
+  familiar_espanol: "Familia",
   nacionalidad: "Nacionalidad",
   movilidad_internacional: "Trabajo",
 };

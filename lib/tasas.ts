@@ -30,6 +30,10 @@ const SERVICIO_TASAS: Record<string, string[]> = {
   cuenta_ajena: ["790-052", "790-062"], cuenta_propia: ["790-052", "790-062"], temporada: ["790-052", "790-062"],
   // Ley 14/2013: su tasa es la 790-038, que no generamos → nada por defecto.
   movilidad_internacional: [], ley_14_2013: [], nomada_digital: [], teletrabajador: [],
+  // Familiar de persona con nacionalidad española: el procedimiento es GRATUITO (Hoja 18,
+  // RD 1155/2024) → sin 790-052. La 790-012 de la TIE llega después y se añade con el
+  // selector, como en el arraigo.
+  familiar_espanol: [],
 };
 
 // Repli por tipo de trámite (enum) cuando la clave del servicio no dice nada.

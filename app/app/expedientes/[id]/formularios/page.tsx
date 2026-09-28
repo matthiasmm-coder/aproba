@@ -10,14 +10,34 @@ import { camposQueFaltan, FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { fetchPresentador, fetchPresentaGestor, fetchTasasCuradas } from "@/lib/data/presentador";
 import { tasasDelTramite } from "@/lib/tasas";
 import { fetchTasasGeneradas } from "@/lib/data/tasas";
+import { claveDelCatalogo } from "@/lib/servicios";
+
+// Nombre del servicio PROPIO del despacho (srv_…): con él, claveDelCatalogo reconoce un
+// trámite del catálogo («Familiar Español» → familiar_espanol → EX-24). Nunca rompe la
+// página: sin nombre, se queda la clave propia, como antes.
+async function claveEquivalente(clave: string | null): Promise<string | null> {
+  if (!clave?.startsWith("srv_")) return clave;
+  try {
+    const sb = await createSupabaseServer();
+    const { data } = await sb.from("ServicioConfig").select("label").eq("clave", clave).limit(1).maybeSingle();
+    return claveDelCatalogo(clave, (data as { label?: string | null } | null)?.label);
+  } catch {
+    return clave;
+  }
+}
 
 export default async function FormulariosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const exp = await fetchExpedienteDetalle(id);
   if (!exp) notFound();
 
+  // Servicio propio con nombre de trámite del catálogo: se proponen los modelos y las tasas
+  // de ese trámite (28/09/2026, los «Familiar Español» de los despachos salían sin EX-24).
+  const principal = await claveEquivalente(exp.servicioClave);
+  const equivalente = (c: string) => (c === exp.servicioClave ? principal ?? c : c);
+
   // Multi-servicio: unión de los modelos del principal + extras.
-  const oficiales = formulariosDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]);
+  const oficiales = formulariosDelTramite(exp.tipoEnum, [principal, ...exp.serviciosExtra]);
   // Expediente familiar: un juego de formularios por solicitante (rellenado con sus datos).
   // p2Inicial: casilla p.2 forzada previamente (persistida) para inicializar el selector.
   const [applicants, p2Inicial] = await Promise.all([
@@ -42,7 +62,7 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
       : [exp.servicioClave, ...exp.serviciosExtra];
     // Cada clave resuelve con SU tipo (no el del expediente): si no, el miembro de la
     // renovación heredaría los EX del arraigo por el repli del slot principal.
-    const modelos = [...new Set((claves.filter(Boolean) as string[]).flatMap((c) => formulariosDelTramite(SERVICIO_A_TIPO[c] ?? exp.tipoEnum, [c])))];
+    const modelos = [...new Set((claves.filter(Boolean) as string[]).map(equivalente).flatMap((c) => formulariosDelTramite(SERVICIO_A_TIPO[c] ?? exp.tipoEnum, [c])))];
     return [a.id, exp.formulariosPorMiembro?.[a.id] ?? (exp.formulariosCurados ? modelos.filter((m) => iniciales.includes(m)) : modelos)];
   }));
 
@@ -74,7 +94,7 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
   // Sin curación: las del servicio MÁS las que este expediente ya generó — un botón que
   // el gestor venía usando no puede desaparecer porque el servicio no lo prediga.
   const tasasIniciales = curadas ?? [...new Set([
-    ...tasasDelTramite(exp.tipoEnum, [exp.servicioClave, ...exp.serviciosExtra]),
+    ...tasasDelTramite(exp.tipoEnum, [principal, ...exp.serviciosExtra]),
     ...(await fetchTasasGeneradas(id, exp.tasaPath).catch(() => [])),
   ])];
   const presentador = await fetchPresentador(sb, exp.oficinaId).catch(() => null);
