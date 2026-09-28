@@ -378,10 +378,13 @@ class Maqueta {
   fila(label: string, valor: string) {
     const size = 9.5;
     const lh = 13;
+    // La etiqueta se parte dentro de su columna (140 de 150 pt): un concepto de suplido
+    // largo («Tasa 790-052 · Autorizaciones de residencia») pisaba el importe en negrita.
+    const labs = this.lineas(label, 8, this.font, 140);
     const lns = this.lineas(valor, size, this.bold, ANCHO - 150); // lineas() ya limpia
-    const alto = Math.max(15.5, lns.length * lh);
+    const alto = Math.max(15.5, lns.length * lh, labs.length * 10 + 5.5);
     this.necesita(alto);
-    this.page.drawText(limpiar(label), { x: MARGEN, y: this.y - size, size: 8, font: this.font, color: GRIS });
+    labs.forEach((ln, i) => this.page.drawText(ln, { x: MARGEN, y: this.y - size - i * 10, size: 8, font: this.font, color: GRIS }));
     lns.forEach((ln, i) => this.page.drawText(ln, { x: MARGEN + 150, y: this.y - size - i * lh, size, font: this.bold, color: TINTA }));
     this.y -= alto;
   }

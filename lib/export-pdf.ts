@@ -117,7 +117,9 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
   totLine("Base imponible", eur(base));
   totLine(`IVA (${Math.round(IVA * 100)} %)`, eur(iva));
   if (suplidosTotal > 0) totLine("Suplidos (sin IVA)", eur(suplidosTotal));
-  line(xBase - 10, W - M, y + 6, 0.5); totLine("TOTAL", eur(total), true);
+  // La raya va en el hueco entre la línea anterior y TOTAL (a y + 6 cruzaba las mayúsculas
+  // de «TOTAL», que parecía tachado): 7 pt bajo la línea anterior, ~6 pt sobre TOTAL.
+  y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine("TOTAL", eur(total), true);
 
   if (f.notas) {
     saltoSi(); y -= 12; text("Notas", M, 8, bold, grey); y -= 14;

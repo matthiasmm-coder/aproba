@@ -77,7 +77,7 @@ export function partirDomicilio(domicilio: string): { calle: string; numero: str
   if (cpM && cpM.index !== undefined) {
     cp = cpM[1];
     antes = s.slice(0, cpM.index);
-    localidad = s.slice(cpM.index + cp.length).replace(/^[\s,.\-–—()]+/, "").replace(/[\s,.\-–—]+$/, "").trim();
+    localidad = s.slice(cpM.index + cp.length).replace(/^[\s,.·\-–—()]+/, "").replace(/[\s,.·\-–—]+$/, "").trim();
   } else {
     const partes = s.split(",").map((p) => p.trim()).filter(Boolean);
     if (partes.length > 1 && !/\d/.test(partes[partes.length - 1])) {
@@ -85,7 +85,9 @@ export function partirDomicilio(domicilio: string): { calle: string; numero: str
       antes = partes.join(", ");
     }
   }
-  antes = antes.replace(/[\s,.\-–—]*\b(c\.?\s?p\.?)\s*$/i, "").replace(/[\s,.\-–—]+$/, "").trim();
+  // «·» (U+00B7): el formato «calle nº, piso · CP localidad» de presentador.ts; sin él, la
+  // casilla «nº» del mandato del Consejo salía «312, 2º 1ª ·».
+  antes = antes.replace(/[\s,.·\-–—]*\b(c\.?\s?p\.?)\s*$/i, "").replace(/[\s,.·\-–—]+$/, "").trim();
   const m = antes.match(/^(.+?)[\s,]+(?:n[º°o]\.?\s*)?(\d.*)$/i);
   return m
     ? { calle: m[1].replace(/[\s,]+$/, ""), numero: m[2].trim(), cp, localidad }

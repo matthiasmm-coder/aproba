@@ -58,6 +58,10 @@ describe("mandato del Consejo · casillas", () => {
     expect(partirDomicilio("C/ Mayor, nº 12, 3º B, 28013 Madrid")).toEqual({ calle: "C/ Mayor", numero: "12, 3º B", cp: "28013", localidad: "Madrid" });
     expect(partirDomicilio("Plaza Sin Número, Sabadell")).toEqual({ calle: "Plaza Sin Número", numero: "", cp: "", localidad: "Sabadell" });
     expect(partirDomicilio("")).toEqual({ calle: "", numero: "", cp: "", localidad: "" });
+    // Formato «· CP localidad» (el canónico de lib/presentador.ts): el «·» no se cuela en la
+    // casilla «nº» (n_2), que salía «312, 2º 1ª ·» (render del 28/09/2026).
+    expect(partirDomicilio("C/ Consell de Cent 312, 2º 1ª · 08007 Barcelona")).toEqual({ calle: "C/ Consell de Cent", numero: "312, 2º 1ª", cp: "08007", localidad: "Barcelona" });
+    expect(partirDomicilio("Rambla de Catalunya 45 · CP 08007 · Barcelona ·")).toEqual({ calle: "Rambla de Catalunya", numero: "45", cp: "08007", localidad: "Barcelona" });
   });
 
   it("el Colegio, solo su territorio", () => {
@@ -88,6 +92,16 @@ describe("mandato del Consejo · casillas", () => {
     expect(nac).not.toHaveProperty("Administrativos de");
     expect(nac).not.toHaveProperty("n0001");
     expect(nac.n).toBe("Calle Luna 12, 3º B"); // sin casilla de nº en el de nacionalidad
+  });
+
+  it("despacho con «· CP localidad»: la casilla «nº» (n_2) sin el «·»", () => {
+    const ex = camposMandatoConsejo("extranjeria", {
+      mandante: { nombre: "Li", apellidos: "Wei", nie: "", pasaporte: "E1234567", domicilio: "", municipio: "", cp: "", telefono: "", email: "" },
+      mandatario: { nombre: "G", dni: "", colegiado: "", colegio: "" },
+      despachoNombre: "",
+      despachoDomicilio: "C/ Consell de Cent 312, 2º 1ª · 08007 Barcelona",
+    });
+    expect(ex).toMatchObject({ "calle": "C/ Consell de Cent", "n_2": "312, 2º 1ª", "CP_2": "08007", "con domicilio en": "Barcelona", "En": "Barcelona" });
   });
 
   it("sin calle desglosada, el domicilio entero va a la calle", () => {
