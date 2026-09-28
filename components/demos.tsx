@@ -658,7 +658,7 @@ export function HowItWorks() {
         <div className="text-center">
           <span className="text-sm font-semibold text-aproba-700">Cómo funciona</span>
           <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Tu cliente sube. Tú ya lo tienes validado.</h2>
-          <p className="mx-auto mt-3 max-w-xl text-slate-600">Un enlace por WhatsApp de un lado, tu expediente listo del otro. En tiempo real.</p>
+          <p className="mx-auto mt-3 max-w-xl text-slate-600">Un enlace por WhatsApp de un lado, tu expediente listo del otro.</p>
         </div>
 
         <div className="mt-14 grid items-start gap-10 lg:grid-cols-2">

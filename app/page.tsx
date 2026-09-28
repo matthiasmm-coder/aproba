@@ -300,7 +300,7 @@ export default function Landing() {
         <div className="mx-auto max-w-4xl px-6 text-center">
           <span className="text-sm font-semibold text-aproba-700">En acción</span>
           <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 80 segundos</h2>
-          <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento del cliente a la presentación del expediente, sin teclear un solo formulario.</p>
+          <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento a la presentación, sin teclear un solo formulario.</p>
           <Reveal className="mt-10">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-float">
               <VideoDemo />
@@ -358,7 +358,7 @@ export default function Landing() {
       {/* Funciones / módulos */}
       <section id="funciones" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
         <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Todo el expediente, en un sitio</h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Desde que el cliente sube el primer documento hasta la presentación en sede electrónica.</p>
+        <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Desde el primer documento del cliente hasta la sede electrónica.</p>
         <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
             <Reveal key={m.titulo} delay={(i % 3) * 90}>
