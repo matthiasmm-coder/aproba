@@ -1269,6 +1269,11 @@ export const CA: Record<string, string> = {
   "DNI del familiar español": "DNI del familiar espanyol",
   "Familiar de ciudadano español": "Familiar de ciutadà espanyol",
   "Residencia como familiar de una persona española": "Residència com a familiar d'una persona espanyola",
+  // Novedades dirigidas (lib/novedades.ts · components/novedad-despacho.tsx)
+  "Novedad": "Novetat",
+  "Tu trámite de familiar de ciudadano español ya trae su EX-24": "El teu tràmit de familiar de ciutadà espanyol ja porta el seu EX-24",
+  "Lo hemos añadido al catálogo: en tu expediente EXP-2026-0001, la pantalla Formularios te propone el EX-24 relleno con los datos de tu cliente.": "L'hem afegit al catàleg: al teu expedient EXP-2026-0001, la pantalla Formularis et proposa l'EX-24 emplenat amb les dades del teu client.",
+  "Ver el EX-24": "Veure l'EX-24",
   "Hoja de encargo firmada": "Full d'encàrrec signat",
   "Mandato de representación firmado": "Mandat de representació signat",
 

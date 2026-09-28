@@ -13,6 +13,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
 import { getLang, getT } from "@/lib/app-lang";
 import { CampanaAlertas } from "@/components/campana-alertas";
+import { NovedadDespacho } from "@/components/novedad-despacho";
+import { novedadesDe } from "@/lib/novedades";
 
 // Session + workspace réels (Supabase). Fallback mock le temps de la migration.
 // Renvoie "SIN_WORKSPACE" si l'utilisateur est authentifié mais sans appartenance
@@ -26,15 +28,15 @@ async function getContexto() {
     const perfilP = supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle();
     // Défensif : si la colonne modoPrueba n'existe pas encore (migration pas appliquée),
     // on réessaie sans elle → l'app ne casse jamais (le testeur degrade en essai normal).
-    let memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, stripeSubscriptionId, trialEndsAt, modoPrueba))").limit(1).maybeSingle();
+    let memRes = await supabase.from("Membership").select("Workspace(id, nombre, Subscription(plan, estado, stripeCustomerId, stripeSubscriptionId, trialEndsAt, modoPrueba))").limit(1).maybeSingle();
     if (memRes.error) {
-      memRes = await supabase.from("Membership").select("Workspace(nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt))").limit(1).maybeSingle();
+      memRes = await supabase.from("Membership").select("Workspace(id, nombre, Subscription(plan, estado, stripeCustomerId, trialEndsAt))").limit(1).maybeSingle();
     }
     const mem = memRes.data;
     const { data: perfil } = await perfilP;
     if (!mem) return "SIN_WORKSPACE" as const;
     type SubInfo = { plan?: string; estado?: string; stripeCustomerId?: string | null; stripeSubscriptionId?: string | null; trialEndsAt?: string | null; modoPrueba?: boolean | null };
-    const ws = (mem as { Workspace?: { nombre?: string; Subscription?: SubInfo | SubInfo[] } } | null)?.Workspace;
+    const ws = (mem as { Workspace?: { id?: string; nombre?: string; Subscription?: SubInfo | SubInfo[] } } | null)?.Workspace;
     // PostgREST renvoie la relation 1-1 Subscription comme tableau (créée via index unique).
     const subRaw = ws?.Subscription;
     const sub = Array.isArray(subRaw) ? subRaw[0] : subRaw;
@@ -68,6 +70,7 @@ async function getContexto() {
       iniciales: nombre.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase(),
       avatarUrl: (perfil as { avatarUrl?: string | null } | null)?.avatarUrl ?? null,
       workspace: ws?.nombre ?? "Mi despacho",
+      workspaceId: ws?.id ?? null,
       plan: plan ? plan.charAt(0) + plan.slice(1).toLowerCase() : "Starter",
     };
   } catch {
@@ -86,6 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     iniciales: "··",
     avatarUrl: null,
     workspace: "Mi despacho",
+    workspaceId: null,
     plan: "Starter",
   };
   const lang = await getLang();
@@ -132,7 +136,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
         </header>
-        <main className="p-4 pb-24 sm:p-6 md:pb-6 print:p-0">{children}</main>
+        <main className="p-4 pb-24 sm:p-6 md:pb-6 print:p-0">
+          {/* Novedad dirigida a UN despacho (lib/novedades.ts); a los demás no les sale nada. */}
+          {novedadesDe(ctx.workspaceId).map((n) => <NovedadDespacho key={n.id} novedad={n} />)}
+          {children}
+        </main>
       </div>
 
       {/* Guía interactiva de activación (un paso a la vez, sobre el elemento real) */}
