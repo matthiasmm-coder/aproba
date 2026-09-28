@@ -56,6 +56,45 @@ describe("factura PDF · raya del TOTAL", () => {
   });
 });
 
+describe("factura PDF · conceptos partidos por ancho", () => {
+  // Antes se partía cada 60 caracteres (líneas) o nada (suplidos): en mayúsculas o con el
+  // «servicio: concepto» del multi-servicio, el texto pisaba BASE o «No sujeto».
+  const M = 50, W = 595.28;
+  const concepto = "RENOVACIÓN DE AUTORIZACIÓN DE RESIDENCIA Y TRABAJO POR CUENTA AJENA CON TRAMITACIÓN COMPLETA";
+  const suplido = "Residencia por arraigo (Aicha Diallo, Moussa Diallo): Tasa 790-052 · Autorizaciones de residencia (x2)";
+  const notas = "OBSERVACIONES: " + "HONORARIOS DEVENGADOS POR LA TRAMITACIÓN DEL EXPEDIENTE ANTE LA OFICINA DE EXTRANJERÍA. ".repeat(3).trim();
+  const f = {
+    id: "f", numero: "F-2026-0043", cliente: "Aicha Diallo Díaz", concepto, base: 12345.67, estado: "EMITIDA", fecha: "28/09/2026",
+    lineas: [{ concepto, base: 12345.67 }], suplidos: [{ concepto: suplido, importe: 76.56 }], notas,
+  } as unknown as Factura;
+
+  it("líneas antes de BASE, suplidos antes de «No sujeto», notas dentro del margen, sin perder texto", async () => {
+    const helv = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    const { textos } = await geometria(await facturaToPdf(f, { nombre: "Gestoría de Carmen", nif: "B12345678" }));
+    const fin = (t: Texto) => t.x + helv.widthOfTextAtSize(t.s, t.size);
+    const cabSuplidos = textos.find((t) => t.s === "SUPLIDOS (gastos sin IVA)")!;
+    const base = textos.filter((t) => t.s.startsWith("12.345,67")).sort((a, b) => a.x - b.x)[0];
+    const noSujeto = textos.find((t) => t.s === "No sujeto")!;
+    const col = textos.filter((t) => t.x === M && t.size === 10 && !t.bold);
+    const deLinea = col.filter((t) => t.y > cabSuplidos.y), deSuplido = col.filter((t) => t.y < cabSuplidos.y);
+
+    expect(deLinea.length).toBeGreaterThan(1);
+    for (const t of deLinea) expect(fin(t), t.s).toBeLessThanOrEqual(base.x - 8 + 0.01);
+    expect(deLinea.map((t) => t.s).join(" ")).toBe(concepto);
+    expect(base.y).toBe(deLinea[0].y);
+
+    expect(deSuplido.length).toBeGreaterThan(1);
+    for (const t of deSuplido) expect(fin(t), t.s).toBeLessThanOrEqual(noSujeto.x - 8 + 0.01);
+    expect(deSuplido.map((t) => t.s).join(" ")).toBe(suplido);
+    expect(noSujeto.y).toBe(deSuplido[0].y);
+
+    const deNotas = textos.filter((t) => t.x === M && t.size === 9 && t.y < noSujeto.y && t.y > 45);
+    expect(deNotas.length).toBeGreaterThan(1);
+    for (const t of deNotas) expect(fin(t), t.s).toBeLessThanOrEqual(W - M + 0.01);
+    expect(deNotas.map((t) => t.s).join(" ")).toBe(notas);
+  });
+});
+
 describe("hoja de encargo / presupuesto · etiquetas de §5", () => {
   const MARGEN = 56, COLUMNA = 150;
   const concepto = "Tasa 790-052 · Autorizaciones de residencia";

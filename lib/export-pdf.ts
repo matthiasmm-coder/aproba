@@ -17,13 +17,25 @@ const safe = (s: string) =>
     return (n >= 0x20 && n <= 0x7e) || (n >= 0xa0 && n <= 0xff) || WIN_EXTRA.includes(c) ? c : "?";
   }).join("");
 
-function wrap(s: string, max: number): string[] {
+// Parte por ANCHO medido, no por nº de caracteres: 60 caracteres en mayúsculas llegaban a
+// x ≈ 414 y pisaban la columna BASE (un importe de 1.234,56 € empieza en 312,7). Una
+// «palabra» más ancha que la columna se trocea. Devuelve el texto ya saneado (WinAnsi).
+function partir(s: string, f: PDFFont, size: number, ancho: number): string[] {
   const out: string[] = [];
   for (const parrafo of (s ?? "").split("\n")) {
     let linea = "";
-    for (const w of parrafo.split(/\s+/)) {
-      if ((linea + " " + w).trim().length > max) { if (linea) out.push(linea); linea = w; }
-      else linea = (linea + " " + w).trim();
+    for (const bruta of parrafo.split(/\s+/).filter(Boolean)) {
+      let w = safe(bruta);
+      while (w.length > 1 && f.widthOfTextAtSize(w, size) > ancho) {
+        let n = w.length;
+        while (n > 1 && f.widthOfTextAtSize(w.slice(0, n), size) > ancho) n--;
+        if (linea) { out.push(linea); linea = ""; }
+        out.push(w.slice(0, n));
+        w = w.slice(n);
+      }
+      const t = linea ? `${linea} ${w}` : w;
+      if (f.widthOfTextAtSize(t, size) <= ancho) linea = t;
+      else { out.push(linea); linea = w; }
     }
     out.push(linea);
   }
@@ -89,7 +101,7 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
       const xq = W - M - lado;
       page.drawText(TITULO_QR, { x: xq, y: yBloqueCliente + 3, size: 7, font: bold, color: grey });
       page.drawImage(png, { x: xq, y: yBloqueCliente - lado, width: lado, height: lado });
-      const leyenda = wrap(`${LEYENDA_VERIFACTU} · VERI*FACTU`, 34);
+      const leyenda = partir(`${LEYENDA_VERIFACTU} · VERI*FACTU`, font, 6.5, lado);
       leyenda.forEach((ln, i) => page.drawText(safe(ln), { x: xq, y: yBloqueCliente - lado - 9 - i * 8, size: 6.5, font, color: slate }));
       y = Math.min(y, yBloqueCliente - lado - 9 - leyenda.length * 8 - 10);
     } catch (e) { console.error("[pdf] QR VERI*FACTU", e instanceof Error ? e.message : e); }
@@ -102,12 +114,18 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
   const xBase = 360, xIva = 445, xImp = W - M;
   text("CONCEPTO", M, 8, bold, grey); right("BASE", xBase, y, 8, bold, grey); right("IVA", xIva, y, 8, bold, grey); right("IMPORTE", xImp, y, 8, bold, grey);
   y -= 6; line(M, W - M, y, 1, slate); y -= 16;
+  // Columna CONCEPTO: hasta 8 pt antes del importe más ancho de BASE (alineado a la derecha).
+  const anchoConcepto = xBase - 8 - M - Math.max(...lineas.map((l) => font.widthOfTextAtSize(safe(eur(l.base)), 10)));
   for (const l of lineas) {
-    for (const [i, ln] of wrap(l.concepto, 60).entries()) { saltoSi(); text(ln, M, 10); if (i === 0) { right(eur(l.base), xBase, y, 10); right(`${Math.round(IVA * 100)} %`, xIva, y, 10, font, slate); right(eur(l.base), xImp, y, 10); } y -= 15; }
+    for (const [i, ln] of partir(l.concepto, font, 10, anchoConcepto).entries()) { saltoSi(); text(ln, M, 10); if (i === 0) { right(eur(l.base), xBase, y, 10); right(`${Math.round(IVA * 100)} %`, xIva, y, 10, font, slate); right(eur(l.base), xImp, y, 10); } y -= 15; }
   }
   if (suplidos.length) {
     saltoSi(); y -= 6; text("SUPLIDOS (gastos sin IVA)", M, 8, bold, grey); y -= 15;
-    for (const s of suplidos) { saltoSi(); text(s.concepto, M, 10); right("No sujeto", xIva, y, 9, font, slate); right(eur(s.importe), xImp, y, 10); y -= 15; }
+    // Sin columna BASE: el concepto llega hasta 8 pt antes de «No sujeto».
+    const anchoSuplido = xIva - 8 - M - font.widthOfTextAtSize("No sujeto", 9);
+    for (const s of suplidos) {
+      for (const [i, ln] of partir(s.concepto, font, 10, anchoSuplido).entries()) { saltoSi(); text(ln, M, 10); if (i === 0) { right("No sujeto", xIva, y, 9, font, slate); right(eur(s.importe), xImp, y, 10); } y -= 15; }
+    }
   }
 
   // Totales (juntos en la misma página)
@@ -123,7 +141,7 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
 
   if (f.notas) {
     saltoSi(); y -= 12; text("Notas", M, 8, bold, grey); y -= 14;
-    for (const ln of wrap(f.notas, 95)) { saltoSi(); text(ln, M, 9, font, slate); y -= 12; }
+    for (const ln of partir(f.notas, font, 9, W - 2 * M)) { saltoSi(); text(ln, M, 9, font, slate); y -= 12; }
   }
 
   page.drawText(safe(`Estado: ${f.estado}  ·  Generado con Aproba${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
