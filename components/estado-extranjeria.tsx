@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { ConsultarExtranjeria } from "@/components/consultar-extranjeria";
 import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
+import { NotificacionesExpediente } from "@/components/notificaciones-expediente";
 import { situacionExtranjeria } from "@/lib/extranjeria";
 import type { RequerimientoRow } from "@/lib/data/requerimientos";
+import type { NotificacionDehu } from "@/lib/notificaciones-dehu";
 import type { Salida } from "@/lib/types";
 
 export type DatosExtranjeria = {
@@ -17,6 +19,7 @@ export type DatosExtranjeria = {
   estado: string | null;        // último estado anotado (EN_TRAMITE) o null
   estadoAt: string | null;
   requerimientos: RequerimientoRow[];
+  notificaciones?: NotificacionDehu[]; // las de la DEHú vinculadas a este expediente
 };
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
@@ -128,6 +131,9 @@ export function EstadoExtranjeria({ id, datos, resuelta, ocupado, registrando, o
       <div className={datos.requerimientos.length || abrirReq ? "mt-4" : ""}>
         <RequerimientosExpediente expedienteId={id} inicial={datos.requerimientos} compacto abrirSenal={abrirReq} />
       </div>
+      {datos.notificaciones && datos.notificaciones.length > 0 && (
+        <div className="mt-4 border-t border-slate-100 pt-3"><NotificacionesExpediente items={datos.notificaciones} /></div>
+      )}
       {mensaje && <p role="alert" className="mt-3 text-xs text-red-600">{mensaje}</p>}
 
       {/* Lo secundario, discreto y en su sitio. */}

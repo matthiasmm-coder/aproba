@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
+import { fetchNotificacionesParaAlertas } from "@/lib/data/notificaciones-dehu";
 import { construirAlertas } from "@/lib/alertas";
 
 // La campana del encabezado (components/campana-alertas.tsx). Lectura BAJO SESIÓN: la RLS
@@ -13,9 +14,10 @@ export async function GET() {
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  const [reqs, vencs] = await Promise.all([
+  const [reqs, vencs, notifs] = await Promise.all([
     fetchRequerimientosPendientes().catch(() => []),
     fetchVencimientos().catch(() => []),
+    fetchNotificacionesParaAlertas().catch(() => []),
   ]);
-  return NextResponse.json({ alertas: construirAlertas(reqs, vencs) }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ alertas: construirAlertas(reqs, vencs, new Date(), notifs) }, { headers: { "Cache-Control": "no-store" } });
 }

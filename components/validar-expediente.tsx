@@ -9,6 +9,7 @@ import { normalizarEstado, type Progreso } from "@/lib/progreso";
 import { etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { setArchivadoServidor } from "@/lib/archivo";
 import { EstadoExtranjeria, type DatosExtranjeria } from "@/components/estado-extranjeria";
+import { NotificacionesExpediente } from "@/components/notificaciones-expediente";
 import { RequerimientosExpediente } from "@/components/requerimientos-expediente";
 
 // Carta de completitud Y del ciclo (flujo v4, 03/09/2026, decisiones de Matthias): una
@@ -291,6 +292,9 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
         <div className="w-full border-t border-slate-100 pt-3">
           <RequerimientosExpediente expedienteId={id} inicial={extranjeria.requerimientos} compacto={cerrado} />
         </div>
+      )}
+      {extranjeria?.notificaciones && extranjeria.notificaciones.length > 0 && (
+        <div className="w-full border-t border-slate-100 pt-3 text-left"><NotificacionesExpediente items={extranjeria.notificaciones} /></div>
       )}
       {popupCierre}
     </div>

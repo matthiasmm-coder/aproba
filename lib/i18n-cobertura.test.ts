@@ -8,6 +8,7 @@ import { FICHA_CAMPOS, GRUPOS } from "./ficha";
 import { ESTADO_REGISTRO_META } from "./verifactu";
 import { MESES_CORTOS_ES, MESES_LARGOS_ES } from "./estadisticas-facturacion";
 import { TIPOS_DOC_EMPRESA } from "./documentos-empresa";
+import { MOTIVOS_SUGERENCIA, TIPO_NOTIFICACION_LABEL } from "./notificaciones-dehu";
 
 // Cobertura catalana de la app gestor. La mecánica del agujero (vista el 31/08/2026):
 // cada entrega de UI añade cadenas t("…") y, si nadie piensa en el catalán, caen al
@@ -66,6 +67,11 @@ describe("catalán · cobertura de la app gestor", () => {
       ...TIPOS_DOC_EMPRESA,
       // estados VERI*FACTU (t(verifactu.label) en la ficha y la lista de facturas)
       ...Object.values(ESTADO_REGISTRO_META).map((m) => m.label),
+      // DEHú (28/09/2026): tipo de notificación, por qué se propone un expediente y los
+      // plazos en palabras de la campana (t(a.plazo.clave), leídos del fuente de lib/alertas)
+      ...Object.values(TIPO_NOTIFICACION_LABEL),
+      ...MOTIVOS_SUGERENCIA,
+      ...[...readFileSync("lib/alertas.ts", "utf8").matchAll(/clave: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
       // labels de los modales de tasa (arrays locales al componente)
       ...["components/tasa790-modal.tsx", "components/tasa790026-modal.tsx"].flatMap((f) =>
         [...readFileSync(f, "utf8").matchAll(/label: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1])),

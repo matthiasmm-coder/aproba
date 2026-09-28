@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchExpedienteDetalle, fetchNotasExpediente, progresoDeExpediente } from "@/lib/data/expedientes";
 import { fetchRequerimientosDeExpediente } from "@/lib/data/requerimientos";
+import { fetchNotificacionesDeExpediente } from "@/lib/data/notificaciones-dehu";
 import { NotasExpediente } from "@/components/notas-expediente";
 import { NumeroOficial } from "@/components/numero-oficial";
 import { SeccionPlegable } from "@/components/seccion-plegable";
@@ -70,13 +71,14 @@ export default async function ExpedienteDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Las 4 fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
-  const [t, e, { servicios }, notas, requerimientos] = await Promise.all([
+  // Las fuentes independientes EN PARALELO (antes: awaits secuenciales = 1-3 s mudos).
+  const [t, e, { servicios }, notas, requerimientos, notificacionesDehu] = await Promise.all([
     getT(),
     fetchExpedienteDetalle(id),
     fetchServiciosConfig(),
     fetchNotasExpediente(id),
     fetchRequerimientosDeExpediente(id),
+    fetchNotificacionesDeExpediente(id),
   ]);
   // Nº de expediente OFICIAL (Extranjería), consulta aparte: si la migración aún no está,
   // la ficha sale igual y el campo simplemente no aparece.
@@ -365,6 +367,7 @@ export default async function ExpedienteDetail({
             estado: estadoExt?.estadoExtranjeria ?? null,
             estadoAt: estadoExt?.estadoExtranjeriaAt ?? null,
             requerimientos,
+            notificaciones: notificacionesDehu,
           }}
           // Popup de cierre: mismo criterio que el botón de pago final del CobrosPanel
           // (queda resto, sin factura final viva, sin plan de cuotas).

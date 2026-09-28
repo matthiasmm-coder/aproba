@@ -12,6 +12,7 @@ import { crearClienteDesdeAdjuntos } from "@/lib/email-cliente-nuevo";
 import { archivarFacturasDesdeAdjuntos, type FacturaRecibidaResumen } from "@/lib/facturas-recibidas-guardar";
 import { pideClienteNuevo, nombreEscrito } from "@/lib/ficha-extraccion";
 import { completarFichaDesdeExtraccion } from "@/lib/ficha-sync";
+import { procesarDehuDelEmail } from "@/lib/email-dehu";
 import {
   tokenDeDestinatarios, direccionDe, nombreDe, limpiarCuerpo, extraerPistas, emparejarCliente,
   extensionAdmitida, mimeDeExtension, nombreArchivoSeguro, type ClienteCandidato,
@@ -62,7 +63,7 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
   const esMiembro = emailsMiembros.has(remitente);
 
   // Adjuntos admitidos → bucket privado bajo bandeja/<ws>/<email>/.
-  const adjuntos = await guardarAdjuntos(resend, admin, ws.id as string, emailId);
+  let adjuntos = await guardarAdjuntos(resend, admin, ws.id as string, emailId);
 
   const cuerpo = limpiarCuerpo(mail.text, mail.html);
   const { data: cli } = await admin.from("Cliente").select("id, nombre, apellidos, email, telefono, numeroDocumento").eq("workspaceId", ws.id);
@@ -104,6 +105,19 @@ export async function procesarEmailRecibido(admin: Admin, opts: { emailId: strin
       await responderAlGestor(admin, resend, { workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, para: remitente, asunto: String(pend.asunto ?? mail.subject ?? ""), filaId: pend.id as string, baseUrl, nAdjuntos: total, etiquetas: [], clienteId: null, clienteNombre: null, expedienteId: null, candidatos: empR.candidatos.map(nombreCliente).filter((x): x is string => Boolean(x)), userId: userIdRemitente });
       return { ok: true, motivo: `respuesta sin resolver (${empR.motivo})`, filaId: pend.id as string };
     }
+  }
+  // ── DEHú (28/09/2026): los avisos de «notificación puesta a disposición» que llegan a
+  //    esta dirección y los PDF de notificaciones que reenvía el despacho van a la pestaña
+  //    DEHú, no a la ficha de un cliente. Lo que no es de la DEHú sigue aquí abajo.
+  try {
+    const dehu = await procesarDehuDelEmail(admin, resend, {
+      workspaceId: ws.id as string, gestoria: ws.nombre as string, token: tokenBandeja, emailId, remitente, asunto: mail.subject ?? "", cuerpo,
+      recibidoAt: mail.created_at ?? null, esMiembro, adjuntos, emailOwner, userIdRemitente, baseUrl,
+    });
+    if (dehu.terminado) return { ok: true, motivo: dehu.motivo };
+    adjuntos = dehu.restantes;
+  } catch (err) {
+    console.error("[email entrante] rama DEHú:", err instanceof Error ? err.message : err); // el email sigue su camino normal
   }
   const texto = `${esMiembro ? "" : mail.from}\n${mail.subject ?? ""}\n${cuerpo}\n${adjuntos.map((a) => a.nombre).join("\n")}`;
   const pistas = extraerPistas(texto, emailsMiembros);

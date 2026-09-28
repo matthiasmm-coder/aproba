@@ -27,11 +27,10 @@ import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { RecibirDocumentosConfig } from "@/components/recibir-documentos-config";
 import { WhatsAppConectar } from "@/components/whatsapp-conectar";
 import { BandejaEntrada, type FilaBandeja, type ClienteOpcion, type ExpedienteOpcion } from "@/components/bandeja-entrada";
-import { direccionEntrante, generarTokenEntrante } from "@/lib/email-entrante";
+import { fetchDireccionRecepcion } from "@/lib/data/direccion-recepcion";
 import { whatsappDisponible } from "@/lib/whatsapp";
 import { PLANTILLA_AVISO } from "@/lib/whatsapp-plantillas";
 
@@ -50,26 +49,6 @@ async function fetchWhatsAppConectado(): Promise<WhatsAppConectado | null> {
     const plantillas = c.plantillas ?? {};
     return { telefono: c.telefono, plantillaAprobada: Object.entries(plantillas).some(([k, v]) => k.startsWith(`${PLANTILLA_AVISO}:`) && v === "APPROVED") };
   } catch { return null; }
-}
-
-// Dirección de recepción de documentos por email del despacho (03/09/2026): el token
-// vive en Workspace.emailEntranteToken; si la migración lo dejó vacío, se genera aquí
-// una sola vez. Sin la columna (migración pendiente) → null y el bloque lo dice.
-async function direccionRecepcion(): Promise<{ direccion: string | null }> {
-  try {
-    const supabase = await createSupabaseServer();
-    const { data: m, error } = await supabase.from("Membership").select("workspaceId, Workspace(emailEntranteToken)").limit(1).maybeSingle();
-    if (error || !m) return { direccion: null };
-    const wsRaw = (m as { Workspace?: { emailEntranteToken?: string | null } | { emailEntranteToken?: string | null }[] }).Workspace;
-    const ws = Array.isArray(wsRaw) ? wsRaw[0] : wsRaw;
-    let token = ws?.emailEntranteToken ?? null;
-    if (!token) {
-      token = generarTokenEntrante();
-      const { error: eUp } = await createSupabaseAdmin().from("Workspace").update({ emailEntranteToken: token }).eq("id", m.workspaceId as string);
-      if (eUp) return { direccion: null };
-    }
-    return { direccion: direccionEntrante(token) };
-  } catch { return { direccion: null }; }
 }
 
 // Bandeja de entrada (Ajustes → Integraciones, 06/09/2026): emails con documentos que
@@ -188,7 +167,7 @@ export default async function Ajustes() {
   ]);
   const { servicios } = srv;
   const { avisos } = avs;
-  const recepcion = await direccionRecepcion();
+  const recepcion = await fetchDireccionRecepcion();
   const bandeja = await fetchBandeja();
   const whatsapp = await fetchWhatsAppConectado();
   // Puede enviar WhatsApp de verdad: su número (Meta) o el transporte de plataforma (Twilio).

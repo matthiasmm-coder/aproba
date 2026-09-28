@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import type { Alerta } from "@/lib/alertas";
 
-// LA CAMPANA (26/09/2026, Matthias): a la izquierda de «+ Nuevo expediente». La pastilla
+// LA CAMPANA (26/09/2026, Matthias): a la izquierda de «+ Nuevo expediente». Secciones:
+// requerimientos, DEHú (28/09: avisos sin abrir y notificaciones por vincular) y renovaciones. La pastilla
 // cuenta lo que pide un gesto hoy (lib/alertas.ts), en el VERDE de la marca (Matthias: nada
 // de rojo en el número); lo vencido o caducado se ve en rojo dentro del panel. Se consulta al entrar, al volver a la pestaña, cada 5 minutos y al abrirla:
 // el layout no se vuelve a pintar al navegar, así que no puede traer las alertas él.
@@ -57,7 +58,8 @@ export function CampanaAlertas() {
   const lista = alertas ?? [];
   const n = lista.length;
   const reqs = lista.filter((a) => a.clase === "requerimiento");
-  const rens = lista.filter((a) => a.clase !== "requerimiento");
+  const dehu = lista.filter((a) => a.clase === "notificacion");
+  const rens = lista.filter((a) => a.clase === "renovacion" || a.clase === "sin_respuesta");
   const plazo = (a: Alerta) => t(a.plazo.clave).replace("{n}", String(a.plazo.n));
 
   const seccion = (titulo: string, filas: Alerta[], verTodo: { href: string; label: string }) => filas.length > 0 && (
@@ -70,7 +72,7 @@ export function CampanaAlertas() {
               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${PUNTO[a.nivel]}`} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-slate-800">{a.cliente}</span>
-                <span className="block truncate text-xs text-slate-500" title={a.detalle}>{a.clase === "requerimiento" ? a.detalle : t(a.detalle)}</span>
+                <span className="block truncate text-xs text-slate-500" title={a.detalle}>{a.clase === "requerimiento" || a.clase === "notificacion" ? a.detalle : t(a.detalle)}</span>
               </span>
               <span className={`mt-0.5 shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ${CHIP[a.nivel]}`}>{plazo(a)}</span>
             </Link>
@@ -116,6 +118,7 @@ export function CampanaAlertas() {
           ) : (
             <>
               {seccion(t("Requerimientos"), reqs, { href: "/app/expedientes?filtro=requerimientos", label: t("Ver requerimientos") })}
+              {seccion(t("DEHú"), dehu, { href: "/app/dehu", label: t("Ver la DEHú") })}
               {seccion(t("Renovaciones"), rens, { href: "/app/vencimientos", label: t("Ver renovaciones") })}
             </>
           )}

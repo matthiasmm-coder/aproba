@@ -257,12 +257,14 @@ export const ARTICULOS: Articulo[] = [
     // mod. 06/11/2024), leída el 26/09: arts. 22.1.a, 30.2, 30.3, 30.5, 30.7, 31.2.b, 32.1-3,
     // 41.5, 43.2, 68.1-2, 73.1-3 y 95.1-2. El ejemplo (1 → 16/10/2026) se contó a mano: el
     // lunes 12 es la Fiesta Nacional. Lo que se dice de Aproba sale del código
-    // (lib/requerimientos.ts, lib/requerimientos-escaner.ts, lib/alertas.ts).
+    // (lib/requerimientos.ts, lib/requerimientos-escaner.ts, lib/alertas.ts; desde el 28/09,
+    // la pestaña DEHú: lib/notificaciones-dehu.ts).
     slug: "requerimiento-extranjeria-plazo-10-dias-como-responder",
     titulo: "Requerimiento en extranjería: los 10 días y cómo responder",
     descripcion:
       "Qué es un requerimiento de extranjería, cómo se cuentan los diez días hábiles, cuándo pedir la ampliación y qué pasa si no se contesta, según la Ley 39/2015.",
     fecha: "2026-09-26",
+    actualizado: "2026-09-28",
     tema: "Procedimiento",
     entradilla:
       "Un requerimiento no es una denegación: es la Administración diciendo qué falta antes de resolver. Pero solo da diez días hábiles, empieza a contar al día siguiente de la notificación y, si se deja pasar, se tiene al solicitante por desistido o se resuelve sin lo que faltaba. Esto dice la ley, con un ejemplo contado día a día.",
@@ -357,7 +359,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Aproba no lee la DEHú ni la sede: el requerimiento lo anotas en la ficha del expediente, con lo que piden y la fecha límite que figura en él. El botón «Calcular 10 días hábiles» propone esa fecha saltando los fines de semana; no conoce los festivos, así que solo puede equivocarse hacia el lado seguro (en el ejemplo marcaría el jueves 15), y manda la fecha que tú dejes. Después avisa al despacho por correo al entrar en el margen que elijas, a tres días, a uno, el día del vencimiento y el siguiente si sigue pendiente. En Expedientes, cada expediente con requerimiento muestra los días que quedan y el filtro «Requerimientos» los reúne; la campana del encabezado junta lo que está por vencer, también las [renovaciones](/funciones/radar-de-renovaciones). Al cliente no le escribe por su cuenta.",
+          "Aproba no entra en la DEHú por ti: la notificación se abre con el certificado del profesional. Lo que sí hace es leerla después: arrastras el PDF (o el ZIP que descarga la DEHú) a la pestaña DEHú, o lo reenvías a la dirección de Aproba, y la IA reconoce que es un requerimiento, de quién, con qué nº de expediente, qué piden y en qué plazo, y propone su expediente. Un clic lo vincula y otro lo registra en la ficha con lo que piden y la fecha límite. Si añades esa misma dirección como correo de aviso en la DEHú, cada notificación puesta a disposición aparece con los diez días naturales que quedan para abrirla. Un requerimiento en papel se anota a mano en la ficha. El botón «Calcular 10 días hábiles» propone esa fecha saltando los fines de semana; no conoce los festivos, así que solo puede equivocarse hacia el lado seguro (en el ejemplo marcaría el jueves 15), y manda la fecha que tú dejes. Después avisa al despacho por correo al entrar en el margen que elijas, a tres días, a uno, el día del vencimiento y el siguiente si sigue pendiente. En Expedientes, cada expediente con requerimiento muestra los días que quedan y el filtro «Requerimientos» los reúne; la campana del encabezado junta lo que está por vencer, también las [renovaciones](/funciones/radar-de-renovaciones). Al cliente no le escribe por su cuenta.",
       },
       {
         t: "faq",
@@ -760,6 +762,7 @@ export const ARTICULOS: Articulo[] = [
     descripcion:
       "Dónde se consulta una notificación de extranjería (DEHú), quién la recibe cuando hay representante y qué pasa si no se abre en 10 días.",
     fecha: "2026-09-12",
+    actualizado: "2026-09-28",
     tema: "Procedimiento",
     entradilla:
       "Un requerimiento que nadie abre acaba en desistimiento; una denegación que nadie lee se vuelve firme. En extranjería la notificación es el punto donde se pierden expedientes bien preparados, y quién la recibe no lo decide la oficina: lo decide una casilla del formulario.",
@@ -857,7 +860,7 @@ export const ARTICULOS: Articulo[] = [
         t: "nota",
         titulo: "Cómo lo lleva Aproba",
         texto:
-          "Los [formularios EX que genera Aproba](/funciones/formularios-en-un-clic) dejan editables el bloque «Domicilio a efectos de notificaciones» y la casilla DEHú, para decidirlo expediente a expediente. Cada requerimiento se anota en la ficha con su plazo, y Aproba avisa al despacho antes de que venza. Aproba no accede a la DEHú ni a la sede: la comparecencia es del profesional, con su certificado.",
+          "Los [formularios EX que genera Aproba](/funciones/formularios-en-un-clic) dejan editables el bloque «Domicilio a efectos de notificaciones» y la casilla DEHú, para decidirlo expediente a expediente. Aproba no accede a la DEHú ni a la sede: la comparecencia es del profesional, con su certificado. Lo que llega después sí lo trabaja: los avisos de la DEHú, si se añade la dirección de Aproba como correo de aviso, aparecen con los diez días que quedan para abrir cada notificación; y el PDF descargado, importado o reenviado, lo lee la IA y lo propone a su expediente, donde el requerimiento queda con su plazo y Aproba avisa al despacho antes de que venza.",
       },
       {
         t: "faq",

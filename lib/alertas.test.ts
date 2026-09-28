@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { construirAlertas, plazoCaducidad, type ReqFuente, type VencFuente } from "@/lib/alertas";
+import { construirAlertas, plazoCaducidad, type NotifFuente, type ReqFuente, type VencFuente } from "@/lib/alertas";
 
 const HOY = new Date(2026, 8, 26, 10, 0, 0);
 const dia = (n: number) => new Date(2026, 8, 26 + n).toISOString();
@@ -45,6 +45,25 @@ describe("campana · qué es una alerta", () => {
     const b = construirAlertas([req("x", -1)], [venc("c", -30)], HOY);
     expect(a.map((x) => x.id)).toEqual(["ren-c", "req-r", "ren-v"]);
     expect(b.map((x) => x.id)).toEqual(["req-x", "ren-c"]);
+  });
+
+  it("DEHú: aviso sin abrir (10 días naturales), notificación sin vincular y requerimiento sin registrar", () => {
+    const nf = (id: string, extra: Partial<NotifFuente>): NotifFuente => ({ id, origen: "PDF", estado: "PENDIENTE", tipo: "REQUERIMIENTO", titularNombre: `Persona ${id}`, organismo: "Oficina de Extranjería", asunto: "Requerimiento", fechaLimite: null, requerimientoId: null, ...extra });
+    const a = construirAlertas([], [], HOY, [
+      nf("aviso1", { origen: "AVISO_EMAIL", tipo: "AVISO", titularNombre: null, fechaLimite: dia(1) }),
+      nf("aviso8", { origen: "AVISO_EMAIL", tipo: "AVISO", fechaLimite: dia(8) }),
+      nf("sinv", { fechaLimite: dia(6) }),
+      nf("vinc", { estado: "VINCULADA", fechaLimite: dia(2) }),
+      nf("hecho", { estado: "VINCULADA", fechaLimite: dia(2), requerimientoId: "r1" }),
+      nf("resol", { estado: "VINCULADA", tipo: "RESOLUCION_FAVORABLE" }),
+      nf("gest", { estado: "GESTIONADA", fechaLimite: dia(1) }),
+      nf("verif", { origen: "AVISO_EMAIL", tipo: "VERIFICACION" }),
+    ]);
+    expect(a.map((x) => x.id)).toEqual(["dehu-aviso1", "dehu-verif", "dehu-vinc", "dehu-sinv", "dehu-aviso8"]);
+    expect(a[0]).toMatchObject({ nivel: "critico", cliente: "Oficina de Extranjería", plazo: { clave: "Ábrela mañana como tarde", n: 1 }, href: "/app/dehu" });
+    expect(a.find((x) => x.id === "dehu-aviso8")!.plazo).toEqual({ clave: "Quedan {n} días para abrirla", n: 8 });
+    expect(a.find((x) => x.id === "dehu-vinc")!.nivel).toBe("urgente");
+    expect(a.find((x) => x.id === "dehu-sinv")!.plazo).toEqual({ clave: "Quedan {n} días", n: 6 });
   });
 
   it("la caducidad en palabras", () => {
