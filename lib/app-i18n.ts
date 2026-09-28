@@ -2304,6 +2304,18 @@ export const CA: Record<string, string> = {
   "Logo del despacho": "Logotip del despatx",
   "Tus clientes lo ven en su portal, en los emails que les envías, en la vista previa del enlace y en tus facturas. JPG, PNG o WebP · máx. 2 MB.": "Els teus clients el veuen al seu portal, als emails que els envies, a la vista prèvia de l'enllaç i a les teves factures. JPG, PNG o WebP · màx. 2 MB.",
   "Solo un administrador puede cambiarlo.": "Només un administrador pot canviar-lo.",
+  // Cambio del email de acceso (Ajustes › Despacho y cuenta)
+  "Escribe un email válido.": "Escriu un email vàlid.",
+  "Ese ya es tu email.": "Aquest ja és el teu email.",
+  "Ese email ya está en uso en Aproba.": "Aquest email ja està en ús a Aproba.",
+  "Tu sesión ha caducado: vuelve a entrar.": "La teva sessió ha caducat: torna a entrar.",
+  "No se pudo enviar el enlace. Inténtalo de nuevo.": "No s'ha pogut enviar l'enllaç. Torna-ho a provar.",
+  "Cambiar tu email de acceso": "Canviar el teu email d'accés",
+  "Te hemos enviado un enlace a": "T'hem enviat un enllaç a",
+  "Tu email cambia cuando lo pulses (caduca en 1 hora). Tu contraseña no cambia.": "El teu email canvia quan el premis (caduca en 1 hora). La teva contrasenya no canvia.",
+  "Nuevo email": "Email nou",
+  "Enviar enlace": "Enviar enllaç",
+  "Te enviaremos un enlace al email nuevo para confirmar que es tuyo.": "T'enviarem un enllaç a l'email nou per confirmar que és teu.",
   "Tu foto de perfil se cambia pulsando tu círculo en la barra lateral (abajo a la izquierda).": "La teva foto de perfil es canvia prement el teu cercle a la barra lateral (a baix a l'esquerra).",
   "Aparecen en tus facturas y, el domicilio de actividad, en la hoja de encargo y el presupuesto. El logo se cambia en Despacho y cuenta.": "Apareixen a les teves factures i, el domicili d'activitat, al full d'encàrrec i al pressupost. El logotip es canvia a Despatx i compte.",
   // VERI*FACTU (17/09/2026)

@@ -22,6 +22,7 @@ import { EquipoManager } from "@/components/equipo-manager";
 import { OficinasManager } from "@/components/oficinas-manager";
 import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
+import { CambiarEmail } from "@/components/cambiar-email";
 import { LogoDespacho } from "@/components/logo-despacho";
 import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
@@ -541,7 +542,7 @@ export default async function Ajustes() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Cuenta")}</h3>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">{t("Nombre")}</span><span className="font-medium text-slate-800">{yo?.nombre ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">{t("Email")}</span><span className="font-medium text-slate-800">{yo?.email ?? "—"}</span></div>
+                <CambiarEmail email={yo?.email ?? ""} />
               </div>
               {/* La foto del USUARIO se cambia desde su círculo en la barra lateral (abajo a la
                   izquierda); aquí solo se recuerda dónde. El logo del despacho va en la otra columna. */}

@@ -135,7 +135,7 @@ AJUSTES (siete secciones):
 - «Hoja de encargo y mandato»: ver HOJA DE ENCARGO Y MANDATO.
 - «Facturación y métodos de pago»: datos de facturación (razón social, NIF, domicilio fiscal y de actividad, IBAN), numeración de la serie, pago con tarjeta y VERI*FACTU; por oficina si hay varias.
 - «Plan y equipo»: plan y suscripción, equipo (invitar compañeros y roles) y oficinas.
-- «Despacho y cuenta»: nombre del despacho, logo, tu cuenta, idioma de la interfaz (español/català) e instalar la app en el ordenador o el móvil.
+- «Despacho y cuenta»: nombre del despacho, logo, tu cuenta, idioma de la interfaz (español/català) e instalar la app en el ordenador o el móvil. Tu EMAIL DE ACCESO se cambia con el lápiz junto a «Email»: llega un enlace al email nuevo y el cambio se aplica al pulsarlo (caduca en 1 hora); la contraseña no cambia y, hasta confirmarlo, se sigue entrando con el email actual. Cada usuario cambia el suyo (no el de otros miembros).
 
 PLANES Y CUOTA: la prueba dura 15 días. Precios públicos actuales: Starter 79 €/mes, Pro 149 €/mes, Business 299 €/mes (IVA aparte); si tu despacho tiene un precio anterior se respeta, y el que manda es el que ves en Ajustes → «Plan y equipo». Starter 1 usuario, Pro hasta 5, Business ilimitados. Cada plan incluye un número de expedientes nuevos al mes (Starter 20, Pro 50, Business ilimitado); si te pasas, cada expediente extra son 3 € (los importados NO cuentan). Suscripción mensual o anual (el año equivale a 10 meses: 2 meses de ahorro).
 
