@@ -11,6 +11,7 @@ import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 import { VideoDemo } from "@/components/video-demo";
 import { TestimonioEscrito } from "@/components/testimonio-escrito";
+import { Dolores } from "@/components/dolores";
 import { FRASE_DEFINICION } from "@/lib/paginas";
 
 // Canónica de la portada (higiene del sitemap, 14/09/2026): título y descripción siguen
@@ -46,11 +47,13 @@ const JSON_LD = {
   ],
 };
 
+// «¿Te suena esto?» (28/09/2026): frases cortas, en las palabras del oficio
+// («requerimiento», no «rechazado»). Se pintan en components/dolores.tsx.
 const PAINS = [
-  "Documentos borrosos que llegan por WhatsApp y hay que pedir tres veces.",
-  "Rellenar los EX a mano, campo por campo, en cada expediente.",
-  "Clientes que llaman cada semana para saber cómo va lo suyo.",
-  "Un error administrativo y el expediente vuelve rechazado.",
+  "Fotos borrosas por WhatsApp, pedidas tres veces.",
+  "Los mismos datos, tecleados en cada EX.",
+  "«¿Cómo va lo mío?», cada semana, cada cliente.",
+  "Un dato mal copiado. Semanas después, un requerimiento.",
 ];
 
 // Cada cifra enlaza a su página (lib/beneficios): qué significa y cómo la afirmamos.
@@ -255,22 +258,11 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pain points */}
-      <section className="mx-auto max-w-5xl px-6 py-16">
-        <h2 className="text-center text-2xl font-bold tracking-tightest text-slate-900">¿Te suena esto?</h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
-          {PAINS.map((p, i) => (
-            <Reveal key={p} delay={i * 80}>
-              <div className="flex h-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-5">
-                <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                <p className="text-slate-700">{p}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        <p className="mx-auto mt-8 max-w-xl text-center text-lg font-medium text-slate-700">
-          Aproba se ocupa de todo eso. Tú te quedas con lo que importa: tus clientes.
-        </p>
+      {/* Pain points — «¿Te suena esto?», editorial (28/09/2026, Matthias: «más elegante»):
+          sin tarjetas ni iconos, filetes finos y números en mono (components/dolores.tsx). */}
+      <section className="mx-auto max-w-3xl px-6 py-20">
+        <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">¿Te suena esto?</h2>
+        <Dolores dolores={PAINS} />
       </section>
 
       {/* Stats */}

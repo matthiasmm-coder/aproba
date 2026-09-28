@@ -13,7 +13,8 @@ import { AprobaMark } from "./logo";
 
 type Fase = "final" | "armado" | "on";
 
-function useFase(ref: React.RefObject<HTMLDivElement | null>, umbral: number) {
+// Exportado: «¿Te suena esto?» (components/dolores.tsx) se anima con el mismo disparo.
+export function useFase(ref: React.RefObject<HTMLDivElement | null>, umbral: number) {
   const [fase, setFase] = useState<Fase>("final");
   useEffect(() => {
     const el = ref.current;
