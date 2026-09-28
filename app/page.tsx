@@ -270,8 +270,9 @@ export default function Landing() {
             </Reveal>
           ))}
         </div>
-        <p className="mx-auto mt-8 max-w-xl text-center text-lg font-medium text-slate-700">
-          Aproba se ocupa de todo eso. Tú te quedas con lo que importa: tus clientes.
+        {/* Una sola línea en escritorio (Matthias, 28/09): max-w-3xl en vez de max-w-xl. */}
+        <p className="mx-auto mt-8 max-w-3xl text-center text-lg font-medium text-slate-700">
+          <strong className="font-bold text-slate-900">Aproba se ocupa de todo eso.</strong> Tú te quedas con lo que importa: tus clientes.
         </p>
       </section>
 
