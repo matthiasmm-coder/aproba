@@ -125,9 +125,8 @@ body {
 .hero-stagger > *:nth-child(4) { animation-delay: 0.4s; }
 .hero-stagger > *:nth-child(5) { animation-delay: 0.5s; }
 
-/* Testimonio que se escribe (components/testimonio-escrito.tsx): el cursor parpadea mientras
-   escribe y dos veces más al terminar; luego el sello del colegiado salta con un zoom. */
-@keyframes aproba-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+/* Testimonio que se escribe (components/testimonio-escrito.tsx): al terminar, el cursor
+   parpadea dos veces y se va; luego el sello del colegiado salta con un zoom. */
 @keyframes aproba-cursor-fin { 0%, 40% { opacity: 1; } 20%, 60%, 100% { opacity: 0; } }
 @keyframes aproba-sello {
   0% { opacity: 0; transform: scale(0.3); }

@@ -4,15 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { repartir, type ParteCita } from "@/lib/testimonio";
 
 // TESTIMONIO QUE SE ESCRIBE (Matthias, 28/09/2026): al entrar la tarjeta en pantalla, la
-// cita aparece letra a letra detrás de un cursor y, al terminar, el sello del nº de
-// colegiado salta con un zoom (crece, se pasa y vuelve).
+// cita se escribe detrás de un cursor y, al terminar, el sello del nº de colegiado salta
+// con un zoom (crece, se pasa y vuelve).
+// Rápida y fluida (pedido de Matthias): la cita entera en DURACION, a ritmo constante y al
+// compás de los fotogramas del navegador (requestAnimationFrame), no letra a letra con
+// temporizadores, que dan tirones.
 // Sin saltos de maquetación: el texto ENTERO está en el DOM desde el servidor (SEO,
 // lectores de pantalla; sin JS se ve completo) y lo aún no escrito va en transparente, así
 // cada línea ocupa desde el principio el sitio que tendrá al final. La marca verde crece
 // con el texto. Con prefers-reduced-motion no se mueve nada.
 
-// Pausa tras cada carácter: más larga tras un punto o una coma, para que se lea como se dice.
-const pausa = (c: string) => (c === "." ? 320 : c === "," ? 160 : 22 + Math.random() * 18);
+const DURACION = 1000; // ms para escribir la cita entera
+const ESPERA = 350; // ms entre que se ve la tarjeta y la primera letra: deja avanzar el fundido de Reveal
 
 const MARCA = "bg-[linear-gradient(transparent_62%,#D1FAE5_62%)] [-webkit-box-decoration-break:clone] [box-decoration-break:clone]";
 
@@ -22,7 +25,7 @@ type Fase = "completo" | "espera" | "escribiendo" | "hecho";
 function Cursor({ fin }: { fin: boolean }) {
   return (
     <span aria-hidden="true" className="relative">
-      <span className={`absolute -bottom-[0.2em] left-[1px] h-[1.15em] w-[2px] rounded-full bg-aproba-600 ${fin ? "animate-[aproba-cursor-fin_1.4s_steps(1)_forwards]" : "animate-[aproba-cursor_1s_steps(1)_infinite]"}`} />
+      <span className={`absolute -bottom-[0.2em] left-[1px] h-[1.15em] w-[2px] rounded-full bg-aproba-600 ${fin ? "animate-[aproba-cursor-fin_1.4s_steps(1)_forwards]" : ""}`} />
     </span>
   );
 }
@@ -43,11 +46,14 @@ export function TestimonioEscrito({ partes, nombre, cargo, sello }: { partes: Pa
     let vivo = true;
     let empezado = false;
     let reloj: ReturnType<typeof setTimeout> | undefined;
-    const escribir = (i: number) => {
+    let fotograma = 0;
+    // Cuántas letras tocan según el tiempo transcurrido: a 60 fps, unas dos por fotograma.
+    const escribir = (t0: number) => (ahora: number) => {
       if (!vivo) return;
-      setN(i);
-      if (i >= total) { setFase("hecho"); return; }
-      reloj = setTimeout(() => escribir(i + 1), pausa(texto[i - 1] ?? ""));
+      const avance = Math.min(1, (ahora - t0) / DURACION);
+      setN(Math.round(total * avance));
+      if (avance < 1) fotograma = requestAnimationFrame(escribir(t0));
+      else setFase("hecho");
     };
     const empezar = () => {
       if (empezado) return;
@@ -55,7 +61,7 @@ export function TestimonioEscrito({ partes, nombre, cargo, sello }: { partes: Pa
       io.disconnect();
       window.removeEventListener("scroll", porScroll);
       setFase("escribiendo");
-      reloj = setTimeout(() => escribir(1), 450); // deja terminar el fundido de la tarjeta (Reveal)
+      reloj = setTimeout(() => { fotograma = requestAnimationFrame((t) => escribir(t)(t)); }, ESPERA);
     };
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) empezar(); }, { threshold: 0.6 });
     // Red de seguridad, como en Reveal: si el observador no dispara, el scroll lo hace.
@@ -69,10 +75,11 @@ export function TestimonioEscrito({ partes, nombre, cargo, sello }: { partes: Pa
     return () => {
       vivo = false;
       if (reloj) clearTimeout(reloj);
+      cancelAnimationFrame(fotograma);
       io.disconnect();
       window.removeEventListener("scroll", porScroll);
     };
-  }, [texto, total]);
+  }, [total]);
 
   const trozos = repartir(partes, n);
   const conCursor = fase === "escribiendo" || fase === "hecho";
