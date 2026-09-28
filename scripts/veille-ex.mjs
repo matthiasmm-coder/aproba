@@ -9,9 +9,10 @@
 //   node scripts/veille-ex.mjs          → compara contra el baseline (uso normal / CI)
 //   node scripts/veille-ex.mjs --init   → (re)genera el baseline con el estado actual
 //
-// Nota: la plantilla del repo forms/ex/EX-10.pdf es una versión CON CAMPOS AÑADIDOS para
-// el autorrelleno (no el PDF plano oficial), por eso la veille rastrea el oficial por su
-// cuenta y no lo compara contra el archivo del repo. Sin dependencias (Node 18+).
+// Nota: la veille rastrea el oficial por su cuenta y no lo compara contra el archivo del
+// repo (algunas plantillas no son el PDF tal cual). Ese hueco escondió que forms/ex/EX-10.pdf
+// seguía siendo el del RD 557/2011 hasta el 28/09/2026: hoy es, byte a byte, el «Editable»
+// oficial (/documents/d/migraciones/ex10.pdf). Sin dependencias (Node 18+).
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";

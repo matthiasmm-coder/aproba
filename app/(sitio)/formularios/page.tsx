@@ -21,7 +21,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "¿Qué modelo corresponde a cada trámite?",
-    a: "Lo decide el trámite: el [EX-03](/formularios/ex-03) es la residencia y trabajo por cuenta ajena; el [EX-02](/formularios/ex-02), la reagrupación familiar; el [EX-31](/formularios/ex-31), los arraigos del Reglamento de 2024, y el [EX-17](/formularios/ex-17), la TIE.",
+    a: "Lo decide el trámite: el [EX-03](/formularios/ex-03) es la residencia y trabajo por cuenta ajena; el [EX-02](/formularios/ex-02), la reagrupación familiar; el [EX-10](/formularios/ex-10), los arraigos y demás circunstancias excepcionales, y el [EX-17](/formularios/ex-17), la TIE.",
   },
   {
     q: "¿La tasa se paga en el mismo impreso?",

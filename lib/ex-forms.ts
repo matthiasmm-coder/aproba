@@ -200,26 +200,38 @@ export const FORMS: Record<string, Mapa> = {
     representante: { nombre: "Texto180", documento: "Texto181" },
   },
 
-  // ── EX-10 : AcroForm (noms trompeurs, mapping par probe visuel) ─────────────
+  // ── EX-10 : AcroForm OFICIAL «Editable» del Ministerio (RD 1155/2024) ────────
+  // Reemplaza el 28/09/2026 a la plantilla de lanzamiento, que era el EX-10 del RD 557/2011
+  // (3 páginas, «Arraigo Laboral (art. 124.1)»…). Es el PDF de inclusion.gob.es tal cual
+  // (/documents/d/migraciones/ex10.pdf), 5 páginas. Nombres de campo opacos y SIN capa de
+  // texto (rótulos vectorizados): mapeo por posición, verificado sobre el raster con cada
+  // rectángulo numerado. p.1 §1 persona = Texto1-26 (Texto24-26 «Representante legal, en
+  // su caso» = padre/tutor, nunca el despacho) · §2 familiar UE/EEE/Suiza = Texto27-47 ·
+  // §3 presentador = Texto48-60 · §4 notificaciones = Texto61-70 (NUNCA se rellena) ·
+  // p.2 §5 empleador (sociolaboral) y §6 formación (socioformativo): a mano · p.3 §7 tipo.
   "EX-10": {
     modo: "acroform",
     texto: {
-      pasaporte: "Textfield-0", nie1: "Textfield-1", nie2: "Textfield-2", nie3: "Textfield-3",
-      apellido1: "CP", apellido2: "x", nombre: "Textfield-4",
-      fechaD: "Fecha de nacimientoz", fechaM: "Texto-1", fechaA: "Textfield-5",
-      lugarNac: "Estado civil3 S", paisNac: "Textfield-6", nacionalidad: "Textfield-7",
-      nombrePadre: "Textfield-9", nombreMadre: "Piso",
-      domicilio: "Provincia", numero: "Textfield-10", piso: "Textfield-11",
-      localidad: "Textfield-12", cp: "Textfield-15", provincia: "Textfield-16",
-      telefono: "Textfield-18", email: "DN IN IEPAS",
+      pasaporte: "Texto1", nie1: "Texto2", nie2: "Texto3", nie3: "Texto4",
+      apellido1: "Texto5", apellido2: "Texto6", nombre: "Texto7",
+      fechaD: "Texto8", fechaM: "Texto9", fechaA: "Texto10", lugarNac: "Texto11", paisNac: "Texto12",
+      nacionalidad: "Texto13", nombrePadre: "Texto14", nombreMadre: "Texto15",
+      domicilio: "Texto16", numero: "Texto17", piso: "Texto18",
+      localidad: "Texto19", cp: "Texto20", provincia: "Texto21",
+      telefono: "Texto22", email: "Texto23",
     },
-    // Cases décalées d'un cran : la case visuelle X* = « H », Hombre = « M », Mujer = « ChkBox ».
-    checks: { sexoX: "H", sexoH: "M", sexoM: "ChkBox" },
-    estadoCivil: { S: "C", C: "V", V: "D", D: "Sp", Sp: "ChkBox-0" },
+    checks: { sexoX: "Casilla de verificación96", sexoH: "Casilla de verificación97", sexoM: "Casilla de verificación98" },
+    estadoCivil: { S: "Casilla de verificación99", C: "Casilla de verificación100", V: "Casilla de verificación101", D: "Casilla de verificación102", Sp: "Casilla de verificación103" },
+    // p.3 §7: «Residencia inicial» (120) + el arraigo del art. 127 (124 a.segunda oportunidad ·
+    // 125 b.sociolaboral · 126 c.social · 127 d.socioformativo · 128 e.familiar). El
+    // «arraigo laboral» del catálogo es hoy el sociolaboral. Las casillas-título «TIPO DE
+    // SOLICITUD» (119) y «TIPO DE AUTORIZACIÓN» (123) no se marcan.
     tramiteChecks: {
-      ARRAIGO_SOCIAL: ["RESIDENCIA INICIAL", "Arraigo Social art 1242"],
-      ARRAIGO_LABORAL: ["RESIDENCIA INICIAL", "Arraigo Laboral art 1241"],
-      ARRAIGO_FAMILIAR: ["RESIDENCIA INICIAL", "Arraigo Familiar art 1243"],
+      ARRAIGO_SEGUNDA_OPORTUNIDAD: ["Casilla de verificación120", "Casilla de verificación124"],
+      ARRAIGO_LABORAL: ["Casilla de verificación120", "Casilla de verificación125"],
+      ARRAIGO_SOCIAL: ["Casilla de verificación120", "Casilla de verificación126"],
+      ARRAIGO_SOCIOFORMATIVO: ["Casilla de verificación120", "Casilla de verificación127"],
+      ARRAIGO_FAMILIAR: ["Casilla de verificación120", "Casilla de verificación128"],
     },
   },
 
@@ -324,7 +336,7 @@ const EX02_REAGRUPADO = (() => {
 // optique en (x+3,35, y+3,6) → x = 239,2, y = 662,4. Avant (240, 662) elle débordait sur « M ».
 const EX02_MENOR_REPRESENTADO: Pos = { x: 238.7, y: 662.4, page: 1 }; // 0,5 pt à gauche du centre : la boîte 11×11 ne touche pas « Menor »
 
-// EX-31 / EX-32 (arraigo RD 1155/2024), bloc p.2 « EN EL CASO DE MENORES, PADRE/MADRE/TUTOR… » :
+// EX-31 / EX-32 (arraigo DA 20ª protección internacional / DA 21ª extraordinario), bloc p.2 « EN EL CASO DE MENORES, PADRE/MADRE/TUTOR… » :
 // identité du représentant (le padre/madre/tutor du solicitante mineur). Coordonnées relevées
 // par probe pdfjs ; mêmes conventions d'offset que la section 1 (valeur à droite du libellé,
 // croix à +11/+16/+20 du libellé). Le bloc n'a PAS de lignes domicilio/contact.
@@ -390,6 +402,15 @@ export const P2_OPCIONES: Record<string, { value: string; label: string }[]> = {
     { value: "DUPLICADO", label: "Duplicado (pérdida, robo…)" },
   ],
   "EX-15": [{ value: "NIE", label: "NIE" }],
+  // EX-10 (p.3 §7): los cinco arraigos del art. 127 RD 1155/2024. Segunda oportunidad y
+  // socioformativo no son TipoTramite: solo por elección del gestor.
+  "EX-10": [
+    { value: "ARRAIGO_SEGUNDA_OPORTUNIDAD", label: "Arraigo de segunda oportunidad" },
+    { value: "ARRAIGO_LABORAL", label: "Arraigo sociolaboral" },
+    { value: "ARRAIGO_SOCIAL", label: "Arraigo social" },
+    { value: "ARRAIGO_SOCIOFORMATIVO", label: "Arraigo socioformativo" },
+    { value: "ARRAIGO_FAMILIAR", label: "Arraigo familiar" },
+  ],
 };
 
 // ── Modo editable: campos VACÍOS de la p.2 (lo que el gestor rellena a mano) ───────────
@@ -493,7 +514,8 @@ const P2_BLANKS: Record<string, Blank[]> = {
 // ligne dessine ses points ~1 pt AU-DESSUS de sa ligne de base pdfjs : caler le texte sur
 // cette base le faisait passer DANS les points (constat Matthias, 02/09/2026).
 const LUGAR_FECHA: Record<string, { x0: number; y: number; corto?: boolean }> = {
-  "EX-02": { x0: 259.7, y: 211.6, corto: true }, "EX-10": { x0: 282.1, y: 89.6 }, "EX-15": { x0: 256, y: 337.2 },
+  // (El EX-10 oficial trae sus propios campos de lugar y fecha, Texto149-152 en la p.3.)
+  "EX-02": { x0: 259.7, y: 211.6, corto: true }, "EX-15": { x0: 256, y: 337.2 },
   "EX-17": { x0: 256, y: 494.2 }, "EX-18": { x0: 256, y: 200.1 }, "EX-19": { x0: 256, y: 308 },
   "EX-31": { x0: 282.1, y: 542.1 }, "EX-32": { x0: 282.1, y: 449 },
   // Resto de modelos (08/09/2026): y = base pdfjs del ítem «………, a … de … de …» + 2,9,
@@ -583,11 +605,11 @@ const PRESENTADOR: Record<string, PosPresentador> = {
 // no a la razón social del despacho.
 const PRESENTADOR_ACRO: Record<string, Partial<Record<keyof Presentador | "repApellidos" | "repNombreSolo", string>>> = {
   "EX-10": {
-    nombre: "Textfield-51", documento: "Piso-0",
-    domicilio: "Textfield-50", numero: "Textfield-52", piso: "Textfield-53",
-    localidad: "Textfield-54", cp: "Textfield-55", provincia: "Textfield-56",
-    telefono: "Textfield-58", email: "Textfield-60",
-    repNombre: "Textfield-61", repDoc: "Textfield-62", repTitulo: "Textfield-63",
+    nombre: "Texto48", documento: "Texto49",
+    domicilio: "Texto50", numero: "Texto51", piso: "Texto52",
+    localidad: "Texto53", cp: "Texto54", provincia: "Texto55",
+    telefono: "Texto56", email: "Texto57",
+    repNombre: "Texto58", repDoc: "Texto59", repTitulo: "Texto60",
   },
   "MI-TIE": {
     nombre: "Texto44", documento: "Texto45",
@@ -604,16 +626,16 @@ export const FORM_LABEL: Record<string, string> = {
   "EX-01": "Residencia no lucrativa",
   "EX-02": "Reagrupación familiar",
   "EX-03": "Residencia y trabajo (cuenta ajena)",
-  "EX-10": "Arraigo (clásico)",
+  "EX-10": "Arraigo y circunstancias excepcionales",
   "EX-11": "Larga duración",
   "EX-13": "Autorización de regreso",
   "EX-15": "NIE y certificados",
   "EX-17": "TIE",
-  "EX-31": "Arraigo (RD 1155/2024)",
+  "EX-31": "Arraigo · solicitantes de protección internacional (DA 20ª)",
   "EX-18": "Registro/Residencia ciudadano UE",
   "EX-23": "Tarjeta Acuerdo de Retirada (Brexit)",
   "EX-26": "Modificación de autorización",
-  "EX-32": "Arraigo DA 21ª (RD 1155/2024)",
+  "EX-32": "Arraigo extraordinario (DA 21ª)",
   "EX-00": "Estancia de larga duración (estudios…)",
   "EX-04": "Residencia para prácticas",
   "EX-06": "Residencia y trabajo de temporada",
@@ -636,8 +658,11 @@ export const formulariosDisponibles = (): { code: string; label: string }[] =>
   Object.keys(FORMS).sort().map((code) => ({ code, label: FORM_LABEL[code] ?? code }));
 
 // Quels formulaires EX correspondent à chaque tipo de trámite (enum TipoTramite).
+// Arraigo = EX-10 (el único modelo general, RD 1155/2024). EX-31 (DA 20ª, solicitantes de
+// protección internacional) y EX-32 (DA 21ª, arraigo extraordinario) son supuestos
+// especiales: el gestor los añade a mano si su cliente está en uno de ellos (28/09/2026).
 const TRAMITE_FORMS: Record<string, string[]> = {
-  ARRAIGO_SOCIAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_LABORAL: ["EX-10", "EX-31", "EX-32"], ARRAIGO_FAMILIAR: ["EX-10", "EX-31", "EX-32"],
+  ARRAIGO_SOCIAL: ["EX-10"], ARRAIGO_LABORAL: ["EX-10"], ARRAIGO_FAMILIAR: ["EX-10"],
   REAGRUPACION: ["EX-02"], RENOVACION: ["EX-17", "EX-13"], TIE: ["EX-17"], NIE: ["EX-15"],
   RESIDENCIA_LARGA: ["EX-11"], NACIONALIDAD: [],
   // OTRO / tipo non mappé → tous les modèles disponibles (le gestor choisit).
@@ -656,7 +681,7 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   // Ley 14/2013 (UGE-CE): titular, su TIE y sus familiares.
   ley_14_2013: ["MI-T", "MI-TIE", "MI-F"], movilidad_internacional: ["MI-T", "MI-TIE", "MI-F"],
   nomada_digital: ["MI-T", "MI-TIE", "MI-F"], teletrabajador: ["MI-T", "MI-TIE", "MI-F"],
-  arraigo_social: ["EX-10", "EX-31", "EX-32"], arraigo_laboral: ["EX-10", "EX-31", "EX-32"],
+  arraigo_social: ["EX-10"], arraigo_laboral: ["EX-10"],
 };
 
 export function formulariosParaTramite(tipoEnum: string, servicioClave?: string | null): string[] {

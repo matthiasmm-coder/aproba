@@ -24,6 +24,8 @@ export type ModeloOficial = {
   nota?: string;        // particularidad real del modelo en Aproba
   menor?: boolean;      // el impreso tiene bloque de padre/madre/tutor
   corto?: string;       // variante del nombre para el <title> cuando el oficial no cabe
+  paginaFirma?: number; // página de «lugar, fecha y firma» si no es la 2 (EX-10 del RD 1155/2024: la 3)
+  marca?: string;       // casillas del tipo de solicitud que Aproba marca sola (viñeta de «Qué rellena»)
 };
 
 const M = (code: string, nombre: string, queEs: string, extra: Partial<ModeloOficial> = {}): ModeloOficial =>
@@ -38,7 +40,7 @@ export const MODELOS: ModeloOficial[] = [
   M("EX-06", "Residencia y trabajo de temporada", "Solicitud de autorización de residencia temporal y trabajo de temporada o por campaña."),
   M("EX-07", "Residencia y trabajo por cuenta propia", "Solicitud de autorización de residencia temporal y trabajo por cuenta propia."),
   M("EX-09", "Residencia con excepción de trabajo", "Solicitud de autorización de residencia temporal con excepción de la autorización de trabajo."),
-  M("EX-10", "Arraigo (clásico)", "Solicitud de autorización de residencia temporal por circunstancias excepcionales: el modelo con el que se vinieron pidiendo los arraigos antes del Reglamento de 2024."),
+  M("EX-10", "Arraigo y circunstancias excepcionales", "Solicitud de autorización de residencia por circunstancias excepcionales (LO 4/2000 y RD 1155/2024): los arraigos de segunda oportunidad, sociolaboral, social, socioformativo y familiar, las razones humanitarias y el resto de supuestos del impreso.", { corto: "Arraigo (RD 1155/2024)", paginaFirma: 3, marca: "**El tipo de solicitud** (apartado 7): «Residencia inicial» y el arraigo del expediente — social, sociolaboral o familiar según el trámite; el de segunda oportunidad y el socioformativo, eligiéndolos al generar. Los datos del empleador y del centro de formación se completan en el mismo PDF, que sale editable." }),
   M("EX-11", "Larga duración", "Solicitud de autorización de residencia de larga duración o de larga duración-UE, y su renovación."),
   M("EX-13", "Autorización de regreso", "Solicitud de autorización de regreso: permite salir de España y volver mientras se resuelve o se renueva la tarjeta.", { nota: "Es el modelo que más se pide a última hora, cuando el cliente ya tiene el billete. En Aproba sale del mismo expediente de la renovación, sin volver a teclear sus datos." }),
   M("EX-15", "NIE y certificados", "Solicitud de Número de Identidad de Extranjero (NIE) y de certificados: de residencia, de no residencia y de concordancia."),
@@ -55,8 +57,8 @@ export const MODELOS: ModeloOficial[] = [
   M("EX-26", "Modificación de autorización", "Solicitud de modificación de la situación: cambiar el tipo de autorización de residencia o de trabajo sin salir de España."),
   M("EX-28", "Disposición transitoria 2ª (RD 1155/2024)", "Solicitud al amparo de la disposición transitoria segunda del Reglamento de 2024, para las situaciones que venían del reglamento anterior.", { corto: "Disposición transitoria 2ª del RD 1155/2024" }),
   M("EX-29", "Prórroga de estancia de corta duración", "Solicitud de prórroga de estancia de corta duración, sin visado o con visado de estancia."),
-  M("EX-31", "Arraigo (RD 1155/2024)", "Solicitud de residencia por arraigo conforme al Reglamento de 2024, que reordenó los arraigos en social, sociolaboral, familiar, socioformativo y de segunda oportunidad.", { menor: true }),
-  M("EX-32", "Arraigo DA 21ª (RD 1155/2024)", "Solicitud de residencia por arraigo al amparo de la disposición adicional vigesimoprimera del Reglamento de 2024.", { menor: true }),
+  M("EX-31", "Arraigo · solicitantes de protección internacional (DA 20ª)", "Solicitud de aplicación de la disposición adicional vigésima del Reglamento: residencia por circunstancias excepcionales por razón de arraigo para personas solicitantes de protección internacional.", { menor: true, corto: "Arraigo DA 20ª (protección internacional)" }),
+  M("EX-32", "Arraigo extraordinario (DA 21ª)", "Solicitud de aplicación de la disposición adicional vigesimoprimera del Reglamento: residencia por circunstancias excepcionales por razón de arraigo extraordinario.", { menor: true }),
   M("MI-T", "Movilidad internacional · titular (Ley 14/2013)", "Solicitud del titular en el circuito de la Ley de Emprendedores: inversores, emprendedores, profesionales altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores internacionales.", { corto: "Movilidad internacional · titular" }),
   M("MI-TIE", "Movilidad internacional · TIE (Ley 14/2013)", "Solicitud de la tarjeta de identidad del titular de una autorización de la Ley 14/2013.", { corto: "Movilidad internacional · TIE" }),
   M("MI-F", "Movilidad internacional · familiar (Ley 14/2013)", "Solicitud referida a los familiares del titular de una autorización de la Ley 14/2013.", { corto: "Movilidad internacional · familiar" }),
@@ -106,7 +108,7 @@ export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
       { valor: m.code, etiqueta: "modelo oficial, rellenado con la ficha del cliente" },
       { valor: ts.length ? String(ts.length) : "—", etiqueta: ts.length === 1 ? "trámite del catálogo lo usa" : ts.length ? "trámites del catálogo lo usan" : "no está atado a un servicio por defecto" },
       { valor: tasas.length ? tasas.join(" · ") : "—", etiqueta: tasas.length ? "tasa del trámite" : "sin tasa asociada por defecto" },
-      { valor: "Sí", etiqueta: "editable antes de imprimir, con la página 2 rellenada" },
+      { valor: "Sí", etiqueta: `editable antes de imprimir, con la página ${m.paginaFirma ?? 2} rellenada` },
     ] },
     { t: "p", texto: `**${m.code} — ${m.nombre}.** ${m.queEs}` },
     { t: "p", texto: ts.length
@@ -115,8 +117,9 @@ export function paginaDeModelo(m: ModeloOficial): PaginaPublica {
     { t: "h2", texto: "Qué rellena Aproba en este impreso" },
     { t: "ul", items: [
       "**Los datos del extranjero**, leídos de sus documentos validados: nombre y apellidos, documento, fecha y lugar de nacimiento, nacionalidad, domicilio y teléfono.",
-      `**La página 2** — lugar, fecha y firmante — sobre el propio PDF, que es donde muchos despachos acaban escribiendo a mano.`,
+      `**La página ${m.paginaFirma ?? 2}** — lugar, fecha y firmante — sobre el propio PDF, que es donde muchos despachos acaban escribiendo a mano.`,
       "**El bloque del despacho que presenta** («datos del representante a efectos de presentación de la solicitud»), con los datos de tu despacho y de la persona que firma.",
+      ...(m.marca ? [m.marca] : []),
       ...(m.menor ? ["**El bloque de padre, madre o tutor**, cuando el solicitante es menor: es la casilla «representante legal» que el propio impreso reserva para él."] : []),
       ...(esMI ? ["**El circuito de la Ley 14/2013**: este modelo se presenta en la sede del Ministerio de Inclusión ante la Unidad de Grandes Empresas, no en la Oficina de Extranjería."] : []),
     ] },

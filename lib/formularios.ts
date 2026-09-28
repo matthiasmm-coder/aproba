@@ -3,7 +3,7 @@ import type { ClienteFicha } from "./ficha";
 import { normalizaPais, normalizaNacionalidad } from "./paises";
 
 // Génère les formulaires officiels remplis à partir des données d'un expediente.
-// v1 : EX-10 (arraigo / circunstancias excepcionales) + tasa 790-012.
+// v1 : EX-10 (arraigo / circunstancias excepcionales, RD 1155/2024) + tasa 790-012.
 // Les valeurs sont agrégées depuis les données extraites par l'IA des documents.
 
 export type Campo = { label: string; value: string; ancho?: "full" | "half" | "third" };
@@ -54,12 +54,15 @@ export function buildFormularios(exp: Expediente): Formulario[] {
 
   const ex10: Formulario = {
     tipo: "EX-10",
-    titulo: "Solicitud de autorización de residencia temporal por circunstancias excepcionales",
+    titulo: "Solicitud de autorización de residencia por circunstancias excepcionales (LO 4/2000 y RD 1155/2024)",
     organismo: "Ministerio del Interior · Secretaría de Estado de Migraciones",
+    // Los arraigos del art. 127 RD 1155/2024 (el «arraigo laboral» es hoy el sociolaboral).
     casillas: [
-      { label: "Arraigo social", marcada: exp.tipoLabel.toLowerCase().includes("arraigo social") },
-      { label: "Arraigo laboral", marcada: exp.tipoLabel.toLowerCase().includes("arraigo laboral") },
-      { label: "Arraigo familiar", marcada: false },
+      { label: "Arraigo de segunda oportunidad (art. 127.a)", marcada: false },
+      { label: "Arraigo sociolaboral (art. 127.b)", marcada: /arraigo (socio)?laboral/.test(exp.tipoLabel.toLowerCase()) },
+      { label: "Arraigo social (art. 127.c)", marcada: exp.tipoLabel.toLowerCase().includes("arraigo social") },
+      { label: "Arraigo socioformativo (art. 127.d)", marcada: false },
+      { label: "Arraigo familiar (art. 127.e)", marcada: exp.tipoLabel.toLowerCase().includes("arraigo familiar") },
       { label: "Razones humanitarias", marcada: false },
     ],
     secciones: [

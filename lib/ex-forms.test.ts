@@ -153,10 +153,14 @@ describe("bloque del despacho que presenta (AcroForm)", () => {
   };
   it("EX-10 escribe razón social, NIF y el profesional con su título", async () => {
     const form = await leer("EX-10");
-    expect(form.getTextField("Textfield-51").getText()).toBe("DE CEBALLOS ABOGADOS SLP");
-    expect(form.getTextField("Piso-0").getText()).toBe("B87654321");
-    expect(form.getTextField("Textfield-61").getText()).toBe("Andrés de Ceballos Cabrillo");
-    expect(form.getTextField("Textfield-63").getText()).toBe("Abogado");
+    expect(form.getTextField("Texto48").getText()).toBe("DE CEBALLOS ABOGADOS SLP");
+    expect(form.getTextField("Texto49").getText()).toBe("B87654321");
+    expect(form.getTextField("Texto54").getText()).toBe("28001");
+    expect(form.getTextField("Texto58").getText()).toBe("Andrés de Ceballos Cabrillo");
+    expect(form.getTextField("Texto60").getText()).toBe("Abogado");
+    // Ni en «Representante legal» de la sección 1 (padre/tutor) ni en «Domicilio a efectos
+    // de notificaciones» (§4, decide quién recibe las notificaciones).
+    for (const n of ["Texto24", "Texto25", "Texto26", "Texto61", "Texto62", "Texto63", "Texto66", "Texto70"]) expect(form.getTextField(n).getText() ?? "", n).toBe("");
   });
   it("MI-TIE escribe el bloque del representante que presenta", async () => {
     const form = await leer("MI-TIE");
@@ -174,7 +178,7 @@ describe("bloque del despacho que presenta (AcroForm)", () => {
   it("sin presentador, el bloque queda intacto", async () => {
     const out = await rellenarOficial("EX-10", SAMPLE);
     const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
-    expect(form.getTextField("Textfield-51").getText() ?? "").toBe("");
+    expect(form.getTextField("Texto48").getText() ?? "").toBe("");
   });
   it("la casilla «Representante legal» de la sección 1 NUNCA recibe al despacho", async () => {
     // Es la del representante legal del extranjero (padre/madre/tutor): la EX-25 la usa
@@ -182,6 +186,58 @@ describe("bloque del despacho que presenta (AcroForm)", () => {
     const out = await rellenarOficial("EX-25", SAMPLE, undefined, { presentador: PRES });
     const form = (await PDFDocument.load(out!, { ignoreEncryption: true })).getForm();
     expect(form.getTextField("Texto180").getText() ?? "").toBe("");
+  });
+});
+
+// EX-10 oficial del RD 1155/2024 (28/09/2026): el de lanzamiento era el del RD 557/2011.
+// Mapeo por posición (el PDF no tiene capa de texto): se fija aquí casilla por casilla.
+describe("EX-10 (RD 1155/2024) · sección 1 y tipo de autorización", () => {
+  const leer10 = async (datos: DatosForm, tramite?: string) =>
+    (await PDFDocument.load((await rellenarOficial("EX-10", datos, tramite))!, { ignoreEncryption: true })).getForm();
+  const marcadas = (form: Awaited<ReturnType<typeof leer10>>) =>
+    form.getFields().filter((f) => f.constructor.name === "PDFCheckBox" && form.getCheckBox(f.getName()).isChecked()).map((f) => f.getName().replace("Casilla de verificación", "")).sort();
+
+  it("cada dato de la ficha va a su casilla", async () => {
+    const form = await leer10({ ...SAMPLE, nie1: "Y", nie2: "1234567", nie3: "Z" });
+    const esperado: Record<string, string> = {
+      Texto1: "AY0429317", Texto2: "Y", Texto3: "1234567", Texto4: "Z", Texto5: "MENDOZA", Texto6: "RESTREPO", Texto7: "JULIA",
+      Texto8: "14", Texto9: "03", Texto10: "1992", Texto11: "BOGOTA", Texto12: "COLOMBIA", Texto13: "COLOMBIANA",
+      Texto14: "CARLOS MENDOZA", Texto15: "ANA RESTREPO", Texto16: "CALLE MALLORCA", Texto17: "245", Texto18: "3 2",
+      Texto19: "BARCELONA", Texto20: "08036", Texto21: "BARCELONA", Texto22: "600112233", Texto23: "julia@example.com",
+    };
+    for (const [campo, v] of Object.entries(esperado)) expect(form.getTextField(campo).getText(), campo).toBe(v);
+    // Sexo M (98) y estado civil S (99); nada del familiar UE (§2).
+    expect(marcadas(form)).toEqual(["98", "99"]);
+    expect(form.getTextField("Texto27").getText() ?? "").toBe("");
+  });
+
+  it.each([
+    ["ARRAIGO_SEGUNDA_OPORTUNIDAD", "124"], ["ARRAIGO_LABORAL", "125"], ["ARRAIGO_SOCIAL", "126"],
+    ["ARRAIGO_SOCIOFORMATIVO", "127"], ["ARRAIGO_FAMILIAR", "128"],
+  ])("%s → «Residencia inicial» + su arraigo del art. 127 (casilla %s)", async (tramite, casilla) => {
+    const form = await leer10({ ...SAMPLE, sexo: "", estadoCivil: "" }, tramite);
+    expect(marcadas(form)).toEqual(["120", casilla].sort());
+  });
+
+  it("sin trámite de arraigo no se marca ningún tipo", async () => {
+    expect(marcadas(await leer10({ ...SAMPLE, sexo: "", estadoCivil: "" }, "OTRO"))).toEqual([]);
+  });
+
+  it("el selector del gestor ofrece exactamente los cinco arraigos mapeados", async () => {
+    const { P2_OPCIONES } = await import("./ex-forms");
+    const mapa = FORMS["EX-10"];
+    expect(mapa.modo).toBe("acroform");
+    if (mapa.modo !== "acroform") return;
+    expect(P2_OPCIONES["EX-10"].map((o) => o.value).sort()).toEqual(Object.keys(mapa.tramiteChecks ?? {}).sort());
+  });
+
+  it("el arraigo ofrece el EX-10; EX-31 (DA 20ª) y EX-32 (DA 21ª) solo a mano", async () => {
+    const { formulariosParaTramite, formulariosDelTramite, FORM_LABEL } = await import("./ex-forms");
+    for (const t of ["ARRAIGO_SOCIAL", "ARRAIGO_LABORAL", "ARRAIGO_FAMILIAR"]) expect(formulariosParaTramite(t)).toEqual(["EX-10"]);
+    expect(formulariosDelTramite("OTRO", ["arraigo_social"])).toEqual(["EX-10"]);
+    expect(formulariosDelTramite("OTRO", ["arraigo_laboral"])).toEqual(["EX-10"]);
+    expect(FORM_LABEL["EX-31"]).toMatch(/protección internacional/);
+    expect(CODES).toEqual(expect.arrayContaining(["EX-31", "EX-32"]));
   });
 });
 

@@ -263,7 +263,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
           <p className="mt-2 text-center text-xs text-slate-400">{t("Añade los formularios de este trámite con el selector.")}</p>
         )}
 
-        {/* Casilla de trámite de la p.2 (EX-17: inicial/renovación/duplicado; EX-15: NIE).
+        {/* Casilla del tipo de trámite (EX-17 p.2: inicial/renovación/duplicado; EX-15 p.2: NIE; EX-10 p.3: arraigo).
             «Automático» la deduce del trámite del expediente; el gestor puede forzarla. */}
         {union.some((tipo) => p2Opciones[tipo]?.length) && (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
@@ -271,7 +271,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
               // Sin flex-wrap la etiqueta no podía partirse: el texto se estrujaba en una
               // columna de cuatro líneas y el desplegable se salía de la pantalla.
               <label key={tipo} className="inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                <span className="font-semibold text-slate-600">{tipo}</span> {t("· casilla de la pág. 2:")}
+                <span className="font-semibold text-slate-600">{tipo}</span> {t("· casilla del tipo de trámite:")}
                 <select
                   value={p2Sel[tipo] ?? ""}
                   onChange={(e) => elegirP2(tipo, e.target.value)}
