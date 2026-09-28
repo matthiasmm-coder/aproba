@@ -235,8 +235,10 @@ export default function Landing() {
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-600 lg:mx-0">
-              La IA valida los documentos, genera los formularios oficiales, revisa el expediente
-              antes de presentarlo y vigila cada renovación. Lo que te llevaba 3 horas, en 30 minutos.
+              {/* 28/09/2026: ya no «revisa el expediente antes de presentarlo» — la revisión
+                  previa (Centinela) salió del producto el 22/08; se promete lo que hay. */}
+              La IA valida los documentos, genera los formularios oficiales, te avisa de lo que
+              falta y vigila cada renovación. Lo que te llevaba 3&nbsp;horas, en 30&nbsp;minutos.
             </p>
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <PruebaButton className="w-full px-6 py-3 sm:w-auto" />
