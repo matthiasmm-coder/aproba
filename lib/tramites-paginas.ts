@@ -260,7 +260,7 @@ export const TRAMITES: Tramite[] = [
     tasas: ["790-012"], organismo: ORG_POLICIA,
     produceTarjeta: true,
     intro: [
-      "El **familiar de un ciudadano de la Unión** — cónyuge, pareja registrada, hijos, ascendientes a cargo — obtiene una tarjeta de residencia al amparo del **RD 240/2007**, con requisitos y modelos distintos del régimen general.",
+      "El **familiar de un ciudadano de la Unión** — cónyuge, pareja registrada, hijos, ascendientes a cargo — obtiene una tarjeta de residencia al amparo del **RD 240/2007**, con requisitos y modelos distintos del régimen general. La excepción es el familiar de una persona española que no ha ejercido la libre circulación en otro Estado de la UE: desde el RD 1155/2024 pide una autorización de residencia temporal del régimen general, con el [EX-24](/formularios/ex-24).",
       "Aproba pide en el portal los dos lados del vínculo: la identidad del ciudadano de la UE y la prueba de la relación (certificado de matrimonio o de pareja, libro de familia), además del pasaporte y el empadronamiento del solicitante.",
     ],
     particular: [
