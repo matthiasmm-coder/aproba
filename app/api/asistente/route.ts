@@ -50,8 +50,10 @@ export async function POST(req: Request) {
     const res = await new Anthropic({ timeout: 25_000, maxRetries: 1 }).messages.create({
       model: ASISTENTE_MODELO,
       max_tokens: 700,
-      // Sonnet 5 razona por defecto: aquí no hace falta y cada respuesta tardaría más.
-      thinking: { type: "disabled" },
+      // Sonnet 5.5 razona por defecto: aquí no hace falta y cada respuesta tardaría más.
+      // «disabled» ya no existe en este modelo (400): el ajuste mínimo es «between_tools» y,
+      // sin herramientas, la respuesta es solo texto. El SDK 0.104 aún no conoce ese tipo.
+      thinking: { type: "between_tools" } as unknown as Anthropic.ThinkingConfigParam,
       system: sistema,
       messages: mensajes,
     });

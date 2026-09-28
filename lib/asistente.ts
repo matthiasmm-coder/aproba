@@ -3,10 +3,11 @@
 // los nombres EXACTOS de los menús. Todo lo que el asistente sabe está aquí: si no está
 // escrito, debe decir que no lo sabe (nunca inventar pantallas ni botones).
 
-// Sonnet 5 desde el 24/09/2026 (antes Haiku 4.5, que Anthropic puede retirar desde el
-// 15/10/2026). Sin razonamiento (thinking «disabled», ver la ruta): responde desde esta
-// base, no razona de cero, y así va igual de rápido. 2 $/10 $ por M de tokens.
-export const ASISTENTE_MODELO = "claude-sonnet-5";
+// Sonnet 5.5 desde el 29/09/2026 (antes Sonnet 5 desde el 24/09, y Haiku 4.5). Sin
+// razonamiento previo (thinking «between_tools», ver la ruta): responde desde esta base, no
+// razona de cero. Banco del 29/09 con 7 preguntas: 3,2 s de mediana frente a 4,1 s con
+// Sonnet 5, respuestas algo más completas. 2 $/10 $ por M de tokens, igual que Sonnet 5.
+export const ASISTENTE_MODELO = "claude-sonnet-5-5";
 
 // Qué ES Aproba y cómo se usa, pantalla por pantalla. Mantener sincronizado con el producto.
 const BASE = `
