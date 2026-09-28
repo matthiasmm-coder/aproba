@@ -119,7 +119,8 @@ export function ExpedientesTabla({ filas, conBuscador = true, onNumeroOficial, n
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="min-w-full border-collapse">
-          <thead className="bg-slate-800 text-white">
+          {/* Cabecera en el verde de Aproba (Matthias, 28/09), como los botones principales. */}
+          <thead className="bg-aproba-600 text-white">
             <tr>
               <th className={th}>{t("Nombre completo")}</th>
               <th className={th}>{t("NIE")}</th>
