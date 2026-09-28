@@ -10,12 +10,13 @@ function EdificioIcon({ className = "" }: { className?: string }) {
 }
 
 // Nº de expediente OFICIAL (el que asigna Extranjería) — petición de Jennifer, 23-24/09/2026.
-// Se escribe donde se trabaja: en la FILA del expediente (Expedientes, en curso e historial)
-// o en la cabecera de la ficha. Intro guarda, Escape cancela, vaciar el campo lo borra.
+// Se escribe donde se trabaja: en la FILA del expediente (Expedientes, en curso e historial),
+// en la CELDA de la vista Tabla (restaurada el 28/09) o en la cabecera de la ficha. Intro
+// guarda, Escape cancela, vaciar el campo lo borra.
 export function NumeroOficial({ expedienteId, inicial, variante, onGuardado, className = "" }: {
   expedienteId: string;
   inicial: string;
-  variante: "fila" | "ficha";
+  variante: "fila" | "ficha" | "celda";
   onGuardado?: (numero: string) => void;
   className?: string; // fila: colocación dentro de la fila (p. ej. su orden en el móvil)
 }) {
@@ -45,9 +46,12 @@ export function NumeroOficial({ expedienteId, inicial, variante, onGuardado, cla
     } finally { setBusy(false); }
   }
 
+  // En la tabla, un clic en la fila abre la ficha: la celda no debe dejarlo pasar.
+  const parar = (e: React.SyntheticEvent) => e.stopPropagation();
+
   if (editando) {
     return (
-      <span className={variante === "ficha" ? "inline-flex flex-wrap items-center gap-2" : `inline-flex shrink-0 items-center ${className}`}>
+      <span onClick={variante === "celda" ? parar : undefined} className={variante === "ficha" ? "inline-flex flex-wrap items-center gap-2" : `inline-flex shrink-0 items-center ${className}`}>
         <input
           autoFocus value={borrador} maxLength={MAX_NUMERO_OFICIAL} disabled={busy}
           onChange={(e) => setBorrador(e.target.value)}
@@ -55,7 +59,7 @@ export function NumeroOficial({ expedienteId, inicial, variante, onGuardado, cla
           onBlur={() => { if (!busy) void guardar(); }}
           placeholder={t("p. ej. 08/123456/2026")}
           aria-label={t("Nº de expediente de Extranjería")}
-          className={`rounded border border-aproba-400 bg-white px-1.5 py-0.5 font-mono text-[16px] sm:text-xs outline-none ring-2 ring-aproba-100 ${variante === "ficha" ? "w-56" : "w-40"}`}
+          className={`rounded border border-aproba-400 bg-white px-1.5 py-0.5 font-mono text-[16px] sm:text-xs outline-none ring-2 ring-aproba-100 ${variante === "ficha" ? "w-56" : variante === "celda" ? "w-36" : "w-40"}`}
         />
         {error && <span role="alert" className="ml-1 text-[11px] text-red-600">{error}</span>}
       </span>
@@ -70,6 +74,21 @@ export function NumeroOficial({ expedienteId, inicial, variante, onGuardado, cla
           ? <button type="button" onClick={() => setEditando(true)} title={t("Editar")} className="font-mono font-semibold text-slate-800 underline decoration-slate-300 decoration-dotted underline-offset-2 hover:decoration-slate-500">{valor}</button>
           : <button type="button" onClick={() => setEditando(true)} className="font-semibold text-aproba-700 hover:underline">+ {t("Añadir")}</button>}
       </span>
+    );
+  }
+
+  // Celda de la vista Tabla (como en su Excel): el número, o una casilla punteada que
+  // ofrece «+ Añadir» al pasar el ratón.
+  if (variante === "celda") {
+    return valor ? (
+      <button type="button" onClick={(e) => { parar(e); setEditando(true); }} title={t("Editar")} className="font-mono text-xs text-slate-800 hover:underline hover:decoration-dotted">
+        {valor}
+      </button>
+    ) : (
+      <button type="button" onClick={(e) => { parar(e); setEditando(true); }} title={t("Añadir el nº de expediente de Extranjería")}
+        className="group inline-flex h-5 w-24 items-center justify-center rounded border border-dashed border-slate-300 text-[10px] font-semibold text-slate-300 transition hover:border-aproba-400 hover:text-aproba-700">
+        <span className="opacity-0 group-hover:opacity-100">+ {t("Añadir")}</span>
+      </button>
     );
   }
 

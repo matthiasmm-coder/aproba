@@ -23,6 +23,11 @@ function RenovacionesIcon({ className = "" }: { className?: string }) {
 
 const RUTAS: Record<VistaExpedientes, string> = { curso: "/app/expedientes", historial: "/app/expedientes?vista=historial", renovaciones: "/app/vencimientos" };
 
+// Tabla (23/09/2026, petición de Jennifer; restaurada el 28/09): icono del modo tabla de la lista.
+export function TablaIcon({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></svg>;
+}
+
 // Requerimientos (21/09/2026, petición de Jennifer): un reloj, porque lo que los define es
 // el plazo. Lo usan el filtro de «En curso» y la línea del requerimiento en la fila.
 export function RequerimientosIcon({ className = "" }: { className?: string }) {
