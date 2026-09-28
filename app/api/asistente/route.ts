@@ -44,7 +44,13 @@ export async function POST(req: Request) {
 
   // Dónde está el gestor: permite respuestas contextuales sin que tenga que explicarlo.
   const pagina = typeof body.pagina === "string" ? body.pagina.slice(0, 120) : "";
-  const sistema = pagina ? `${ASISTENTE_SISTEMA}\n\nAhora mismo el usuario está en la página: ${pagina}` : ASISTENTE_SISTEMA;
+  // La base (~26 000 tokens) va en la caché de Anthropic 5 minutos, renovados con cada uso:
+  // la 1.ª pregunta la escribe (+25 %), las siguientes la leen al 10 % del precio (29/09).
+  // La página va en un bloque APARTE, después: cambia en cada pregunta y no rompe la caché.
+  const sistema: Anthropic.TextBlockParam[] = [
+    { type: "text", text: ASISTENTE_SISTEMA, cache_control: { type: "ephemeral" } },
+    ...(pagina ? [{ type: "text" as const, text: `Ahora mismo el usuario está en la página: ${pagina}` }] : []),
+  ];
 
   try {
     const res = await new Anthropic({ timeout: 25_000, maxRetries: 1 }).messages.create({
