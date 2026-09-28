@@ -519,16 +519,16 @@ export function DehuBandeja({ items, expedientes, direccion, faltaMigracion }: P
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div
           onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }} onDragLeave={() => setArrastrando(false)} onDrop={soltar}
-          className={`rounded-2xl border-2 border-dashed p-5 transition lg:col-span-3 ${arrastrando ? "border-aproba-500 bg-aproba-50/60" : "border-slate-300 bg-white"}`}
+          className={`flex flex-col justify-center rounded-2xl border-2 border-dashed p-5 transition lg:col-span-3 ${arrastrando ? "border-aproba-500 bg-aproba-50/60" : "border-slate-300 bg-white"}`}
         >
           <p className="text-sm font-semibold text-slate-900">{t("Importa las notificaciones que ya abriste")}</p>
-          <p className="mt-1 text-sm text-slate-500">{t("Arrastra aquí los PDF o el ZIP que descargas de la DEHú. La IA lee cada una (tipo, persona, nº de expediente, plazo y documentos pedidos) y te propone su expediente: nada se vincula sin tu clic.")}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="mt-1 text-sm text-slate-500">{t("Arrastra aquí los PDF o el ZIP de la DEHú: la IA los lee y te propone su expediente. Nada se vincula sin tu clic.")}</p>
+          <div className="mt-4 flex flex-col items-center gap-1.5">
             <input ref={fileRef} type="file" multiple accept=".pdf,.zip,.jpg,.jpeg,.png,.webp,application/pdf,application/zip,image/*" className="hidden" onChange={(e) => e.target.files && void procesar(Array.from(e.target.files))} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={ocupados} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
               {ocupados ? t("Leyendo…") : t("Elegir archivos")}
             </button>
-            <span className="text-xs text-slate-400">{t("PDF, ZIP o foto · hasta {n} archivos por ZIP").replace("{n}", "40")}</span>
+            <span className="text-xs text-slate-400">{t("PDF, ZIP o foto")}</span>
           </div>
           {trabajos.length > 0 && (
             <ul className="mt-4 max-h-56 space-y-1 overflow-y-auto border-t border-slate-100 pt-3">
