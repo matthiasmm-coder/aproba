@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 // Vídeo de la portada (1 min 20, 16:9, 60 fps; el mismo de las redes, subtítulos incrustados).
@@ -25,6 +25,9 @@ export function VideoDemo() {
   const [pausado, setPausado] = useState(false);      // pausa pedida por el usuario (no se reanuda sola)
   const [pintado, setPintado] = useState(false);      // ya hay imagen: se retira el póster
   const [fuente, setFuente] = useState(FUENTE_HD);
+  const estado = useRef({ visible, auto, conSonido, pausado });   // para los eventos del <video>
+  estado.current = { visible, auto, conSonido, pausado };
+  const reintentos = useRef(0);
 
   useEffect(() => {
     const el = caja.current;
@@ -40,16 +43,38 @@ export function VideoDemo() {
     return () => { acerca.disconnect(); mira.disconnect(); };
   }, []);
 
+  // Arranque robusto: el navegador puede interrumpir el play() (AbortError: pestaña oculta un
+  // instante, ahorro de energía con vídeo sin sonido, carga en curso) o pausar él mismo el vídeo.
+  // Mientras deba reproducirse (automático, visible, sin pausa pedida), se reintenta (con tope).
+  // Solo un bloqueo real (NotAllowedError) desactiva el modo automático: póster + botón.
+  const intentar = useCallback(() => {
+    const v = video.current, e = estado.current;
+    if (!v || !e.auto || e.conSonido || e.pausado || !e.visible || document.visibilityState !== "visible" || !v.paused) return;
+    v.muted = true;
+    v.play().catch((err) => {
+      if (err?.name === "NotAllowedError") setAuto(false);
+      else if (reintentos.current++ < 8) setTimeout(intentar, 400);
+    });
+  }, []);
+
   // Modo automático: en silencio mientras se ve; fuera de pantalla, en pausa.
   useEffect(() => {
     const v = video.current;
     if (!v || !auto || conSonido || pausado) return;
-    v.muted = true;
-    // Solo un bloqueo real (NotAllowedError) desactiva el modo automático; un AbortError (una pausa que
-    // interrumpe el arranque al entrar y salir de pantalla) no.
-    if (visible) v.play().catch((e) => { if (e?.name === "NotAllowedError") setAuto(false); });
+    if (visible) { reintentos.current = 0; intentar(); }
     else v.pause();
-  }, [cerca, visible, auto, conSonido, pausado]);
+  }, [cerca, visible, auto, conSonido, pausado, intentar]);
+
+  // Vuelta a la pestaña, o pausa que no hemos pedido nosotros: se reanuda si procede.
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    const alVolver = () => { if (document.visibilityState === "visible") { reintentos.current = 0; intentar(); } };
+    const alPausar = () => { setTimeout(intentar, 300); };
+    document.addEventListener("visibilitychange", alVolver);
+    v.addEventListener("pause", alPausar);
+    return () => { document.removeEventListener("visibilitychange", alVolver); v.removeEventListener("pause", alPausar); };
+  }, [cerca, intentar]);
 
   // Dentro del gesto del clic (Safari solo deja sonar lo que arranca en el propio gesto).
   const activarSonido = () => {
