@@ -218,7 +218,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
                   <tr key={`s${i}`} className="border-b border-slate-100">
                     <td className="py-3 text-slate-700">{s.concepto}</td>
                     <td className="py-3 text-right text-slate-300">—</td>
-                    <td className="py-3 text-right text-slate-400">{t("Exento")}</td>
+                    <td className="py-3 text-right text-slate-400">{t("No sujeto")}</td>
                     <td className="py-3 text-right font-medium text-slate-800">{eur(s.importe)}</td>
                   </tr>
                 ))}

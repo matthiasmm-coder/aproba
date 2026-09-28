@@ -107,7 +107,7 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
   }
   if (suplidos.length) {
     saltoSi(); y -= 6; text("SUPLIDOS (gastos sin IVA)", M, 8, bold, grey); y -= 15;
-    for (const s of suplidos) { saltoSi(); text(s.concepto, M, 10); right("Exento", xIva, y, 9, font, slate); right(eur(s.importe), xImp, y, 10); y -= 15; }
+    for (const s of suplidos) { saltoSi(); text(s.concepto, M, 10); right("No sujeto", xIva, y, 9, font, slate); right(eur(s.importe), xImp, y, 10); y -= 15; }
   }
 
   // Totales (juntos en la misma página)
