@@ -238,7 +238,7 @@ export default function Landing() {
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <PruebaButton className="w-full px-6 py-3 sm:w-auto" />
               <a href="#como-funciona" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 sm:w-auto">
-                Descubrir en 90s
+                Descubrir en 80s
               </a>
             </div>
             <p className="mt-4 text-xs text-slate-500">
@@ -296,21 +296,10 @@ export default function Landing() {
       <section id="como-funciona" className="scroll-mt-20 border-y border-slate-200 bg-cream-50 py-24">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <span className="text-sm font-semibold text-aproba-700">En acción</span>
-          <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 90 segundos</h2>
+          <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 80 segundos</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento del cliente a la presentación del expediente, sin teclear un solo formulario.</p>
           <Reveal className="mt-10">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-float">
-              <div className="flex items-center gap-2 border-b border-slate-100 bg-cream-50 px-4 py-2.5">
-                <span className="flex gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-300" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-aproba-300" />
-                </span>
-                <span className="mx-auto flex items-center gap-1.5 rounded-md bg-white px-3 py-1 text-[11px] font-medium text-slate-400 ring-1 ring-slate-200">
-                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-                  app.aproba-software.com
-                </span>
-              </div>
               <VideoDemo />
             </div>
           </Reveal>

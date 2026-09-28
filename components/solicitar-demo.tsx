@@ -164,7 +164,7 @@ export function DemoModalHost() {
             </span>
             <h3 id="demo-titulo" className="mt-5 text-xl font-bold tracking-tightest text-slate-900">¡Solicitud recibida!</h3>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
-              Te escribiremos en menos de 24 h laborables para fijar la demo. Mientras tanto, puedes ver el vídeo de 90 segundos en esta misma página.
+              Te escribiremos en menos de 24 h laborables para fijar la demo. Mientras tanto, puedes ver el vídeo de 80 segundos en esta misma página.
             </p>
             <button onClick={cerrar} className="mt-6 rounded-lg bg-aproba-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700">Entendido</button>
           </div>
