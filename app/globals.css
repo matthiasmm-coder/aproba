@@ -125,6 +125,17 @@ body {
 .hero-stagger > *:nth-child(4) { animation-delay: 0.4s; }
 .hero-stagger > *:nth-child(5) { animation-delay: 0.5s; }
 
+/* Testimonio que se escribe (components/testimonio-escrito.tsx): el cursor parpadea mientras
+   escribe y dos veces más al terminar; luego el sello del colegiado salta con un zoom. */
+@keyframes aproba-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes aproba-cursor-fin { 0%, 40% { opacity: 1; } 20%, 60%, 100% { opacity: 0; } }
+@keyframes aproba-sello {
+  0% { opacity: 0; transform: scale(0.3); }
+  55% { opacity: 1; transform: scale(1.18); }
+  78% { transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 /* FAQ: el contenido aparece con un fundido al abrir el <details> */
 details[open] > .faq-body {
   animation: fadein 0.35s ease-out;
