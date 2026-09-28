@@ -118,7 +118,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       {/* Contenu */}
       <div className="min-w-0 flex-1 md:pl-60 print:pl-0">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-cream-50/80 px-4 backdrop-blur sm:px-6 print:hidden">
+        {/* Sin backdrop-blur: crea un contexto de apilamiento que encerraba el panel de la campana
+            (z-50) por debajo de los botones de la página, «Exportar» lo tapaba (Matthias, 29/09).
+            La cabecera no es sticky: el desenfoque no se veía. */}
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-cream-50 px-4 sm:px-6 print:hidden">
           <div className="flex items-center gap-2">
             <Link href="/" className="md:hidden"><AprobaMark size={24} /></Link>
             {/* Móvil: sin barra lateral, el círculo del usuario (su foto) vive aquí. */}
