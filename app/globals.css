@@ -248,31 +248,6 @@ details[open] > .faq-body {
   .tabla-articulo tr:last-child td:last-child { padding-bottom: 0.7rem; }
 }
 
-/* ── «¿Te suena esto?» (components/dolores.tsx) — 28/09/2026 ─────────────────────────
-   ESTADO FINAL POR DEFECTO. .dl-a = armado fuera de pantalla · .dl-on = entra y se anima:
-   cada filete se traza de izquierda a derecha y su frase sube en fundido, 90 ms después
-   de la anterior; la frase final llega la última. */
-.dl-fila { position: relative; }
-.dl-fila::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: #e2e8f0; transform-origin: left; }
-.dl-fin { height: 1px; background: #e2e8f0; transform-origin: left; }
-.dl-a .dl-fila::before, .dl-a .dl-fin { transform: scaleX(0); }
-.dl-a .dl-texto, .dl-a .dl-cierre { opacity: 0; transform: translateY(8px); }
-.dl-on .dl-fila::before, .dl-on .dl-fin {
-  transform: scaleX(1);
-  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: calc(var(--i) * 90ms);
-}
-.dl-on .dl-texto {
-  opacity: 1; transform: none;
-  transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: calc(var(--i) * 90ms + 80ms);
-}
-.dl-on .dl-cierre {
-  opacity: 1; transform: none;
-  transition: opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: 520ms;
-}
-
 /* ── «El día y la noche» (components/dia-noche.tsx) — rehecho el 26/09/2026 ──────────
    ESTADO FINAL POR DEFECTO (sin JS, reduced-motion o ya a la vista al cargar).
    .dn-a / .dnc-a = armado fuera de pantalla · .dn-on / .dnc-on = entra y se anima.
