@@ -47,11 +47,12 @@ export async function verifactuActivoEnWorkspace(admin: Cli, workspaceId: string
 
 // Configuración activa para el NIF que EMITE esta factura (la sede si tiene identidad
 // fiscal propia, si no el despacho — misma regla que el encabezado impreso).
-export async function configParaFactura(admin: Cli, f: { workspaceId: string; oficinaId?: string | null; expedienteId?: string | null }): Promise<{ config: ConfigVerifactu; apiKey: string; nif: string } | null> {
+export async function configParaFactura(admin: Cli, f: { workspaceId: string; oficinaId?: string | null; expedienteId?: string | null; emisorDatos?: { nif?: string | null } | null }): Promise<{ config: ConfigVerifactu; apiKey: string; nif: string } | null> {
   const configs = (await fetchConfigsVerifactu(admin, f.workspaceId)).filter((c) => c.activo && c.apiKeyEnc);
   if (!configs.length) return null;
-  let nif = "";
-  try {
+  // El NIF CONGELADO en la factura manda (es el que va impreso); las anteriores, en vivo.
+  let nif = normalizarNif(f.emisorDatos?.nif ?? null);
+  if (!nif) try {
     const sede = await oficinaDeFacturaFila(admin, { oficinaId: f.oficinaId ?? null, expedienteId: f.expedienteId ?? null });
     nif = normalizarNif((await emisorParaOficina(admin, f.workspaceId, sede)).nif);
   } catch { nif = ""; }
@@ -103,10 +104,12 @@ type FacturaFila = {
   id: string; workspaceId: string; numero: string; clienteNombre: string; concepto: string; baseImponible: number | string; total: number | string;
   estado: string; fechaEmision: string | null; lineas?: { concepto: string; base: number }[] | null; suplidos?: { concepto: string; importe: number }[] | null;
   clienteDatos?: { documento?: string } | null; clienteId?: string | null; empresaId?: string | null; oficinaId?: string | null; expedienteId?: string | null;
+  emisorDatos?: { nif?: string | null } | null;
 };
 async function cargarFactura(admin: Cli, facturaId: string): Promise<FacturaFila | null> {
   const sel = (cols: string) => admin.from("Factura").select(cols).eq("id", facturaId).maybeSingle();
-  let res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId");
+  let res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId, emisorDatos");
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId");
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, oficinaId, expedienteId");
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, expedienteId");
   if (res.error) throw new Error(`Factura ${facturaId}: ${res.error.message}`);

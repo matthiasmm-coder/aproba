@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { eur, ivaDe, totalDe, totalesFactura, IVA, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { eur, ivaDe, totalDe, totalesFactura, IVA, TIPOS_RETENCION, pctRetencion, retencionDe, r2, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 import { buscarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 
@@ -32,6 +32,7 @@ export type FacturaEditorInicial = {
   // simple
   concepto?: string;
   base?: number;
+  retencionPct?: number | null;
 };
 
 // Payload normalizado que emite el editor al validar.
@@ -51,6 +52,7 @@ export type FacturaPayload = {
   direccion?: string;
   clienteId?: string | null;
   empresaId?: string | null;
+  retencionPct?: number | null; // solo con `conRetencion`
 };
 
 export function FacturaEditor({
@@ -63,7 +65,11 @@ export function FacturaEditor({
   error,
   extra,
   fiscal,
+  conRetencion = false,
 }: {
+  // Retención de IRPF (28/09/2026): solo en la factura MANUAL, la que emite un profesional
+  // a una empresa o a otro profesional. El cobro de un expediente (particulares) no la lleva.
+  conRetencion?: boolean;
   // Factura MANUAL (24/09/2026): el gestor elige el cliente o la empresa de su lista y
   // su NIF/CIF y domicilio se rellenan solos; si no está en Aproba, los escribe. Sin
   // `fiscal` (cobro de un expediente) el servidor ya conoce al cliente.
@@ -116,6 +122,10 @@ export function FacturaEditor({
   const [lineas, setLineas] = useState<LineaFactura[]>(inicial?.lineas?.length ? inicial.lineas : [{ concepto: inicial?.concepto || servicios[0]?.label || "", base: inicial?.base ?? servicios[0]?.precio ?? 0 }]);
   const [suplidos, setSuplidos] = useState<Suplido[]>(inicial?.suplidos ?? []);
   const [notas, setNotas] = useState(inicial?.notas ?? "");
+  const pctInicial = inicial?.retencionPct ?? null;
+  const [retTipo, setRetTipo] = useState<string>(pctInicial == null ? "0" : (TIPOS_RETENCION as readonly number[]).includes(pctInicial) ? String(pctInicial) : "otro");
+  const [retOtro, setRetOtro] = useState(pctInicial != null && !(TIPOS_RETENCION as readonly number[]).includes(pctInicial) ? String(pctInicial) : "");
+  const retPct = conRetencion ? (retTipo === "otro" ? pctRetencion(retOtro) : pctRetencion(retTipo)) : null;
 
   const baseNum = Number(base) || 0;
   const tot = totalesFactura(lineas, suplidos);
@@ -142,15 +152,35 @@ export function FacturaEditor({
         avanzada: true, cliente: cliente.trim(), numero: numero.trim(),
         concepto: limpiasL.map((l) => l.concepto).join(" · ").slice(0, 200),
         baseImponible: b, iva, total, lineas: limpiasL, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
+        ...(conRetencion ? { retencionPct: retPct } : {}),
       });
     } else {
-      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal() });
+      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal(), ...(conRetencion ? { retencionPct: retPct } : {}) });
     }
   }
 
   // 16 px en el móvil (`sm:text-sm` a partir de tableta): por debajo de 16, Safari de
   // iOS hace zoom al enfocar el campo y el diálogo se ve enorme y descolocado.
   const inp = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
+
+  // Retención de IRPF: sin / 15 % / 7 % / otro tipo.
+  const campoRetencion = conRetencion ? (
+    <div>
+      <label className="text-sm font-medium text-slate-700">{t("Retención IRPF")}</label>
+      <div className="mt-1.5 flex gap-2">
+        <select value={retTipo} onChange={(e) => setRetTipo(e.target.value)} className={inp}>
+          <option value="0">{t("Sin retención")}</option>
+          <option value="15">15 %</option>
+          <option value="7">{t("7 % (primeros años de actividad)")}</option>
+          <option value="otro">{t("Otro tipo")}</option>
+        </select>
+        {retTipo === "otro" && (
+          <input type="number" inputMode="decimal" min={0} max={50} step={0.01} value={retOtro} onChange={(e) => setRetOtro(e.target.value)} placeholder="%" aria-label={t("Tipo de retención (%)")} className={`${inp} w-28 shrink-0`} />
+        )}
+      </div>
+      <p className="mt-1 text-xs text-slate-400">{t("Obligatoria si facturas como profesional (persona física) a una empresa o a otro profesional. Se calcula sobre los honorarios, no sobre los suplidos.")}</p>
+    </div>
+  ) : null;
 
   // Campo «Cliente»: con `fiscal`, propone los clientes y empresas del despacho.
   const campoCliente = (
@@ -213,8 +243,10 @@ export function FacturaEditor({
           <div className="rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm">
             <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(baseNum)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(ivaDe(baseNum))}</span></div>
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total")}</span><span>{eur(totalDe(baseNum))}</span></div>
+            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : t("Total")}</span><span>{eur(totalDe(baseNum))}</span></div>
+            {retPct ? <FilasRetencion base={baseNum} total={totalDe(baseNum)} pct={retPct} t={t} /> : null}
           </div>
+          {campoRetencion}
           <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-500">
             <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
             <span>{t("Con Pro o Business puedes añadir varias líneas, suplidos (tasas, sin IVA), nº y notas personalizados.")}</span>
@@ -289,8 +321,10 @@ export function FacturaEditor({
             <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(tot.base)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(tot.iva)}</span></div>
             {tot.suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(tot.suplidosTotal)}</span></div>}
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total")}</span><span>{eur(tot.total)}</span></div>
+            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : t("Total")}</span><span>{eur(tot.total)}</span></div>
+            {retPct ? <FilasRetencion base={tot.base} total={tot.total} pct={retPct} t={t} /> : null}
           </div>
+          {campoRetencion}
         </div>
       )}
 
@@ -300,5 +334,16 @@ export function FacturaEditor({
         {busy ? t("Procesando…") : submitLabel}
       </button>
     </div>
+  );
+}
+
+// Filas «Retención IRPF» y «A cobrar» del bloque de totales (el total de la factura no cambia).
+function FilasRetencion({ base, total, pct, t }: { base: number; total: number; pct: number; t: (s: string) => string }) {
+  const ret = retencionDe(base, pct);
+  return (
+    <>
+      <div className="mt-1 flex justify-between text-slate-500"><span>{t("Retención IRPF")} ({pct} %)</span><span>−{eur(ret)}</span></div>
+      <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("A cobrar")}</span><span>{eur(r2(total - ret))}</span></div>
+    </>
   );
 }

@@ -10,6 +10,7 @@ import { datosFiscalesDeCliente, r2, IVA } from "@/lib/facturas";
 import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
+import { emisorParaFijar } from "@/lib/facturacion-oficina";
 import { registrarAltaSiActivo, facturaCongeladaPorVerifactu } from "@/lib/verifactu-envio";
 
 // Citas previas (consulta): el gestor crea una cita con un cliente (existente o nombre
@@ -108,6 +109,8 @@ async function emitirFacturaCita(
     fechaEmision: ahora.toISOString(), fechaVencimiento: new Date(ahora.getTime() + 14 * 864e5).toISOString(),
     lineas: [{ concepto, base }], suplidos: [],
     ...(clienteDatos ? { clienteDatos } : {}),
+    // Emisor congelado al emitir: la sede de la cita, o el despacho.
+    emisorDatos: await emisorParaFijar(admin, o.workspaceId, oficinaCita),
   };
   // Replis por migración ausente, uno a uno (nunca se pierde la factura entera).
   let { error } = await admin.from("Factura").insert(fila);

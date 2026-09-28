@@ -37,6 +37,20 @@ export const totalEntregado = (entregas: { importe: number }[]): number =>
 export const saldoPendiente = (total: number, entregas: { importe: number }[]): number =>
   Math.max(0, r2(Number(total || 0) - totalEntregado(entregas)));
 
+/** Lo que se cobra con TARJETA para saldar una factura: lo que paga el cliente (total −
+ *  retención de IRPF) menos lo ya entregado a cuenta. ÚNICA definición para el checkout,
+ *  /pagar/exito y la conciliación: hasta el 28/09/2026 el checkout cobraba el saldo y las otras
+ *  dos exigían el total, y un pago de saldo nunca se daba por bueno. */
+export const saldoTarjeta = (f: { total?: number | string | null; retencion?: number | string | null }, entregas: { importe: number }[] = []): number =>
+  saldoPendiente(r2(Number(f.total || 0) - Number(f.retencion || 0)), entregas);
+
+/** ¿Cuadra el importe de una sesión de Stripe (céntimos) con la factura? Vale el saldo de hoy
+ *  o, si las entregas cambiaron entre el enlace y el pago, lo que el cliente paga entero. */
+export const importeTarjetaCuadra = (centimos: number | null | undefined, f: { total?: number | string | null; retencion?: number | string | null }, entregas: { importe: number }[] = []): boolean => {
+  const c = Number(centimos ?? -1);
+  return c === Math.round(saldoTarjeta(f, entregas) * 100) || c === Math.round(saldoTarjeta(f) * 100);
+};
+
 /** ¿Las entregas cubren ya la factura? (tolerancia de 1 céntimo por redondeos) */
 export const estaCubierta = (total: number, entregas: { importe: number }[]): boolean =>
   totalEntregado(entregas) + 0.005 >= r2(Number(total || 0));

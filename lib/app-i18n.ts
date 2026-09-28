@@ -2304,6 +2304,18 @@ export const CA: Record<string, string> = {
   "Logo del despacho": "Logotip del despatx",
   "Tus clientes lo ven en su portal, en los emails que les envías, en la vista previa del enlace y en tus facturas. JPG, PNG o WebP · máx. 2 MB.": "Els teus clients el veuen al seu portal, als emails que els envies, a la vista prèvia de l'enllaç i a les teves factures. JPG, PNG o WebP · màx. 2 MB.",
   "Solo un administrador puede cambiarlo.": "Només un administrador pot canviar-lo.",
+  // Retención de IRPF en facturas emitidas + oficina emisora extra (28/09/2026)
+  "7 % (primeros años de actividad)": "7 % (primers anys d'activitat)",
+  "A cobrar": "A cobrar",
+  "a cobrar": "a cobrar",
+  "IRPF que te han retenido": "IRPF que t'han retingut",
+  "Obligatoria si facturas como profesional (persona física) a una empresa o a otro profesional. Se calcula sobre los honorarios, no sobre los suplidos.": "Obligatòria si factures com a professional (persona física) a una empresa o a un altre professional. Es calcula sobre els honoraris, no sobre els suplerts.",
+  "Otro tipo": "Un altre tipus",
+  "Sin retención": "Sense retenció",
+  "Tipo de retención (%)": "Tipus de retenció (%)",
+  "Total factura": "Total factura",
+  "Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.": "El teu pla inclou una oficina més per facturar amb un altre NIF (per exemple, un professional del despatx amb la seva pròpia sèrie). Omple les seves dades de facturació a la seva targeta.",
+  "Tus clientes lo ingresan en Hacienda por ti: lo descuentas en tu declaración (modelo 130).": "Els teus clients l'ingressen a Hisenda per tu: el descomptes a la teva declaració (model 130).",
   // Cambio del email de acceso (Ajustes › Despacho y cuenta)
   "Escribe un email válido.": "Escriu un email vàlid.",
   "Ese ya es tu email.": "Aquest ja és el teu email.",

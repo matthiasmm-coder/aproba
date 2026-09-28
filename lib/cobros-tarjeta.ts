@@ -106,7 +106,9 @@ export async function marcarFacturaPagada(
   facturaId: string,
   metodo: "TARJETA" | "TRANSFERENCIA" | "EFECTIVO" | "OTRO" = "TARJETA",
 ): Promise<"nuevo" | "ya" | null> {
-  const { data: f } = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
+  let fq = await admin.from("Factura").select("id, estado, expedienteId, numero, total, retencion").eq("id", facturaId).maybeSingle();
+  if (fq.error) fq = await admin.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", facturaId).maybeSingle();
+  const f = fq.data as { id: string; estado: string; expedienteId: string | null; numero: string; total: number | string; retencion?: number | string | null } | null;
   if (!f) return null;
   if (f.estado === "PAGADA") return "ya";
   // Una ANULADA no puede transitar a PAGADA (webhook rezagado, cron, doble clic): el dinero
@@ -131,7 +133,7 @@ export async function marcarFacturaPagada(
       id: crypto.randomUUID(),
       expedienteId: f.expedienteId,
       tipo: "COMENTARIO",
-      descripcion: `${emoji} Factura ${f.numero} pagada ${via} (${Number(f.total).toFixed(2).replace(".", ",")} €)`,
+      descripcion: `${emoji} Factura ${f.numero} pagada ${via} (${(Number(f.total) - Number(f.retencion ?? 0)).toFixed(2).replace(".", ",")} €)`,
     });
   }
   return "nuevo";

@@ -124,7 +124,7 @@ export async function estadisticasToPdf(est: Estadisticas, emisor: EmisorPdf, ex
     ren.margen == null ? OSCURO : ren.margen < 0 ? ROJO : VERDE, ren.margen != null ? { v: ren.margen, color: ren.margen < 0 ? ROJO : VERDE } : undefined);
   y -= 66;
   bloque(M, r.ivaNeto >= 0 ? "IVA a ingresar (estim.)" : "IVA a compensar (estim.)", eur(Math.abs(r.ivaNeto)), "Repercutido - soportado");
-  bloque(M + anchoB, "Pendiente de cobro", eur(r.ingresos.pendiente), `Cobrado ${eur(r.ingresos.cobrado)}`, r.ingresos.pendiente > 0 ? AMBAR : OSCURO);
+  bloque(M + anchoB, "Pendiente de cobro", eur(r.ingresos.pendiente), `Cobrado ${eur(r.ingresos.cobrado)}${r.ingresos.retenciones ? ` · IRPF retenido ${eur(r.ingresos.retenciones)}` : ""}`, r.ingresos.pendiente > 0 ? AMBAR : OSCURO);
   bloque(M + 2 * anchoB, "Pendiente de pago", eur(r.gastos.pendiente), `Pagado ${eur(r.gastos.pagado)}`);
   bloque(M + 3 * anchoB, "Retenciones practicadas", eur(r.gastos.retenciones), "Modelos 111 y 115");
   y -= 70;

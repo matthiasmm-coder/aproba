@@ -59,7 +59,7 @@ export async function fetchEmpresaDetalle(empresaId: string): Promise<EmpresaDet
 // los servicios que ha contratado, sus facturas y sus trabajadores. Todo bajo RLS.
 
 export type FacturaEmpresa = {
-  id: string; numero: string; concepto: string; total: number; estado: string;
+  id: string; numero: string; concepto: string; total: number; estado: string; retencion?: number | null;
   fechaEmision: string | null; clienteNombre: string; expedienteId: string | null;
 };
 export type ServicioContratado = { clave: string; label: string; expedientes: number };
@@ -111,9 +111,11 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
     // Facturas: las estampilladas con empresaId (desde el 08/09) y, para las anteriores,
     // las de los expedientes de sus trabajadores. Se deduplican por id.
     const vistas = new Map<string, FacturaEmpresa>();
-    const COLS = "id, numero, concepto, total, estado, fechaEmision, clienteNombre, expedienteId";
+    // retencion (IRPF): lo cobrado/pendiente es total − retención. Repli sin ella si falta la columna.
+    let COLS = "id, numero, concepto, total, retencion, estado, fechaEmision, clienteNombre, expedienteId";
+    try { const { error } = await supabase.from("Factura").select("retencion").limit(1); if (error) COLS = COLS.replace(", retencion", ""); } catch { COLS = COLS.replace(", retencion", ""); }
     const añade = (filas: unknown[]) => {
-      for (const f of (filas ?? []) as FacturaEmpresa[]) if (f?.id && !vistas.has(f.id)) vistas.set(f.id, { ...f, total: Number(f.total) });
+      for (const f of (filas ?? []) as FacturaEmpresa[]) if (f?.id && !vistas.has(f.id)) vistas.set(f.id, { ...f, total: Number(f.total), retencion: f.retencion != null ? Number(f.retencion) : null });
     };
     try {
       const { data, error } = await supabase.from("Factura").select(COLS).eq("empresaId", empresaId);
@@ -150,7 +152,10 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
   // «Anulada» no cuenta como facturado; «pendiente» es lo emitido y aún no cobrado.
   const vivas = facturas.filter((f) => f.estado !== "ANULADA" && f.estado !== "BORRADOR");
   const facturado = vivas.reduce((a, f) => a + f.total, 0);
-  const cobrado = vivas.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + f.total, 0);
+  // Cobrado y pendiente: lo que la empresa paga de verdad (total − retención de IRPF que practica).
+  const aCobrarF = (f: FacturaEmpresa) => f.total - Number(f.retencion ?? 0);
+  const cobrado = vivas.filter((f) => f.estado === "PAGADA").reduce((a, f) => a + aCobrarF(f), 0);
+  const pendienteFacturas = vivas.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((a, f) => a + aCobrarF(f), 0);
   // Las tarjetas suman lo facturado ANTES de Aproba (Luis, 25/09/2026): con un historial
   // migrado de 12.523,50 €, «Facturado 0,00 €» contaba otra historia que la de la ficha.
   return {
@@ -158,7 +163,7 @@ export async function fetchEmpresaFicha(empresaId: string): Promise<EmpresaFicha
     totales: {
       facturado: redondea(facturado + historialTotales.importe),
       cobrado: redondea(cobrado + historialTotales.cobrado),
-      pendiente: redondea(facturado - cobrado + historialTotales.pendiente),
+      pendiente: redondea(pendienteFacturas + historialTotales.pendiente),
     },
   };
 }

@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { conceptoRectificativa, importesRectificativa, prefijoRectificativa } from "@/lib/facturas";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { fmtFechaCorta } from "@/lib/tramites";
-import { fiscalDeOficina, oficinaDeFacturaFila } from "@/lib/facturacion-oficina";
+import { emisorParaFijar, fiscalDeOficina, oficinaDeFacturaFila } from "@/lib/facturacion-oficina";
 import { configParaFactura } from "@/lib/verifactu-envio";
 
 // FACTURA RECTIFICATIVA (RD 1619/2012, art. 15) — petición de Luis, Asenjo Global, 21/09/2026.
@@ -33,7 +33,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Bajo RLS (anti-IDOR): una factura de otro despacho «no existe».
   const COLS = "id, workspaceId, numero, estado, concepto, clienteNombre, baseImponible, iva, total, expedienteId, oficinaId, fechaVencimiento";
-  let res = await supa.from("Factura").select(`${COLS}, lineas, suplidos, clienteDatos, clienteId, familiaId, empresaId, rectificaId`).eq("id", id).maybeSingle();
+  const EXTRAS = `${COLS}, lineas, suplidos, clienteDatos, clienteId, familiaId, empresaId, rectificaId`;
+  let res = await supa.from("Factura").select(`${EXTRAS}, retencionPct, retencion, emisorDatos`).eq("id", id).maybeSingle();
+  if (res.error) res = await supa.from("Factura").select(EXTRAS).eq("id", id).maybeSingle() as typeof res;
   let sinExtras = false;
   if (res.error) { sinExtras = true; res = await supa.from("Factura").select(COLS).eq("id", id).maybeSingle() as typeof res; }
   const f = res.data as (Record<string, unknown> & { id: string; workspaceId: string; numero: string; estado: string; total: number }) | null;
@@ -69,7 +71,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const numero = await siguienteNumero(admin, f.workspaceId, hoy.getFullYear(), prefijoRectificativa(prefijoOficina));
 
   const imp = importesRectificativa({
-    baseImponible: Number(f.baseImponible), iva: Number(f.iva), total: Number(f.total),
+    baseImponible: Number(f.baseImponible), iva: Number(f.iva), total: Number(f.total), retencion: (f.retencion as number | null) ?? null,
     lineas: (f.lineas as { concepto: string; base: number }[] | null) ?? null,
     suplidos: (f.suplidos as { concepto: string; importe: number }[] | null) ?? null,
   });
@@ -91,8 +93,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...(f.clienteId ? { clienteId: f.clienteId } : {}),
     ...(f.familiaId ? { familiaId: f.familiaId } : {}),
     ...(f.empresaId ? { empresaId: f.empresaId } : {}),
+    // Mismo emisor que la original (su NIF es el de la rectificada) y su retención en negativo.
+    ...(imp.retencion ? { retencionPct: f.retencionPct, retencion: imp.retencion } : {}),
+    emisorDatos: (f.emisorDatos as object | null) ?? await emisorParaFijar(admin, f.workspaceId as string, await oficinaDeFacturaFila(admin, { oficinaId: (f.oficinaId as string | null) ?? null, expedienteId: (f.expedienteId as string | null) ?? null })),
   };
-  const { error } = await admin.from("Factura").insert(fila);
+  let { error } = await admin.from("Factura").insert(fila);
+  if (error && /retencion|emisorDatos/i.test(error.message)) { delete fila.retencionPct; delete fila.retencion; delete fila.emisorDatos; ({ error } = await admin.from("Factura").insert(fila)); }
   if (error) {
     if (/rectificaId/i.test(error.message)) return NextResponse.json({ error: "Falta la migración: ejecuta supabase/factura-rectificativa.sql." }, { status: 500 });
     if (/duplicate|unique/i.test(error.message)) return NextResponse.json({ error: "Esa factura ya se rectificó. Vuelve a cargar la página." }, { status: 409 });
@@ -111,7 +117,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // propio que Verifacti aún no acepta por esta vía (lib/verifactu.ts). NO se envía en
   // silencio: se avisa para que el gestor sepa que ese registro queda pendiente.
   let verifactuPendiente = false;
-  try { verifactuPendiente = Boolean(await configParaFactura(admin, { workspaceId: f.workspaceId, oficinaId: (f.oficinaId as string | null) ?? null, expedienteId: (f.expedienteId as string | null) ?? null })); }
+  try { verifactuPendiente = Boolean(await configParaFactura(admin, { workspaceId: f.workspaceId, oficinaId: (f.oficinaId as string | null) ?? null, expedienteId: (f.expedienteId as string | null) ?? null, emisorDatos: (fila.emisorDatos as { nif?: string | null } | null) ?? null })); }
   catch { /* sin VERI*FACTU configurado */ }
 
   return NextResponse.json({ ok: true, id: nuevoId, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", total: imp.total, verifactuPendiente });

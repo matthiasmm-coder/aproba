@@ -7,7 +7,7 @@ import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { ordenParentesco } from "@/lib/familia";
 import { siguienteNumero } from "@/lib/factura-numero";
-import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { emisorParaFijar, oficinaDeFacturaFila, prefijoDeExpediente } from "@/lib/facturacion-oficina";
 import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
@@ -91,6 +91,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     fechaEmision: ahora.toISOString(), fechaVencimiento: vencimiento.toISOString(),
     lineas, suplidos, notas: body.notas?.trim() || null,
     ...(clienteDatos ? { clienteDatos } : {}),
+    // Emisor congelado: el de la sede del expediente ancla (misma regla que en lectura), o el despacho.
+    emisorDatos: await emisorParaFijar(admin, fam.workspaceId, anchorExpedienteId ? await oficinaDeFacturaFila(admin, { oficinaId: null, expedienteId: anchorExpedienteId }) : null),
   };
   let { error: eIns } = await admin.from("Factura").insert(fila);
   if (eIns && fila.clienteId && /clienteId/i.test(eIns.message)) {

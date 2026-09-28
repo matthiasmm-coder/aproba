@@ -14,6 +14,22 @@ export const COOKIE_OFICINA = "aproba_oficina";
 export const OFICINAS_INCLUIDAS = 2;
 export const PRECIO_OFICINA_EXTRA = 50; // €/mois, hors IVA
 
+// EXCEPCIONES COMERCIALES por despacho (decisión de Matthias, una a una y con su porqué).
+// Sin tabla: son pocas, como WS_PRECIO_HEREDADO en lib/billing.ts.
+// · Asenjo Global Consulting (28/09/2026): Marta Asenjo, abogada, factura con su propio NIF
+//   desde el mismo despacho → UNA oficina emisora más incluida en su Pro, sin pasar a Business.
+export const OFICINAS_EXTRA_SIN_BUSINESS: Record<string, number> = {
+  "367a2240-8c86-40ed-82a0-52e8d9c96011": 1,
+};
+export const tieneExcepcionOficinas = (workspaceId: string): boolean => (OFICINAS_EXTRA_SIN_BUSINESS[workspaceId] ?? 0) > 0;
+// ¿Puede este despacho crear otra oficina? Business, siempre; otro plan, solo dentro de su
+// excepción (la oficina propia de la gestoría + las extra acordadas).
+export function puedeCrearOficina(plan: string | null | undefined, workspaceId: string, existentes: number): boolean {
+  if (plan === "BUSINESS") return true;
+  const extra = OFICINAS_EXTRA_SIN_BUSINESS[workspaceId] ?? 0;
+  return extra > 0 && existentes < 1 + extra;
+}
+
 // Ce que coûte le fait d'avoir `total` oficinas (0 si on est dans le forfait).
 export function precioOficinaExtra(total: number): { extras: number; euros: number } | null {
   const extras = Math.max(0, total - OFICINAS_INCLUIDAS);

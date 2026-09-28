@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, type ClienteDatosFactura } from "@/lib/facturas";
+import { emisorParaFijar } from "@/lib/facturacion-oficina";
 import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { fmtFechaCorta } from "@/lib/tramites";
@@ -21,6 +22,8 @@ type Body = {
   // Datos fiscales del cliente (24/09/2026): lo escrito manda; si no hay nada escrito y se
   // eligió un cliente o una empresa de la lista, los de su ficha.
   documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null;
+  // Retención de IRPF (28/09/2026, Asenjo): tipo en % sobre la base de honorarios.
+  retencionPct?: number | string | null;
 };
 
 export async function POST(req: Request) {
@@ -55,6 +58,9 @@ export async function POST(req: Request) {
   if (ls.length) { const tt = totalesFactura(ls, ss); baseImponible = tt.base; iva = tt.iva; total = tt.total; }
   else { baseImponible = Number(body.baseImponible) || 0; iva = ivaDe(baseImponible); total = totalDe(baseImponible); }
   if (total <= 0) return NextResponse.json({ error: "El importe de la factura debe ser mayor que 0" }, { status: 400 });
+  // Retención de IRPF: solo sobre la base de honorarios; el total NO la resta (aCobrar sí).
+  const retencionPct = pctRetencion(body.retencionPct);
+  const retencion = retencionPct ? retencionDe(baseImponible, retencionPct) : 0;
 
   // A quién se factura: el cliente o la empresa elegidos se validan contra MI despacho
   // (anti-IDOR: un id ajeno no se enlaza ni presta sus datos fiscales).
@@ -85,6 +91,9 @@ export async function POST(req: Request) {
     ...(clienteDatos ? { clienteDatos } : {}),
     ...(clienteId ? { clienteId } : {}),
     ...(empresaId ? { empresaId } : {}),
+    ...(retencionPct ? { retencionPct, retencion } : {}),
+    // Emisor congelado: la identidad fiscal de la oficina elegida (o del despacho) tal como es hoy.
+    emisorDatos: await emisorParaFijar(admin, workspaceId, oficinaId),
   };
   let { error } = await admin.from("Factura").insert(row);
   if (error && row.oficinaId && /oficinaId/i.test(error.message)) { delete row.oficinaId; ({ error } = await admin.from("Factura").insert(row)); }
@@ -102,5 +111,5 @@ export async function POST(req: Request) {
   }
   // VERI*FACTU: registro de alta (si el NIF emisor lo tiene activo). Nunca frena la emisión.
   const verifactu = await registrarAltaSiActivo(admin, id);
-  return NextResponse.json({ ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), clienteDatos: row.clienteDatos ?? null, ...(verifactu ? { verifactu } : {}) });
+  return NextResponse.json({ ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), clienteDatos: row.clienteDatos ?? null, emisor: row.emisorDatos, retencionPct: retencionPct ?? null, retencion: retencion || null, aCobrar: aCobrar({ total, retencion }), ...(verifactu ? { verifactu } : {}) });
 }

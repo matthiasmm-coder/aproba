@@ -56,6 +56,40 @@ describe("factura PDF · raya del TOTAL", () => {
   });
 });
 
+describe("factura PDF · retención de IRPF y emisor congelado (Asenjo, 28/09/2026)", () => {
+  const f = {
+    id: "f", numero: "MA-2026-0001", cliente: "ASENJO GLOBAL CONSULTING SL", concepto: "Asesoramiento jurídico", base: 2000,
+    estado: "EMITIDA", fecha: "28/09/2026", iva: 420, total: 2420, retencionPct: 15, retencion: 300,
+    emisorDatos: { nombre: "Marta Asenjo Romo", nif: "00000000T", domicilio: "Madrid", email: null },
+  } as unknown as Factura;
+
+  it("TOTAL FACTURA, la retención en negativo y TOTAL A PAGAR = total − retención", async () => {
+    const { textos } = await geometria(await facturaToPdf(f, { nombre: "Despacho en vivo", nif: "B99999999" }));
+    const s = textos.map((t) => t.s);
+    expect(s).toContain("TOTAL FACTURA");
+    expect(s).toContain("Retención IRPF (15 %)");
+    expect(s.some((x) => /^-300,00/.test(x))).toBe(true);        // guion ASCII: WinAnsi no tiene U+2212
+    const iPagar = s.indexOf("TOTAL A PAGAR");
+    expect(iPagar).toBeGreaterThan(-1);
+    expect(s[iPagar + 1]).toMatch(/^2\.120,00/);
+  });
+
+  it("el encabezado es el emisor CONGELADO, no el del despacho en vivo", async () => {
+    const { textos } = await geometria(await facturaToPdf(f, { nombre: "Despacho en vivo", nif: "B99999999" }));
+    const s = textos.map((t) => t.s);
+    expect(s).toContain("Marta Asenjo Romo");
+    expect(s).toContain("NIF/CIF 00000000T");
+    expect(s).not.toContain("Despacho en vivo");
+  });
+
+  it("sin retención, el PDF de siempre: TOTAL y nada más", async () => {
+    const { textos } = await geometria(await facturaToPdf({ ...f, retencion: null, retencionPct: null } as Factura, { nombre: "X", nif: null }));
+    const s = textos.map((t) => t.s);
+    expect(s).toContain("TOTAL");
+    expect(s).not.toContain("TOTAL A PAGAR");
+  });
+});
+
 describe("factura PDF · conceptos partidos por ancho", () => {
   // Antes se partía cada 60 caracteres (líneas) o nada (suplidos): en mayúsculas o con el
   // «servicio: concepto» del multi-servicio, el texto pisaba BASE o «No sujeto».

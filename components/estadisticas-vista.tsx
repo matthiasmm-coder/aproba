@@ -166,6 +166,12 @@ export function EstadisticasVista({ est, periodo, sinFechaRecibidas = 0, error =
           sub={<>{t("Pagado")} {eur(r.gastos.pagado)} {t("a proveedores")}</>} />
         <Tarjeta label={t("Retenciones practicadas")} valor={eur(r.gastos.retenciones)}
           sub={t("IRPF retenido a tus proveedores: se ingresa en Hacienda (modelos 111 y 115).")} />
+        {/* Solo si alguien factura con retención (profesional → empresa): lo que sus clientes
+            ingresan a Hacienda a su cuenta y descontará en su declaración. */}
+        {r.ingresos.retenciones !== 0 && (
+          <Tarjeta label={t("IRPF que te han retenido")} valor={eur(r.ingresos.retenciones)}
+            sub={t("Tus clientes lo ingresan en Hacienda por ti: lo descuentas en tu declaración (modelo 130).")} />
+        )}
       </div>
 
       {/* Curvas */}

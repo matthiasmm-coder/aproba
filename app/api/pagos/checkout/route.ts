@@ -19,8 +19,11 @@ export async function GET(req: Request) {
   const admin = createSupabaseAdmin();
   // oficinaId puede no estar migrada (supabase/oficinas-facturacion.sql) → repli.
   let fRes = await admin.from("Factura")
-    .select("id, workspaceId, numero, concepto, total, estado, expedienteId, oficinaId")
+    .select("id, workspaceId, numero, concepto, total, retencion, estado, expedienteId, oficinaId")
     .eq("id", facturaId).maybeSingle();
+  if (fRes.error) fRes = await admin.from("Factura")
+    .select("id, workspaceId, numero, concepto, total, estado, expedienteId, oficinaId")
+    .eq("id", facturaId).maybeSingle() as typeof fRes;
   if (fRes.error) fRes = await admin.from("Factura")
     .select("id, workspaceId, numero, concepto, total, estado, expedienteId")
     .eq("id", facturaId).maybeSingle();
@@ -44,9 +47,10 @@ export async function GET(req: Request) {
   // ⚠️ Entregas a cuenta: si el cliente ya ha ido pagando (efectivo, transferencia),
   // el enlace de tarjeta debe cobrar SOLO EL SALDO. Cobrarle el total sería cobrarle
   // dos veces lo ya entregado. Si el saldo es 0, la factura está saldada de hecho.
-  const { fetchEntregasDeFacturas, saldoPendiente } = await import("@/lib/entregas");
+  // Con retención de IRPF, el cliente paga total − retención (la ingresa él a Hacienda).
+  const { fetchEntregasDeFacturas, saldoTarjeta } = await import("@/lib/entregas");
   const entregas = (await fetchEntregasDeFacturas(admin, [String(f.id)]))[String(f.id)] ?? [];
-  const aCobrar = entregas.length ? saldoPendiente(Number(f.total), entregas) : Number(f.total);
+  const aCobrar = saldoTarjeta(f as { total: number; retencion?: number | null }, entregas);
   if (aCobrar <= 0) return NextResponse.redirect(`${origin}/pagar/exito?f=${facturaId}`, 303);
 
   try {

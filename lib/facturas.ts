@@ -61,28 +61,60 @@ export type Factura = {
   // incluye los suplidos, que totalDe(base) no ve.
   iva?: number;
   total?: number;
+  // Retención de IRPF (profesional persona física → empresa o profesional). `total` NO la
+  // resta: lo que el cliente paga es aCobrar(). null/undefined = sin retención.
+  retencionPct?: number | null;
+  retencion?: number | null;
+  emisorDatos?: EmisorFijado | null; // emisor congelado al emitir (null = anterior: en vivo)
 };
+
+// Emisor CONGELADO al emitir (supabase/factura-retencion-emisor.sql): una factura emitida no
+// cambia si después se editan los datos fiscales del despacho o de la oficina.
+export type EmisorFijado = { nombre: string; nif: string | null; domicilio: string | null; email: string | null };
 
 export const IVA = 0.21;
 export const r2 = (n: number) => Math.round(n * 100) / 100;
 export const ivaDe = (b: number) => r2(b * IVA);
 export const totalDe = (b: number) => r2(b * (1 + IVA));
 
+// ── Retención de IRPF en facturas EMITIDAS ─────────────────────────────────────
+// La practica el cliente (empresa o profesional) cuando factura un profesional persona
+// física: 15 % en general, 7 % los tres primeros años de actividad. Solo sobre la base de
+// honorarios (los suplidos no llevan IVA ni retención) y NO se resta del `total`, que es el
+// importe total de la factura (el que va a VeriFactu); lo que se cobra es aCobrar().
+// Con signo de la base: en una rectificativa (base negativa) la retención también se niega.
+export const TIPOS_RETENCION = [15, 7] as const;
+export function retencionDe(base: number, pct: number | null | undefined): number {
+  const p = Number(pct) || 0;
+  if (p <= 0) return 0;
+  return r2(Number(base || 0) * p / 100);
+}
+// Lo que el cliente paga de verdad: total − retención (igual al total si no hay retención).
+export const aCobrar = (f: { total?: number | string | null; retencion?: number | string | null }): number =>
+  r2(Number(f.total || 0) - Number(f.retencion || 0));
+// Tipo de retención admitido: 0 < pct ≤ 50, con 2 decimales. null = sin retención.
+export function pctRetencion(v: unknown): number | null {
+  const n = r2(Number(String(v ?? "").replace(",", ".")));
+  return Number.isFinite(n) && n > 0 && n <= 50 ? n : null;
+}
+
 // Importes REALES de una factura: honorarios + IVA + suplidos (tasas, sin IVA). La lista,
 // sus totales, la ficha del cliente y el CSV usaban totalDe(base) y se dejaban los
 // suplidos (encontrado el 23/09/2026 al añadir el NIF al CSV que pidió Luis: 307,55 € de
 // menos en la lista de Juan). Manda lo guardado al emitir; si falta, se calcula igual que
 // totalesFactura.
-export function importesFactura(f: Pick<Factura, "base" | "suplidos" | "iva" | "total">) {
+export function importesFactura(f: Pick<Factura, "base" | "suplidos" | "iva" | "total"> & { retencion?: number | null }) {
   const base = r2(f.base);
   const iva = typeof f.iva === "number" && Number.isFinite(f.iva) ? r2(f.iva) : ivaDe(base);
   const deLista = r2((f.suplidos ?? []).reduce((a, s) => a + (Number(s.importe) || 0), 0));
+  const retencion = r2(Number(f.retencion) || 0);
   if (typeof f.total === "number" && Number.isFinite(f.total)) {
     // Sin la lista de suplidos (fila antigua), lo que falta hasta el total guardado lo son.
     const suplidos = f.suplidos ? deLista : r2(f.total - base - iva);
-    return { base, iva, suplidos, total: r2(f.total) };
+    return { base, iva, suplidos, total: r2(f.total), retencion, aCobrar: r2(f.total - retencion) };
   }
-  return { base, iva, suplidos: deLista, total: r2(base + iva + deLista) };
+  const total = r2(base + iva + deLista);
+  return { base, iva, suplidos: deLista, total, retencion, aCobrar: r2(total - retencion) };
 }
 
 // Snapshot fiscal de una factura MANUAL («+ Nueva factura», 24/09/2026 — la 2026-0006 de
@@ -186,14 +218,15 @@ export const esNumeroRectificativa = (numero: string): boolean =>
 // de lo que se rectifica, de modo que original + rectificativa suman cero. Los suplidos
 // se niegan igual (van sin IVA y fuera de la base, aquí solo cambian de signo).
 export function importesRectificativa(f: {
-  baseImponible: number; iva: number; total: number;
+  baseImponible: number; iva: number; total: number; retencion?: number | null;
   lineas?: LineaFactura[] | null; suplidos?: Suplido[] | null;
-}): { baseImponible: number; iva: number; total: number; lineas: LineaFactura[] | null; suplidos: Suplido[] | null } {
+}): { baseImponible: number; iva: number; total: number; retencion: number | null; lineas: LineaFactura[] | null; suplidos: Suplido[] | null } {
   const neg = (n: unknown) => r2(-Math.abs(Number(n) || 0));
   const ls = Array.isArray(f.lineas) ? f.lineas.filter((l) => l && l.concepto) : [];
   const ss = Array.isArray(f.suplidos) ? f.suplidos.filter((s) => s && s.concepto) : [];
   return {
     baseImponible: neg(f.baseImponible), iva: neg(f.iva), total: neg(f.total),
+    retencion: Number(f.retencion) ? neg(f.retencion) : null,
     lineas: ls.length ? ls.map((l) => ({ concepto: l.concepto, base: neg(l.base) })) : null,
     suplidos: ss.length ? ss.map((s) => ({ concepto: s.concepto, importe: neg(s.importe) })) : null,
   };

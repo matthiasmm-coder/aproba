@@ -7,7 +7,7 @@ import { TIPO_LABEL } from "@/lib/tramites";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteSerie } from "@/lib/factura-numero";
-import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { emisorParaFijar, prefijoDeExpediente } from "@/lib/facturacion-oficina";
 import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 export const runtime = "nodejs";
@@ -37,12 +37,12 @@ export async function POST(req: Request) {
   // nombre/apellidos si alguna columna de la ficha faltara en una base antigua.
   let resExp = await supa
     .from("Expediente")
-    .select("id, referencia, tipo, workspaceId, clienteId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia), facturas:Factura(id, momento, estado)")
+    .select("id, referencia, tipo, workspaceId, clienteId, oficinaId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, via, numeroVia, piso, codigoPostal, municipio, provincia), facturas:Factura(id, momento, estado)")
     .eq("id", expedienteId)
     .maybeSingle();
   if (resExp.error) resExp = await supa
     .from("Expediente")
-    .select("id, referencia, tipo, workspaceId, clienteId, cliente:Cliente(nombre, apellidos), facturas:Factura(id, momento, estado)")
+    .select("id, referencia, tipo, workspaceId, clienteId, oficinaId, cliente:Cliente(nombre, apellidos), facturas:Factura(id, momento, estado)")
     .eq("id", expedienteId)
     .maybeSingle() as typeof resExp;
   const exp = resExp.data;
@@ -89,6 +89,9 @@ export async function POST(req: Request) {
   const numeros = await siguienteSerie(admin, exp.workspaceId, n, year, await prefijoDeExpediente(admin, exp.id));
 
   const ahora = new Date();
+  // Emisor congelado (el mismo para todas las cuotas): la sede del expediente, o el despacho.
+  // Hasta el 28/09/2026 el select no leía oficinaId y las cuotas nunca quedaban estampadas.
+  const emisorDatos = await emisorParaFijar(admin, exp.workspaceId, (exp as { oficinaId?: string | null }).oficinaId ?? null);
   const filas: Record<string, unknown>[] = [];
   const emitidas: { facturaId: string; numero: string; total: number; vence: string }[] = [];
   for (let i = 0; i < n; i++) {
@@ -111,6 +114,7 @@ export async function POST(req: Request) {
       estado: "EMITIDA", origen: "MANUAL", momento: `CUOTA_${i + 1}`, metodoPago: "TRANSFERENCIA",
       fechaEmision: ahora.toISOString(), fechaVencimiento: vence.toISOString(),
       ...(clienteDatos ? { clienteDatos } : {}),
+      emisorDatos,
     });
     emitidas.push({ facturaId, numero, total, vence: vence.toISOString() });
   }

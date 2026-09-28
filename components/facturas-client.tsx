@@ -56,13 +56,17 @@ function FilaFactura({ f, esAdmin, t, vf }: { f: Factura; esAdmin: boolean; t: T
         {/* Con entregas a cuenta se enseña el SALDO (lo que falta), con el total
             tachado debajo: perseguir el importe entero de una factura pagada a
             medias es reclamar dinero que ya está cobrado. */}
+        {/* Con retención de IRPF, lo que se cobra es total − retención: el saldo sale de ahí. */}
         {f.entregado ? (
           <>
-            <span className="font-semibold text-slate-800">{eur(Math.max(0, importesFactura(f).total - f.entregado))}</span>
-            <span className="block text-[11px] text-slate-400">{t("de")} {eur(importesFactura(f).total)} · {t("cobrado")} {eur(f.entregado)}</span>
+            <span className="font-semibold text-slate-800">{eur(Math.max(0, importesFactura(f).aCobrar - f.entregado))}</span>
+            <span className="block text-[11px] text-slate-400">{t("de")} {eur(importesFactura(f).aCobrar)} · {t("cobrado")} {eur(f.entregado)}</span>
           </>
         ) : (
-          <span className="font-semibold text-slate-800">{eur(importesFactura(f).total)}</span>
+          <>
+            <span className="font-semibold text-slate-800">{eur(importesFactura(f).total)}</span>
+            {importesFactura(f).retencion ? <span className="block text-[11px] text-slate-400">{t("a cobrar")} {eur(importesFactura(f).aCobrar)} · IRPF −{eur(Math.abs(importesFactura(f).retencion))}</span> : null}
+          </>
         )}
       </td>
       <td className="px-5 py-3 text-right">
@@ -171,8 +175,10 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
   // lo pendiente descuenta las entregas a cuenta, como la línea de cada factura.
   const totalDeF = (f: Factura) => importesFactura(f).total;
   const facturado = visibles.filter((f) => f.estado !== "BORRADOR" && f.estado !== "ANULADA").reduce((s, f) => s + totalDeF(f), 0);
-  const cobrado = visibles.filter((f) => f.estado === "PAGADA").reduce((s, f) => s + totalDeF(f), 0);
-  const pendiente = visibles.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((s, f) => s + Math.max(0, totalDeF(f) - (f.entregado ?? 0)), 0);
+  // Cobrado y pendiente: lo que el cliente paga (total − retención de IRPF), no el total fiscal.
+  const aCobrarDeF = (f: Factura) => importesFactura(f).aCobrar;
+  const cobrado = visibles.filter((f) => f.estado === "PAGADA").reduce((s, f) => s + aCobrarDeF(f), 0);
+  const pendiente = visibles.filter((f) => f.estado === "EMITIDA" || f.estado === "VENCIDA").reduce((s, f) => s + Math.max(0, aCobrarDeF(f) - (f.entregado ?? 0)), 0);
   const vencidas = visibles.filter((f) => f.estado === "VENCIDA").length;
 
   const STATS = [

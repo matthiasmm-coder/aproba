@@ -1,7 +1,7 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { fetchEntregasDeFacturas, totalEntregado, saldoPendiente } from "@/lib/entregas";
 import { fmtFechaCorta } from "@/lib/tramites";
-import type { ClienteDatosFactura, Factura, FacturaEstado, LineaFactura, Suplido } from "@/lib/facturas";
+import { aCobrar, type ClienteDatosFactura, type EmisorFijado, type Factura, type FacturaEstado, type LineaFactura, type Suplido } from "@/lib/facturas";
 
 // Couche d'accès aux facturas (Supabase + RLS).
 
@@ -37,6 +37,7 @@ const SELECT_FULL: string = `${SELECT_LIN}, archivadoAt`;
 const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
 const SELECT_OFI: string = `${SELECT_CLI}, oficinaId`; // fase 6 (repli si sin migrar)
 const SELECT_RECT: string = `${SELECT_OFI}, rectificaId`; // factura-rectificativa.sql
+const SELECT_RET: string = `${SELECT_RECT}, retencionPct, retencion, emisorDatos`; // factura-retencion-emisor.sql
 
 // Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
 // caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
@@ -49,7 +50,8 @@ async function selectFacturas<T>(
   run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
   contexto = "Facturas",
 ): Promise<T> {
-  let res = await run(SELECT_RECT);
+  let res = await run(SELECT_RET);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_RECT);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_OFI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_CLI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_FULL);
@@ -82,7 +84,16 @@ function mapRow(f: Row): Factura {
     oficinaId: (f as { oficinaId?: string | null }).oficinaId ?? null,
     metodoPago: (f as { metodoPago?: string | null }).metodoPago ?? null,
     rectificaId: (f as { rectificaId?: string | null }).rectificaId ?? null,
+    ...retencionYEmisor(f),
   };
+}
+
+// Retención IRPF y emisor congelado (factura-retencion-emisor.sql). Ausentes → como antes.
+function retencionYEmisor(f: Row): Pick<Factura, "retencionPct" | "retencion" | "emisorDatos"> {
+  const x = f as { retencionPct?: number | string | null; retencion?: number | string | null; emisorDatos?: unknown };
+  const num = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+  const e = x.emisorDatos && typeof x.emisorDatos === "object" ? (x.emisorDatos as EmisorFijado) : null;
+  return { retencionPct: num(x.retencionPct), retencion: num(x.retencion), emisorDatos: e && String(e.nombre ?? "").trim() ? e : null };
 }
 
 // Pareja original ↔ rectificativa dentro de una lista ya cargada: sin consulta extra.
@@ -177,7 +188,8 @@ export type CobroPendiente = {
 
 export async function fetchCobrosPendientes(sedes?: string[] | null, incluirSinSede = false): Promise<CobroPendiente[]> {
   const supabase = await createSupabaseServer();
-  const cols = "id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId";
+  const COLS = "id, numero, clienteNombre, concepto, total, estado, fechaEmision, fechaVencimiento, expedienteId";
+  let cols = `${COLS}, retencion`;   // lo que se persigue es total − retención (factura-retencion-emisor.sql)
   const base = () => {
     const q = supabase.from("Factura").select(cols).in("estado", ["EMITIDA", "VENCIDA"]);
     if (!sedes?.length) return q;
@@ -189,11 +201,12 @@ export async function fetchCobrosPendientes(sedes?: string[] | null, incluirSinS
   // columna archivadoAt (factura-archivado.sql sin aplicar); un error transitorio se re-lanza
   // en vez de reaparecer las archivadas (que dispararían recordatorios no deseados).
   let res = await base().is("archivadoAt", null).order("fechaVencimiento", { ascending: true, nullsFirst: false });
+  if (res.error && FALTA_COLUMNA.test(res.error.message) && /retencion/i.test(res.error.message)) { cols = COLS; res = await base().is("archivadoAt", null).order("fechaVencimiento", { ascending: true, nullsFirst: false }); }
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await base().order("fechaVencimiento", { ascending: true, nullsFirst: false });
   const { data, error } = res;
   if (error) throw new Error(`Cobros pendientes: ${error.message}`);
   const filas = ((data ?? []) as unknown as {
-    id: string; numero: string; clienteNombre: string; concepto: string; total: number | string;
+    id: string; numero: string; clienteNombre: string; concepto: string; total: number | string; retencion?: number | string | null;
     estado: string; fechaEmision: string | null; fechaVencimiento: string | null; expedienteId: string | null;
   }[]);
 
@@ -209,9 +222,9 @@ export async function fetchCobrosPendientes(sedes?: string[] | null, incluirSinS
       numero: f.numero,
       cliente: f.clienteNombre,
       concepto: f.concepto,
-      total: Number(f.total),
+      total: aCobrar(f),
       ...(entregado > 0 ? { entregado } : {}),
-      pendiente: saldoPendiente(Number(f.total), suyas),
+      pendiente: saldoPendiente(aCobrar(f), suyas),
       estado: (f.estado === "VENCIDA" ? "VENCIDA" : "EMITIDA") as "EMITIDA" | "VENCIDA",
       fecha: fmtFechaCorta(f.fechaEmision) ?? null,
       vence: fmtFechaCorta(f.fechaVencimiento) ?? null,

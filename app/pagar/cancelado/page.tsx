@@ -22,7 +22,7 @@ const MOTIVO: Record<string, string> = {
 // PAGO que viaja en query string. NUNCA debe devolver el portalToken (/j) — sería
 // escalar un secreto menor al secreto maestro del cliente (ficha completa, docs).
 type Fac = {
-  id: string; workspaceId: string; numero: string; total: number; estado: string;
+  id: string; workspaceId: string; numero: string; total: number; retencion?: number | null; estado: string;
   Workspace: { nombre: string | null } | { nombre: string | null }[] | null;
 };
 type Cuenta = { titular: string; iban: string; banco: string | null };
@@ -38,7 +38,7 @@ export default async function PagoCancelado({ searchParams }: { searchParams: Pr
     const admin = createSupabaseAdmin();
     const { data } = await admin
       .from("Factura")
-      .select("id, workspaceId, numero, total, estado, Workspace(nombre)")
+      .select("id, workspaceId, numero, total, retencion, estado, Workspace(nombre)")
       .eq("id", f.trim())
       .maybeSingle();
     fac = (data as Fac | null) ?? null;
@@ -76,7 +76,7 @@ export default async function PagoCancelado({ searchParams }: { searchParams: Pr
             <>
               <div className="mt-6 flex items-center justify-between rounded-xl bg-[#f8faf9] px-4 py-3 text-sm">
                 <span className="text-slate-500">Factura <span className="font-semibold text-slate-700">{fac.numero}</span></span>
-                <span className="font-bold text-slate-900">{eur(Number(fac.total))}</span>
+                <span className="font-bold text-slate-900">{eur(Number(fac.total) - Number(fac.retencion ?? 0))}</span>
               </div>
 
               {cuenta && (

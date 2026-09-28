@@ -11,7 +11,7 @@ import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { siguienteNumero } from "@/lib/factura-numero";
-import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { emisorParaFijar, prefijoDeExpediente } from "@/lib/facturacion-oficina";
 import { registrarAltaSiActivo, facturaCongeladaPorVerifactu } from "@/lib/verifactu-envio";
 
 // Paiement du client (portail) → factura générée automatiquement.
@@ -332,6 +332,8 @@ export async function POST(req: Request) {
     ...(notas ? { notas } : {}),
     // multi-oficina: la factura hereda la sede de su expediente (emisor/cuenta correctos)
     ...((exp as { oficinaId?: string | null }).oficinaId ? { oficinaId: (exp as { oficinaId?: string | null }).oficinaId } : {}),
+    // Emisor congelado al emitir (factura-retencion-emisor.sql): el de la sede, o el del despacho.
+    emisorDatos: await emisorParaFijar(admin, exp.workspaceId, (exp as { oficinaId?: string | null }).oficinaId ?? null),
   };
   let { error: e4 } = await admin.from("Factura").insert({
     ...payloadBase,

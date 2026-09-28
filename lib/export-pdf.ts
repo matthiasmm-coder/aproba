@@ -1,6 +1,6 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import { eur, IVA, totalesFactura, type Factura } from "@/lib/facturas";
+import { eur, IVA, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
 import { embeberLogo, medidasLogo } from "@/lib/pdf-logo";
 import { LEYENDA_VERIFACTU, TITULO_QR, qrPng } from "@/lib/verifactu-qr";
 
@@ -45,7 +45,11 @@ function partir(s: string, f: PDFFont, size: number, ancho: number): string[] {
 // `extras.verifactuUrl`: URL de verificación de la AEAT (registro VERI*FACTU) → QR
 // tributario de ~32 mm con su leyenda (art. 21 Orden HAC/1177/2024), a la derecha del
 // bloque «Facturar a». Sin URL, el documento es el de siempre.
-export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { verifactuUrl?: string | null } = {}): Promise<Uint8Array> {
+export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: { verifactuUrl?: string | null } = {}): Promise<Uint8Array> {
+  // Emisor CONGELADO al emitir (factura-retencion-emisor.sql) manda sobre el vivo; el logo sigue
+  // siendo el actual (no es un dato fiscal). Todas las vías de PDF pasan por aquí.
+  const fx = f.emisorDatos;
+  const emisor: EmisorPdf = fx?.nombre ? { ...emisorVivo, nombre: fx.nombre, nif: fx.nif ?? null, domicilio: fx.domicilio ?? null, email: fx.email ?? null } : emisorVivo;
   const doc = await PDFDocument.create();
   const A4: [number, number] = [595.28, 841.89];
   let page = doc.addPage(A4);
@@ -137,7 +141,13 @@ export async function facturaToPdf(f: Factura, emisor: EmisorPdf, extras: { veri
   if (suplidosTotal > 0) totLine("Suplidos (sin IVA)", eur(suplidosTotal));
   // La raya va en el hueco entre la línea anterior y TOTAL (a y + 6 cruzaba las mayúsculas
   // de «TOTAL», que parecía tachado): 7 pt bajo la línea anterior, ~6 pt sobre TOTAL.
-  y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine("TOTAL", eur(total), true);
+  // Retención de IRPF: el TOTAL de la factura no cambia; debajo, la retención y lo que se paga.
+  const retencion = f.retencion != null ? r2(Number(f.retencion)) : retencionDe(base, f.retencionPct);
+  y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine(retencion ? "TOTAL FACTURA" : "TOTAL", eur(total), true);
+  if (retencion) {
+    totLine(`Retención IRPF${f.retencionPct ? ` (${f.retencionPct} %)` : ""}`, `-${eur(Math.abs(retencion))}`);
+    y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine("TOTAL A PAGAR", eur(r2(total - retencion)), true);
+  }
 
   if (f.notas) {
     saltoSi(); y -= 12; text("Notas", M, 8, bold, grey); y -= 14;

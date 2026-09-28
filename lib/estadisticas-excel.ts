@@ -54,6 +54,7 @@ export function estadisticasToXlsx(
     ["Facturas emitidas", r.ingresos.n],
     ["Cobrado", r.ingresos.cobrado],
     ["Pendiente de cobro", r.ingresos.pendiente],
+    ["IRPF retenido por tus clientes (modelo 130)", r.ingresos.retenciones],
     ["Gastos (sin IVA)", r.gastos.base],
     ["IVA soportado", r.gastos.iva],
     ["Retenciones practicadas", r.gastos.retenciones],
@@ -74,8 +75,8 @@ export function estadisticasToXlsx(
   XLSX.utils.book_append_sheet(wb, wsR, "Resumen");
 
   // 2. Trimestres
-  const cabT = ["Trimestre", "Ingresos (sin IVA)", "IVA repercutido", "Gastos (sin IVA)", "IVA soportado", "Retenciones", "IVA estimado", "Resultado", "Facturado con IVA", "Cobrado", "Pendiente de cobro"];
-  const filasT: Celda[][] = [cabT, ...est.trimestres.map((q) => [`T${q.trimestre} ${est.periodo.anio}`, q.ingresos.base, q.ingresos.iva, q.gastos.base, q.gastos.iva, q.gastos.retenciones, q.ivaNeto, q.resultado, q.ingresos.total, q.ingresos.cobrado, q.ingresos.pendiente])];
+  const cabT = ["Trimestre", "Ingresos (sin IVA)", "IVA repercutido", "Gastos (sin IVA)", "IVA soportado", "Retenciones", "IVA estimado", "Resultado", "Facturado con IVA", "Cobrado", "Pendiente de cobro", "IRPF retenido por clientes"];
+  const filasT: Celda[][] = [cabT, ...est.trimestres.map((q) => [`T${q.trimestre} ${est.periodo.anio}`, q.ingresos.base, q.ingresos.iva, q.gastos.base, q.gastos.iva, q.gastos.retenciones, q.ivaNeto, q.resultado, q.ingresos.total, q.ingresos.cobrado, q.ingresos.pendiente, q.ingresos.retenciones])];
   const sum = (k: number) => Math.round(filasT.slice(1).reduce((s, f) => s + Number(f[k] ?? 0), 0) * 100) / 100;
   filasT.push([`Total ${est.periodo.anio}`, ...cabT.slice(1).map((_, i) => sum(i + 1))]);
   XLSX.utils.book_append_sheet(wb, hoja(filasT, [16, 16, 15, 16, 15, 13, 14, 14, 17, 14, 17], Object.fromEntries(cabT.slice(1).map((_, i) => [i + 1, EUR]))), "Trimestres");
@@ -122,9 +123,12 @@ export function estadisticasToXlsx(
   // 6-7. Detalle del periodo, factura a factura.
   const em = mov.emitidas.filter((m) => enPeriodo(m.fecha, est.periodo)).sort((a, b) => a.fecha.localeCompare(b.fecha));
   XLSX.utils.book_append_sheet(wb, hoja(
-    [["Fecha", "Nº factura", "Cliente", "Concepto", "Base (sin IVA)", "IVA", "Total", "Cobrado", "Pendiente", "Origen"],
-      ...em.map((m) => [fechaCelda(m.fecha), m.ref ?? "", m.cliente, m.concepto ?? "", m.base, m.iva, m.total, m.cobrado, m.cobrado == null ? null : Math.round((m.total - m.cobrado) * 100) / 100, m.fuente === "APROBA" ? "Aproba" : "Anterior a Aproba"])],
-    [11, 16, 34, 40, 14, 11, 12, 12, 12, 17], { 0: FECHA, 4: EUR, 5: EUR, 6: EUR, 7: EUR, 8: EUR },
+    [["Fecha", "Nº factura", "Cliente", "Concepto", "Base (sin IVA)", "IVA", "Total", "Retención", "A cobrar", "Cobrado", "Pendiente", "Origen"],
+      ...em.map((m) => {
+        const aCobrar = Math.round((m.total - (m.retencion ?? 0)) * 100) / 100;
+        return [fechaCelda(m.fecha), m.ref ?? "", m.cliente, m.concepto ?? "", m.base, m.iva, m.total, m.retencion ?? 0, aCobrar, m.cobrado, m.cobrado == null ? null : Math.round((aCobrar - m.cobrado) * 100) / 100, m.fuente === "APROBA" ? "Aproba" : "Anterior a Aproba"];
+      })],
+    [11, 16, 34, 40, 14, 11, 12, 11, 12, 12, 12, 17], { 0: FECHA, 4: EUR, 5: EUR, 6: EUR, 7: EUR, 8: EUR, 9: EUR, 10: EUR },
   ), "Emitidas");
   const re = mov.recibidas.filter((m) => enPeriodo(m.fecha, est.periodo)).sort((a, b) => a.fecha.localeCompare(b.fecha));
   XLSX.utils.book_append_sheet(wb, hoja(

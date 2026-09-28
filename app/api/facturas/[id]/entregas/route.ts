@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aCobrar } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { marcarFacturaPagada } from "@/lib/cobros-tarjeta";
@@ -21,10 +22,14 @@ async function cargar(id: string) {
   const supabase = await createSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: "No autenticado." }, { status: 401 }) };
-  const { data: f } = await supabase
-    .from("Factura").select("id, workspaceId, estado, total, numero, expedienteId")
-    .eq("id", id).maybeSingle();
-  if (!f) return { error: NextResponse.json({ error: "Factura no encontrada." }, { status: 404 }) };
+  const sel = (cols: string) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle();
+  let res = await sel("id, workspaceId, estado, total, retencion, numero, expedienteId");
+  if (res.error) res = await sel("id, workspaceId, estado, total, numero, expedienteId");
+  const fila = res.data as unknown as { id: string; workspaceId: string; estado: string; total: number | string; retencion?: number | string | null; numero: string; expedienteId: string | null } | null;
+  if (!fila) return { error: NextResponse.json({ error: "Factura no encontrada." }, { status: 404 }) };
+  // En esta ruta «total» es LO QUE SE COBRA: total − retención de IRPF (la retención no la
+  // paga el cliente al despacho, la ingresa a Hacienda). Sin retención, el total de siempre.
+  const f = { ...fila, total: aCobrar(fila) };
   return { supabase, user, f };
 }
 

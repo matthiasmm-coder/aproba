@@ -28,10 +28,13 @@ export function OficinasManager({
   inicial,
   plan,
   puedeEditar,
+  excepcion = false,
 }: {
   inicial: Oficina[];
   plan: string;
   puedeEditar: boolean;
+  // Excepción comercial (lib/oficinas.ts): una oficina más sin Business (Asenjo, 28/09/2026).
+  excepcion?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -40,6 +43,10 @@ export function OficinasManager({
   const [busy, setBusy] = useState<string | null>(null);
 
   const esBusiness = plan === "BUSINESS";
+  // «multi»: el despacho gestiona oficinas (Business, o su excepción). Los textos de PRECIO
+  // siguen atados a Business: una excepción no tiene cupo ni recargo.
+  const multi = esBusiness || excepcion;
+  const puedeCrear = esBusiness || (excepcion && oficinas.length < 2);
 
   // Création
   const [nombre, setNombre] = useState("");
@@ -97,12 +104,18 @@ export function OficinasManager({
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-500">
-        {esBusiness
+        {multi
           ? t("Si tu despacho tiene varias sedes, cada cliente y cada expediente pertenece a una. Los servicios, la facturación y la suscripción siguen siendo comunes.")
           : t("Para despachos con varias sedes: cada cliente y cada expediente pertenece a una oficina.")}
       </p>
 
-      {!esBusiness && (
+      {excepcion && !esBusiness && (
+        <p className="rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2.5 text-sm text-aproba-800">
+          {t("Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.")}
+        </p>
+      )}
+
+      {!multi && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
           {t("Multi-oficina está incluido en el plan Business")} ({OFICINAS_INCLUIDAS} {t("oficinas incluidas")}
           {t(", después")} {PRECIO_OFICINA_EXTRA} {t("€/mes por oficina adicional")}).{" "}
@@ -135,7 +148,7 @@ export function OficinasManager({
           Excepción deliberada: si un despacho BAJÓ de plan conservando varias
           sedes, se siguen enseñando (en lectura) — esconder dónde están sus
           clientes sería peor que enseñar una función que ya no puede editar. */}
-      {(esBusiness || oficinas.length > 1) && oficinas.length > 0 && (
+      {(multi || oficinas.length > 1) && oficinas.length > 0 && (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
           {oficinas.map((o) => (
             <li key={o.id} className="bg-white px-4 py-3">
@@ -199,7 +212,7 @@ export function OficinasManager({
         </p>
       )}
 
-      {extra && (
+      {extra && esBusiness && (
         <p className="rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2 text-sm text-aproba-800">
           {t("Tienes")} {oficinas.length} {t("oficinas")}: {OFICINAS_INCLUIDAS} {t("incluidas en Business y")} {extra.extras}{" "}
           {extra.extras === 1 ? t("adicional") : t("adicionales")} (+{extra.euros} {t("€/mes")} + IVA). {t("Te contactaremos para ajustar tu suscripción.")}
@@ -207,7 +220,7 @@ export function OficinasManager({
       )}
 
       {/* ── Créer ─────────────────────────────────────────────────────── */}
-      {puedeEditar && esBusiness && (
+      {puedeEditar && puedeCrear && (
         <form onSubmit={crear} className="rounded-xl border border-slate-200 bg-cream-50/60 p-4">
           <h4 className="text-sm font-semibold text-slate-800">{t("Añadir una oficina")}</h4>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">

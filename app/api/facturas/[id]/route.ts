@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { esNumeroRectificativa } from "@/lib/facturas";
+import { esNumeroRectificativa, pctRetencion, retencionDe } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
@@ -24,7 +24,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const sel = (cols: string) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle();
   // clienteDatos/clienteId/empresaId: la edición de una factura manual rellena con ellos el
   // NIF y el domicilio (24/09/2026). Repli sin ellos si faltan columnas.
-  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId");
+  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId, retencionPct");
+  if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, momento, estado, expedienteId");
   if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
@@ -59,7 +60,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   let body: { numero?: string; clienteNombre?: string; concepto?: string; baseImponible?: number; lineas?: { concepto: string; base: number }[]; suplidos?: { concepto: string; importe: number }[]; notas?: string | null; notificar?: boolean;
-    documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null };
+    documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null; retencionPct?: number | string | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
 
   // Totales recalculados en el servidor (suplidos sin IVA).
@@ -80,6 +81,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const numero = body.numero?.trim() || String(f.numero);
   patch.numero = numero;
   patch.baseImponible = baseImponible; patch.iva = iva; patch.total = total;
+  // Retención de IRPF: el tipo enviado manda (null = sin retención); si el formulario no lo
+  // manda, se conserva el que tenía y se recalcula sobre la base nueva.
+  let pct: number | null | undefined = "retencionPct" in body ? pctRetencion(body.retencionPct) : undefined;
+  if (pct === undefined) {
+    const { data: prev, error: ePrev } = await supabase.from("Factura").select("retencionPct").eq("id", id).maybeSingle();
+    pct = ePrev ? undefined : pctRetencion((prev as { retencionPct?: number | null } | null)?.retencionPct);
+  }
+  if (pct !== undefined) { patch.retencionPct = pct; patch.retencion = pct ? retencionDe(baseImponible, pct) : null; }
   // Una factura retocada por el gestor deja de ser AUTOMATICA: si no, el próximo paso
   // del cliente por /api/pagos la REALINEA a la tarifa y pisa la edición en silencio
   // (auditoría 25/08). MANUAL = la palabra del gestor es definitiva.

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aCobrar } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { marcarFacturaPagada } from "@/lib/cobros-tarjeta";
@@ -19,7 +20,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  const { data: f } = await supabase.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", id).maybeSingle();
+  let fq = await supabase.from("Factura").select("id, estado, expedienteId, numero, total, retencion").eq("id", id).maybeSingle();
+  if (fq.error) fq = await supabase.from("Factura").select("id, estado, expedienteId, numero, total").eq("id", id).maybeSingle() as typeof fq;
+  const f = fq.data as { id: string; estado: string; expedienteId: string | null; numero: string; total: number | string; retencion?: number | string | null } | null;
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
   // Una rectificativa es un ABONO: no se cobra, se devuelve. Marcarla «pagada» enviaría
   // al cliente una confirmación de pago por un importe negativo (21/09/2026).
@@ -31,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const r = await marcarFacturaPagada(admin, id, metodo);
   if (!r) return NextResponse.json({ error: "No se pudo confirmar el pago." }, { status: 500 });
   if (r === "nuevo" && f.expedienteId) {
-    await enviarConfirmacionPago(admin, { expedienteId: String(f.expedienteId), numero: String(f.numero), total: Number(f.total), metodo, baseUrl: baseUrlFromRequest(req) });
+    await enviarConfirmacionPago(admin, { expedienteId: String(f.expedienteId), numero: String(f.numero), total: aCobrar(f), metodo, baseUrl: baseUrlFromRequest(req) });
   }
   return NextResponse.json({ ok: true, estado: "PAGADA" });
 }

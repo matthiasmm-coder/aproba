@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { activoDeBloque, ENCARGO_APAGADO, type EncargoActivo } from "@/lib/encargo-activo";
+import type { EmisorFijado } from "@/lib/facturas";
+export type { EmisorFijado };
 
 // FACTURACIÓN POR OFICINA (fase 6 del multi-oficina).
 //
@@ -89,6 +91,18 @@ export async function emisorParaOficina(cli: Cli, workspaceId: string, oficinaId
   // El logo es independiente de la identidad fiscal: una sede puede tener su logo
   // aunque facture con los datos del despacho.
   return { ...m, domicilioActividad: actividad, logo: (fiscal?.logoUrl ?? "").trim() || base.logo, prefijoSerie: (fiscal?.prefijoSerie ?? "").trim() };
+}
+
+// ── Emisor FIJADO en la factura (supabase/factura-retencion-emisor.sql) ──────────
+// Al emitir se congela la identidad fiscal (nombre, NIF, domicilio, email) con la misma regla
+// de resolución; al pintar, manda la fijada. Las facturas anteriores (null) siguen en vivo.
+export async function emisorParaFijar(cli: Cli, workspaceId: string, oficinaId: string | null): Promise<EmisorFijado> {
+  const e = await emisorParaOficina(cli, workspaceId, oficinaId);
+  return { nombre: e.nombre, nif: e.nif, domicilio: e.domicilio, email: e.email };
+}
+export function conEmisorFijado<B extends { nombre: string; nif: string | null; domicilio: string | null; email: string | null }>(vivo: B, fijado: EmisorFijado | null | undefined): B {
+  if (!fijado || !String(fijado.nombre ?? "").trim()) return vivo;
+  return { ...vivo, nombre: fijado.nombre, nif: fijado.nif ?? null, domicilio: fijado.domicilio ?? null, email: fijado.email ?? null };
 }
 
 // Oficina efectiva de una factura: la estampada, y si no la de su expediente

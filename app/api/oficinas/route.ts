@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { puedeGestionarEquipo } from "@/lib/planes";
-import { OFICINAS_INCLUIDAS, precioOficinaExtra } from "@/lib/oficinas";
+import { OFICINAS_INCLUIDAS, precioOficinaExtra, puedeCrearOficina } from "@/lib/oficinas";
 
 // MULTI-OFICINA — toutes les mutations passent ici. Autorisation vérifiée côté serveur
 // (rôle de l'appelant) AVANT toute écriture, puis écriture en service_role.
@@ -87,13 +87,12 @@ export async function POST(req: Request) {
 
   // ── Crear ────────────────────────────────────────────────────────────────────
   if (action === "crear") {
-    if (plan !== "BUSINESS") {
+    const { data: existentes } = await admin.from("Oficina").select("id, nombre").eq("workspaceId", ws);
+    if (!puedeCrearOficina(plan, ws, (existentes ?? []).length)) {
       return fail("Multi-oficina está incluido en el plan Business.", 403, "PLAN");
     }
     const nombre = String(body.nombre ?? "").trim().replace(/\s+/g, " ");
     if (nombre.length < 2) return fail("Pon un nombre a la oficina.");
-
-    const { data: existentes } = await admin.from("Oficina").select("id, nombre").eq("workspaceId", ws);
     const filas = (existentes ?? []) as { id: string; nombre: string }[];
     if (filas.some((o) => o.nombre.toLowerCase() === nombre.toLowerCase())) {
       return fail("Ya tienes una oficina con ese nombre.", 409);

@@ -47,6 +47,12 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
       else if (logoSede !== d.logoUrl) emisor = { ...emisor, logo: logoSede };
     }
   } catch { /* migración fase 6 ausente → emisor del despacho */ }
+  // Emisor CONGELADO al emitir (factura-retencion-emisor.sql): manda sobre el vivo. Las
+  // facturas anteriores no lo tienen y siguen con la resolución de arriba.
+  if (f.emisorDatos) {
+    const { conEmisorFijado } = await import("@/lib/facturacion-oficina");
+    emisor = { ...conEmisorFijado({ ...emisor, nif: emisor.nif ?? null, domicilio: emisor.domicilio ?? null, email: emisor.email ?? null }, f.emisorDatos), logo: emisor.logo };
+  }
 
   // Entregas a cuenta (pagos parciales). Si la migración no está aplicada, viene
   // vacío y el bloque no se pinta: el producto sigue funcionando como antes.

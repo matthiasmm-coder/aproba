@@ -18,26 +18,32 @@ export default async function PagoExito({ searchParams }: { searchParams: Promis
 
   if (f) {
     const admin = createSupabaseAdmin();
-    const { data: fac } = await admin
-      .from("Factura")
-      .select("id, workspaceId, expedienteId, numero, total, estado, Workspace(nombre)")
-      .eq("id", f)
-      .maybeSingle();
+    const sel = (cols: string) => admin.from("Factura").select(cols).eq("id", f).maybeSingle();
+    let res = await sel("id, workspaceId, expedienteId, oficinaId, numero, total, retencion, estado, Workspace(nombre)");
+    if (res.error) res = await sel("id, workspaceId, expedienteId, numero, total, estado, Workspace(nombre)");
+    const fac = res.data as unknown as { id: string; workspaceId: string; expedienteId: string | null; oficinaId?: string | null; numero: string; total: number; retencion?: number | null; estado: string; Workspace: { nombre: string | null } | { nombre: string | null }[] } | null;
     if (fac) {
       numero = String(fac.numero);
-      total = Number(fac.total);
+      total = Number(fac.total) - Number(fac.retencion ?? 0);   // lo que paga el cliente
       gestoria = uno(fac.Workspace as { nombre: string | null } | { nombre: string | null }[])?.nombre ?? gestoria;
       if (fac.estado === "PAGADA") {
         pagada = true;
       } else if (s) {
-        const key = await fetchStripeKeyDeWorkspace(admin, String(fac.workspaceId));
+        // La clave de la SEDE que emitió (la misma que usó el checkout); antes se miraba siempre
+        // la común y el pago en la cuenta Stripe de una oficina nunca se verificaba.
+        const { oficinaDeFacturaFila } = await import("@/lib/facturacion-oficina");
+        const sede = await oficinaDeFacturaFila(admin, { oficinaId: fac.oficinaId ?? null, expedienteId: fac.expedienteId ?? null });
+        const key = await fetchStripeKeyDeWorkspace(admin, String(fac.workspaceId), sede);
         if (key) {
           try {
             const sess = await stripeConClave(key).checkout.sessions.retrieve(s);
             // La sesión debe (1) estar pagada, (2) ser DE ESTA factura (no otra sesión del
             // mismo Stripe pegada en la URL), (3) coincidir con el total ACTUAL — una sesión
             // vieja puede llevar un importe anterior a una corrección de la factura.
-            const importeOk = sess.amount_total === Math.round(Number(fac.total) * 100) && sess.currency === "eur";
+            const { fetchEntregasDeFacturas, importeTarjetaCuadra } = await import("@/lib/entregas");
+            const entregas = (await fetchEntregasDeFacturas(admin, [String(fac.id)]))[String(fac.id)] ?? [];
+            const importeOk = importeTarjetaCuadra(sess.amount_total, fac, entregas) && sess.currency === "eur";
+            if (importeOk && sess.amount_total) total = sess.amount_total / 100;   // lo pagado de verdad
             if (sess.payment_status === "paid" && sess.metadata?.facturaId === String(fac.id) && importeOk) {
               const r = await marcarFacturaPagada(admin, String(fac.id), "TARJETA");
               pagada = true;

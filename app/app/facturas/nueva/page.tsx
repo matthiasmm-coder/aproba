@@ -101,7 +101,7 @@ export default function NuevaFactura() {
       const r = await fetch("/api/facturas", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
-          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId }),
+          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId, retencionPct: p.retencionPct ?? null }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error ?? t("No se pudo crear la factura. Vuelve a intentarlo."));
@@ -111,7 +111,11 @@ export default function NuevaFactura() {
         lineas: p.avanzada ? p.lineas : undefined, suplidos: p.avanzada ? p.suplidos : undefined, notas: p.avanzada ? p.notas : undefined,
         // Lo que el servidor congeló (si eligió el cliente sin tocar los campos, los de su ficha).
         clienteDatos: d.clienteDatos ?? datosFiscalesManuales(p.documento, p.direccion),
+        iva: p.iva, total: p.total, retencionPct: d.retencionPct ?? null, retencion: d.retencion ?? null,
       });
+      // El emisor que quedó CONGELADO (el de la oficina que factura, si tiene NIF propio): antes
+      // la vista previa pintaba siempre el del despacho.
+      if (d.emisor?.nombre) setEmisor((e) => ({ ...e, nombre: d.emisor.nombre, nif: d.emisor.nif ?? null, domicilio: d.emisor.domicilio ?? null, email: d.emisor.email ?? null }));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("No se pudo crear la factura. Vuelve a intentarlo."));
     } finally {
@@ -165,6 +169,7 @@ export default function NuevaFactura() {
               return pre ? { numero, cliente: pre.nombre, documento: pre.documento, direccion: pre.direccion, clienteId: pre.id } : { numero, cliente: clientePrefill };
             })()}
             fiscal={{ opciones: opcionesFiscales }}
+            conRetencion
             onSubmit={handleSubmit}
             submitLabel={t("Crear factura")}
             busy={creando}

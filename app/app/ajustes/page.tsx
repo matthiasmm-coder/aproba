@@ -511,6 +511,7 @@ export default async function Ajustes() {
                   inicial={oficinas}
                   plan={equipo.plan}
                   puedeEditar={puedeEditar}
+                  excepcion={Boolean(equipo.oficinasExcepcion)}
                 />
               </div>
             )}

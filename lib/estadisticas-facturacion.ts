@@ -22,6 +22,9 @@ export type MovEmitida = {
   iva: number | null;
   total: number;          // lo facturado: base + IVA + suplidos
   cobrado: number | null; // parte ya cobrada; null = estado del cobro desconocido
+  // IRPF que el cliente retiene (profesional → empresa): no se cobra, lo ingresa él a Hacienda.
+  // Con el signo del total (negativo en una rectificativa). 0/undefined = sin retención.
+  retencion?: number;
   cliente: string;
   fuente: FuenteEmitida;
   ref?: string;           // nº de factura (o referencia importada): solo para el detalle exportado
@@ -47,6 +50,7 @@ export type Periodo = { anio: number; trimestre: 0 | Trimestre }; // 0 = año co
 export type ResumenIngresos = {
   base: number; iva: number; total: number; n: number;
   cobrado: number; pendiente: number;
+  retenciones: number;                           // IRPF que te han retenido tus clientes (modelo 130)
   sinDesglose: number; sinDesgloseTotal: number; // importadas sin base/IVA: cuántas y cuánto
   cobroDesconocido: number;                      // importe cuyo cobro no consta
 };
@@ -122,13 +126,15 @@ export function enPeriodo(fecha: string, p: Periodo): boolean {
 }
 
 export function resumir(emitidas: MovEmitida[], recibidas: MovRecibida[]): Resumen {
-  let iBase = 0, iIva = 0, iTotal = 0, iCobrado = 0, iPend = 0, iSinTot = 0, iDesc = 0, iSin = 0;
+  let iBase = 0, iIva = 0, iTotal = 0, iCobrado = 0, iPend = 0, iSinTot = 0, iDesc = 0, iSin = 0, iRet = 0;
   for (const m of emitidas) {
     const total = c(m.total);
-    iTotal += total;
+    const ret = c(m.retencion ?? 0);
+    iTotal += total; iRet += ret;
     if (m.base == null) { iSin++; iSinTot += total; } else { iBase += c(m.base); iIva += c(m.iva); }
-    if (m.cobrado == null) iDesc += total;
-    else { const cob = c(m.cobrado); iCobrado += cob; iPend += total - cob; }
+    // Lo que el cliente paga es total − retención: la retención nunca queda «pendiente».
+    if (m.cobrado == null) iDesc += total - ret;
+    else { const cob = c(m.cobrado); iCobrado += cob; iPend += total - ret - cob; }
   }
   let gBase = 0, gIva = 0, gRet = 0, gTotal = 0, gPag = 0, gPend = 0, gSinTot = 0, gSin = 0;
   for (const m of recibidas) {
@@ -139,7 +145,7 @@ export function resumir(emitidas: MovEmitida[], recibidas: MovRecibida[]): Resum
   }
   const resultado = iBase - gBase;
   return {
-    ingresos: { base: eu(iBase), iva: eu(iIva), total: eu(iTotal), n: emitidas.length, cobrado: eu(iCobrado), pendiente: eu(iPend), sinDesglose: iSin, sinDesgloseTotal: eu(iSinTot), cobroDesconocido: eu(iDesc) },
+    ingresos: { base: eu(iBase), iva: eu(iIva), total: eu(iTotal), n: emitidas.length, cobrado: eu(iCobrado), pendiente: eu(iPend), retenciones: eu(iRet), sinDesglose: iSin, sinDesgloseTotal: eu(iSinTot), cobroDesconocido: eu(iDesc) },
     gastos: { base: eu(gBase), iva: eu(gIva), retenciones: eu(gRet), total: eu(gTotal), n: recibidas.length, pagado: eu(gPag), pendiente: eu(gPend), sinDesglose: gSin, sinDesgloseTotal: eu(gSinTot) },
     resultado: eu(resultado),
     margen: iBase > 0 ? Math.round((resultado / iBase) * 1000) / 1000 : null,

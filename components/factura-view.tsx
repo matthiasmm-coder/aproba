@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AprobaMark } from "./logo";
-import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, type Factura } from "@/lib/facturas";
+import { eur, IVA, FACTURA_ESTADO_META, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
 import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
@@ -55,6 +55,9 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
   const suplidos = f.suplidos ?? [];
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
+  // Retención de IRPF: la guardada al emitir; si solo hay tipo, se calcula sobre la base.
+  const retencion = f.retencion != null ? r2(Number(f.retencion)) : retencionDe(base, f.retencionPct);
+  const aPagar = r2(total - retencion);
 
   // El propio selector de método hace de confirmación (antes: diálogo sí/no y
   // TRANSFERENCIA grabada fija aunque el cliente pagara en efectivo).
@@ -233,7 +236,13 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
             <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(base)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(iva)}</span></div>
             {suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(suplidosTotal)}</span></div>}
-            <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total")}</span><span>{eur(total)}</span></div>
+            <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retencion ? t("Total factura") : t("Total")}</span><span>{eur(total)}</span></div>
+            {retencion ? (
+              <>
+                <div className="flex justify-between text-slate-500"><span>{t("Retención IRPF")}{f.retencionPct ? ` (${f.retencionPct} %)` : ""}</span><span>−{eur(Math.abs(retencion))}</span></div>
+                <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{t("Total a pagar")}</span><span>{eur(aPagar)}</span></div>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -252,7 +261,7 @@ export function FacturaView({ f, emisor, editable = false, esAdmin = false, entr
 
       {/* Entregas a cuenta: fuera del papel de la factura (print:hidden) — es el
           registro de caja del despacho, no un dato del documento fiscal. */}
-      {!esRect && editable && <EntregasCuenta facturaId={f.id} total={total} estado={f.estado} inicial={entregas} />}
+      {!esRect && editable && <EntregasCuenta facturaId={f.id} total={aPagar} estado={f.estado} inicial={entregas} />}
 
       {editando && <CobroFacturaModal modo="editar" facturaId={f.id} onClose={() => setEditando(false)} />}
     </div>

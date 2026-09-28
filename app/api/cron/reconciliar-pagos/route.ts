@@ -6,6 +6,7 @@ import { enviarConfirmacionPago } from "@/lib/notificaciones";
 import { escanearVencimientos } from "@/lib/vencimientos";
 import { escanearRequerimientos } from "@/lib/requerimientos-escaner";
 import { barrerVerifactu } from "@/lib/verifactu-envio";
+import { fetchEntregasDeFacturas, importeTarjetaCuadra, saldoTarjeta } from "@/lib/entregas";
 
 // Cron de Vercel (ver vercel.json): reconcilia los pagos con TARJETA que el redirect a
 // /pagar/exito no llegó a confirmar (cliente cerró la pestaña, perdió la red…). Sin esto,
@@ -86,13 +87,12 @@ export async function GET(req: Request) {
 
   for (const { workspaceId } of cuentas) {
     // Facturas aún cobrables del workspace; sin pendientes no hay nada que reconciliar.
-    const { data: pendRows } = await admin
-      .from("Factura")
-      .select("id, numero, total")
-      .eq("workspaceId", workspaceId)
-      .in("estado", ["EMITIDA", "VENCIDA"]);
+    const pendQ = (cols: string) => admin.from("Factura").select(cols).eq("workspaceId", workspaceId).in("estado", ["EMITIDA", "VENCIDA"]);
+    let pendRes = await pendQ("id, numero, total, retencion");
+    if (pendRes.error) pendRes = await pendQ("id, numero, total");
+    const pendRows = pendRes.data;
     const pendientes = new Map(
-      ((pendRows ?? []) as { id: string; numero: string; total: number | string }[]).map((r) => [String(r.id), r]),
+      ((pendRows ?? []) as unknown as { id: string; numero: string; total: number | string; retencion?: number | string | null }[]).map((r) => [String(r.id), r]),
     );
     if (!pendientes.size) continue;
 
@@ -127,13 +127,14 @@ export async function GET(req: Request) {
 
           // El importe pagado debe coincidir con el total ACTUAL de la factura: una
           // sesión vieja (≤24 h) puede llevar un importe anterior a una corrección.
-          const centimos = Math.round(Number(f.total) * 100);
-          if (sess.amount_total !== centimos || sess.currency !== "eur") {
+          // Lo cobrable: total − retención − entregas (definición única en lib/entregas).
+          const entregasF = (await fetchEntregasDeFacturas(admin, [facturaId]))[facturaId] ?? [];
+          if (!importeTarjetaCuadra(sess.amount_total, f, entregasF) || sess.currency !== "eur") {
             await alertar(
               admin,
               facturaId,
               `importe-distinto ${f.numero}`,
-              `Pago Stripe con importe distinto al de la factura ${f.numero}: pagado ${((sess.amount_total ?? 0) / 100).toFixed(2)} ${String(sess.currency).toUpperCase()} vs total ${Number(f.total).toFixed(2)} EUR. NO se ha marcado como pagada — revísalo en Stripe.`,
+              `Pago Stripe con importe distinto al de la factura ${f.numero}: pagado ${((sess.amount_total ?? 0) / 100).toFixed(2)} ${String(sess.currency).toUpperCase()} vs a cobrar ${saldoTarjeta(f, entregasF).toFixed(2)} EUR. NO se ha marcado como pagada — revísalo en Stripe.`,
             );
             resumen.alertas += 1;
             pendientes.delete(facturaId); // no reintentar con otra sesión este run
@@ -151,7 +152,7 @@ export async function GET(req: Request) {
             await enviarConfirmacionPago(admin, {
               expedienteId: String(fac.expedienteId),
               numero: String(f.numero),
-              total: Number(f.total),
+              total: (sess.amount_total ?? 0) / 100,   // lo pagado de verdad
               metodo: "TARJETA",
               baseUrl,
             });

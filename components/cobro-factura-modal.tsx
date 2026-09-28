@@ -78,7 +78,8 @@ export function CobroFacturaModal({
           const lineas = Array.isArray(fc.lineas) && fc.lineas.length ? fc.lineas : [{ concepto: fc.concepto || "", base: Number(fc.baseImponible) || 0 }];
           if (!fc.expedienteId) setFiscal({ opciones: await cargarClientesFiscales() });
           setInicial({ cliente: fc.clienteNombre ?? "", numero: fc.numero ?? "", lineas, suplidos: Array.isArray(fc.suplidos) ? fc.suplidos : [], notas: fc.notas ?? "", concepto: fc.concepto ?? "", base: Number(fc.baseImponible) || 0,
-            documento: documentoSinEtiqueta(fc.clienteDatos?.documento), direccion: fc.clienteDatos?.direccion ?? "", clienteId: fc.clienteId ?? null, empresaId: fc.empresaId ?? null });
+            documento: documentoSinEtiqueta(fc.clienteDatos?.documento), direccion: fc.clienteDatos?.direccion ?? "", clienteId: fc.clienteId ?? null, empresaId: fc.empresaId ?? null,
+            retencionPct: fc.retencionPct != null ? Number(fc.retencionPct) : null });
         } catch (e) { setError(e instanceof Error ? e.message : t("No se pudo cargar la factura.")); }
       } else {
         // Vista previa del número: la da el servidor (lib/factura-numero), único punto
@@ -159,6 +160,8 @@ export function CobroFacturaModal({
             servicios={servicios}
             inicial={inicial}
             fiscal={fiscal}
+            // Retención de IRPF: solo en la factura manual (sin expediente), como al crearla.
+            conRetencion={modo === "editar" && !tieneExpediente}
             onSubmit={onSubmit}
             busy={busy}
             error={error}

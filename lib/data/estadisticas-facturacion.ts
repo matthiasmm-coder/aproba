@@ -68,7 +68,8 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
     const q = supabase.from("Factura").select(cols).in("estado", ["EMITIDA", "PAGADA", "VENCIDA"]);
     return (conSede ? porSede(q) : q).order("id").range(d, h) as unknown as PromiseLike<{ data: FilaFactura[] | null; error: { message: string } | null }>;
   });
-  let rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId, expediente:Expediente(tipo, servicioClave)", true);
+  let rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, retencion, suplidos, estado, fechaEmision, oficinaId, expediente:Expediente(tipo, servicioClave)", true);
+  if (rf.error && FALTA_COLUMNA.test(rf.error.message)) rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId, expediente:Expediente(tipo, servicioClave)", true);
   if (rf.error && FALTA_COLUMNA.test(rf.error.message)) rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, suplidos, estado, fechaEmision, oficinaId", true);
   if (rf.error && FALTA_COLUMNA.test(rf.error.message)) rf = await leerFacturas("id, numero, concepto, clienteNombre, baseImponible, iva, total, estado, fechaEmision", false);
   if (rf.error) throw new Error(`Estadísticas (facturas): ${rf.error.message}`);
@@ -82,10 +83,12 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
     const imp = importesFactura({
       base: num(f.baseImponible) ?? 0, iva: num(f.iva) ?? undefined, total: num(f.total) ?? undefined,
       suplidos: Array.isArray(f.suplidos) ? f.suplidos.map((s) => ({ concepto: "", importe: Number(s.importe) || 0 })) : undefined,
+      retencion: num((f as { retencion?: unknown }).retencion),
     });
-    const cobrado = f.estado === "PAGADA" ? imp.total : Math.min(imp.total, totalEntregado(entregas[f.id] ?? []));
+    // Cobrado: lo que paga el cliente (total − retención de IRPF), no el total fiscal.
+    const cobrado = f.estado === "PAGADA" ? imp.aCobrar : Math.min(imp.aCobrar, totalEntregado(entregas[f.id] ?? []));
     emitidas.push({
-      fecha: f.fechaEmision.slice(0, 10), base: imp.base, iva: imp.iva, total: imp.total, cobrado, cliente: f.clienteNombre ?? "", fuente: "APROBA",
+      fecha: f.fechaEmision.slice(0, 10), base: imp.base, iva: imp.iva, total: imp.total, cobrado, ...(imp.retencion ? { retencion: imp.retencion } : {}), cliente: f.clienteNombre ?? "", fuente: "APROBA",
       ref: f.numero ?? "", concepto: f.concepto ?? "",
       servicio: servicioDe(uno(f.expediente as { tipo?: string | null; servicioClave?: string | null } | null), f.concepto ?? ""),
     });

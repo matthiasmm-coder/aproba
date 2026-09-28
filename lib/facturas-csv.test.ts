@@ -11,7 +11,7 @@ const base: Factura = { id: "f1", numero: "2026-0023", cliente: "Ana Pérez", co
 describe("importesFactura", () => {
   it("manda el total guardado, suplidos incluidos", () => {
     const f = { ...base, iva: 10.5, total: 88.58, suplidos: [{ concepto: "Tasa 790-012", importe: 28.08 }] };
-    expect(importesFactura(f)).toEqual({ base: 50, iva: 10.5, suplidos: 28.08, total: 88.58 });
+    expect(importesFactura(f)).toEqual({ base: 50, iva: 10.5, suplidos: 28.08, total: 88.58, retencion: 0, aCobrar: 88.58 });
   });
 
   it("sin total guardado, lo calcula con los suplidos (no base × 1,21)", () => {
@@ -21,16 +21,22 @@ describe("importesFactura", () => {
 
   it("una fila antigua sin lista de suplidos: la diferencia hasta el total son los suplidos", () => {
     const f = { ...base, iva: 10.5, total: 88.58 };
-    expect(importesFactura(f)).toEqual({ base: 50, iva: 10.5, suplidos: 28.08, total: 88.58 });
+    expect(importesFactura(f)).toEqual({ base: 50, iva: 10.5, suplidos: 28.08, total: 88.58, retencion: 0, aCobrar: 88.58 });
   });
 
   it("una factura sin suplidos sigue igual", () => {
-    expect(importesFactura({ ...base, iva: 10.5, total: 60.5 })).toEqual({ base: 50, iva: 10.5, suplidos: 0, total: 60.5 });
+    expect(importesFactura({ ...base, iva: 10.5, total: 60.5 })).toEqual({ base: 50, iva: 10.5, suplidos: 0, total: 60.5, retencion: 0, aCobrar: 60.5 });
   });
 
   it("una rectificativa conserva el signo negativo en todo", () => {
     const f = { ...base, base: -50, iva: -10.5, total: -88.58, suplidos: [{ concepto: "Tasa", importe: -28.08 }] };
-    expect(importesFactura(f)).toEqual({ base: -50, iva: -10.5, suplidos: -28.08, total: -88.58 });
+    expect(importesFactura(f)).toEqual({ base: -50, iva: -10.5, suplidos: -28.08, total: -88.58, retencion: 0, aCobrar: -88.58 });
+  });
+
+  it("con retención de IRPF: el total no cambia, lo que se cobra es total − retención", () => {
+    // Marta → AGC: 2.000 € de honorarios, IVA 420, retención 15 % = 300 → a cobrar 2.120.
+    const f = { ...base, base: 2000, iva: 420, total: 2420, retencion: 300 };
+    expect(importesFactura(f)).toEqual({ base: 2000, iva: 420, suplidos: 0, total: 2420, retencion: 300, aCobrar: 2120 });
   });
 });
 
@@ -61,7 +67,17 @@ describe("csvFacturasEmitidas", () => {
   });
 
   it("cada fila cuadra: Base + IVA + Suplidos = Total, con coma decimal", () => {
-    expect(fila).toBe("2026-0023;21/09/2026;Ana Pérez;X1234567L;Renovación de TIE;50,00;10,50;28,08;88,58;Emitida;Manual");
+    expect(fila).toBe("2026-0023;21/09/2026;Ana Pérez;X1234567L;Renovación de TIE;50,00;10,50;28,08;88,58;0,00;88,58;Emitida;Manual;");
+  });
+
+  it("con retención: su columna, lo que se cobra y el NIF del emisor (varios NIF en un despacho)", () => {
+    const conRet = csvFacturasEmitidas([{ ...base, numero: "MA-2026-0001", base: 2000, iva: 420, total: 2420, retencion: 300, retencionPct: 15,
+      emisorDatos: { nombre: "Marta Asenjo Romo", nif: "12345678Z", domicilio: null, email: null } }]).split("\n")[1].split(";");
+    const col = (nombre: string) => conRet[CABECERA_CSV_EMITIDAS.indexOf(nombre)];
+    expect(col("Total")).toBe("2420,00");
+    expect(col("Retención")).toBe("300,00");
+    expect(col("Total a cobrar")).toBe("2120,00");
+    expect(col("NIF emisor")).toBe("12345678Z");
   });
 
   it("escapa el separador y las comillas", () => {
