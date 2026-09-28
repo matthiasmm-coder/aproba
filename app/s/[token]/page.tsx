@@ -11,6 +11,8 @@ import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, sinQuitados } from "
 import { formulariosDelTramite } from "@/lib/ex-forms";
 import { Seguimiento, type SegDoc } from "@/components/seguimiento";
 import { asegurarEspacioToken } from "@/lib/espacio";
+import { normalizarEstado } from "@/lib/progreso";
+import { datosConsultaCliente, diaMadrid, type DatosConsulta } from "@/lib/consulta-estado";
 
 // <head> con la marca del DESPACHO (pestaña, tarjeta al compartir, favicon); los
 // enlaces del portal llevan el token en la URL y nunca se indexan (metadataPortal).
@@ -240,6 +242,26 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   // que visita su seguimiento — cubre también a los clientes anteriores a la función.
   const espacioToken = cliente?.id ? await asegurarEspacioToken(admin, cliente.id) : null;
 
+  // Consulta del estado por el propio cliente (28/09/2026, guía de GESADM): solo con el
+  // expediente PRESENTADO, de una persona (ni familia ni empresa) y con todo lo que pide la
+  // web oficial. Una consulta aparte, solo en ese caso: no toca la cadena de replis de arriba.
+  let consulta: DatosConsulta | null = null;
+  if (normalizarEstado(exp.estado) === "PRESENTADO" && cliente?.id && !exp.familiaId) {
+    const { data: dc } = await admin.from("Expediente").select("fechaPresentacion, numeroOficial, cliente:Cliente(numeroDocumento, fechaNacimiento, nacionalidad)").eq("id", exp.id).maybeSingle();
+    type Dc = { fechaPresentacion: string | null; numeroOficial: string | null; cliente: Cc | Cc[] | null };
+    type Cc = { numeroDocumento: string | null; fechaNacimiento: string | null; nacionalidad: string | null };
+    const d = dc as Dc | null;
+    const c = d ? uno(d.cliente) : null;
+    // Fecha de depósito: la columna sellada o, para los expedientes anteriores al sellado,
+    // el PRIMER evento PRESENTADO del historial (misma regla que la ficha del gestor).
+    let presentado = d?.fechaPresentacion ?? null;
+    if (d && !presentado) {
+      const { data: ev } = await admin.from("ExpedienteEvento").select("createdAt").eq("expedienteId", exp.id).eq("tipo", "PRESENTADO").order("createdAt", { ascending: true }).limit(1).maybeSingle();
+      presentado = (ev as { createdAt?: string } | null)?.createdAt ?? null;
+    }
+    if (d) consulta = datosConsultaCliente({ nie: c?.numeroDocumento, numeroOficial: d.numeroOficial, fechaPresentacion: diaMadrid(presentado), fechaNacimiento: c?.fechaNacimiento, nacionalidad: c?.nacionalidad });
+  }
+
   return (
     <Seguimiento
       token={token}
@@ -259,6 +281,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
       tasaDisponible={tasaDisponible}
       tasaEtiqueta={tasaEtiqueta}
       miembros={miembros}
+      consulta={consulta}
     />
   );
 }

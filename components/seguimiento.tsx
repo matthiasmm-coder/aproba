@@ -5,6 +5,8 @@ import { AprobaMark } from "./logo";
 import { LANGS, makeT, detectarLang, docLabel, docHelp, parentescoI18n, type Lang, esLangSoportada, esRTL } from "@/lib/portal-i18n";
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import { normalizarEstado } from "@/lib/progreso";
+import { ConsultaEstadoCliente } from "@/components/consulta-estado-cliente";
+import type { DatosConsulta } from "@/lib/consulta-estado";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean; clienteId?: string; grupo?: string };
 
@@ -25,7 +27,7 @@ function Download({ className = "" }: { className?: string }) {
 }
 
 export function Seguimiento({
-  token, gestoria, logoUrl = null, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, tasaEtiqueta, miembros, gruposDocs,
+  token, gestoria, logoUrl = null, espacioUrl = null, clienteNombre, idioma, referencia, estado, citaPresencial = false, citaQuien = "cliente", cita, docs: docsIniciales, formularios = [], tasaDisponible = false, tasaEtiqueta, miembros, gruposDocs, consulta = null,
 }: {
   token: string; gestoria: string; logoUrl?: string | null; espacioUrl?: string | null; clienteNombre: string; idioma: string; referencia: string; estado: string;
   citaPresencial?: boolean; citaQuien?: "cliente" | "gestor" | "ambos"; cita?: { fecha: string | null; hora: string | null; lugar: string | null; notas: string | null }; docs: SegDoc[]; formularios?: string[]; tasaDisponible?: boolean;
@@ -38,6 +40,9 @@ export function Seguimiento({
   // grupo/clienteId y aquí solo se agrupan y pliegan. Sin esto: lista plana (individual).
   // chip: «__trabajador__» / «__empresa__» = expediente de empresa (sin parentesco).
   gruposDocs?: { id: string; nombre?: string; parentesco?: string | null; chip?: string }[];
+  // Presentado: los datos para que el cliente consulte él mismo el estado en la web oficial
+  // (28/09/2026, guía de GESADM). null = no se enseña (lib/consulta-estado.ts).
+  consulta?: DatosConsulta | null;
 }) {
   const [lang, setLang] = useState<Lang>((esLangSoportada(idioma) ? idioma : "es") as Lang);
   const [docs, setDocs] = useState<SegDoc[]>(docsIniciales);
@@ -282,6 +287,9 @@ export function Seguimiento({
             })}
           </ol>
         </div>
+
+        {/* Presentado: cómo consultar el estado en la web oficial, con SUS datos (guía de GESADM). */}
+        {est5 === "PRESENTADO" && consulta && <ConsultaEstadoCliente datos={consulta} gestoria={gestoria} t={t} />}
 
         {/* Cita présentielle — détails complets (le client s'y rend) ou simple info de date (le gestor) */}
         {Boolean(cita?.fecha) && est5 !== "FINALIZADO" && cita?.fecha && (

@@ -259,7 +259,11 @@ export async function dispararAviso(
     const tokenBandeja = (uno(exp?.Workspace ?? null) as { emailEntranteToken?: string | null } | null)?.emailEntranteToken ?? null;
     const bandeja = tokenBandeja ? direccionEntrante(tokenBandeja) : null;
     const nombre = cliente?.nombre ?? "cliente";
-    const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/j/${exp.portalToken}` : null;
+    // «Expediente presentado»: el cliente ya no tiene nada que subir; el botón lleva a su
+    // SEGUIMIENTO, donde está «Consulta el estado de tu expediente» (28/09/2026, guía de
+    // GESADM). El resto de avisos siguen abriendo el portal.
+    const rutaCta = opts.clave === "presentado" ? "s" : "j";
+    const portalUrl = exp?.portalToken && opts.baseUrl ? `${opts.baseUrl}/${rutaCta}/${exp.portalToken}` : null;
 
     // Canal del workspace (Ajustes): EMAIL | WHATSAPP | AMBOS.
     const canal = await canalesDelWorkspace(admin, opts.workspaceId);
