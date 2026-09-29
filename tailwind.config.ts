@@ -106,6 +106,8 @@ const config: Config = {
           "0%": { transform: "scale(0.5)" },
           "7%, 100%": { transform: "scale(1)" },
         },
+        // Barra de análisis de un documento en «Cómo funciona» (components/demos.tsx).
+        progreso: { from: { transform: "scaleX(0.04)" }, to: { transform: "scaleX(1)" } },
         // El hilo como flujo continuo: rayas que avanzan un periodo (14 px) y vuelven a empezar.
         flujoX: { from: { transform: "translateX(-14px)" }, to: { transform: "translateX(0)" } },
         flujoY: { from: { transform: "translateY(-14px)" }, to: { transform: "translateY(0)" } },
@@ -134,6 +136,7 @@ const config: Config = {
         encoger: "encoger 6s ease-in infinite both",
         brotar: "brotar 6s cubic-bezier(0.34,1.56,0.64,1) infinite both",
         "flujo-x": "flujoX 0.9s linear infinite",
+        progreso: "progreso 0.6s cubic-bezier(0.22,1,0.36,1) both",
         "flujo-y": "flujoY 0.9s linear infinite",
       },
     },

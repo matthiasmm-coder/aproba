@@ -13,9 +13,13 @@ import Image from "next/image";
 //    gesto del visitante con el vídeo a la vista lo reinicia con sonido (fuera de la vista: sonará
 //    al llegar a él). La pausa que pide el visitante se respeta siempre;
 //  · con sonido, al salir de la pantalla se pausa (nadie oye un vídeo que no ve) y al volver se
-//    reanuda, solo si esa pausa fue nuestra.
+//    reanuda, solo si esa pausa fue nuestra;
+//  · Safari (Mac e iPhone) no se conforma con «ya hubo un gesto»: solo deja sonar un vídeo que
+//    haya recibido un play() DENTRO de un gesto. Por eso el <video> existe desde el principio (sin
+//    fuente: no baja nada) y el primer gesto del visitante le da ese play() vacío («cebado»):
+//    cuando luego llega a él, puede arrancar con sonido.
 // Carga (PSI móvil): nada del vídeo baja durante la carga de la página — el póster es un next/image
-// perezoso y el <video> se monta a ~400 px de la sección; fuera de pantalla se pausa.
+// perezoso y la fuente del <video> se pone a ~400 px de la sección; fuera de pantalla se pausa.
 // 1080p en escritorio, 720p en móvil (H.264 + faststart: empieza antes de terminar de bajar).
 // Sin arranque automático si el usuario pide menos movimiento o ahorro de datos, o si el navegador
 // lo bloquea (modo ahorro de batería en iOS): póster + botón, como antes.
@@ -38,6 +42,7 @@ export function VideoDemo() {
   const reintentos = useRef(0);
   const probadoSonido = useRef(false);  // ya se intentó arrancar con sonido desde el último gesto
   const pausaNuestra = useRef(false);   // con sonido: pausado por salir de pantalla (se reanuda)
+  const cebado = useRef(false);         // Safari: el <video> ya recibió un play() dentro de un gesto
 
   useEffect(() => {
     const el = caja.current;
@@ -60,7 +65,7 @@ export function VideoDemo() {
   // Solo un bloqueo del arranque en silencio (NotAllowedError) desactiva el modo automático.
   const intentar = useCallback(() => {
     const v = video.current, e = estado.current;
-    if (!v || !e.auto || e.pausado || !e.visible || document.visibilityState !== "visible" || !v.paused) return;
+    if (!v || !v.getAttribute("src") || !e.auto || e.pausado || !e.visible || document.visibilityState !== "visible" || !v.paused) return;
     if (e.conSonido) {
       if (pausaNuestra.current) { pausaNuestra.current = false; v.play().catch(() => {}); }
       return;
@@ -137,6 +142,9 @@ export function VideoDemo() {
       const t = ev.target instanceof Element ? ev.target : null;
       if (t && caja.current?.contains(t) && t.closest("button")) return;
       const v = video.current;
+      // Cebado para Safari: un play() dentro del gesto, sobre el <video> todavía sin fuente (no
+      // suena ni descarga nada) y pausado en el acto.
+      if (v && !cebado.current && !v.getAttribute("src")) { cebado.current = true; v.play().catch(() => {}); v.pause(); }
       if (e.visible && v && !v.paused) activarSonido();
       else probadoSonido.current = false;
     };
@@ -154,20 +162,18 @@ export function VideoDemo() {
   const botonPlay = !auto && !conSonido;             // sin arranque automático: botón central, como antes
   return (
     <div ref={caja} className="relative w-full bg-white" style={{ aspectRatio: `${ANCHO} / ${ALTO}` }}>
-      {cerca && (
-        <video
-          ref={video}
-          className="absolute inset-0 h-full w-full"
-          src={fuente}
-          muted={!conSonido}
-          loop={!conSonido}
-          playsInline
-          preload={auto ? "auto" : "none"}
-          controls={conSonido}
-          onPlaying={() => setPintado(true)}
-          aria-label="Vídeo: Aproba en 80 segundos"
-        />
-      )}
+      <video
+        ref={video}
+        className="absolute inset-0 h-full w-full"
+        src={cerca ? fuente : undefined}
+        muted={!conSonido}
+        loop={!conSonido}
+        playsInline
+        preload={cerca && auto ? "auto" : "none"}
+        controls={conSonido}
+        onPlaying={() => setPintado(true)}
+        aria-label="Vídeo: Aproba en 80 segundos"
+      />
       <Image
         src="/video/aproba-poster.jpg"
         alt=""
@@ -193,8 +199,9 @@ export function VideoDemo() {
               ? <svg className="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72c0 .79.87 1.27 1.54.85l10.6-6.86a1 1 0 0 0 0-1.7L9.54 4.29A1 1 0 0 0 8 5.14Z" /></svg>
               : <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>}
           </button>
+          {/* Sin gesto todavía, el vídeo va en silencio: el botón, en el verde de la marca, se ve. */}
           <button type="button" onClick={activarSonido}
-            className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-slate-900/75 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-float backdrop-blur transition hover:bg-slate-900/90 sm:bottom-4 sm:right-4 sm:top-auto sm:gap-2 sm:px-3.5 sm:py-2 sm:text-sm">
+            className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-aproba-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-float ring-1 ring-white/25 transition hover:bg-aproba-700 sm:bottom-4 sm:right-4 sm:top-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z" /><path d="m23 9-6 6M17 9l6 6" /></svg>
             Activar sonido
           </button>

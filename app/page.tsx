@@ -259,7 +259,9 @@ export default function Landing() {
       {/* Cifras — 4 tarjetas en el verde de Aproba (Matthias, 30/09/2026: « pas un bandeau mais
           4 cartes alignées, cliquables sur toute leur surface », puis « centre les éléments, couleur
           Aproba, respecte la charte, plus élégant »). aproba-600 liso = el verde del logo y del CTA,
-          aproba-700 al pasar, como el CTA (BRAND-GUIDE §5). La tarjeta ENTERA es el enlace. */}
+          aproba-700 al pasar, como el CTA (BRAND-GUIDE §5). La tarjeta ENTERA es el enlace. Las
+          cifras, a la MISMA altura en las cuatro: el texto reserva sus líneas (3 en móvil y tableta,
+          2 desde lg), así el bloque centrado mide lo mismo en todas. */}
       <section aria-label="Aproba en cifras" className="mx-auto max-w-6xl px-6 pb-20">
         <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-5">
           {STATS.map((s, i) => (
@@ -268,7 +270,7 @@ export default function Landing() {
                 <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-3.5 w-3.5 text-white/45 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
                 <p className="whitespace-nowrap text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
                 <span aria-hidden="true" className="mt-3.5 h-px w-8 bg-white/40 transition-all duration-300 group-hover:w-12" />
-                <p className="mt-3 max-w-[14rem] text-balance text-sm font-medium leading-snug text-white">{s.l}</p>
+                <p className="mt-3 min-h-[3.61rem] max-w-[14rem] text-balance text-sm font-medium leading-snug text-white lg:min-h-[2.41rem]">{s.l}</p>
               </Link>
             </Reveal>
           ))}

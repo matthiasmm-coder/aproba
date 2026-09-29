@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // Animation synchronisée : à gauche ce que vit le client (téléphone),
 // à droite ce que voit le gestor (dashboard). Un seul `step` pilote les deux.
+// FLUIDITÉ (Matthias, 30/09/2026 : « excellente, la plus fluide possible ») :
+//  · un seul chef d'orchestre (HowItWorks) : `step` + `sub`, la sous-phase de chaque document
+//    (0 aide « i », 1 analyse IA, 2 validé), pour que le téléphone et le tableau de bord
+//    avancent au même instant — plus de « Pendiente » d'un côté et « Validado » de l'autre ;
+//  · rien ne « saute » : les cartes gardent leur hauteur (couches superposées qui se fondent) ou
+//    s'ouvrent en douceur (grid-template-rows), et seuls transform/opacity bougent ailleurs ;
+//  · le retour au début ne se rembobine jamais à la vue : le panneau du gestor se fond, les
+//    états reviennent sans transition, puis il réapparaît ;
+//  · elle ne tourne qu'à l'écran (commence au début quand on arrive), une courbe douce partout.
 // Les écrans reproduisent fidèlement le vrai portail (client-portal.tsx) et le
 // vrai détail expediente (app/app/expedientes/[id]/page.tsx) — actualizado 22/08 tras
 // la reforma del ciclo: stepper de 4 fases + anillo de completitud, sin píldoras.
@@ -12,7 +21,15 @@ import { useEffect, useRef, useState } from "react";
 const STEPS = 8;
 // Durée d'affichage (ms) par étape. L'étape « datos » est plus longue : la cliente
 // remplit ses champs un à un. WhatsApp et « listo » respirent un peu plus aussi.
-const DURATIONS = [2200, 3000, 2800, 1600, 1600, 1600, 1600, 2600];
+const DURATIONS = [2400, 3200, 2900, 2000, 2000, 2000, 2000, 3600];
+// Sous-phases d'un document (étapes 3-6), en ms depuis le début de l'étape :
+// 0 = l'aide « i » s'ouvre, 1 = la IA l'analyse (barre), 2 = validé (chips de datos).
+const SUB_MS = [0, 700, 1450];
+const SUAVE = "ease-[cubic-bezier(0.22,1,0.36,1)]";      // entrées : rapide puis se pose
+const DESLIZ = "ease-[cubic-bezier(0.65,0,0.35,1)]";     // défilements : départ et arrivée doux
+// Mesure avant peinture côté client (le défilement part du bon endroit), sans alerte au SSR.
+const useMedida = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+type EstadoDoc = "pendiente" | "info" | "analizando" | "validado";
 
 const CAPTIONS = [
   "Le envías un enlace por WhatsApp. Sin apps que instalar, sin explicaciones.",
@@ -36,11 +53,12 @@ const TRAMITES = [
 
 // Documents requis pour Arraigo social (DEFAULT_SERVICIOS) + chips de datos extraídos
 // (mêmes valeurs que EXTRACTED dans client-portal.tsx / extraction IA du détail expediente).
-const DOCS: { label: string; campos: [string, string][] }[] = [
-  { label: "Pasaporte", campos: [["Nombre", "Julia Mendoza"], ["Nº", "AV284917"], ["Caducidad", "22/08/2029"]] },
-  { label: "Certificado de empadronamiento", campos: [["Dirección", "C/ Sepúlveda 112"], ["Municipio", "Barcelona"]] },
-  { label: "Contrato de trabajo", campos: [["Empleador", "Bonavista SL"], ["Puesto", "Ayud. cocina"]] },
-  { label: "Antecedentes penales", campos: [["Resultado", "Sin antecedentes"], ["País", "Colombia"]] },
+// `ayuda` = el texto «i» de cada documento en el portal real (lib/portal-i18n.ts, es).
+const DOCS: { label: string; ayuda: string; campos: [string, string][] }[] = [
+  { label: "Pasaporte", ayuda: "Página con tu foto y tus datos. Debe estar vigente y leerse con claridad.", campos: [["Nombre", "Julia Mendoza"], ["Nº", "AV284917"], ["Caducidad", "22/08/2029"]] },
+  { label: "Certificado de empadronamiento", ayuda: "Certificado o volante de empadronamiento reciente (menos de 3 meses).", campos: [["Dirección", "C/ Sepúlveda 112"], ["Municipio", "Barcelona"]] },
+  { label: "Contrato de trabajo", ayuda: "Contrato firmado por ti y la empresa, con fechas y salario.", campos: [["Empleador", "Bonavista SL"], ["Puesto", "Ayud. cocina"]] },
+  { label: "Antecedentes penales", ayuda: "Certificado de antecedentes penales de tu país de origen, traducido si procede.", campos: [["Resultado", "Sin antecedentes"], ["País", "Colombia"]] },
 ];
 const FILES = ["pasaporte.jpg", "empadronamiento.jpg", "contrato.pdf", "antecedentes.pdf"];
 
@@ -68,12 +86,10 @@ const HISTORIAL = [
 // píldora de estado — lleva el stepper de 4 fases y la carta de completitud (anillo %
 // + Información/Documentos/Formularios), como la ficha de verdad.
 const FASES = ["Preparación", "Preparado"];
-// Fase activa por paso (flujo v4): en Preparación hasta que los formularios están
-// generados (paso 7), momento en que el expediente pasa a «Preparado» — igual que faseDe().
-const FASE_POR_STEP = [0, 0, 0, 0, 0, 0, 0, 1];
-// Completitud por paso = media de 3 partes (lib/progreso.ts): Información (ficha
-// completa en el paso 2), Documentos (validados/4), Formularios (generados al final).
-const COMP_POR_STEP = [0, 0, 33, 33, 42, 50, 67, 100];
+// Fase activa (flujo v4): en Preparación hasta que los formularios están generados (paso 7),
+// momento en que el expediente pasa a «Preparado» — igual que faseDe(). La completitud es la
+// media de 3 partes (lib/progreso.ts): Información (ficha completa en el paso 2), Documentos
+// (validados/4, en directo) y Formularios (generados al final): se calcula en Dashboard.
 
 function Check({ className = "" }: { className?: string }) {
   return (
@@ -101,8 +117,7 @@ function DownloadIcon({ className = "" }: { className?: string }) {
 
 // ─────────────────────── Téléphone (côté client) ───────────────────────
 
-function Phone({ step }: { step: number }) {
-  const cur = Math.max(0, Math.min(step - 3, DOCS.length - 1)); // doc en cours de subida (steps 3-6)
+function Phone({ step, docActual, estadoDoc }: { step: number; docActual: number; estadoDoc: (i: number) => EstadoDoc }) {
   return (
     <div className="relative mx-auto w-[260px]">
       {/* isolate + translateZ(0): en Safari, los hijos con transform (las Screen que
@@ -159,7 +174,7 @@ function Phone({ step }: { step: number }) {
           <Screen active={step >= 3 && step <= 6}>
             <PortalHeader />
             <PortalStepper current={2} />
-            <DocumentosScroll cur={cur} activo={step >= 3 && step <= 6} />
+            <DocumentosScroll cur={Math.max(0, docActual)} activo={step >= 3 && step <= 6} estadoDoc={estadoDoc} />
           </Screen>
 
           {/* 7 · ¡Todo enviado! (Step 4 du vrai portail) */}
@@ -189,7 +204,7 @@ function Phone({ step }: { step: number }) {
 
 function Screen({ active, children }: { active: boolean; children: React.ReactNode }) {
   return (
-    <div className={`absolute inset-0 overflow-hidden bg-cream-50 transition-all duration-500 ${active ? "opacity-100 translate-x-0" : "pointer-events-none opacity-0 translate-x-3"}`}>
+    <div className={`absolute inset-0 overflow-hidden bg-cream-50 transition-[opacity,transform] duration-500 will-change-[opacity,transform] ${SUAVE} ${active ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0"}`}>
       {children}
     </div>
   );
@@ -230,8 +245,9 @@ function DatosForm({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) {
-      setProg({ field: 0, chars: 0 });
-      return;
+      // Se vacía cuando la pantalla ya se ha ido (fundido de 500 ms): nunca a la vista.
+      const t = window.setTimeout(() => setProg({ field: 0, chars: 0 }), 600);
+      return () => window.clearTimeout(t);
     }
     setProg({ field: 0, chars: 0 });
     let field = 0;
@@ -304,9 +320,9 @@ function TramiteSelector({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) {
-      setPicked(false);
-      setTapping(false);
-      return;
+      // Igual que la ficha: se deselecciona cuando la pantalla ya no se ve.
+      const t = window.setTimeout(() => { setPicked(false); setTapping(false); }, 600);
+      return () => window.clearTimeout(t);
     }
     setPicked(false);
     setTapping(false);
@@ -373,13 +389,13 @@ function TramiteSelector({ active }: { active: boolean }) {
 
 // La lista de documentos puede crecer más que la pantalla del móvil: el «scroll» lo
 // hace la animación (suave, hacia la carta activa), nunca el contenido desbordando.
-function DocumentosScroll({ cur, activo }: { cur: number; activo: boolean }) {
+function DocumentosScroll({ cur, activo, estadoDoc }: { cur: number; activo: boolean; estadoDoc: (i: number) => EstadoDoc }) {
   // Translación CSS (scrollTo suave no funciona sobre overflow:hidden): la carta
   // activa queda siempre a la vista y nada puede salirse del marco (clamp + clip).
   const [desp, setDesp] = useState(0);
   const winRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useMedida(() => {
     if (!activo) { setDesp(0); return; }
     const win = winRef.current, inner = innerRef.current;
     if (!win || !inner) return;
@@ -389,83 +405,77 @@ function DocumentosScroll({ cur, activo }: { cur: number; activo: boolean }) {
   }, [cur, activo]);
   return (
     <div ref={winRef} className="relative h-[calc(100%-70px)] overflow-hidden">
-      <div ref={innerRef} className="relative transition-transform duration-700 ease-in-out" style={{ transform: `translateY(-${desp}px)` }}>
-        <Documentos cur={cur} />
+      <div ref={innerRef} className={`relative transition-transform duration-[900ms] will-change-transform ${DESLIZ}`} style={{ transform: `translateY(-${desp}px)` }}>
+        <Documentos cur={cur} estadoDoc={estadoDoc} />
       </div>
     </div>
   );
 }
 
-// Step 2 du vrai portail : cartes de documents (icône "i", estados, chips de datos extraídos).
-function Documentos({ cur }: { cur: number }) {
-  const [infoOpen, setInfoOpen] = useState(false);
-  useEffect(() => {
-    // L'infobulle "i" s'ouvre brièvement sur le doc en cours pour montrer l'aide.
-    setInfoOpen(false);
-    const t = window.setTimeout(() => setInfoOpen(true), 450);
-    const t2 = window.setTimeout(() => setInfoOpen(false), 1150);
-    return () => { window.clearTimeout(t); window.clearTimeout(t2); };
-  }, [cur]);
+// Capas superpuestas en la misma celda: lo que cambia se funde, el tamaño no se mueve.
+const PILA = "grid [&>*]:col-start-1 [&>*]:row-start-1";
+const capa = (on: boolean, extra = "") => `transition-[opacity,background-color,border-color,color] duration-300 ${extra} ${on ? "opacity-100" : "pointer-events-none opacity-0"}`;
 
+// Step 2 du vrai portail : cartes de documents (icône "i", estados, chips de datos extraídos).
+// Chaque carte : en-tête fixe (icône et état en fondu) + un détail qui s'ouvre en douceur
+// (grid-template-rows 0fr → 1fr) et dont les trois contenus (aide, analyse, datos) se fondent
+// l'un dans l'autre sans changer la hauteur.
+function Documentos({ cur, estadoDoc }: { cur: number; estadoDoc: (i: number) => EstadoDoc }) {
   return (
     <div className="px-3 pb-3 pt-1">
       <p className="text-[14px] font-bold tracking-tight text-slate-900">Documentos</p>
       <p className="mt-0.5 text-[9px] text-slate-500">Sube cada documento. La IA comprueba al instante que sea legible y esté vigente.</p>
       <div className="mt-2 space-y-1.5">
         {DOCS.map((d, i) => {
-          const validado = i < cur;
-          const analizando = i === cur;
-          const esInfo = analizando && infoOpen;
+          const e = estadoDoc(i);
+          const validado = e === "validado";
+          const activo = e === "info" || e === "analizando";
+          const detalle = e !== "pendiente";
           return (
-            <div key={d.label} data-doc className="rounded-xl border border-slate-200 bg-white p-2">
+            <div key={d.label} data-doc className={`rounded-xl border bg-white p-2 transition-colors duration-500 ${activo ? "border-amber-200" : "border-slate-200"}`}>
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${validado ? "bg-aproba-100 text-aproba-600" : analizando ? "bg-amber-100 text-amber-600" : "bg-cream-50 text-slate-400"}`}>
-                    {validado ? <Check className="h-3 w-3" /> : <DocIcon className="h-3 w-3" />}
+                  <span className={`${PILA} h-6 w-6 shrink-0`}>
+                    <span className={capa(!validado, `flex items-center justify-center rounded-md ${activo ? "bg-amber-100 text-amber-600" : "bg-cream-50 text-slate-400"}`)}><DocIcon className="h-3 w-3" /></span>
+                    <span className={capa(validado, "flex items-center justify-center rounded-md bg-aproba-100 text-aproba-600")}><Check className="h-3 w-3" /></span>
                   </span>
                   <span className="truncate text-[9px] font-medium text-slate-800">{d.label}</span>
                   {/* Icône info "i" du vrai portail */}
-                  <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border text-[7px] font-bold ${esInfo ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 text-slate-400"}`}>i</span>
+                  <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border text-[7px] font-bold transition-colors duration-300 ${e === "info" ? "border-aproba-600 bg-aproba-600 text-white" : "border-slate-300 text-slate-400"}`}>i</span>
                 </div>
-                {validado ? (
-                  <span className="shrink-0 text-[8px] font-semibold text-aproba-700">Validado</span>
-                ) : analizando ? (
-                  <span className="shrink-0 text-[8px] font-medium text-amber-600">Analizando…</span>
-                ) : (
-                  <span className="shrink-0 rounded-lg bg-aproba-600 px-2 py-0.5 text-[8px] font-semibold text-white">Subir</span>
-                )}
+                <span className={`${PILA} shrink-0 justify-items-end text-[8px]`}>
+                  <span className={capa(e === "pendiente", "rounded-lg bg-aproba-600 px-2 py-0.5 font-semibold text-white")}>Subir</span>
+                  <span className={capa(activo, "py-0.5 font-medium text-amber-600")}>Analizando…</span>
+                  <span className={capa(validado, "py-0.5 font-semibold text-aproba-700")}>Validado</span>
+                </span>
               </div>
 
-              {/* Infobulle "¿Qué es esto?" */}
-              {esInfo && (
-                <p className="mt-1.5 rounded-md bg-cream-50 px-2 py-1 text-[7.5px] leading-relaxed text-slate-600">
-                  Página con tu foto y tus datos. Debe estar vigente y leerse con claridad.
-                </p>
-              )}
-
-              {/* Barre de progression pendant l'analyse IA */}
-              {analizando && !esInfo && (
-                <div className="mt-1.5">
-                  <div className="flex items-center gap-1.5 text-[8px] text-slate-500">
-                    <span className="h-4 w-4 rounded bg-slate-200" />
-                    <span className="truncate">{FILES[cur]}</span>
-                  </div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full w-2/3 animate-pulse rounded-full bg-aproba-500" />
-                  </div>
-                </div>
-              )}
-
-              {/* Chips de datos extraídos par IA (cartes validées) */}
-              {validado && (
-                <div className="mt-1.5 rounded-md bg-cream-50 px-2 py-1">
-                  <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                    {d.campos.map(([k, v]) => (
-                      <span key={k} className="text-[7.5px]"><span className="text-slate-400">{k}: </span><span className="font-mono text-slate-700">{v}</span></span>
-                    ))}
+              <div className={`grid transition-[grid-template-rows,opacity] duration-500 ${SUAVE} ${detalle ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="min-h-0 overflow-hidden">
+                  <div className={`${PILA} pt-1.5`}>
+                    {/* Infobulle "¿Qué es esto?" */}
+                    <p className={capa(e === "info", "rounded-md bg-cream-50 px-2 py-1 text-[7.5px] leading-relaxed text-slate-600")}>{d.ayuda}</p>
+                    {/* Analyse IA : fichier + barre qui se remplit */}
+                    <div className={capa(e === "analizando", "px-0.5 py-0.5")}>
+                      <div className="flex items-center gap-1.5 text-[8px] text-slate-500">
+                        <span className="h-4 w-4 rounded bg-slate-200" />
+                        <span className="truncate">{FILES[i]}</span>
+                      </div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-100">
+                        <div key={e === "analizando" ? `a${cur}` : "reposo"} className={`h-full origin-left rounded-full bg-aproba-500 ${e === "analizando" ? "animate-progreso" : "scale-x-0"}`} />
+                      </div>
+                    </div>
+                    {/* Chips de datos extraídos par IA (cartes validées) */}
+                    <div className={capa(validado, "rounded-md bg-cream-50 px-2 py-1")}>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        {d.campos.map(([k, v]) => (
+                          <span key={k} className="text-[7.5px]"><span className="text-slate-400">{k}: </span><span className="font-mono text-slate-700">{v}</span></span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -477,24 +487,26 @@ function Documentos({ cur }: { cur: number }) {
 // ─────────────────────── Dashboard (côté gestor) ───────────────────────
 // Reproduit le vrai détail expediente (app/app/expedientes/[id]/page.tsx).
 
-function Dashboard({ step }: { step: number }) {
-  const docValidated = (i: number) => i < step - 3; // cascade : un doc validé par étape
-  const fase = FASE_POR_STEP[step];
-  const comp = COMP_POR_STEP[step];
+function Dashboard({ step, validados, estadoDoc, historialVisible, fundido, rebobinando }: {
+  step: number; validados: number; estadoDoc: (i: number) => EstadoDoc; historialVisible: (i: number) => boolean; fundido: boolean; rebobinando: boolean;
+}) {
   const formsListos = step >= 7;
+  const fase = formsListos ? 1 : 0;
   const docsCount = DOCS.length;
+  // Completitud = media de Información, Documentos y Formularios (lib/progreso.ts), en directo.
+  const comp = Math.round(((step >= 2 ? 100 : 0) + (validados / docsCount) * 100 + (formsListos ? 100 : 0)) / 3);
 
-  // Desplazamiento narrativo del marco (medido: el contenido llega a 933 px en un
-  // marco de 600 — antes el final quedaba cortado e invisible): pasos 0-2 arriba
-  // (cabecera + carta de completitud), 3-6 sobre los documentos que van validándose,
-  // 7 al fondo (Generado automáticamente + historial completo).
+  // Desplazamiento narrativo del marco (el contenido mide más que el marco de 600 px): pasos 0-2
+  // arriba (cabecera + carta de completitud), 3-6 sobre los documentos, 7 al fondo (Generado
+  // automáticamente + historial). La maqueta ya no cambia de alto en ningún paso (capas que se
+  // funden en vez de bloques que aparecen): la posición medida es la definitiva.
   // ⚠️ TRANSLACIÓN CSS, no scrollTo: scrollTo({behavior:"smooth"}) es un no-op sobre
   // overflow:hidden (probado — el scroll directo funciona, el suave no se mueve).
   const [desp, setDesp] = useState(0);
   const winRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const docsRef = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
+  useMedida(() => {
     const win = winRef.current, inner = innerRef.current;
     if (!win || !inner) return;
     // Posición por DIFERENCIA de rects (no offsetTop: devolvía valores fantasma según
@@ -508,7 +520,8 @@ function Dashboard({ step }: { step: number }) {
   }, [step]);
 
   return (
-    <div className="isolate h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card [transform:translateZ(0)]">
+    // rebobinando: vuelta al principio con el panel fundido → sin transiciones (nadie la ve).
+    <div className={`isolate h-[600px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-cream-50 shadow-card [transform:translateZ(0)] ${rebobinando ? "[&_*]:!transition-none [&_*]:!animate-none" : ""}`}>
       {/* Barre navigateur */}
       <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -517,10 +530,9 @@ function Dashboard({ step }: { step: number }) {
         <span className="ml-3 font-mono text-[11px] text-slate-400">app.aproba-software.com/app/expedientes/exp-42</span>
       </div>
 
-      <div ref={winRef} className="relative h-[calc(100%-2.5rem)] overflow-hidden">
-      {/* relative: los offsetTop de las secciones se miden contra ESTE div, que es el
-          que se traslada. duration-700 ≈ un desplazamiento de lectura, no un salto. */}
-      <div ref={innerRef} className="relative transition-transform duration-700 ease-in-out" style={{ transform: `translateY(-${desp}px)` }}>
+      <div ref={winRef} className={`relative h-[calc(100%-2.5rem)] overflow-hidden transition-opacity duration-[400ms] ease-out ${fundido ? "opacity-0" : "opacity-100"}`}>
+      {/* relative: las posiciones se miden contra ESTE div, que es el que se traslada. */}
+      <div ref={innerRef} className={`relative transition-transform duration-[900ms] will-change-transform ${DESLIZ}`} style={{ transform: `translateY(-${desp}px)` }}>
       <div className="p-4">
         {/* En-tête expediente : referencia + nom + STEPPER de fases (la píldora de
             estado ya no existe en el producto — reforma del 22/08). */}
@@ -532,7 +544,7 @@ function Dashboard({ step }: { step: number }) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-1 border-t border-slate-100 pt-2.5 sm:grid-cols-4">
             {FASES.map((f, i) => (
-              <div key={f} className={`flex items-center justify-center gap-1 truncate rounded-md px-1 py-1 text-[8.5px] font-semibold transition-colors duration-500 ${i < fase ? "bg-aproba-50/60 text-aproba-700" : i === fase ? "border border-aproba-200 bg-aproba-50 text-aproba-800" : "bg-slate-50 text-slate-400"}`}>
+              <div key={f} className={`flex items-center justify-center gap-1 truncate rounded-md border px-1 py-1 text-[8.5px] font-semibold transition-colors duration-500 ${i < fase ? "border-transparent bg-aproba-50/60 text-aproba-700" : i === fase ? "border-aproba-200 bg-aproba-50 text-aproba-800" : "border-transparent bg-slate-50 text-slate-400"}`}>
                 {i < fase ? <Check className="h-2 w-2 shrink-0" /> : <span className="shrink-0">{i + 1}.</span>}
                 <span className="truncate">{f}</span>
               </div>
@@ -550,51 +562,67 @@ function Dashboard({ step }: { step: number }) {
           <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center">
             <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90">
               <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" className="stroke-slate-100" />
-              <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round" stroke="currentColor" className="text-aproba-500 transition-[stroke-dashoffset] duration-700" strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - comp / 100)} />
+              <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round" stroke="currentColor" className={`text-aproba-500 transition-[stroke-dashoffset] duration-700 ${SUAVE}`} strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - comp / 100)} />
             </svg>
             <span className="absolute text-[8px] font-bold tabular-nums text-slate-600">{comp}%</span>
           </span>
-          {[["Información", step >= 2], ["Documentos", step >= 6], ["Formularios", formsListos]].map(([l, on]) => (
-            <span key={l as string} className={`inline-flex items-center gap-1 text-[10px] transition-colors duration-500 ${on ? "font-medium text-aproba-700" : "text-slate-400"}`}>
-              {on ? (
-                <span className="flex h-3 w-3 items-center justify-center rounded-full bg-aproba-600 text-white"><Check className="h-2 w-2" /></span>
-              ) : (
-                <span className="h-3 w-3 rounded-full border-2 border-slate-200" />
-              )}
+          {([["Información", step >= 2], ["Documentos", validados === docsCount], ["Formularios", formsListos]] as const).map(([l, on]) => (
+            <span key={l} className={`inline-flex items-center gap-1 text-[10px] transition-colors duration-500 ${on ? "font-medium text-aproba-700" : "text-slate-400"}`}>
+              <span className={`${PILA} h-3 w-3`}>
+                <span className={capa(!on, "rounded-full border-2 border-slate-200")} />
+                <span className={capa(on, "flex items-center justify-center rounded-full bg-aproba-600 text-white")}><Check className="h-2 w-2" /></span>
+              </span>
               {l}
             </span>
           ))}
-          <span className={`rounded-md px-2 py-1 text-[9px] font-semibold transition-colors duration-500 ${formsListos ? "bg-aproba-600 text-white" : "border border-aproba-300 text-aproba-700"}`}>
-            {formsListos ? "Archivar" : "Marcar como preparado"}
+          <span className={`${PILA} justify-items-center text-[9px] font-semibold`}>
+            <span className={capa(!formsListos, "rounded-md border border-aproba-300 px-2 py-1 text-aproba-700")}>Marcar como preparado</span>
+            <span className={capa(formsListos, "rounded-md border border-aproba-600 bg-aproba-600 px-2 py-1 text-white")}>Archivar</span>
           </span>
         </div>
 
-        {/* Documentos — cartes avec bouton Descargar + datos extraídos por IA */}
+        {/* Documentos — cartes avec bouton Descargar + datos extraídos por IA. Mismo alto en
+            los tres estados: el hueco de los datos existe siempre (esqueleto que late mientras
+            la IA lee) y los datos aparecen encima, fundiéndose. */}
         <p ref={docsRef} className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Documentos ({docsCount})</p>
         <div className="space-y-1.5">
           {DOCS.map((d, i) => {
-            const ok = docValidated(i);
+            const e = estadoDoc(i);
+            const ok = e === "validado";
+            const leyendo = e === "analizando";
             return (
-              <div key={d.label} className="rounded-xl border border-slate-200 bg-white p-2.5 transition-all duration-500" style={{ transitionDelay: `${i * 70}ms` }}>
+              <div key={d.label} className={`rounded-xl border bg-white p-2.5 transition-colors duration-500 ${leyendo ? "border-amber-200" : "border-slate-200"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-500 ${ok ? "bg-aproba-100 text-aproba-600" : "bg-cream-50 text-slate-400"}`}>
-                      {ok ? <Check className="h-3 w-3" /> : <DocIcon className="h-3 w-3" />}
+                    <span className={`${PILA} h-6 w-6 shrink-0`}>
+                      <span className={capa(!ok, `flex items-center justify-center rounded-md ${leyendo ? "bg-amber-50 text-amber-500" : "bg-cream-50 text-slate-400"}`)}><DocIcon className="h-3 w-3" /></span>
+                      <span className={capa(ok, "flex items-center justify-center rounded-md bg-aproba-100 text-aproba-600")}><Check className="h-3 w-3" /></span>
                     </span>
-                    <span className={`truncate text-[11px] font-medium ${ok ? "text-slate-900" : "text-slate-400"}`}>{d.label}</span>
+                    <span className={`truncate text-[11px] font-medium transition-colors duration-500 ${ok ? "text-slate-900" : "text-slate-400"}`}>{d.label}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {ok && (
-                      <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
-                        <DownloadIcon className="h-2.5 w-2.5" /> Descargar
-                      </span>
-                    )}
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition-colors duration-500 ${ok ? "bg-aproba-100 text-aproba-700" : "bg-slate-100 text-slate-500"}`}>{ok ? "Validado" : "Pendiente"}</span>
+                    {/* En móvil no cabe con el nombre: solo desde sm (su hueco, reservado, no mueve nada). */}
+                    <span className={capa(ok, "hidden items-center gap-1 rounded-lg border border-slate-200 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 sm:inline-flex")}>
+                      <DownloadIcon className="h-2.5 w-2.5" /> Descargar
+                    </span>
+                    <span className={`${PILA} justify-items-end text-[9px] font-semibold`}>
+                      <span className={capa(!ok && !leyendo, "rounded-full bg-slate-100 px-2 py-0.5 text-slate-500")}>Pendiente</span>
+                      <span className={capa(leyendo, "rounded-full bg-amber-50 px-2 py-0.5 text-amber-700")}>Analizando…</span>
+                      <span className={capa(ok, "rounded-full bg-aproba-100 px-2 py-0.5 text-aproba-700")}>Validado</span>
+                    </span>
                   </div>
                 </div>
-                {/* Datos extraídos por IA */}
-                {ok && (
-                  <div className="mt-2 rounded-lg bg-cream-50 px-2.5 py-1.5">
+                {/* Datos extraídos por IA (o su esqueleto) */}
+                <div className={`${PILA} mt-2`}>
+                  <div className={capa(!ok, "rounded-lg bg-cream-50 px-2.5 py-1.5")}>
+                    <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-300">Datos extraídos por IA</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 py-0.5">
+                      {d.campos.map(([k, v]) => (
+                        <span key={k} className={`h-2 rounded-full bg-slate-200/80 ${leyendo ? "animate-pulse" : ""}`} style={{ width: `${Math.round((k.length + v.length) * 4.2)}px` }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className={capa(ok, "rounded-lg bg-cream-50 px-2.5 py-1.5")}>
                     <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-400">Datos extraídos por IA</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5">
                       {d.campos.map(([k, v]) => (
@@ -602,16 +630,22 @@ function Dashboard({ step }: { step: number }) {
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Section "Generado automáticamente" — EX-10, 790-012, Factura (apparaît à l'étape finale) */}
-        <div className={`overflow-hidden transition-all duration-500 ${formsListos ? "mt-4 max-h-28 opacity-100" : "mt-0 max-h-0 opacity-0"}`}>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Generado automáticamente</p>
-          <div className="flex flex-wrap gap-1.5">
+        {/* «Generado automáticamente» — EX-10, 790-012, Factura. Siempre en su sitio: antes del
+            paso 7, su silueta en punteado; al generarse, las piezas de verdad aparecen encima. */}
+        <p className="mb-1.5 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Generado automáticamente</p>
+        <div className={PILA}>
+          <div className={capa(!formsListos, "flex flex-wrap gap-1.5")}>
+            {["EX-10 PDF", "790-012 PDF", "Factura 2026-0048 · 350,00 €"].map((f) => (
+              <span key={f} className="rounded-lg border border-dashed border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-300">{f}</span>
+            ))}
+          </div>
+          <div className={`flex flex-wrap gap-1.5 transition-[opacity,transform] duration-500 ${SUAVE} ${formsListos ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"}`}>
             {["EX-10", "790-012"].map((f) => (
               <span key={f} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700">
                 <DocIcon className="h-3 w-3 text-aproba-600" /> {f} <span className="text-[9px] text-aproba-700">PDF</span>
@@ -627,7 +661,7 @@ function Dashboard({ step }: { step: number }) {
         <p className="mb-1.5 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Historial</p>
         <ol className="space-y-1">
           {HISTORIAL.map((a, i) => (
-            <li key={a} className={`flex items-center gap-2 text-[10px] transition-all duration-500 ${step >= i ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"}`}>
+            <li key={a} className={`flex items-center gap-2 text-[10px] transition-[opacity,transform] duration-500 ${SUAVE} ${historialVisible(i) ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0"}`}>
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-aproba-500" />
               <span className="truncate text-slate-600">{a}</span>
             </li>
@@ -644,16 +678,65 @@ function Dashboard({ step }: { step: number }) {
 
 export function HowItWorks() {
   const [step, setStep] = useState(0);
+  const [sub, setSub] = useState(0);                // sous-phase du document en cours (étapes 3-6)
+  const [enVista, setEnVista] = useState(false);    // ne tourne qu'à l'écran
+  const [fundido, setFundido] = useState(false);    // panneau du gestor fondu avant un retour en arrière
+  const [rebobinando, setRebobinando] = useState(false);
+  const seccion = useRef<HTMLElement>(null);
+  const stepRef = useRef(0);
+  stepRef.current = step;
+  const timers = useRef<number[]>([]);   // temporizadores del fundido (irA)
 
-  // L'animation tourne en continu — ne s'arrête jamais (même au survol).
-  // Un timeout ré-armé à chaque étape, avec une durée propre à l'étape.
+  // À l'écran seulement : hors écran rien ne tourne, et on la découvre depuis le début.
   useEffect(() => {
-    const t = setTimeout(() => setStep((s) => (s + 1) % STEPS), DURATIONS[step]);
-    return () => clearTimeout(t);
-  }, [step]);
+    const el = seccion.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setEnVista(e.isIntersecting), { threshold: 0.2 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Aller à une étape. Vers l'avant : directement. Vers l'arrière (fin de boucle, ou un point
+  // cliqué) : le panneau du gestor se fond, les états reviennent SANS transition, il réapparaît.
+  const irA = useCallback((destino: number) => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+    const despues = (ms: number, fn: () => void) => { timers.current.push(window.setTimeout(fn, ms)); };
+    if (destino >= stepRef.current) { setSub(0); setStep(destino); return; }
+    setFundido(true);
+    despues(420, () => {
+      setRebobinando(true);
+      setSub(0);
+      setStep(destino);
+      despues(90, () => { setRebobinando(false); setFundido(false); });
+    });
+  }, []);
+
+  // Horloge : la sous-phase de chaque document (aide → analyse → validé), puis l'étape suivante.
+  useEffect(() => {
+    if (!enVista || fundido) return;
+    const ids: number[] = [];
+    if (step >= 3 && step <= 6) SUB_MS.forEach((ms, i) => { if (i > 0) ids.push(window.setTimeout(() => setSub(i), ms)); });
+    ids.push(window.setTimeout(() => irA((step + 1) % STEPS), DURATIONS[step]));
+    return () => ids.forEach((t) => window.clearTimeout(t));
+  }, [step, enVista, fundido, irA]);
+  useEffect(() => {
+    const t = timers;
+    return () => t.current.forEach((id) => window.clearTimeout(id));
+  }, []);
+
+  // Les faits, calculés une seule fois pour les deux écrans.
+  const docActual = step >= 3 && step <= 6 ? step - 3 : -1;
+  const validados = step < 3 ? 0 : step >= 7 ? DOCS.length : docActual + (sub >= 2 ? 1 : 0);
+  const estadoDoc = (i: number): EstadoDoc =>
+    i < validados ? "validado" : i === docActual ? (sub === 0 ? "info" : "analizando") : "pendiente";
+  // Le tableau de bord ne voit un document qu'une fois envoyé (pas pendant l'aide « i »).
+  const estadoGestor = (i: number): EstadoDoc => { const e = estadoDoc(i); return e === "info" ? "pendiente" : e; };
+  // « Subió: … » quand le document part vraiment (analyse), le reste à son étape.
+  const historialVisible = (i: number) => (i >= 3 && i <= 6 ? step > i || (step === i && sub >= 1) : step >= i);
 
   return (
-    <section className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
+    <section ref={seccion} className="scroll-mt-20 border-y border-slate-200 bg-white py-24 motion-reduce:[&_*]:!transition-none">
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Cómo funciona</p>
@@ -664,26 +747,29 @@ export function HowItWorks() {
         <div className="mt-14 grid items-start gap-10 lg:grid-cols-2">
           <div className="order-2 min-w-0 lg:order-1">
             <p className="mb-5 text-center text-sm font-semibold uppercase tracking-wide text-slate-400">Lo que ve tu cliente</p>
-            <Phone step={step} />
+            <Phone step={step} docActual={docActual} estadoDoc={estadoDoc} />
           </div>
           <div className="order-1 min-w-0 lg:order-2">
             <p className="mb-5 text-center text-sm font-semibold uppercase tracking-wide text-slate-400">Lo que ves tú</p>
-            <Dashboard step={step} />
+            <Dashboard step={step} validados={validados} estadoDoc={estadoGestor} historialVisible={historialVisible} fundido={fundido} rebobinando={rebobinando} />
           </div>
         </div>
 
         <div className="mx-auto mt-10 max-w-xl text-center">
-          <p className="flex min-h-[3.75rem] items-center justify-center text-lg font-medium text-slate-700 transition-all duration-300">{CAPTIONS[step]}</p>
+          {/* La frase cambia en fundido (clave = paso), no de golpe. */}
+          <p className="flex min-h-[3.75rem] items-center justify-center text-lg font-medium text-slate-700">
+            <span key={step} className="animate-fadein">{CAPTIONS[step]}</span>
+          </p>
           <div className="mt-2 flex items-center justify-center">
             {/* Zona táctil de 40×≥24 px por punto (Lighthouse target-size); el punto visible sigue siendo discreto. */}
             {Array.from({ length: STEPS }).map((_, i) => (
               <button
                 key={i}
-                onClick={() => setStep(i)}
+                onClick={() => irA(i)}
                 aria-label={`Paso ${i + 1}`}
                 className="flex h-10 min-w-6 items-center justify-center px-1.5"
               >
-                <span className={`h-2 rounded-full transition-all duration-300 ${i === step ? "w-8 bg-aproba-600" : "w-2 bg-slate-300 hover:bg-slate-400"}`} />
+                <span className={`h-2 rounded-full transition-[width,background-color] duration-300 ${SUAVE} ${i === step ? "w-8 bg-aproba-600" : "w-2 bg-slate-300 hover:bg-slate-400"}`} />
               </button>
             ))}
           </div>
