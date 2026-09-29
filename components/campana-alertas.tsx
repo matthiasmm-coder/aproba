@@ -39,7 +39,10 @@ export function CampanaAlertas() {
 
   useEffect(() => {
     void cargar();
-    const iv = window.setInterval(() => void cargar(), CADA);
+    // Onglet caché (fenêtre réduite, autre onglet) : on ne relève pas — personne ne voit la
+    // cloche, et chaque relevé coûtait ~6 appels Supabase (29/09/2026, logs). Au retour sur
+    // l'onglet, `alVolver` relève tout de suite : la cloche est à jour dès qu'on la regarde.
+    const iv = window.setInterval(() => { if (document.visibilityState === "visible") void cargar(); }, CADA);
     const alVolver = () => { if (document.visibilityState === "visible") void cargar(); };
     document.addEventListener("visibilitychange", alVolver);
     return () => { window.clearInterval(iv); document.removeEventListener("visibilitychange", alVolver); };

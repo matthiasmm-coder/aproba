@@ -3,7 +3,7 @@ import { fetchCobrosPrevios } from "@/lib/data/cobros-previos";
 import { fetchProformas } from "@/lib/data/proformas";
 import { fetchFacturasRecibidas, fetchExpedientesParaVincular } from "@/lib/data/facturas-recibidas";
 import { fetchDespacho } from "@/lib/data/config";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { FacturasClient, type ChipVerifactu } from "@/components/facturas-client";
 import { fetchRegistrosDeFacturas } from "@/lib/verifactu-envio";
@@ -16,7 +16,7 @@ export const metadata = { title: "Facturas" };
 // Rol del usuario en su workspace → solo un administrador puede ELIMINAR facturas.
 async function esAdminActual(): Promise<boolean> {
   const supa = await createSupabaseServer();
-  const { data: { user } } = await supa.auth.getUser();
+  const user = await usuarioActual();
   if (!user) return false;
   // El botón Eliminar se muestra si el usuario es admin en ALGUNO de sus workspaces; el gate
   // real del DELETE valida el rol sobre EL workspace de la factura concreta (route.ts).

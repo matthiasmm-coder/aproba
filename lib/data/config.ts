@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { mandatoConsejoValido, type MandatoConsejoConfig } from "@/lib/mandato-modelos";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
@@ -285,11 +286,17 @@ export type Despacho = {
   mandatoActivo: boolean | null;
 };
 
-export async function fetchDespacho(): Promise<Despacho> {
+// cache() (29/09/2026, logs Supabase) : une fois par rendu. Et mandatoConsejo/mandatoActivo
+// viennent dans la MÊME requête quand la base les a (toujours en prod) : avant, chaque appel
+// faisait 3 allers-retours. Sans ces colonnes, la cascade de replis d'avant, inchangée.
+export const fetchDespacho = cache(async (): Promise<Despacho> => {
   const supabase = await createSupabaseServer();
   const q = (cols: string) => supabase.from("Membership").select(`Workspace(${cols})`).limit(1).maybeSingle();
+  const COLS = "nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago";
+  let res = await q(`${COLS}, mandatoConsejo, mandatoActivo`);
+  const conMandato = !res.error;
   // Columnas por tramo de migración: cada repli quita SOLO el tramo más reciente.
-  let res = await q("nombre, nif, domicilio, domicilioActividad, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos, encargoFormasPago");
+  if (res.error) res = await q(COLS);
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, canalAvisos");
   if (res.error) res = await q("nombre, nif, domicilio, emailFacturacion, logoUrl, hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio");
   // Migraciones aplicadas en desorden: canalAvisos puede existir SIN las columnas encargo.
@@ -314,7 +321,7 @@ export async function fetchDespacho(): Promise<Despacho> {
     canalAvisos: esCanalAvisos(ws.canalAvisos) ? ws.canalAvisos : "EMAIL",
     encargoFormasPago: (ws.encargoFormasPago as string | null) ?? null,
     // Aparte, para no alargar la cadena de replis de arriba: sin migrar, null.
-    mandatoConsejo: await (async () => {
+    mandatoConsejo: conMandato ? (() => { try { return mandatoConsejoValido(ws.mandatoConsejo); } catch { return null; } })() : await (async () => {
       try {
         const r = await q("mandatoConsejo");
         if (r.error) return null;
@@ -322,7 +329,7 @@ export async function fetchDespacho(): Promise<Despacho> {
         return mandatoConsejoValido((Array.isArray(w) ? w[0] : w)?.mandatoConsejo);
       } catch { return null; }
     })(),
-    mandatoActivo: await (async () => {
+    mandatoActivo: conMandato ? (typeof ws.mandatoActivo === "boolean" ? ws.mandatoActivo : null) : await (async () => {
       try {
         const r = await q("mandatoActivo");
         if (r.error) return null;
@@ -332,7 +339,7 @@ export async function fetchDespacho(): Promise<Despacho> {
       } catch { return null; }
     })(),
   };
-}
+});
 
 // Comptes bancaires du workspace (réception des paiements clients).
 export async function fetchCuentasBancarias(): Promise<CuentaBancaria[]> {

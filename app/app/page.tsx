@@ -5,7 +5,7 @@ import { fetchRenovacionesPropuestas, fetchVencimientos } from "@/lib/data/venci
 import { fetchCobrosPendientes } from "@/lib/data/facturas";
 import { grupoDe } from "@/lib/expedientes-arbol";
 import { fetchProximasCitas, fetchClientesMin } from "@/lib/data/citas";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { DashboardClient, type DashItem } from "@/components/dashboard-client";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { construirChecklist, type ChecklistItem } from "@/lib/activacion";
@@ -35,8 +35,8 @@ export default async function Dashboard() {
   // décocher parce qu'on regarde une sede qui vient d'ouvrir.
   const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
   const activa = filtroSede.activa;
-  const [{ data: { user } }, expedientes, checklist, citas, clientes, vencimientos, propuestas] = await Promise.all([
-    supabase.auth.getUser(),
+  const [user, expedientes, checklist, citas, clientes, vencimientos, propuestas] = await Promise.all([
+    usuarioActual(),
     // Solo los VIVOS: el dashboard filtra los archivados nada más recibirlos, y un
     // despacho con años de historial importado los traía todos para tirarlos.
     fetchExpedientesResumen(filtroSede.sedes, filtroSede.incluirSinSede, undefined, true),

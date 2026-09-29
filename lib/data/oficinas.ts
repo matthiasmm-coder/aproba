@@ -1,4 +1,4 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 
 // MULTI-OFICINA (Business) — sedes de un mismo despacho. La oficina es una DIMENSIÓN
 // del workspace: suscripción, cuota, servicios y hoja de encargo siguen compartidos.
@@ -39,7 +39,7 @@ export type Oficina = {
 // → la section Ajustes affiche l'état « aucune oficina » et rien d'autre ne change.
 export async function fetchOficinas(): Promise<Oficina[]> {
   const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual();
   if (!user) return [];
 
   const { data: myMem } = await supabase

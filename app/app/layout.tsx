@@ -9,7 +9,7 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { AsistenteWidget } from "@/components/asistente-widget";
 import { ConfirmHost } from "@/components/confirm-dialog";
 import { LangProvider } from "@/components/lang-provider";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { stripeDisponible } from "@/lib/billing";
 import { getLang, getT } from "@/lib/app-lang";
 import { CampanaAlertas } from "@/components/campana-alertas";
@@ -22,7 +22,7 @@ import { novedadesDe } from "@/lib/novedades";
 async function getContexto() {
   try {
     const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await usuarioActual();
     if (!user) return null;
     const nombre = (user.user_metadata?.nombre as string) || user.email || "Usuario";
     const perfilP = supabase.from("User").select("avatarUrl").eq("id", user.id).maybeSingle();

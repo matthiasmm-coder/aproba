@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { fetchFactura } from "@/lib/data/facturas";
 import { completarClienteDatosFacturas } from "@/lib/factura-datos-backfill";
 import { fetchDespacho } from "@/lib/data/config";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { FacturaView, type Emisor, type VerifactuVista } from "@/components/factura-view";
 import { fetchEntregasDeFacturas } from "@/lib/entregas";
@@ -13,7 +13,7 @@ import { qrDataUrl } from "@/lib/verifactu-qr";
 
 async function esAdminActual(): Promise<boolean> {
   const supa = await createSupabaseServer();
-  const { data: { user } } = await supa.auth.getUser();
+  const user = await usuarioActual();
   if (!user) return false;
   // El botón Eliminar se muestra si el usuario es admin en ALGUNO de sus workspaces; el gate
   // real del DELETE valida el rol sobre EL workspace de la factura concreta (route.ts).

@@ -1,5 +1,6 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { COOKIE_OFICINA } from "@/lib/oficinas";
 
 // MULTI-OFICINA — quelle sede regarde-t-on ? Résolu CÔTÉ SERVEUR, une fois par page,
@@ -24,10 +25,12 @@ export type FiltroOficina = {
   incluirSinSede: boolean;
 };
 
-export async function resolverOficina(): Promise<FiltroOficina> {
+// cache() (29/09/2026) : une fois par rendu — le layout, la page et ses fetchers le
+// demandaient chacun (getUser + Oficina + Membership à chaque fois).
+export const resolverOficina = cache(async (): Promise<FiltroOficina> => {
   const vacio: FiltroOficina = { activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false };
   const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual();
   if (!user) return vacio;
 
   // Sedes du despacho (RLS) — si la migration n'est pas passée, `error` → mono-oficina.
@@ -82,4 +85,4 @@ export async function resolverOficina(): Promise<FiltroOficina> {
   }
 
   return { activa, oficinas, miOficina, autoId, sedes: activa ? [activa] : null, incluirSinSede: activa !== null && activa === autoId };
-}
+});

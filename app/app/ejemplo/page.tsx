@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { usuarioActual } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { sembrarEjemplo } from "@/lib/ejemplo";
 
@@ -9,8 +9,7 @@ import { sembrarEjemplo } from "@/lib/ejemplo";
 export const dynamic = "force-dynamic";
 
 export default async function EjemploPage() {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual();
   if (!user) redirect("/login");
   const admin = createSupabaseAdmin();
   const { data: mem } = await admin.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle();

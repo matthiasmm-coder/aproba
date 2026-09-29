@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { tieneExcepcionOficinas } from "@/lib/oficinas";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { getStripe, stripeDisponible, tienePrecioHeredado, importesDeStripe } from "@/lib/billing";
 import { preciosPantalla, type RolId, type PreciosPlan } from "@/lib/planes";
 
@@ -45,7 +45,7 @@ const RANK: Record<string, number> = { OWNER: 0, ADMIN: 1, GESTOR: 2, ASISTENTE:
 // le RLS : on ne voit que les membres de ses propres workspaces.
 export async function fetchEquipo(): Promise<Equipo | null> {
   const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual();
   if (!user) return null;
 
   const { data: myMem } = await supabase

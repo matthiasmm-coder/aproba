@@ -1,7 +1,9 @@
 import { NextResponse, after } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { reclamosDeSesion } from "@/lib/supabase/claims";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { sincronizarDehu } from "@/lib/dehu/sincronizar";
+import { bovedaDisponible } from "@/lib/dehu/boveda";
 import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchNotificacionesParaAlertas } from "@/lib/data/notificaciones-dehu";
@@ -17,17 +19,22 @@ export const maxDuration = 60;
 
 export async function GET() {
   const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  // getClaims() (29/09/2026) : la cloche relève toutes les 5 min dans chaque onglet ouvert ;
+  // getUser() faisait à chaque fois un aller-retour au serveur Auth. Ici on lit en RLS avec
+  // ce même JWT : vérifier sa signature en local suffit (même rafraîchissement de session).
+  const userId = (await reclamosDeSesion(supabase))?.sub;
+  if (!userId) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const [reqs, vencs, notifs] = await Promise.all([
     fetchRequerimientosPendientes().catch(() => []),
     fetchVencimientos().catch(() => []),
     fetchNotificacionesParaAlertas().catch(() => []),
   ]);
-  after(async () => {
+  // Sans la clé de la bóveda, aucun certificat ne peut être branché (conectarDehu chiffre avec
+  // elle) : rien à synchroniser — on s'épargne Membership + DehuConexion à chaque relevé.
+  if (bovedaDisponible()) after(async () => {
     try {
       const admin = createSupabaseAdmin();
-      const { data: mem } = await admin.from("Membership").select("workspaceId").eq("userId", user.id).limit(1).maybeSingle();
+      const { data: mem } = await admin.from("Membership").select("workspaceId").eq("userId", userId).limit(1).maybeSingle();
       if (mem) await sincronizarDehu(admin, mem.workspaceId as string);
     } catch (e) { console.error("[alertas] DEHú automática:", e instanceof Error ? e.message : e); }
   });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { ordenParentesco } from "@/lib/familia";
 import { ClientesList, type Cli } from "@/components/clientes-list";
@@ -177,7 +177,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   // ⚠️ `role` es POR MIEMBRO y RLS deja ver TODAS las membresías del despacho (la pantalla
   // Equipo las necesita): sin `.eq("userId")`, `.limit(1)` devolvía una fila cualquiera —
   // la de un compañero. Un gestor podía ver el botón de vaciado, y un admin no verlo.
-  const { data: { user: yo } } = await supabase.auth.getUser();
+  const yo = await usuarioActual();
   const { data: miMem } = await supabase.from("Membership").select("role").eq("userId", yo?.id ?? "").limit(1).maybeSingle();
   const esAdmin = puedeGestionarEquipo((miMem as { role?: string } | null)?.role);
   // Sedes du despacho : vide = mono-oficina → ni cases à cocher ni barre de réaffectation.
