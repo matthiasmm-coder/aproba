@@ -81,12 +81,12 @@ function StatIcon({ name }: { name: string }) {
 // fijado por Matthias el 13/09/2026; «Revisión como Extranjería» salió del producto el
 // 22/08 y su sitio lo ocupa la facturación). Cada tarjeta enlaza a su página explicada.
 const MODULOS = [
-  { titulo: "Validación con IA", desc: "El cliente sube fotos desde el móvil, en su idioma. Datos extraídos, errores detectados al instante.", icon: "scan" },
-  { titulo: "Formularios en un clic", desc: "27 modelos EX, los 3 de movilidad internacional y las tasas 790-012, 790-052, 790-062, 790-026 y 790-006, rellenados solos y editables.", icon: "doc" },
-  { titulo: "Avisos automáticos", desc: "El cliente se entera de cada avance sin llamarte. El despacho, en silencio.", icon: "bell" },
-  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo, qué se ha presentado. Todo el equipo al día.", icon: "board" },
-  { titulo: "Radar de renovaciones", desc: "Cada TIE vigilada. Un clic y la renovación en marcha: ese cliente vuelve a ti.", icon: "radar" },
-  { titulo: "Facturas automáticas", desc: "Anticipo, resto y tasas como suplidos, emitidos desde el expediente. Sin copiar nada a otro programa.", icon: "invoice" },
+  { titulo: "Validación con IA", desc: "El cliente sube sus documentos desde el móvil y la IA los revisa al instante.", icon: "scan" },
+  { titulo: "Formularios en un clic", desc: "Modelos EX, de movilidad internacional y tasas 790, rellenados solos y editables.", icon: "doc" },
+  { titulo: "Avisos automáticos", desc: "El cliente recibe cada avance de su expediente automáticamente.", icon: "bell" },
+  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo y qué se ha presentado, de un vistazo.", icon: "board" },
+  { titulo: "Radar de renovaciones", desc: "Cada caducidad vigilada y la renovación en marcha con un clic.", icon: "radar" },
+  { titulo: "Facturas automáticas", desc: "Anticipo, resto y suplidos, facturados desde el propio expediente.", icon: "invoice" },
 ].map((m) => ({ ...m, href: rutaDeTarjeta(m.titulo) }));
 
 const SIN = [
@@ -364,9 +364,11 @@ export default function Landing() {
       <section id="funciones" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
         <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Todo el expediente, en un sitio</h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Desde el primer documento del cliente hasta la sede electrónica.</p>
-        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Cartes de même taille (Matthias, 29/09) : textes courts et équilibrés, Reveal en h-full
+            (sinon le h-full du lien ne remplit pas la cellule) et auto-rows-fr (rangées égales). */}
+        <div className="mt-14 grid auto-rows-fr gap-6 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m, i) => (
-            <Reveal key={m.titulo} delay={(i % 3) * 90}>
+            <Reveal key={m.titulo} delay={(i % 3) * 90} className="h-full">
               <Link href={m.href} title="Qué significa y cómo lo hace" className="group relative block h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float">
                 {/* nº de paso: refuerza que el orden es el flujo del expediente */}
                 <span className="absolute right-5 top-5 font-mono text-xs font-semibold tabular-nums text-slate-300 transition-colors duration-300 group-hover:text-aproba-600">0{i + 1}</span>
