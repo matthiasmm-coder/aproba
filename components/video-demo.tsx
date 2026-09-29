@@ -4,8 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 // Vídeo de la portada (1 min 20, 16:9, 60 fps; el mismo de las redes, subtítulos incrustados).
-// Arranca SOLO y en silencio cuando la sección se ve (los navegadores solo dejan arrancar sin gesto
-// si no hay sonido); «Activar sonido» lo reinicia desde el principio con la voz y los controles.
+// SONIDO POR DEFECTO (Matthias, 30/09/2026), dentro de lo que dejan los navegadores: un vídeo solo
+// puede sonar si el visitante ya ha hecho un gesto en la página (clic, toque, tecla; el scroll no
+// cuenta). Así:
+//  · al verse la sección, si ya hubo gesto (p. ej. «Descubrir en 80s»), arranca desde el principio
+//    CON sonido y con los controles nativos;
+//  · si no, arranca solo y en silencio, en bucle, con «Activar sonido» (como antes); y el primer
+//    gesto del visitante con el vídeo a la vista lo reinicia con sonido (fuera de la vista: sonará
+//    al llegar a él). La pausa que pide el visitante se respeta siempre;
+//  · con sonido, al salir de la pantalla se pausa (nadie oye un vídeo que no ve) y al volver se
+//    reanuda, solo si esa pausa fue nuestra.
 // Carga (PSI móvil): nada del vídeo baja durante la carga de la página — el póster es un next/image
 // perezoso y el <video> se monta a ~400 px de la sección; fuera de pantalla se pausa.
 // 1080p en escritorio, 720p en móvil (H.264 + faststart: empieza antes de terminar de bajar).
@@ -28,6 +36,8 @@ export function VideoDemo() {
   const estado = useRef({ visible, auto, conSonido, pausado });   // para los eventos del <video>
   estado.current = { visible, auto, conSonido, pausado };
   const reintentos = useRef(0);
+  const probadoSonido = useRef(false);  // ya se intentó arrancar con sonido desde el último gesto
+  const pausaNuestra = useRef(false);   // con sonido: pausado por salir de pantalla (se reanuda)
 
   useEffect(() => {
     const el = caja.current;
@@ -46,10 +56,28 @@ export function VideoDemo() {
   // Arranque robusto: el navegador puede interrumpir el play() (AbortError: pestaña oculta un
   // instante, ahorro de energía con vídeo sin sonido, carga en curso) o pausar él mismo el vídeo.
   // Mientras deba reproducirse (automático, visible, sin pausa pedida), se reintenta (con tope).
-  // Solo un bloqueo real (NotAllowedError) desactiva el modo automático: póster + botón.
+  // Primero CON sonido (si la página ya tuvo un gesto); si el navegador no lo deja, en silencio.
+  // Solo un bloqueo del arranque en silencio (NotAllowedError) desactiva el modo automático.
   const intentar = useCallback(() => {
     const v = video.current, e = estado.current;
-    if (!v || !e.auto || e.conSonido || e.pausado || !e.visible || document.visibilityState !== "visible" || !v.paused) return;
+    if (!v || !e.auto || e.pausado || !e.visible || document.visibilityState !== "visible" || !v.paused) return;
+    if (e.conSonido) {
+      if (pausaNuestra.current) { pausaNuestra.current = false; v.play().catch(() => {}); }
+      return;
+    }
+    const gesto = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive;
+    if (!probadoSonido.current && gesto !== false) {
+      probadoSonido.current = true;
+      v.muted = false;
+      v.loop = false;
+      v.currentTime = 0;
+      v.play().then(() => setConSonido(true)).catch(() => {
+        v.muted = true;
+        v.loop = true;
+        setTimeout(intentar, 0);
+      });
+      return;
+    }
     v.muted = true;
     v.play().catch((err) => {
       if (err?.name === "NotAllowedError") setAuto(false);
@@ -76,17 +104,46 @@ export function VideoDemo() {
     return () => { document.removeEventListener("visibilitychange", alVolver); v.removeEventListener("pause", alPausar); };
   }, [cerca, intentar]);
 
+  // Con sonido: fuera de pantalla, en pausa; al volver, intentar() la reanuda si la pausa fue nuestra.
+  useEffect(() => {
+    const v = video.current;
+    if (!v || !auto || !conSonido) return;
+    if (!visible && !v.paused) { pausaNuestra.current = true; v.pause(); }
+    else if (visible) intentar();
+  }, [visible, auto, conSonido, intentar]);
+
   // Dentro del gesto del clic (Safari solo deja sonar lo que arranca en el propio gesto).
-  const activarSonido = () => {
+  const activarSonido = useCallback(() => {
     const v = video.current;
     if (!v) return;
     setConSonido(true);
     setPausado(false);
+    pausaNuestra.current = false;
     v.muted = false;
     v.loop = false;
     v.currentTime = 0;
     v.play().catch(() => {});
-  };
+  }, []);
+
+  // El primer gesto del visitante en la página (clic, toque o tecla; no los botones del propio
+  // vídeo, que ya hacen lo suyo) da permiso para sonar: con el vídeo a la vista y en silencio, se
+  // reinicia con sonido; si no se ve, intentar() probará con sonido cuando se vea.
+  useEffect(() => {
+    const alGesto = (ev: Event) => {
+      const e = estado.current;
+      if (e.conSonido || !e.auto || e.pausado) return;
+      const activo = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive;
+      if (activo === false) return;
+      const t = ev.target instanceof Element ? ev.target : null;
+      if (t && caja.current?.contains(t) && t.closest("button")) return;
+      const v = video.current;
+      if (e.visible && v && !v.paused) activarSonido();
+      else probadoSonido.current = false;
+    };
+    window.addEventListener("click", alGesto, true);
+    window.addEventListener("keydown", alGesto, true);
+    return () => { window.removeEventListener("click", alGesto, true); window.removeEventListener("keydown", alGesto, true); };
+  }, [activarSonido]);
   const alternarPausa = () => {
     const v = video.current;
     if (!v) return;

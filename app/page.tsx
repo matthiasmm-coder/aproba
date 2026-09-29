@@ -70,8 +70,8 @@ function Cifra({ texto }: { texto: string }) {
     <>
       {texto.split(/\s+/).map((p, i) =>
         /^[−+]?\d+$/.test(p) ? <span key={i}>{p}</span>
-        : p === "→" ? <span key={i} className="mx-1.5 text-[0.6em] text-aproba-200">→</span>
-        : <span key={i} className="ml-1 text-[0.5em] font-medium text-white/85">{p}</span>
+        : p === "→" ? <span key={i} className="mx-1.5 text-[0.6em] text-aproba-100">→</span>
+        : <span key={i} className="ml-1 text-[0.5em] font-medium text-white/80">{p}</span>
       )}
     </>
   );
@@ -237,7 +237,7 @@ export default function Landing() {
       </section>
 
       {/* Pain points */}
-      <section className="mx-auto max-w-5xl px-6 py-16">
+      <section className="mx-auto max-w-5xl px-6 pb-8 pt-16">
         <h2 className="text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">¿Te suena esto?</h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {PAINS.map((p, i) => (
@@ -249,24 +249,26 @@ export default function Landing() {
             </Reveal>
           ))}
         </div>
-        {/* Una sola línea en escritorio (Matthias, 28/09): max-w-3xl en vez de max-w-xl. */}
-        <p className="mx-auto mt-8 max-w-3xl text-center text-lg font-medium text-slate-700">
+        {/* Una sola línea en escritorio (Matthias, 28/09): max-w-3xl en vez de max-w-xl. Más cerca de
+            las cifras que de los problemas (30/09): introduce las cuatro tarjetas verdes. */}
+        <p className="mx-auto mt-14 max-w-3xl text-center text-lg font-medium text-slate-700">
           <strong className="font-bold text-slate-900">Aproba se ocupa de todo eso.</strong> Tú te quedas con lo que importa: tus clientes.
         </p>
       </section>
 
       {/* Cifras — 4 tarjetas en el verde de Aproba (Matthias, 30/09/2026: « pas un bandeau mais
-          4 cartes alignées, cliquables sur toute leur surface »). La tarjeta ENTERA es el enlace a
-          su página: qué significa la cifra y cómo la afirmamos. Verde 600→700: el blanco se lee. */}
+          4 cartes alignées, cliquables sur toute leur surface », puis « centre les éléments, couleur
+          Aproba, respecte la charte, plus élégant »). aproba-600 liso = el verde del logo y del CTA,
+          aproba-700 al pasar, como el CTA (BRAND-GUIDE §5). La tarjeta ENTERA es el enlace. */}
       <section aria-label="Aproba en cifras" className="mx-auto max-w-6xl px-6 pb-20">
         <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-5">
           {STATS.map((s, i) => (
             <Reveal key={s.l} delay={i * 90} className="h-full">
-              <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-aproba-600 to-aproba-700 p-4 text-white shadow-float ring-1 ring-inset ring-white/10 transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-12px_rgba(14,140,95,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 sm:p-5 lg:p-6">
-                <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgba(255,255,255,0.14),transparent_55%)]" />
-                <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-4 w-4 text-white/55 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white sm:right-4 sm:top-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
-                <p className="relative whitespace-nowrap pr-5 text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
-                <p className="relative mt-3 text-balance text-sm font-medium leading-snug text-white">{s.l}</p>
+              <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full min-h-[9rem] flex-col items-center justify-center rounded-2xl bg-aproba-600 px-4 py-6 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_-14px_rgba(14,140,95,0.6)] transition duration-300 hover:-translate-y-1 hover:bg-aproba-700 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_22px_40px_-16px_rgba(14,140,95,0.7)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 lg:min-h-[10.5rem]">
+                <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-3.5 w-3.5 text-white/45 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
+                <p className="whitespace-nowrap text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
+                <span aria-hidden="true" className="mt-3.5 h-px w-8 bg-white/40 transition-all duration-300 group-hover:w-12" />
+                <p className="mt-3 max-w-[14rem] text-balance text-sm font-medium leading-snug text-white">{s.l}</p>
               </Link>
             </Reveal>
           ))}
