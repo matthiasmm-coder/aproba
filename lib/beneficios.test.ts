@@ -9,15 +9,24 @@ describe("beneficios de la portada", () => {
   const portada = readFileSync("app/page.tsx", "utf8");
   it("toda tarjeta enlazada desde la portada existe", () => {
     for (const m of portada.matchAll(/rutaDeTarjeta\("([^"]+)"\)/g)) expect(() => rutaDeTarjeta(m[1])).not.toThrow();
-    for (const t of ["Validación con IA", "Formularios en un clic", "Avisos automáticos", "Tablero de seguimiento", "Radar de renovaciones", "Facturas automáticas", "RGPD y DPA firmado", "Datos alojados en la UE", "Tus datos no entrenan IA", "Sin permanencia"]) {
+    for (const t of ["Validación con IA", "Formularios en un clic", "Avisos automáticos", "Notificaciones DEHú", "Radar de renovaciones", "Facturas automáticas", "RGPD y DPA firmado", "Datos alojados en la UE", "Tus datos no entrenan IA", "Sin permanencia"]) {
       expect(portada).toContain(`titulo: "${t}"`);
       expect(() => rutaDeTarjeta(t)).not.toThrow();
     }
   });
-  it("15 páginas, rutas únicas, títulos ≤ 65 y descripciones ≤ 160", () => {
-    // 28/09/2026: + /funciones/extranjeria-para-empresas.
-    expect(BENEFICIOS).toHaveLength(15);
-    expect(new Set(BENEFICIOS.map(rutaDe)).size).toBe(15);
+  it("«en la portada» solo donde la portada enseña la tarjeta", () => {
+    // 30/09/2026: el tablero salió de la portada (la DEHú ocupa su sitio) y su página seguía
+    // diciendo «en la portada». Una página sin tarjeta lleva fueraDePortada.
+    for (const b of BENEFICIOS) {
+      const enPortada = portada.includes(`titulo: "${b.tarjeta}"`) || portada.includes(`rutaDeTarjeta("${b.tarjeta}")`);
+      expect(Boolean(b.fueraDePortada), b.slug).toBe(!enPortada);
+    }
+  });
+  it("16 páginas, rutas únicas, títulos ≤ 65 y descripciones ≤ 160", () => {
+    // 28/09/2026: + /funciones/extranjeria-para-empresas. 30/09/2026: + /funciones/notificaciones-dehu
+    // (la tarjeta DEHú sustituye al tablero en la portada; la página del tablero sigue).
+    expect(BENEFICIOS).toHaveLength(16);
+    expect(new Set(BENEFICIOS.map(rutaDe)).size).toBe(16);
     for (const b of BENEFICIOS) {
       expect(b.titulo.length, b.slug).toBeLessThanOrEqual(65);
       expect(b.descripcion.length, b.slug).toBeLessThanOrEqual(160);

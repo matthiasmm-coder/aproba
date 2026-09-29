@@ -6,7 +6,6 @@ import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
-import { LandingDehu } from "@/components/landing-dehu";
 import { LandingMigracion } from "@/components/landing-migracion";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
@@ -80,11 +79,13 @@ function Cifra({ texto }: { texto: string }) {
 // El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación (orden
 // fijado por Matthias el 13/09/2026; «Revisión como Extranjería» salió del producto el
 // 22/08 y su sitio lo ocupa la facturación). Cada tarjeta enlaza a su página explicada.
+// 30/09/2026 (Matthias): la DEHú ocupa el paso 04 en lugar del tablero —después de presentar,
+// lo que llega es la notificación— y su sección propia desaparece de la portada.
 const MODULOS = [
   { titulo: "Validación con IA", desc: "El cliente sube sus documentos desde el móvil y la IA los revisa al instante.", icon: "scan" },
   { titulo: "Formularios en un clic", desc: "Modelos EX, de movilidad internacional y tasas 790, rellenados solos y editables.", icon: "doc" },
   { titulo: "Avisos automáticos", desc: "El cliente recibe cada avance de su expediente automáticamente.", icon: "bell" },
-  { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo y qué se ha presentado, de un vistazo.", icon: "board" },
+  { titulo: "Notificaciones DEHú", desc: "Cada notificación leída por la IA, en su expediente y con su plazo.", icon: "mail" },
   { titulo: "Radar de renovaciones", desc: "Cada caducidad vigilada y la renovación en marcha con un clic.", icon: "radar" },
   { titulo: "Facturas automáticas", desc: "Anticipo, resto y suplidos desde el expediente, con VeriFactu.", icon: "invoice" },
 ].map((m) => ({ ...m, href: rutaDeTarjeta(m.titulo) }));
@@ -117,14 +118,6 @@ const GARANTIAS = [
   { titulo: "Sin permanencia", desc: "Pagas mes a mes y exportas tus datos cuando quieras.", icon: "door" },
 ].map((g) => ({ ...g, href: rutaDeTarjeta(g.titulo) }));
 
-function GarantiaIcon({ name }: { name: string }) {
-  const c = "h-6 w-6 text-aproba-600";
-  if (name === "shield") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m8.5 12 2.5 2.5L15.5 10" /></svg>;
-  if (name === "eu") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="12" rx="9" ry="9" /><path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9s-1.4 6.4-3.9 9c-2.5-2.6-3.9-5.7-3.9-9s1.4-6.4 3.9-9Z" /></svg>;
-  if (name === "lock") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
-  return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8M16 17l5-5-5-5M21 12H9" /></svg>;
-}
-
 function Icon({ name }: { name: string }) {
   const c = "w-6 h-6 text-aproba-600";
   if (name === "scan") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>;
@@ -132,7 +125,7 @@ function Icon({ name }: { name: string }) {
   if (name === "eye") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>;
   if (name === "radar") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>;
   if (name === "invoice") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h4" /><path d="M14 9.5c-1.7 0-2.5.8-2.5 1.5s.8 1.5 2.5 1.5" opacity="0" /></svg>;
-  if (name === "board") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="6" height="18" rx="1"/><rect x="10" y="3" width="6" height="11" rx="1"/><rect x="17" y="3" width="4" height="7" rx="1"/></svg>;
+  if (name === "mail") return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
 }
 
@@ -371,39 +364,11 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* DEHú (29/09/2026) : la función que piden los despachos, justo después de las seis
-          tarjetas — solo lo que funciona hoy (components/landing-dehu.tsx). */}
-      <LandingDehu />
-
-      {/* Migración de datos (29/09/2026, sustituye a «El día y la noche») : el freno n.º 1 de
-          un despacho para cambiar de herramienta (components/landing-migracion.tsx). */}
-      <LandingMigracion />
-
-      {/* Confianza — garantías verificables, el argumento que de verdad pesa
-          para un despacho que maneja pasaportes y datos sensibles */}
-      <section className="py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <p className="text-center text-xs font-bold uppercase tracking-widest text-aproba-700">Confianza</p>
-          <h2 className="mt-3 text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Para despachos que se toman los datos en serio</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Tus expedientes contienen pasaportes, nóminas y datos sensibles. Los tratamos como se debe.</p>
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {GARANTIAS.map((g, i) => (
-              <Reveal key={g.titulo} delay={i * 90}>
-                <Link href={g.href} title="Qué garantiza y cómo se comprueba" className="block h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card transition hover:-translate-y-1 hover:border-aproba-300 hover:shadow-float">
-                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-aproba-50"><GarantiaIcon name={g.icon} /></div>
-                  <h3 className="mt-4 font-semibold text-slate-900">{g.titulo}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{g.desc}</p>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
-          <p className="mt-10 text-center text-sm text-slate-500">
-            Todo por escrito: <Link href="/legal/terminos" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">Términos</Link>,{" "}
-            <Link href="/legal/privacidad" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">Privacidad</Link> y{" "}
-            <Link href="/legal/dpa" className="font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600">DPA</Link>.
-          </p>
-        </div>
-      </section>
+      {/* Migración de datos + Confianza (29/09/2026, sustituye a «El día y la noche»; fundidas el
+          30/09 a petición de Matthias): el freno n.º 1 para cambiar de herramienta y, justo detrás,
+          la pregunta que trae —«¿y mis datos?»— en una fila ligera (components/landing-migracion.tsx).
+          Las garantías se definen AQUÍ (GARANTIAS): lib/beneficios.test.ts lo comprueba. */}
+      <LandingMigracion garantias={GARANTIAS} />
 
       {/* Precios */}
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">

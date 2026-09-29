@@ -89,11 +89,13 @@ const config: Config = {
           "0%, 30%, 100%": { backgroundColor: "rgba(16,176,131,0)" },
           "5%, 20%": { backgroundColor: "rgba(16,176,131,0.13)" },
         },
-        // El ✓ que se estampa cuando el cliente llega a Aproba (entre ciclos, vuelve a estamparse).
+        // El ✓ del cliente en Aproba (retraso = llegada de SUS datos): aparece cuando llegan, y se
+        // va a los 4,5 s, justo cuando su paquete siguiente sale de la IA (1,5 s antes de llegar).
         sello: {
           "0%": { transform: "scale(0.4)", opacity: "0" },
           "6%": { transform: "scale(1.15)", opacity: "1" },
-          "10%, 100%": { transform: "scale(1)", opacity: "1" },
+          "10%, 72%": { transform: "scale(1)", opacity: "1" },
+          "76%, 100%": { transform: "scale(0.6)", opacity: "0" },
         },
         // La onda de la IA, una por paquete que entra (retraso = llegada del paquete).
         latido: {

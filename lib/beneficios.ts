@@ -14,6 +14,8 @@ export type Beneficio = {
   grupo: Grupo;
   slug: string;
   tarjeta: string;        // texto de la tarjeta en la portada
+  // La portada ya no enseña su tarjeta (la página sigue viva): no se dice «en la portada».
+  fueraDePortada?: true;
   titulo: string;         // <title> completo, ≤ 65 caracteres
   descripcion: string;    // meta description, ≤ 160
   h1: string;
@@ -184,7 +186,54 @@ export const BENEFICIOS: Beneficio[] = [
     ],
   },
   {
+    // 30/09/2026 (Matthias): la DEHú sustituye al tablero en las seis tarjetas de la portada.
+    // Solo lo que funciona HOY (pestaña DEHú, 33b20b4): el modo automático con el certificado
+    // del despacho está programado pero INACTIVO → ni se anuncia ni se insinúa aquí.
+    grupo: "funciones", slug: "notificaciones-dehu",
+    tarjeta: "Notificaciones DEHú",
+    titulo: "Notificaciones DEHú de extranjería, leídas por la IA | Aproba",
+    descripcion: "Importa los PDF de la DEHú: la IA lee cada notificación, propone su expediente y registra el requerimiento con su plazo. Los avisos, con sus 10 días.",
+    h1: "Notificaciones DEHú: cada una en su expediente, con su plazo",
+    entradilla: "La notificación se abre en la DEHú, con el certificado del profesional. Lo que viene después lo hace Aproba: leerla, llevarla a su expediente y vigilar el plazo, sin copiar nada a mano.",
+    actualizado: "2026-09-30",
+    captura: { w: 1600, h: 1161, alt: "Pestaña DEHú de Aproba: un requerimiento de la Oficina de Extranjería leído por la IA, con su plazo y el expediente propuesto", pie: "La pestaña DEHú real (cuenta demo): el requerimiento leído por la IA, lo que piden aportar, el plazo con los días que quedan y el expediente propuesto, a un clic de «Vincular»." },
+    significa: [
+      { t: "p", texto: "La DEHú (Dirección Electrónica Habilitada única) es el buzón donde la Administración deja las notificaciones del expediente: requerimientos, resoluciones, citaciones. Aproba añade una pestaña DEHú con dos entradas y una sola bandeja." },
+      { t: "ul", items: [
+        "**Importas y la IA lee.** Arrastras a la pestaña los PDF (o el ZIP) que descargas de la DEHú, o una foto. La IA lee cada uno: organismo, tipo de notificación, qué piden aportar, el plazo y el número de expediente de Extranjería.",
+        "**Te propone su expediente.** Por número de expediente oficial, NIE, pasaporte, nombre completo o NIF de la empresa, en ese orden de confianza. Si dos personas encajan, no elige: te pregunta. Nada se vincula sin tu clic.",
+        "**Cada tipo, a su sitio.** Un requerimiento se registra en el expediente con su fecha límite y sus avisos al despacho; una resolución marca el expediente como concedido o denegado; una citación guarda la cita con su fecha, hora y lugar.",
+        "**Los avisos, con su cuenta atrás.** Añade la dirección de tu despacho en Aproba como correo de aviso en la DEHú («Mis datos de contacto»): cada aviso de notificación puesta a disposición aparece en la pestaña y en la campana con los 10 días naturales para abrirla ([art. 43.2 de la Ley 39/2015](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias)). Cuando importas su PDF y Aproba lo reconoce, el aviso se cierra solo.",
+      ] },
+    ],
+    afirmamos: [
+      { t: "ul", items: [
+        "**Nada se escribe sin ti.** La IA propone; el gestor vincula, elige otro expediente, corrige el plazo o ignora. La bandeja separa lo que está por revisar, lo gestionado y lo ignorado, y cada notificación importada conserva su PDF.",
+        "**El plazo se enseña con su regla.** El de un requerimiento se cuenta en días hábiles, y la pestaña lo dice: sin festivos, para que lo compruebes y lo corrijas si hace falta.",
+        "**Un solo enlace a la DEHú: el oficial.** Aproba nunca manda a un enlace sacado de un email; «Abrir la DEHú» lleva siempre a su dirección oficial.",
+        "**También por email.** Los PDF que un miembro del despacho reenvía a esa misma dirección se importan igual, con la respuesta en el mismo hilo.",
+      ] },
+    ],
+    limites: [
+      { t: "ul", items: [
+        "**La notificación se abre en la DEHú.** Abrirla es darse por notificado: se hace con el certificado del profesional y desde ese momento corren los plazos. Aproba trabaja con el PDF que descargas.",
+        "**Los festivos, a tu cargo.** El plazo en días hábiles no descuenta los festivos autonómicos ni locales: por eso se puede corregir.",
+        "**Lo que no le llega, no lo conoce.** Aproba lee las notificaciones que importas o reenvías, y los avisos que la DEHú manda a su dirección.",
+      ] },
+    ],
+    faq: [
+      { q: "¿Qué pasa si no abro una notificación en 10 días?", a: "Se entiende rechazada y el procedimiento sigue (art. 43.2 de la Ley 39/2015). Por eso cada aviso que llega a la dirección de Aproba aparece con su cuenta atrás en la pestaña DEHú y en la campana." },
+      { q: "¿Qué notificaciones reconoce?", a: "Requerimientos, resoluciones favorables y desfavorables, archivos o desistimientos, citaciones y justificantes de notificación. Si un PDF no parece una notificación, Aproba lo aparta en «Ignoradas» y no lo vincula." },
+      { q: "¿Tengo que cambiar mi correo en la DEHú?", a: "No: la dirección de Aproba se añade como correo de aviso y el del despacho sigue igual. Si la DEHú pide verificarla, el código llega al titular de la cuenta y a la pestaña." },
+    ],
+    fuentes: [
+      { nombre: "Ley 39/2015, art. 43: notificaciones por medios electrónicos (BOE)", url: "https://www.boe.es/buscar/act.php?id=BOE-A-2015-10565#a43" },
+      { nombre: "DEHú: Dirección Electrónica Habilitada única", url: "https://dehu.redsara.es" },
+    ],
+  },
+  {
     grupo: "funciones", slug: "tablero-de-seguimiento",
+    fueraDePortada: true,
     tarjeta: "Tablero de seguimiento",
     titulo: "Tablero de seguimiento de expedientes de extranjería | Aproba",
     descripcion: "Un tablero con dos fases de trabajo, la siguiente acción en cada tarjeta y el porcentaje de completitud calculado desde los hechos del expediente. Cómo se lee.",
@@ -314,6 +363,7 @@ export const BENEFICIOS: Beneficio[] = [
     // empresa (25/09). Captura: los componentes REALES de la ficha (sección «Empresa»), con
     // datos ficticios, en una página temporal (como las demás, 1600 px de ancho).
     grupo: "funciones", slug: "extranjeria-para-empresas",
+    fueraDePortada: true,
     tarjeta: "Extranjería para empresas",
     titulo: "Extranjería para empresas: un expediente por trabajador | Aproba",
     descripcion: "Extranjería para empresas con Aproba: la empresa encarga, firma la hoja de encargo y paga; cada trabajador lleva su expediente, su mandato y su enlace.",

@@ -63,7 +63,7 @@ export async function PaginaBeneficio({ grupo, params }: { grupo: Grupo; params:
       </nav>
 
       <article className="mt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-aproba-700">{GRUPO_LABEL[grupo]} · en la portada: «{b.tarjeta}»</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-aproba-700">{GRUPO_LABEL[grupo]}{b.fueraDePortada ? null : <> · en la portada: «{b.tarjeta}»</>}</p>
         <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tightest text-slate-900 sm:text-4xl">{b.h1}</h1>
         <p className="mt-3 text-lg leading-relaxed text-slate-600">{b.entradilla}</p>
         <p className="mt-2 text-xs text-slate-500">Actualizado el {fechaLarga(b.actualizado)}</p>

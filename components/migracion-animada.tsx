@@ -7,8 +7,9 @@ import { AprobaMark } from "@/components/logo";
 // el resalte de las filas.
 // Guion de la fila i (desfase i × 1,1 s): se ilumina en la hoja y sale su paquete en bruto
 // (gris) → a los 1,5 s entra en la IA, que late → sale reconocido (verde, con ✓) → a los 3 s su
-// cliente se ilumina en Aproba y el ✓ se estampa. El resultado se ve siempre entero: una captura,
-// «reducir movimiento» o un lector de pantalla ven el final, nunca un hueco.
+// cliente se ilumina en Aproba y SU ✓ aparece (Matthias, 30/09: « la coche doit apparaître lorsque
+// les données du client arrivent »); se va cuando su paquete siguiente sale de la IA. Las filas
+// se ven siempre: con «reducir movimiento» nada se mueve y los tres ✓ quedan puestos.
 // Datos ficticios, pasaportes enmascarados.
 
 const FILAS = [
