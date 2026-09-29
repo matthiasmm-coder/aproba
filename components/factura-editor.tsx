@@ -66,7 +66,12 @@ export function FacturaEditor({
   extra,
   fiscal,
   conRetencion = false,
+  numeroEtiqueta,
+  numeroFijo = false,
 }: {
+  // Proforma (29/09/2026): «Nº de proforma», numerado solo por el servidor (serie PRO).
+  numeroEtiqueta?: string;
+  numeroFijo?: boolean;
   // Retención de IRPF (28/09/2026): solo en la factura MANUAL, la que emite un profesional
   // a una empresa o a otro profesional. El cobro de un expediente (particulares) no la lleva.
   conRetencion?: boolean;
@@ -260,8 +265,8 @@ export function FacturaEditor({
               {campoCliente}
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">{t("Nº de factura")}</label>
-              <input value={numero} onChange={(e) => setNumero(e.target.value)} className={`mt-1.5 ${inp} font-mono`} />
+              <label className="text-sm font-medium text-slate-700">{numeroEtiqueta ?? t("Nº de factura")}</label>
+              <input value={numero} onChange={(e) => setNumero(e.target.value)} readOnly={numeroFijo} className={`mt-1.5 ${inp} font-mono ${numeroFijo ? "bg-slate-50 text-slate-500" : ""}`} />
             </div>
           </div>
           {camposFiscales}

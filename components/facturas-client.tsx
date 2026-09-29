@@ -13,11 +13,13 @@ import type { CobroPrevioPendiente } from "@/lib/data/cobros-previos";
 import { FacturaAcciones } from "@/components/factura-acciones";
 import { useT } from "@/components/lang-provider";
 import { FacturasRecibidas } from "@/components/facturas-recibidas";
+import { ProformasLista } from "@/components/proformas-lista";
+import type { Proforma } from "@/lib/proformas";
 import type { FacturaRecibida } from "@/lib/facturas-recibidas";
 import type { ExpedienteVinculable } from "@/lib/data/facturas-recibidas";
 
 type Mode = "mtd" | "ytd" | "custom";
-export type VistaFacturas = "emitidas" | "recibidas";
+export type VistaFacturas = "emitidas" | "recibidas" | "proformas";
 type Traducir = (k: string) => string;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -129,7 +131,7 @@ function GrupoFacturas({ id, titulo, items, subtotal, cerrado, onToggle, esAdmin
   );
 }
 
-export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas", verifactu }: { facturas: Factura[]; cobros: CobroPendiente[]; previos?: CobroPrevioPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas; verifactu?: Record<string, ChipVerifactu> }) {
+export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdmin, recibidas = [], expedientesVinculables = [], oficinaActiva = null, vistaInicial = "emitidas", verifactu, proformas = [], faltaMigracionProformas = false }: { facturas: Factura[]; cobros: CobroPendiente[]; previos?: CobroPrevioPendiente[]; despacho: Despacho; esAdmin: boolean; recibidas?: FacturaRecibida[]; expedientesVinculables?: ExpedienteVinculable[]; oficinaActiva?: string | null; vistaInicial?: VistaFacturas; verifactu?: Record<string, ChipVerifactu>; proformas?: Proforma[]; faltaMigracionProformas?: boolean }) {
   const t = useT();
   // Emitidas (a clientes) o recibidas (de proveedores): dos vistas de la misma pestaña,
   // mismo periodo. `?vista=recibidas` abre la segunda (enlaces desde el email y la bandeja).
@@ -263,7 +265,7 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Facturas")}</h1>
-          <p className="text-sm text-slate-500">{vista === "emitidas" ? t("Factura a tus clientes por cada trámite.") : t("Las de tus proveedores: súbelas o reenvíalas a tu email de Aproba. La IA lee los datos; tú corriges lo marcado.")}</p>
+          <p className="text-sm text-slate-500">{vista === "emitidas" ? t("Factura a tus clientes por cada trámite.") : vista === "proformas" ? t("Lo que el cliente va a pagar, antes de la factura: envíala y conviértela en factura al cobrar.") : t("Las de tus proveedores: súbelas o reenvíalas a tu email de Aproba. La IA lee los datos; tú corriges lo marcado.")}</p>
         </div>
         {vista === "emitidas" && <div className="flex flex-wrap items-center gap-2">
           <button onClick={exportarCSV} disabled={preparandoCsv} title={t("Las facturas del periodo, también las anteriores a Aproba (migración)")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
@@ -277,11 +279,12 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
           <Link href="/app/facturas/nueva" className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva factura")}</Link>
         </div>}
         {vista === "recibidas" && <div id="acciones-recibidas" className="ml-auto flex flex-wrap items-center justify-end gap-2" />}
+        {vista === "proformas" && <Link href="/app/facturas/proformas/nueva" className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("+ Nueva proforma")}</Link>}
       </div>
 
       {/* Emitidas / Recibidas */}
       <div className="mb-4 inline-flex gap-1 rounded-lg border border-slate-200 bg-white p-1">
-        {([["emitidas", t("Emitidas"), facturas.filter((f) => !f.archivado).length], ["recibidas", t("Recibidas"), recibidas.length]] as [VistaFacturas, string, number][]).map(([v, label, n]) => (
+        {([["emitidas", t("Emitidas"), facturas.filter((f) => !f.archivado).length], ["recibidas", t("Recibidas"), recibidas.length], ["proformas", t("Proformas"), proformas.filter((p) => p.estado === "PENDIENTE" || p.estado === "ENVIADA").length]] as [VistaFacturas, string, number][]).map(([v, label, n]) => (
           <button key={v} type="button" onClick={() => setVista(v)} aria-pressed={vista === v}
             className={`inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-semibold transition ${vista === v ? "bg-aproba-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
             {label}
@@ -325,7 +328,14 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
         <span className="text-sm text-slate-400">{rangeLabel}</span>
       </div>
 
-      {vista === "recibidas" ? (
+      {vista === "proformas" ? (
+        <ProformasLista faltaMigracion={faltaMigracionProformas} items={proformas.filter((p) => {
+          // El mismo periodo que las facturas (por la fecha de la proforma).
+          if (!p.fechaIso) return true;
+          const d = startOfDay(new Date(`${p.fechaIso}T12:00:00`));
+          return d >= startOfDay(rangeFrom) && d <= startOfDay(rangeTo);
+        })} />
+      ) : vista === "recibidas" ? (
         <FacturasRecibidas items={recibidas} expedientes={expedientesVinculables} rangeFrom={rangeFrom} rangeTo={rangeTo} esAdmin={esAdmin} oficinaActiva={oficinaActiva}
           onVerDesde={(iso) => {
             // Una factura de proveedor suele ser de meses atrás: al subirla desaparecía del

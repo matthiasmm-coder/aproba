@@ -651,7 +651,7 @@ export async function enviarSolicitudPago(
 // el viejo «no respondas a este correo». En los correos donde SÍ esperamos respuesta
 // (encargo con documentos para firmar, finalización) se enruta al buzón del despacho:
 // el de facturación si lo configuró, si no el del propietario de la cuenta.
-async function emailDeRespuesta(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
+export async function emailDeRespuesta(admin: SupabaseClient, workspaceId: string): Promise<string | null> {
   try {
     const { data: ws } = await admin.from("Workspace").select("emailFacturacion").eq("id", workspaceId).maybeSingle();
     const fact = ((ws as { emailFacturacion?: string | null } | null)?.emailFacturacion ?? "").trim();

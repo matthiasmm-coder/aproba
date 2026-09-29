@@ -1,5 +1,6 @@
 import { fetchFacturas, fetchCobrosPendientes, TOPE_FACTURAS } from "@/lib/data/facturas";
 import { fetchCobrosPrevios } from "@/lib/data/cobros-previos";
+import { fetchProformas } from "@/lib/data/proformas";
 import { fetchFacturasRecibidas, fetchExpedientesParaVincular } from "@/lib/data/facturas-recibidas";
 import { fetchDespacho } from "@/lib/data/config";
 import { createSupabaseServer } from "@/lib/supabase/server";
@@ -30,7 +31,7 @@ export default async function Facturas({ searchParams }: { searchParams: Promise
   // (manuelles, antérieures à la fase 6) comptent pour la gestoría — jamais masquées
   // en vue « Todas ». Le tampon existe depuis la fase 6, le filtre devient possible.
   const filtroSede = await resolverOficina().catch(() => ({ activa: null, oficinas: [], miOficina: null, autoId: null, sedes: null, incluirSinSede: false }));
-  const [facturas, cobros, despacho, esAdmin, recibidas, expedientesVinculables, previos] = await Promise.all([
+  const [facturas, cobros, despacho, esAdmin, recibidas, expedientesVinculables, previos, proformas] = await Promise.all([
     fetchFacturas(filtroSede.sedes, filtroSede.incluirSinSede, TOPE_FACTURAS),
     fetchCobrosPendientes(filtroSede.sedes, filtroSede.incluirSinSede),
     fetchDespacho(),
@@ -39,6 +40,8 @@ export default async function Facturas({ searchParams }: { searchParams: Promise
     fetchExpedientesParaVincular().catch(() => []),
     // Lo facturado ANTES de Aproba y aún pendiente (migración, columna «Estado del cobro»).
     fetchCobrosPrevios(filtroSede.sedes, filtroSede.incluirSinSede),
+    // Proformas (29/09/2026): serie propia, fuera de las facturas (lib/proformas.ts).
+    fetchProformas(filtroSede.sedes, filtroSede.incluirSinSede).catch(() => ({ items: [], faltaMigracion: false })),
   ]);
   // NIF/CIF del CSV: una factura emitida ANTES del snapshot fiscal se completa desde el
   // cliente de su expediente y queda congelada — lo mismo que hacen su ficha y el export
@@ -74,7 +77,7 @@ export default async function Facturas({ searchParams }: { searchParams: Promise
       {facturas.length >= TOPE_FACTURAS && (
         <p className="mb-3 text-center text-xs text-slate-400">Mostrando las {TOPE_FACTURAS} facturas más recientes. El export ZIP incluye SIEMPRE todas.</p>
       )}
-      <FacturasClient facturas={facturas} cobros={cobros} previos={previos} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} verifactu={verifactu} vistaInicial={vista === "recibidas" ? "recibidas" : "emitidas"} />
+      <FacturasClient facturas={facturas} cobros={cobros} previos={previos} despacho={despacho} esAdmin={esAdmin} recibidas={recibidas} expedientesVinculables={expedientesVinculables} oficinaActiva={filtroSede.activa} verifactu={verifactu} vistaInicial={vista === "recibidas" ? "recibidas" : vista === "proformas" ? "proformas" : "emitidas"} proformas={proformas.items} faltaMigracionProformas={proformas.faltaMigracion} />
     </div>
   );
 }

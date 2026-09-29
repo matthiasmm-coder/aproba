@@ -96,3 +96,12 @@ export function interpretarUltimoNumero(entrada: string, year: number, prefijo =
   if (!Number.isInteger(n) || n < 1) return { error: "El número debe ser mayor que 0." };
   return { numero: `${base}-${String(n).padStart(PADDING, "0")}`, n };
 }
+
+// PROFORMAS (29/09/2026) : série PROPRE « PRO-2026-0001 », lue dans leur table. Elle ne
+// touche jamais celle des factures (une proforma n'est pas une facture) ; une proforma
+// supprimée libère son numéro, ce qui est sans conséquence puisqu'on ne supprime que celles
+// qui ne sont jamais sorties du despacho (lib/proformas.ts, proformaBorrable).
+export async function siguienteNumeroProforma(admin: Admin, workspaceId: string, year = new Date().getFullYear()): Promise<string> {
+  const { data } = await admin.from("Proforma").select("numero").eq("workspaceId", workspaceId).like("numero", `PRO-${year}-%`);
+  return calcularSiguiente(((data ?? []) as { numero: string }[]).map((r) => r.numero), year, "PRO");
+}

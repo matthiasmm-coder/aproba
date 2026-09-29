@@ -45,7 +45,10 @@ function partir(s: string, f: PDFFont, size: number, ancho: number): string[] {
 // `extras.verifactuUrl`: URL de verificación de la AEAT (registro VERI*FACTU) → QR
 // tributario de ~32 mm con su leyenda (art. 21 Orden HAC/1177/2024), a la derecha del
 // bloque «Facturar a». Sin URL, el documento es el de siempre.
-export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: { verifactuUrl?: string | null } = {}): Promise<Uint8Array> {
+// `titulo` / `etiquetaVence` / `aviso` / `pie`: el mismo documento para una PROFORMA
+// (29/09/2026): «FACTURA PROFORMA», «Válida hasta» y la mención de que no es una factura.
+export type ExtrasPdf = { verifactuUrl?: string | null; titulo?: string; etiquetaVence?: string; aviso?: string; pie?: string };
+export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: ExtrasPdf = {}): Promise<Uint8Array> {
   // Emisor CONGELADO al emitir (factura-retencion-emisor.sql) manda sobre el vivo; el logo sigue
   // siendo el actual (no es un dato fiscal). Todas las vías de PDF pasan por aquí.
   const fx = f.emisorDatos;
@@ -77,10 +80,10 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: { 
 
   // Cabecera: emisor (izq) + FACTURA nº (der)
   text(emisor.nombre || "Mi despacho", M, 15, bold);
-  right("FACTURA", W - M, y + 2, 9, bold, grey);
+  right(extras.titulo ?? "FACTURA", W - M, y + 2, 9, bold, grey);
   right(f.numero, W - M, y - 15, 15, bold);
   right(`Fecha: ${f.fecha}`, W - M, y - 32, 9, font, slate);
-  if (f.vence) right(`Vencimiento: ${f.vence}`, W - M, y - 45, 9, font, slate);
+  if (f.vence) right(`${extras.etiquetaVence ?? "Vencimiento"}: ${f.vence}`, W - M, y - 45, 9, font, slate);
   y -= 18;
   for (const c of [emisor.nif ? `NIF/CIF ${emisor.nif}` : null, emisor.domicilio, emisor.email].filter(Boolean) as string[]) {
     text(c, M, 9, font, slate); y -= 13;
@@ -154,6 +157,11 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: { 
     for (const ln of partir(f.notas, font, 9, W - 2 * M)) { saltoSi(); text(ln, M, 9, font, slate); y -= 12; }
   }
 
-  page.drawText(safe(`Estado: ${f.estado}  ·  Generado con Aproba${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
+  if (extras.aviso) {
+    saltoSi(); y -= 14;
+    for (const ln of partir(extras.aviso, bold, 9, W - 2 * M)) { saltoSi(); text(ln, M, 9, bold, slate); y -= 12; }
+  }
+
+  page.drawText(safe(extras.pie ?? `Estado: ${f.estado}  ·  Generado con Aproba${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
   return doc.save();
 }
