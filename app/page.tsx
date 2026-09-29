@@ -313,14 +313,16 @@ export default function Landing() {
       </section>
 
       {/* Regularización 2026 → la ola de renovaciones 2027. Datos verificables (Moncloa
-          02/07/2026: 1.174.978 solicitudes; autorizaciones de 1 año). Ningún humo. */}
+          02/07/2026: 1.174.978 SOLICITUDES, ~608.000 admitidas a trámite; autorizaciones de
+          1 año). Ningún humo: el titular decía «1.174.978 autorizaciones caducan» — eran
+          solicitudes, no autorizaciones (corregido el 29/09/2026). Mismo dato que el artículo
+          renovaciones-2027 y lib/paginas.ts: «cerca de 600.000 renovaciones». */}
       <section className="border-y border-aproba-200 bg-aproba-50 py-16">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Regularización extraordinaria 2026</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tightest text-slate-900">1.174.978 autorizaciones caducan a la vez en 2027</h2>
+          <h2 className="mt-3 text-3xl font-bold tracking-tightest text-slate-900">Cerca de 600.000 renovaciones a la vez en 2027</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-            ¿Presentaste 100 expedientes? Son 100 renovaciones el mismo mes.
-            <span className="font-semibold text-slate-900"> Importa tu lista y Aproba te avisa de cada una a tiempo.</span>
+            <span className="font-semibold text-slate-900">Importa tu lista y Aproba te avisa de cada renovación a tiempo.</span>
           </p>
           <div className="mt-6">
             <PruebaButton className="px-6 py-3" />
@@ -331,7 +333,7 @@ export default function Landing() {
       {/* Testimonio — Juan Santiago Prado Telles (Gestoría Valencia), cliente desde julio de
           2026. Texto y firma VALIDADOS por él el 27/09/2026 (resumen de su email, con su
           consentimiento escrito). Bajo la banda de la regularización (Matthias, 28/09): tras
-          «1.174.978 autorizaciones caducan a la vez», un gestor colegiado que ya lo usa.
+          «cerca de 600.000 renovaciones a la vez», un gestor colegiado que ya lo usa.
           Tarjeta «carta» sobre fondo crema (entre la banda verde y «Cómo funciona», blanca):
           comillas al fondo, la frase clave subrayada, nº de colegiado en sello. Sin el hilo de
           color de arriba (Matthias, 28/09). La cita se escribe al entrar en pantalla y el sello
