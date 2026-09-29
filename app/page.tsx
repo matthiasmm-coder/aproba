@@ -245,12 +245,12 @@ export default function Landing() {
 
       {/* Pain points */}
       <section className="mx-auto max-w-5xl px-6 py-16">
-        <h2 className="text-center text-2xl font-bold tracking-tightest text-slate-900">¿Te suena esto?</h2>
+        <h2 className="text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">¿Te suena esto?</h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {PAINS.map((p, i) => (
             <Reveal key={p} delay={i * 80}>
-              <div className="flex h-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-5">
-                <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              <div className="flex h-full items-start gap-3 rounded-2xl bg-white p-5 ring-1 ring-slate-900/[0.06]">
+                <svg className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                 <p className="text-slate-700">{p}</p>
               </div>
             </Reveal>
@@ -285,8 +285,8 @@ export default function Landing() {
       {/* Vídeo demo */}
       <section id="como-funciona" className="scroll-mt-20 border-y border-slate-200 bg-cream-50 py-24">
         <div className="mx-auto max-w-4xl px-6 text-center">
-          <span className="text-sm font-semibold text-aproba-700">En acción</span>
-          <h2 className="mt-2 text-3xl font-bold tracking-tightest text-slate-900">Ve Aproba en 80 segundos</h2>
+          <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">En acción</p>
+          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Ve Aproba en 80 segundos</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento a la presentación, sin teclear un solo formulario.</p>
           <Reveal className="mt-10">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-float">
@@ -304,7 +304,7 @@ export default function Landing() {
       <section className="border-y border-aproba-200 bg-aproba-50 py-16">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Regularización extraordinaria 2026</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tightest text-slate-900">Cerca de 600.000 renovaciones a la vez en 2027</h2>
+          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Cerca de 600.000 renovaciones a la vez en 2027</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
             <span className="font-semibold text-slate-900">Importa tu lista y Aproba te avisa de cada renovación a tiempo.</span>
           </p>
@@ -346,7 +346,8 @@ export default function Landing() {
 
       {/* Funciones / módulos */}
       <section id="funciones" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
-        <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Todo el expediente, en un sitio</h2>
+        <p className="text-center text-xs font-bold uppercase tracking-widest text-aproba-700">Funciones</p>
+        <h2 className="mt-3 text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Todo el expediente, en un sitio</h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Desde el primer documento del cliente hasta la sede electrónica.</p>
         {/* Cartes de même taille (Matthias, 29/09) : textes courts et équilibrés, Reveal en h-full
             (sinon le h-full du lien ne remplit pas la cellule) et auto-rows-fr (rangées égales). */}
@@ -378,7 +379,8 @@ export default function Landing() {
           para un despacho que maneja pasaportes y datos sensibles */}
       <section className="py-24">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Para despachos que se toman los datos en serio</h2>
+          <p className="text-center text-xs font-bold uppercase tracking-widest text-aproba-700">Confianza</p>
+          <h2 className="mt-3 text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Para despachos que se toman los datos en serio</h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Tus expedientes contienen pasaportes, nóminas y datos sensibles. Los tratamos como se debe.</p>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {GARANTIAS.map((g, i) => (
@@ -402,7 +404,8 @@ export default function Landing() {
       {/* Precios */}
       <section id="precios" className="scroll-mt-20 border-y border-slate-200 bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Precios por volumen, no por profesión</h2>
+          <p className="text-center text-xs font-bold uppercase tracking-widest text-aproba-700">Precios</p>
+          <h2 className="mt-3 text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Precios por volumen, no por profesión</h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">Todos los planes empiezan con 15 días de prueba gratis, sin permanencia. Precios sin IVA.</p>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {PLANES.map((p, i) => (
@@ -429,7 +432,7 @@ export default function Landing() {
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-6 py-24">
-        <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">Preguntas frecuentes</h2>
+        <h2 className="text-balance text-center text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Preguntas frecuentes</h2>
         <div className="mt-10 space-y-3">
           {FAQ.map((f, i) => (
             <Reveal key={f.q} delay={i * 60}>
@@ -448,7 +451,7 @@ export default function Landing() {
       {/* CTA final */}
       <section className="border-t border-slate-200 bg-aproba-600">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h2 className="text-3xl font-bold tracking-tightest text-white">¿Listo para dejar el papeleo?</h2>
+          <h2 className="text-balance text-3xl font-bold tracking-tightest text-white sm:text-4xl">¿Listo para dejar el papeleo?</h2>
           <p className="mx-auto mt-3 max-w-lg text-aproba-100">Entra hoy: un expediente de ejemplo ya resuelto te espera dentro. Sin tarjeta.</p>
           <PruebaButton variant="invert" className="mt-8 px-6 py-3" />
           <p className="mt-4 text-xs text-aproba-200">
