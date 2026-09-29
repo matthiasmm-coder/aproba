@@ -6,7 +6,8 @@ import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
-import { DiaNoche } from "@/components/dia-noche";
+import { LandingDehu } from "@/components/landing-dehu";
+import { LandingMigracion } from "@/components/landing-migracion";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 import { VideoDemo } from "@/components/video-demo";
@@ -89,23 +90,6 @@ const MODULOS = [
   { titulo: "Facturas automáticas", desc: "Anticipo, resto y suplidos, facturados desde el propio expediente.", icon: "invoice" },
 ].map((m) => ({ ...m, href: rutaDeTarjeta(m.titulo) }));
 
-const SIN = [
-  "Documentos por WhatsApp, email y papel, sin orden",
-  "Formularios EX rellenados a mano, uno a uno",
-  "Seguimiento en una hoja de Excel",
-  "Llamadas constantes del cliente",
-  "Clientes que no entienden los formularios en español",
-  "Errores que descubres cuando ya está rechazado",
-];
-
-const CON = [
-  "Un enlace: el cliente sube todo desde el móvil",
-  "EX y tasas 790 generados automáticamente",
-  "Tablero con el estado de cada expediente",
-  "Avisos automáticos en cada paso",
-  "El cliente lo completa en su idioma (8 idiomas, árabe incluido)",
-  "La IA detecta caducados o ilegibles antes de presentar",
-];
 
 const PLANES = [
   { nombre: "Starter", precio: "79", anual: "790", incluidos: "20", para: "Para autónomos", features: ["Tus clientes rellenan sus datos y suben documentos online", "Validación IA de documentos", "Formularios EX + tasas 790 automáticos", "Avisos automáticos al cliente", "1 usuario · soporte por email"], destacado: false },
@@ -382,15 +366,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Antes / Con Aproba */}
-      <section className="border-y border-slate-200 bg-white py-24">
-        <div className="mx-auto max-w-5xl px-6">
-          <h2 className="text-center text-3xl font-bold tracking-tightest text-slate-900">El día y la noche</h2>
-          {/* Animado al entrar en pantalla (components/dia-noche): lo de la izquierda se tacha,
-              lo de la derecha se enciende fila a fila. */}
-          <DiaNoche sin={SIN} con={CON} />
-        </div>
-      </section>
+      {/* DEHú (29/09/2026) : la función que piden los despachos, justo después de las seis
+          tarjetas — solo lo que funciona hoy (components/landing-dehu.tsx). */}
+      <LandingDehu />
+
+      {/* Migración de datos (29/09/2026, sustituye a «El día y la noche») : el freno n.º 1 de
+          un despacho para cambiar de herramienta (components/landing-migracion.tsx). */}
+      <LandingMigracion />
 
       {/* Confianza — garantías verificables, el argumento que de verdad pesa
           para un despacho que maneja pasaportes y datos sensibles */}
