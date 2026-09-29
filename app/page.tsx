@@ -63,14 +63,15 @@ const STATS = [
   { n: "8", l: "idiomas para tus clientes, árabe incluido", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
 ];
 
-// «3 h → 30 min» → las cifras en grande, las unidades en pequeño, la flecha en verde claro.
+// «3 h → 30 min» → las cifras en grande, las unidades en pequeño, la flecha en verde claro
+// (tarjetas verdes de la portada).
 function Cifra({ texto }: { texto: string }) {
   return (
     <>
       {texto.split(/\s+/).map((p, i) =>
         /^[−+]?\d+$/.test(p) ? <span key={i}>{p}</span>
-        : p === "→" ? <span key={i} className="mx-2 text-[0.6em] text-aproba-300">→</span>
-        : <span key={i} className="ml-1 text-[0.5em] font-medium text-aproba-100">{p}</span>
+        : p === "→" ? <span key={i} className="mx-1.5 text-[0.6em] text-aproba-200">→</span>
+        : <span key={i} className="ml-1 text-[0.5em] font-medium text-white/85">{p}</span>
       )}
     </>
   );
@@ -254,28 +255,21 @@ export default function Landing() {
         </p>
       </section>
 
-      {/* Cifras — banda «premium» (Matthias, 30/09/2026): verde profundo con halo y trama de
-          puntos difuminada, filos de luz arriba y abajo, cifras grandes con las unidades en
-          pequeño y separadores que se desvanecen. Cada cifra sigue enlazando a su página. */}
-      <section className="relative isolate overflow-hidden bg-[#08472f]">
-        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-br from-aproba-700 via-[#0a5a3e] to-[#05331f]" />
-        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(55%_120%_at_50%_0%,rgba(52,211,153,0.22),transparent_70%)]" />
-        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.09)_1px,transparent_0)] [background-size:22px_22px] [mask-image:radial-gradient(70%_90%_at_50%_50%,black,transparent)]" />
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-aproba-300/60 to-transparent" />
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-        <div className="mx-auto max-w-6xl px-6 py-14 md:py-16">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-0">
-            {STATS.map((s, i) => (
-              <Reveal key={s.l} delay={i * 90} className="relative">
-                {i > 0 && <span aria-hidden="true" className="absolute inset-y-1 left-0 hidden w-px bg-gradient-to-b from-transparent via-white/20 to-transparent md:block" />}
-                {/* La cifra es un enlace: su página dice qué significa y cómo la afirmamos. */}
-                <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group flex h-full flex-col items-center rounded-2xl px-2 py-2 text-center transition hover:bg-white/[0.05] md:px-4">
-                  <p className="whitespace-nowrap text-3xl font-semibold leading-none tracking-tightest text-white tabular-nums lg:text-[2.75rem]"><Cifra texto={s.n} /></p>
-                  <p className="mt-3 max-w-[13rem] text-balance text-sm leading-snug text-aproba-100/80 transition group-hover:text-white">{s.l}</p>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
+      {/* Cifras — 4 tarjetas en el verde de Aproba (Matthias, 30/09/2026: « pas un bandeau mais
+          4 cartes alignées, cliquables sur toute leur surface »). La tarjeta ENTERA es el enlace a
+          su página: qué significa la cifra y cómo la afirmamos. Verde 600→700: el blanco se lee. */}
+      <section aria-label="Aproba en cifras" className="mx-auto max-w-6xl px-6 pb-20">
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-5">
+          {STATS.map((s, i) => (
+            <Reveal key={s.l} delay={i * 90} className="h-full">
+              <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-aproba-600 to-aproba-700 p-4 text-white shadow-float ring-1 ring-inset ring-white/10 transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-12px_rgba(14,140,95,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 sm:p-5 lg:p-6">
+                <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgba(255,255,255,0.14),transparent_55%)]" />
+                <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-4 w-4 text-white/55 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white sm:right-4 sm:top-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
+                <p className="relative whitespace-nowrap pr-5 text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
+                <p className="relative mt-3 text-balance text-sm font-medium leading-snug text-white">{s.l}</p>
+              </Link>
+            </Reveal>
+          ))}
         </div>
       </section>
 

@@ -97,6 +97,18 @@ const config: Config = {
           "10%, 72%": { transform: "scale(1)", opacity: "1" },
           "76%, 100%": { transform: "scale(0.6)", opacity: "0" },
         },
+        // El paquete en bruto se encoge al entrar en la IA; el reconocido brota de ella.
+        encoger: {
+          "0%, 17%": { transform: "scale(1)" },
+          "24%, 100%": { transform: "scale(0.5)" },
+        },
+        brotar: {
+          "0%": { transform: "scale(0.5)" },
+          "7%, 100%": { transform: "scale(1)" },
+        },
+        // El hilo como flujo continuo: rayas que avanzan un periodo (14 px) y vuelven a empezar.
+        flujoX: { from: { transform: "translateX(-14px)" }, to: { transform: "translateX(0)" } },
+        flujoY: { from: { transform: "translateY(-14px)" }, to: { transform: "translateY(0)" } },
         // La onda de la IA, una por paquete que entra (retraso = llegada del paquete).
         latido: {
           "0%": { transform: "scale(1)", opacity: "0.5" },
@@ -119,6 +131,10 @@ const config: Config = {
         resalte: "resalte 6s ease-in-out infinite both",
         sello: "sello 6s ease-out infinite both",
         latido: "latido 6s ease-out infinite both",
+        encoger: "encoger 6s ease-in infinite both",
+        brotar: "brotar 6s cubic-bezier(0.34,1.56,0.64,1) infinite both",
+        "flujo-x": "flujoX 0.9s linear infinite",
+        "flujo-y": "flujoY 0.9s linear infinite",
       },
     },
   },

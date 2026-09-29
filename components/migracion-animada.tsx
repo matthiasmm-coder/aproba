@@ -13,9 +13,9 @@ import { AprobaMark } from "@/components/logo";
 // Datos ficticios, pasaportes enmascarados.
 
 const FILAS = [
-  { nombre: "Ioana Popescu", corto: "Ioana", iniciales: "IP", pasaporte: "RO•••4829", caduca: "03/2027" },
-  { nombre: "Karim Benali", corto: "Karim", iniciales: "KB", pasaporte: "MA•••9912", caduca: "11/2027" },
-  { nombre: "Liu Wei", corto: "Liu", iniciales: "LW", pasaporte: "E••••8830", caduca: "06/2028" },
+  { nombre: "Ioana Popescu", iniciales: "IP", pasaporte: "RO•••4829", caduca: "03/2027" },
+  { nombre: "Karim Benali", iniciales: "KB", pasaporte: "MA•••9912", caduca: "11/2027" },
+  { nombre: "Liu Wei", iniciales: "LW", pasaporte: "E••••8830", caduca: "06/2028" },
 ];
 const DESFASE = 1.1; // s entre filas
 const TRAMO = 1.5; // s por tramo = 25 % del ciclo (viajeX/viajeY)
@@ -93,13 +93,14 @@ function Resultado() {
   );
 }
 
-// La IA: una onda por cada paquete que entra.
+// La IA: un arco de luz que gira (está trabajando) y una onda por cada paquete que entra.
 function Nodo() {
   return (
     <div className="relative mx-auto flex h-16 w-16 items-center justify-center">
       {FILAS.map((f, i) => (
         <span key={f.nombre} aria-hidden="true" style={en(i * DESFASE + TRAMO)} className="absolute inset-0 rounded-full bg-aproba-400/40 animate-latido motion-reduce:hidden" />
       ))}
+      <span aria-hidden="true" className="absolute -inset-2 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(52,211,153,0.95)_70deg,transparent_150deg)] animate-[spin_2.4s_linear_infinite] motion-reduce:hidden" />
       <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-aproba-500 to-aproba-700 text-white shadow-float ring-4 ring-white">
         <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" /><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z" /></svg>
       </span>
@@ -107,33 +108,47 @@ function Nodo() {
   );
 }
 
-// El hilo entre dos piezas y sus tres paquetes: tramo 1 = el dato en bruto (gris), tramo 2 = ya
-// reconocido por la IA (verde, con ✓). Cada paquete es una capa del tamaño del hilo con la
-// pastilla en su extremo, que viaja de −100 % a 0. De izquierda a derecha en escritorio, de
-// arriba abajo en móvil.
+// El hilo entre dos piezas: una línea por la que fluyen rayas sin parar (el flujo de datos) y
+// los tres paquetes. Tramo 1 = el dato en bruto (pastilla blanca), que se encoge al entrar en la
+// IA; tramo 2 = ya reconocido (verde, con ✓), que brota de ella. Cada paquete es una capa del
+// tamaño del hilo con su pastilla y su estela en el extremo, que viaja de −100 % a 0: de izquierda
+// a derecha en escritorio, de arriba abajo en móvil. Nombres completos (Matthias, 30/09: « plus
+// gros »).
 function Hilo({ tramo }: { tramo: 1 | 2 }) {
   const salida = tramo === 1 ? 0 : TRAMO;
-  const pastilla = `whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-    tramo === 1 ? "bg-white text-slate-600 shadow-sm ring-1 ring-slate-200" : "bg-aproba-600 text-white shadow-[0_0_14px_rgba(16,176,131,0.55)]"
+  const bruto = tramo === 1;
+  const pastilla = `inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
+    bruto ? "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 animate-encoger" : "bg-aproba-600 text-white shadow-[0_0_16px_rgba(16,176,131,0.6)] animate-brotar"
   }`;
-  const contenido = (f: (typeof FILAS)[number]) => (
-    <>{tramo === 2 && <Check className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" />}{f.corto}</>
-  );
+  const color = bruto ? "to-slate-300" : "to-aproba-400";
+  const contenido = (f: (typeof FILAS)[number]) => <>{!bruto && <Check className="h-3 w-3" />}{f.nombre}</>;
   return (
     <>
-      <div aria-hidden="true" className="relative hidden h-12 overflow-hidden lg:block">
-        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-slate-200 via-aproba-300 to-slate-200" />
+      <div aria-hidden="true" className="relative hidden h-14 overflow-hidden lg:block">
+        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
+          <span className="absolute inset-0 bg-slate-200" />
+          <span className="absolute inset-y-0 -left-[14px] right-0 bg-[repeating-linear-gradient(90deg,rgba(16,176,131,0.55)_0_6px,transparent_6px_14px)] animate-flujo-x motion-reduce:animate-none" />
+        </span>
         {FILAS.map((f, i) => (
           <span key={f.nombre} style={en(i * DESFASE + salida)} className="absolute inset-0 animate-viaje-x motion-reduce:hidden">
-            <span className={`absolute right-1 top-1/2 -translate-y-1/2 ${pastilla}`}>{contenido(f)}</span>
+            <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+              <span className={`h-[2px] w-14 rounded-full bg-gradient-to-r from-transparent ${color}`} />
+              <span style={en(i * DESFASE + salida)} className={`${pastilla} ${bruto ? "origin-right" : "origin-left"} motion-reduce:animate-none`}>{contenido(f)}</span>
+            </span>
           </span>
         ))}
       </div>
-      <div aria-hidden="true" className="relative mx-auto h-16 w-32 overflow-hidden lg:hidden">
-        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gradient-to-b from-slate-200 via-aproba-300 to-slate-200" />
+      <div aria-hidden="true" className="relative mx-auto h-20 w-52 overflow-hidden lg:hidden">
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 overflow-hidden [mask-image:linear-gradient(180deg,transparent,black_12%,black_88%,transparent)]">
+          <span className="absolute inset-0 bg-slate-200" />
+          <span className="absolute inset-x-0 -top-[14px] bottom-0 bg-[repeating-linear-gradient(180deg,rgba(16,176,131,0.55)_0_6px,transparent_6px_14px)] animate-flujo-y motion-reduce:animate-none" />
+        </span>
         {FILAS.map((f, i) => (
           <span key={f.nombre} style={en(i * DESFASE + salida)} className="absolute inset-0 animate-viaje-y motion-reduce:hidden">
-            <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 ${pastilla}`}>{contenido(f)}</span>
+            <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 flex-col items-center">
+              <span className={`h-10 w-[2px] rounded-full bg-gradient-to-b from-transparent ${color}`} />
+              <span style={en(i * DESFASE + salida)} className={`${pastilla} ${bruto ? "origin-bottom" : "origin-top"} motion-reduce:animate-none`}>{contenido(f)}</span>
+            </span>
           </span>
         ))}
       </div>
