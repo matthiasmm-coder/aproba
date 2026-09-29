@@ -94,37 +94,10 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
     });
   }
 
-  // ── 2. Facturado ANTES de Aproba (historial importado con importe). Su sede es la del
-  //      titular (cliente o empresa). Sin desglose guardado → solo cuenta en el total.
-  type FilaHist = { fecha: string | null; importe: unknown; referencia?: string | null; etiqueta?: string | null; notas?: string | null; cobro?: string | null; baseImponible?: unknown; cuotaIva?: unknown; cliente?: unknown; empresa?: unknown };
-  const leerHist = (cols: string) => todas<FilaHist>((d, h) =>
-    supabase.from("ServicioHistorico").select(cols).not("importe", "is", null).order("id").range(d, h) as unknown as PromiseLike<{ data: FilaHist[] | null; error: { message: string } | null }>);
-  const TITULAR = "cliente:Cliente(nombre, apellidos, oficinaId)";
-  const H = "id, fecha, importe, referencia, etiqueta, notas";
-  let rh = await leerHist(`${H}, cobro, baseImponible, cuotaIva, ${TITULAR}, empresa:Empresa(razonSocial, oficinaId)`);
-  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, cobro, ${TITULAR}, empresa:Empresa(razonSocial, oficinaId)`);
-  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, cobro, ${TITULAR}`);
-  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, ${TITULAR}`);
-  for (const h of rh.error ? [] : rh.data) {
-    const cli = uno(h.cliente as { nombre: string | null; apellidos: string | null; oficinaId?: string | null } | null);
-    const emp = uno(h.empresa as { razonSocial: string | null; oficinaId?: string | null } | null);
-    if (!enSede(emp ? emp.oficinaId : cli?.oficinaId)) continue;
-    if (!h.fecha) { sinFecha.emitidas++; continue; }
-    const total = num(h.importe) ?? 0;
-    const base = num(h.baseImponible);
-    emitidas.push({
-      fecha: String(h.fecha).slice(0, 10),
-      base, iva: base == null ? null : num(h.cuotaIva) ?? 0,
-      total,
-      cobrado: h.cobro === "COBRADA" ? total : h.cobro === "PENDIENTE" ? 0 : null,
-      cliente: emp?.razonSocial ?? [cli?.nombre, cli?.apellidos].filter(Boolean).join(" "),
-      fuente: "ANTERIOR",
-      ref: h.referencia ?? "",
-      // El concepto original (notas «Factura: …») dice más que la etiqueta genérica del servicio.
-      concepto: (h.notas ?? "").replace(/^Factura:\s*/i, "") || (h.etiqueta ?? ""),
-      servicio: h.etiqueta ?? "",
-    });
-  }
+  // ── 2. Facturado ANTES de Aproba (historial importado con importe): fetchFacturadoAnterior.
+  const anteriores = await fetchFacturadoAnterior(sedes, incluirSinSede);
+  sinFecha.emitidas += anteriores.sinFecha;
+  emitidas.push(...anteriores.filas);
 
   // ── 3. Facturas recibidas (proveedores). `total` es lo que se paga: ya sin la retención.
   type FilaRec = { numero?: string | null; concepto?: string | null; proveedorNombre: string | null; fecha: string | null; baseImponible: unknown; cuotaIva: unknown; retencion?: unknown; total: unknown; estado?: string | null };
@@ -145,6 +118,53 @@ export async function fetchMovimientosFacturacion(sedes?: string[] | null, inclu
   }
 
   return { emitidas, recibidas, sinFecha };
+}
+
+// Lo facturado ANTES de Aproba (historial importado con importe), en la sede activa. Su sede
+// es la del titular (cliente o empresa). Sin desglose guardado → solo cuenta en el total.
+// Lo usan las estadísticas y el CSV de Facturas › Emitidas (pedido de Luis, 29/09/2026: todo
+// su 2026 son facturas migradas y el CSV solo traía las hechas en Aproba).
+export type FacturaAnterior = MovEmitida & { nif: string | null; cobro: "COBRADA" | "PENDIENTE" | null };
+
+export async function fetchFacturadoAnterior(sedes?: string[] | null, incluirSinSede = false): Promise<{ filas: FacturaAnterior[]; sinFecha: number }> {
+  const supabase = await createSupabaseServer();
+  const enSede = (oficinaId: string | null | undefined) => !sedes?.length || (oficinaId ? sedes.includes(oficinaId) : incluirSinSede);
+  type FilaHist = { fecha: string | null; importe: unknown; referencia?: string | null; etiqueta?: string | null; notas?: string | null; cobro?: string | null; baseImponible?: unknown; cuotaIva?: unknown; cliente?: unknown; empresa?: unknown };
+  const leerHist = (cols: string) => todas<FilaHist>((d, h) =>
+    supabase.from("ServicioHistorico").select(cols).not("importe", "is", null).order("id").range(d, h) as unknown as PromiseLike<{ data: FilaHist[] | null; error: { message: string } | null }>);
+  const TITULAR = "cliente:Cliente(nombre, apellidos, oficinaId)";
+  const H = "id, fecha, importe, referencia, etiqueta, notas";
+  let rh = await leerHist(`${H}, cobro, baseImponible, cuotaIva, cliente:Cliente(nombre, apellidos, oficinaId, numeroDocumento), empresa:Empresa(razonSocial, oficinaId, nif)`);
+  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, cobro, baseImponible, cuotaIva, ${TITULAR}, empresa:Empresa(razonSocial, oficinaId)`);
+  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, cobro, ${TITULAR}, empresa:Empresa(razonSocial, oficinaId)`);
+  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, cobro, ${TITULAR}`);
+  if (rh.error && FALTA_COLUMNA.test(rh.error.message)) rh = await leerHist(`${H}, ${TITULAR}`);
+  const filas: FacturaAnterior[] = [];
+  let sinFecha = 0;
+  for (const h of rh.error ? [] : rh.data) {
+    const cli = uno(h.cliente as { nombre: string | null; apellidos: string | null; oficinaId?: string | null; numeroDocumento?: string | null } | null);
+    const emp = uno(h.empresa as { razonSocial: string | null; oficinaId?: string | null; nif?: string | null } | null);
+    if (!enSede(emp ? emp.oficinaId : cli?.oficinaId)) continue;
+    if (!h.fecha) { sinFecha++; continue; }
+    const total = num(h.importe) ?? 0;
+    const base = num(h.baseImponible);
+    const cobro = h.cobro === "COBRADA" || h.cobro === "PENDIENTE" ? h.cobro : null;
+    filas.push({
+      fecha: String(h.fecha).slice(0, 10),
+      base, iva: base == null ? null : num(h.cuotaIva) ?? 0,
+      total,
+      cobrado: cobro === "COBRADA" ? total : cobro === "PENDIENTE" ? 0 : null,
+      cliente: emp?.razonSocial ?? [cli?.nombre, cli?.apellidos].filter(Boolean).join(" "),
+      fuente: "ANTERIOR",
+      ref: h.referencia ?? "",
+      // El concepto original (notas «Factura: …») dice más que la etiqueta genérica del servicio.
+      concepto: (h.notas ?? "").replace(/^Factura:\s*/i, "") || (h.etiqueta ?? ""),
+      servicio: h.etiqueta ?? "",
+      nif: (emp ? emp.nif : cli?.numeroDocumento) ?? null,
+      cobro,
+    });
+  }
+  return { filas, sinFecha };
 }
 
 // Para las descargas (PDF y Excel): la misma sede que la pastilla activa en pantalla.

@@ -91,3 +91,25 @@ describe("csvFacturasEmitidas", () => {
     expect(sin[3]).toBe("");
   });
 });
+
+// 29/09/2026 — Luis (Asenjo): «en las recibidas puedo sacar un CSV de todo 2026, en las
+// emitidas no». Su 2026 son 271 facturas MIGRADAS: el CSV solo traía las 2 hechas en Aproba.
+describe("CSV de emitidas con lo facturado antes de Aproba", () => {
+  const filas = (csv: string) => csv.replace(/^﻿/, "").split("\n").map((l) => l.split(";"));
+
+  it("las migradas van detrás, con su origen, su NIF y su estado de cobro; sin inventar el desglose", () => {
+    const csv = csvFacturasEmitidas([{ ...base, iva: 10.5, total: 60.5 }], [
+      { ref: "AGC0271", fecha: "2026-03-15", cliente: "Gojue SL", nif: "B12345674", concepto: "Arraigo social", base: 700, iva: 147, total: 847, cobro: "COBRADA" },
+      { ref: "010/2026", fecha: "2026-04-02", cliente: "Ana Pérez", nif: null, concepto: null, base: null, iva: null, total: 300, cobro: "PENDIENTE" },
+    ]);
+    const [cab, aproba, m1, m2] = filas(csv);
+    expect(cab).toEqual(CABECERA_CSV_EMITIDAS);
+    expect(aproba[0]).toBe("2026-0023");
+    expect(m1).toEqual(["AGC0271", "15/03/2026", "Gojue SL", "B12345674", "Arraigo social", "700,00", "147,00", "", "847,00", "", "847,00", "Cobrada", "Anterior a Aproba", ""]);
+    expect(m2).toEqual(["010/2026", "02/04/2026", "Ana Pérez", "", "", "", "", "", "300,00", "", "300,00", "Pendiente", "Anterior a Aproba", ""]);
+  });
+
+  it("sin migradas, el CSV es el de siempre", () => {
+    expect(csvFacturasEmitidas([base])).toBe(csvFacturasEmitidas([base], []));
+  });
+});

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FACTURA_ESTADO_META, eur, importesFactura, parseFecha, fmtFecha, MESES, type Factura, type FacturaEstado } from "@/lib/facturas";
-import { csvFacturasEmitidas } from "@/lib/facturas-csv";
+import { csvFacturasEmitidas, type FacturaAnteriorCsv } from "@/lib/facturas-csv";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { DatosFacturacion } from "@/components/datos-facturacion";
 import type { Despacho } from "@/lib/data/config";
@@ -143,6 +143,8 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
   const [plegado, setPlegado] = useState<Record<string, boolean>>({});
   const [descargandoPdf, setDescargandoPdf] = useState(false);
   const [errPdf, setErrPdf] = useState<string | null>(null);
+  const [preparandoCsv, setPreparandoCsv] = useState(false);
+  const [avisoCsv, setAvisoCsv] = useState<string | null>(null);
 
   // Plage active selon le mode
   let rangeFrom: Date, rangeTo: Date, rangeLabel: string;
@@ -187,9 +189,22 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
     { label: t("Pendiente de cobro"), value: eur(pendiente), sub: vencidas ? `${vencidas} ${t("vencidas")}` : t("Al día"), tone: "text-amber-600" },
   ];
 
-  function exportarCSV() {
+  async function exportarCSV() {
+    if (preparandoCsv) return;
+    // Lo facturado ANTES de Aproba (migración) del mismo periodo va detrás, con su origen:
+    // sin ello, un despacho recién migrado exportaba un año casi vacío (Luis, 29/09/2026).
+    setPreparandoCsv(true); setAvisoCsv(null);
+    const dia = (d: Date) => d.toLocaleDateString("sv-SE");
+    let anteriores: FacturaAnteriorCsv[] = [];
+    try {
+      const r = await fetch(`/api/facturas/anteriores?desde=${dia(rangeFrom)}&hasta=${dia(rangeTo)}`, { cache: "no-store" });
+      if (r.ok) anteriores = ((await r.json()) as { filas?: FacturaAnteriorCsv[] }).filas ?? [];
+      else setAvisoCsv(t("No se pudo añadir lo facturado antes de Aproba: el CSV lleva solo las facturas hechas en Aproba."));
+    } catch { setAvisoCsv(t("No se pudo añadir lo facturado antes de Aproba: el CSV lleva solo las facturas hechas en Aproba.")); }
+    finally { setPreparandoCsv(false); }
+    if (!visibles.length && !anteriores.length) { setAvisoCsv(t("Nada que exportar en este periodo.")); return; }
     // NIF/CIF del cliente y suplidos en su columna (lib/facturas-csv.ts, pedido de Luis).
-    const csv = csvFacturasEmitidas(visibles);
+    const csv = csvFacturasEmitidas(visibles, anteriores);
 
     const nombre =
       mode === "mtd" ? `${MESES[HOY.getMonth()]}-${HOY.getFullYear()}`
@@ -251,9 +266,9 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
           <p className="text-sm text-slate-500">{vista === "emitidas" ? t("Factura a tus clientes por cada trámite.") : t("Las de tus proveedores: súbelas o reenvíalas a tu email de Aproba. La IA lee los datos; tú corriges lo marcado.")}</p>
         </div>
         {vista === "emitidas" && <div className="flex flex-wrap items-center gap-2">
-          <button onClick={exportarCSV} disabled={visibles.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+          <button onClick={exportarCSV} disabled={preparandoCsv} title={t("Las facturas del periodo, también las anteriores a Aproba (migración)")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
             <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-            {t("CSV")}
+            {preparandoCsv ? t("Preparando…") : t("CSV")}
           </button>
           <button onClick={exportarPdfs} disabled={descargandoPdf} title={t("Descarga todas las facturas emitidas y pagadas en PDF")} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
             <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
@@ -280,6 +295,7 @@ export function FacturasClient({ facturas, cobros, previos = [], despacho, esAdm
         </Link>
       </div>
       {errPdf && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{errPdf}</p>}
+      {avisoCsv && <p role="status" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{avisoCsv}</p>}
 
       {/* Sélecteur de période */}
       <div className="mb-4 flex flex-wrap items-center gap-3">

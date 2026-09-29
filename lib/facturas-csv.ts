@@ -17,7 +17,21 @@ const esc = (v: string | number) => {
   return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-export function csvFacturasEmitidas(facturas: Factura[]): string {
+// Lo facturado ANTES de Aproba (migración) en el mismo periodo, detrás de las de Aproba y
+// con «Origen: Anterior a Aproba» (pedido de Luis, 29/09/2026: su 2026 entero es migrado).
+// Sin desglose importado, Base e IVA quedan vacíos (no se inventan); sin retención conocida.
+export type FacturaAnteriorCsv = {
+  ref?: string | null; fecha: string; cliente: string; nif: string | null; concepto?: string | null;
+  base: number | null; iva: number | null; total: number; cobro: "COBRADA" | "PENDIENTE" | null;
+};
+const fechaEs = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
+
+export function csvFacturasEmitidas(facturas: Factura[], anteriores: FacturaAnteriorCsv[] = []): string {
+  const previas = anteriores.map((a) => [
+    a.ref ?? "", fechaEs(a.fecha), a.cliente, a.nif ?? "", a.concepto ?? "",
+    a.base == null ? "" : num(a.base), a.base == null ? "" : num(a.iva ?? 0), "", num(a.total), "", num(a.total),
+    a.cobro === "COBRADA" ? "Cobrada" : a.cobro === "PENDIENTE" ? "Pendiente" : "", "Anterior a Aproba", "",
+  ]);
   const filas = facturas.map((f) => {
     const imp = importesFactura(f);
     return [
@@ -27,5 +41,5 @@ export function csvFacturasEmitidas(facturas: Factura[]): string {
       f.emisorDatos?.nif ?? "",
     ];
   });
-  return "﻿" + [CABECERA_CSV_EMITIDAS, ...filas].map((r) => r.map(esc).join(";")).join("\n");
+  return "﻿" + [CABECERA_CSV_EMITIDAS, ...filas, ...previas].map((r) => r.map(esc).join(";")).join("\n");
 }
