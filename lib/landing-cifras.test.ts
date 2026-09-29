@@ -17,13 +17,24 @@ describe("cifras de la landing", () => {
     expect(Number(m![1])).toBe(formulariosOficiales().length + TASAS.length);
   });
 
-  it("el módulo «Formularios en un clic» anuncia los modelos que existen y todas las tasas", () => {
-    const m = /desc: "(\d+) modelos EX, los (\d+) de movilidad internacional y las tasas ([^"]+)"/.exec(home);
+  // Desde el 29/09/2026 la tarjeta ya no da cifras («Modelos EX, de movilidad internacional y
+  // tasas 790…», acortada por Matthias). Si vuelve a darlas, tienen que ser las del código.
+  it("el módulo «Formularios en un clic» solo anuncia lo que existe", () => {
+    const m = /titulo: "Formularios en un clic", desc: "([^"]+)"/.exec(home);
     expect(m, "no se encuentra el módulo de formularios en app/page.tsx").toBeTruthy();
+    const desc = m![1];
     // Dos familias distintas: los EX de extranjería general y los MI de la Ley 14/2013.
     // Contarlos juntos como «modelos EX» sería mentir sobre lo que hay.
-    expect(Number(m![1])).toBe(formulariosOficiales().filter((c) => c.startsWith("EX-")).length);
-    expect(Number(m![2])).toBe(formulariosOficiales().filter((c) => c.startsWith("MI-")).length);
-    for (const t of TASAS) expect(m![3], `la landing no menciona la tasa ${t}`).toContain(t);
+    if (/\bEX\b/.test(desc)) expect(formulariosOficiales().some((c) => c.startsWith("EX-"))).toBe(true);
+    if (/movilidad internacional/.test(desc)) expect(formulariosOficiales().some((c) => c.startsWith("MI-"))).toBe(true);
+    const n = /(\d+) modelos EX, los (\d+) de movilidad internacional y las tasas ([^"]+)/.exec(desc);
+    if (n) {
+      expect(Number(n[1])).toBe(formulariosOficiales().filter((c) => c.startsWith("EX-")).length);
+      expect(Number(n[2])).toBe(formulariosOficiales().filter((c) => c.startsWith("MI-")).length);
+      for (const t of TASAS) expect(n[3], `la landing no menciona la tasa ${t}`).toContain(t);
+    } else {
+      // «790» es el prefijo de los modelos de tasa, no una cifra; cualquier otra, sin atar al código.
+      expect((desc.match(/\d+/g) ?? []).filter((c) => c !== "790"), "cifra sin atar al código").toEqual([]);
+    }
   });
 });

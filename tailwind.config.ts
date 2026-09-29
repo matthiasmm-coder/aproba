@@ -70,6 +70,36 @@ const config: Config = {
           from: { transform: "translateX(0)" },
           to: { transform: "translateX(-50%)" },
         },
+        // Migración animada de la portada (components/migracion-animada.tsx), ciclo de 6 s.
+        // El paquete es una capa del ancho (o alto) del hilo con el punto en su extremo:
+        // translate en % de su propio tamaño = del hilo → todo en transform, nada de left/top.
+        viajeX: {
+          "0%": { transform: "translateX(-100%)", opacity: "0" },
+          "4%": { opacity: "1" },
+          "22%": { opacity: "1" },
+          "25%, 100%": { transform: "translateX(0)", opacity: "0" },
+        },
+        viajeY: {
+          "0%": { transform: "translateY(-100%)", opacity: "0" },
+          "4%": { opacity: "1" },
+          "22%": { opacity: "1" },
+          "25%, 100%": { transform: "translateY(0)", opacity: "0" },
+        },
+        resalte: {
+          "0%, 30%, 100%": { backgroundColor: "rgba(16,176,131,0)" },
+          "5%, 20%": { backgroundColor: "rgba(16,176,131,0.13)" },
+        },
+        // El ✓ que se estampa cuando el cliente llega a Aproba (entre ciclos, vuelve a estamparse).
+        sello: {
+          "0%": { transform: "scale(0.4)", opacity: "0" },
+          "6%": { transform: "scale(1.15)", opacity: "1" },
+          "10%, 100%": { transform: "scale(1)", opacity: "1" },
+        },
+        // La onda de la IA, una por paquete que entra (retraso = llegada del paquete).
+        latido: {
+          "0%": { transform: "scale(1)", opacity: "0.5" },
+          "22%, 100%": { transform: "scale(1.75)", opacity: "0" },
+        },
       },
       animation: {
         floaty: "floaty 5s ease-in-out infinite",
@@ -82,6 +112,11 @@ const config: Config = {
         crecer: "crecer 0.7s cubic-bezier(0.2,0.8,0.2,1) both",
         trazo: "trazo 1.1s cubic-bezier(0.4,0,0.2,1) 0.25s both",
         aparecer: "aparecer 0.15s ease-out both",
+        "viaje-x": "viajeX 6s cubic-bezier(0.45,0,0.25,1) infinite both",
+        "viaje-y": "viajeY 6s cubic-bezier(0.45,0,0.25,1) infinite both",
+        resalte: "resalte 6s ease-in-out infinite both",
+        sello: "sello 6s ease-out infinite both",
+        latido: "latido 6s ease-out infinite both",
       },
     },
   },

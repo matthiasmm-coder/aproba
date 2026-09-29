@@ -58,24 +58,23 @@ const PAINS = [
 
 // Cada cifra enlaza a su página (lib/beneficios): qué significa y cómo la afirmamos.
 const STATS = [
-  { n: "3 h → 30 min", l: "por expediente", icon: "time", href: rutaDeTarjeta("3 h → 30 min por expediente") },
-  { n: "−80 %", l: "errores administrativos", icon: "shield", href: rutaDeTarjeta("−80 % errores administrativos") },
-  { n: "35", l: "formularios y tasas oficiales en un clic", icon: "file", href: rutaDeTarjeta("35 formularios y tasas oficiales en un clic") },
-  { n: "8", l: "idiomas para tus clientes, árabe incluido", icon: "globe", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
+  { n: "3 h → 30 min", l: "por expediente", href: rutaDeTarjeta("3 h → 30 min por expediente") },
+  { n: "−80 %", l: "errores administrativos", href: rutaDeTarjeta("−80 % errores administrativos") },
+  { n: "35", l: "formularios y tasas oficiales en un clic", href: rutaDeTarjeta("35 formularios y tasas oficiales en un clic") },
+  { n: "8", l: "idiomas para tus clientes, árabe incluido", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
 ];
 
-function StatIcon({ name }: { name: string }) {
-  const cls = "h-6 w-6";
-  switch (name) {
-    case "time":
-      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
-    case "shield":
-      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m8.5 12 2.5 2.5L15.5 10" /></svg>);
-    case "file":
-      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 15h6M9 11h3" /></svg>);
-    default:
-      return (<svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>);
-  }
+// «3 h → 30 min» → las cifras en grande, las unidades en pequeño, la flecha en verde claro.
+function Cifra({ texto }: { texto: string }) {
+  return (
+    <>
+      {texto.split(/\s+/).map((p, i) =>
+        /^[−+]?\d+$/.test(p) ? <span key={i}>{p}</span>
+        : p === "→" ? <span key={i} className="mx-2 text-[0.6em] text-aproba-300">→</span>
+        : <span key={i} className="ml-1 text-[0.5em] font-medium text-aproba-100">{p}</span>
+      )}
+    </>
+  );
 }
 
 // El orden ES el flujo del expediente: los pasos 01→06 cuentan la orquestación (orden
@@ -87,7 +86,7 @@ const MODULOS = [
   { titulo: "Avisos automáticos", desc: "El cliente recibe cada avance de su expediente automáticamente.", icon: "bell" },
   { titulo: "Tablero de seguimiento", desc: "Qué falta, qué está listo y qué se ha presentado, de un vistazo.", icon: "board" },
   { titulo: "Radar de renovaciones", desc: "Cada caducidad vigilada y la renovación en marcha con un clic.", icon: "radar" },
-  { titulo: "Facturas automáticas", desc: "Anticipo, resto y suplidos, facturados desde el propio expediente.", icon: "invoice" },
+  { titulo: "Facturas automáticas", desc: "Anticipo, resto y suplidos desde el expediente, con VeriFactu.", icon: "invoice" },
 ].map((m) => ({ ...m, href: rutaDeTarjeta(m.titulo) }));
 
 
@@ -112,10 +111,10 @@ const FAQ = [
 // inventados: reseñas ficticias = publicidad engañosa (RDL 24/2021) y un riesgo
 // de credibilidad ante cualquier cliente que las googlee.
 const GARANTIAS = [
-  { titulo: "RGPD y DPA firmado", desc: "Cumplimos el RGPD y firmamos contigo el contrato de encargado de tratamiento, como con cualquier proveedor serio.", icon: "shield" },
-  { titulo: "Datos alojados en la UE", desc: "Los expedientes de tus clientes viajan cifrados y se alojan en servidores de la Unión Europea.", icon: "eu" },
-  { titulo: "Tus datos no entrenan IA", desc: "Los documentos de tus clientes nunca se usan para entrenar modelos de inteligencia artificial.", icon: "lock" },
-  { titulo: "Sin permanencia", desc: "Mes a mes, exportas tus expedientes y facturas cuando quieras. Si Aproba no te ahorra tiempo, te vas sin ataduras.", icon: "door" },
+  { titulo: "RGPD y DPA firmado", desc: "Firmamos contigo el contrato de encargado del tratamiento.", icon: "shield" },
+  { titulo: "Datos alojados en la UE", desc: "Viajan cifrados y se alojan en servidores de la Unión Europea.", icon: "eu" },
+  { titulo: "Tus datos no entrenan IA", desc: "Los documentos de tus clientes sirven solo a su expediente.", icon: "lock" },
+  { titulo: "Sin permanencia", desc: "Pagas mes a mes y exportas tus datos cuando quieras.", icon: "door" },
 ].map((g) => ({ ...g, href: rutaDeTarjeta(g.titulo) }));
 
 function GarantiaIcon({ name }: { name: string }) {
@@ -250,7 +249,7 @@ export default function Landing() {
           {PAINS.map((p, i) => (
             <Reveal key={p} delay={i * 80}>
               <div className="flex h-full items-start gap-3 rounded-2xl bg-white p-5 ring-1 ring-slate-900/[0.06]">
-                <svg className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                 <p className="text-slate-700">{p}</p>
               </div>
             </Reveal>
@@ -262,19 +261,24 @@ export default function Landing() {
         </p>
       </section>
 
-      {/* Stats */}
-      <section className="border-y border-aproba-700/40 bg-gradient-to-br from-aproba-600 to-aproba-700">
-        <div className="mx-auto max-w-6xl px-6 py-9">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-white/15">
+      {/* Cifras — banda «premium» (Matthias, 30/09/2026): verde profundo con halo y trama de
+          puntos difuminada, filos de luz arriba y abajo, cifras grandes con las unidades en
+          pequeño y separadores que se desvanecen. Cada cifra sigue enlazando a su página. */}
+      <section className="relative isolate overflow-hidden bg-[#08472f]">
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-br from-aproba-700 via-[#0a5a3e] to-[#05331f]" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(55%_120%_at_50%_0%,rgba(52,211,153,0.22),transparent_70%)]" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.09)_1px,transparent_0)] [background-size:22px_22px] [mask-image:radial-gradient(70%_90%_at_50%_50%,black,transparent)]" />
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-aproba-300/60 to-transparent" />
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+        <div className="mx-auto max-w-6xl px-6 py-14 md:py-16">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-0">
             {STATS.map((s, i) => (
-              <Reveal key={s.l} delay={i * 90}>
+              <Reveal key={s.l} delay={i * 90} className="relative">
+                {i > 0 && <span aria-hidden="true" className="absolute inset-y-1 left-0 hidden w-px bg-gradient-to-b from-transparent via-white/20 to-transparent md:block" />}
                 {/* La cifra es un enlace: su página dice qué significa y cómo la afirmamos. */}
-                <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group flex h-full flex-col items-center rounded-2xl px-2 py-1 text-center text-white transition hover:bg-white/10 md:px-5">
-                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-inset ring-white/20 transition group-hover:bg-white/20">
-                    <StatIcon name={s.icon} />
-                  </span>
-                  <p className="text-2xl font-bold tracking-tightest md:text-3xl">{s.n}</p>
-                  <p className="mt-1 text-sm font-medium text-aproba-100">{s.l}</p>
+                <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group flex h-full flex-col items-center rounded-2xl px-2 py-2 text-center transition hover:bg-white/[0.05] md:px-4">
+                  <p className="whitespace-nowrap text-3xl font-semibold leading-none tracking-tightest text-white tabular-nums lg:text-[2.75rem]"><Cifra texto={s.n} /></p>
+                  <p className="mt-3 max-w-[13rem] text-balance text-sm leading-snug text-aproba-100/80 transition group-hover:text-white">{s.l}</p>
                 </Link>
               </Reveal>
             ))}
