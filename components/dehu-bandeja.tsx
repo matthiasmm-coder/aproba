@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { copiarTexto } from "@/lib/copiar";
+import { DehuAutomatica } from "@/components/dehu-automatica";
 import {
   TIPO_NOTIFICACION_LABEL, URL_DEHU, MAX_PDF_BYTES, MAX_ZIP_BYTES, diasHasta, normalizarNombre, claveNumero,
   type NotificacionDehu, type TipoNotificacion,
@@ -16,7 +17,9 @@ import type { ExpedienteParaDehu } from "@/lib/data/notificaciones-dehu";
 //  · el gestor arrastra los PDF (o el ZIP) que descarga de la DEHú → la IA lee cada uno y
 //    PROPONE su expediente; un clic lo vincula y, si es un requerimiento, lo registra con su
 //    plazo (el mismo requerimiento de la ficha, con sus avisos al despacho);
-//  · los avisos de la DEHú que llegan a la dirección de Aproba → «ábrela antes del…».
+//  · los avisos de la DEHú que llegan a la dirección de Aproba → «ábrela antes del…»;
+//  · la DEHú automática (certificado conectado, components/dehu-automatica.tsx): lo
+//    pendiente llega solo y se ABRE desde aquí, con confirmación (29/09/2026).
 // Nada se escribe en un expediente sin el clic del gestor. El único enlace a la DEHú es su
 // dirección oficial: nunca uno sacado de un email.
 
@@ -102,12 +105,14 @@ function SelectorExpediente({ expedientes, onElegir, t, autoFocus }: { expedient
   );
 }
 
-function Tarjeta({ n, expedientes, porId, onCambio, t }: {
-  n: NotificacionDehu; expedientes: ExpedienteParaDehu[]; porId: Map<string, ExpedienteParaDehu>; onCambio: (n: NotificacionDehu) => void; t: Traducir;
+function Tarjeta({ n, expedientes, porId, onCambio, onNueva, t }: {
+  n: NotificacionDehu; expedientes: ExpedienteParaDehu[]; porId: Map<string, ExpedienteParaDehu>; onCambio: (n: NotificacionDehu) => void;
+  onNueva: (n: NotificacionDehu) => void; t: Traducir;
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [eligiendo, setEligiendo] = useState(false);
   const [guardarNumero, setGuardarNumero] = useState(true);
   const [formReq, setFormReq] = useState(false);
@@ -124,7 +129,11 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
   const sugerido = !n.expedienteId && n.sugerencia?.expedienteId ? porId.get(n.sugerencia.expedienteId) ?? null : null;
   const candidatos = !n.expedienteId && !sugerido ? (n.sugerencia?.candidatos ?? []).map((id) => porId.get(id)).filter((e): e is ExpedienteParaDehu => Boolean(e)) : [];
   const plazo = plazoTexto(n, t);
-  const esAviso = n.origen === "AVISO_EMAIL";
+  const esAviso = n.origen === "AVISO_EMAIL" || n.origen === "LEMA";
+  const automatica = n.origen === "LEMA";
+  const expirada = n.dehu?.estadoDehu === "EXPIRADA";
+  const esComunicacion = n.dehu?.tipoEnvio === 1;
+  const yaAbierta = Boolean(n.dehu?.abiertaAt); // abierta desde Aproba, su PDF aún no ha llegado
   const abierta = n.estado === "PENDIENTE" || n.estado === "VINCULADA";
   const persona = [n.titularNombre, n.nie ? `NIE ${n.nie}` : null, n.pasaporte ? `${t("Pasaporte")} ${n.pasaporte}` : null].filter(Boolean).join(" · ");
 
@@ -195,6 +204,27 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
     } catch (e) { setError(e instanceof Error ? e.message : t("No se pudo guardar la cita.")); setOcupado(null); }
   }
 
+  // DEHú automática: abrirla desde Aproba. Una notificación (no una comunicación) cuenta como
+  // notificada desde ese momento: se pide confirmación con el aviso legal.
+  async function abrirDesdeAproba() {
+    if (!esComunicacion && !(await confirmar({
+      titulo: t("Abrir la notificación"),
+      mensaje: t("Al abrirla te das por notificado hoy (art. 43.2 de la Ley 39/2015) y empiezan a correr los plazos que diga. ¿La abres ahora?"),
+      confirmarLabel: t("Abrir"),
+    }))) return;
+    setOcupado("abrir"); setError(null);
+    try {
+      const res = await fetch(`/api/dehu/${n.id}/abrir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmo: true }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? t("No se pudo abrir la notificación."));
+      if (d.fila) onNueva(d.fila as NotificacionDehu);
+      onCambio({ ...n, estado: d.fila ? "GESTIONADA" : n.estado, cerradaPor: d.fila?.id ?? null, dehu: n.dehu ? { ...n.dehu, estadoDehu: "ACEPTADA", abiertaAt: new Date().toISOString() } : null });
+      if (d.sinLectura) setInfo(t("Abierta. La IA la leerá en la próxima consulta: su PDF aparecerá aquí."));
+      router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : t("No se pudo abrir la notificación.")); }
+    finally { setOcupado(null); }
+  }
+
   async function eliminar() {
     if (!(await confirmar(t("¿Eliminar esta notificación? Se borra también el archivo.")))) return;
     setOcupado("eliminar"); setError(null);
@@ -217,7 +247,7 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
         <span className={`rounded px-2 py-0.5 text-xs font-semibold ${CHIP_TIPO[n.tipo]}`}>{t(TIPO_NOTIFICACION_LABEL[n.tipo])}</span>
         {n.organismo && <span className="min-w-0 truncate text-xs text-slate-500">{n.organismo}</span>}
         <span className="ml-auto whitespace-nowrap text-xs text-slate-400">
-          {esAviso ? t("Aviso por email") : t("PDF")} · {fechaCorta(n.fechaNotificacion ?? n.fechaPuestaDisposicion ?? n.fechaActo ?? n.createdAt)}
+          {automatica ? t("DEHú automática") : esAviso ? t("Aviso por email") : t("PDF")} · {fechaCorta(n.fechaNotificacion ?? n.fechaPuestaDisposicion ?? n.fechaActo ?? n.createdAt)}
         </span>
       </div>
 
@@ -276,8 +306,14 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
           {n.plazoTipo === "HABILES" || (!n.plazoTipo && n.tipo === "REQUERIMIENTO") ? t("Días hábiles sin contar festivos: compruébalo.") : t("Si el último día es festivo, pasa al siguiente hábil: compruébalo.")}
         </p>
       )}
-      {esAviso && abierta && n.tipo === "AVISO" && (
+      {esAviso && abierta && n.tipo === "AVISO" && !expirada && !esComunicacion && (
         <p className="mt-1 text-xs text-slate-400">{t("Pasados 10 días naturales sin abrirla, la notificación se da por rechazada y el procedimiento sigue.")}</p>
+      )}
+      {automatica && abierta && expirada && (
+        <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{t("La DEHú la da por rechazada: pasaron 10 días naturales sin abrirla y el procedimiento sigue. Su contenido se consulta en la DEHú.")}</p>
+      )}
+      {automatica && abierta && esComunicacion && (
+        <p className="mt-1 text-xs text-slate-400">{t("Es una comunicación: leerla no tiene efectos ni plazo.")}</p>
       )}
 
       {/* Expediente: vinculado, propuesto o por elegir. Un aviso sin propuesta no lo pide:
@@ -339,10 +375,22 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
       {/* Lo que toca hacer */}
       {abierta && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {n.tipo === "AVISO" && (
+          {n.tipo === "AVISO" && automatica && !expirada && yaAbierta && (
+            <span className="text-xs text-slate-500">{t("Abierta el")} {fechaCorta(n.dehu?.abiertaAt)}: {t("su PDF llegará en la próxima consulta.")}</span>
+          )}
+          {n.tipo === "AVISO" && automatica && !expirada && !yaAbierta && (
+            <>
+              <button type="button" disabled={ocupado !== null} onClick={abrirDesdeAproba} className={btnPrim}>
+                {ocupado === "abrir" ? t("Abriendo en la DEHú…") : esComunicacion ? t("Leer y traer a Aproba") : t("Abrir y traer a Aproba")}
+              </button>
+              <a href={URL_DEHU} target="_blank" rel="noopener noreferrer" className={btnSec}>{t("Abrir la DEHú")}</a>
+              <span className="text-xs text-slate-400">{t("Si la abres en la DEHú, Aproba traerá el PDF solo.")}</span>
+            </>
+          )}
+          {n.tipo === "AVISO" && (!automatica || expirada) && (
             <>
               <a href={URL_DEHU} target="_blank" rel="noopener noreferrer" className={btnPrim}>{t("Abrir la DEHú")}</a>
-              <button type="button" disabled={ocupado !== null} onClick={() => patch({ accion: "gestionada" }, "hecho")} className={btnSec}>{t("Ya la he abierto")}</button>
+              <button type="button" disabled={ocupado !== null} onClick={() => patch({ accion: "gestionada" }, "hecho")} className={btnSec}>{expirada ? t("Marcar como gestionada") : t("Ya la he abierto")}</button>
             </>
           )}
           {n.tipo === "VERIFICACION" && (
@@ -404,6 +452,7 @@ function Tarjeta({ n, expedientes, porId, onCambio, t }: {
         </div>
       )}
 
+      {info && <p className="mt-2 rounded-lg bg-aproba-50 px-3 py-2 text-xs font-semibold text-aproba-700">{info}</p>}
       {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
     </article>
   );
@@ -515,6 +564,9 @@ export function DehuBandeja({ items, expedientes, direccion, faltaMigracion }: P
 
   return (
     <div className="space-y-5">
+      {/* DEHú automática (certificado conectado): se oculta sola si el servidor no la ofrece */}
+      <DehuAutomatica />
+
       {/* Importar + dirección de avisos */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div
@@ -588,7 +640,7 @@ export function DehuBandeja({ items, expedientes, direccion, faltaMigracion }: P
         </div>
       ) : (
         <div className="space-y-3">
-          {visibles.map((n) => <Tarjeta key={n.id} n={n} expedientes={expedientes} porId={porId} onCambio={cambiar} t={t} />)}
+          {visibles.map((n) => <Tarjeta key={n.id} n={n} expedientes={expedientes} porId={porId} onCambio={cambiar} onNueva={(nueva) => setLista((l) => [nueva, ...l.filter((x) => x.id !== nueva.id)])} t={t} />)}
         </div>
       )}
     </div>

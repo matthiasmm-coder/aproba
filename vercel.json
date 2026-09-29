@@ -29,6 +29,10 @@
     {
       "path": "/api/cron/resumen-semanal",
       "schedule": "0 15 * * 5"
+    },
+    {
+      "path": "/api/cron/dehu",
+      "schedule": "0 5 * * *"
     }
   ]
 }

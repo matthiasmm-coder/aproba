@@ -73,7 +73,7 @@ async function leerFila(admin: Admin, id: string): Promise<NotificacionDehu | nu
 // Avisos pendientes que un PDF recién importado puede dejar resueltos.
 async function cerrarAvisoDe(admin: Admin, workspaceId: string, notifId: string, n: LecturaNotificacion): Promise<string | null> {
   const { data } = await admin.from("NotificacionDehu").select("id, organismo, fechaPuestaDisposicion, numeroExpediente, nie, aviso, createdAt")
-    .eq("workspaceId", workspaceId).eq("origen", "AVISO_EMAIL").eq("tipo", "AVISO").eq("estado", "PENDIENTE").limit(300);
+    .eq("workspaceId", workspaceId).in("origen", ["AVISO_EMAIL", "LEMA"]).eq("tipo", "AVISO").eq("estado", "PENDIENTE").limit(300);
   const avisos: (AvisoPendiente & { aviso: Record<string, unknown> })[] = ((data ?? []) as Record<string, unknown>[]).map((a) => ({
     id: String(a.id), organismo: (a.organismo as string | null) ?? null, fechaPuestaDisposicion: typeof a.fechaPuestaDisposicion === "string" ? a.fechaPuestaDisposicion.slice(0, 10) : null,
     identificador: typeof (a.aviso as Record<string, unknown> | null)?.identificador === "string" ? String((a.aviso as Record<string, unknown>).identificador) : null,
@@ -101,13 +101,17 @@ export type ResultadoImportacion =
 export async function importarNotificacion(admin: Admin, o: {
   workspaceId: string; buffer: Buffer; mime: string; nombre: string; storagePath?: string | null;
   creadoPorId?: string | null; siNoEs: "ignorar" | "descartar";
+  // DEHú automática: el día en que se abrió (la DEHú lo sabe aunque el PDF no lo diga) y el
+  // expediente al que el gestor ya había vinculado su aviso (se PROPONE, no se vincula).
+  fechaNotificacion?: string | null; expedienteVinculado?: string | null;
 }): Promise<ResultadoImportacion> {
   const huella = huellaDe(o.buffer);
   const previo = await admin.from("NotificacionDehu").select("id").eq("workspaceId", o.workspaceId).eq("huella", huella).maybeSingle();
   if (previo.error) throw new Error(faltaMigracionDehu(previo.error.message) ? ERROR_MIGRACION_DEHU : previo.error.message);
   if (previo.data) return { estado: "duplicada", fila: await leerFila(admin, previo.data.id as string) };
 
-  const leida = await extraerNotificacion(o.buffer, o.mime); // IaNoDisponible sube: se reintenta
+  const leidaIa = await extraerNotificacion(o.buffer, o.mime); // IaNoDisponible sube: se reintenta
+  const leida = leidaIa.fechaNotificacion || !o.fechaNotificacion ? leidaIa : { ...leidaIa, fechaNotificacion: o.fechaNotificacion };
   if (!leida.esNotificacion && o.siNoEs === "descartar") return { estado: "no_es_notificacion", fila: null };
 
   // El mismo acto con otro envoltorio (suelto y dentro de un ZIP): mismo CSV o identificador.
@@ -136,7 +140,9 @@ export async function importarNotificacion(admin: Admin, o: {
   }
 
   const esNotif = leida.esNotificacion;
-  const sugerencia = esNotif ? sugerirExpediente(leida, await candidatosDeWorkspace(admin, o.workspaceId)) : null;
+  const porDatos = esNotif ? sugerirExpediente(leida, await candidatosDeWorkspace(admin, o.workspaceId)) : null;
+  const sugerencia = porDatos?.expedienteId || !esNotif || !o.expedienteVinculado
+    ? porDatos : { expedienteId: o.expedienteVinculado, clienteId: porDatos?.clienteId ?? null, motivo: "aviso vinculado" };
   const limite = esNotif ? fechaLimiteSugerida(leida) : null;
   const { inputTokens, outputTokens, ...datos } = leida;
   const fila = {

@@ -13,7 +13,8 @@ export const TIPOS_NOTIFICACION = [
 export type TipoNotificacion = (typeof TIPOS_NOTIFICACION)[number];
 export const ESTADOS_NOTIFICACION = ["PENDIENTE", "VINCULADA", "GESTIONADA", "IGNORADA"] as const;
 export type EstadoNotificacion = (typeof ESTADOS_NOTIFICACION)[number];
-export type OrigenNotificacion = "PDF" | "AVISO_EMAIL";
+// LEMA = la DEHú automática (Gran Destinatario, lib/dehu/sincronizar.ts, 29/09/2026).
+export type OrigenNotificacion = "PDF" | "AVISO_EMAIL" | "LEMA";
 
 // Etiquetas en pantalla (claves de t(): traducidas en lib/app-i18n.ts).
 export const TIPO_NOTIFICACION_LABEL: Record<TipoNotificacion, string> = {
@@ -199,7 +200,7 @@ export type ExpedienteCandidato = {
 // para que el gestor elija en un clic — no se elige por él.
 export type Sugerencia = { expedienteId: string | null; clienteId: string | null; motivo: string; candidatos?: string[] };
 // Por qué se propone un expediente (se enseña traducido: claves de t()).
-export const MOTIVOS_SUGERENCIA = ["nº de expediente", "NIE", "pasaporte", "nombre", "NIF de la empresa"] as const;
+export const MOTIVOS_SUGERENCIA = ["nº de expediente", "NIE", "pasaporte", "nombre", "NIF de la empresa", "aviso vinculado"] as const;
 const [M_NUMERO, M_NIE, M_PASAPORTE, M_NOMBRE, M_NIF] = MOTIVOS_SUGERENCIA;
 
 export const normalizarNombre = (s: string | null | undefined) =>
@@ -367,6 +368,8 @@ export type NotificacionDehu = {
   confianza: number | null;
   codigo: string | null;             // código de verificación de la dirección de aviso
   cerradaPor: string | null;         // aviso resuelto al importar el PDF de su notificación
+  // DEHú automática: comunicación (1) o notificación (2), y lo que la DEHú dice de ella.
+  dehu: { tipoEnvio: 1 | 2; estadoDehu: string | null; abiertaAt: string | null } | null;
   gestionadaAt: string | null; gestionadaPor: string | null; createdAt: string;
 };
 
@@ -385,7 +388,7 @@ export function mapFilaNotificacion(r: Record<string, unknown>): NotificacionDeh
   const candidatos = Array.isArray(sugIa?.candidatos) ? (sugIa.candidatos as unknown[]).map(String) : [];
   const cita = (ia.cita ?? null) as CitaLeida | null;
   return {
-    id: String(r.id), origen: r.origen === "AVISO_EMAIL" ? "AVISO_EMAIL" : "PDF", estado, tipo,
+    id: String(r.id), origen: r.origen === "AVISO_EMAIL" ? "AVISO_EMAIL" : r.origen === "LEMA" ? "LEMA" : "PDF", estado, tipo,
     organismo: s(r.organismo), asunto: s(r.asunto), resumen: s(r.resumen),
     titularNombre: s(r.titularNombre), nie: s(r.nie), pasaporte: s(r.pasaporte), numeroExpediente: s(r.numeroExpediente),
     empresaNombre: s(ia.empresaNombre), empresaNif: s(ia.empresaNif),
@@ -403,6 +406,7 @@ export function mapFilaNotificacion(r: Record<string, unknown>): NotificacionDeh
     noEsNotificacion: ia.noEsNotificacion === true,
     confianza: r.confianza === null || r.confianza === undefined ? null : Number(r.confianza),
     codigo: s(av.codigo), cerradaPor: s(av.cerradaPor),
+    dehu: r.origen === "LEMA" ? { tipoEnvio: av.tipoEnvio === 1 ? 1 : 2, estadoDehu: s(av.estadoDehu), abiertaAt: s(av.abiertaAt) } : null,
     gestionadaAt: s(r.gestionadaAt), gestionadaPor: s(r.gestionadaPor), createdAt: String(r.createdAt ?? ""),
   };
 }
