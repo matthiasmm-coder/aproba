@@ -194,7 +194,9 @@ export default function Landing() {
           />
         </div>
 
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pb-14 pt-16 lg:grid-cols-2 lg:gap-8">
+        {/* Escritorio (30/09/2026, Matthias): texto en 30rem y la pantalla de la app en todo lo demás,
+            más grande; la descripción corta antes y la demo va en su propia línea. */}
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pb-14 pt-16 lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:gap-8">
           {/* Texte */}
           <div className="hero-stagger min-w-0 text-center lg:text-left">
             <span className="inline-flex items-center gap-2 rounded-full bg-aproba-100 px-3 py-1 text-xs font-semibold text-aproba-700">
@@ -211,7 +213,7 @@ export default function Landing() {
                 </svg>
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-600 lg:mx-0">
+            <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-slate-600 lg:mx-0 lg:max-w-[27rem]">
               {/* 28/09/2026: ya no «revisa el expediente antes de presentarlo» — la revisión
                   previa (Centinela) salió del producto el 22/08; se promete lo que hay. */}
               La IA valida los documentos, genera los formularios oficiales, te avisa de lo que
@@ -223,8 +225,9 @@ export default function Landing() {
                 Descubrir en 80s
               </a>
             </div>
-            <p className="mt-4 text-xs text-slate-500">
-              Sin tarjeta · entras con un expediente de ejemplo ya resuelto ·{" "}
+            <p className="mt-4 text-xs leading-relaxed text-slate-500">
+              Sin tarjeta · entras con un expediente de ejemplo ya resuelto
+              <br />
               <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-aproba-700 underline decoration-aproba-300 underline-offset-2 hover:text-aproba-800">¿prefieres una demo de 20 min?</a>
             </p>
           </div>

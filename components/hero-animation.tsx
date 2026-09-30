@@ -666,11 +666,12 @@ export function HeroAnimation() {
 
       {/* La pantalla de la app, SIN marco de tableta (Matthias, 30/09/2026: « enlève les
           bordures de l'écran »): flota con su sombra y un filo apenas visible. Escalado
-          PROPORCIONAL con zoom (la maqueta está en px fijos): a partir de 1152 px la columna
-          mide 536 px → 470 × 1,14 = 536, y el borde derecho de la pantalla queda alineado con
-          el del botón «Prueba 15 días gratis» de la cabecera (mismo contenedor max-w-6xl px-6).
-          Paso intermedio en 1100-1151 px. Inmóvil (30/09: ya no flota): solo cambian las pantallas. */}
-      <div className="relative w-full max-w-[470px] min-[1100px]:[zoom:1.08] min-[1152px]:[zoom:1.14]">
+          PROPORCIONAL con zoom (la maqueta está en px fijos): desde el 30/09 el texto ocupa 30rem,
+          así que a partir de 1152 px la columna de la pantalla mide 592 px → 470 × 1,26 = 592, y
+          el borde derecho de la pantalla queda alineado con el del botón «Prueba 15 días gratis»
+          de la cabecera (mismo contenedor max-w-6xl px-6). Paso intermedio en 1100-1151 px
+          (columna de 540 a 591 px → 1,14). Inmóvil (30/09: ya no flota): solo cambian las pantallas. */}
+      <div className="relative w-full max-w-[470px] min-[1100px]:[zoom:1.14] min-[1152px]:[zoom:1.26]">
         <div className="relative rounded-2xl shadow-float ring-1 ring-slate-900/[0.08]">
           {/* écran */}
           <div className="overflow-hidden rounded-2xl bg-cream-50">
