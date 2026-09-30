@@ -385,6 +385,37 @@ export const PAGINAS: PaginaPublica[] = [
     cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
     relacionadas: ["/software-de-extranjeria", "/precios", "/articulos"],
   },
+  // ── QUIÉNES SOMOS (30/09/2026, Matthias): pestaña del menú, a la derecha de Artículos, y
+  // página aparte (no en la portada). Sin el nombre de la sociedad (Matthias) y con un solo
+  // contacto, el suyo. Solo hechos comprobables: fundador y correo de lib/contacto.ts, ejemplos
+  // de funciones pedidas por clientes reales. Su trayectoria: solo lo seguro (ampliable).
+  {
+    ruta: "/quienes-somos",
+    titulo: "Quiénes somos · Aproba, software de extranjería",
+    descripcion: "Quién está detrás de Aproba, el software de extranjería para gestorías y abogados: su fundador, por qué existe y cómo trabajamos con los despachos.",
+    etiqueta: "Sobre Aproba",
+    h1: "Quiénes somos",
+    entradilla: "Aproba es un producto especializado: un solo oficio, la extranjería, construido junto a los despachos que lo usan.",
+    actualizado: "2026-09-30",
+    migas: [{ nombre: "Quiénes somos", ruta: "/quienes-somos" }],
+    bloques: [
+      { t: "h2", texto: "Quién está detrás" },
+      { t: "p", texto: "Aproba lo ha creado y lo dirige **Matthias Merle Mounier**, su fundador. Francés afincado en España, lleva el producto de principio a fin y está en contacto directo con cada despacho que lo usa." },
+      { t: "h2", texto: "Por qué existe" },
+      { t: "p", texto: "En un despacho de extranjería, un expediente son documentos que llegan mal por WhatsApp, formularios EX tecleados a mano y plazos que nadie vigila. Aproba quita esa parte: el cliente sube sus documentos desde el móvil, la IA los valida y los formularios oficiales salen solos, para que el profesional dedique su tiempo al caso." },
+      { t: "h2", texto: "Cómo trabajamos" },
+      { t: "ul", items: [
+        "**Con los despachos que lo usan.** Las funciones nuevas salen de lo que piden: las facturas proforma llegaron a petición de una gestoría cliente, y la vista en tabla volvió porque otra la necesitaba.",
+        "**Decimos solo lo que es verdad.** Cada cifra y cada garantía de la portada enlaza a una página que explica qué significa y cómo lo afirmamos.",
+        "**Tus datos, en la Unión Europea.** Alojados y cifrados en la UE, con contrato de encargado del tratamiento ([DPA](/legal/dpa)); los documentos de tus clientes no entrenan modelos de IA.",
+        "**Sin permanencia.** Mes a mes, y tus datos se exportan cuando quieras.",
+      ] },
+      { t: "h2", texto: "Contacto" },
+      { t: "p", texto: "Escribe directamente a Matthias: matthias@aproba-software.com. Aviso legal, privacidad y condiciones, en las páginas legales del sitio." },
+    ],
+    cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
+    relacionadas: ["/que-es-aproba", "/caso-real", "/precios"],
+  },
 ];
 
 export const getPagina = (ruta: string): PaginaPublica | undefined => PAGINAS.find((p) => p.ruta === ruta);

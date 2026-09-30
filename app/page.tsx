@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HeroAnimation } from "@/components/hero-animation";
+import { MenuMovil } from "@/components/menu-movil";
 import { Reveal } from "@/components/reveal";
 import { LandingMigracion } from "@/components/landing-migracion";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
@@ -160,9 +161,12 @@ export default function Landing() {
             <a href="#precios" className="hover:text-slate-900">Precios</a>
             {/* Sección editorial (SEO): sale de la landing, por eso es <Link> y no ancla */}
             <Link href="/articulos" className="hover:text-slate-900">Artículos</Link>
+            {/* Página aparte, no en la portada (Matthias, 30/09/2026) */}
+            <Link href="/quienes-somos" className="hover:text-slate-900">Quiénes somos</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" prefetch={false} className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:px-4">
+            {/* En el móvil más estrecho, «Entrar» pasa al menú ☰ para que quepa el botón. */}
+            <Link href="/login" prefetch={false} className="hidden h-9 items-center whitespace-nowrap rounded-lg border border-aproba-600 px-2.5 text-sm font-semibold text-aproba-700 transition hover:bg-aproba-50 sm:inline-flex sm:px-4">
               Entrar
             </Link>
             <Link href="/signup?modo=prueba" prefetch={false} className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
@@ -170,6 +174,17 @@ export default function Landing() {
               <span className="hidden min-[360px]:inline sm:hidden">Prueba gratis</span>
               <span className="hidden sm:inline">Prueba 15 días gratis</span>
             </Link>
+            <MenuMovil
+              className="md:hidden"
+              entrar
+              enlaces={[
+                { href: "#como-funciona", texto: "Cómo funciona" },
+                { href: "#funciones", texto: "Funciones" },
+                { href: "#precios", texto: "Precios" },
+                { href: "/articulos", texto: "Artículos" },
+                { href: "/quienes-somos", texto: "Quiénes somos" },
+              ]}
+            />
           </div>
         </div>
       </header>

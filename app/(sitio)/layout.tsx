@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
+import { MenuMovil } from "@/components/menu-movil";
 
 // Chrome de las páginas «beneficio explicado» (/funciones, /cifras, /garantias): el mismo
 // esqueleto sobrio que los artículos — cabecera con vuelta a la portada y pie orientado a
@@ -14,11 +15,22 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/#funciones" className="hidden text-sm font-medium text-slate-500 transition hover:text-slate-800 sm:inline">Funciones</Link>
-            <Link href="/articulos" className="text-sm font-medium text-slate-500 transition hover:text-slate-800">Artículos</Link>
+            <Link href="/articulos" className="hidden text-sm font-medium text-slate-500 transition hover:text-slate-800 sm:inline">Artículos</Link>
+            <Link href="/quienes-somos" className="hidden text-sm font-medium text-slate-500 transition hover:text-slate-800 sm:inline">Quiénes somos</Link>
             <Link href="/signup?modo=prueba" className="whitespace-nowrap rounded-lg bg-aproba-600 px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-aproba-700 sm:px-4">
               <span className="min-[360px]:hidden">Prueba</span>
               <span className="hidden min-[360px]:inline">Prueba 15 días gratis</span>
             </Link>
+            <MenuMovil
+              className="sm:hidden"
+              enlaces={[
+                { href: "/", texto: "Inicio" },
+                { href: "/#funciones", texto: "Funciones" },
+                { href: "/#precios", texto: "Precios" },
+                { href: "/articulos", texto: "Artículos" },
+                { href: "/quienes-somos", texto: "Quiénes somos" },
+              ]}
+            />
           </div>
         </div>
       </header>
@@ -31,6 +43,7 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
             <Link href="/" className="hover:text-slate-700">Inicio</Link>
             <Link href="/software-de-extranjeria" className="hover:text-slate-700">Software de extranjería</Link>
             <Link href="/que-es-aproba" className="hover:text-slate-700">Qué es Aproba</Link>
+            <Link href="/quienes-somos" className="hover:text-slate-700">Quiénes somos</Link>
             <Link href="/precios" className="hover:text-slate-700">Precios</Link>
             <Link href="/tramites" className="hover:text-slate-700">Trámites</Link>
             <Link href="/formularios" className="hover:text-slate-700">Formularios</Link>

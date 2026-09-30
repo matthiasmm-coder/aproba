@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
+import { MenuMovil } from "@/components/menu-movil";
 
 // Chrome de la sección de artículos: mismo esqueleto que las páginas legales (cabecera
 // sobria + vuelta a la landing), pero con su propio pie orientado a conversión — quien
@@ -13,8 +14,11 @@ export default function ArticulosLayout({ children }: { children: React.ReactNod
             <AprobaLogo size={28} />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/articulos" className="text-sm font-medium text-slate-500 transition hover:text-slate-800">
+            <Link href="/articulos" className="hidden text-sm font-medium text-slate-500 transition hover:text-slate-800 sm:inline">
               Artículos
+            </Link>
+            <Link href="/quienes-somos" className="hidden text-sm font-medium text-slate-500 transition hover:text-slate-800 sm:inline">
+              Quiénes somos
             </Link>
             <Link
               href="/signup?modo=prueba"
@@ -23,6 +27,16 @@ export default function ArticulosLayout({ children }: { children: React.ReactNod
               <span className="min-[360px]:hidden">Prueba</span>
               <span className="hidden min-[360px]:inline">Prueba 15 días gratis</span>
             </Link>
+            <MenuMovil
+              className="sm:hidden"
+              enlaces={[
+                { href: "/", texto: "Inicio" },
+                { href: "/#funciones", texto: "Funciones" },
+                { href: "/#precios", texto: "Precios" },
+                { href: "/articulos", texto: "Artículos" },
+                { href: "/quienes-somos", texto: "Quiénes somos" },
+              ]}
+            />
           </div>
         </div>
       </header>
@@ -34,6 +48,7 @@ export default function ArticulosLayout({ children }: { children: React.ReactNod
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/" className="hover:text-slate-700">Inicio</Link>
             <Link href="/articulos" className="hover:text-slate-700">Artículos</Link>
+            <Link href="/quienes-somos" className="hover:text-slate-700">Quiénes somos</Link>
             <Link href="/legal/aviso-legal" className="hover:text-slate-700">Aviso legal</Link>
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <a href="mailto:hola@aproba-software.com" className="hover:text-slate-700">Contacto</a>
