@@ -400,7 +400,7 @@ export const PAGINAS: PaginaPublica[] = [
     migas: [{ nombre: "Quiénes somos", ruta: "/quienes-somos" }],
     bloques: [
       { t: "h2", texto: "Quién está detrás" },
-      { t: "persona", nombre: "Matthias Merle Mounier", cargo: "Fundador · antes Product Manager en la industria y la tecnología", iniciales: "MM", foto: "/equipo/matthias-merle-mounier.jpg", linkedin: "https://www.linkedin.com/in/matthias-merle-mounier/" },
+      { t: "persona", nombre: "Matthias Merle Mounier", cargo: "Fundador de Aproba", iniciales: "MM", foto: "/equipo/matthias-merle-mounier.jpg", linkedin: "https://www.linkedin.com/in/matthias-merle-mounier/" },
       { t: "p", texto: "Francés afincado en España, Matthias fue **Product Manager en la industria y en el sector tecnológico** antes de fundar Aproba. Hoy pone esa experiencia al servicio de un solo oficio, la extranjería, en contacto directo con los despachos que lo usan." },
       { t: "h2", texto: "Por qué existe" },
       { t: "p", texto: "En un despacho de extranjería, un expediente son documentos que llegan mal por WhatsApp, formularios EX tecleados a mano y plazos que nadie vigila. Aproba quita esa parte: el cliente sube sus documentos desde el móvil, la IA los valida y los formularios oficiales salen solos, para que el profesional dedique su tiempo al caso." },
