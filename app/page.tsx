@@ -270,6 +270,9 @@ export default function Landing() {
           {STATS.map((s, i) => (
             <Reveal key={s.l} delay={i * 90} className="h-full">
               <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full min-h-[9rem] flex-col items-center justify-center rounded-2xl bg-aproba-600 px-4 py-6 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_-14px_rgba(14,140,95,0.6)] transition duration-300 hover:-translate-y-1 hover:bg-aproba-700 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_22px_40px_-16px_rgba(14,140,95,0.7)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 lg:min-h-[10.5rem]">
+                {/* Liseré blanc (Matthias, 30/09): un filo interior a 5 px del borde, con esquinas
+                    concéntricas (16 − 5 = 11 px), que se aviva al pasar. */}
+                <span aria-hidden="true" className="pointer-events-none absolute inset-[5px] rounded-[11px] border border-white/40 transition-colors duration-300 group-hover:border-white/75" />
                 <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-3.5 w-3.5 text-white/45 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
                 <p className="whitespace-nowrap text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
                 <span aria-hidden="true" className="mt-3.5 h-px w-8 bg-white/40 transition-all duration-300 group-hover:w-12" />
