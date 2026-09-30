@@ -461,7 +461,7 @@ export default function Landing() {
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <Link href="/legal/cookies" className="hover:text-slate-700">Cookies</Link>
             <Link href="/legal/terminos" className="hover:text-slate-700">Términos</Link>
-            <a href="mailto:hola@aproba-software.com" className="hover:text-slate-700">Contacto</a>
+            <a href="mailto:aproba.software@gmail.com" className="hover:text-slate-700">Contacto</a>
           </div>
         </div>
       </footer>

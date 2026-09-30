@@ -6,6 +6,7 @@ import type { Bloque } from "@/lib/articulos";
 // traen su estilo aquí.
 
 import Link from "next/link";
+import Image from "next/image";
 
 // **negrita** → <strong> y [texto](/ruta) → <Link> (solo rutas internas: el contenido es
 // nuestro y los enlaces internos entre artículos son parte del SEO). Nada más: un
@@ -50,6 +51,27 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
             return <ul key={i}>{b.items.map((x, j) => <li key={j}>{conNegrita(x)}</li>)}</ul>;
           case "ol":
             return <ol key={i}>{b.items.map((x, j) => <li key={j}>{conNegrita(x)}</li>)}</ol>;
+          case "persona":
+            // Ficha de una persona: su foto (o sus iniciales), nombre y cargo.
+            return (
+              <div key={i} className="my-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+                {b.foto ? (
+                  <Image src={b.foto} alt={b.nombre} width={128} height={128} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-aproba-100" />
+                ) : (
+                  <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-aproba-600 text-lg font-bold tracking-tight text-white ring-2 ring-aproba-100">{b.iniciales}</span>
+                )}
+                <span className="min-w-0">
+                  <span className="block text-base font-semibold text-slate-900">{b.nombre}</span>
+                  <span className="block text-sm leading-snug text-slate-500">{b.cargo}</span>
+                  {b.linkedin && (
+                    <a href={b.linkedin} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium text-aproba-700 no-underline hover:text-aproba-600">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z" /></svg>
+                      Perfil de LinkedIn
+                    </a>
+                  )}
+                </span>
+              </div>
+            );
           case "cita":
             return (
               <blockquote key={i} className="my-6 border-l-2 border-aproba-300 pl-4">

@@ -380,15 +380,15 @@ export const PAGINAS: PaginaPublica[] = [
         "Sin permanencia; exportación completa de los datos.",
       ] },
       { t: "h2", texto: "Contacto" },
-      { t: "p", texto: "hola@aproba-software.com · Aviso legal, privacidad y condiciones en las páginas legales del sitio." },
+      { t: "p", texto: "aproba.software@gmail.com · Aviso legal, privacidad y condiciones en las páginas legales del sitio." },
     ],
     cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
     relacionadas: ["/software-de-extranjeria", "/precios", "/articulos"],
   },
   // ── QUIÉNES SOMOS (30/09/2026, Matthias): pestaña del menú, a la derecha de Artículos, y
-  // página aparte (no en la portada). Sin el nombre de la sociedad (Matthias) y con un solo
-  // contacto, el suyo. Solo hechos comprobables: fundador y correo de lib/contacto.ts, ejemplos
-  // de funciones pedidas por clientes reales. Su trayectoria: solo lo seguro (ampliable).
+  // página aparte (no en la portada). Sin el nombre de la sociedad y sin dar a entender que el
+  // fundador lo hace todo solo (Matthias); su trayectoria: Product Manager en la industria y la
+  // tecnología (dicho por él). Foto de su perfil de LinkedIn (la envió él) y enlace al perfil.
   {
     ruta: "/quienes-somos",
     titulo: "Quiénes somos · Aproba, software de extranjería",
@@ -400,18 +400,19 @@ export const PAGINAS: PaginaPublica[] = [
     migas: [{ nombre: "Quiénes somos", ruta: "/quienes-somos" }],
     bloques: [
       { t: "h2", texto: "Quién está detrás" },
-      { t: "p", texto: "Aproba lo ha creado y lo dirige **Matthias Merle Mounier**, su fundador. Francés afincado en España, lleva el producto de principio a fin y está en contacto directo con cada despacho que lo usa." },
+      { t: "persona", nombre: "Matthias Merle Mounier", cargo: "Fundador · antes Product Manager en la industria y la tecnología", iniciales: "MM", foto: "/equipo/matthias-merle-mounier.jpg", linkedin: "https://www.linkedin.com/in/matthias-merle-mounier/" },
+      { t: "p", texto: "Francés afincado en España, Matthias fue **Product Manager en la industria y en el sector tecnológico** antes de fundar Aproba. Hoy pone esa experiencia al servicio de un solo oficio, la extranjería, en contacto directo con los despachos que lo usan." },
       { t: "h2", texto: "Por qué existe" },
       { t: "p", texto: "En un despacho de extranjería, un expediente son documentos que llegan mal por WhatsApp, formularios EX tecleados a mano y plazos que nadie vigila. Aproba quita esa parte: el cliente sube sus documentos desde el móvil, la IA los valida y los formularios oficiales salen solos, para que el profesional dedique su tiempo al caso." },
       { t: "h2", texto: "Cómo trabajamos" },
       { t: "ul", items: [
         "**Con los despachos que lo usan.** Las funciones nuevas salen de lo que piden: las facturas proforma llegaron a petición de una gestoría cliente, y la vista en tabla volvió porque otra la necesitaba.",
-        "**Decimos solo lo que es verdad.** Cada cifra y cada garantía de la portada enlaza a una página que explica qué significa y cómo lo afirmamos.",
+        "**Un soporte que responde rápido.** Escribes y te contesta una persona que conoce el producto; muchas peticiones quedan resueltas el mismo día.",
         "**Tus datos, en la Unión Europea.** Alojados y cifrados en la UE, con contrato de encargado del tratamiento ([DPA](/legal/dpa)); los documentos de tus clientes no entrenan modelos de IA.",
         "**Sin permanencia.** Mes a mes, y tus datos se exportan cuando quieras.",
       ] },
       { t: "h2", texto: "Contacto" },
-      { t: "p", texto: "Escribe directamente a Matthias: matthias@aproba-software.com. Aviso legal, privacidad y condiciones, en las páginas legales del sitio." },
+      { t: "p", texto: "Escríbenos a aproba.software@gmail.com. Aviso legal, privacidad y condiciones, en las páginas legales del sitio." },
     ],
     cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
     // Sin «Qué es Aproba»: su descripción nombra la sociedad, y aquí no se nombra (Matthias).
@@ -432,6 +433,7 @@ export const textoPlanoPagina = (p: PaginaPublica): string =>
     if (b.t === "faq") return b.items.map((x) => `${x.q} ${x.a}`).join(" ");
     if (b.t === "esquema") return [b.titulo, ...b.nodos.map((n) => `${n.titulo} ${n.texto ?? ""}`), b.destino.titulo, b.destino.texto ?? ""].join(" ");
     if (b.t === "nota") return `${b.titulo ?? ""} ${b.texto}`;
+    if (b.t === "persona") return `${b.nombre} ${b.cargo}`;
     if ("texto" in b) return b.texto;
     return "";
   }).join(" ");

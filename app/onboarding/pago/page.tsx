@@ -116,7 +116,7 @@ export default async function OnboardingPago({ searchParams }: { searchParams: P
           {/* Salida humana: un muro de pago sin puerta genera pánico, no conversión. */}
           <p className="mt-4 border-t border-slate-100 pt-3 text-center text-xs text-slate-400">
             ¿Dudas o algún problema con el pago?{" "}
-            <a href="mailto:hola@aproba-software.com" className="font-medium text-aproba-700 hover:underline">hola@aproba-software.com</a>
+            <a href="mailto:aproba.software@gmail.com" className="font-medium text-aproba-700 hover:underline">aproba.software@gmail.com</a>
           </p>
         </div>
       </main>

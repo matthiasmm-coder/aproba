@@ -55,7 +55,7 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
             <Link href="/legal/aviso-legal" className="hover:text-slate-700">Aviso legal</Link>
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <Link href="/legal/dpa" className="hover:text-slate-700">DPA</Link>
-            <a href="mailto:hola@aproba-software.com" className="hover:text-slate-700">Contacto</a>
+            <a href="mailto:aproba.software@gmail.com" className="hover:text-slate-700">Contacto</a>
           </div>
           <p className="mt-4">© {new Date().getFullYear()} Aproba. Todos los derechos reservados.</p>
         </div>

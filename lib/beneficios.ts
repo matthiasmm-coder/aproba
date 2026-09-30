@@ -574,7 +574,7 @@ export const BENEFICIOS: Beneficio[] = [
       { t: "ul", items: [
         "**El texto es público y estable.** Está en [/legal/dpa](/legal/dpa), con fecha de última actualización; no hay una versión «para clientes» distinta de la publicada.",
         "**Firmado, si lo quieres en papel.** A petición, enviamos el DPA en PDF firmado por Aproba para que el despacho lo contrafirme y lo guarde en su registro de actividades.",
-        "**Un contacto con nombre.** privacidad@aproba-software.com atiende las solicitudes de derechos y las consultas del delegado o del responsable del despacho.",
+        "**Un contacto con nombre.** aproba.software@gmail.com atiende las solicitudes de derechos y las consultas del delegado o del responsable del despacho.",
         "**Los datos del titular están en el aviso legal**: sociedad, NIF y domicilio. Un encargado que no se identifica no es un encargado.",
       ] },
     ],
@@ -683,7 +683,7 @@ export const BENEFICIOS: Beneficio[] = [
         ["Cada expediente: documentos, formularios generados, hoja de encargo", "ZIP", "Botón «Exportar» en la ficha del expediente"],
         ["Facturas", "CSV (Excel) y ZIP de PDF", "Pestaña Facturas › exportar"],
         ["Memoria de actividad (recuento por trámites, sin datos personales)", "PDF", "Inicio › Memoria de actividad"],
-        ["Lista de clientes", "CSV", "A petición a hola@aproba-software.com, en 48 h laborables"],
+        ["Lista de clientes", "CSV", "A petición a aproba.software@gmail.com, en 48 h laborables"],
       ] },
     ],
     afirmamos: [

@@ -10,7 +10,7 @@ export const CONTACTO = {
   empresa: "Aproba",
   telefono: "+33695743596",
   telefonoVisible: "+33 6 95 74 35 96",
-  email: "matthias@aproba-software.com",
+  email: "aproba.software@gmail.com", // 30/09/2026: la dirección de contacto única del sitio
   web: "https://aproba-software.com",
   webVisible: "aproba-software.com",
   claim: "El software para profesionales de extranjería",

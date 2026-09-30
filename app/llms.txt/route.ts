@@ -36,7 +36,7 @@ ${articulos}
 
 ## Contacto
 
-- Email: hola@aproba-software.com
+- Email: aproba.software@gmail.com
 - Prueba gratuita: ${BASE}/signup?modo=prueba
 `;
   return new Response(cuerpo, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });

@@ -16,9 +16,11 @@ export const TITULAR = {
   nombreComercial: "Aproba",
   dominio: "aproba-software.com",
   web: "https://aproba-software.com",
-  email: "hola@aproba-software.com",
-  emailPrivacidad: "privacidad@aproba-software.com",
-  emailLegal: "legal@aproba-software.com",
+  // 30/09/2026 (Matthias): UNA sola dirección de contacto en todo el sitio, también para
+  // privacidad y asuntos legales.
+  email: "aproba.software@gmail.com",
+  emailPrivacidad: "aproba.software@gmail.com",
+  emailLegal: "aproba.software@gmail.com",
 } as const;
 
 export const ULTIMA_ACTUALIZACION = "25 de septiembre de 2026";

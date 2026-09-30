@@ -39,7 +39,10 @@ export type Bloque =
   // Lista de comprobación (antes de firmar, antes de presentar): una marca por punto, sin JS.
   | { t: "checklist"; titulo: string; items: string[]; nota?: string }
   // Preguntas frecuentes: además de pintarse, alimentan el JSON-LD FAQPage de la página.
-  | { t: "faq"; items: { q: string; a: string }[] };
+  | { t: "faq"; items: { q: string; a: string }[] }
+  // Ficha de una persona (30/09/2026, «Quiénes somos»): foto en public/ o, sin ella, sus
+  // iniciales en un círculo verde; nombre y cargo al lado, y su perfil de LinkedIn si lo hay.
+  | { t: "persona"; nombre: string; cargo: string; iniciales: string; foto?: string; linkedin?: string };
 
 export type Articulo = {
   slug: string;
@@ -1822,6 +1825,7 @@ export function textoPlano(a: Articulo): string {
       if (b.t === "esquema") return [b.titulo, ...b.nodos.map((n) => `${n.titulo} ${n.texto ?? ""}`), b.destino.titulo, b.destino.texto ?? "", b.nota ?? ""].join(" ");
       if (b.t === "pasos") return [b.titulo ?? "", ...b.items.map((x) => `${x.titulo} ${x.texto} ${x.falla ?? ""}`), b.nota ?? ""].join(" ");
       if (b.t === "checklist") return [b.titulo, ...b.items, b.nota ?? ""].join(" ");
+      if (b.t === "persona") return `${b.nombre} ${b.cargo}`;
       return b.texto;
     })
     .join(" ");
