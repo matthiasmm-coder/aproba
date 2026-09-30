@@ -280,7 +280,7 @@ export default function Landing() {
       {/* Vídeo demo */}
       <section id="como-funciona" className="scroll-mt-20 border-y border-slate-200 bg-cream-50 py-24">
         <div className="mx-auto max-w-4xl px-6 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">En acción</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Cómo funciona</p>
           <h2 className="mt-3 text-balance text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Ve Aproba en 80 segundos</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">Del primer documento a la presentación, sin teclear un solo formulario.</p>
           <Reveal className="mt-10">

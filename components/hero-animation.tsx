@@ -669,8 +669,8 @@ export function HeroAnimation() {
           PROPORCIONAL con zoom (la maqueta está en px fijos): a partir de 1152 px la columna
           mide 536 px → 470 × 1,14 = 536, y el borde derecho de la pantalla queda alineado con
           el del botón «Prueba 15 días gratis» de la cabecera (mismo contenedor max-w-6xl px-6).
-          Paso intermedio en 1100-1151 px. */}
-      <div className="relative w-full max-w-[470px] animate-floaty min-[1100px]:[zoom:1.08] min-[1152px]:[zoom:1.14]">
+          Paso intermedio en 1100-1151 px. Inmóvil (30/09: ya no flota): solo cambian las pantallas. */}
+      <div className="relative w-full max-w-[470px] min-[1100px]:[zoom:1.08] min-[1152px]:[zoom:1.14]">
         <div className="relative rounded-2xl shadow-float ring-1 ring-slate-900/[0.08]">
           {/* écran */}
           <div className="overflow-hidden rounded-2xl bg-cream-50">

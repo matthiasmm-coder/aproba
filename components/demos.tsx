@@ -739,7 +739,7 @@ export function HowItWorks() {
     <section ref={seccion} className="scroll-mt-20 border-y border-slate-200 bg-white py-24 motion-reduce:[&_*]:!transition-none">
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">Cómo funciona</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-aproba-700">En acción</p>
           <h2 className="mt-3 text-balance text-3xl font-bold tracking-tightest text-slate-900 sm:text-4xl">Tu cliente sube. Tú ya lo tienes validado.</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">Un enlace por WhatsApp de un lado, tu expediente listo del otro.</p>
         </div>
