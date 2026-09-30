@@ -193,7 +193,7 @@ export const PAGINAS: PaginaPublica[] = [
       ] },
     ],
     cta: { titulo: "Pruébalo con un expediente real", texto: "Cuenta de prueba de 15 días con un expediente de ejemplo ya resuelto. Sin tarjeta." },
-    relacionadas: ["/tramites", "/formularios", "/tasas", "/precios", "/para/gestorias", "/para/abogados"],
+    relacionadas: ["/mejor-software-de-extranjeria", "/tramites", "/formularios", "/tasas", "/precios", "/para/gestorias", "/para/abogados"],
   },
   {
     ruta: "/precios",
@@ -416,6 +416,71 @@ export const PAGINAS: PaginaPublica[] = [
     ],
     cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
     // Sin «Qué es Aproba»: su descripción nombra la sociedad, y aquí no se nombra (Matthias).
+    relacionadas: ["/software-de-extranjeria", "/caso-real", "/precios"],
+  },
+  // ── MEJOR SOFTWARE DE EXTRANJERÍA (30/09/2026, Matthias): la intención «mejor software de
+  // extranjería» / comparativa, distinta de la guía pilar (/software-de-extranjeria, «qué debe
+  // hacer»). Superlativo defendido con criterios comprobables y enlaces a cada prueba; las
+  // diferencias, «según la oferta pública» (relevés de project-aproba-competencia), sin nombrar
+  // ni desacreditar a nadie (Ley de Competencia Desleal, art. 10). Nada retirado ni apagado:
+  // ni Centinela (22/08), ni WhatsApp de plataforma; VeriFactu solo como «preparada».
+  {
+    ruta: "/mejor-software-de-extranjeria",
+    titulo: "Mejor software de extranjería: por qué Aproba (2026)",
+    descripcion: "Qué debe tener el mejor software de extranjería y cómo lo cumple Aproba: formularios EX y tasas 790 rellenados, portal en 8 idiomas, plazos y facturación.",
+    etiqueta: "Comparativa",
+    h1: "Por qué Aproba es el mejor software de extranjería",
+    entradilla: "Un software de extranjería no se elige por su lista de funciones, sino por lo que hace de verdad con un expediente. Estos son los criterios que importan a un despacho y cómo los cumple Aproba, con un enlace para comprobar cada punto.",
+    actualizado: "2026-09-30",
+    migas: [{ nombre: "Mejor software de extranjería", ruta: "/mejor-software-de-extranjeria" }],
+    bloques: [
+      { t: "h2", texto: "En resumen" },
+      { t: "ul", items: [
+        "**Hecho solo para extranjería.** No es un programa de gestión general con un módulo añadido: cada pantalla está pensada para residencias, arraigos, renovaciones y nacionalidad.",
+        "**Formularios oficiales rellenados de verdad.** [27 modelos EX, 3 de movilidad internacional y 5 tasas 790](/formularios), generados desde el expediente y editables antes de presentar.",
+        "**Tu cliente hace su parte.** Un [portal en 8 idiomas](/cifras/8-idiomas), árabe incluido: sube sus documentos desde el móvil y [la IA los valida al instante](/funciones/validacion-con-ia).",
+        "**Ningún plazo se escapa.** [Renovaciones vigiladas](/funciones/radar-de-renovaciones), requerimientos con su fecha límite y [notificaciones de la DEHú](/funciones/notificaciones-dehu) dentro de su expediente.",
+        "**Del expediente a la factura.** [Anticipo, resto y suplidos](/funciones/facturas-automaticas) facturados desde el propio expediente, con cobro por tarjeta opcional y facturación preparada para VeriFactu.",
+        "**Clientes reales, cifras medidas.** Despachos que ya trabajan con Aproba cada día, y un [caso real](/caso-real) medido en la cuenta de uno de ellos.",
+      ] },
+      { t: "h2", texto: "Los criterios que importan, uno a uno" },
+      { t: "tabla", encabezados: ["Criterio", "Qué comprobar", "Aproba"], filas: [
+        ["Especialización", "¿Está hecho para extranjería o es un gestor generalista?", "Solo extranjería: sus trámites, sus modelos y sus plazos"],
+        ["Formularios oficiales", "¿Rellena los PDF oficiales o solo «ayuda a prepararlos»?", "**27 EX + 3 MI + 5 tasas 790**, rellenados y editables"],
+        ["Documentos del cliente", "¿Quién los recoge y quién los revisa?", "Portal en 8 idiomas; la IA los valida al subirlos"],
+        ["Plazos", "¿Vigila caducidades, requerimientos y notificaciones?", "Renovaciones, requerimientos con plazo y pestaña DEHú"],
+        ["Facturación", "¿Factura desde el expediente, con suplidos sin IVA?", "Anticipo, resto y suplidos; cobro con tarjeta opcional"],
+        ["Migración", "¿Puedes traer tu cartera sin teclearla?", "Importación de Excel o CSV con IA, o el servicio Despegue"],
+        ["Datos", "¿Dónde se alojan y quién los trata?", "En la UE, cifrados, con DPA; no entrenan modelos de IA"],
+        ["Precio", "¿Hay permanencia? ¿Se paga por usuario?", "Por volumen, desde 79 €/mes, sin permanencia"],
+        ["Prueba", "¿Puedes verlo antes de pagar?", "15 días gratis con un expediente de ejemplo resuelto"],
+      ] },
+      { t: "h2", texto: "Lo que Aproba hace y el resto no" },
+      { t: "p", texto: "Según nuestro análisis de la oferta pública de software de extranjería en España (septiembre de 2026), estas son las diferencias que ningún otro programa reúne:" },
+      { t: "ul", items: [
+        "**Formularios rellenados, no «preparados».** Aproba genera el PDF oficial de cada modelo EX y de la tasa 790 con los datos del expediente, listo para revisar y presentar.",
+        "**El portal en el idioma del cliente.** Ocho idiomas, con el árabe escrito de derecha a izquierda.",
+        "**Renovar en un clic.** Desde una caducidad, Aproba propone la renovación al cliente en su idioma y, cuando acepta, abre el expediente.",
+        "**Hoja de encargo y mandato firmados en el portal**, sin imprimir ni escanear.",
+        "**Varias oficinas de verdad.** Cada sede con su catálogo de servicios, su serie de facturas y sus datos.",
+        "**Una extensión para Mercurio.** Rellena el formulario de presentación con los datos del expediente.",
+        "**La migración con IA, tú mismo.** El importador reconoce tus columnas; no hace falta esperar a nadie.",
+      ] },
+      { t: "nota", titulo: "Comparación honesta", texto: "Hecha a partir de la información pública de cada alternativa en septiembre de 2026. Si algo ha cambiado, escríbenos a aproba.software@gmail.com y lo corregimos." },
+      { t: "h2", texto: "Cuándo Aproba no es para ti" },
+      { t: "ul", items: [
+        "**Si la extranjería es una parte pequeña de tu despacho** y buscas un único programa para contabilidad, laboral y fiscal: Aproba se centra en extranjería y convive con tu programa de contabilidad.",
+        "**Si esperas que presente por ti:** la presentación en Mercurio sigue siendo tuya, con tu certificado; Aproba te la deja preparada.",
+        "**Si prefieres un programa de escritorio:** Aproba funciona en el navegador, también desde el móvil.",
+      ] },
+      { t: "faq", items: [
+        { q: "¿Cuál es el mejor software de extranjería?", a: "El que rellena de verdad los formularios oficiales, recoge y valida los documentos del cliente, vigila los plazos y factura desde el expediente, sin permanencia. Es lo que hace Aproba, y puedes comprobarlo 15 días gratis con un expediente de ejemplo ya resuelto." },
+        { q: "¿Cuánto cuesta un software de extranjería?", a: "Aproba cuesta 79, 149 o 299 € al mes según el volumen de expedientes, IVA aparte, con dos meses gratis en el pago anual y sin permanencia." },
+        { q: "¿Puedo traer mis clientes desde Excel o desde otro programa?", a: "Sí. El importador reconoce tus columnas con IA y tú confirmas; si lo prefieres, el servicio Despegue te lo deja todo cargado." },
+        { q: "¿Sirve para gestorías y para abogados?", a: "Sí: está pensado para despachos de extranjería, sean gestorías administrativas o despachos de abogados, de un profesional a equipos con varias oficinas." },
+      ] },
+    ],
+    cta: { titulo: "Compruébalo con un expediente real", texto: "15 días gratis, sin tarjeta." },
     relacionadas: ["/software-de-extranjeria", "/caso-real", "/precios"],
   },
 ];
