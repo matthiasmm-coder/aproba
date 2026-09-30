@@ -44,7 +44,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   let emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
   try {
     const supa = await createSupabaseServer();
-    const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
+    const { oficinaDeFacturaFila, fiscalDeOficina, emisorDesdeFiscal, cuentaParaOficina } = await import("@/lib/facturacion-oficina");
     const sede = await oficinaDeFacturaFila(supa, { oficinaId: f.oficinaId ?? null, expedienteId: f.expedienteId ?? null });
     if (sede) {
       const fiscal = await fiscalDeOficina(supa, sede);
@@ -53,6 +53,12 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
       if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo: logoSede };
       else if (logoSede !== d.logoUrl) emisor = { ...emisor, logo: logoSede };
     }
+    // IBAN real de quien emite, para el pie «Forma de pago» (Matthias, 30/09/2026): la cuenta
+    // de la sede con identidad propia, o la del despacho. Con la sesión: cta_read deja leer a
+    // cualquier miembro del despacho.
+    const { data: w } = await supa.from("Factura").select("workspaceId").eq("id", f.id).maybeSingle();
+    const ws = (w as { workspaceId?: string } | null)?.workspaceId;
+    if (ws) emisor = { ...emisor, iban: (await cuentaParaOficina(supa, ws, sede))?.iban ?? null };
   } catch { /* migración fase 6 ausente → emisor del despacho */ }
   // Emisor CONGELADO al emitir (factura-retencion-emisor.sql): manda sobre el vivo. Las
   // facturas anteriores no lo tienen y siguen con la resolución de arriba.

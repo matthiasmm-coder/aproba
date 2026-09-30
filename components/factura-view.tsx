@@ -11,7 +11,8 @@ import { EntregasCuenta } from "@/components/entregas-cuenta";
 import { FacturaDocumento } from "@/components/factura-documento";
 import type { Entrega } from "@/lib/entregas";
 
-export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null };
+// `iban`: la cuenta real de quien emite, para el pie «Forma de pago» (lib/forma-de-pago.ts).
+export type Emisor = { nombre: string; nif: string | null; domicilio?: string | null; email?: string | null; logo?: string | null; iban?: string | null };
 
 // VERI*FACTU (17/09/2026): estado del registro en la AEAT y, si hay URL, el QR tributario
 // que se imprime en la factura. `congelada`: el alta ya se envió → sin botón Editar.

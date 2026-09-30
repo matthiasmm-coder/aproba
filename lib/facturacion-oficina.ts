@@ -116,7 +116,10 @@ export async function oficinaDeFacturaFila(cli: Cli, f: { oficinaId?: string | n
   } catch { return null; }
 }
 
-// Cuenta bancaria efectiva: la ACTIVA de la oficina; si la sede no tiene, la común.
+// Cuenta bancaria efectiva: la ACTIVA de la oficina; si la sede no tiene, la común — SALVO si
+// la sede factura con identidad fiscal propia (otra sociedad, otro profesional): entonces solo
+// la suya. La común es de otro titular: su IBAN en una factura o en un email de cobro mandaría
+// el dinero a quien no emite (30/09/2026; hoy todas esas sedes tienen cuenta propia).
 // «Común» incluye las filas anteriores a la migración (sin columna → sin filtro).
 export type CuentaResuelta = { titular: string; iban: string; banco: string | null };
 export async function cuentaParaOficina(cli: Cli, workspaceId: string, oficinaId: string | null): Promise<CuentaResuelta | null> {
@@ -136,7 +139,11 @@ export async function cuentaParaOficina(cli: Cli, workspaceId: string, oficinaId
       return ((data ?? [])[0] as CuentaResuelta | undefined) ?? null;
     }
   };
-  return (oficinaId ? await buscar(oficinaId) : null) ?? await buscar(null);
+  if (!oficinaId) return buscar(null);
+  const propia = await buscar(oficinaId);
+  if (propia) return propia;
+  if (oficinaConIdentidad(await fiscalDeOficina(cli, oficinaId))) return null;
+  return buscar(null);
 }
 
 // Prefijo de serie del expediente (por su oficina). "" si no hay.

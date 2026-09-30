@@ -1491,7 +1491,7 @@ export const CA: Record<string, string> = {
   "Familia creada, pero estos miembros fallaron:": "Família creada, però aquests membres van fallar:",
   "Familia de destino": "Família de destinació",
   "Familias": "Famílies",
-  "Forma de pago: transferencia": "Forma de pagament: transferència",
+  "Forma de pago:": "Forma de pagament:",
   "Fuente no encontrada.": "Font no trobada.",
   "Google conectado. Ya puedes crear reuniones de Meet automáticamente desde Nueva cita.": "Google connectat. Ja pots crear reunions de Meet automàticament des de Nova cita.",
   "Guardar datos de facturación": "Desar dades de facturació",

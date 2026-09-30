@@ -23,7 +23,7 @@ export default async function ProformaPage({ params }: { params: Promise<{ id: s
   let emisor: Emisor = { nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion, logo: d.logoUrl };
   const supa = await createSupabaseServer();
   try {
-    const { fiscalDeOficina, emisorDesdeFiscal } = await import("@/lib/facturacion-oficina");
+    const { fiscalDeOficina, emisorDesdeFiscal, cuentaParaOficina } = await import("@/lib/facturacion-oficina");
     if (p.oficinaId) {
       const fiscal = await fiscalDeOficina(supa, p.oficinaId);
       const em = emisorDesdeFiscal({ nombre: d.nombre, nif: d.nif, domicilio: d.domicilio, email: d.emailFacturacion }, fiscal);
@@ -31,6 +31,10 @@ export default async function ProformaPage({ params }: { params: Promise<{ id: s
       if (em.deOficina) emisor = { nombre: em.nombre, nif: em.nif, domicilio: em.domicilio, email: em.email, logo: logoSede };
       else if (logoSede !== d.logoUrl) emisor = { ...emisor, logo: logoSede };
     }
+    // IBAN real de quien emite, para el pie «Forma de pago» (como en la ficha de una factura).
+    const { data: w } = await supa.from("Proforma").select("workspaceId").eq("id", p.id).maybeSingle();
+    const ws = (w as { workspaceId?: string } | null)?.workspaceId;
+    if (ws) emisor = { ...emisor, iban: (await cuentaParaOficina(supa, ws, p.oficinaId))?.iban ?? null };
   } catch { /* migración multi-oficina ausente → emisor del despacho */ }
   if (p.emisorDatos) {
     const { conEmisorFijado } = await import("@/lib/facturacion-oficina");

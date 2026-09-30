@@ -1,6 +1,7 @@
 "use client";
 
 import { eur, IVA, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
+import { formaDePago } from "@/lib/forma-de-pago";
 import { useT } from "@/components/lang-provider";
 import type { Emisor } from "@/components/factura-view";
 
@@ -27,6 +28,8 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
   // Retención de IRPF: la guardada al emitir; si solo hay tipo, se calcula sobre la base.
   const retencion = f.retencion != null ? r2(Number(f.retencion)) : retencionDe(base, f.retencionPct);
   const aPagar = r2(total - retencion);
+  // Pie «Forma de pago»: el método real si ya se cobró, o el IBAN real de quien emite.
+  const pago = formaDePago(f, aPagar, emisor.iban);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:px-[16mm] print:py-[14mm] print:shadow-none print:box-decoration-clone">
@@ -137,9 +140,14 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
       {/* Proforma (29/09/2026): el documento dice que NO es una factura. */}
       {aviso && <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-800">{aviso}</p>}
 
-      <div className="mt-8 flex items-center justify-end border-t border-slate-200 pt-3 text-[10px] text-slate-400">
-        <span>{t("Forma de pago: transferencia")}</span>
-      </div>
+      {pago && (
+        <div className="mt-8 flex items-center justify-end border-t border-slate-200 pt-3 text-[11px] text-slate-500">
+          <span>
+            {t("Forma de pago:")} {t(pago.metodo).toLowerCase()}
+            {pago.iban && <> · IBAN <span className="font-medium tabular-nums text-slate-700">{pago.iban}</span></>}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
