@@ -24,8 +24,12 @@ export const metadata: Metadata = {
     default: "Aproba — Automatiza tus expedientes de extranjería",
     template: "%s · Aproba",
   },
+  // La metadescripción de la portada (la que enseñan Google y Bing), y la de cualquier página
+  // sin la suya: por eso cada página de servicio tiene ahora la propia (Bing, 30/09/2026:
+  // «identical meta descriptions»). Sus cifras las ata al código lib/cifras-del-sitio.test.ts:
+  // se había quedado en «25 formularios EX» con 27 en el producto.
   description:
-    "Aproba valida documentos con IA, genera los 25 formularios EX y las tasas 790 (012, 052, 062, 026), y hace el seguimiento de tus expedientes. Para gestorías y abogados de extranjería en España.",
+    "Software de extranjería para gestorías y abogados: la IA valida los documentos, rellena 35 formularios y tasas oficiales y vigila renovaciones y plazos.",
   applicationName: "Aproba",
   // Tarjeta al compartir el enlace (WhatsApp, LinkedIn, email…) — antes el enlace salía desnudo.
   openGraph: {

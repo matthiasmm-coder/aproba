@@ -3,8 +3,13 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchPacksDeWorkspace, fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { DEFAULT_SERVICIOS, type Pack, type Servicio } from "@/lib/servicios";
 
-// Los enlaces del portal llevan el token en la URL: nunca deben indexarse.
-export const metadata = { robots: { index: false, follow: false } };
+// Los enlaces del portal llevan el token en la URL: nunca deben indexarse. Título y descripción
+// propios: sin ellos, esta demo repetía los de la portada.
+export const metadata = {
+  title: "Portal del cliente: vista de demostración",
+  description: "Vista de demostración del portal donde el cliente de un despacho sube sus documentos y sigue su expediente.",
+  robots: { index: false, follow: false },
+};
 
 // Sin esto la página se PRERRENDERIZA en el deploy (x-nextjs-prerender) y la demo
 // enseña la config de servicios congelada del último build, no la de Ajustes.

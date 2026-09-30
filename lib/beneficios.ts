@@ -137,7 +137,7 @@ export const BENEFICIOS: Beneficio[] = [
       ] },
     ],
     faq: [
-      { q: "¿Se puede añadir un modelo a mano a un expediente?", a: "Sí. Además de los formularios asociados al servicio, el gestor puede añadir cualquiera de los 25 modelos a un expediente concreto." },
+      { q: "¿Se puede añadir un modelo a mano a un expediente?", a: "Sí. Además de los formularios asociados al servicio, el gestor puede añadir a un expediente concreto cualquiera de los 30 modelos oficiales (27 EX y 3 MI) y cualquiera de las 5 tasas 790." },
       { q: "¿Qué pasa con los campos que la IA no ha leído?", a: "Quedan vacíos y marcados en la ficha para que el gestor los complete; el formulario se regenera en un clic." },
       { q: "¿Sirven los PDF generados para Mercurio?", a: "Sí: son los impresos oficiales rellenados, en PDF, tal como Mercurio y las Oficinas los admiten." },
     ],

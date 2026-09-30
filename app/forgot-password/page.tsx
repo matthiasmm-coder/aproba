@@ -2,7 +2,13 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
 
-export const metadata = { title: "Recuperar contraseña", robots: { index: false, follow: true } }; // página de servicio: fuera del buscador
+// Página de servicio, fuera del buscador; con título y descripción propios, que Bing la rastrea
+// igual (si no, hereda los de la portada: «identical meta descriptions», 30/09/2026).
+export const metadata = {
+  title: "Recuperar la contraseña de tu cuenta",
+  description: "¿Olvidaste tu contraseña de Aproba? Escribe el email de tu cuenta y te enviamos un enlace para crear una nueva.",
+  robots: { index: false, follow: true },
+};
 
 export default function ForgotPassword() {
   return (

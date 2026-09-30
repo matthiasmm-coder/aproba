@@ -2,7 +2,12 @@ import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
 import { ResetPasswordForm } from "@/components/reset-password-form";
 
-export const metadata = { title: "Nueva contraseña", robots: { index: false, follow: true } }; // página de servicio: fuera del buscador
+// Página de servicio, fuera del buscador; título y descripción propios (ver app/forgot-password).
+export const metadata = {
+  title: "Crea una contraseña nueva para tu cuenta",
+  description: "Elige una contraseña nueva para volver a entrar en tu cuenta de Aproba.",
+  robots: { index: false, follow: true },
+};
 
 export default function ResetPassword() {
   return (

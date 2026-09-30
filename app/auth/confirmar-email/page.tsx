@@ -3,7 +3,12 @@ import { AprobaLogo } from "@/components/logo";
 import { ConfirmarEmail } from "@/components/confirmar-email";
 import { emailDelToken } from "@/lib/cambio-email";
 
-export const metadata = { title: "Confirmar email", robots: { index: false, follow: false } }; // página de servicio
+// Página de servicio; título y descripción propios (ver app/forgot-password).
+export const metadata = {
+  title: "Confirma el nuevo email de tu cuenta",
+  description: "Confirma la nueva dirección de email de tu cuenta de Aproba.",
+  robots: { index: false, follow: false },
+};
 
 export default async function ConfirmarEmailPage({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
   const { t = "" } = await searchParams;
