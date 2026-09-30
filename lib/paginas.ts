@@ -414,7 +414,8 @@ export const PAGINAS: PaginaPublica[] = [
       { t: "p", texto: "Escribe directamente a Matthias: matthias@aproba-software.com. Aviso legal, privacidad y condiciones, en las páginas legales del sitio." },
     ],
     cta: { titulo: "Ver Aproba con un expediente real", texto: "15 días gratis, sin tarjeta." },
-    relacionadas: ["/que-es-aproba", "/caso-real", "/precios"],
+    // Sin «Qué es Aproba»: su descripción nombra la sociedad, y aquí no se nombra (Matthias).
+    relacionadas: ["/software-de-extranjeria", "/caso-real", "/precios"],
   },
 ];
 
