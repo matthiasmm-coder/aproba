@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { emisorParaFijar, cuentaParaOficina } from "@/lib/facturacion-oficina";
+import { emisorParaFijar, emisorParaOficina, conEmisorFijado, cuentaParaOficina } from "@/lib/facturacion-oficina";
 import { siguienteNumeroProforma } from "@/lib/factura-numero";
 import { aCobrar } from "@/lib/facturas";
 import { crearFacturaManual, importesDeCuerpo, oficinaDeCuerpo, receptorDeCuerpo, type CuerpoDocumento, type Fallo } from "@/lib/factura-manual";
@@ -148,12 +148,16 @@ export async function convertirProforma(admin: Admin, o: {
 }
 
 // PDF de la proforma: el de las facturas (lib/export-pdf.ts), con su título y su aviso.
+// El emisor, con la regla de la pantalla (app/app/facturas/proformas/[id]): la sede si tiene
+// identidad fiscal propia, y manda el emisor congelado al crearla (facturaToPdf lo aplica).
+// Hasta el 30/09/2026 el PDF partía siempre del despacho: la identidad salía bien gracias al
+// congelado, pero el logo era el del despacho y no el de la sede.
 export async function pdfDeProforma(admin: Admin, workspaceId: string, p: Proforma): Promise<Uint8Array> {
-  const { data: ws } = await admin.from("Workspace").select("nombre, nif, domicilio, emailFacturacion, logoUrl").eq("id", workspaceId).maybeSingle();
-  const w = (ws ?? {}) as { nombre?: string | null; nif?: string | null; domicilio?: string | null; emailFacturacion?: string | null; logoUrl?: string | null };
-  const emisor: EmisorPdf = { nombre: w.nombre ?? "Mi despacho", nif: w.nif ?? null, domicilio: w.domicilio ?? null, email: w.emailFacturacion ?? null, logo: w.logoUrl ?? null };
+  const vivo = await emisorParaOficina(admin, workspaceId, p.oficinaId ?? null);
+  const e = conEmisorFijado({ nombre: vivo.nombre, nif: vivo.nif, domicilio: vivo.domicilio, email: vivo.email }, p.emisorDatos);
+  const emisor: EmisorPdf = { nombre: e.nombre || "Mi despacho", nif: e.nif, domicilio: e.domicilio, email: e.email, logo: vivo.logo };
   return facturaToPdf(proformaComoFactura(p), emisor, {
-    titulo: "FACTURA PROFORMA", etiquetaVence: "Válida hasta", aviso: AVISO_PROFORMA, pie: "Factura proforma  ·  Generado con Aproba",
+    titulo: "FACTURA PROFORMA", etiquetaVence: "Válida hasta", aviso: AVISO_PROFORMA, pie: "Factura proforma",
   });
 }
 

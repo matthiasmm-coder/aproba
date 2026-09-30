@@ -21,6 +21,13 @@ async function esAdminActual(): Promise<boolean> {
   return ((mems ?? []) as { role?: string }[]).some((m) => puedeGestionarEquipo(m.role));
 }
 
+// El título de la pestaña es el que Chrome propone como nombre del PDF al «Imprimir / PDF»:
+// «Factura 2026-0012.pdf», y no «Facturas · Aproba.pdf» (Luis, 30/09/2026).
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const f = await fetchFactura((await params).id);
+  return { title: { absolute: f ? `Factura ${f.numero}` : "Factura" } };
+}
+
 export default async function FacturaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [f, d, esAdmin] = await Promise.all([fetchFactura(id), fetchDespacho(), esAdminActual()]);

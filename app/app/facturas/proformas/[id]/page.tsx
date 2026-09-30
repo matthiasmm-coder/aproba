@@ -5,7 +5,11 @@ import { fetchProforma } from "@/lib/data/proformas";
 import { ProformaView } from "@/components/proforma-view";
 import type { Emisor } from "@/components/factura-view";
 
-export const metadata = { title: "Factura proforma" };
+// Título = nombre que Chrome propone al guardar el PDF (ver app/app/facturas/[id]/page.tsx).
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const p = await fetchProforma((await params).id);
+  return { title: { absolute: p ? `Factura proforma ${p.numero}` : "Factura proforma" } };
+}
 export const dynamic = "force-dynamic";
 
 // FACTURA PROFORMA (29/09/2026): el documento y sus acciones (components/proforma-view.tsx).

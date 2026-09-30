@@ -648,7 +648,6 @@ export const CA: Record<string, string> = {
   "Facturar a": "Facturar a",
   "Base": "Base",
   "Importe": "Import",
-  "Generada con Aproba": "Generada amb Aproba",
   "Forma de pago: transferencia / domiciliación": "Forma de pagament: transferència / domiciliació",
   "Mes anterior": "Mes anterior",
   "Mes siguiente": "Mes següent",

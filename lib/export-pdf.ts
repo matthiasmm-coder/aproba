@@ -162,6 +162,7 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
     for (const ln of partir(extras.aviso, bold, 9, W - 2 * M)) { saltoSi(); text(ln, M, 9, bold, slate); y -= 12; }
   }
 
-  page.drawText(safe(extras.pie ?? `Estado: ${f.estado}  ·  Generado con Aproba${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
+  // Sin «Generado con Aproba» desde el 30/09/2026: la factura es un documento del despacho.
+  page.drawText(safe(extras.pie ?? `Estado: ${f.estado}${extras.verifactuUrl ? "  ·  VERI*FACTU" : ""}`), { x: M, y: 40, size: 8, font, color: grey });
   return doc.save();
 }

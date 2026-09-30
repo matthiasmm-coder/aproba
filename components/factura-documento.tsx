@@ -1,6 +1,5 @@
 "use client";
 
-import { AprobaMark } from "./logo";
 import { eur, IVA, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 import type { Emisor } from "@/components/factura-view";
@@ -9,6 +8,12 @@ import type { Emisor } from "@/components/factura-view";
 // 29/09/2026 para que una PROFORMA sea exactamente el mismo documento: `titulo` («Factura
 // proforma»), `etiquetaVence` («Válida hasta:») y `aviso` (no es una factura) la cambian.
 // Una factura normal no pasa ninguno de los tres y sale como siempre.
+//
+// El papel es del DESPACHO (Luis, 30/09/2026: «de cara a clientes… aparece Aproba, arriba y
+// también abajo»). Abajo era nuestro «Generada con Aproba»: fuera. Arriba, la fecha y el título
+// de la pestaña que Chrome imprime en el margen de la hoja: con el margen de página a 0 no
+// tiene dónde ponerlos, y el propio documento pone sus márgenes, repetidos en cada hoja
+// (box-decoration-break) si la factura ocupa más de una.
 export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, aviso }: {
   f: Factura; emisor: Emisor; qr?: string | null; titulo?: string; etiquetaVence?: string; aviso?: string | null;
 }) {
@@ -24,7 +29,8 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
   const aPagar = r2(total - retencion);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
+    <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-card print:rounded-none print:border-0 print:px-[16mm] print:py-[14mm] print:shadow-none print:box-decoration-clone">
+      <style>{"@media print { @page { margin: 0 } }"}</style>
       <div className="flex items-start justify-between">
         <div>
           {emisor.logo && (
@@ -131,8 +137,7 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
       {/* Proforma (29/09/2026): el documento dice que NO es una factura. */}
       {aviso && <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-800">{aviso}</p>}
 
-      <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-3 text-[10px] text-slate-400">
-        <span className="flex items-center gap-1.5"><AprobaMark size={14} /> {t("Generada con Aproba")}</span>
+      <div className="mt-8 flex items-center justify-end border-t border-slate-200 pt-3 text-[10px] text-slate-400">
         <span>{t("Forma de pago: transferencia")}</span>
       </div>
     </div>

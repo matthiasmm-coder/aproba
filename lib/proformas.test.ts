@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { calcularSiguiente } from "@/lib/factura-numero";
 import { facturaToPdf } from "@/lib/export-pdf";
+import { pdfDeProforma } from "@/lib/proformas-servidor";
 import { importesDeCuerpo } from "@/lib/factura-manual";
 import {
   AVISO_PROFORMA, cuerpoFacturaDeProforma, mapFilaProforma, proformaBorrable, proformaComoFactura, proformaViva, type Proforma,
@@ -85,14 +86,42 @@ describe("proforma: el documento", () => {
     const p = mapFilaProforma(fila());
     const f = proformaComoFactura(p);
     expect(f.vence).toBe("29/10/2026");
-    const pdf = await facturaToPdf(f, { nombre: "Gestoría Valencia", nif: "12345678Z" }, { titulo: "FACTURA PROFORMA", etiquetaVence: "Válida hasta", aviso: AVISO_PROFORMA, pie: "Factura proforma  ·  Generado con Aproba" });
+    const pdf = await facturaToPdf(f, { nombre: "Gestoría Valencia", nif: "12345678Z" }, { titulo: "FACTURA PROFORMA", etiquetaVence: "Válida hasta", aviso: AVISO_PROFORMA, pie: "Factura proforma" });
     const t = await textos(pdf);
     expect(t).toContain("FACTURA PROFORMA");
     expect(t).toContain("PRO-2026-0003");
     expect(t).toContain("Válida hasta: 29/10/2026");
     expect(t.join(" ")).toContain("Documento sin validez fiscal: no es una factura.");
-    expect(t).toContain("Factura proforma  ·  Generado con Aproba");
+    expect(t).toContain("Factura proforma");
     expect(t).not.toContain("FACTURA");
+  });
+
+  // 30/09/2026 — el PDF que recibe el cliente resuelve el emisor como la pantalla: la sede con
+  // identidad propia (y su logo), y el emisor congelado al crear la proforma por encima.
+  const adminFalso = (datos: Record<string, Record<string, unknown>>) => ({
+    from: (tabla: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: datos[tabla] ?? null, error: null }) }) }) }),
+  });
+  const DESPACHO = { nombre: "Gestoría Ejemplo SL", nif: "B12345674", domicilio: "C/ Mayor 1, Madrid", domicilioActividad: null, emailFacturacion: "info@ejemplo.es", logoUrl: null };
+  const SEDE = { razonSocial: "Laura Pérez Gil", nif: "12345678Z", domicilio: "C/ Mayor 1, 2º, Madrid", domicilioActividad: null, emailFacturacion: "laura@ejemplo.es", prefijoSerie: "LP", logoUrl: null };
+  const pdfDe = async (p: Proforma, datos: Record<string, Record<string, unknown>>) =>
+    (await textos(await pdfDeProforma(adminFalso(datos) as never, "ws1", p))).join(" ");
+
+  it("PDF al cliente: el emisor es la sede con identidad fiscal propia, sin la marca de Aproba", async () => {
+    const t = await pdfDe(mapFilaProforma(fila({ emisorDatos: null, oficinaId: "o1" })), { Workspace: DESPACHO, Oficina: SEDE });
+    expect(t).toContain("Laura Pérez Gil");
+    expect(t).toContain("12345678Z");
+    expect(t).not.toContain("B12345674");
+    expect(t).not.toContain("Aproba");
+  });
+
+  it("PDF al cliente: manda el emisor congelado al crear la proforma; sin sede, el despacho", async () => {
+    const congelado = { nombre: "Laura Pérez Gil", nif: "12345678Z", domicilio: null, email: null };
+    const t = await pdfDe(mapFilaProforma(fila({ emisorDatos: congelado, oficinaId: "o1" })), { Workspace: DESPACHO, Oficina: { ...SEDE, razonSocial: "Otro nombre posterior", nif: "87654321X" } });
+    expect(t).toContain("Laura Pérez Gil");
+    expect(t).not.toContain("87654321X");
+    const d = await pdfDe(mapFilaProforma(fila({ emisorDatos: null, oficinaId: null })), { Workspace: DESPACHO });
+    expect(d).toContain("Gestoría Ejemplo SL");
+    expect(d).toContain("B12345674");
   });
 
   it("una factura normal sigue igual", async () => {

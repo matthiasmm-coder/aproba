@@ -37,8 +37,9 @@ export function CookieNotice() {
   if (!visible) return null;
   const t = textosCookie(enPortal ? lang : "es");
 
+  // print:hidden: sin él, el aviso salía impreso al pie de una factura (30/09/2026).
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4">
+    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 print:hidden">
       <div className="mx-auto flex max-w-3xl flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white/95 px-5 py-4 shadow-card backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">
           {t.texto}{" "}
