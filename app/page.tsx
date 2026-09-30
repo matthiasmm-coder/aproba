@@ -3,7 +3,6 @@ import Link from "next/link";
 import localFont from "next/font/local";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
 import { rutaDeTarjeta } from "@/lib/beneficios";
-import { HowItWorks } from "@/components/demos";
 import { HeroAnimation } from "@/components/hero-animation";
 import { Reveal } from "@/components/reveal";
 import { LandingMigracion } from "@/components/landing-migracion";
@@ -340,8 +339,8 @@ export default function Landing() {
         </Reveal>
       </section>
 
-      {/* Cómo funciona — animation */}
-      <HowItWorks />
+      {/* «En acción» (animación cliente/gestor, components/demos.tsx) retirada el 30/09/2026 a
+          petición de Matthias: repetía la vídeo y el hero, y en móvil se veía mal. */}
 
       {/* Funciones / módulos */}
       <section id="funciones" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
