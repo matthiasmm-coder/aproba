@@ -63,15 +63,15 @@ const STATS = [
   { n: "8", l: "idiomas para tus clientes, árabe incluido", href: rutaDeTarjeta("8 idiomas para tus clientes, árabe incluido") },
 ];
 
-// «3 h → 30 min» → las cifras en grande, las unidades en pequeño, la flecha en verde claro
-// (tarjetas verdes de la portada).
+// «3 h → 30 min» → las cifras en grande, las unidades en pequeño y más claras, la flecha en
+// verde medio (tarjetas blancas de las cifras, 01/10/2026).
 function Cifra({ texto }: { texto: string }) {
   return (
     <>
       {texto.split(/\s+/).map((p, i) =>
         /^[−+]?\d+$/.test(p) ? <span key={i}>{p}</span>
-        : p === "→" ? <span key={i} className="mx-1.5 text-[0.6em] text-aproba-100">→</span>
-        : <span key={i} className="ml-1 text-[0.5em] font-medium text-white/80">{p}</span>
+        : p === "→" ? <span key={i} className="mx-1.5 text-[0.6em] text-aproba-400">→</span>
+        : <span key={i} className="ml-1 text-[0.5em] font-medium text-aproba-700/60">{p}</span>
       )}
     </>
   );
@@ -274,25 +274,23 @@ export default function Landing() {
         </p>
       </section>
 
-      {/* Cifras — 4 tarjetas en el verde de Aproba (Matthias, 30/09/2026: « pas un bandeau mais
-          4 cartes alignées, cliquables sur toute leur surface », puis « centre les éléments, couleur
-          Aproba, respecte la charte, plus élégant »). aproba-600 liso = el verde del logo y del CTA,
-          aproba-700 al pasar, como el CTA (BRAND-GUIDE §5). La tarjeta ENTERA es el enlace. Las
-          cifras, a la MISMA altura en las cuatro: el texto reserva sus líneas (3 en móvil y tableta,
-          2 desde lg), así el bloque centrado mide lo mismo en todas. */}
+      {/* Cifras — 4 tarjetas (Matthias, 30/09/2026: « pas un bandeau mais 4 cartes alignées,
+          cliquables sur toute leur surface », « centre les éléments »). 01/10/2026 : « refais ces
+          cartes en t'inspirant des autres cartes de la landing, de même pour les effets au survol »
+          → la misma familia que las tarjetas de Funciones: blancas, borde fino y sombra suave; al
+          pasar el ratón, suben, el borde y la sombra se tiñen, la barrita verde crece, la flecha de
+          la esquina se pone verde (como el nº de paso) y la cifra crece un poco (como el icono).
+          La tarjeta ENTERA es el enlace. Las cifras, a la MISMA altura en las cuatro: el texto
+          reserva sus líneas (3 en móvil y tableta, 2 desde lg). */}
       <section aria-label="Aproba en cifras" className="mx-auto max-w-6xl px-6 pb-20">
         <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-5">
           {STATS.map((s, i) => (
             <Reveal key={s.l} delay={i * 90} className="h-full">
-              <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full min-h-[9rem] flex-col items-center justify-center rounded-2xl bg-aproba-600 px-4 py-6 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_-14px_rgba(14,140,95,0.6)] transition-shadow duration-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_-14px_rgba(14,140,95,0.6),0_0_0_1px_rgba(52,211,153,0.6),0_0_28px_6px_rgba(16,176,131,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 lg:min-h-[10.5rem]">
-                {/* Liseré blanc (Matthias, 30/09): un filo interior a 5 px del borde, con esquinas
-                    concéntricas (16 − 5 = 11 px). Al pasar el ratón, SOLO una luz verde en los bordes
-                    (la sombra del enlace): nada más se mueve ni cambia. */}
-                <span aria-hidden="true" className="pointer-events-none absolute inset-[5px] rounded-[11px] border border-white/40" />
-                <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-3.5 w-3.5 text-white/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
-                <p className="whitespace-nowrap text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
-                <span aria-hidden="true" className="mt-3.5 h-px w-8 bg-white/40" />
-                <p className="mt-3 min-h-[3.61rem] max-w-[14rem] text-balance text-sm font-medium leading-snug text-white lg:min-h-[2.41rem]">{s.l}</p>
+              <Link href={s.href} title="Qué significa y cómo lo afirmamos" className="group relative flex h-full min-h-[9rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-aproba-300 hover:shadow-float focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aproba-500 lg:min-h-[10.5rem]">
+                <svg aria-hidden="true" className="absolute right-3.5 top-3.5 h-3.5 w-3.5 text-slate-300 transition-colors duration-300 group-hover:text-aproba-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M7 7h10v10" /></svg>
+                <p className="whitespace-nowrap text-[1.625rem] font-semibold leading-none tracking-tightest tabular-nums text-aproba-700 transition-transform duration-300 group-hover:scale-105 lg:text-[2.5rem]"><Cifra texto={s.n} /></p>
+                <span aria-hidden="true" className="mt-3.5 block h-0.5 w-6 rounded-full bg-aproba-500 transition-all duration-300 group-hover:w-12" />
+                <p className="mt-3 min-h-[3.61rem] max-w-[14rem] text-balance text-sm font-medium leading-snug text-slate-600 lg:min-h-[2.41rem]">{s.l}</p>
               </Link>
             </Reveal>
           ))}
