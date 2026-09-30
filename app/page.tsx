@@ -195,7 +195,8 @@ export default function Landing() {
         </div>
 
         {/* Escritorio (30/09/2026, Matthias): texto en 30rem y la pantalla de la app en todo lo demás,
-            más grande; la descripción corta antes y la demo va en su propia línea. */}
+            más grande; la descripción corta antes y la demo va en su propia línea. Descripción en
+            TRES líneas (Matthias): hacen falta ≥ 436 px a 18 px (medido) → 28,5rem = 456 px, con margen. */}
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pb-14 pt-16 lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:gap-8">
           {/* Texte */}
           <div className="hero-stagger min-w-0 text-center lg:text-left">
@@ -213,7 +214,7 @@ export default function Landing() {
                 </svg>
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-slate-600 lg:mx-0 lg:max-w-[27rem]">
+            <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-slate-600 lg:mx-0 lg:max-w-[28.5rem]">
               {/* 28/09/2026: ya no «revisa el expediente antes de presentarlo» — la revisión
                   previa (Centinela) salió del producto el 22/08; se promete lo que hay. */}
               La IA valida los documentos, genera los formularios oficiales, te avisa de lo que
