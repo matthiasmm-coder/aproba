@@ -659,7 +659,7 @@ export function HeroAnimation() {
     <div
       role="img"
       aria-label="Aproba: el inicio del despacho, los expedientes en curso, las renovaciones, los clientes, las estadísticas de facturación y los ajustes."
-      className="relative mx-auto flex h-[420px] w-full items-center justify-center"
+      className="relative mx-auto flex h-[420px] w-full items-center justify-center min-[1152px]:justify-end"
     >
       {/* halo ambiant */}
       <div className="pointer-events-none absolute h-80 w-96 rounded-full bg-aproba-100/50 blur-3xl" />
@@ -667,11 +667,13 @@ export function HeroAnimation() {
       {/* La pantalla de la app, SIN marco de tableta (Matthias, 30/09/2026: « enlève les
           bordures de l'écran »): flota con su sombra y un filo apenas visible. Escalado
           PROPORCIONAL con zoom (la maqueta está en px fijos): desde el 30/09 el texto ocupa 30rem,
-          así que a partir de 1152 px la columna de la pantalla mide 592 px → 470 × 1,26 = 592, y
-          el borde derecho de la pantalla queda alineado con el del botón «Prueba 15 días gratis»
+          así que a partir de 1152 px la columna de la pantalla mide 592 px; la pantalla mide 610
+          (Matthias, 30/09: 470 × 1,2979), pegada a la derecha (justify-end, sin encogerse): los
+          18 px de más salen por la izquierda, en el hueco entre columnas, y el texto no se mueve;
+          el borde derecho de la pantalla sigue alineado con el del botón «Prueba 15 días gratis»
           de la cabecera (mismo contenedor max-w-6xl px-6). Paso intermedio en 1100-1151 px
           (columna de 540 a 591 px → 1,14). Inmóvil (30/09: ya no flota): solo cambian las pantallas. */}
-      <div className="relative w-full max-w-[470px] min-[1100px]:[zoom:1.14] min-[1152px]:[zoom:1.26]">
+      <div className="relative w-full max-w-[470px] min-[1100px]:[zoom:1.14] min-[1152px]:w-[470px] min-[1152px]:shrink-0 min-[1152px]:[zoom:1.2979]">
         <div className="relative rounded-2xl shadow-float ring-1 ring-slate-900/[0.08]">
           {/* écran */}
           <div className="overflow-hidden rounded-2xl bg-cream-50">
