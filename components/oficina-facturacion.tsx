@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useT } from "@/components/lang-provider";
 import { SerieFacturas } from "@/components/serie-facturas";
+import { LogoOficina } from "@/components/logo-oficina";
 
 // Identidad fiscal de UNA oficina (fase 6): razón social, NIF, domicilio, email y
 // prefijo de serie. Si razón social o NIF están rellenos, las facturas de esta sede
@@ -15,24 +16,6 @@ export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = n
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(logoInicial);
-  const [logoBusy, setLogoBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
-
-  async function subirLogo(file: File | null) {
-    setLogoBusy(true); setError(null);
-    try {
-      const fd = new FormData();
-      fd.set("oficinaId", oficinaId);
-      if (file) fd.set("logo", file); else fd.set("quitarLogo", "1");
-      const r = await fetch("/api/oficinas/logo", { method: "POST", body: fd });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error ?? t("No se pudo guardar el logo."));
-      setLogoUrl(j.logoUrl ?? null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("No se pudo guardar el logo."));
-    } finally { setLogoBusy(false); if (fileRef.current) fileRef.current.value = ""; }
-  }
 
   async function guardar() {
     setBusy(true); setError(null); setOk(false);
@@ -59,29 +42,8 @@ export function OficinaFacturacion({ oficinaId, nombre, inicial, logoInicial = n
         {t("Rellena razón social o NIF si esta oficina factura como empresa distinta. Vacío = factura con los datos comunes del despacho.")}
       </p>
       {/* Logo de facturación propio de la sede (cae al del despacho si no hay). */}
-      <div className="mt-4 flex items-center gap-4">
-        <div className="flex h-14 w-24 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="logo" className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-[10px] text-slate-300">{t("Sin logo propio")}</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={logoBusy}
-            className="text-left text-[11px] font-semibold text-aproba-700 hover:underline disabled:opacity-50">
-            {logoBusy ? t("Subiendo…") : logoUrl ? t("Cambiar logo") : t("Subir logo de esta oficina")}
-          </button>
-          {logoUrl && (
-            <button type="button" onClick={() => subirLogo(null)} disabled={logoBusy}
-              className="text-left text-[11px] text-slate-400 hover:text-red-600 disabled:opacity-50">
-              {t("Quitar (usar el del despacho)")}
-            </button>
-          )}
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) subirLogo(f); }} />
-        </div>
+      <div className="mt-4">
+        <LogoOficina oficinaId={oficinaId} logoInicial={logoInicial} />
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

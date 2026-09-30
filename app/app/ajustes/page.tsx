@@ -25,6 +25,7 @@ import { AjustesSection } from "@/components/ajustes-section";
 import { RenombrarDespacho } from "@/components/renombrar-despacho";
 import { CambiarEmail } from "@/components/cambiar-email";
 import { LogoDespacho } from "@/components/logo-despacho";
+import { DespachosOficinas } from "@/components/despachos-oficinas";
 import { EncargoConfig } from "@/components/encargo-config";
 import { LangSelector } from "@/components/lang-selector";
 import { getT } from "@/lib/app-lang";
@@ -188,6 +189,8 @@ export default async function Ajustes() {
   // distinguer « propio » de « heredando ») ; la fila automática (orden -1) édite
   // le scope común (null) de toujours.
   const sedes = oficinas.filter((o) => o.orden !== -1);
+  // La oficina de la gestoría (fila automática): su pastilla en Facturación edita los datos del despacho.
+  const gestoriaId = oficinas.length >= 2 ? oficinas.find((o) => o.orden === -1)?.id ?? null : null;
   const scopeServicios = new Map<string, Awaited<ReturnType<typeof fetchServiciosDeScope>>>();
   const scopeAvisos = new Map<string, Awaited<ReturnType<typeof fetchAvisosDeScope>>>();
   for (const o of sedes) {
@@ -544,8 +547,15 @@ export default async function Ajustes() {
                 )}
                 <div className="flex justify-between"><span className="text-slate-500">{t("Tipo")}</span><span className="font-medium text-slate-800">{despachoTipo}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">{t("Plan")}</span><span className="rounded-full bg-aproba-100 px-2 py-0.5 text-xs font-semibold text-aproba-700">{despachoPlan}</span></div>
+                {/* El email del despacho (el de sus facturas): se veía solo en Facturación. */}
+                <div className="flex justify-between gap-3"><span className="shrink-0 text-slate-500">{t("Email")}</span><span className="min-w-0 truncate font-medium text-slate-800" title={despacho.emailFacturacion ?? ""}>{despacho.emailFacturacion || "—"}</span></div>
               </div>
               <LogoDespacho logoUrl={despacho.logoUrl} puedeEditar={puedeEditar} />
+              {puedeEditar && (
+                <a href={`/app/ajustes?abrir=facturacion${gestoriaId ? `&oficina=${encodeURIComponent(gestoriaId)}` : ""}`} className="mt-3 inline-block text-xs font-semibold text-aproba-700 hover:underline">
+                  {t("Editar sus datos (NIF, domicilio, email…)")} →
+                </a>
+              )}
             </div>
             <div className="rounded-xl border border-slate-200 bg-cream-50/60 p-5">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t("Cuenta")}</h3>
@@ -558,6 +568,12 @@ export default async function Ajustes() {
               <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-slate-500">{t("Tu foto de perfil se cambia pulsando tu círculo en la barra lateral (abajo a la izquierda).")}</p>
             </div>
           </div>
+
+          {/* Varias oficinas: los datos (nombre, NIF, email, logo) de cada una, aquí donde se
+              buscan (Luis, 30/09/2026). La fila automática es el propio despacho de arriba. */}
+          <DespachosOficinas puedeEditar={puedeEditar} oficinas={sedes.map((o) => ({
+            id: o.id, nombre: o.nombre, razonSocial: o.razonSocial, nif: o.nif, emailFacturacion: o.emailFacturacion, logoUrl: o.logoUrl,
+          }))} />
 
           {/* Idioma de la interfaz */}
           <div className="mt-4">

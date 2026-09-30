@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 
 // FACTURACIÓN POR OFICINA — pastillas de sedes en «Facturación y métodos de pago».
@@ -25,7 +26,14 @@ export function FacturacionPorOficina({
   oficinas: { id: string; nombre: string; panel: ReactNode; nota?: string }[];
 }) {
   const t = useT();
-  const [activa, setActiva] = useState<string>(oficinas[0]?.id ?? "");
+  // `?oficina=<id>`: «Editar sus datos» desde «Despacho y cuenta» abre ESA pastilla.
+  const pedida = useSearchParams().get("oficina");
+  const valida = (id: string | null) => Boolean(id && oficinas.some((o) => o.id === id));
+  const [activa, setActiva] = useState<string>(valida(pedida) ? String(pedida) : oficinas[0]?.id ?? "");
+  useEffect(() => {
+    if (valida(pedida)) setActiva(String(pedida));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedida]);
 
   if (oficinas.length === 0) return <>{comun}</>;
   if (oficinas.length === 1) return <>{oficinas[0].panel}</>;

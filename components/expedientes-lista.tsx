@@ -140,7 +140,29 @@ function Casilla({ ok, label, corto }: { ok: boolean; label: string; corto?: str
 // búsqueda lo encuentra sin recargar la página.
 const NumerosCtx = createContext<{ editados: Map<string, string>; guardar: (id: string, numero: string) => void }>({ editados: new Map(), guardar: () => {} });
 
-function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onReclasificar }: {
+// «Mover a…» de una fila migrada: el catálogo agrupado por tema, sin el servicio actual.
+function OpcionesServicio({ servicios, actual }: { servicios: CatalogoLite[]; actual?: string }) {
+  const t = useT();
+  const grupos = new Map<string, CatalogoLite[]>();
+  for (const s of servicios) {
+    if (s.clave === actual) continue;
+    const g = s.tema?.trim() || t("Otros trámites");
+    grupos.set(g, [...(grupos.get(g) ?? []), s]);
+  }
+  const otros = t("Otros trámites");
+  const orden = [...grupos.keys()].sort((a, b) => (a === otros ? 1 : b === otros ? -1 : a.localeCompare(b, "es")));
+  return (
+    <>
+      {orden.map((g) => (
+        <optgroup key={g} label={g}>
+          {grupos.get(g)!.slice().sort((a, b) => a.label.localeCompare(b.label, "es")).map((s) => <option key={s.clave} value={s.clave}>{s.label}</option>)}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onReclasificar, servicios, onCambiarServicio }: {
   e: ItemLista;
   cerrado: boolean;
   sangria?: string;
@@ -148,6 +170,9 @@ function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onRe
   onArchive?: (e: ItemLista) => void;
   onRestaurar?: (id: string) => void;
   onReclasificar?: (e: ItemLista, s: Salida) => void;
+  // Fila migrada: cambiarla de servicio (Luis, 30/09/2026 — lib/historial-mover.ts).
+  servicios?: CatalogoLite[];
+  onCambiarServicio?: (e: ItemLista, clave: string) => void;
 }) {
   const t = useT();
   const foto = useAvatar(e.asignadoA);
@@ -156,7 +181,8 @@ function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onRe
   const cat = cerrado ? categoriaDe(e) : null;
   const numeros = useContext(NumerosCtx);
   const numero = numeros.editados.get(e.id) ?? e.numeroOficial ?? "";
-  // Anterior a Aproba: sin expediente que abrir, numerar, reclasificar ni restaurar.
+  // Anterior a Aproba: sin expediente que abrir, numerar, reclasificar ni restaurar; sí se
+  // puede cambiar de servicio (la migración pudo dejarlo en uno genérico).
   if (e.migrado) {
     // El concepto de la factura distingue dos servicios del mismo cliente (sus dos hijos);
     // un servicio cobrado en varias facturas llega en UNA fila con sus números (25/09/2026).
@@ -176,6 +202,16 @@ function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onRe
           </span>
         </Link>
         <span className="order-last shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 sm:order-none" title={t("Traído de tu sistema anterior en la migración: se abre la ficha del cliente.")}>{t("Anterior a Aproba")}</span>
+        {onCambiarServicio && servicios && servicios.length > 1 && (
+          <select
+            aria-label={t("Cambiar de servicio")} title={t("Cambiar de servicio")} value=""
+            onChange={(ev) => { const v = ev.target.value; if (v) onCambiarServicio(e, v); }}
+            className="order-last max-w-[11rem] shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-aproba-600 sm:order-none"
+          >
+            <option value="" disabled>{t("Mover a…")}</option>
+            <OpcionesServicio servicios={servicios} actual={e.claves?.[0]} />
+          </select>
+        )}
       </div>
     );
   }
@@ -243,9 +279,10 @@ function Fila({ e, cerrado, sangria = "pl-9", guia, onArchive, onRestaurar, onRe
 }
 
 // Filas por tranches: las primeras TRANCHE y un botón para traer las siguientes.
-function ListaFilas({ lista, cerrado, sangria, guia, onArchive, onRestaurar, onReclasificar }: {
+function ListaFilas({ lista, cerrado, sangria, guia, onArchive, onRestaurar, onReclasificar, servicios, onCambiarServicio }: {
   lista: ItemLista[]; cerrado: boolean; sangria: string; guia?: string;
   onArchive?: (e: ItemLista) => void; onRestaurar?: (id: string) => void; onReclasificar?: (e: ItemLista, s: Salida) => void;
+  servicios?: CatalogoLite[]; onCambiarServicio?: (e: ItemLista, clave: string) => void;
 }) {
   const t = useT();
   const [tope, setTope] = useState(TRANCHE);
@@ -253,7 +290,7 @@ function ListaFilas({ lista, cerrado, sangria, guia, onArchive, onRestaurar, onR
   return (
     <>
       {lista.slice(0, tope).map((e) => (
-        <Fila key={e.id} e={e} cerrado={cerrado} sangria={sangria} guia={guia} onArchive={onArchive} onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
+        <Fila key={e.id} e={e} cerrado={cerrado} sangria={sangria} guia={guia} onArchive={onArchive} onRestaurar={onRestaurar} onReclasificar={onReclasificar} servicios={servicios} onCambiarServicio={onCambiarServicio} />
       ))}
       {restantes > 0 && (
         <button
@@ -302,7 +339,7 @@ function Nivel({ titulo, n, enCurso, abierto, onToggle, raiz = false, anio = fal
   );
 }
 
-function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onReclasificar }: {
+function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onReclasificar, servicios, onCambiarServicio }: {
   carpeta: CarpetaServicio;
   sufijo: string;
   query: Record<string, string>;
@@ -310,6 +347,8 @@ function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onRecla
   aItem: (f: FilaHistorial) => ItemLista;
   onRestaurar: (id: string) => void;
   onReclasificar: (e: ItemLista, s: Salida) => void;
+  servicios?: CatalogoLite[];
+  onCambiarServicio?: (e: ItemLista, clave: string) => void;
 }) {
   const t = useT();
   const clave = carpeta.clave + sufijo;
@@ -325,7 +364,7 @@ function FilasArchivo({ carpeta, sufijo, query, srv, aItem, onRestaurar, onRecla
   const faltan = Math.max(0, carpeta.n - filas.length);
   return (
     <>
-      <ListaFilas lista={filas} cerrado {...EN_SERVICIO} onRestaurar={onRestaurar} onReclasificar={onReclasificar} />
+      <ListaFilas lista={filas} cerrado {...EN_SERVICIO} onRestaurar={onRestaurar} onReclasificar={onReclasificar} servicios={servicios} onCambiarServicio={onCambiarServicio} />
       {faltan > 0 && (
         <button
           type="button" disabled={srv.cargando.has(clave)}
@@ -554,6 +593,22 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     archivoSrv.quitar(id);
     void setArchivadoServidor(id, false).then(() => router.refresh());
   };
+  // Fila MIGRADA a otro servicio (lib/historial-mover.ts): sale de su carpeta (y de la
+  // búsqueda) al confirmarlo el servidor; router.refresh trae los recuentos del árbol. Si la
+  // carpeta de destino ya estaba abierta, la fila aparece en ella al recargar.
+  async function moverDeServicio(e: ItemLista, clave: string) {
+    try {
+      const res = await fetch("/api/expedientes/historial/servicio", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, clave }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? t("No se pudo cambiar el servicio."));
+      archivoSrv.quitar(e.id);
+      setBusqueda((b) => (b ? { ...b, filas: b.filas.filter((x) => x.id !== e.id) } : b));
+      setAviso(`${e.clienteNombre} → ${j.label ?? clave}`);
+      router.refresh();
+    } catch (err) { setAviso(err instanceof Error ? err.message : t("No se pudo cambiar el servicio.")); }
+  }
 
   const restaurar = (id: string) => {
     setArchivados((prev) => { const n = new Set(prev); n.delete(id); return n; });
@@ -841,7 +896,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
             <div className="overflow-hidden rounded-2xl bg-white">
               <ListaFilas lista={busqueda.filas} cerrado sangria="pl-4"
                 onRestaurar={restaurarArchivo}
-                onReclasificar={(x, sal) => void reclasificar(x, sal)} />
+                onReclasificar={(x, sal) => void reclasificar(x, sal)}
+                servicios={archivo?.catalogo} onCambiarServicio={(x, k) => void moverDeServicio(x, k)} />
               {busqueda.mas && (
                 <p className="border-t border-slate-50 px-4 py-2.5 text-xs text-slate-400">
                   {t("Se muestran los 25 primeros. Afina la búsqueda para ver el resto.")}
@@ -869,7 +925,8 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
                           carpeta={g} sufijo={`|${asignado}|${catFiltro}|${anioElegido ?? ""}`} query={queryCarpeta(g)}
                           srv={archivoSrv} aItem={aItem}
                           onRestaurar={restaurarArchivo}
-                          onReclasificar={(x, sal) => void reclasificar(x, sal)} />
+                          onReclasificar={(x, sal) => void reclasificar(x, sal)}
+                          servicios={archivo?.catalogo} onCambiarServicio={(x, k) => void moverDeServicio(x, k)} />
                       </Nivel>
                     );
                   })}
