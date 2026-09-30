@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AprobaMark } from "./logo";
 import { curva, escalaEje, eurCorto, pct, MESES_LARGOS_ES, type Punto } from "@/lib/estadisticas-facturacion";
 
-// Animation héro — un iPad qui recorre la interfaz del gestor. Realineada con la app el
+// Animation héro — la pantalla de la app (sin marco de tableta desde el 30/09/2026) que recorre la interfaz del gestor. Realineada con la app el
 // 26/09/2026 (la anterior era del 13/09):
 //  · sidebar de CINCO entradas (app/app/layout): Vencimientos ya no está en ella, es la vista
 //    «Renovaciones» de Expedientes;
@@ -658,23 +658,22 @@ export function HeroAnimation() {
   return (
     <div
       role="img"
-      aria-label="Aproba en una tableta: el inicio del despacho, los expedientes en curso, las renovaciones, los clientes, las estadísticas de facturación y los ajustes."
+      aria-label="Aproba: el inicio del despacho, los expedientes en curso, las renovaciones, los clientes, las estadísticas de facturación y los ajustes."
       className="relative mx-auto flex h-[420px] w-full items-center justify-center"
     >
       {/* halo ambiant */}
       <div className="pointer-events-none absolute h-80 w-96 rounded-full bg-aproba-100/50 blur-3xl" />
 
-      {/* iPad. Escalado PROPORCIONAL con zoom (la maqueta está en px fijos): a partir de
-          1152 px la columna mide 536 px → 470 × 1,14 = 536, y el borde derecho de la
-          tableta queda alineado con el del botón «Prueba 15 días gratis» de la cabecera
-          (mismo contenedor max-w-6xl px-6). Paso intermedio en 1100-1151 px. */}
+      {/* La pantalla de la app, SIN marco de tableta (Matthias, 30/09/2026: « enlève les
+          bordures de l'écran »): flota con su sombra y un filo apenas visible. Escalado
+          PROPORCIONAL con zoom (la maqueta está en px fijos): a partir de 1152 px la columna
+          mide 536 px → 470 × 1,14 = 536, y el borde derecho de la pantalla queda alineado con
+          el del botón «Prueba 15 días gratis» de la cabecera (mismo contenedor max-w-6xl px-6).
+          Paso intermedio en 1100-1151 px. */}
       <div className="relative w-full max-w-[470px] animate-floaty min-[1100px]:[zoom:1.08] min-[1152px]:[zoom:1.14]">
-        <div className="relative rounded-[1.4rem] border border-slate-700/40 bg-slate-900 p-2 shadow-float">
-          {/* caméra */}
-          <div className="absolute left-1/2 top-[3px] h-0.5 w-0.5 -translate-x-1/2 rounded-full bg-slate-600" />
-
+        <div className="relative rounded-2xl shadow-float ring-1 ring-slate-900/[0.08]">
           {/* écran */}
-          <div className="overflow-hidden rounded-xl bg-cream-50">
+          <div className="overflow-hidden rounded-2xl bg-cream-50">
             <div className="flex h-[306px]">
               {/* sidebar — en móvil no cabe: el mockup pasa a «modo compacto» y cada pantalla ya lleva su título. */}
               <aside className="hidden w-[122px] shrink-0 flex-col border-r border-slate-200 bg-white p-2.5 sm:flex">
@@ -713,7 +712,7 @@ export function HeroAnimation() {
                 </div>
               </aside>
 
-              {/* contenu — min-w-0: sin él, un texto con truncate (nowrap) ensancha la columna y desborda la tableta */}
+              {/* contenu — min-w-0: sin él, un texto con truncate (nowrap) ensancha la columna y desborda la pantalla */}
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex h-8 items-center justify-between border-b border-slate-200 bg-cream-50 px-3">
                   <div className="flex items-center gap-1.5">

@@ -33,7 +33,8 @@ export function ServiciosImplantacion() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mt-16">
+    // id="despegue": destino de «Ver el servicio Despegue →» (sección Migración de la portada).
+    <div id="despegue" className="mt-16 scroll-mt-24">
       <p className="text-center text-xs font-semibold uppercase tracking-wide text-aproba-700">Servicio opcional</p>
       <h3 className="mt-2 text-center text-xl font-semibold tracking-tightest text-slate-900">Aprovecha el 100 % de Aproba desde el primer día</h3>
       <p className="mx-auto mt-2 max-w-xl text-center text-sm text-slate-600">Sin perder semanas configurando y aprendiendo por tu cuenta: te dejamos la cuenta a punto y a tu equipo trabajando a pleno rendimiento.</p>
