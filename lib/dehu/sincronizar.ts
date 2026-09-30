@@ -3,6 +3,7 @@ import { randomUUID as uuid } from "node:crypto";
 import type { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { IaNoDisponible } from "@/lib/extraction";
 import { bovedaDisponible, cifrarParaDespacho, descifrarDelDespacho } from "@/lib/dehu/boveda";
+import { dehuAutomaticaPermitida } from "@/lib/dehu/piloto";
 import { CertificadoInvalido, leerCertificado, type CertificadoLeido } from "@/lib/dehu/certificado";
 import { ClienteDehu, type UsoDehu } from "@/lib/dehu/cliente";
 import { ErrorDehu, esCodigoExito, type EnvioDehu, type Entorno, type RefEnvio } from "@/lib/dehu/soap";
@@ -60,7 +61,8 @@ export async function leerConexion(admin: Admin, workspaceId: string): Promise<{
 
 export async function estadoDehuAutomatica(admin: Admin, workspaceId: string): Promise<EstadoDehuAutomatica> {
   const { conexion: c, migracion } = await leerConexion(admin, workspaceId);
-  const base = { disponible: bovedaDisponible(), migracion };
+  // Fase piloto (lib/dehu/piloto.ts): fuera de los despachos piloto, la tarjeta no se ve.
+  const base = { disponible: bovedaDisponible() && dehuAutomaticaPermitida(workspaceId), migracion };
   if (!c) return { ...base, conectada: false };
   return {
     ...base, conectada: true, estado: c.estado, entorno: c.entorno,
@@ -270,6 +272,7 @@ export class ConexionRechazada extends Error {
 // Guarda el certificado SOLO si la DEHú lo acepta: una primera consulta real lo prueba.
 export async function conectarDehu(admin: Admin, o: { workspaceId: string; p12: Buffer; clave: string; entorno: Entorno; userId: string }): Promise<EstadoDehuAutomatica> {
   if (!bovedaDisponible()) throw new ConexionRechazada("La DEHú automática aún no está disponible en este servidor.");
+  if (!dehuAutomaticaPermitida(o.workspaceId)) throw new ConexionRechazada("La DEHú automática aún no está disponible para tu despacho.");
   const { migracion } = await leerConexion(admin, o.workspaceId);
   if (!migracion) throw new ConexionRechazada(ERROR_MIGRACION_DEHU_AUTO);
   let cert: CertificadoLeido;
