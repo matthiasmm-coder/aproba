@@ -9,6 +9,7 @@ import { ConfigDeOficina } from "@/components/config-de-oficina";
 import { OficinaEncargo } from "@/components/oficina-encargo";
 import { TIPO_LABEL, planLabel, puedeGestionarEquipo, ROLES } from "@/lib/planes";
 import { ServiciosManager } from "@/components/servicios-manager";
+import { catalogoDeSede } from "@/lib/multi-servicio";
 import { AvisosManager } from "@/components/avisos-manager";
 import { CuentasBancarias } from "@/components/cuentas-bancarias";
 import { FacturacionPorOficina } from "@/components/facturacion-por-oficina";
@@ -167,6 +168,13 @@ export default async function Ajustes() {
     fetchCarpetasConfig().catch(() => []), // sin migración de carpetas → catálogo plano
   ]);
   const { servicios } = srv;
+  // MULTI-OFICINA (arreglo del 30/09/2026, Asenjo): fetchServiciosConfig trae TODAS las filas
+  // (catálogo común + el propio de cada sede). El editor del catálogo común solo debe ver las
+  // comunes: con la copia de otra sede mezclada, cada servicio salía dos veces, el guardado
+  // fallaba (dos filas con el mismo id en un upsert) y borrar un «duplicado» borraba la fila
+  // común de verdad. Los selectores reciben una entrada por clave.
+  const serviciosComunes = catalogoDeSede(servicios, null);
+  const serviciosUnicos = [...new Map(servicios.map((s) => [s.id, s])).values()];
   const { avisos } = avs;
   const recepcion = await fetchDireccionRecepcion();
   const bandeja = await fetchBandeja();
@@ -229,15 +237,15 @@ export default async function Ajustes() {
         <AjustesSection
           id="servicios"
           title={t("Servicios")}
-          subtitle={`${servicios.filter((sv) => sv.active).length} ${t("activos")} · ${t("trámites, pagos y documentos")}`}
+          subtitle={`${serviciosComunes.filter((sv) => sv.active).length} ${t("activos")} · ${t("trámites, pagos y documentos")}`}
           icon={IconServicios}
         >
           <fieldset disabled={!puedeEditar} className="m-0 min-w-0 border-0 p-0 disabled:opacity-70">
             {conPastillas ? (
               <FacturacionPorOficina
-                comun={<ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} />}
+                comun={<ServiciosManager inicial={serviciosComunes} packsInicial={packs} {...propsCarpetas} />}
                 oficinas={oficinas.map((o) => o.orden === -1
-                  ? { id: o.id, nombre: o.nombre, panel: <ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} /> }
+                  ? { id: o.id, nombre: o.nombre, panel: <ServiciosManager inicial={serviciosComunes} packsInicial={packs} {...propsCarpetas} /> }
                   : {
                       id: o.id,
                       nombre: o.nombre,
@@ -256,7 +264,7 @@ export default async function Ajustes() {
                     })}
               />
             ) : (
-              <ServiciosManager inicial={servicios} packsInicial={packs} {...propsCarpetas} />
+              <ServiciosManager inicial={serviciosComunes} packsInicial={packs} {...propsCarpetas} />
             )}
           </fieldset>
         </AjustesSection>
@@ -366,7 +374,7 @@ export default async function Ajustes() {
                     encargoFormasPago: despacho.encargoFormasPago ?? "",
                     mandatoConsejo: despacho.mandatoConsejo,
                   }}
-                  servicios={servicios.filter((s) => s.active !== false && (s.label ?? "").trim()).map((s) => ({ id: s.id, label: s.label.trim() }))}
+                  servicios={serviciosUnicos.filter((s) => s.active !== false && (s.label ?? "").trim()).map((s) => ({ id: s.id, label: s.label.trim() }))}
                 />
               );
               if (!conPastillas) return panelDespacho;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
+import { catalogoDeSede } from "@/lib/multi-servicio";
 import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { honorariosCobrados, tieneCuotas } from "@/lib/facturas";
 import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento, serviciosDeExpediente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
@@ -48,7 +49,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (resFull.error && /serviciosAsignacion|column|schema cache/i.test(resFull.error.message)) {
       resFull = await admin.from("Expediente").select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId").eq("id", id).maybeSingle() as typeof resFull;
     }
-    const { servicios } = await fetchServiciosConfig();
+    const { servicios: todos } = await fetchServiciosConfig();
+    // Catálogo de la sede del expediente (todas las filas llegan juntas: común + sedes).
+    const { data: sede } = await admin.from("Expediente").select("oficinaId").eq("id", id).maybeSingle();
+    const servicios = catalogoDeSede(todos, (sede as { oficinaId?: string | null } | null)?.oficinaId ?? null);
     const full = resFull.data;
     if (full) {
       const f = full as { tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null; familiaId: string | null; serviciosAsignacion?: unknown };

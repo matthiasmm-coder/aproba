@@ -58,6 +58,10 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     orden: i,
     updatedAt: new Date().toISOString(),
   }));
+  // Garde-fou (30/09/2026) : deux ítems avec la même clave → deux filas con el mismo id → Postgres
+  // rechaza TODO el upsert («cannot affect row a second time») y nada se guarda. Una fila por id.
+  const unicas = [...new Map(rows.map((r) => [r.id as string, r])).values()];
+  if (unicas.length !== rows.length) { rows.length = 0; rows.push(...unicas); }
   let { error } = await supabase.from("ServicioConfig").upsert(rows, { onConflict: "id" });
   if (error && oficinaId && /oficinaId/i.test(error.message)) {
     throw new Error("Falta la migración: ejecuta supabase/config-por-oficina.sql en Supabase.");
