@@ -55,10 +55,11 @@ export function ArticuloCuerpo({ bloques }: { bloques: Bloque[] }) {
             // Ficha de una persona: su foto (o sus iniciales), nombre y cargo.
             return (
               <div key={i} className="my-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+                {/* 4,8 rem = la foto un 20 % más grande (Matthias, 01/10/2026). */}
                 {b.foto ? (
-                  <Image src={b.foto} alt={b.nombre} width={128} height={128} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-aproba-100" />
+                  <Image src={b.foto} alt={b.nombre} width={160} height={160} className="h-[4.8rem] w-[4.8rem] shrink-0 rounded-full object-cover ring-2 ring-aproba-100" />
                 ) : (
-                  <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-aproba-600 text-lg font-bold tracking-tight text-white ring-2 ring-aproba-100">{b.iniciales}</span>
+                  <span aria-hidden="true" className="flex h-[4.8rem] w-[4.8rem] shrink-0 items-center justify-center rounded-full bg-aproba-600 text-xl font-bold tracking-tight text-white ring-2 ring-aproba-100">{b.iniciales}</span>
                 )}
                 <span className="min-w-0">
                   <span className="block text-base font-semibold text-slate-900">{b.nombre}</span>
