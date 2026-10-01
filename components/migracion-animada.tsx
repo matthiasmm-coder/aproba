@@ -10,9 +10,14 @@ import { AprobaMark } from "@/components/logo";
 // Tres clientes seguidos, nunca dos en movimiento a la vez; la lista de Aproba se llena sola y, al
 // final, se vacía para volver a empezar. Ciclo de 10 s. El símbolo de la IA es un CHIP con «IA»:
 // se lee sin explicación (el destello ✦ se confundía con un adorno).
+// 01/10/2026 (bis): « l'icône IA doit être mieux animée, presque vivante », y la hoja sin su fila
+// vacía (tarjetas más bajas) → el chip respira (sube y su halo se aviva), su luz interior gira
+// despacio y su «IA» parpadea en reposo; mira al cliente que llega, se lo traga, lo «mastica»
+// mientras la corriente lo atraviesa de las patas de entrada a las de salida, y lo suelta girado
+// hacia Aproba, con un destello.
 // Coreografía en tiempo ABSOLUTO: cada elemento lleva sus @keyframes, generados aquí, todo en
 // transform/opacity. Sin animación («reducir movimiento»), cada elemento muestra su estado FINAL
-// (los tres clientes dentro, los tres datos reconocidos): la imagen se entiende quieta.
+// (los tres clientes dentro con su ✓, el chip quieto): la imagen se entiende quieta.
 // Datos ficticios, pasaportes enmascarados.
 
 const FILAS = [
@@ -31,14 +36,19 @@ const ENTRA = SALE.map((t) => t + VIAJE);
 const EMERGE = ENTRA.map((t) => t + PROCESA);
 const LLEGA = EMERGE.map((t) => t + VIAJE);
 const RECOGE = 9.35;                                      // la lista se vacía para volver a empezar
+const RESPIRA = (CICLO / 3).toFixed(3);                   // tres respiraciones del chip por ciclo
 
 // ── Keyframes en tiempo absoluto ─────────────────────────────────────────────────────────
 type Paso = [number, string];
 const pct = (t: number) => `${Math.min(100, Math.max(0, (t / CICLO) * 100)).toFixed(3)}%`;
-const EASE = "animation-timing-function:cubic-bezier(.45,0,.25,1)";
+const CURVA = "cubic-bezier(.45,0,.25,1)";
+const EASE = `animation-timing-function:${CURVA}`;
 const reglas: string[] = [];
-function kf(nombre: string, pasos: Paso[]): CSSProperties {
+function keyframes(nombre: string, pasos: Paso[]) {
   reglas.push(`@keyframes ${nombre}{${pasos.map(([t, css]) => `${pct(t)}{${css}}`).join("")}}`);
+}
+function kf(nombre: string, pasos: Paso[]): CSSProperties {
+  keyframes(nombre, pasos);
   return { animation: `${nombre} ${CICLO}s linear infinite` };
 }
 // Destellos cortos en los instantes dados (subir en `sube` s, bajar en `baja` s).
@@ -60,20 +70,91 @@ const listoY = EMERGE.map((t, i) => cruza("Y", t, LLEGA[i], `mig-ly-${i}`));
 const encoge = ENTRA.map((t, i) => kf(`mig-en-${i}`, [[0, "transform:scale(1)"], [t - 0.3, "transform:scale(1)"], [t, "transform:scale(.55)"], [CICLO, "transform:scale(.55)"]]));
 const brota = EMERGE.map((t, i) => kf(`mig-br-${i}`, [[0, "transform:scale(.6)"], [t, "transform:scale(.6)"], [t + 0.16, "transform:scale(1.08)"], [t + 0.28, "transform:scale(1)"], [CICLO, "transform:scale(1)"]]));
 
-// Chip: una onda al entrar cada cliente, el chip se enciende mientras trabaja y sus patas
-// «conducen»; cada dato se ilumina en su turno.
+// Chip: una onda al entrar cada cliente, el chip se aviva mientras trabaja (halo y remolino de luz)
+// y cada dato se ilumina en su turno.
 const onda = ENTRA.map((t, i) => kf(`mig-on-${i}`, [[0, "opacity:0;transform:scale(1)"], [t - 0.01, "opacity:0;transform:scale(1)"], [t, "opacity:.5;transform:scale(1)"], [t + 0.85, "opacity:0;transform:scale(1.7)"], [CICLO, "opacity:0;transform:scale(1.7)"]]));
 const trabaja = destellos("mig-trab", ENTRA, "opacity:0", "opacity:1", 0.1, PROCESA);
 const turno = (j: number) => ENTRA.map((t) => t + 0.05 + j * 0.16);
 const campoFondo = CAMPOS.map((_, j) => destellos(`mig-cf-${j}`, turno(j), "opacity:0", "opacity:1", 0.08, 0.5));
 const campoTexto = CAMPOS.map((_, j) => destellos(`mig-ct-${j}`, turno(j), "color:rgb(100 116 139)", "color:rgb(255 255 255)", 0.08, 0.5));
 
+// Las patas del chip, por orden de paso de la corriente: entra por la izquierda (el lado del
+// archivo), recorre arriba y abajo y sale por la derecha (el de Aproba) justo cuando brota el
+// cliente reconocido. En móvil esa capa gira 90° y la corriente baja de arriba abajo, como el hilo.
+type Pata = [number, number, number, number];
+const PATAS = [30, 44, 58];
+const ETAPAS: Pata[][] = [
+  PATAS.map((p): Pata => [4, p, 14, p]),
+  ...PATAS.map((p): Pata[] => [[p, 4, p, 14], [p, 74, p, 84]]),
+  PATAS.map((p): Pata => [74, p, 84, p]),
+];
+const corriente = ETAPAS.map((_, s) => destellos(`mig-co-${s}`, ENTRA.map((t) => t + 0.1 + s * 0.1), "opacity:0", "opacity:1", 0.05, 0.3));
+
+// El cuerpo del chip, como un personaje: gira hacia el cliente que llega, lo espera, se lo traga
+// (aplastado a lo largo del hilo), lo mastica, coge impulso y lo suelta girado hacia Aproba; lo
+// sigue con la mirada y vuelve al centro. Giro en Y en escritorio; en X en móvil, donde el hilo
+// baja (`.mig-cu`, abajo). La MISMA lista de funciones en cada paso, para que se interpole bien.
+function postura(eje: "x" | "y", giro: number, d: number, largo = 1, ancho = 1) {
+  return eje === "x"
+    ? `transform:perspective(320px) rotateY(${giro}deg) translateX(${d}px) scale(${largo},${ancho})`
+    : `transform:perspective(320px) rotateX(${-giro}deg) translateY(${d}px) scale(${ancho},${largo})`;
+}
+for (const eje of ["x", "y"] as const) {
+  const p = (giro: number, d: number, largo?: number, ancho?: number) => postura(eje, giro, d, largo, ancho);
+  keyframes(`mig-cu-${eje}`, [
+    [0, p(0, 0)],
+    ...SALE.flatMap((t, i): Paso[] => [
+      [t + 0.2, p(0, 0)],
+      [t + 0.6, p(-18, -2)],
+      [ENTRA[i] - 0.1, p(-18, -2, 1.04, 1.04)],
+      [ENTRA[i] + 0.06, p(0, 0, 0.9, 1.08)],
+      [ENTRA[i] + 0.18, p(0, 0, 1.06, 0.95)],
+      [ENTRA[i] + 0.3, p(0, 0, 0.97, 1.03)],
+      [ENTRA[i] + 0.42, p(0, 0, 1.03, 0.98)],
+      [EMERGE[i] - 0.06, p(0, 0, 0.95, 1.03)],
+      [EMERGE[i] + 0.1, p(16, 3, 1.08, 0.95)],
+      [EMERGE[i] + 0.4, p(18, 2)],
+      [EMERGE[i] + 0.85, p(0, 0)],
+    ]),
+    [CICLO, p(0, 0)],
+  ]);
+}
+
+// Parpadeo del «IA», como unos ojos, en los ratos de reposo: al despertar, antes del primer
+// cliente, y uno doble cuando ha terminado con los tres.
+const parpadeo = kf("mig-pa", [
+  [0, "transform:scaleY(1)"],
+  ...[0.12, 8.45, 8.68].flatMap((t): Paso[] => [[t, "transform:scaleY(1)"], [t + 0.07, "transform:scaleY(.12)"], [t + 0.15, "transform:scaleY(1)"]]),
+  [CICLO, "transform:scaleY(1)"],
+]);
+
+// Destello que barre el chip cuando suelta al cliente reconocido.
+const barre = (x: number) => `transform:translateX(${x}%) skewX(-20deg)`;
+const brillo = kf("mig-bri", [
+  [0, `opacity:0;${barre(-180)}`],
+  ...EMERGE.flatMap((t): Paso[] => [[t - 0.08, `opacity:0;${barre(-180)}`], [t - 0.06, `opacity:1;${barre(-180)};${EASE}`], [t + 0.42, `opacity:1;${barre(240)}`], [t + 0.44, `opacity:0;${barre(240)}`]]),
+  [CICLO, `opacity:0;${barre(240)}`],
+]);
+
 // Aproba: el cliente aparece al llegar (y se ilumina), con su ✓; todo se vacía al final.
 const aparece = LLEGA.map((t, i) => kf(`mig-ap-${i}`, [[0, "opacity:0;transform:translateY(6px)"], [t - 0.05, "opacity:0;transform:translateY(6px)"], [t + 0.25, "opacity:1;transform:translateY(0)"], [RECOGE, "opacity:1;transform:translateY(0)"], [RECOGE + 0.35, "opacity:0;transform:translateY(0)"], [CICLO, "opacity:0;transform:translateY(6px)"]]));
 const resalta = LLEGA.map((t, i) => kf(`mig-rs-${i}`, [[0, "opacity:0"], [t, "opacity:0"], [t + 0.15, "opacity:1"], [t + 0.9, "opacity:1"], [t + 1.3, "opacity:0"], [CICLO, "opacity:0"]]));
 const sello = LLEGA.map((t, i) => kf(`mig-sl-${i}`, [[0, "opacity:0;transform:scale(.4)"], [t + 0.1, "opacity:0;transform:scale(.4)"], [t + 0.28, "opacity:1;transform:scale(1.15)"], [t + 0.4, "opacity:1;transform:scale(1)"], [CICLO, "opacity:1;transform:scale(1)"]]));
 
-const CSS = `${reglas.join("")}@media (prefers-reduced-motion:reduce){.mig-a{animation:none!important}}`;
+// Lo que no depende del guion: la respiración (sube un poco y se hincha; el halo se aviva al
+// inspirar) y la luz interior, que gira despacio en reposo y deprisa mientras trabaja.
+const CSS = [
+  ...reglas,
+  "@keyframes mig-respira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}",
+  "@keyframes mig-halo{0%,100%{opacity:.45;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}",
+  "@keyframes mig-gira{to{transform:rotate(1turn)}}",
+  `.mig-vive{animation:mig-respira ${RESPIRA}s ease-in-out infinite}`,
+  `.mig-halo{animation:mig-halo ${RESPIRA}s ease-in-out infinite}`,
+  ".mig-aurora{background:conic-gradient(from 0deg,transparent 0deg,rgba(255,255,255,.2) 55deg,transparent 115deg,transparent 180deg,rgba(167,243,208,.3) 235deg,transparent 295deg);animation:mig-gira 9s linear infinite}",
+  ".mig-remolino{background:conic-gradient(from 0deg,transparent 0deg,rgba(255,255,255,.45) 40deg,transparent 95deg,transparent 180deg,rgba(255,255,255,.3) 220deg,transparent 275deg);animation:mig-gira .8s linear infinite}",
+  `.mig-cu{animation:mig-cu-y ${CICLO}s ${CURVA} infinite}@media (min-width:1024px){.mig-cu{animation-name:mig-cu-x}}`,
+  "@media (prefers-reduced-motion:reduce){.mig-a{animation:none!important}}",
+].join("");
 
 // ── Piezas ───────────────────────────────────────────────────────────────────────────────
 const COLUMNAS = "lg:grid-cols-[minmax(250px,1.35fr)_minmax(64px,0.6fr)_148px_minmax(64px,0.6fr)_minmax(250px,1.35fr)]";
@@ -87,7 +168,8 @@ function Cabecera({ children }: { children: ReactNode }) {
   return <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">{children}</div>;
 }
 
-// La hoja del despacho, tal cual: numeración de filas, cabecera en la fila 1, una fila vacía.
+// La hoja del despacho, tal cual: numeración de filas y la cabecera en la fila 1. Es la que marca
+// la altura de las dos tarjetas (la de Aproba reparte sus filas en ella).
 function Hoja() {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-float ring-1 ring-slate-900/[0.06] lg:self-stretch">
@@ -103,7 +185,7 @@ function Hoja() {
           <span className="text-right text-[10px] font-normal text-slate-300">1</span><span>Nombre</span><span>Pasaporte</span><span>Caduca</span>
         </div>
         {FILAS.map((f, i) => (
-          <div key={f.nombre} className={`relative ${CELDAS} text-slate-700`}>
+          <div key={f.nombre} className={`relative ${CELDAS} text-slate-700 last:border-b-0`}>
             <span aria-hidden="true" style={filaSale[i]} className="mig-a pointer-events-none absolute inset-0 bg-aproba-500/[0.13] opacity-0" />
             <span className="relative text-right text-[10px] text-slate-300">{i + 2}</span>
             <span className="relative truncate">{f.nombre}</span>
@@ -111,31 +193,46 @@ function Hoja() {
             <span className="relative tabular-nums">{f.caduca}</span>
           </div>
         ))}
-        <div className={`${CELDAS} border-b-0`}>
-          <span className="text-right text-[10px] text-slate-300">5</span><span>&nbsp;</span>
-        </div>
       </div>
     </div>
   );
 }
 
-// El símbolo de la IA: un chip con «IA». Patas grises que se encienden en verde mientras
-// trabaja; debajo, los tres datos que reconoce, cada uno en su turno.
-const PATAS = [30, 44, 58];
+// El símbolo de la IA: un chip con «IA», vivo. Capas, de fuera adentro: el halo que respira (y
+// se aviva mientras trabaja), la onda de cada cliente que entra y el chip, que respira (`.mig-vive`)
+// y reacciona al guion (`.mig-cu`); dentro, las patas grises, la corriente verde que las recorre y
+// la cara con su luz interior, el remolino de cuando trabaja, el destello al soltar y el «IA» que
+// parpadea. Debajo, los tres datos que reconoce, cada uno en su turno.
 function ChipIA() {
-  const pata = (x1: number, y1: number, x2: number, y2: number, k: string) => <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} />;
-  const patas = PATAS.flatMap((p) => [pata(p, 4, p, 14, `t${p}`), pata(p, 74, p, 84, `b${p}`), pata(4, p, 14, p, `l${p}`), pata(74, p, 84, p, `r${p}`)]);
+  const linea = ([x1, y1, x2, y2]: Pata, k: string) => <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} />;
   return (
     <div className="relative mx-auto flex flex-col items-center lg:block">
       <div className="relative mx-auto h-[88px] w-[88px]">
+        <span aria-hidden="true" className="mig-a mig-halo absolute -inset-5 rounded-full bg-[radial-gradient(closest-side,rgba(16,176,131,0.22),transparent)]" />
+        <span aria-hidden="true" style={trabaja} className="mig-a absolute -inset-5 rounded-full bg-[radial-gradient(closest-side,rgba(16,176,131,0.4),transparent)] opacity-0" />
         {onda.map((s, i) => <span key={i} aria-hidden="true" style={s} className="mig-a absolute inset-[14px] rounded-2xl bg-aproba-400/45 opacity-0" />)}
-        <svg viewBox="0 0 88 88" className="absolute inset-0 h-full w-full" aria-hidden="true">
-          <g stroke="rgb(203 213 225)" strokeWidth="3" strokeLinecap="round">{patas}</g>
-          <g style={trabaja} className="mig-a opacity-0" stroke="rgb(16 176 131)" strokeWidth="3" strokeLinecap="round">{patas}</g>
-        </svg>
-        <div className="absolute inset-[14px] flex items-center justify-center rounded-2xl bg-gradient-to-br from-aproba-500 to-aproba-700 shadow-float ring-4 ring-white">
-          <span aria-hidden="true" style={trabaja} className="mig-a absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_50%_40%,rgba(255,255,255,0.35),transparent_65%)] opacity-0" />
-          <span className="relative text-[22px] font-bold tracking-tight text-white">IA</span>
+        <div className="mig-a mig-vive absolute inset-0">
+          <div className="mig-a mig-cu absolute inset-0">
+            <svg viewBox="0 0 88 88" className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <g stroke="rgb(203 213 225)" strokeWidth="3" strokeLinecap="round">{ETAPAS.flat().map((l, k) => linea(l, `p${k}`))}</g>
+            </svg>
+            <svg viewBox="0 0 88 88" className="absolute inset-0 h-full w-full rotate-90 lg:rotate-0" aria-hidden="true">
+              {ETAPAS.map((etapa, s) => (
+                <g key={s} style={corriente[s]} className="mig-a opacity-0" stroke="rgb(16 176 131)" strokeWidth="3" strokeLinecap="round">
+                  {etapa.map((l, k) => linea(l, `c${s}-${k}`))}
+                </g>
+              ))}
+            </svg>
+            <div className="absolute inset-[14px] flex items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-aproba-500 to-aproba-700 shadow-float ring-4 ring-white">
+              <span aria-hidden="true" className="mig-a mig-aurora absolute -inset-1/2" />
+              <span aria-hidden="true" style={trabaja} className="mig-a absolute inset-0 opacity-0">
+                <span className="mig-a mig-remolino absolute -inset-1/2" />
+              </span>
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
+              <span aria-hidden="true" style={brillo} className="mig-a absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-0" />
+              <span style={parpadeo} className="mig-a relative text-[22px] font-bold tracking-tight text-white">IA</span>
+            </div>
+          </div>
         </div>
       </div>
       {/* Los datos que la IA reconoce en cada cliente. En escritorio cuelgan bajo el chip sin
@@ -153,19 +250,20 @@ function ChipIA() {
   );
 }
 
+// La lista de Aproba: sus tres filas se reparten la altura que marca la hoja.
 function Resultado() {
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-float ring-1 ring-slate-900/[0.06] lg:self-stretch">
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-float ring-1 ring-slate-900/[0.06] lg:self-stretch">
       <Cabecera>
         <AprobaMark size={20} />
         <span className="text-xs font-semibold text-slate-700">Clientes</span>
       </Cabecera>
-      <ul>
+      <ul className="flex flex-1 flex-col">
         {FILAS.map((f, i) => (
-          <li key={f.nombre} style={aparece[i]} className="mig-a relative flex items-center gap-3 border-b border-slate-100 px-4 py-2.5">
+          <li key={f.nombre} style={aparece[i]} className="mig-a relative flex flex-1 items-center gap-3 border-b border-slate-100 px-4 py-1.5 last:border-b-0">
             <span aria-hidden="true" style={resalta[i]} className="mig-a pointer-events-none absolute inset-0 bg-aproba-500/[0.13] opacity-0" />
             <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aproba-50 text-[10px] font-bold text-aproba-700 ring-1 ring-aproba-100">{f.iniciales}</span>
-            <span className="relative min-w-0 flex-1">
+            <span className="relative min-w-0 flex-1 leading-tight">
               <span className="block truncate text-[13px] font-semibold text-slate-900">{f.nombre}</span>
               <span className="block truncate text-[11px] text-slate-500">Ficha · renovación {f.caduca}</span>
             </span>

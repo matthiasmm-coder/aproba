@@ -71,7 +71,7 @@ const config: Config = {
           to: { transform: "translateX(-50%)" },
         },
         // Migración animada de la portada (components/migracion-animada.tsx): desde el 01/10/2026 su
-        // coreografía (9 s) genera sus propios @keyframes en el componente; aquí solo queda el flujo
+        // coreografía (10 s) genera sus propios @keyframes en el componente; aquí solo queda el flujo
         // continuo de los hilos.
         // El hilo como flujo continuo: rayas que avanzan un periodo (14 px) y vuelven a empezar.
         flujoX: { from: { transform: "translateX(-14px)" }, to: { transform: "translateX(0)" } },
