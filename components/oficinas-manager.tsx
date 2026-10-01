@@ -109,9 +109,13 @@ export function OficinasManager({
           : t("Para despachos con varias sedes: cada cliente y cada expediente pertenece a una oficina.")}
       </p>
 
+      {/* La oficina extra de la excepción: por estrenar, o ya en uso (Luis, 01/10/2026: con la
+          de Marta creada, «Tu plan incluye una oficina más» le hacía buscar un botón que ya no sale). */}
       {excepcion && !esBusiness && (
         <p className="rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2.5 text-sm text-aproba-800">
-          {t("Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.")}
+          {puedeCrear
+            ? t("Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.")
+            : <>{t("Tu plan incluye una oficina más para facturar con otro NIF y ya la usas:")} <b>{oficinas.find((o) => o.orden !== -1)?.nombre ?? oficinas[oficinas.length - 1]?.nombre}</b>. {t("Si necesitas otra, escríbenos.")}</>}
         </p>
       )}
 

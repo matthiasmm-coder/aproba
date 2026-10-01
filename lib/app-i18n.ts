@@ -2380,6 +2380,8 @@ export const CA: Record<string, string> = {
   "Tipo de retención (%)": "Tipus de retenció (%)",
   "Total factura": "Total factura",
   "Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.": "El teu pla inclou una oficina més per facturar amb un altre NIF (per exemple, un professional del despatx amb la seva pròpia sèrie). Omple les seves dades de facturació a la seva targeta.",
+  "Tu plan incluye una oficina más para facturar con otro NIF y ya la usas:": "El teu pla inclou una oficina més per facturar amb un altre NIF i ja la fas servir:",
+  "Si necesitas otra, escríbenos.": "Si en necessites una altra, escriu-nos.",
   "Tus clientes lo ingresan en Hacienda por ti: lo descuentas en tu declaración (modelo 130).": "Els teus clients l'ingressen a Hisenda per tu: el descomptes a la teva declaració (model 130).",
   // Cambio del email de acceso (Ajustes › Despacho y cuenta)
   "Escribe un email válido.": "Escriu un email vàlid.",
