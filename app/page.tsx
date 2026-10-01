@@ -98,7 +98,8 @@ const PLANES = [
   { nombre: "Pro", precio: "149", anual: "1.490", incluidos: "50", para: "Para equipos en crecimiento", features: ["Todo lo de Starter", "Facturación integrada: facturas y suplidos automáticos", "Portal del cliente con tu marca", "Cobro por tarjeta opcional a tus clientes", "Hasta 5 usuarios"], destacado: true },
   // «Multi-oficina» a secas dejaba al lector sin saber cuántas sedes entran: se dice
   // el número Y el precio de la siguiente, como se hace con los expedientes.
-  { nombre: "Business", precio: "249", anual: "2.490", incluidos: null, para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Expedientes ilimitados", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
+  // «desde»: el precio sube con cada oficina por encima de las 2 incluidas (Matthias, 01/10/2026).
+  { nombre: "Business", precio: "249", anual: "2.490", desde: true, incluidos: null, para: "Equipos grandes · multi-oficina", features: ["Todo lo de Pro", "Expedientes ilimitados", "2 oficinas incluidas · +50 €/mes por oficina adicional", "Usuarios ilimitados", "Soporte prioritario"], destacado: false },
 ];
 
 const FAQ = [
@@ -406,8 +407,8 @@ export default function Landing() {
                 {p.destacado && <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Más popular</span>}
                 <h3 className="text-center text-lg font-semibold text-slate-900">{p.nombre}</h3>
                 <p className="mt-1 text-center text-sm text-slate-500">{p.para}</p>
-                <p className="mt-5 text-center"><span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
-                <p className="mt-1 text-center text-xs text-slate-500">o {p.anual}&nbsp;€/año · 2 meses gratis</p>
+                <p className="mt-5 text-center">{p.desde && <span className="mr-1.5 text-base font-medium text-slate-500">desde</span>}<span className="text-4xl font-bold tracking-tightest text-slate-900">{p.precio}&nbsp;€</span><span className="text-slate-500">/mes + IVA</span></p>
+                <p className="mt-1 text-center text-xs text-slate-500">o {p.desde ? "desde " : ""}{p.anual}&nbsp;€/año · 2 meses gratis</p>
                 <p className="mt-3 rounded-lg bg-aproba-50 px-3 py-2 text-center text-xs font-medium text-aproba-700">{p.incluidos ? <>{p.incluidos} expedientes/mes incluidos · <span className="whitespace-nowrap">después 3 €/expediente</span></> : <>Expedientes ilimitados, sin coste por expediente</>}</p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
                   {p.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick ok={true} />{f}</li>))}
