@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { leerOrigen } from "@/lib/origen";
@@ -101,6 +102,16 @@ export function SignupForm() {
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
+      {/* Aceptación expresa junto al botón (01/10/2026): hasta hoy nada en el alta mencionaba
+          los Términos ni el DPA, que solo decían «se entiende aceptado». ENCIMA del botón: en un
+          móvil de 812 px el aviso de cookies tapa lo que queda debajo en la primera visita.
+          Pestaña nueva: el formulario no se pierde al leerlos. */}
+      <p className="text-balance text-center text-xs leading-relaxed text-slate-500">
+        Al crear tu cuenta aceptas los{" "}
+        <Link href="/legal/terminos" target="_blank" className="underline underline-offset-2 hover:text-aproba-700">Términos</Link>, la{" "}
+        <Link href="/legal/privacidad" target="_blank" className="underline underline-offset-2 hover:text-aproba-700">Política de privacidad</Link> y el{" "}
+        <Link href="/legal/dpa" target="_blank" className="underline underline-offset-2 hover:text-aproba-700">DPA</Link>.
+      </p>
       <button
         type="submit"
         disabled={loading}
