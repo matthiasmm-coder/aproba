@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { AnilloCompletitud } from "@/components/anillo-completitud";
 import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
+import { CobroFacturaModal } from "@/components/cobro-factura-modal";
 import { normalizarEstado, type Progreso } from "@/lib/progreso";
 import { etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
 import { setArchivadoServidor } from "@/lib/archivo";
@@ -23,13 +24,16 @@ import { RequerimientosExpediente } from "@/components/requerimientos-expediente
 // reclasifica desde Archivados cuando llega).
 // 24/09/2026 (Matthias): en «Preparado» la carta ES la sección «Estado en Extranjería»
 // (components/estado-extranjeria.tsx) — consulta oficial, respuesta y requerimientos juntos.
-export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, referencia, archivado = false, salida = null, extranjeria }: {
+export function ValidarExpediente({ id, estado, fase, completitud, finalizacion, facturaFinal, referencia, archivado = false, salida = null, extranjeria }: {
   id: string;
   estado: string;
   fase: string; // "preparacion" | "preparado" (lib/progreso.ts)
   completitud: Progreso["completitud"];
   // Para el popup de cierre: qué queda por facturar y a quién avisar.
   finalizacion: { resto: number; puedeFacturar: boolean; clienteEmail: string };
+  // Lo que precarga el editor de la factura final al archivar: lo mismo que «Solicitar pago
+  // final» del CobrosPanel. Sin él, la factura sale directamente por tarifa (como antes).
+  facturaFinal?: { clienteNombre?: string; concepto: string; suplidos: { concepto: string; importe: number }[] };
   referencia?: string;
   archivado?: boolean;
   salida?: string | null;     // Expediente.salida (o null antes de la migración)
@@ -52,6 +56,13 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   // «Cambiar» una resolución ya registrada: vuelve a enseñar los botones aunque el servidor
   // la tenga (antes solo borraba el estado local, y tras recargar no hacía nada).
   const [cambiando, setCambiando] = useState(false);
+  // FACTURA FINAL REVISADA AL ARCHIVAR (01/10/2026, Luis): con «Emitir ahora la factura
+  // final», el popup de archivo abre antes su editor —importes, descuento, texto libre—, en
+  // vez de emitirla por tarifa sin enseñarla. Emitida, se recuerda: si el archivo falla
+  // después, el reintento no la vuelve a emitir.
+  const [revisando, setRevisando] = useState<{ salida: Salida; facturar: boolean; avisar: boolean } | null>(null);
+  const [facturaCierre, setFacturaCierre] = useState<string | null>(null);
+  const combinadoDe = (r: { salida: Salida; avisar: boolean }) => r.salida === "concedido" && r.avisar && Boolean(finalizacion.clienteEmail);
 
   async function validar(validado: boolean) {
     if (loading) return;
@@ -104,13 +115,14 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
   // cierre combinado cuando es «concedido» (finalización + factura), como el antiguo
   // «Finalizar y archivar». Para las demás salidas, la factura sale con su propia
   // solicitud de pago y el aviso lo dispara el servidor según la salida.
-  async function cerrar({ salida: s, facturar, avisar }: { salida: Salida; facturar: boolean; avisar: boolean }) {
+  async function cerrar({ salida: s, facturar, avisar }: { salida: Salida; facturar: boolean; avisar: boolean }, facturaEmitida?: string) {
     if (loading) return;
     setLoading(true); setErrorCierre(null);
     try {
-      let facturaId: string | undefined;
-      const combinado = s === "concedido" && avisar && Boolean(finalizacion.clienteEmail);
-      if (facturar) {
+      let facturaId: string | undefined = facturaEmitida;
+      const combinado = combinadoDe({ salida: s, avisar });
+      // Factura por tarifa, sin editor: solo cuando la ficha no pasa `facturaFinal`.
+      if (facturar && !facturaId) {
         setFaseCierre(t("Emitiendo la factura…"));
         const rP = await fetch("/api/pagos", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -140,6 +152,7 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
         enviado = dE.enviado; factura = dE.factura ?? null;
       }
       setHecho({ salida: s, enviado, factura });
+      setFacturaCierre(null);
       setDialogo(false);
       router.refresh();
     } catch (e) {
@@ -177,17 +190,48 @@ export function ValidarExpediente({ id, estado, fase, completitud, finalizacion,
       {t("Retirar")}
     </button>
   );
-  const popupCierre = dialogo && (
-    <CerrarExpedienteDialog
-      referencia={referencia ?? ""}
-      salidaFijada={libre ? null : resueltaActual}
-      factura={finalizacion}
-      busy={loading}
-      fase={faseCierre}
-      error={errorCierre}
-      onClose={() => { if (!loading) setDialogo(false); }}
-      onConfirm={cerrar}
+  // «Archivar» del popup: con factura (y editor disponible) primero se revisa la factura;
+  // emitida ya en un intento anterior, se archiva con ella sin volver a emitirla.
+  function confirmarCierre(r: { salida: Salida; facturar: boolean; avisar: boolean }) {
+    if (r.facturar && facturaFinal && !facturaCierre) { setErrorCierre(null); setRevisando(r); return; }
+    void cerrar(r, facturaCierre ?? undefined);
+  }
+  const editorFactura = revisando && facturaFinal && (
+    <CobroFacturaModal
+      modo="crear"
+      momento="FINAL"
+      expedienteId={id}
+      clienteNombre={facturaFinal.clienteNombre}
+      conceptoFinal={facturaFinal.concepto}
+      baseFinal={finalizacion.resto}
+      suplidosPrefill={facturaFinal.suplidos}
+      cierre={{
+        sinEmail: combinadoDe(revisando) || !revisando.avisar,
+        onEmitida: (fid) => { const r = revisando; setFacturaCierre(fid); setRevisando(null); void cerrar(r, fid); },
+      }}
+      onClose={() => setRevisando(null)}
     />
+  );
+  // Mientras el editor está abierto, el popup de archivo se oculta SIN desmontarse (conserva
+  // la salida y las casillas) y Escape no lo cierra por debajo.
+  const popupCierre = dialogo && (
+    <>
+      <div className={revisando ? "hidden" : undefined}>
+        <CerrarExpedienteDialog
+          referencia={referencia ?? ""}
+          salidaFijada={libre ? null : resueltaActual}
+          factura={finalizacion}
+          busy={loading}
+          fase={faseCierre}
+          error={errorCierre}
+          onClose={() => { if (!loading && !revisando) setDialogo(false); }}
+          revisarFactura={Boolean(facturaFinal) && !facturaCierre}
+          facturaEmitida={Boolean(facturaCierre)}
+          onConfirm={confirmarCierre}
+        />
+      </div>
+      {editorFactura}
+    </>
   );
 
   // «Preparado» con la sección unificada: estado en Extranjería + resolución + requerimientos.

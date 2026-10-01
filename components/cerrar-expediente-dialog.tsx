@@ -10,7 +10,7 @@ import { eur } from "@/lib/facturas";
 // Pregunta la SALIDA (así los archivados se leen por categorías y Vigía sabe qué sembrar),
 // recuerda la factura final si queda resto y deja elegir si se avisa al cliente.
 // Desde el tablero (`sinFactura`) solo se pregunta la salida: el dinero se toca en la ficha.
-export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactura = false, salidaFijada = null, busy = false, fase = "", error = null, onConfirm, onClose }: {
+export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactura = false, salidaFijada = null, busy = false, fase = "", error = null, revisarFactura = false, facturaEmitida = false, onConfirm, onClose }: {
   referencia: string;
   cliente?: string;
   factura?: { resto: number; puedeFacturar: boolean; clienteEmail: string } | null;
@@ -21,6 +21,12 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
   busy?: boolean;
   fase?: string;
   error?: string | null;
+  // La factura final se revisa en su editor antes de emitirse (ficha, 01/10/2026): el botón
+  // lo dice («Revisar la factura») en vez de archivar de golpe.
+  revisarFactura?: boolean;
+  // La factura final ya salió en un intento anterior (falló el archivo después): no se
+  // vuelve a ofrecer; solo falta archivar.
+  facturaEmitida?: boolean;
   onConfirm: (r: { salida: Salida; facturar: boolean; avisar: boolean }) => void;
   onClose: () => void;
 }) {
@@ -70,10 +76,12 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
 
         {!sinFactura && (
           <div className="mt-4 grid gap-2 rounded-lg bg-cream-50 px-3 py-2.5 text-xs text-slate-600">
-            {puedeFacturar ? (
+            {puedeFacturar && facturaEmitida ? (
+              <span>{t("La factura final ya está emitida: solo falta archivar.")}</span>
+            ) : puedeFacturar ? (
               <label className="flex cursor-pointer items-start gap-2">
                 <input type="checkbox" checked={facturar} onChange={(e) => setFacturar(e.target.checked)} className="mt-0.5 accent-aproba-600" disabled={busy} />
-                <span>{t("Queda por facturar")} <b>{eur(factura!.resto)}</b> + IVA. {t("Emitir ahora la factura final.")}</span>
+                <span>{t("Queda por facturar")} <b>{eur(factura!.resto)}</b> + IVA. {t("Emitir ahora la factura final.")}{revisarFactura && facturar ? ` ${t("Antes de emitirla podrás revisarla.")}` : ""}</span>
               </label>
             ) : (
               <span>{t("El resto ya está facturado: nada pendiente.")}</span>
@@ -93,7 +101,7 @@ export function CerrarExpedienteDialog({ referencia, cliente, factura, sinFactur
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} disabled={busy} className="rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-60">{t("Cancelar")}</button>
           <button type="button" onClick={() => onConfirm({ salida, facturar: puedeFacturar && facturar, avisar: avisar && conEmail })} disabled={busy} className="rounded-lg bg-aproba-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">
-            {busy ? "…" : t("Archivar")}
+            {busy ? "…" : revisarFactura && puedeFacturar && facturar && !facturaEmitida ? t("Revisar la factura") : t("Archivar")}
           </button>
         </div>
       </div>

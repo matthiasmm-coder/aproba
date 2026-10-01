@@ -384,6 +384,14 @@ export default async function ExpedienteDetail({
               && !e.facturasPago.some((f) => String(f.momento ?? "").startsWith("CUOTA_") && f.estado !== "ANULADA"),
             clienteEmail: e.clienteEmail ?? "",
           }}
+          // La factura final de «Archivar» se revisa antes en su editor (01/10/2026, Luis):
+          // la misma precarga que «Solicitar pago final» del CobrosPanel — las tasas van en
+          // la PRIMERA factura, así que en la final solo si no hay anticipo.
+          facturaFinal={{
+            clienteNombre: empresa ? empresa.razonSocial : e.clienteNombre === "—" ? undefined : e.clienteNombre,
+            concepto: `Liquidación final — ${etiquetaServicios} (${e.referencia})`,
+            suplidos: tarifaExp.anticipo > 0 ? [] : suplidosExp,
+          }}
         />
       </div>
 

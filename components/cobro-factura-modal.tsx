@@ -13,13 +13,13 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // Popup de cobro del expediente. Dos modos:
 //  • "crear": solicitar el pago final → POST /api/pagos con la factura editada → se emite y
-//    se ENVÍA automáticamente al cliente.
+//    se ENVÍA automáticamente al cliente. Con `cierre`, es la factura final de ARCHIVAR.
 //  • "editar": retocar una factura ya generada (anticipo o final) → PUT /api/facturas/[id],
 //    con opción de reenviarla corregida al cliente.
 // Carga plan + servicios (y nº de serie / la factura a editar) y monta el editor ya listo.
 
 export function CobroFacturaModal({
-  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL", suplidosPrefill = [], externoInicial = false,
+  modo, expedienteId, clienteNombre, conceptoFinal, baseFinal, facturaId, onClose, momento = "FINAL", suplidosPrefill = [], externoInicial = false, cierre,
 }: {
   modo: "crear" | "editar";
   expedienteId?: string; // requerido para crear; en editar el servidor lo resuelve de la factura
@@ -34,6 +34,10 @@ export function CobroFacturaModal({
   suplidosPrefill?: { concepto: string; importe: number }[];
   // Abrir con «cobro externo» ya marcado (puerta «¿Cobro fuera de la plataforma?»).
   externoInicial?: boolean;
+  // CIERRE (01/10/2026, Luis): la factura final de «Archivar» pasa por este mismo editor
+  // (importes, descuento, texto libre) antes de emitirse. El archivo lo sigue haciendo el
+  // llamante: `onEmitida` recibe la factura; `sinEmail` respeta el aviso elegido al archivar.
+  cierre?: { sinEmail: boolean; onEmitida: (facturaId: string) => void };
 }) {
   const t = useT();
   const router = useRouter();
@@ -107,7 +111,7 @@ export function CobroFacturaModal({
         ...(fiscal ? { documento: p.documento ?? "", direccion: p.direccion ?? "", clienteId: p.clienteId ?? null, empresaId: p.empresaId ?? null } : {}) };
       const res = modo === "editar" && facturaId
         ? await fetch(`/api/facturas/${facturaId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...factura, notificar }) })
-        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura, ...(externo ? { cobroExterno: metodoExterno } : {}) }) });
+        : await fetch("/api/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expedienteId, momento, factura, ...(externo && !cierre ? { cobroExterno: metodoExterno } : {}), ...(cierre?.sinEmail ? { sinEmail: true } : {}) }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("No se pudo guardar la factura."));
       // Carrera: ya existía una factura final → no se aplicaron los cambios editados.
@@ -117,6 +121,8 @@ export function CobroFacturaModal({
           : t("Ya existe una factura de pago final para este expediente. Ciérrala y usa «Editar factura»."));
         return;
       }
+      // Cierre: la factura ya está emitida; el llamante archiva (y refresca al terminar).
+      if (cierre && d.facturaId) { cierre.onEmitida(String(d.facturaId)); return; }
       router.refresh();
       onClose();
     } catch (e) {
@@ -125,6 +131,7 @@ export function CobroFacturaModal({
   }
 
   const titulo = modo === "editar" ? `${t("Editar factura")} ${numeroFactura}`
+    : cierre ? t("Factura final del expediente")
     : externo ? t("Registrar cobro externo")
     : momento === "ANTICIPO" ? t("Solicitar anticipo") : t("Solicitar pago final");
 
@@ -142,6 +149,10 @@ export function CobroFacturaModal({
         <p className="mb-4 text-sm text-slate-500">
           {modo === "editar"
             ? t("Modifica la factura. Puedes reenviarla corregida al cliente.")
+            : cierre
+              ? (avanzada
+                ? t("Revísala antes de archivar: puedes ajustar los importes, añadir un descuento o un texto libre. Al confirmar, se emite y se archiva el expediente.")
+                : t("Revísala antes de archivar. Al confirmar, se emite y se archiva el expediente."))
             : externo
               ? t("La factura se emitirá directamente como PAGADA, con su método real. No se enviará ninguna solicitud de pago al cliente.")
               : t("Revisa y ajusta la factura. Al validar, se emite y se envía automáticamente al cliente con los datos de pago.")}
@@ -169,13 +180,13 @@ export function CobroFacturaModal({
             onSubmit={onSubmit}
             busy={busy}
             error={error}
-            submitLabel={modo === "editar" ? t("Guardar cambios") : externo ? t("Registrar cobro (ya pagado)") : t("Validar y enviar al cliente")}
+            submitLabel={modo === "editar" ? t("Guardar cambios") : cierre ? t("Emitir factura y archivar") : externo ? t("Registrar cobro (ya pagado)") : t("Validar y enviar al cliente")}
             extra={modo === "editar" ? (tieneExpediente ? (
               <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" checked={notificar} onChange={(e) => setNotificar(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
                 {t("Reenviar la factura corregida al cliente por email")}
               </label>
-            ) : undefined) : (
+            ) : undefined) : cierre ? undefined : (
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
                 <label className="flex items-start gap-2 text-sm text-slate-600">
                   <input type="checkbox" checked={externo} onChange={(e) => setExterno(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
