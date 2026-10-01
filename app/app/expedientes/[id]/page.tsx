@@ -37,6 +37,8 @@ import { CobroPrevioFicha } from "@/components/cobro-previo";
 import { CobroExternoLink } from "@/components/cobro-externo-link";
 import { SuplidosExpediente } from "@/components/suplidos-expediente";
 import { RellenarMercurio } from "@/components/rellenar-mercurio";
+import { PresentarUGE } from "@/components/presentar-uge";
+import { esLey14 } from "@/lib/ley14";
 import { PhaseStepper } from "@/components/phase-stepper";
 import { ValidarExpediente } from "@/components/validar-expediente";
 import { CambiarServicio } from "@/components/cambiar-servicio";
@@ -150,6 +152,9 @@ export default async function ExpedienteDetail({
   const tarifa = tarifaDeServicios(serviciosExp);
   const cita = citaDeServicios(serviciosExp);
   const etiquetaServicios = labelServicios(serviciosExp, e.tipoLabel);
+  // Ley 14/2013 (01/10/2026): se presenta ante la UGE-CE, no en Mercurio (lib/ley14.ts).
+  const servicioPrincipal = serviciosExp.find((s) => s.id === e.servicioClave) ?? null;
+  const circuitoUGE = esLey14(e.servicioClave, servicioPrincipal?.label);
   // Tasas y suplidos del servicio — MISMO cálculo que /api/pagos (el popup de cobro
   // debe emitir exactamente lo que emitiría el portal). Familia heterogénea: cada
   // servicio × SUS miembros asignados (tarifaAsignada); sin asignación, ×N clásico.
@@ -656,10 +661,17 @@ export default async function ExpedienteDetail({
 
         {/* Presentar en Mercurio — SIEMPRE visible (pedido de Matthias, 22/08): antes
             aparecía solo con formularios generados, y el gestor que trabaja fuera del
-            orden previsto no la encontraba. */}
-        <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} completa={camposMercurioList.length > 0 && rellenosMercurio === camposMercurioList.length} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
-          <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
-        </SeccionPlegable>
+            orden previsto no la encontraba. Un expediente de la Ley 14/2013 va a la UGE-CE
+            (01/10/2026): en su lugar, el camino hasta la sede del Ministerio. */}
+        {circuitoUGE ? (
+          <SeccionPlegable id="uge" titulo={t("Presentar en la UGE-CE")} resumen={t("Ley 14/2013")}>
+            <PresentarUGE expedienteId={e.id} servicioClave={e.servicioClave} servicioLabel={servicioPrincipal?.label ?? null} />
+          </SeccionPlegable>
+        ) : (
+          <SeccionPlegable id="mercurio" titulo={t("Presentar en Mercurio")} completa={camposMercurioList.length > 0 && rellenosMercurio === camposMercurioList.length} resumen={`${rellenosMercurio}/${camposMercurioList.length} ${t("datos listos")}`}>
+            <RellenarMercurio campos={camposMercurioList} referencia={e.referencia} expedienteId={e.id} rellenos={rellenosMercurio} total={camposMercurioList.length} ocultarTitulo />
+          </SeccionPlegable>
+        )}
 
         {/* Citas del expediente (22/08, pedido de Matthias): fecha, hora, lugar, quién
             acude y notas — un hecho editable en cualquier punto del trámite. */}

@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { parseCSV } from "@/lib/csv-clientes";
 import { MESES_VALIDEZ } from "@/lib/validez";
+import { mesesValidezLey14 } from "@/lib/ley14";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { TODOS_LOS_CAMPOS, ESTADOS_EXPEDIENTE, esEstadoEnCurso, type Mapeo } from "@/lib/importar";
 
@@ -75,6 +76,7 @@ Reglas:
   · arraigo social/laboral/familiar, residencia inicial, regularización extraordinaria 2026 (DA 21), estudios → 12
   · renovación de residencia temporal → 48
   · residencia de larga duración → 60
+  · Ley 14/2013 (movilidad internacional, UGE): profesional altamente cualificado, Tarjeta azul, traslado intraempresarial, emprendedor, investigador, teletrabajador o nómada digital → 36; su renovación → 24
   · nacionalidad española, asignación de NIE, certificados, empadronamiento, cita previa, recursos y gestiones que NO producen tarjeta → null
   Si dudas entre dos, elige la más corta (mejor avisar antes). Un trámite con validez null NUNCA generará vencimiento.
 - Estados: "en trámite/presentado/pendiente resolución" → PRESENTADO; "terminado/concedido/archivado/entregado" → FINALIZADO; "denegado/desfavorable" → RECHAZADO; "favorable/resuelto" → RESUELTO.
@@ -208,7 +210,7 @@ export async function POST(req: Request) {
     const n = typeof bruto === "number" ? bruto : Number(bruto);
     if (Number.isFinite(n) && n > 0 && n <= 240) { validezMeses[v] = Math.round(n); continue; }
     const clave = tramites[v];
-    validezMeses[v] = clave ? MESES_VALIDEZ[SERVICIO_A_TIPO[clave] ?? "OTRO"] ?? null : null;
+    validezMeses[v] = clave ? MESES_VALIDEZ[SERVICIO_A_TIPO[clave] ?? "OTRO"] ?? mesesValidezLey14(clave) : null;
   }
 
   return NextResponse.json({

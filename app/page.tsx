@@ -7,6 +7,7 @@ import { HeroAnimation } from "@/components/hero-animation";
 import { MenuMovil } from "@/components/menu-movil";
 import { Reveal } from "@/components/reveal";
 import { LandingMigracion } from "@/components/landing-migracion";
+import { LandingLey14 } from "@/components/landing-ley14";
 import { ServiciosImplantacion } from "@/components/servicios-implantacion";
 import { PruebaButton, DEMO_URL } from "@/components/solicitar-demo";
 import { VideoDemo } from "@/components/video-demo";
@@ -381,6 +382,10 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {/* Ley 14/2013 (01/10/2026, Matthias): la movilidad internacional como argumento de venta,
+          justo después de las funciones generales (components/landing-ley14.tsx). */}
+      <LandingLey14 />
 
       {/* Migración de datos + Confianza (29/09/2026, sustituye a «El día y la noche»; fundidas el
           30/09 a petición de Matthias): el freno n.º 1 para cambiar de herramienta y, justo detrás,

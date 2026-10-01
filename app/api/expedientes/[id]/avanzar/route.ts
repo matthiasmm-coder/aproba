@@ -151,7 +151,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } catch { /* ignore */ }
 
   // ── VIGÍA (lógica compartida con el cierre v4, lib/cierre.ts) ──
-  const wExp = { id, estado: exp.estado, tipo: w?.tipo ?? null, clienteId: w?.clienteId ?? null, familiaId: w?.familiaId ?? null };
+  const wExp = { id, estado: exp.estado, tipo: w?.tipo ?? null, clienteId: w?.clienteId ?? null, familiaId: w?.familiaId ?? null, servicioClave: exp.servicioClave ?? null };
   if (tr.hacia === "RECHAZADO" && w) await vigiaTrasDenegar(admin, wExp);
   if (tr.hacia === "FINALIZADO" && ws && w) await vigiaTrasFinalizar(admin, ws, wExp);
 

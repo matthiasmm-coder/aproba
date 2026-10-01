@@ -12,6 +12,10 @@ export type ServicioRenovable = { id: string; label: string; active: boolean };
 // Candidatos del catálogo por defecto, por orden de preferencia.
 export const CANDIDATOS_POR_TIPO: Record<string, string[]> = {
   TIE: ["renovacion_tie", "larga_duracion"],
+  // La tarjeta de una autorización de la Ley 14/2013 se renueva por SU circuito (UGE-CE),
+  // no con la «Renovación de TIE» del régimen general (01/10/2026). Pseudo-tipo: lo pone la
+  // ruta cuando el expediente que sembró el vencimiento era de movilidad internacional.
+  LEY14: ["ley14_renovacion", "movilidad_internacional"],
   RENOVACION: ["renovacion_tie"],
   NIE: ["nie"],
   PASAPORTE: [], // ningún despacho renueva pasaportes por defecto: solo un servicio propio
@@ -20,6 +24,7 @@ export const CANDIDATOS_POR_TIPO: Record<string, string[]> = {
 // Servicios PROPIOS del gestor (srv_…) reconocibles por su nombre.
 const PALABRAS_POR_TIPO: Record<string, RegExp> = {
   TIE: /renov|tie\b|tarjeta/i,
+  LEY14: /ley ?14|\buge\b|movilidad internacional|altamente cualificad|intraempresarial|n[oó]mada|teletrabaj/i,
   RENOVACION: /renov/i,
   NIE: /\bnie\b/i,
   PASAPORTE: /pasaporte|passport/i,
@@ -50,6 +55,7 @@ export function sugerirServicioRenovacion(tipo: string | null | undefined, catal
 // catálogo no tiene nada para este vencimiento (queda guardado para la próxima vez).
 export const NOMBRE_SERVICIO_NUEVO: Record<string, string> = {
   TIE: "Renovación de TIE",
+  LEY14: "Renovación Ley 14/2013",
   RENOVACION: "Renovación de TIE",
   PASAPORTE: "Renovación de pasaporte",
   NIE: "Renovación del certificado de NIE",

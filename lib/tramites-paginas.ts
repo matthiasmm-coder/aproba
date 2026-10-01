@@ -27,19 +27,20 @@ export type Tramite = {
   formularios: { code: string; nombre: string }[];
   tasas: string[];
   organismo: string;       // ante quién se presenta
-  plazo?: { meses: string; silencio: "Positivo" | "Negativo"; base: string };
+  plazo?: { meses: string; silencio: "Positivo" | "Negativo"; base: string; texto?: string };
   produceTarjeta: boolean; // ¿acaba en una TIE con caducidad? → Renovaciones la vigila
   intro: string[];         // 2 párrafos
   particular: string[];    // lo específico de este trámite en Aproba (3-4)
   faq: { q: string; a: string }[];
   articulo?: { ruta: string; titulo: string };
   relacionados: string[];  // slugs de otros trámites
+  actualizado?: string;    // AAAA-MM-DD, si la página es posterior a la tanda del 26/09
 };
 
 const ORG_POLICIA = "Comisaría de Policía (Oficina de Extranjería de la Policía Nacional), con cita";
 const ORG_EXTRANJERIA = "Oficina de Extranjería de la Delegación o Subdelegación del Gobierno";
 const ORG_JUSTICIA = "Ministerio de Justicia (Registro Civil), por vía telemática";
-const ORG_UGE = "Unidad de Grandes Empresas del Ministerio de Inclusión (sede electrónica)";
+const ORG_UGE = "Unidad de Grandes Empresas y Colectivos Estratégicos (UGE-CE) del Ministerio de Inclusión, por vía electrónica";
 
 const A_SILENCIO = { ruta: "/articulos/silencio-administrativo-extranjeria-plazos-2026", titulo: "Silencio administrativo en extranjería: el plazo de cada trámite" };
 const A_RENOV = { ruta: "/articulos/renovaciones-2027-regularizacion-extraordinaria", titulo: "La ola de renovaciones de 2027: qué viene y cómo prepararla" };
@@ -333,33 +334,137 @@ export const TRAMITES: Tramite[] = [
     ],
     articulo: A_SILENCIO, relacionados: ["renovacion-tie", "arraigo-laboral", "residencia-larga-duracion"],
   },
+  // ── LEY 14/2013 (01/10/2026): la general y una por supuesto. Fuentes: Ley 14/2013 (BOE
+  // consolidado), portal y sede de la UGE-CE, Orden PJC/44/2026 (umbrales), LO 1/2025.
   {
     slug: "movilidad-internacional", servicioId: "movilidad_internacional",
     nombre: "Movilidad internacional (Ley 14/2013)",
-    titulo: "Movilidad internacional (Ley 14/2013): modelos MI | Aproba",
-    descripcion: "Ley 14/2013 con Aproba: inversores, emprendedores, cualificados, investigadores y teletrabajadores; documentos en el portal y los tres modelos MI rellenados.",
+    titulo: "Ley 14/2013 (movilidad internacional) para despachos | Aproba",
+    descripcion: "La Ley 14/2013 con Aproba: un servicio por supuesto, documentos en el portal, modelos MI rellenados, la tasa 790-038 como suplido y la renovación vigilada.",
     h1: "Movilidad internacional: cómo tramita un despacho la Ley 14/2013 con Aproba",
-    entradilla: "La Ley de Emprendedores tiene su propio circuito: se presenta ante la Unidad de Grandes Empresas, con sus modelos MI y sin pasar por la Oficina de Extranjería. Aproba los genera los tres.",
-    docs: ["Pasaporte", "Titulación o experiencia profesional", "Contrato, proyecto empresarial o justificación de la inversión", "Seguro médico", "Antecedentes penales"],
+    entradilla: "La Ley de Emprendedores tiene su propio circuito: se presenta ante la Unidad de Grandes Empresas y Colectivos Estratégicos (UGE-CE), con sus modelos MI y sin pasar por la Oficina de Extranjería. Aproba lo lleva con un servicio por supuesto.",
+    docs: ["Pasaporte completo (todas las páginas)", "Título o acreditación de experiencia", "Contrato, convenio de acogida o proyecto", "Seguro médico", "Antecedentes penales (últimos 2 años)"],
     formularios: [{ code: "MI-T", nombre: "Solicitud del titular" }, { code: "MI-TIE", nombre: "Tarjeta del titular" }, { code: "MI-F", nombre: "Familiares" }],
     tasas: [], organismo: ORG_UGE,
+    plazo: { meses: "20 días", silencio: "Positivo", base: "Ley 14/2013, art. 76.1", texto: "La UGE-CE dispone de **20 días** desde la presentación electrónica y, si no resuelve, la solicitud se entiende **concedida** (silencio positivo, Ley 14/2013, art. 76.1). Un requerimiento de subsanación da 10 días para contestar, en la misma aplicación de la sede." },
     produceTarjeta: true,
     intro: [
-      "La **Ley 14/2013** agrupa a inversores, emprendedores, profesionales altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores internacionales. Sus autorizaciones se piden en la **sede del Ministerio de Inclusión**, ante la Unidad de Grandes Empresas, con modelos propios: MI-T para el titular, MI-TIE para su tarjeta y MI-F para los familiares.",
-      "Es un trámite de expediente grueso — titulación, contrato o proyecto, seguro, antecedentes — y de cliente que suele escribir en inglés. El portal en 8 idiomas y la lista de documentos por casilla hacen el trabajo de recogida; los tres modelos salen rellenados.",
+      "La **Ley 14/2013** agrupa a los profesionales altamente cualificados (también la Tarjeta azul UE), los traslados intraempresariales, los emprendedores con informe de ENISA, los investigadores y los teletrabajadores de carácter internacional. Las autorizaciones de **inversores** se suprimieron el 3 de abril de 2025 (LO 1/2025): solo quedan las renovaciones de las ya concedidas.",
+      "Todo se presenta por vía electrónica en la aplicación de la UGE-CE, en la sede del Ministerio de Inclusión, con el **MI-T** del titular, el **MI-F** de cada familiar y el **MI-TIE** de la tarjeta, y la tasa **790-038** (73,26 € por persona en la inicial). La autorización inicial dura, por regla general, tres años y se renueva por dos.",
     ],
     particular: [
+      "**Un servicio por supuesto** en el catálogo, carpeta «Movilidad internacional»: [profesional altamente cualificado](/tramites/profesional-altamente-cualificado), [traslado intraempresarial](/tramites/traslado-intraempresarial), [teletrabajador internacional](/tramites/teletrabajador-internacional-nomada-digital), [emprendedor](/tramites/emprendedor-ley-14-2013) y la renovación. Este, el genérico, sirve para investigadores y demás supuestos.",
       "**Los tres modelos MI**, rellenados con la ficha del titular y de cada familiar.",
-      "**Sin tasa generada, a propósito.** La tasa de este circuito es la 790-038, cuyo impreso exige certificado o Cl@ve en la sede del Ministerio: Aproba no la genera y lo dice.",
-      "**Casillas amplias**: «Titulación o experiencia profesional» y «Contrato, proyecto empresarial o justificación de la inversión» admiten lo que el supuesto exija; el cliente sube varios archivos en cada una.",
-      "**Sin cita presencial** por defecto: la presentación es telemática.",
+      "**La tasa 790-038 como suplido**, sin IVA: 73,26 € por persona. Su impreso exige certificado o Cl@ve en la sede del Ministerio, así que Aproba no lo genera: la ficha enlaza a la sede.",
+      "**«Presentar en la UGE-CE»** sustituye a Mercurio en la ficha del expediente: los pasos, los enlaces oficiales y la cita de huellas de la TIE.",
     ],
-    faq: [
-      { q: "¿Por qué no genera Aproba la tasa 790-038?", a: "Porque su impreso oficial solo se obtiene identificándose con certificado o Cl@ve en la sede del Ministerio. Antes que generar algo que no sea el impreso válido, Aproba lo deja fuera y te lo indica." },
-      { q: "¿Sirve para el visado de nómada digital?", a: "El teletrabajador internacional es uno de los supuestos de la Ley 14/2013: mismo circuito y mismos modelos MI. El servicio del catálogo se llama «Movilidad internacional» y lo activas en Ajustes." },
-      { q: "¿Lleva plazo de silencio conocido?", a: "Esta página no lo afirma: el artículo sobre el silencio administrativo cubre el régimen general del RD 1155/2024. Consulta la información oficial de la Unidad de Grandes Empresas." },
+    faq: [{ q: "¿Por qué no genera Aproba la tasa 790-038?", a: "Porque su impreso solo se obtiene identificándose con certificado o Cl@ve en la sede del Ministerio. Aproba la lleva como suplido (73,26 € por persona en la inicial, 78,67 € en la renovación) y enlaza a la sede para generarla." }, { q: "¿Quién presenta la solicitud?", a: "El profesional, con su certificado, como persona autorizada a presentar (una sección del MI-T y del MI-F) o con un apoderamiento en el REA. El MI-T lo firma quien solicita: la empresa en un traslado o en un profesional cualificado; el propio interesado en el resto." }, { q: "¿Y las «golden visa»?", a: "Se suprimieron con efectos del 3 de abril de 2025. Las autorizaciones vigentes se renuevan con la normativa de su concesión inicial: usa el servicio de renovación." }, { q: "¿Qué pasa después de la concesión?", a: "La TIE se pide en la Policía, con cita de huellas, en el mes siguiente: con la resolución, el MI-TIE y la tasa 790-012 (16,08 €). Aproba siembra la caducidad y propone la renovación a tiempo." }],
+    articulo: A_REPRESENTANTE, relacionados: ["profesional-altamente-cualificado", "traslado-intraempresarial", "teletrabajador-internacional-nomada-digital", "emprendedor-ley-14-2013"],
+    actualizado: "2026-10-01",
+  },
+  {
+    slug: "profesional-altamente-cualificado", servicioId: "ley14_cualificado",
+    nombre: "Profesional altamente cualificado",
+    titulo: "Profesional altamente cualificado y Tarjeta azul UE | Aproba",
+    descripcion: "Profesional altamente cualificado y Tarjeta azul UE con Aproba: documentos en el portal, la empresa en su ficha, el MI-T rellenado y la renovación vigilada.",
+    h1: "Profesional altamente cualificado: cómo lo tramita un despacho con Aproba",
+    entradilla: "La residencia para profesionales altamente cualificados (Ley 14/2013, arts. 71 y 71 bis) es la vía de las empresas que incorporan talento de fuera: directivos, técnicos y especialistas, también con la Tarjeta azul UE.",
+    docs: ["Pasaporte completo (todas las páginas)", "Título universitario o acreditación de experiencia", "Currículum vitae", "Contrato de trabajo firmado", "Seguro médico", "Antecedentes penales (últimos 2 años)"],
+    formularios: [{ code: "MI-T", nombre: "Solicitud del titular" }, { code: "MI-TIE", nombre: "Tarjeta del titular" }, { code: "MI-F", nombre: "Familiares" }],
+    tasas: [], organismo: ORG_UGE,
+    plazo: { meses: "20 días", silencio: "Positivo", base: "Ley 14/2013, art. 76.1", texto: "La UGE-CE dispone de **20 días** desde la presentación electrónica y, si no resuelve, la solicitud se entiende **concedida** (silencio positivo, Ley 14/2013, art. 76.1). Un requerimiento de subsanación da 10 días para contestar, en la misma aplicación de la sede." },
+    produceTarjeta: true,
+    intro: [
+      "Para la **Tarjeta azul UE** hacen falta un título superior (o cinco años de experiencia; tres en TIC), un contrato u oferta firme de al menos seis meses y un salario de al menos **41.356,36 €** brutos al año, o **33.085,09 €** en el umbral reducido: son los importes que aplica la UGE-CE desde junio de 2026. El PAC nacional pide titulación o tres años de experiencia.",
+      "La autorización dura **tres años** (o lo que dure el contrato más tres meses, si es más corto) y se renueva por **dos**, pidiéndolo en los 60 días previos a la caducidad. La empresa se inscribe una vez en la UGE-CE y queda acreditada tres años.",
     ],
-    articulo: A_REPRESENTANTE, relacionados: ["modificacion-autorizacion", "familiar-ciudadano-ue", "renovacion-tie"],
+    particular: [
+      "**La empresa en su ficha, el profesional como titular**: la empresa paga y aporta su documentación una vez; el profesional y su familia suben la suya desde el portal, en inglés o en su idioma.",
+      "**MI-T y MI-F rellenados**: el MI-T lo firma el empleador; el MI-F, uno por familiar, lleva el número de registro de la solicitud del titular.",
+      "**Tasa 790-038 como suplido**: 73,26 € por persona, el titular y cada familiar.",
+      "**Renovación vigilada**: al cerrar el expediente concedido, Aproba siembra la caducidad a tres años y propone la renovación de la Ley 14/2013.",
+    ],
+    faq: [{ q: "¿Quién presenta, la empresa o el profesional?", a: "La ley permite cualquiera de los dos, pero el MI-T lo firma el empleador. Lo habitual es que el despacho presente con su certificado, como persona autorizada." }, { q: "¿Y si el profesional está fuera de España?", a: "La UGE-CE concede la autorización y, con la resolución, el profesional pide el visado en el consulado, que tiene 10 días hábiles para resolver. Cada familiar necesita su propia resolución." }, { q: "¿Los umbrales salariales cambian?", a: "Sí: se actualizan un mes después de cada encuesta de estructura salarial del INE. Los de esta página son los que aplica la UGE-CE desde junio de 2026." }],
+    articulo: A_REPRESENTANTE, relacionados: ["traslado-intraempresarial", "movilidad-internacional", "teletrabajador-internacional-nomada-digital"],
+    actualizado: "2026-10-01",
+  },
+  {
+    slug: "traslado-intraempresarial", servicioId: "ley14_traslado",
+    nombre: "Traslado intraempresarial",
+    titulo: "Traslado intraempresarial (ICT, Ley 14/2013) | Aproba",
+    descripcion: "El traslado intraempresarial con Aproba: carta de traslado y nóminas en el portal, la empresa receptora en su ficha, el MI-T rellenado y la tasa 790-038.",
+    h1: "Traslado intraempresarial: cómo lo tramita un despacho con Aproba",
+    entradilla: "El traslado intraempresarial (Ley 14/2013, arts. 73 y 74) es la vía de los grupos que desplazan a un directivo, un especialista o un trabajador en formación a su empresa en España.",
+    docs: ["Pasaporte completo (todas las páginas)", "Título o acreditación de 3 años de experiencia", "Currículum vitae", "Carta de traslado de la empresa, firmada por el trabajador", "Tres últimas nóminas con el grupo", "Certificado de cobertura de Seguridad Social o seguro médico", "Antecedentes penales (últimos 2 años)"],
+    formularios: [{ code: "MI-T", nombre: "Solicitud del titular" }, { code: "MI-TIE", nombre: "Tarjeta del titular" }, { code: "MI-F", nombre: "Familiares" }],
+    tasas: [], organismo: ORG_UGE,
+    plazo: { meses: "20 días", silencio: "Positivo", base: "Ley 14/2013, art. 76.1", texto: "La UGE-CE dispone de **20 días** desde la presentación electrónica y, si no resuelve, la solicitud se entiende **concedida** (silencio positivo, Ley 14/2013, art. 76.1). Un requerimiento de subsanación da 10 días para contestar, en la misma aplicación de la sede." },
+    produceTarjeta: true,
+    intro: [
+      "Hay dos variantes: el **ICT UE** (directiva 2014/66/UE, dentro del mismo grupo: hasta tres años, o uno si es formación) y el **ICT nacional** (el resto de casos, también prestaciones de servicios entre empresas). Hace falta título o tres años de experiencia y tres meses de relación previa con el grupo.",
+      "Presenta la entidad receptora, que firma el MI-T. Si el trabajador está fuera de España, después de la autorización se pide el visado. Con 30 o más solicitudes simultáneas, la UGE-CE admite una tramitación colectiva con interlocutor único (Criterio de gestión DGGM 1/2025).",
+    ],
+    particular: [
+      "**La carta de traslado** tiene su casilla: firmada por la empresa y por el trabajador, con el puesto, el periodo y el salario de origen y el de España.",
+      "**Las tres últimas nóminas con el grupo** acreditan la relación previa de tres meses.",
+      "**La empresa receptora en su ficha**: paga, aporta su documentación una vez y ve a todos sus trabajadores desplazados.",
+      "**Seguridad Social**: certificado de cobertura del país de origen si hay convenio bilateral; si no, seguro médico.",
+    ],
+    faq: [{ q: "¿Cuánto dura la autorización?", a: "Lo que dure el traslado: hasta tres años en el ICT UE (un año si es formación) y tres años o la duración del traslado en el nacional. Se renueva por dos años." }, { q: "¿Y si se trasladan muchos trabajadores a la vez?", a: "Con 30 o más solicitudes simultáneas, la UGE-CE ofrece una tramitación colectiva: la empresa acredita su documentación una sola vez. En Aproba, cada trabajador es un expediente de la misma empresa." }],
+    articulo: A_REPRESENTANTE, relacionados: ["profesional-altamente-cualificado", "movilidad-internacional"],
+    actualizado: "2026-10-01",
+  },
+  {
+    slug: "teletrabajador-internacional-nomada-digital", servicioId: "ley14_teletrabajo",
+    nombre: "Teletrabajador internacional (nómada digital)",
+    titulo: "Nómada digital (teletrabajo internacional) | Aproba",
+    descripcion: "El nómada digital con Aproba: contrato, nóminas y certificado bancario en el portal, el MI-T rellenado, la tasa 790-038 como suplido y la renovación vigilada.",
+    h1: "Nómada digital: cómo tramita un despacho el teletrabajo internacional con Aproba",
+    entradilla: "El teletrabajador de carácter internacional (Ley 14/2013, arts. 74 bis a 74 quinquies) trabaja en remoto desde España para empresas de fuera: el visado se pide en el consulado y la autorización, ya en España, ante la UGE-CE.",
+    docs: ["Pasaporte completo (todas las páginas)", "Contrato con la empresa (3 meses o más)", "Carta de la empresa: funciones, teletrabajo y sueldo", "Certificado del registro mercantil de la empresa", "Nóminas o facturas de los últimos 3 meses", "Certificado bancario de los últimos 3 meses", "Título o acreditación de 3 años de experiencia", "Seguro médico sin copagos ni carencias", "Antecedentes penales (últimos 2 años)"],
+    formularios: [{ code: "MI-T", nombre: "Solicitud del titular" }, { code: "MI-TIE", nombre: "Tarjeta del titular" }, { code: "MI-F", nombre: "Familiares" }],
+    tasas: [], organismo: ORG_UGE,
+    plazo: { meses: "20 días", silencio: "Positivo", base: "Ley 14/2013, art. 76.1", texto: "La UGE-CE dispone de **20 días** desde la presentación electrónica y, si no resuelve, la solicitud se entiende **concedida** (silencio positivo, Ley 14/2013, art. 76.1). Un requerimiento de subsanación da 10 días para contestar, en la misma aplicación de la sede." },
+    produceTarjeta: true,
+    intro: [
+      "Por cuenta ajena, solo para empresas extranjeras; por cuenta propia, hasta un 20 % del trabajo puede ser para empresas españolas. Hace falta título (universitario, de FP o de escuela de negocios) o tres años de experiencia, una empresa con al menos un año de actividad y una relación de al menos tres meses.",
+      "Los medios económicos son el **200 % del SMI** al mes, más un 75 % por el primer familiar y un 25 % por cada uno más. Desde fuera de España solo cabe el **visado**, de hasta un año; en España, la **autorización** de la UGE-CE, de hasta tres años, que se renueva por dos.",
+    ],
+    particular: [
+      "**Una casilla por prueba**: contrato, carta de la empresa, registro mercantil, nóminas o facturas y certificado bancario de los últimos tres meses.",
+      "**El portal en inglés**, y en siete idiomas más, para un cliente que rara vez lee español.",
+      "**Seguro sin copagos ni carencias**: la UGE-CE no admite seguros de viaje ni de reembolso.",
+      "**Del visado a la autorización**: el titular del visado pide la autorización en los 60 días previos a su caducidad; Aproba vigila la fecha.",
+    ],
+    faq: [{ q: "¿Se puede pedir la autorización desde fuera de España?", a: "No: desde el extranjero solo cabe el visado en el consulado. La autorización de la UGE-CE se pide estando en España." }, { q: "¿Cuántos ingresos hay que acreditar?", a: "El 200 % del SMI al mes, más el 75 % por el primer familiar y el 25 % por cada uno más. La UGE-CE no publica la cifra en euros y los cálculos publicados varían según se reparta el SMI anual en 12 o en 14 pagas: confírmala con el consulado o la UGE-CE." }, { q: "¿Y si la empresa tiene sucursal en España?", a: "Entonces no es teletrabajo internacional: el caso va, en su caso, por el traslado intraempresarial." }],
+    articulo: A_REPRESENTANTE, relacionados: ["movilidad-internacional", "emprendedor-ley-14-2013", "profesional-altamente-cualificado"],
+    actualizado: "2026-10-01",
+  },
+  {
+    slug: "emprendedor-ley-14-2013", servicioId: "ley14_emprendedor",
+    nombre: "Emprendedor (Ley 14/2013)",
+    titulo: "Emprendedor (Ley 14/2013): ENISA, MI-T y tasa 790-038 | Aproba",
+    descripcion: "La residencia de emprendedor con Aproba: plan de negocio y medios en el portal, el MI-T rellenado, el informe de ENISA y la tasa 790-038 como suplido.",
+    h1: "Emprendedor: cómo tramita un despacho la residencia de la Ley 14/2013 con Aproba",
+    entradilla: "La residencia de emprendedor (Ley 14/2013, arts. 69 y 70) es para quien inicia o dirige en España una actividad innovadora o de especial interés económico, con informe favorable de ENISA.",
+    docs: ["Pasaporte completo (todas las páginas)", "Plan de negocio para ENISA", "Acreditación de medios económicos", "Seguro médico sin carencias", "Antecedentes penales (últimos 2 años)"],
+    formularios: [{ code: "MI-T", nombre: "Solicitud del titular" }, { code: "MI-TIE", nombre: "Tarjeta del titular" }, { code: "MI-F", nombre: "Familiares" }],
+    tasas: [], organismo: ORG_UGE,
+    plazo: { meses: "20 días", silencio: "Positivo", base: "Ley 14/2013, art. 76.1", texto: "La UGE-CE dispone de **20 días** desde la presentación electrónica y, si no resuelve, la solicitud se entiende **concedida** (silencio positivo, Ley 14/2013, art. 76.1). Un requerimiento de subsanación da 10 días para contestar, en la misma aplicación de la sede." },
+    produceTarjeta: true,
+    intro: [
+      "No hay mínimo de inversión ni de empleo. Antes de presentar, el emprendedor rellena el cuestionario de ENISA en su web; admitida la solicitud, la UGE-CE pide de oficio el informe, que ENISA emite en 10 días hábiles.",
+      "Presenta el propio interesado o su representante, y la UGE-CE resuelve en 20 días con silencio positivo. La autorización dura tres años y se renueva por dos; para renovar hay que volver a rellenar el cuestionario de ENISA.",
+    ],
+    particular: [
+      "**El plan de negocio** tiene su casilla: es lo que ENISA valora (innovación, mercado, equipo y financiación).",
+      "**Medios económicos**: el 200 % del SMI al mes para el titular, más un 75 % por el primer familiar y un 25 % por cada uno más.",
+      "**El MI-T lo firma el emprendedor**, en la casilla «Emprendedor» y sin datos de empresa.",
+      "**Tasa 790-038 como suplido** y la renovación vigilada a los tres años.",
+    ],
+    faq: [{ q: "¿Hace falta invertir un mínimo?", a: "No: la Ley 28/2022 suprimió los mínimos. Cuenta el informe favorable de ENISA sobre el carácter innovador o de especial interés económico del proyecto." }, { q: "¿Y si el emprendedor está fuera de España?", a: "Una sola solicitud sirve para la autorización y el visado: concedida la autorización por la UGE-CE, se pide el visado." }],
+    articulo: A_REPRESENTANTE, relacionados: ["movilidad-internacional", "teletrabajador-internacional-nomada-digital"],
+    actualizado: "2026-10-01",
   },
 ];
 
@@ -410,7 +515,7 @@ export function paginaDeTramite(t: Tramite): PaginaPublica {
     { t: "ul", items: t.particular },
     ...(t.plazo ? [
       { t: "h2", texto: "Plazo de resolución" } as Bloque,
-      { t: "p", texto: `La Administración dispone de **${t.plazo.meses}** desde la entrada en registro, con **silencio ${t.plazo.silencio.toLowerCase()}** (${t.plazo.base}). Los requerimientos paran el reloj; el detalle, con las fuentes, está en [${A_SILENCIO.titulo}](${A_SILENCIO.ruta}).` } as Bloque,
+      { t: "p", texto: t.plazo.texto ?? `La Administración dispone de **${t.plazo.meses}** desde la entrada en registro, con **silencio ${t.plazo.silencio.toLowerCase()}** (${t.plazo.base}). Los requerimientos paran el reloj; el detalle, con las fuentes, está en [${A_SILENCIO.titulo}](${A_SILENCIO.ruta}).` } as Bloque,
     ] : []),
     ...(t.produceTarjeta ? [{ t: "p", texto: "**Y después.** La tarjeta que resulta tiene caducidad. Aproba la registra al validarla y, cuando se acerque, te propondrá la renovación desde la vista **Renovaciones**, con aviso al cliente en su idioma." } as Bloque] : []),
     { t: "nota", titulo: "Lo que Aproba no hace", texto: "No presenta el expediente ni valora si el cliente cumple los requisitos: prepara documentos, formularios, tasa, hoja de encargo y cobro para que tú presentes con todo en orden. La decisión profesional sigue siendo tuya." },
@@ -423,7 +528,7 @@ export function paginaDeTramite(t: Tramite): PaginaPublica {
     etiqueta: "Trámite",
     h1: t.h1,
     entradilla: t.entradilla,
-    actualizado: "2026-09-26",
+    actualizado: t.actualizado ?? "2026-09-26",
     migas: [{ nombre: "Trámites", ruta: "/tramites" }, { nombre: t.nombre, ruta: rutaTramite(t) }],
     bloques,
     cta: { titulo: `Prueba un expediente de ${t.nombre.toLowerCase()}`, texto: "15 días gratis, sin tarjeta. La cuenta de prueba trae un expediente de ejemplo ya resuelto para ver el flujo completo." },

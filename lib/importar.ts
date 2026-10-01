@@ -7,6 +7,7 @@
 import { FICHA_KEYS, type ClienteFicha } from "@/lib/ficha";
 import { normalizarFechaCsv } from "@/lib/csv-clientes";
 import { MESES_VALIDEZ, sumarMeses } from "@/lib/validez";
+import { mesesValidezLey14 } from "@/lib/ley14";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { normalizarNumeroOficial } from "@/lib/numero-oficial";
 
@@ -247,7 +248,7 @@ export function aplicarMapeo(filas: string[][], mapeo: Mapeo): FilaImportada[] {
       const propuesta = tramiteBruto ? mapeo.validezMeses?.[tramiteBruto] : undefined;
       const meses = propuesta !== undefined
         ? propuesta
-        : (out.servicio ? MESES_VALIDEZ[SERVICIO_A_TIPO[out.servicio] ?? "OTRO"] ?? null : null);
+        : (out.servicio ? MESES_VALIDEZ[SERVICIO_A_TIPO[out.servicio] ?? "OTRO"] ?? mesesValidezLey14(out.servicio) : null);
       if (meses) {
         const cad = sumarMeses(resolucion, meses);
         if (cad) out.caducidadDerivada = cad;

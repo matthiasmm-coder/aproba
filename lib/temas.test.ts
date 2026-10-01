@@ -6,7 +6,8 @@ describe("temas del catálogo", () => {
     expect(temaSugerido("arraigo_social", "Residencia por arraigo")).toBe("Arraigo");
     expect(temaSugerido("nacionalidad", "Lo que sea")).toBe("Nacionalidad");
     expect(temaSugerido("renovacion_tie", "Gestión de TIE")).toBe("Residencia");
-    expect(temaSugerido("movilidad_internacional", "")).toBe("Trabajo");
+    expect(temaSugerido("movilidad_internacional", "")).toBe("Movilidad internacional");
+    expect(temaSugerido("ley14_cualificado", "Lo que sea")).toBe("Movilidad internacional");
   });
 
   // Los nombres REALES del catálogo de Juan (40 servicios propios, ninguno con tema).
@@ -20,7 +21,9 @@ describe("temas del catálogo", () => {
     ["Permiso de residencia de familiar de ciudadano de la UE", "Familia"],
     ["Residencia de menor nacido en España", "Familia"],
     ["Registro de pareja de hecho o casamiento", "Familia"],
-    ["Permiso de residencia para nómada digital", "Trabajo"],
+    ["Permiso de residencia para nómada digital", "Movilidad internacional"],
+    ["Profesional altamente cualificado (UGE)", "Movilidad internacional"],
+    ["Traslado intraempresarial", "Movilidad internacional"],
     ["CUE - trabajador cuenta ajena", "Trabajo"],
     ["Alta de autónomo / coordinación alta autónomo", "Trabajo"],
     ["Recurso de reposición en extranjería", "Recursos"],

@@ -6,6 +6,7 @@ import { oficinaDelCliente, contextoDeCreacion, sedeElegible } from "@/lib/ofici
 import { enviarPropuestaRenovacion } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
 import { sugerirServicioRenovacion, serviciosElegibles, importesParaCliente, ESTADOS_EN_VUELO, NOMBRE_SERVICIO_NUEVO } from "@/lib/renovacion-servicio";
+import { esLey14 } from "@/lib/ley14";
 
 export const runtime = "nodejs";
 const uuid = () => crypto.randomUUID();
@@ -23,7 +24,23 @@ const uuid = () => crypto.randomUUID();
 //
 // Autorización: el vencimiento se resuelve BAJO SESIÓN (RLS) — si el usuario no es
 // miembro del workspace, no existe (anti-IDOR). Solo después se usa el admin.
-const SELECT_VENC = "id, workspaceId, clienteId, fecha, tipo, estado, expedienteRenovacionId";
+const SELECT_VENC = "id, workspaceId, clienteId, fecha, tipo, estado, expedienteRenovacionId, expedienteId";
+
+// Tipo con el que se BUSCA el servicio de la renovación: el del vencimiento, salvo que lo
+// sembrara un expediente de la Ley 14/2013 → «LEY14» (su renovación va por la UGE-CE).
+async function tipoParaSugerencia(admin: ReturnType<typeof createSupabaseAdmin>, venc: { tipo?: unknown; expedienteId?: unknown; workspaceId?: unknown }): Promise<string> {
+  const tipo = String(venc.tipo ?? "");
+  if (!venc.expedienteId) return tipo;
+  const { data: e } = await admin.from("Expediente").select("servicioClave").eq("id", String(venc.expedienteId)).maybeSingle();
+  const clave = (e as { servicioClave?: string | null } | null)?.servicioClave ?? null;
+  if (!clave) return tipo;
+  let label: string | null = null;
+  if (clave.startsWith("srv_")) {
+    const { data: s } = await admin.from("ServicioConfig").select("label").eq("workspaceId", String(venc.workspaceId)).eq("clave", clave).limit(1).maybeSingle();
+    label = (s as { label?: string | null } | null)?.label ?? null;
+  }
+  return esLey14(clave, label) ? "LEY14" : tipo;
+}
 
 async function vencimientoBajoSesion(id: string) {
   const supa = await createSupabaseServer();
@@ -49,13 +66,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const admin = createSupabaseAdmin();
   const { servicios } = await catalogoDelCliente(admin, String(venc.workspaceId), String(venc.clienteId));
   const { data: cli } = await admin.from("Cliente").select("nombre, apellidos").eq("id", String(venc.clienteId)).maybeSingle();
-  const sug = sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
+  const tipoSug = await tipoParaSugerencia(admin, venc);
+  const sug = sugerirServicioRenovacion(tipoSug, servicios);
   return NextResponse.json({
     tipo: venc.tipo, fecha: venc.fecha,
     clienteNombre: [cli?.nombre, cli?.apellidos].filter(Boolean).join(" "),
     sugerido: sug?.id ?? null,
     certeza: sug?.certeza ?? null,
-    nombreNuevo: NOMBRE_SERVICIO_NUEVO[String(venc.tipo ?? "").toUpperCase()] ?? "Renovación",
+    nombreNuevo: NOMBRE_SERVICIO_NUEVO[tipoSug.toUpperCase()] ?? "Renovación",
     servicios: servicios.map((s) => ({ id: s.id, label: s.label, precioOculto: Boolean(s.precioOculto), ...importesParaCliente(s) })),
   });
 }
@@ -139,7 +157,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   // Sin clave del gestor: solo una sugerencia SEGURA sale sola. Una «probable» (servicio
   // propio que encaja por nombre) o ninguna → el gestor la valida en el diálogo.
-  const sug = pedido ? null : sugerirServicioRenovacion(String(venc.tipo ?? ""), servicios);
+  const sug = pedido ? null : sugerirServicioRenovacion(await tipoParaSugerencia(admin, venc), servicios);
   const servicioClave = pedido ?? (sug?.certeza === "seguro" ? sug.id : null);
   if (!servicioClave) {
     return NextResponse.json({

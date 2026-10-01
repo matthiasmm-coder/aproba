@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { dispararAviso } from "@/lib/notificaciones";
 import { sembrarVencimiento, cerrarCicloRenovacion, MESES_VALIDEZ } from "@/lib/vencimientos";
 import { etiquetaSalida, type Salida } from "@/lib/types";
+import { mesesValidezLey14 } from "@/lib/ley14";
 
 // CIERRE DEL EXPEDIENTE (flujo v4, 03/09/2026). El ciclo del despacho termina en la
 // ENTREGA: «Archivar» registra la SALIDA y saca el expediente del tablero.
@@ -18,7 +19,21 @@ export const ESTADO_POR_SALIDA: Record<Salida, string | null> = {
   desistido: null,
 };
 
-type Exp = { id: string; estado: string; tipo?: string | null; clienteId?: string | null; familiaId?: string | null; fechaPresentacion?: string | null };
+type Exp = { id: string; estado: string; tipo?: string | null; clienteId?: string | null; familiaId?: string | null; fechaPresentacion?: string | null; servicioClave?: string | null };
+
+// Validez de la tarjeta que resulta: por tipo de trámite (régimen general) o, si el tipo no
+// la dice (OTRO), por SERVICIO — la Ley 14/2013 (lib/ley14.ts), también en un servicio propio
+// del despacho reconocido por su nombre.
+async function mesesDeValidez(admin: SupabaseClient, ws: string, w: Exp): Promise<number | null> {
+  const porTipo = MESES_VALIDEZ[String(w.tipo ?? "OTRO")] ?? null;
+  if (porTipo || !w.servicioClave) return porTipo;
+  let label: string | null = null;
+  if (w.servicioClave.startsWith("srv_")) {
+    const { data } = await admin.from("ServicioConfig").select("label").eq("workspaceId", ws).eq("clave", w.servicioClave).limit(1).maybeSingle();
+    label = (data as { label?: string | null } | null)?.label ?? null;
+  }
+  return mesesValidezLey14(w.servicioClave, label);
+}
 
 // ── VIGÍA tras FINALIZAR (compartido con /avanzar) ──────────────────────────
 // Renovación iniciada desde Vigía → su vencimiento pasa a HECHO; y se siembra la caducidad
@@ -30,7 +45,7 @@ export async function vigiaTrasFinalizar(admin: SupabaseClient, ws: string, w: E
     if (tipoTramite === "RENOVACION") {
       await cerrarCicloRenovacion(admin, { expedienteRenovacionId: w.id, workspaceId: ws, clienteId: String(w.clienteId ?? ""), tipoTramite });
     }
-    const meses = MESES_VALIDEZ[tipoTramite] ?? null;
+    const meses = await mesesDeValidez(admin, ws, w);
     if (!meses) return;
     const fecha = new Date();
     fecha.setUTCMonth(fecha.getUTCMonth() + meses);
@@ -74,7 +89,7 @@ export async function aplicarSalida(admin: SupabaseClient, opts: {
   id: string; workspaceId: string; userId: string; salida: Salida; archivar: boolean; avisar: boolean; baseUrl: string;
 }): Promise<{ ok: true; estado: string; salidaGuardada: boolean } | { ok: false; error: string }> {
   const { id, workspaceId: ws, salida } = opts;
-  const { data: w, error: eSel } = await admin.from("Expediente").select("id, estado, tipo, clienteId, familiaId, fechaPresentacion").eq("id", id).eq("workspaceId", ws).maybeSingle();
+  const { data: w, error: eSel } = await admin.from("Expediente").select("id, estado, tipo, clienteId, familiaId, fechaPresentacion, servicioClave").eq("id", id).eq("workspaceId", ws).maybeSingle();
   if (eSel || !w) return { ok: false, error: "Expediente no encontrado." };
   const exp = w as Exp;
 

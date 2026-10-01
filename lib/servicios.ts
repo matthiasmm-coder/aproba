@@ -2,6 +2,8 @@
 // Persisté en localStorage (en attendant Supabase) pour que la config faite dans
 // Ajustes se reflète dans le portail client, dans le même navigateur.
 
+import { claveLey14, TASA_038 } from "@/lib/ley14";
+
 export type CitaQuien = "cliente" | "gestor";
 
 export type Servicio = {
@@ -107,11 +109,20 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
   { id: "residencia_ue", label: "Residencia ciudadano UE", desc: "Tarjeta de residencia de familiar de ciudadano de la UE (RD 240/2007)", active: false, precio: 300, anticipo: 150, resto: 150, docs: ["Pasaporte", "Documento de identidad del ciudadano UE", "Certificado de empadronamiento", "Justificante del vínculo familiar"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
   { id: "brexit", label: "Tarjeta Acuerdo de Retirada (Brexit)", desc: "Documentación para británicos y sus familiares (art. 18.4)", active: false, precio: 250, anticipo: 120, resto: 130, docs: ["Pasaporte", "Justificante de residencia anterior a 2021", "Certificado de empadronamiento"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
   { id: "modificacion", label: "Modificación de autorización", desc: "Cambiar el tipo de autorización de residencia/trabajo", active: false, precio: 280, anticipo: 140, resto: 140, docs: ["TIE actual", "Pasaporte", "Justificante del nuevo supuesto"], citaPresencial: true, citaQuien: "cliente" , categoria: "Residencia" },
-  // Ley 14/2013 (Unidad de Grandes Empresas): inversores, emprendedores, profesionales
-  // altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores
-  // internacionales. Se presenta en la sede del Ministerio de Inclusión, no en la Oficina
-  // de Extranjería, y lleva sus propios modelos (MI-T, MI-TIE, MI-F) y la tasa 790-038.
-  { id: "movilidad_internacional", label: "Movilidad internacional (Ley 14/2013)", desc: "Inversores, emprendedores, profesionales altamente cualificados, investigadores, traslados intraempresariales y teletrabajadores", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte", "Titulación o experiencia profesional", "Contrato, proyecto empresarial o justificación de la inversión", "Seguro médico", "Antecedentes penales"], citaPresencial: false, citaQuien: "cliente" , categoria: "Trabajo" },
+  // ── LEY 14/2013 · MOVILIDAD INTERNACIONAL (01/10/2026, lib/ley14.ts) ──────────────────
+  // Un servicio por supuesto, presentado ante la UGE-CE (no en la Oficina de Extranjería):
+  // modelos MI, tasa 790-038 como suplido (lib/ley14.ts TASA_038, por persona), cita de huellas
+  // para la TIE.
+  // Documentos: guías de documentación de la UGE-CE (inclusion.gob.es/web/unidadgrandesempresas)
+  // y Ley 14/2013 arts. 62, 69-74 quinquies. Inactivos por defecto: los activa quien los lleve.
+  { id: "ley14_cualificado", label: "Profesional altamente cualificado (Ley 14/2013)", desc: "Residencia para directivos, técnicos y profesionales cualificados (también Tarjeta azul UE)", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Título universitario o acreditación de experiencia", "Currículum vitae", "Contrato de trabajo firmado", "Seguro médico", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.ley14_cualificado }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
+  { id: "ley14_traslado", label: "Traslado intraempresarial (Ley 14/2013)", desc: "Residencia para un trabajador desplazado dentro de su grupo de empresas (ICT)", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Título o acreditación de 3 años de experiencia", "Currículum vitae", "Carta de traslado de la empresa, firmada por el trabajador", "Tres últimas nóminas con el grupo", "Certificado de cobertura de Seguridad Social o seguro médico", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.ley14_traslado }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
+  { id: "ley14_teletrabajo", label: "Teletrabajador internacional · nómada digital (Ley 14/2013)", desc: "Residencia para trabajar en remoto desde España para empresas de fuera", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Contrato con la empresa (3 meses o más)", "Carta de la empresa: funciones, teletrabajo y sueldo", "Certificado del registro mercantil de la empresa", "Nóminas o facturas de los últimos 3 meses", "Certificado bancario de los últimos 3 meses", "Título o acreditación de 3 años de experiencia", "Seguro médico sin copagos ni carencias", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.ley14_teletrabajo }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
+  { id: "ley14_emprendedor", label: "Emprendedor (Ley 14/2013)", desc: "Residencia para un proyecto empresarial innovador, con informe de ENISA", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Plan de negocio para ENISA", "Acreditación de medios económicos", "Seguro médico sin carencias", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.ley14_emprendedor }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
+  { id: "ley14_renovacion", label: "Renovación Ley 14/2013", desc: "Renovar una autorización de movilidad internacional (2 años más)", active: false, precio: 450, anticipo: 225, resto: 225, docs: ["Pasaporte completo (todas las páginas)", "TIE actual", "Documentación que acredite que se mantienen los requisitos", "Seguro médico"], suplidos: [{ ...TASA_038.ley14_renovacion }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
+  // El genérico de septiembre: investigadores y los demás supuestos (los inversores, solo en
+  // renovación desde el 03/04/2025, LO 1/2025).
+  { id: "movilidad_internacional", label: "Movilidad internacional (Ley 14/2013)", desc: "Investigadores y otros supuestos de la Ley 14/2013", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Título o acreditación de experiencia", "Contrato, convenio de acogida o proyecto", "Seguro médico", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.movilidad_internacional }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
 ];
 
 // Un servicio PROPIO del despacho (srv_…) cuyo nombre designa sin duda un trámite del
@@ -122,6 +133,9 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
 // arraigo…), se queda la clave propia y no se propone nada.
 export function claveDelCatalogo(clave?: string | null, label?: string | null): string | null {
   if (!clave || !clave.startsWith("srv_") || !label) return clave ?? null;
+  // Ley 14/2013 (01/10/2026): «Nómada digital», «Altamente cualificado (UGE)»… → su supuesto.
+  const ley14 = claveLey14(clave, label);
+  if (ley14) return ley14;
   const n = label.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
   if (/\bfamiliar(es)?\b/.test(n) && /\bespanol(a|es|as)?\b/.test(n)
     && !/comunitari|\bue\b|\bunion\b|europe|modificacion|reagrupacion|arraigo|^nacionalidad/.test(n)) return "familiar_espanol";

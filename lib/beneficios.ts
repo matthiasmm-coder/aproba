@@ -120,7 +120,7 @@ export const BENEFICIOS: Beneficio[] = [
         ["EX-17", "Tarjeta de identidad de extranjero (TIE)", "", ""],
       ], nota: "Los impresos oficiales cambian: Aproba compara periódicamente las versiones publicadas con sus plantillas y actualizamos el modelo cuando cambia. Los formularios ya generados conservan el PDF que se presentó." },
       { t: "tabla", titulo: "Y los 3 de movilidad internacional (Ley 14/2013)", encabezados: ["Modelo", "Para quién"], filas: [
-        ["MI-T", "Titular: inversor, emprendedor, profesional altamente cualificado, investigador, traslado intraempresarial o teletrabajador internacional"],
+        ["MI-T", "Titular: profesional altamente cualificado, traslado intraempresarial, emprendedor, investigador, teletrabajador internacional o inversor (solo renovación)"],
         ["MI-TIE", "Tarjeta de identidad de extranjero del titular de movilidad internacional"],
         ["MI-F", "Familiares del titular (cónyuge, pareja, hijos, ascendientes a cargo)"],
       ], nota: "Estos tres se presentan en la sede del Ministerio de Inclusión (Unidad de Grandes Empresas), no en la Oficina de Extranjería. Su tasa, la 790-038, hay que sacarla en esa sede con certificado o Cl@ve: Aproba rellena los modelos, no genera esa tasa." },

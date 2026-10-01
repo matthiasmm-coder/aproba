@@ -706,6 +706,31 @@ export const ESTADO_CIVIL_LABELS: Record<string, Tr> = {
 // Services par défaut (label + desc) — traduits par id. Les services personnalisés
 // du gestor gardent leur libellé d'origine (fallback).
 export const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
+  // Ley 14/2013 — movilidad internacional (01/10/2026): clientela que suele leer en inglés.
+  ley14_cualificado: {
+    label: { es: "Profesional altamente cualificado (Ley 14/2013)", en: "Highly qualified professional (Law 14/2013)", fr: "Professionnel hautement qualifié (loi 14/2013)", it: "Professionista altamente qualificato (Legge 14/2013)", de: "Hochqualifizierte Fachkraft (Gesetz 14/2013)", ar: "مهني عالي التأهيل (القانون 14/2013)", ro: "Profesionist cu înaltă calificare (Legea 14/2013)", zh: "高素质专业人才（第14/2013号法律）" },
+    desc: { es: "Residencia para directivos, técnicos y profesionales cualificados", en: "Residence for executives, technical staff and qualified professionals", fr: "Séjour pour cadres, techniciens et professionnels qualifiés", it: "Residenza per dirigenti, tecnici e professionisti qualificati", de: "Aufenthalt für Führungskräfte, Fachkräfte und Spezialisten", ar: "إقامة للمديرين والفنيين والمهنيين المؤهلين", ro: "Rezidență pentru directori, tehnicieni și profesioniști calificați", zh: "面向管理人员、技术人员和合格专业人士的居留" },
+  },
+  ley14_traslado: {
+    label: { es: "Traslado intraempresarial (Ley 14/2013)", en: "Intra-company transfer (Law 14/2013)", fr: "Mutation intra-groupe (loi 14/2013)", it: "Trasferimento intrasocietario (Legge 14/2013)", de: "Konzerninterne Entsendung (Gesetz 14/2013)", ar: "النقل داخل الشركة (القانون 14/2013)", ro: "Transfer în cadrul companiei (Legea 14/2013)", zh: "公司内部调动（第14/2013号法律）" },
+    desc: { es: "Residencia para un trabajador desplazado dentro de su grupo de empresas", en: "Residence for an employee transferred within their group of companies", fr: "Séjour pour un salarié muté au sein de son groupe", it: "Residenza per un lavoratore trasferito all'interno del suo gruppo", de: "Aufenthalt für Beschäftigte, die innerhalb ihres Konzerns entsandt werden", ar: "إقامة لموظف منقول داخل مجموعة شركاته", ro: "Rezidență pentru un angajat transferat în cadrul grupului său", zh: "面向在集团内部调动员工的居留" },
+  },
+  ley14_teletrabajo: {
+    label: { es: "Teletrabajador internacional · nómada digital (Ley 14/2013)", en: "International remote worker · digital nomad (Law 14/2013)", fr: "Télétravailleur international · nomade numérique (loi 14/2013)", it: "Telelavoratore internazionale · nomade digitale (Legge 14/2013)", de: "Internationale Telearbeit · digitale Nomaden (Gesetz 14/2013)", ar: "العمل الدولي عن بُعد · الرحّالة الرقميون (القانون 14/2013)", ro: "Telemuncă internațională · nomad digital (Legea 14/2013)", zh: "国际远程工作者·数字游民（第14/2013号法律）" },
+    desc: { es: "Residencia para trabajar en remoto desde España", en: "Residence to work remotely from Spain", fr: "Séjour pour télétravailler depuis l'Espagne", it: "Residenza per lavorare da remoto dalla Spagna", de: "Aufenthalt, um von Spanien aus remote zu arbeiten", ar: "إقامة للعمل عن بُعد من إسبانيا", ro: "Rezidență pentru a lucra la distanță din Spania", zh: "在西班牙远程工作的居留" },
+  },
+  ley14_emprendedor: {
+    label: { es: "Emprendedor (Ley 14/2013)", en: "Entrepreneur (Law 14/2013)", fr: "Entrepreneur (loi 14/2013)", it: "Imprenditore (Legge 14/2013)", de: "Unternehmer (Gesetz 14/2013)", ar: "رائد أعمال (القانون 14/2013)", ro: "Antreprenor (Legea 14/2013)", zh: "创业者（第14/2013号法律）" },
+    desc: { es: "Residencia para un proyecto empresarial innovador", en: "Residence for an innovative business project", fr: "Séjour pour un projet d'entreprise innovant", it: "Residenza per un progetto imprenditoriale innovativo", de: "Aufenthalt für ein innovatives Unternehmensprojekt", ar: "إقامة لمشروع تجاري مبتكر", ro: "Rezidență pentru un proiect antreprenorial inovator", zh: "面向创新商业项目的居留" },
+  },
+  ley14_renovacion: {
+    label: { es: "Renovación Ley 14/2013", en: "Renewal under Law 14/2013", fr: "Renouvellement loi 14/2013", it: "Rinnovo Legge 14/2013", de: "Verlängerung nach Gesetz 14/2013", ar: "تجديد وفق القانون 14/2013", ro: "Reînnoire Legea 14/2013", zh: "第14/2013号法律续签" },
+    desc: { es: "Renovar una autorización de movilidad internacional", en: "Renew an international mobility authorisation", fr: "Renouveler une autorisation de mobilité internationale", it: "Rinnovare un'autorizzazione di mobilità internazionale", de: "Eine Genehmigung für internationale Mobilität verlängern", ar: "تجديد تصريح التنقل الدولي", ro: "Reînnoirea unei autorizații de mobilitate internațională", zh: "续签国际流动许可" },
+  },
+  movilidad_internacional: {
+    label: { es: "Movilidad internacional (Ley 14/2013)", en: "International mobility (Law 14/2013)", fr: "Mobilité internationale (loi 14/2013)", it: "Mobilità internazionale (Legge 14/2013)", de: "Internationale Mobilität (Gesetz 14/2013)", ar: "التنقل الدولي (القانون 14/2013)", ro: "Mobilitate internațională (Legea 14/2013)", zh: "国际流动（第14/2013号法律）" },
+    desc: { es: "Investigadores y otros supuestos de la Ley 14/2013", en: "Researchers and other Law 14/2013 cases", fr: "Chercheurs et autres cas de la loi 14/2013", it: "Ricercatori e altri casi della Legge 14/2013", de: "Forschende und weitere Fälle nach Gesetz 14/2013", ar: "الباحثون وحالات أخرى في القانون 14/2013", ro: "Cercetători și alte cazuri din Legea 14/2013", zh: "研究人员及第14/2013号法律的其他情形" },
+  },
   arraigo_social: {
     label: { es: "Arraigo social", en: "Social roots (arraigo)", fr: "Arraigo social", it: "Arraigo social", de: "Arraigo social" },
     desc: { es: "Residencia por arraigo", en: "Residence by social roots", fr: "Titre de séjour pour ancrage social", it: "Permesso per radicamento sociale", de: "Aufenthalt durch soziale Verwurzelung" },
@@ -840,6 +865,7 @@ const TEMA_I18N: Record<string, { es: string } & Partial<Record<Lang, string>>> 
   visados: { es: "Visados", en: "Visas", fr: "Visas", it: "Visti", de: "Visa", ar: "التأشيرات", ro: "Vize", zh: "签证" },
   documentacion: { es: "Documentación", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente", ar: "الوثائق", ro: "Documente", zh: "文件" },
   otros: { es: "Otros", en: "Other", fr: "Autres", it: "Altri", de: "Sonstige", ar: "أخرى", ro: "Altele", zh: "其他" },
+  "movilidad internacional": { es: "Movilidad internacional", en: "International mobility", fr: "Mobilité internationale", it: "Mobilità internazionale", de: "Internationale Mobilität", ar: "التنقل الدولي", ro: "Mobilitate internațională", zh: "国际流动" },
 };
 // «Renovación», «Renovaciones», «renovacion» → misma entrada.
 const TEMA_ALIAS: Record<string, string> = {
@@ -862,16 +888,47 @@ export const servicioLabel = (id: string, original: string, lang: Lang) =>
 export const servicioDesc = (id: string, original: string, lang: Lang) =>
   SERVICIO_I18N[id] ? pick(SERVICIO_I18N[id].desc, lang, original, `servicio:${id}.desc`) : original;
 
+// Casillas de la Ley 14/2013 (01/10/2026): el NOMBRE EXACTO del catálogo (en minúsculas) → su
+// traducción. Van ANTES que el tipo genérico: «Pasaporte completo (todas las páginas)» no es
+// solo «Passport», y su ayuda genérica («la página con tu foto») lo contradiría.
+const DOC_LIBRE_I18N: Record<string, Tr> = {
+  "pasaporte completo (todas las páginas)": { es: "Pasaporte completo (todas las páginas)", en: "Full passport (all pages)", fr: "Passeport complet (toutes les pages)", it: "Passaporto completo (tutte le pagine)", de: "Vollständiger Reisepass (alle Seiten)", ar: "جواز السفر كاملاً (جميع الصفحات)", ro: "Pașaport complet (toate paginile)", zh: "完整护照（所有页）" },
+  "título universitario o acreditación de experiencia": { es: "Título universitario o acreditación de experiencia", en: "University degree or proof of experience", fr: "Diplôme universitaire ou justificatif d'expérience", it: "Titolo universitario o attestazione dell'esperienza", de: "Hochschulabschluss oder Nachweis der Berufserfahrung", ar: "شهادة جامعية أو إثبات الخبرة", ro: "Diplomă universitară sau dovada experienței", zh: "大学学历或工作经验证明" },
+  "currículum vitae": { es: "Currículum vitae", en: "CV", fr: "Curriculum vitae", it: "Curriculum vitae", de: "Lebenslauf", ar: "السيرة الذاتية", ro: "Curriculum vitae", zh: "个人简历" },
+  "contrato de trabajo firmado": { es: "Contrato de trabajo firmado", en: "Signed employment contract", fr: "Contrat de travail signé", it: "Contratto di lavoro firmato", de: "Unterschriebener Arbeitsvertrag", ar: "عقد العمل موقّعاً", ro: "Contract de muncă semnat", zh: "已签署的劳动合同" },
+  "seguro médico": { es: "Seguro médico", en: "Health insurance", fr: "Assurance maladie", it: "Assicurazione sanitaria", de: "Krankenversicherung", ar: "التأمين الصحي", ro: "Asigurare medicală", zh: "医疗保险" },
+  "antecedentes penales (últimos 2 años)": { es: "Antecedentes penales (últimos 2 años)", en: "Criminal record certificate (last 2 years)", fr: "Extrait de casier judiciaire (2 dernières années)", it: "Certificato del casellario giudiziale (ultimi 2 anni)", de: "Führungszeugnis (letzte 2 Jahre)", ar: "شهادة السوابق العدلية (آخر سنتين)", ro: "Cazier judiciar (ultimii 2 ani)", zh: "无犯罪记录证明（最近2年）" },
+  "título o acreditación de 3 años de experiencia": { es: "Título o acreditación de 3 años de experiencia", en: "Degree or proof of 3 years' experience", fr: "Diplôme ou justificatif de 3 ans d'expérience", it: "Titolo di studio o attestazione di 3 anni di esperienza", de: "Abschluss oder Nachweis von 3 Jahren Berufserfahrung", ar: "شهادة أو إثبات خبرة 3 سنوات", ro: "Diplomă sau dovada a 3 ani de experiență", zh: "学历或3年工作经验证明" },
+  "carta de traslado de la empresa, firmada por el trabajador": { es: "Carta de traslado de la empresa, firmada por el trabajador", en: "Company transfer letter, signed by the employee", fr: "Lettre de mutation de l'entreprise, signée par le salarié", it: "Lettera di trasferimento dell'azienda, firmata dal lavoratore", de: "Entsendungsschreiben des Unternehmens, vom Mitarbeiter unterschrieben", ar: "خطاب النقل من الشركة، موقّعاً من الموظف", ro: "Scrisoarea de transfer a companiei, semnată de angajat", zh: "公司调动函（由员工签字）" },
+  "tres últimas nóminas con el grupo": { es: "Tres últimas nóminas con el grupo", en: "Last three payslips from the group", fr: "Trois derniers bulletins de salaire du groupe", it: "Ultime tre buste paga del gruppo", de: "Die letzten drei Gehaltsabrechnungen des Konzerns", ar: "آخر ثلاث قسائم رواتب من المجموعة", ro: "Ultimii trei fluturași de salariu de la grup", zh: "集团最近三个月的工资单" },
+  "certificado de cobertura de seguridad social o seguro médico": { es: "Certificado de cobertura de Seguridad Social o seguro médico", en: "Social security coverage certificate or health insurance", fr: "Certificat de couverture sociale ou assurance maladie", it: "Certificato di copertura previdenziale o assicurazione sanitaria", de: "Sozialversicherungsnachweis oder Krankenversicherung", ar: "شهادة تغطية الضمان الاجتماعي أو التأمين الصحي", ro: "Certificat de acoperire de asigurări sociale sau asigurare medicală", zh: "社会保障覆盖证明或医疗保险" },
+  "contrato con la empresa (3 meses o más)": { es: "Contrato con la empresa (3 meses o más)", en: "Contract with the company (3 months or more)", fr: "Contrat avec l'entreprise (3 mois ou plus)", it: "Contratto con l'azienda (3 mesi o più)", de: "Vertrag mit dem Unternehmen (3 Monate oder länger)", ar: "العقد مع الشركة (3 أشهر أو أكثر)", ro: "Contract cu compania (3 luni sau mai mult)", zh: "与公司的合同（3个月及以上）" },
+  "carta de la empresa: funciones, teletrabajo y sueldo": { es: "Carta de la empresa: funciones, teletrabajo y sueldo", en: "Company letter: duties, remote work and salary", fr: "Lettre de l'entreprise : fonctions, télétravail et salaire", it: "Lettera dell'azienda: mansioni, telelavoro e stipendio", de: "Schreiben des Unternehmens: Aufgaben, Telearbeit und Gehalt", ar: "خطاب من الشركة: المهام والعمل عن بُعد والراتب", ro: "Scrisoarea companiei: atribuții, telemuncă și salariu", zh: "公司证明信：职责、远程工作和薪资" },
+  "certificado del registro mercantil de la empresa": { es: "Certificado del registro mercantil de la empresa", en: "Company registration certificate", fr: "Extrait du registre du commerce de l'entreprise", it: "Visura camerale dell'azienda", de: "Handelsregisterauszug des Unternehmens", ar: "شهادة السجل التجاري للشركة", ro: "Certificat de la registrul comerțului al companiei", zh: "公司商业登记证明" },
+  "nóminas o facturas de los últimos 3 meses": { es: "Nóminas o facturas de los últimos 3 meses", en: "Payslips or invoices for the last 3 months", fr: "Bulletins de salaire ou factures des 3 derniers mois", it: "Buste paga o fatture degli ultimi 3 mesi", de: "Gehaltsabrechnungen oder Rechnungen der letzten 3 Monate", ar: "قسائم الرواتب أو الفواتير لآخر 3 أشهر", ro: "Fluturași de salariu sau facturi din ultimele 3 luni", zh: "最近3个月的工资单或发票" },
+  "certificado bancario de los últimos 3 meses": { es: "Certificado bancario de los últimos 3 meses", en: "Bank statement for the last 3 months", fr: "Relevé bancaire des 3 derniers mois", it: "Estratto conto degli ultimi 3 mesi", de: "Kontoauszug der letzten 3 Monate", ar: "كشف حساب بنكي لآخر 3 أشهر", ro: "Extras bancar din ultimele 3 luni", zh: "最近3个月的银行对账单" },
+  "seguro médico sin copagos ni carencias": { es: "Seguro médico sin copagos ni carencias", en: "Health insurance with no co-payments or waiting periods", fr: "Assurance maladie sans franchise ni délai de carence", it: "Assicurazione sanitaria senza franchigie né periodi di carenza", de: "Krankenversicherung ohne Zuzahlungen und Wartezeiten", ar: "تأمين صحي بلا مشاركة في الدفع ولا فترات انتظار", ro: "Asigurare medicală fără coplăți și fără perioade de carență", zh: "无自付费用、无等待期的医疗保险" },
+  "plan de negocio para enisa": { es: "Plan de negocio para ENISA", en: "Business plan for ENISA", fr: "Business plan pour ENISA", it: "Piano aziendale per ENISA", de: "Businessplan für ENISA", ar: "خطة العمل المقدمة إلى ENISA", ro: "Plan de afaceri pentru ENISA", zh: "提交ENISA的商业计划书" },
+  "acreditación de medios económicos": { es: "Acreditación de medios económicos", en: "Proof of financial means", fr: "Justificatif de ressources", it: "Prova dei mezzi economici", de: "Nachweis ausreichender Mittel", ar: "إثبات الموارد المالية", ro: "Dovada mijloacelor financiare", zh: "经济能力证明" },
+  "seguro médico sin carencias": { es: "Seguro médico sin carencias", en: "Health insurance with no waiting periods", fr: "Assurance maladie sans délai de carence", it: "Assicurazione sanitaria senza periodi di carenza", de: "Krankenversicherung ohne Wartezeiten", ar: "تأمين صحي بلا فترات انتظار", ro: "Asigurare medicală fără perioade de carență", zh: "无等待期的医疗保险" },
+  "documentación que acredite que se mantienen los requisitos": { es: "Documentación que acredite que se mantienen los requisitos", en: "Documents showing you still meet the requirements", fr: "Justificatifs du maintien des conditions", it: "Documenti che provano il mantenimento dei requisiti", de: "Nachweise, dass die Voraussetzungen weiter erfüllt sind", ar: "مستندات تثبت استمرار استيفاء الشروط", ro: "Documente care dovedesc menținerea cerințelor", zh: "证明仍符合条件的材料" },
+  "título o acreditación de experiencia": { es: "Título o acreditación de experiencia", en: "Degree or proof of experience", fr: "Diplôme ou justificatif d'expérience", it: "Titolo di studio o attestazione dell'esperienza", de: "Abschluss oder Nachweis der Berufserfahrung", ar: "شهادة أو إثبات الخبرة", ro: "Diplomă sau dovada experienței", zh: "学历或工作经验证明" },
+  "contrato, convenio de acogida o proyecto": { es: "Contrato, convenio de acogida o proyecto", en: "Contract, hosting agreement or project", fr: "Contrat, convention d'accueil ou projet", it: "Contratto, convenzione di accoglienza o progetto", de: "Vertrag, Aufnahmevereinbarung oder Projekt", ar: "عقد أو اتفاقية استضافة أو مشروع", ro: "Contract, acord de primire sau proiect", zh: "合同、接收协议或项目" },
+};
+const docLibre = (label: string): Tr | undefined => DOC_LIBRE_I18N[(label ?? "").trim().toLowerCase()];
+
 // Document : normalise le libellé (es) → enum → label/help traduits.
 // Un documento PERSONALIZADO del gestor (tipo OTRO) debe mostrarse con SU nombre tal
 // cual (caso real de Juan: salían siete «Documento» genéricos) — solo los tipos
 // conocidos se traducen.
 export const docLabel = (label: string, lang: Lang) => {
+  const libre = docLibre(label);
+  if (libre) return pick(libre, lang, label.trim());
   const t = labelADocTipo(label);
   if (t === "OTRO") return label.trim() || pick(DOC_I18N.OTRO?.label, lang, label, "doc:OTRO.label");
   return pick(DOC_I18N[t]?.label, lang, label, `doc:${t}.label`);
 };
-export const docHelp = (label: string, lang: Lang) => { const t = labelADocTipo(label); return pick(DOC_I18N[t]?.help, lang, "", `doc:${t}.help`); };
+export const docHelp = (label: string, lang: Lang) => { if (docLibre(label)) return ""; const t = labelADocTipo(label); return pick(DOC_I18N[t]?.help, lang, "", `doc:${t}.help`); };
 
 // Langue initiale : préférence du navigateur si elle fait partie des 5, sinon ES.
 export function detectarLang(): Lang {

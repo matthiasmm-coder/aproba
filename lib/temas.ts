@@ -11,7 +11,7 @@
 
 import { normTema } from "@/lib/servicios";
 
-export const TEMAS_SUGERIDOS = ["Residencia", "Arraigo", "Familia", "Nacionalidad", "Trabajo", "Estudios", "Recursos", "Visados"] as const;
+export const TEMAS_SUGERIDOS = ["Residencia", "Arraigo", "Familia", "Nacionalidad", "Trabajo", "Movilidad internacional", "Estudios", "Recursos", "Visados"] as const;
 
 // Claves del catálogo de Aproba (lib/servicios.ts): tema fijo, no se adivina.
 export const TEMA_POR_CLAVE: Record<string, string> = {
@@ -26,7 +26,13 @@ export const TEMA_POR_CLAVE: Record<string, string> = {
   reagrupacion: "Familia",
   familiar_espanol: "Familia",
   nacionalidad: "Nacionalidad",
-  movilidad_internacional: "Trabajo",
+  // Ley 14/2013 (01/10/2026): su propia carpeta, como su propio circuito (UGE-CE).
+  movilidad_internacional: "Movilidad internacional",
+  ley14_cualificado: "Movilidad internacional",
+  ley14_traslado: "Movilidad internacional",
+  ley14_teletrabajo: "Movilidad internacional",
+  ley14_emprendedor: "Movilidad internacional",
+  ley14_renovacion: "Movilidad internacional",
 };
 
 // El ORDEN manda: «Prórroga de estancia de estudios» es Estudios, no Residencia, y
@@ -38,7 +44,9 @@ const REGLAS: [string, RegExp][] = [
   ["Residencia", /modificacion|autorizacion de regreso|larga duracion|arraigo a residencia/],
   ["Estudios", /estudio|estudiante|homologacion|equivalencia|titulo|bachiller|universitari|practicas|beca/],
   ["Familia", /reagrupacion|familiar|pareja de hecho|matrimonio|casamiento|libro de familia|menor\b|hijo/],
-  ["Trabajo", /trabajo|trabajador|cuenta ajena|cuenta propia|autonomo|nomada|altamente cualificad|\buge\b|ley ?14|intraempresarial|emprendedor|inversor|investigador|temporada|empleada de hogar/],
+  // Ley 14/2013 ANTES que Trabajo: «Teletrabajador internacional» es movilidad internacional.
+  ["Movilidad internacional", /ley ?14|\buge\b|movilidad internacional|altamente cualificad|intraempresarial|nomada|teletrabajador internacional|teletrabajo internacional|emprendedor|enisa|inversor|golden visa/],
+  ["Trabajo", /trabajo|trabajador|cuenta ajena|cuenta propia|autonomo|investigador|temporada|empleada de hogar/],
   ["Visados", /visado|carta de invitacion|invitacion/],
   ["Residencia", /residencia|\btie\b|\bnie\b|\bcue\b|estancia|tarjeta|permiso|prorroga|renovacion|comunitari|\bue\b/],
 ];

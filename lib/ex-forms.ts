@@ -683,6 +683,10 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   // Ley 14/2013 (UGE-CE): titular, su TIE y sus familiares.
   ley_14_2013: ["MI-T", "MI-TIE", "MI-F"], movilidad_internacional: ["MI-T", "MI-TIE", "MI-F"],
   nomada_digital: ["MI-T", "MI-TIE", "MI-F"], teletrabajador: ["MI-T", "MI-TIE", "MI-F"],
+  // Un servicio por supuesto (01/10/2026, lib/ley14.ts): los mismos tres modelos.
+  ley14_cualificado: ["MI-T", "MI-TIE", "MI-F"], ley14_traslado: ["MI-T", "MI-TIE", "MI-F"],
+  ley14_teletrabajo: ["MI-T", "MI-TIE", "MI-F"], ley14_emprendedor: ["MI-T", "MI-TIE", "MI-F"],
+  ley14_renovacion: ["MI-T", "MI-TIE", "MI-F"],
   arraigo_social: ["EX-10"], arraigo_laboral: ["EX-10"],
 };
 
