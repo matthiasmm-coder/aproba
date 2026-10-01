@@ -9,6 +9,7 @@ import { facturacionAvanzada } from "@/lib/planes";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { FacturaView, type Emisor } from "@/components/factura-view";
 import { FacturaEditor, GENERICOS, type ServicioTarifa, type FacturaPayload } from "@/components/factura-editor";
+import { VistaPreviaFactura } from "@/components/vista-previa-factura";
 import { useT } from "@/components/lang-provider";
 import { SelectorSedeCreacion } from "@/components/selector-sede-creacion";
 import { contextoDeTrabajoBrowser, leerCookieSede } from "@/lib/oficinas-browser";
@@ -27,6 +28,9 @@ export default function NuevaFactura() {
   const avanzada = facturacionAvanzada(plan);
 
   const [creando, setCreando] = useState(false);
+  // Vista previa (01/10/2026): la factura que saldría con el formulario tal cual, sin emitirla.
+  const [previa, setPrevia] = useState<{ factura: Factura; emisor: Emisor; payload: FacturaPayload } | null>(null);
+  const [previando, setPreviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // «Todas» es vista de LECTURA: la factura manual necesita una oficina concreta
   // (su serie depende de ella). Pastilla activa → prerrellena; en «Todas» → obliga.
@@ -99,24 +103,45 @@ export default function NuevaFactura() {
     });
   }
 
+  // La oficina que factura. «Todas» es vista de LECTURA: la factura manual necesita una
+  // oficina concreta (su serie depende de ella). Pastilla activa → prerrellena; en «Todas» → obliga.
+  async function sedeDeTrabajo(): Promise<string | null> {
+    if (sedeCreacion.requerida && !sedeCreacion.sede) {
+      throw new Error(t("Estás en «Todas» (solo lectura). Elige arriba la oficina que factura."));
+    }
+    const sede: string | null = sedeCreacion.requerida ? sedeCreacion.sede : null;
+    return sede ?? (await contextoDeTrabajoBrowser()).activa; // pastille validée (source unique)
+  }
+  // El MISMO cuerpo para emitir y para la vista previa.
+  const cuerpo = (p: FacturaPayload, oficinaId: string | null) => JSON.stringify({ numero: p.numero, oficinaId, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
+    documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId, retencionPct: p.retencionPct ?? null, simplificada: p.simplificada === true });
+
+  async function verVistaPrevia(p: FacturaPayload) {
+    setPreviando(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/facturas/vista-previa", { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo(p, await sedeDeTrabajo()) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.factura) throw new Error(d.error ?? t("No se pudo preparar la vista previa."));
+      setPrevia({ factura: d.factura as Factura, emisor: d.emisor as Emisor, payload: p });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("No se pudo preparar la vista previa."));
+    } finally {
+      setPreviando(false);
+    }
+  }
+
   async function handleSubmit(p: FacturaPayload) {
     setCreando(true);
     setError(null);
     try {
-      // «Todas» es vista de LECTURA: la factura manual necesita una oficina concreta
-      // (su serie depende de ella). Pastilla activa → prerrellena; en «Todas» → obliga.
-      if (sedeCreacion.requerida && !sedeCreacion.sede) {
-        throw new Error(t("Estás en «Todas» (solo lectura). Elige arriba la oficina que factura."));
-      }
-      let sedeTrabajo: string | null = sedeCreacion.requerida ? sedeCreacion.sede : null;
-      if (!sedeTrabajo) sedeTrabajo = (await contextoDeTrabajoBrowser()).activa; // pastille validée (source unique)
+      const sedeTrabajo = await sedeDeTrabajo();
 
       // La factura nace en el SERVIDOR (17/09/2026): numeración, totales y registro
       // VERI*FACTU en un único sitio — el navegador ya no inserta en Factura.
       const r = await fetch("/api/facturas", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
-          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId, retencionPct: p.retencionPct ?? null, simplificada: p.simplificada === true }),
+        body: cuerpo(p, sedeTrabajo),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error ?? t("No se pudo crear la factura. Vuelve a intentarlo."));
@@ -191,8 +216,20 @@ export default function NuevaFactura() {
             submitLabel={t("Crear factura")}
             busy={creando}
             error={error}
+            onVistaPrevia={verVistaPrevia}
+            previando={previando}
           />
         </div>
+      )}
+      {previa && (
+        <VistaPreviaFactura
+          f={previa.factura}
+          emisor={previa.emisor}
+          etiquetaCrear={t("Crear factura")}
+          onCerrar={() => setPrevia(null)}
+          // Se cierra antes de emitir: si algo falla, el error se ve en el formulario.
+          onCrear={() => { const p = previa.payload; setPrevia(null); void handleSubmit(p); }}
+        />
       )}
     </div>
   );

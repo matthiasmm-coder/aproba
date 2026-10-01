@@ -71,7 +71,13 @@ export function FacturaEditor({
   numeroFijo = false,
   simplificada = false,
   onSimplificada,
+  onVistaPrevia,
+  previando = false,
 }: {
+  // VISTA PREVIA (01/10/2026, Luis): con ella, junto al botón principal sale «Vista previa»,
+  // que entrega el MISMO payload que el envío para ver la factura antes de emitirla.
+  onVistaPrevia?: (p: FacturaPayload) => void;
+  previando?: boolean;
   // Factura SIMPLIFICADA (01/10/2026, Juan): hasta 400 € IVA incluido, sin datos fiscales
   // del cliente (el nombre pasa a opcional) y sin retención. Con `onSimplificada` el editor
   // muestra la casilla (nueva factura); sin él, solo lo recuerda (editar una simplificada).
@@ -165,24 +171,34 @@ export function FacturaEditor({
   const setLinea = (i: number, patch: Partial<LineaFactura>) => setLineas((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setSup = (i: number, patch: Partial<Suplido>) => setSuplidos((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
-  function validar() {
-    if (busy) return;
+  // El payload de la factura tal como está el formulario (null si aún no hay honorarios):
+  // lo mismo para emitirla que para su vista previa.
+  function construir(): FacturaPayload | null {
     if (avanzada) {
       const limpiasL = lineas.filter((l) => l.concepto.trim() && Number(l.base) > 0);
       const limpiasS = suplidos.filter((s) => s.concepto.trim() && Number(s.importe) > 0);
-      if (!limpiasL.length) return;
+      if (!limpiasL.length) return null;
       const dl = lineaDescuento(descuento, r2(limpiasL.reduce((a, l) => a + Number(l.base), 0)));
       const conDesc = dl ? [...limpiasL, dl] : limpiasL;
       const { base: b, iva, total } = totalesFactura(conDesc, limpiasS);
-      onSubmit({
+      return {
         avanzada: true, cliente: cliente.trim(), numero: numero.trim(),
         concepto: limpiasL.map((l) => l.concepto).join(" · ").slice(0, 200),
         baseImponible: b, iva, total, lineas: conDesc, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
         ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}),
-      });
-    } else {
-      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal(), ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}) });
+      };
     }
+    return { avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal(), ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}) };
+  }
+  function validar() {
+    if (busy) return;
+    const p = construir();
+    if (p) onSubmit(p);
+  }
+  function verVistaPrevia() {
+    if (busy || previando || !onVistaPrevia) return;
+    const p = construir();
+    if (p) onVistaPrevia(p);
   }
 
   // 16 px en el móvil (`sm:text-sm` a partir de tableta): por debajo de 16, Safari de
@@ -403,9 +419,16 @@ export function FacturaEditor({
       )}
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {extra}
-      <button onClick={validar} disabled={!canSubmit} className="mt-5 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
-        {busy ? t("Procesando…") : submitLabel}
-      </button>
+      <div className={onVistaPrevia ? "mt-5 flex flex-col-reverse gap-2 sm:flex-row" : "mt-5"}>
+        {onVistaPrevia && (
+          <button type="button" onClick={verVistaPrevia} disabled={!canSubmit || previando} className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:text-slate-300 sm:w-44">
+            {previando ? t("Preparando…") : t("Vista previa")}
+          </button>
+        )}
+        <button onClick={validar} disabled={!canSubmit} className="w-full flex-1 rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
+          {busy ? t("Procesando…") : submitLabel}
+        </button>
+      </div>
     </div>
   );
 }

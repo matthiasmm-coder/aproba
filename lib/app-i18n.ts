@@ -1989,6 +1989,11 @@ export const CA: Record<string, string> = {
   "Personas atendidas": "Persones ateses",
   "Desde": "Des de",
   "desde": "des de",
+  // Vista previa de la factura (01/10/2026)
+  "Vista previa": "Previsualització",
+  "Así saldrá la factura. Todavía no se ha emitido: no se emite nada hasta que pulses «Crear factura».": "Així sortirà la factura. Encara no s'ha emès: no s'emet res fins que premis «Crear factura».",
+  "Seguir editando": "Continuar editant",
+  "No se pudo preparar la vista previa.": "No s'ha pogut preparar la previsualització.",
   "Hasta": "Fins a",
   "La fecha inicial es posterior a la final.": "La data inicial és posterior a la final.",
   "procedimiento": "procediment",

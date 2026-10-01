@@ -1,6 +1,6 @@
 import "server-only";
-import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, motivoNoSimplificada, prefijoSimplificada, lineasDeCuerpo, type ClienteDatosFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
-import { emisorParaFijar } from "@/lib/facturacion-oficina";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, motivoNoSimplificada, prefijoSimplificada, lineasDeCuerpo, type ClienteDatosFactura, type Factura, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { emisorParaFijar, emisorParaOficina, cuentaParaOficina } from "@/lib/facturacion-oficina";
 import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/factura-numero";
 import { fmtFechaCorta } from "@/lib/tramites";
@@ -75,8 +75,14 @@ export async function receptorDeCuerpo(admin: Admin, workspaceId: string, body: 
   return { clienteId, empresaId, clienteDatos: escrito ?? deFicha };
 }
 
-// La factura manual completa. Devuelve lo mismo que respondía la ruta antes de extraerla.
-export async function crearFacturaManual(admin: Admin, workspaceId: string, body: CuerpoDocumento): Promise<{ ok: true; id: string; numero: string; respuesta: Record<string, unknown> } | Fallo> {
+// Lo COMÚN a crear la factura y a su VISTA PREVIA (01/10/2026, Luis): validación, oficina,
+// importes, receptor y número salen de aquí, así la vista previa es la factura que nacerá.
+type Preparada = {
+  ok: true; simplificada: boolean; cliente: string; concepto: string; oficinaId: string | null;
+  imp: Importes; clienteId: string | null; empresaId: string | null; clienteDatos: ClienteDatosFactura | null;
+  numero: string; hoy: Date; vence: Date;
+};
+async function prepararFacturaManual(admin: Admin, workspaceId: string, body: CuerpoDocumento): Promise<Preparada | Fallo> {
   const simplificada = body.simplificada === true;
   const cliente = String(body.cliente ?? "").trim();
   const concepto = String(body.concepto ?? "").trim();
@@ -88,22 +94,50 @@ export async function crearFacturaManual(admin: Admin, workspaceId: string, body
 
   const imp = importesDeCuerpo(body);
   if (!imp.ok) return imp;
-  const { lineas: ls, suplidos: ss, baseImponible, iva, total, retencionPct, retencion } = imp;
   if (simplificada) {
-    const motivo = motivoNoSimplificada(total, retencionPct);
+    const motivo = motivoNoSimplificada(imp.total, imp.retencionPct);
     if (motivo) return { ok: false, status: 400, error: motivo };
   }
 
   // Simplificada: el vínculo con la ficha se conserva (historial, cobros), pero sus datos
   // fiscales NO se imprimen: es lo que la distingue de una factura completa.
   const receptor = await receptorDeCuerpo(admin, workspaceId, body);
-  const { clienteId, empresaId } = receptor;
   const clienteDatos = simplificada ? null : receptor.clienteDatos;
 
   const hoy = new Date();
   const vence = new Date(hoy.getTime() + 30 * 24 * 3600 * 1000);
-  // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
+  // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal). Solo LEE la serie.
   const numero = String(body.numero ?? "").trim() || (await siguienteNumero(admin, workspaceId, hoy.getFullYear(), simplificada ? prefijoSimplificada(prefijo) : prefijo));
+  return { ok: true, simplificada, cliente, concepto, oficinaId, imp, clienteId: receptor.clienteId, empresaId: receptor.empresaId, clienteDatos, numero, hoy, vence };
+}
+
+// VISTA PREVIA: la factura tal como saldrá —mismos importes, receptor, número y el emisor de
+// la oficina que factura, con su IBAN en el pie—, sin escribir nada ni gastar número.
+export type EmisorVistaPrevia = { nombre: string; nif: string | null; domicilio: string | null; email: string | null; logo: string | null; iban: string | null };
+export async function vistaPreviaFacturaManual(admin: Admin, workspaceId: string, body: CuerpoDocumento): Promise<{ ok: true; factura: Factura; emisor: EmisorVistaPrevia } | Fallo> {
+  const pr = await prepararFacturaManual(admin, workspaceId, body);
+  if (!pr.ok) return pr;
+  const { imp } = pr;
+  const e = await emisorParaOficina(admin, workspaceId, pr.oficinaId);
+  const cuenta = await cuentaParaOficina(admin, workspaceId, pr.oficinaId).catch(() => null);
+  const factura: Factura = {
+    id: "vista-previa", numero: pr.numero, cliente: pr.cliente, concepto: pr.concepto, base: imp.baseImponible, iva: imp.iva, total: imp.total,
+    estado: "EMITIDA", fecha: fmtFechaCorta(pr.hoy.toISOString()) ?? "", vence: fmtFechaCorta(pr.vence.toISOString()) ?? undefined,
+    // Como al crearla: líneas, suplidos y notas solo en la factura avanzada.
+    ...(body.avanzada ? { lineas: imp.lineas, suplidos: imp.suplidos, notas: body.notas?.trim() || null } : {}),
+    clienteDatos: pr.clienteDatos,
+    ...(imp.retencionPct ? { retencionPct: imp.retencionPct, retencion: imp.retencion } : {}),
+    ...(pr.simplificada ? { simplificada: true } : {}),
+  };
+  return { ok: true, factura, emisor: { nombre: e.nombre || "Mi despacho", nif: e.nif ?? null, domicilio: e.domicilio ?? null, email: e.email ?? null, logo: e.logo ?? null, iban: cuenta?.iban ?? null } };
+}
+
+// La factura manual completa. Devuelve lo mismo que respondía la ruta antes de extraerla.
+export async function crearFacturaManual(admin: Admin, workspaceId: string, body: CuerpoDocumento): Promise<{ ok: true; id: string; numero: string; respuesta: Record<string, unknown> } | Fallo> {
+  const pr = await prepararFacturaManual(admin, workspaceId, body);
+  if (!pr.ok) return pr;
+  const { simplificada, cliente, concepto, oficinaId, clienteId, empresaId, clienteDatos, numero, hoy, vence } = pr;
+  const { lineas: ls, suplidos: ss, baseImponible, iva, total, retencionPct, retencion } = pr.imp;
   const id = crypto.randomUUID();
   const row: Record<string, unknown> = {
     id, workspaceId, numero, ...(oficinaId ? { oficinaId } : {}),
