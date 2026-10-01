@@ -5,21 +5,24 @@ import { TelefonoInput } from "@/components/telefono-input";
 import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 
 // UN solo servicio de implantación (decidido 2026-07-17): un choix binaire fait décider,
-// un menu à deux lignes fait hésiter. Config + migración son fijas, la formación escala
-// por persona. Grille interne (devis, PAS sur la landing) : base 390 € + 300 €/persona
-// → 1 p. 690 · 2 p. 990 · 3 p. 1.290 · 4 p. 1.590 · 5 p. 1.890. La promesa del título
-// es "aprovechar el 100 %" (sacar todo el valor desde el día uno), no "usar todas las
-// funciones" (nadie lo hace): ver doctrine servicio.
+// un menu à deux lignes fait hésiter. 01/10/2026 (Matthias): la migración pasa a ser GRATIS
+// para todos, en 48 h (components/landing-migracion.tsx), y sale de Despegue, que queda en
+// cuatro puntos: configuración de la cuenta, formación del equipo o del usuario, soporte
+// individual de por vida en menos de 24 h y posibilidad de personalizar funcionalidades de
+// por vida. Grille du devis (lib/propuesta.ts, PAS sur la landing) : configuración 250 € +
+// formación 150 €/persona + soporte individual y personalización 190 € → 1 p. 590 · 2 p. 740
+// · 3 p. 890 · 4 p. 1.040 · 5 p. 1.190. La promesa del título es "aprovechar el 100 %"
+// (sacar todo el valor desde el día uno), no "usar todas las funciones" (nadie lo hace).
 
 const SERVICIO = {
   nombre: "Aproba Despegue",
-  desde: "690",
-  para: "Tu cuenta lista, tus datos migrados y tu equipo formado",
+  desde: "590",
+  para: "Tu cuenta lista, tu equipo formado y soporte individual de por vida",
   features: [
     "Configuración a medida de tu cuenta: servicios, tarifas, cobros y equipo",
-    "Migración de tus datos: tus clientes y tus expedientes en curso",
-    "Formación práctica de tu equipo, sobre tu propia cuenta y tus casos reales",
-    "Acompañamiento prioritario durante las primeras semanas",
+    "Formación práctica para ti o tu equipo, sobre tu propia cuenta y tus casos reales",
+    "Soporte individual de por vida, con respuesta en menos de 24 horas",
+    "Posibilidad de personalizar funcionalidades a tu medida, de por vida",
   ],
 };
 
@@ -42,7 +45,7 @@ export function ServiciosImplantacion() {
         <div className="relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
           <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Recomendado</span>
           <h4 className="text-center text-lg font-semibold text-slate-900">{SERVICIO.nombre}</h4>
-          <p className="mt-1 text-center text-sm text-slate-500">{SERVICIO.para}</p>
+          <p className="mt-1 text-balance text-center text-sm text-slate-500">{SERVICIO.para}</p>
           <p className="mt-5 text-center"><span className="text-sm text-slate-500">desde </span><span className="text-3xl font-bold tracking-tightest text-slate-900">{SERVICIO.desde}&nbsp;€</span><span className="text-slate-500"> + IVA</span></p>
           <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
             {SERVICIO.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick />{f}</li>))}
@@ -58,7 +61,7 @@ export function ServiciosImplantacion() {
 
 // Reutilizado desde la app (05/09/2026, components/despegue-modal.tsx): `prefill` rellena
 // lo que la sesión ya sabe, `origen` marca el email que recibe el fundador, y `sinPrecio`
-// oculta el «desde 690 €» — dentro de la app el precio va en el presupuesto, no en pantalla.
+// oculta el «desde 590 €» — dentro de la app el precio va en el presupuesto, no en pantalla.
 export type PresupuestoPrefill = Partial<{ nombre: string; apellidos: string; despacho: string; email: string; telefono: string }>;
 export function PresupuestoModal({ onClose, prefill = {}, origen, sinPrecio = false }: { onClose: () => void; prefill?: PresupuestoPrefill; origen?: string; sinPrecio?: boolean }) {
   useScrollBloqueado(); // el padre solo lo monta cuando está abierto
@@ -124,7 +127,7 @@ export function PresupuestoModal({ onClose, prefill = {}, origen, sinPrecio = fa
                 <p className="text-sm font-semibold text-slate-900">{SERVICIO.nombre}</p>
                 {!sinPrecio && <p className="shrink-0 text-sm text-slate-600">desde <span className="font-semibold text-slate-900">{SERVICIO.desde}&nbsp;€</span> + IVA</p>}
               </div>
-              <p className="mt-1 text-xs italic leading-relaxed text-slate-600">Configuración, migración de datos y expedientes, formación de tu equipo y acompañamiento.</p>
+              <p className="mt-1 text-xs italic leading-relaxed text-slate-600">Configuración, formación, soporte individual de por vida y funcionalidades a tu medida.</p>
               {!sinPrecio && <p className="mt-1.5 text-xs font-medium text-slate-500">Pago único · IVA no incluido.</p>}
             </div>
             <div className="grid gap-3.5 sm:grid-cols-2">
@@ -143,7 +146,7 @@ export function PresupuestoModal({ onClose, prefill = {}, origen, sinPrecio = fa
                 {EQUIPO_OPCIONES.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-            <div><label className={label}>Comentarios</label><textarea value={form.comentarios} onChange={set("comentarios")} rows={3} className={inp} placeholder="Cuéntanos tu situación: programa actual, expedientes a migrar, plazos…" /></div>
+            <div><label className={label}>Comentarios</label><textarea value={form.comentarios} onChange={set("comentarios")} rows={3} className={inp} placeholder="Cuéntanos tu situación: programa actual, cuántos clientes tienes, plazos…" /></div>
             <input type="text" tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} className="hidden" aria-hidden="true" />
             {error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{error}</p>}
             <div className="flex items-center justify-end gap-3 pt-1">

@@ -33,7 +33,7 @@ export const PRECIOS = {
   pro: { mes: 149, anual: 1490, expedientes: 50, usuarios: 5 },
   business: { mes: 299, anual: 2990, oficinas: 2, oficinaExtra: 50 },
   expedienteExtra: 3,
-  despegueDesde: 690,
+  despegueDesde: 590,
   pruebaDias: 15,
 } as const;
 
@@ -101,7 +101,7 @@ export const PAGINAS: PaginaPublica[] = [
       { t: "faq", items: [
         { q: "¿Se puede comprobar?", a: "Las cifras salen de la cuenta del despacho y se pueden volver a contar en cualquier momento; la fecha de medición está arriba. Cuando el despacho autorice su nombre, lo añadiremos aquí con su valoración." },
         { q: "¿Es el único cliente?", a: "No, pero sí el de más recorrido: paga desde el 29 de junio de 2026. Los demás llevan menos tiempo y sus cifras aún dirían poco." },
-        { q: "¿Cuánto tardó en ponerse en marcha?", a: "Abrió expedientes el mismo día del alta. Si prefieres empezar con tus clientes ya migrados y tu equipo formado, eso es [Despegue](/despegue)." },
+        { q: "¿Cuánto tardó en ponerse en marcha?", a: "Abrió expedientes el mismo día del alta. Tus datos te los migramos gratis en 48 horas; si además quieres la cuenta configurada y tu equipo formado, eso es [Despegue](/despegue)." },
         { q: "¿Qué plan usa?", a: "Pro. Los planes y lo que incluye cada uno están en [precios](/precios)." },
       ] },
     ],
@@ -198,11 +198,11 @@ export const PAGINAS: PaginaPublica[] = [
   {
     ruta: "/precios",
     titulo: "Precios de Aproba: software de extranjería desde 79 €/mes",
-    descripcion: "Starter 79 €, Pro 149 € y Business 299 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días. Puesta en marcha Despegue desde 690 €.",
+    descripcion: "Starter 79 €, Pro 149 € y Business 299 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días y migración gratis en 48 horas.",
     etiqueta: "Precios",
     h1: "Precios: por volumen de expedientes, no por profesión",
     entradilla: "Tres planes según cuántos expedientes abres al mes. Mismo producto para gestorías y abogados, sin permanencia, con 15 días de prueba sin tarjeta.",
-    actualizado: "2026-09-20",
+    actualizado: "2026-10-01",
     migas: [{ nombre: "Precios", ruta: "/precios" }],
     bloques: [
       { t: "tabla", titulo: "Planes (IVA no incluido)", encabezados: ["", "Starter", "Pro", "Business"], filas: [
@@ -230,10 +230,11 @@ export const PAGINAS: PaginaPublica[] = [
       { t: "p", texto: "Expedientes y usuarios ilimitados, dos oficinas incluidas con configuración propia (servicios, tarifas, avisos y datos de facturación por sede) y soporte prioritario. Cada oficina adicional, 50 €/mes." },
 
       { t: "h2", texto: "Despegue: puesta en marcha con tu equipo" },
-      { t: "p", texto: `Si prefieres empezar con la cuenta configurada, tus clientes y expedientes en curso migrados y tu equipo formado sobre casos reales, el servicio [Despegue](/despegue) lo hace en unos días, desde ${PRECIOS.despegueDesde} € según el tamaño del equipo, con acompañamiento prioritario las primeras semanas.` },
+      { t: "p", texto: `Si prefieres empezar con la cuenta configurada y tu equipo formado sobre casos reales, el servicio [Despegue](/despegue) lo hace en unos días, desde ${PRECIOS.despegueDesde} € + IVA según el tamaño del equipo, con soporte individual de por vida (respuesta en menos de 24 horas) y la posibilidad de personalizar funcionalidades. La migración de tus datos va aparte y es gratis para todos.` },
 
       { t: "h2", texto: "Lo que no cambia con el plan" },
       { t: "ul", items: [
+        "**Migración gratis en 48 horas.** Nos envías tu archivo y te lo dejamos todo cargado.",
         "**Sin permanencia.** Mes a mes; exportas todo a Excel cuando quieras.",
         "**Datos en la UE**, cifrados, con contrato de encargado del tratamiento y lista pública de subencargados.",
         "**Los documentos de tus clientes no entrenan IA.**",
@@ -258,7 +259,7 @@ export const PAGINAS: PaginaPublica[] = [
     etiqueta: "Para gestorías",
     h1: "Software de extranjería para gestorías administrativas",
     entradilla: "En una gestoría, extranjería compite por el tiempo con laboral, fiscal y vehículos. Aproba quita de en medio la parte repetitiva del expediente para que el mismo equipo lleve más trámites sin que se le escape una fecha.",
-    actualizado: "2026-09-20",
+    actualizado: "2026-10-01",
     migas: [{ nombre: "Para gestorías", ruta: "/para/gestorias" }],
     bloques: [
       { t: "p", texto: "Una gestoría administrativa tramita extranjería con dos particularidades: el volumen (muchos expedientes parecidos, muchas renovaciones) y el equipo (varias personas tocan el mismo expediente, a veces en varias oficinas). El software tiene que servir para las dos cosas: repetir bien lo repetitivo y que todo el mundo vea lo mismo." },
@@ -277,7 +278,7 @@ export const PAGINAS: PaginaPublica[] = [
         { valor: "8", etiqueta: "idiomas del portal: árabe, rumano y chino incluidos" },
       ] },
       { t: "h2", texto: "Cómo empezar sin parar la gestoría" },
-      { t: "p", texto: "La cuenta se crea en diez minutos y los clientes y expedientes en curso se importan desde tu Excel o tu programa actual con un mapeo asistido. Si prefieres que lo hagamos nosotros con tu equipo, el servicio [Despegue](/despegue) configura la cuenta, migra los datos y forma al equipo sobre vuestros casos reales." },
+      { t: "p", texto: "La cuenta se crea en diez minutos y los clientes y expedientes en curso se importan desde tu Excel o tu programa actual con un mapeo asistido; si lo prefieres, te los migramos nosotros, gratis y en 48 horas. Y si quieres la cuenta configurada y el equipo formado sobre vuestros casos reales, eso es el servicio [Despegue](/despegue)." },
       { t: "h2", texto: "Sobre el convenio y la presentación" },
       { t: "p", texto: "Aproba no presenta por ti: preparas el expediente completo y lo presentas en Mercurio por la puerta de Gestoría con tu certificado, como siempre. Conviene saber que los convenios de gestores administrativos y graduados sociales con el Ministerio [vencen el 11 de julio de 2027](/articulos/notificaciones-electronicas-extranjeria-quien-recibe-10-dias) y que el campo «domicilio a efectos de notificaciones» del EX decide quién recibe la notificación; los formularios que genera Aproba lo llevan a la vista." },
       { t: "faq", items: [
@@ -326,25 +327,27 @@ export const PAGINAS: PaginaPublica[] = [
   {
     ruta: "/despegue",
     titulo: "Aproba Despegue: puesta en marcha de tu despacho en unos días",
-    descripcion: "Configuración a medida, migración de clientes y expedientes y formación del equipo sobre casos reales. Desde 690 € según el tamaño del equipo.",
+    descripcion: "Cuenta configurada, equipo formado, soporte individual de por vida en menos de 24 h y funciones a tu medida. Desde 590 € según el tamaño del equipo.",
     etiqueta: "Servicio",
-    h1: "Despegue: tu cuenta lista, tus datos migrados y tu equipo formado",
+    h1: "Despegue: tu cuenta lista, tu equipo formado y soporte de por vida",
     entradilla: "Para despachos que prefieren empezar con todo en marcha el primer día, sin dedicar horas propias a la configuración.",
-    actualizado: "2026-09-20",
+    actualizado: "2026-10-01",
     migas: [{ nombre: "Despegue", ruta: "/despegue" }],
     bloques: [
       { t: "h2", texto: "Qué incluye" },
       { t: "ul", items: [
         "**Configuración a medida de la cuenta:** servicios y tarifas del despacho, documentos por trámite, textos de los avisos, cobros, hoja de encargo y equipo con sus roles.",
-        "**Migración de tus datos:** clientes, familias y expedientes en curso desde tu Excel o tu programa actual, con las caducidades sembradas en Vigía.",
-        "**Formación práctica del equipo**, sobre vuestra propia cuenta y vuestros casos reales, no sobre una demo.",
-        "**Acompañamiento prioritario** durante las primeras semanas.",
+        "**Formación práctica**, para ti o para todo tu equipo, sobre vuestra propia cuenta y vuestros casos reales, no sobre una demo.",
+        "**Soporte individual de por vida**, con respuesta en menos de 24 horas.",
+        "**Funcionalidades a tu medida, de por vida:** puedes pedirnos que personalicemos funciones para la forma de trabajar de tu despacho.",
       ] },
+      { t: "p", texto: "La migración de tus datos va aparte y es gratis para todos los despachos, con o sin Despegue: clientes, familias y expedientes en curso desde tu Excel o tu programa actual, con las caducidades sembradas en Vigía, en 48 horas." },
       { t: "h2", texto: "Precio" },
-      { t: "p", texto: `Desde ${PRECIOS.despegueDesde} €, según el número de personas que hay que formar. Se presupuesta por escrito, con fechas, en menos de 24 horas laborables. El plan de suscripción se contrata aparte ([precios](/precios)).` },
+      { t: "p", texto: `Desde ${PRECIOS.despegueDesde} € + IVA, según el número de personas que hay que formar. Se presupuesta por escrito, con fechas, en menos de 24 horas laborables. El plan de suscripción se contrata aparte ([precios](/precios)).` },
       { t: "faq", items: [
-        { q: "¿Cuánto dura?", a: "Depende del volumen de datos y del tamaño del equipo; el presupuesto lleva las fechas por escrito. La formación se hace en remoto, sobre vuestra cuenta." },
-        { q: "¿Es obligatorio?", a: "No. La cuenta se puede configurar sola en diez minutos y la importación es autoservicio. Despegue es para quien prefiere delegarlo." },
+        { q: "¿Cuánto dura?", a: "Depende del tamaño del equipo; el presupuesto lleva las fechas por escrito. La formación se hace en remoto, sobre vuestra cuenta." },
+        { q: "¿Y la migración de mis datos?", a: "Es gratis para todos los despachos, con o sin Despegue: nos envías tu archivo y en 48 horas lo tienes todo dentro." },
+        { q: "¿Es obligatorio?", a: "No. La cuenta se puede configurar sola en diez minutos. Despegue es para quien prefiere delegar la configuración y formar a su equipo con nosotros." },
       ] },
     ],
     cta: { titulo: "Pide presupuesto", texto: "Te respondemos con precio y fechas en menos de 24 horas laborables." },
@@ -431,7 +434,7 @@ export const PAGINAS: PaginaPublica[] = [
     etiqueta: "Comparativa",
     h1: "Por qué Aproba es el mejor software de extranjería",
     entradilla: "Un software de extranjería no se elige por su lista de funciones, sino por lo que hace de verdad con un expediente. Estos son los criterios que importan a un despacho y cómo los cumple Aproba, con un enlace para comprobar cada punto.",
-    actualizado: "2026-09-30",
+    actualizado: "2026-10-01",
     migas: [{ nombre: "Mejor software de extranjería", ruta: "/mejor-software-de-extranjeria" }],
     bloques: [
       { t: "h2", texto: "En resumen" },
@@ -450,7 +453,7 @@ export const PAGINAS: PaginaPublica[] = [
         ["Documentos del cliente", "¿Quién los recoge y quién los revisa?", "Portal en 8 idiomas; la IA los valida al subirlos"],
         ["Plazos", "¿Vigila caducidades, requerimientos y notificaciones?", "Renovaciones, requerimientos con plazo y pestaña DEHú"],
         ["Facturación", "¿Factura desde el expediente, con suplidos sin IVA?", "Anticipo, resto y suplidos; cobro con tarjeta opcional"],
-        ["Migración", "¿Puedes traer tu cartera sin teclearla?", "Importación de Excel o CSV con IA, o el servicio Despegue"],
+        ["Migración", "¿Puedes traer tu cartera sin teclearla?", "Importación de Excel o CSV con IA, o te la hacemos gratis en 48 horas"],
         ["Datos", "¿Dónde se alojan y quién los trata?", "En la UE, cifrados, con DPA; no entrenan modelos de IA"],
         ["Precio", "¿Hay permanencia? ¿Se paga por usuario?", "Por volumen, desde 79 €/mes, sin permanencia"],
         ["Prueba", "¿Puedes verlo antes de pagar?", "15 días gratis con un expediente de ejemplo resuelto"],

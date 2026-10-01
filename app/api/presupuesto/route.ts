@@ -7,7 +7,9 @@ import { Resend } from "resend";
 // el email.
 const fail = (msg: string, status = 400) => NextResponse.json({ error: msg }, { status });
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-// Un solo servicio desde 2026-07-17 (base 390 € + 300 €/persona; el presupuesto se hace a mano).
+// Un solo servicio desde 2026-07-17; desde el 01/10/2026, sin la migración (gratis para todos):
+// configuración 250 € + formación 150 €/persona + soporte individual y personalización 190 €
+// (lib/propuesta.ts), «desde 590 € + IVA». El fundador revisa la propuesta antes de enviarla.
 const EQUIPO_OPCIONES = ["Autónomo (solo yo)", "2 personas", "3 personas", "4 personas", "5 personas", "Más de 5"];
 const clamp = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 

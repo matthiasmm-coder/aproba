@@ -11,9 +11,9 @@ import { MigracionAnimada } from "@/components/migracion-animada";
 //    despacho confirma;
 //  • lo que entra: clientes con su ficha, empresas, historial de trámites y de facturas,
 //    caducidades → renovaciones vigiladas (el import NO crea expedientes en curso);
-//  • la migración hecha por nosotros es el servicio Despegue (de pago): el enlace baja a SU
-//    tarjeta en la sección Precios (#despegue, components/servicios-implantacion.tsx), no a los
-//    planes (Matthias, 30/09); aquí no se promete «gratis»;
+//  • la migración hecha por nosotros es GRATIS para todos y se hace en 48 horas (Matthias,
+//    01/10/2026: « la migration est offerte et réalisée en 48H », para todos los planes); ya no
+//    forma parte de Despegue (components/servicios-implantacion.tsx), así que la frase no enlaza;
 //  • las garantías llegan de app/page.tsx (GARANTIAS, con la página de cada una).
 
 type Garantia = { titulo: string; desc: string; icon: string; href: string };
@@ -40,9 +40,9 @@ export function LandingMigracion({ garantias }: { garantias: Garantia[] }) {
           <MigracionAnimada />
         </Reveal>
 
-        <p className="mt-12 text-center text-[15px] text-slate-600">
-          Hazlo tú en minutos o, si lo prefieres, te lo dejamos cargado.{" "}
-          <Link href="#despegue" className="whitespace-nowrap font-semibold text-aproba-700 transition hover:text-aproba-600">Ver el servicio Despegue →</Link>
+        <p className="mt-12 text-balance text-center text-[15px] text-slate-600">
+          <span className="font-semibold text-slate-900">Te migramos los datos gratis y en 48 horas:</span>{" "}
+          nos envías tu archivo y te lo dejamos todo cargado.
         </p>
 
         {/* Confianza: la pregunta que sigue a «trae tus datos». Una fila, sin tarjetas. */}

@@ -9,8 +9,10 @@ import { GEIST_REGULAR_B64, GEIST_SEMIBOLD_B64, GEIST_BOLD_B64, BADGE_ALPHA_B64 
 // De/Para, tabla de conceptos, totales, condiciones; más la garantía de reembolso y
 // la firma (precedente: documentos-cliente/confirmacion-prueba.html).
 //
-// Grille de precios (doctrine servicio): base fija 390 € (configuración + migración)
-// + 300 € por persona a formar. «Más de 5» → se calcula sobre 6 y se marca «desde».
+// Grille de precios (Matthias, 01/10/2026; la migración ya no está: es GRATIS para todos, en
+// 48 h): configuración de la cuenta 250 € + formación 150 € por persona + soporte individual
+// de por vida (respuesta en menos de 24 h) y personalización de funcionalidades 190 €
+// → 1 persona = 590 €, el «desde» público. «Más de 5» → se calcula sobre 6 y se marca «desde».
 // UNA SOLA PÁGINA, con aire: los tamaños de fuente y espaciados están calibrados para
 // que el peor caso (nombres largos) quepa — no añadir bloques sin recalibrar.
 
@@ -23,8 +25,9 @@ export type DatosPropuesta = {
   equipo: string; // etiqueta del select («Autónomo (solo yo)», «3 personas», «Más de 5»)
 };
 
-const BASE_FIJA = 390;
-const POR_PERSONA = 300;
+const CONFIGURACION = 250;
+const POR_PERSONA = 150;
+const SOPORTE = 190;
 
 export function personasDeEquipo(equipo: string): { n: number; abierto: boolean } {
   if (equipo.startsWith("Autónomo")) return { n: 1, abierto: false };
@@ -120,7 +123,7 @@ export async function generarPropuestaPDF(d: DatosPropuesta): Promise<Uint8Array
 
   const { n, abierto } = personasDeEquipo(d.equipo);
   const formacion = POR_PERSONA * n;
-  const base = BASE_FIJA + formacion;
+  const base = CONFIGURACION + formacion + SOPORTE;
   const iva = Math.round(base * 0.21 * 100) / 100;
   const total = Math.round((base + iva) * 100) / 100;
   const desde = abierto ? "desde " : "";
@@ -142,9 +145,9 @@ export async function generarPropuestaPDF(d: DatosPropuesta): Promise<Uint8Array
   let y = A4[1] - HEAD_H - 30;
 
   // ── Intro ──────────────────────────────────────────────────────────────────
-  texto(page, "Gracias por tu interés en Aproba. Este es el presupuesto de Aproba Despegue: dejamos tu cuenta configurada,", MX, y, 9.3, f.reg, SLATE_600);
+  texto(page, "Gracias por tu interés en Aproba. Este es el presupuesto de Aproba Despegue: dejamos tu cuenta configurada", MX, y, 9.3, f.reg, SLATE_600);
   y -= 13;
-  texto(page, "tus datos y expedientes migrados y a tu equipo formado, para aprovechar el 100 % desde el primer día.", MX, y, 9.3, f.reg, SLATE_600);
+  texto(page, "y a tu equipo formado, con soporte individual de por vida, para aprovechar el 100 % desde el primer día.", MX, y, 9.3, f.reg, SLATE_600);
   y -= 24;
 
   // ── Tarjetas De / Para ─────────────────────────────────────────────────────
@@ -177,8 +180,9 @@ export async function generarPropuestaPDF(d: DatosPropuesta): Promise<Uint8Array
   y -= 12;
   const TW = W - 2 * MX;
   const filas: { cpt: string; desc: string; imp: string }[] = [
-    { cpt: "Puesta en marcha: configuración y migración", desc: "Alta y configuración de la cuenta (servicios, tarifas, cobros, usuarios) y migración de tus clientes y expedientes en curso.", imp: eur(BASE_FIJA) },
-    { cpt: `Formación práctica del equipo (${abierto ? "6 o más" : n} ${n === 1 && !abierto ? "persona" : "personas"})`, desc: `Sesiones sobre vuestra propia cuenta y vuestros casos reales, ${eur(POR_PERSONA)} por persona. Incluye acompañamiento prioritario las primeras semanas.`, imp: `${desde}${eur(formacion)}` },
+    { cpt: "Configuración de la cuenta", desc: "Alta y configuración a medida: servicios, tarifas, cobros y usuarios. La migración de tus datos es gratis y va aparte.", imp: eur(CONFIGURACION) },
+    { cpt: `Formación práctica (${abierto ? "6 o más" : n} ${n === 1 && !abierto ? "persona" : "personas"})`, desc: `Sesiones sobre vuestra propia cuenta y vuestros casos reales, ${eur(POR_PERSONA)} por persona.`, imp: `${desde}${eur(formacion)}` },
+    { cpt: "Soporte individual y personalización, de por vida", desc: "Soporte individual con respuesta en menos de 24 horas y posibilidad de personalizar funcionalidades a tu medida, de por vida.", imp: eur(SOPORTE) },
   ];
   const FILA_H = 56; // sitio para 2 líneas de descripción sin truncar
   const TH = 24 + filas.length * FILA_H;
@@ -223,7 +227,7 @@ export async function generarPropuestaPDF(d: DatosPropuesta): Promise<Uint8Array
     "Validez del presupuesto: 30 días.",
     "Puesta en marcha lista en pocos días laborables tras la confirmación.",
     "La suscripción mensual (Starter, Pro o Business) es independiente de este servicio.",
-    "Migración sobre datos estructurados (CSV/Excel); los no estructurados pueden requerir ajuste.",
+    "La migración de tus datos es gratis y va aparte: en 48 horas desde que recibimos tu archivo.",
     "Garantía de reembolso: si se cancela antes de iniciar los trabajos, devolución del 100 %.",
   ];
   const COL_W = (W - 2 * MX - 20) / 2;

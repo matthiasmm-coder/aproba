@@ -17,7 +17,7 @@ export function GET() {
 
 Aproba es un producto de ExpatfrancesCKNA07 S.L. (Malgrat de Mar, Barcelona, España), en producción desde 2026, para gestorías administrativas y abogados de extranjería en España. Los clientes finales (personas extranjeras) usan un portal en 8 idiomas sin instalar nada. Los datos se alojan en la Unión Europea y no se usan para entrenar modelos de IA.
 
-Precios (sin IVA, sin permanencia, ${PRECIOS.pruebaDias} días de prueba sin tarjeta): Starter ${PRECIOS.starter.mes} €/mes (${PRECIOS.starter.expedientes} expedientes al mes), Pro ${PRECIOS.pro.mes} €/mes (${PRECIOS.pro.expedientes} expedientes, facturación integrada), Business ${PRECIOS.business.mes} €/mes (ilimitado, ${PRECIOS.business.oficinas} oficinas). Expediente adicional: ${PRECIOS.expedienteExtra} €. Servicio de puesta en marcha «Despegue» desde ${PRECIOS.despegueDesde} €.
+Precios (sin IVA, sin permanencia, ${PRECIOS.pruebaDias} días de prueba sin tarjeta): Starter ${PRECIOS.starter.mes} €/mes (${PRECIOS.starter.expedientes} expedientes al mes), Pro ${PRECIOS.pro.mes} €/mes (${PRECIOS.pro.expedientes} expedientes, facturación integrada), Business ${PRECIOS.business.mes} €/mes (ilimitado, ${PRECIOS.business.oficinas} oficinas). Expediente adicional: ${PRECIOS.expedienteExtra} €. Migración de datos hecha por el equipo de Aproba: gratis para todos los despachos, en 48 horas. Servicio de puesta en marcha «Despegue» (configuración de la cuenta, formación, soporte individual de por vida con respuesta en menos de 24 horas y personalización de funcionalidades) desde ${PRECIOS.despegueDesde} €.
 
 ## Producto
 
