@@ -59,6 +59,10 @@ export const PRECIO_EXPEDIENTE_EXTRA = 3; // €/expediente
 // de Stripe (precioDePlan) y, cuando Stripe responde, la pantalla enseña ESE importe.
 export const PRECIOS_HEREDADOS: Record<PlanId, number> = { STARTER: 49, PRO: 99, BUSINESS: 199 };
 
+// Importe con punto de miles también en 4 cifras («2.490», como la portada): toLocaleString("es-ES")
+// no agrupa por debajo de 10.000 y las pantallas mezclaban «2490 €» con «2.490 €».
+export const miles = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
 export type PreciosPlan = Record<PlanId, { mensual: number; anual: number }>;
 export type ImportesStripe = Partial<Record<PlanId, Partial<{ mensual: number; anual: number }>>>;
 

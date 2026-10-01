@@ -69,7 +69,7 @@ export function PaginaPublicaVista({ ruta }: { ruta: string }) {
         offers: [
           { "@type": "Offer", name: "Starter", price: String(PRECIOS.starter.mes), priceCurrency: "EUR", url: `${BASE}/precios`, description: `${PRECIOS.starter.expedientes} expedientes al mes, ${PRECIOS.starter.usuarios} usuario` },
           { "@type": "Offer", name: "Pro", price: String(PRECIOS.pro.mes), priceCurrency: "EUR", url: `${BASE}/precios`, description: `${PRECIOS.pro.expedientes} expedientes al mes, ${PRECIOS.pro.usuarios} usuarios` },
-          { "@type": "Offer", name: "Business", price: String(PRECIOS.business.mes), priceCurrency: "EUR", url: `${BASE}/precios`, description: "Expedientes y usuarios ilimitados" },
+          { "@type": "Offer", name: "Business", price: String(PRECIOS.business.mes), priceCurrency: "EUR", url: `${BASE}/precios`, description: `Desde ${PRECIOS.business.mes} €/mes: expedientes y usuarios ilimitados, ${PRECIOS.business.oficinas} oficinas incluidas, +${PRECIOS.business.oficinaExtra} €/mes por oficina adicional` },
         ],
       }] : []),
     ],

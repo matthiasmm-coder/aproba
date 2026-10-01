@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Equipo, Miembro } from "@/lib/data/equipo";
 import {
   PLAN_IDS, PLANES, ROLES, ROLES_ASIGNABLES, planLabel, plyMax, seatsLabel,
-  puedeGestionarEquipo, puedeAsignarRol, type RolId,
-} from "@/lib/planes";
+  puedeGestionarEquipo, puedeAsignarRol, type RolId, miles } from "@/lib/planes";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 
@@ -216,7 +215,7 @@ export function EquipoManager({ inicial, oficinas = [] }: { inicial: Equipo; ofi
   const precioCiclo = (id: string) => {
     const p = precios[id as keyof typeof precios];
     if (!p) return "";
-    return eligeCiclo && intervalo === "anual" ? `${p.anual} ${t("€/año")} + IVA` : `${p.mensual} ${t("€/mes")} + IVA`;
+    return (id === "BUSINESS" ? `${t("desde")} ` : "") + (eligeCiclo && intervalo === "anual" ? `${miles(p.anual)} ${t("€/año")} + IVA` : `${miles(p.mensual)} ${t("€/mes")} + IVA`);
   };
 
   return (

@@ -278,7 +278,7 @@ export function OnboardingForm({ defaultNombre = "", existente = null }: { defau
                   <button key={id} type="button" onClick={() => setPlan(id)} className={`relative flex flex-col rounded-2xl border p-4 text-left transition ${activo ? "border-aproba-600 bg-aproba-50/60 ring-1 ring-aproba-600" : "border-slate-200 hover:border-slate-300"}`}>
                     {id === "PRO" && <span className="absolute -top-2 right-3 rounded-full bg-aproba-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{t("Popular")}</span>}
                     <span className="text-sm font-bold text-slate-900">{t(p.label)}</span>
-                    <p className="mt-1"><span className="text-2xl font-extrabold tracking-tight text-slate-900">{p.precio}€</span><span className="text-xs text-slate-500">{t("/mes")}</span></p>
+                    <p className="mt-1">{id === "BUSINESS" && <span className="mr-1 text-xs font-medium text-slate-500">{t("desde")}</span>}<span className="text-2xl font-extrabold tracking-tight text-slate-900">{p.precio}€</span><span className="text-xs text-slate-500">{t("/mes")}</span></p>
                     <p className="mt-1 text-xs text-slate-500">{t(p.para)}</p>
                   </button>
                 );

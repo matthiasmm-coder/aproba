@@ -1,3 +1,4 @@
+import { miles } from "@/lib/planes";
 import type { Bloque } from "@/lib/articulos";
 
 // PÁGINAS PÚBLICAS DE CATEGORÍA (SEO, plan del 12/09/2026) — la landing vende; estas
@@ -36,10 +37,6 @@ export const PRECIOS = {
   despegueDesde: 590,
   pruebaDias: 15,
 } as const;
-
-// Miles con punto también en 4 cifras («1.490 €», como en la portada): toLocaleString("es-ES")
-// no agrupa por debajo de 10.000 y la tabla de /precios salía «1490 €» junto a «1.490 €».
-const miles = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 const faqComun: { q: string; a: string }[] = [
   { q: "¿Aproba presenta el expediente por mí?", a: "No. Aproba prepara el expediente completo (documentos validados, formularios EX y tasas rellenados, hoja de encargo y mandato firmados) y tú lo presentas en Mercurio o en la sede electrónica como siempre, con tu certificado. La presentación sigue siendo un acto del profesional." },
@@ -187,7 +184,7 @@ export const PAGINAS: PaginaPublica[] = [
       { t: "p", texto: "En 2026 se presentaron 1.174.978 solicitudes de regularización extraordinaria, el 58 % a través de abogados y el 8,4 % a través de gestores administrativos. Las autorizaciones concedidas duran un año: [cerca de 600.000 renovaciones](/articulos/renovaciones-2027-regularizacion-extraordinaria) van a concentrarse a mediados de 2027. Un despacho que tenga cada expediente con su fecha de caducidad repartirá ese trabajo durante meses; uno que no la tenga lo recibirá la misma semana. Es el caso más claro de por qué la vigilancia de renovaciones no es una función accesoria." },
 
       { t: "h2", texto: "Precio" },
-      { t: "p", texto: `Aproba cobra por volumen, no por profesión: Starter ${PRECIOS.starter.mes} €/mes (${PRECIOS.starter.expedientes} expedientes al mes), Pro ${PRECIOS.pro.mes} €/mes (${PRECIOS.pro.expedientes} expedientes, facturación y portal con tu marca) y Business ${PRECIOS.business.mes} €/mes (expedientes ilimitados, ${PRECIOS.business.oficinas} oficinas). Sin permanencia, IVA no incluido. El detalle está en [precios](/precios).` },
+      { t: "p", texto: `Aproba cobra por volumen, no por profesión: Starter ${PRECIOS.starter.mes} €/mes (${PRECIOS.starter.expedientes} expedientes al mes), Pro ${PRECIOS.pro.mes} €/mes (${PRECIOS.pro.expedientes} expedientes, facturación y portal con tu marca) y Business desde ${PRECIOS.business.mes} €/mes (expedientes ilimitados, ${PRECIOS.business.oficinas} oficinas incluidas). Sin permanencia, IVA no incluido. El detalle está en [precios](/precios).` },
 
       { t: "faq", items: [
         { q: "¿Qué es un software de extranjería?", a: "Es un programa de gestión especializado en los trámites de extranjería de un despacho: recoge y valida los documentos del cliente, genera los formularios EX y las tasas 790, sigue cada expediente por estados, avisa al cliente y vigila las renovaciones. Se diferencia de un CRM general en que conoce los modelos y plazos oficiales." },
@@ -483,7 +480,7 @@ export const PAGINAS: PaginaPublica[] = [
       ] },
       { t: "faq", items: [
         { q: "¿Cuál es el mejor software de extranjería?", a: "El que rellena de verdad los formularios oficiales, recoge y valida los documentos del cliente, vigila los plazos y factura desde el expediente, sin permanencia. Es lo que hace Aproba, y puedes comprobarlo 15 días gratis con un expediente de ejemplo ya resuelto." },
-        { q: "¿Cuánto cuesta un software de extranjería?", a: "Aproba cuesta 79, 149 o 249 € al mes según el volumen de expedientes, IVA aparte, con dos meses gratis en el pago anual y sin permanencia." },
+        { q: "¿Cuánto cuesta un software de extranjería?", a: "Aproba cuesta 79 € (Starter), 149 € (Pro) o desde 249 € (Business) al mes según el volumen de expedientes, IVA aparte, con dos meses gratis en el pago anual y sin permanencia." },
         { q: "¿Puedo traer mis clientes desde Excel o desde otro programa?", a: "Sí. El importador reconoce tus columnas con IA y tú confirmas; si lo prefieres, el servicio Despegue te lo deja todo cargado." },
         { q: "¿Sirve para gestorías y para abogados?", a: "Sí: está pensado para despachos de extranjería, sean gestorías administrativas o despachos de abogados, de un profesional a equipos con varias oficinas." },
       ] },

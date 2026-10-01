@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "@/components/lang-provider";
-import { PLANES, preciosDeTabla, type PlanId, type PreciosPlan } from "@/lib/planes";
+import { PLANES, preciosDeTabla, type PlanId, type PreciosPlan, miles } from "@/lib/planes";
 
 // Bouton qui lance le Stripe Checkout (carte obligatoire, essai 1 mois) puis
 // redirige vers la pasarela. Utilisé sur /onboarding/pago.
@@ -20,7 +20,7 @@ export function ActivarPrueba({ expirada = false, plan = null, precios = null, h
   const planGuardado: PlanId | null = plan && PLANES[plan as PlanId] ? (plan as PlanId) : null;
   const [planSel, setPlanSel] = useState<PlanId>(planGuardado ?? "PRO");
   const tabla = precios ?? preciosDeTabla(false);
-  const importe = (id: PlanId, ciclo: "mensual" | "anual") => tabla[id][ciclo];
+  const importe = (id: PlanId, ciclo: "mensual" | "anual") => miles(tabla[id][ciclo]);
   const [intervalo, setIntervalo] = useState<"mensual" | "anual">("mensual");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +46,11 @@ export function ActivarPrueba({ expirada = false, plan = null, precios = null, h
 
   // Avec le plan connu, chaque option porte son prix réel ; « 2 meses gratis »
   // reste la note anual (l'anual = 10 × le mensual). Sans plan : libellés d'avant.
+  // Business «desde»: su precio sube con cada oficina por encima de las 2 incluidas.
+  const desdeDe = (id: string | null | undefined) => (id === "BUSINESS" ? `${t("desde")} ` : "");
   const opciones = [
-    { id: "mensual" as const, label: t("Mensual"), nota: `${importe(planSel, "mensual")} €/mes` },
-    { id: "anual" as const, label: t("Anual"), nota: `${importe(planSel, "anual")} €/año · ${t("2 meses gratis")}` },
+    { id: "mensual" as const, label: t("Mensual"), nota: `${desdeDe(planSel)}${importe(planSel, "mensual")} €/mes` },
+    { id: "anual" as const, label: t("Anual"), nota: `${desdeDe(planSel)}${importe(planSel, "anual")} €/año · ${t("2 meses gratis")}` },
   ];
 
   return (
@@ -79,7 +81,7 @@ export function ActivarPrueba({ expirada = false, plan = null, precios = null, h
               )}
               <span className={`block text-sm font-semibold ${sel ? "text-aproba-700" : "text-slate-700"}`}>{p.label}</span>
               <span className={`block text-xs font-medium ${sel ? "text-aproba-600" : "text-slate-500"}`}>
-                {intervalo === "anual" ? `${importe(id, "anual")} €/año` : `${importe(id, "mensual")} €/mes`}
+                {desdeDe(id)}{intervalo === "anual" ? `${importe(id, "anual")} €/año` : `${importe(id, "mensual")} €/mes`}
               </span>
               <span className="mt-0.5 block text-[10px] leading-tight text-slate-400">
                 {p.maxUsuarios === Infinity ? "∞" : p.maxUsuarios} {p.maxUsuarios === 1 ? t("usuario") : t("usuarios")} ·{" "}

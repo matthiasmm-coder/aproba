@@ -1988,6 +1988,7 @@ export const CA: Record<string, string> = {
   "Presentados": "Presentats",
   "Personas atendidas": "Persones ateses",
   "Desde": "Des de",
+  "desde": "des de",
   "Hasta": "Fins a",
   "La fecha inicial es posterior a la final.": "La data inicial és posterior a la final.",
   "procedimiento": "procediment",
