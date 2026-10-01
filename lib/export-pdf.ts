@@ -1,6 +1,6 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import { eur, IVA, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
+import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, type Factura } from "@/lib/facturas";
 import { embeberLogo, medidasLogo } from "@/lib/pdf-logo";
 import { LEYENDA_VERIFACTU, TITULO_QR, qrPng } from "@/lib/verifactu-qr";
 
@@ -78,12 +78,14 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
     y -= alto + 4;
   }
 
-  // Cabecera: emisor (izq) + FACTURA nº (der)
+  // Cabecera: emisor (izq) + FACTURA nº (der). El título dice si es rectificativa (art. 15:
+  // hasta el 01/10/2026 el PDF ponía «FACTURA» también en un abono) o simplificada.
   text(emisor.nombre || "Mi despacho", M, 15, bold);
-  right(extras.titulo ?? "FACTURA", W - M, y + 2, 9, bold, grey);
+  right(extras.titulo ?? tituloFactura(f).toUpperCase(), W - M, y + 2, 9, bold, grey);
   right(f.numero, W - M, y - 15, 15, bold);
   right(`Fecha: ${f.fecha}`, W - M, y - 32, 9, font, slate);
   if (f.vence) right(`${extras.etiquetaVence ?? "Vencimiento"}: ${f.vence}`, W - M, y - 45, 9, font, slate);
+  else if (f.rectificaNumero) right(`Rectifica a la factura ${f.rectificaNumero}`, W - M, y - 45, 9, font, slate);
   y -= 18;
   for (const c of [emisor.nif ? `NIF/CIF ${emisor.nif}` : null, emisor.domicilio, emisor.email].filter(Boolean) as string[]) {
     text(c, M, 9, font, slate); y -= 13;
@@ -91,13 +93,16 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
 
   y -= 20;
   const yBloqueCliente = y + 10;
-  text("FACTURAR A", M, 8, bold, grey); y -= 15;
-  text(f.cliente, M, 12, bold); y -= 15;
-  // Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan.
-  for (const dato of [f.clienteDatos?.documento, f.clienteDatos?.direccion].filter(Boolean) as string[]) {
-    text(dato, M, 9, font, slate); y -= 13;
+  // Una simplificada puede no llevar cliente (art. 7 RD 1619/2012): sin nombre, sin bloque.
+  if (f.cliente?.trim()) {
+    text("FACTURAR A", M, 8, bold, grey); y -= 15;
+    text(f.cliente, M, 12, bold); y -= 15;
+    // Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan.
+    for (const dato of [f.clienteDatos?.documento, f.clienteDatos?.direccion].filter(Boolean) as string[]) {
+      text(dato, M, 9, font, slate); y -= 13;
+    }
+    y -= 15;
   }
-  y -= 15;
 
   // QR tributario (VERI*FACTU): columna derecha, a la altura del bloque del cliente. La
   // tabla de líneas arranca por debajo del QR para no pisarlo.
@@ -146,7 +151,7 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
   // de «TOTAL», que parecía tachado): 7 pt bajo la línea anterior, ~6 pt sobre TOTAL.
   // Retención de IRPF: el TOTAL de la factura no cambia; debajo, la retención y lo que se paga.
   const retencion = f.retencion != null ? r2(Number(f.retencion)) : retencionDe(base, f.retencionPct);
-  y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine(retencion ? "TOTAL FACTURA" : "TOTAL", eur(total), true);
+  y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine(retencion ? "TOTAL FACTURA" : f.simplificada ? "TOTAL (IVA incluido)" : "TOTAL", eur(total), true);
   if (retencion) {
     totLine(`Retención IRPF${f.retencionPct ? ` (${f.retencionPct} %)` : ""}`, `-${eur(Math.abs(retencion))}`);
     y -= 4; line(xBase - 10, W - M, y + 13, 0.5); totLine("TOTAL A PAGAR", eur(r2(total - retencion)), true);

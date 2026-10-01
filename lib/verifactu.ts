@@ -1,4 +1,4 @@
-import { IVA, totalesFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { IVA, LIMITE_SIMPLIFICADA, totalesFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { paisIsoDeNacionalidad } from "@/lib/verifactu-paises";
 
 // VERI*FACTU — capa PURA (sin red, sin base): construye el registro de alta que se manda a
@@ -8,6 +8,9 @@ import { paisIsoDeNacionalidad } from "@/lib/verifactu-paises";
 //   · F1 (factura completa) cuando el cliente se identifica: NIE/DNI/CIF → `nif`;
 //     pasaporte → `id_otro` tipo 03 + país ISO de su nacionalidad.
 //   · Sin identificación y total ≤ 400 € → F2 (factura simplificada, art. 6.1.d RD 1619/2012).
+//   · Factura SIMPLIFICADA elegida por el despacho (Factura.simplificada, arts. 4 y 7) → F2
+//     sin destinatario aunque la ficha tenga NIF, y sin la marca 6.1.d (esa marca es la de
+//     una factura completa que no identifica al destinatario).
 //     Por encima de 400 € NO se inventa nada: el registro queda BLOQUEADO con el motivo y
 //     el gestor completa la ficha del cliente (la factura sigue emitida: el flujo del
 //     despacho no se para por la AEAT).
@@ -115,6 +118,7 @@ export type FacturaRegistrable = {
   numero: string; fechaEmision: string | null; concepto: string; base: number;
   lineas?: LineaFactura[] | null; suplidos?: Suplido[] | null;
   clienteDatos?: { documento?: string } | null;
+  simplificada?: boolean | null; // factura simplificada (arts. 4 y 7 RD 1619/2012) → F2
   // Rectificativa: la factura que abona, tal como quedó registrada (número y fecha de
   // expedición yyyy-mm-dd) y si era simplificada (F2); null = no pasó por VERI*FACTU.
   rectifica?: { numero: string; fechaExpedicion: string; simplificada: boolean | null } | null;
@@ -126,7 +130,7 @@ export type ResultadoAlta =
   | { ok: true; payload: PayloadAlta; identificacion: "nif" | "pasaporte" | "simplificada"; fechaExpedicion: string; reexpedida: boolean }
   | { ok: false; codigo: CodigoBloqueo; motivo: string };
 
-export const LIMITE_SIMPLIFICADA = 400; // € (art. 4 RD 1619/2012)
+export { LIMITE_SIMPLIFICADA }; // € IVA incluido (art. 4 RD 1619/2012) — vive en lib/facturas
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 const compacta = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);
 
@@ -190,6 +194,11 @@ export function construirAlta(
 
   // La rectificativa de una simplificada es R5, sin destinatario (como la original).
   if (rect?.simplificada === true) return { ...okBase, identificacion: "simplificada", payload: { ...comun, tipo_factura: "R5" } };
+  // Simplificada por decisión del despacho: F2 sin destinatario, ni siquiera el de la ficha.
+  if (f.simplificada && !rect) {
+    if (total > LIMITE_SIMPLIFICADA) return { ok: false, codigo: "IMPORTE", motivo: `Una factura simplificada no puede superar ${LIMITE_SIMPLIFICADA} € IVA incluido: para más, hace falta una factura completa.` };
+    return { ...okBase, identificacion: "simplificada", payload: { ...comun, tipo_factura: "F2" } };
+  }
   if (nif) {
     return { ...okBase, identificacion: "nif", payload: { ...comun, tipo_factura: completa, nif, nombre, validar_destinatario: true } };
   }

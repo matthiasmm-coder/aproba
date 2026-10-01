@@ -66,6 +66,9 @@ export type Factura = {
   retencionPct?: number | null;
   retencion?: number | null;
   emisorDatos?: EmisorFijado | null; // emisor congelado al emitir (null = anterior: en vivo)
+  // Factura SIMPLIFICADA (supabase/factura-simplificada.sql): sin datos fiscales del cliente,
+  // hasta 400 € IVA incluido. undefined = completa (o migración ausente).
+  simplificada?: boolean;
 };
 
 // Emisor CONGELADO al emitir (supabase/factura-retencion-emisor.sql): una factura emitida no
@@ -237,6 +240,34 @@ export function importesRectificativa(f: {
 export function conceptoRectificativa(numeroOriginal: string, motivo?: string | null): string {
   const m = String(motivo ?? "").trim();
   return `Rectificativa de la factura ${numeroOriginal}${m ? ` — ${m}` : ""}`.slice(0, 300);
+}
+
+// ── FACTURA SIMPLIFICADA (RD 1619/2012, arts. 4 y 7 — Juan, 29/09/2026) ──────────────
+// El antiguo «ticket»: hasta 400 € IVA incluido (art. 4.1.a), sin los datos del cliente.
+// Basta número, fecha, el emisor, el servicio, el tipo de IVA («IVA incluido») y el total.
+// Su serie es la «S» (S-2026-0001, S-DG-2026-0001 con oficina), como la «R» de las
+// rectificativas; la columna Factura.simplificada dice además lo que es (el modo avanzado
+// deja escribir cualquier número).
+export const LIMITE_SIMPLIFICADA = 400; // € IVA incluido
+export const PREFIJO_SIMPLIFICADA = "S";
+export function prefijoSimplificada(prefijoOficina = ""): string {
+  const p = String(prefijoOficina ?? "").trim();
+  return p ? `${PREFIJO_SIMPLIFICADA}-${p}` : PREFIJO_SIMPLIFICADA;
+}
+
+// Por qué una factura NO puede ser simplificada (null = puede). La retención exige
+// identificar al pagador (empresa o profesional): eso es una factura completa.
+export function motivoNoSimplificada(total: number, retencionPct?: number | null): string | null {
+  if (total > LIMITE_SIMPLIFICADA) return `Una factura simplificada no puede superar ${LIMITE_SIMPLIFICADA} € IVA incluido: para más, emite una factura completa.`;
+  if (retencionPct) return "Una factura simplificada no lleva retención de IRPF: para retener, el pagador tiene que estar identificado (factura completa).";
+  return null;
+}
+
+// Título del documento. Una rectificativa DEBE decirlo (art. 15); una simplificada también.
+export function tituloFactura(f: { simplificada?: boolean | null; rectificaId?: string | null; rectificaNumero?: string | null }): string {
+  const rect = Boolean(f.rectificaId ?? f.rectificaNumero);
+  if (f.simplificada) return rect ? "Factura rectificativa simplificada" : "Factura simplificada";
+  return rect ? "Factura rectificativa" : "Factura";
 }
 
 export const FACTURA_ESTADO_META: Record<FacturaEstado, { label: string; pill: string }> = {

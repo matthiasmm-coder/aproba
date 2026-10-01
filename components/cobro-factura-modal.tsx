@@ -54,6 +54,8 @@ export function CobroFacturaModal({
   // lista de clientes y empresas del despacho (24/09/2026). Con expediente, los pone el servidor.
   const [fiscal, setFiscal] = useState<{ opciones: ClienteFiscalOpcion[] } | undefined>(undefined);
   const [forceAvanzada, setForceAvanzada] = useState(false); // editar una factura con líneas/suplidos usa el editor rico aunque el plan sea Starter (no perder datos)
+  // Editar una SIMPLIFICADA: el editor la mantiene (≤ 400 €, sin datos fiscales ni retención).
+  const [esSimplificada, setEsSimplificada] = useState(false);
   const avanzada = facturacionAvanzada(plan) || forceAvanzada;
 
   useEffect(() => {
@@ -73,6 +75,7 @@ export function CobroFacturaModal({
           if (!r.ok) throw new Error(fc.error);
           setNumeroFactura(fc.numero ?? "");
           setTieneExpediente(Boolean(fc.expedienteId));
+          setEsSimplificada(fc.simplificada === true);
           const tieneAvanzado = (Array.isArray(fc.lineas) && fc.lineas.length > 0) || (Array.isArray(fc.suplidos) && fc.suplidos.length > 0);
           setForceAvanzada(tieneAvanzado);
           const lineas = Array.isArray(fc.lineas) && fc.lineas.length ? fc.lineas : [{ concepto: fc.concepto || "", base: Number(fc.baseImponible) || 0 }];
@@ -162,6 +165,7 @@ export function CobroFacturaModal({
             fiscal={fiscal}
             // Retención de IRPF: solo en la factura manual (sin expediente), como al crearla.
             conRetencion={modo === "editar" && !tieneExpediente}
+            simplificada={esSimplificada}
             onSubmit={onSubmit}
             busy={busy}
             error={error}

@@ -34,7 +34,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // Bajo RLS (anti-IDOR): una factura de otro despacho «no existe».
   const COLS = "id, workspaceId, numero, estado, concepto, clienteNombre, baseImponible, iva, total, expedienteId, oficinaId, fechaVencimiento";
   const EXTRAS = `${COLS}, lineas, suplidos, clienteDatos, clienteId, familiaId, empresaId, rectificaId`;
-  let res = await supa.from("Factura").select(`${EXTRAS}, retencionPct, retencion, emisorDatos`).eq("id", id).maybeSingle();
+  // simplificada (factura-simplificada.sql): la rectificativa de una simplificada también lo es.
+  let res = await supa.from("Factura").select(`${EXTRAS}, retencionPct, retencion, emisorDatos, simplificada`).eq("id", id).maybeSingle();
+  if (res.error) res = await supa.from("Factura").select(`${EXTRAS}, retencionPct, retencion, emisorDatos`).eq("id", id).maybeSingle() as typeof res;
   if (res.error) res = await supa.from("Factura").select(EXTRAS).eq("id", id).maybeSingle() as typeof res;
   let sinExtras = false;
   if (res.error) { sinExtras = true; res = await supa.from("Factura").select(COLS).eq("id", id).maybeSingle() as typeof res; }
@@ -95,6 +97,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...(f.empresaId ? { empresaId: f.empresaId } : {}),
     // Mismo emisor que la original (su NIF es el de la rectificada) y su retención en negativo.
     ...(imp.retencion ? { retencionPct: f.retencionPct, retencion: imp.retencion } : {}),
+    // Abono de una simplificada: sin datos del cliente, como ella (VERI*FACTU la registra R5).
+    ...(f.simplificada === true ? { simplificada: true } : {}),
     emisorDatos: (f.emisorDatos as object | null) ?? await emisorParaFijar(admin, f.workspaceId as string, await oficinaDeFacturaFila(admin, { oficinaId: (f.oficinaId as string | null) ?? null, expedienteId: (f.expedienteId as string | null) ?? null })),
   };
   let { error } = await admin.from("Factura").insert(fila);

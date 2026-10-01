@@ -1,6 +1,6 @@
 "use client";
 
-import { eur, IVA, totalesFactura, retencionDe, r2, type Factura } from "@/lib/facturas";
+import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, type Factura } from "@/lib/facturas";
 import { formaDePago } from "@/lib/forma-de-pago";
 import { useT } from "@/components/lang-provider";
 import type { Emisor } from "@/components/factura-view";
@@ -49,8 +49,8 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
         </div>
         <div className="text-right">
           {/* Una rectificativa DEBE decirlo en el propio documento e identificar a la
-              factura rectificada (RD 1619/2012, art. 15). */}
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{titulo ?? (esRect ? t("Factura rectificativa") : t("Factura"))}</p>
+              factura rectificada (RD 1619/2012, art. 15); una simplificada también lo dice. */}
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{titulo ?? t(tituloFactura(f))}</p>
           <p className="font-mono text-lg font-bold text-slate-900">{f.numero}</p>
           {esRect && f.rectificaNumero && (
             <p className="mt-0.5 text-xs font-medium text-slate-600">{t("Rectifica a la factura")} <span className="font-mono">{f.rectificaNumero}</span></p>
@@ -61,13 +61,16 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
       </div>
 
       <div className="mt-6 flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 rounded-lg bg-cream-50 p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturar a")}</p>
-          <p className="mt-1 font-medium text-slate-800">{f.cliente}</p>
-          {/* Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan. */}
-          {f.clienteDatos?.documento && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.documento}</p>}
-          {f.clienteDatos?.direccion && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.direccion}</p>}
-        </div>
+        {/* Una simplificada puede no llevar cliente (RD 1619/2012, art. 7): sin nombre, sin bloque. */}
+        {f.cliente?.trim() ? (
+          <div className="min-w-0 flex-1 rounded-lg bg-cream-50 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t("Facturar a")}</p>
+            <p className="mt-1 font-medium text-slate-800">{f.cliente}</p>
+            {/* Snapshot fiscal congelado al emitir (documento + dirección) — pedido de Juan. */}
+            {f.clienteDatos?.documento && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.documento}</p>}
+            {f.clienteDatos?.direccion && <p className="mt-0.5 text-sm text-slate-500">{f.clienteDatos.direccion}</p>}
+          </div>
+        ) : <div className="flex-1" />}
         {/* QR tributario (VERI*FACTU, art. 21 Orden HAC/1177/2024): 30-40 mm en papel. */}
         {qr && (
           <figure className="m-0 w-[132px] shrink-0 text-center">
@@ -120,7 +123,7 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
           <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(base)}</span></div>
           <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(iva)}</span></div>
           {suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(suplidosTotal)}</span></div>}
-          <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retencion ? t("Total factura") : t("Total")}</span><span>{eur(total)}</span></div>
+          <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retencion ? t("Total factura") : f.simplificada ? t("Total (IVA incluido)") : t("Total")}</span><span>{eur(total)}</span></div>
           {retencion ? (
             <>
               <div className="flex justify-between text-slate-500"><span>{t("Retención IRPF")}{f.retencionPct ? ` (${f.retencionPct} %)` : ""}</span><span>−{eur(Math.abs(retencion))}</span></div>

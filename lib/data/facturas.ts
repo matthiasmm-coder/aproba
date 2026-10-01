@@ -38,6 +38,7 @@ const SELECT_CLI: string = `${SELECT_FULL}, clienteDatos`;
 const SELECT_OFI: string = `${SELECT_CLI}, oficinaId`; // fase 6 (repli si sin migrar)
 const SELECT_RECT: string = `${SELECT_OFI}, rectificaId`; // factura-rectificativa.sql
 const SELECT_RET: string = `${SELECT_RECT}, retencionPct, retencion, emisorDatos`; // factura-retencion-emisor.sql
+const SELECT_SIMP: string = `${SELECT_RET}, simplificada`; // factura-simplificada.sql
 
 // Falta la columna → repli; cualquier OTRO error (timeout, red, RLS) se re-lanza en vez de
 // caer a un SELECT más pobre (que perdería el flag archivado y mostraría archivadas como
@@ -50,7 +51,8 @@ async function selectFacturas<T>(
   run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>,
   contexto = "Facturas",
 ): Promise<T> {
-  let res = await run(SELECT_RET);
+  let res = await run(SELECT_SIMP);
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_RET);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_RECT);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_OFI);
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await run(SELECT_CLI);
@@ -84,6 +86,7 @@ function mapRow(f: Row): Factura {
     oficinaId: (f as { oficinaId?: string | null }).oficinaId ?? null,
     metodoPago: (f as { metodoPago?: string | null }).metodoPago ?? null,
     rectificaId: (f as { rectificaId?: string | null }).rectificaId ?? null,
+    simplificada: (f as { simplificada?: boolean | null }).simplificada === true,
     ...retencionYEmisor(f),
   };
 }

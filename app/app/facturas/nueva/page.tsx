@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { type Factura, datosFiscalesManuales } from "@/lib/facturas";
 import { cargarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
@@ -33,6 +33,28 @@ export default function NuevaFactura() {
   const [sedeCreacion, setSedeCreacion] = useState<{ sede: string | null; requerida: boolean }>({ sede: null, requerida: false });
   const [factura, setFactura] = useState<Factura | null>(null);
   const [emisor, setEmisor] = useState<Emisor>({ nombre: "Mi despacho", nif: null });
+  // Factura SIMPLIFICADA (01/10/2026, Juan): la casilla solo aparece con la migración hecha
+  // (supabase/factura-simplificada.sql). Marcarla cambia la serie propuesta (S-…).
+  const [simplificada, setSimplificada] = useState(false);
+  const [conSimplificada, setConSimplificada] = useState(false);
+  const serie = useRef<{ sede: string | null; simplificada: boolean }>({ sede: null, simplificada: false });
+
+  // Próximo número de la serie (editable en modo avanzado). Lo da el servidor: la numeración
+  // tiene un único punto de verdad (lib/factura-numero). Serie = la de la sede, S si simplificada.
+  async function proponerNumero(sede: string | null, simp: boolean) {
+    serie.current = { sede, simplificada: simp };
+    const qs = new URLSearchParams();
+    if (sede) qs.set("oficina", sede);
+    if (simp) qs.set("simplificada", "1");
+    try {
+      const r = await fetch(`/api/facturas/numero${qs.toString() ? `?${qs.toString()}` : ""}`);
+      if (r.ok) setNumero(String((await r.json()).numero ?? ""));
+    } catch { /* el número se genera al crear */ }
+  }
+  function cambiarSimplificada(v: boolean) {
+    setSimplificada(v);
+    void proponerNumero(serie.current.sede, v);
+  }
 
   useEffect(() => {
     (async () => {
@@ -58,14 +80,12 @@ export default function NuevaFactura() {
       if (!activos.length) activos = DEFAULT_SERVICIOS.filter((s) => s.active).map((s) => ({ id: s.id, label: s.label, precio: s.precio }));
       setServicios(activos);
       setOpcionesFiscales(await cargarClientesFiscales());
-
-      // Próximo número de la serie anual (editable en modo avanzado). Lo da el
-      // servidor: la numeración tiene un único punto de verdad (lib/factura-numero).
       try {
-        const ck = leerCookieSede();
-        const r = await fetch(`/api/facturas/numero${ck ? `?oficina=${encodeURIComponent(ck)}` : ""}`);
-        if (r.ok) setNumero(String((await r.json()).numero ?? ""));
-      } catch { /* el número se genera al crear */ }
+        const { error: sinColumna } = await sb.from("Factura").select("simplificada").limit(1);
+        setConSimplificada(!sinColumna);
+      } catch { /* sin la casilla */ }
+
+      await proponerNumero(leerCookieSede(), false);
 
       setCargando(false);
     })();
@@ -74,12 +94,7 @@ export default function NuevaFactura() {
   // Al elegir sede en el selector, el número propuesto se recalcula con SU serie.
   function onSedeCreacion(estado: { sede: string | null; requerida: boolean }) {
     setSedeCreacion((prev) => {
-      if (estado.requerida && estado.sede && estado.sede !== prev.sede) {
-        fetch(`/api/facturas/numero?oficina=${encodeURIComponent(estado.sede)}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d) => { if (d?.numero) setNumero(String(d.numero)); })
-          .catch(() => {});
-      }
+      if (estado.requerida && estado.sede && estado.sede !== prev.sede) void proponerNumero(estado.sede, serie.current.simplificada);
       return estado;
     });
   }
@@ -101,7 +116,7 @@ export default function NuevaFactura() {
       const r = await fetch("/api/facturas", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ numero: p.numero, oficinaId: sedeTrabajo, cliente: p.cliente, concepto: p.concepto, baseImponible: p.baseImponible, avanzada: p.avanzada, lineas: p.lineas, suplidos: p.suplidos, notas: p.notas,
-          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId, retencionPct: p.retencionPct ?? null }),
+          documento: p.documento, direccion: p.direccion, clienteId: p.clienteId, empresaId: p.empresaId, retencionPct: p.retencionPct ?? null, simplificada: p.simplificada === true }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error ?? t("No se pudo crear la factura. Vuelve a intentarlo."));
@@ -110,8 +125,8 @@ export default function NuevaFactura() {
         estado: "EMITIDA", fecha: String(d.fecha ?? ""), vence: d.vence ?? null,
         lineas: p.avanzada ? p.lineas : undefined, suplidos: p.avanzada ? p.suplidos : undefined, notas: p.avanzada ? p.notas : undefined,
         // Lo que el servidor congeló (si eligió el cliente sin tocar los campos, los de su ficha).
-        clienteDatos: d.clienteDatos ?? datosFiscalesManuales(p.documento, p.direccion),
-        iva: p.iva, total: p.total, retencionPct: d.retencionPct ?? null, retencion: d.retencion ?? null,
+        clienteDatos: p.simplificada ? null : d.clienteDatos ?? datosFiscalesManuales(p.documento, p.direccion),
+        iva: p.iva, total: p.total, retencionPct: d.retencionPct ?? null, retencion: d.retencion ?? null, simplificada: d.simplificada === true,
       });
       // El emisor que quedó CONGELADO (el de la oficina que factura, si tiene NIF propio): antes
       // la vista previa pintaba siempre el del despacho.
@@ -170,6 +185,8 @@ export default function NuevaFactura() {
             })()}
             fiscal={{ opciones: opcionesFiscales }}
             conRetencion
+            simplificada={simplificada}
+            onSimplificada={conSimplificada ? cambiarSimplificada : undefined}
             onSubmit={handleSubmit}
             submitLabel={t("Crear factura")}
             busy={creando}

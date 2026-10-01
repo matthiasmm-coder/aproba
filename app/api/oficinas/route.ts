@@ -213,6 +213,8 @@ export async function POST(req: Request) {
     // «R» es la serie de las RECTIFICATIVAS (R-2026-0001): una sede con ese prefijo mezclaría
     // sus facturas normales con los abonos y el sistema las tomaría por rectificativas.
     if (prefijo === "R") return fail("«R» está reservado a las facturas rectificativas. Elige otro prefijo.", 400);
+    // «S», a las SIMPLIFICADAS (S-2026-0001, 01/10/2026): mismo motivo.
+    if (prefijo === "S") return fail("«S» está reservado a las facturas simplificadas. Elige otro prefijo.", 400);
     // El prefijo debe ser único en el despacho: dos sedes con «DG» compartirían serie sin querer.
     if (prefijo) {
       const { data: chocan } = await admin.from("Oficina").select("id")

@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { siguienteNumero, interpretarUltimoNumero, ordinalDeNumero } from "@/lib/factura-numero";
 import { puedeGestionarEquipo } from "@/lib/planes";
 import { prefijoDeExpediente } from "@/lib/facturacion-oficina";
+import { prefijoSimplificada } from "@/lib/facturas";
 
 // Prochain numéro de la série du despacho.
 //
@@ -61,6 +62,9 @@ export async function GET(req: Request) {
       if (ancla) prefijo = await prefijoDeExpediente(admin, ancla);
     }
   }
+
+  // ?simplificada=1 → la serie S de esa misma sede (S-2026-0001, S-DG-2026-0001).
+  if (new URL(req.url).searchParams.get("simplificada") === "1") prefijo = prefijoSimplificada(prefijo);
 
   return NextResponse.json({ numero: await siguienteNumero(admin, workspaceId, new Date().getFullYear(), prefijo) });
 }

@@ -43,9 +43,15 @@ function FilaFactura({ f, esAdmin, t, vf }: { f: Factura; esAdmin: boolean; t: T
   return (
     <tr className={`border-b border-slate-50 last:border-0 hover:bg-cream-50 ${f.archivado ? "opacity-60" : ""}`}>
       <td className="px-5 py-3"><Link href={`/app/facturas/${f.id}`} className="font-mono text-xs text-aproba-700 hover:underline">{f.numero}</Link></td>
-      <td className="px-5 py-3 font-medium text-slate-800">{f.cliente}</td>
+      {/* Una simplificada puede no llevar nombre de cliente. */}
+      <td className="px-5 py-3 font-medium text-slate-800">{f.cliente || <span className="font-normal text-slate-400">{t("Sin nombre")}</span>}</td>
       <td className="hidden px-5 py-3 text-slate-500 md:table-cell">
         {f.concepto}
+        {f.simplificada && (
+          <span title={t("Factura simplificada: hasta 400 € IVA incluido, sin los datos fiscales del cliente.")} className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-slate-600">
+            {t("simplificada")}
+          </span>
+        )}
         {f.origen === "AUTOMATICA" && (
           <span title={t("Generada automáticamente al pagar el cliente en la plataforma")} className="ml-2 inline-flex items-center gap-1 rounded-full bg-aproba-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-aproba-700">
             <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></svg>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { esNumeroRectificativa, pctRetencion, retencionDe } from "@/lib/facturas";
+import { esNumeroRectificativa, motivoNoSimplificada, pctRetencion, retencionDe } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
@@ -24,7 +24,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const sel = (cols: string) => supabase.from("Factura").select(cols).eq("id", id).maybeSingle();
   // clienteDatos/clienteId/empresaId: la edición de una factura manual rellena con ellos el
   // NIF y el domicilio (24/09/2026). Repli sin ellos si faltan columnas.
-  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId, retencionPct");
+  // simplificada (01/10/2026): el editor de una simplificada no pide datos fiscales ni retención.
+  let res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId, retencionPct, simplificada");
+  if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId, retencionPct");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId, clienteDatos, clienteId, empresaId");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, lineas, suplidos, notas, momento, estado, expedienteId");
   if (res.error) res = await sel("id, numero, clienteNombre, concepto, baseImponible, momento, estado, expedienteId");
@@ -41,10 +43,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   // Valida propiedad bajo RLS antes de tocar nada.
-  let lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto, rectificaId").eq("id", id).maybeSingle();
-  // Sin la migración de rectificativas, la columna no existe: se lee sin ella.
+  let lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto, rectificaId, simplificada").eq("id", id).maybeSingle();
+  // Sin la migración de simplificadas o de rectificativas, la columna no existe: se lee sin ella.
+  if (lectura.error && /simplificada/i.test(lectura.error.message)) lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto, rectificaId").eq("id", id).maybeSingle() as typeof lectura;
   if (lectura.error && /rectificaId/i.test(lectura.error.message)) lectura = await supabase.from("Factura").select("id, estado, expedienteId, numero, concepto").eq("id", id).maybeSingle() as typeof lectura;
-  const f = lectura.data as { id: string; estado: string; expedienteId: string | null; numero: string; concepto: string | null; rectificaId?: string | null } | null;
+  const f = lectura.data as { id: string; estado: string; expedienteId: string | null; numero: string; concepto: string | null; rectificaId?: string | null; simplificada?: boolean | null } | null;
   if (!f) return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
   // Integridad contable: una factura ya pagada NO se reescribe.
   if (f.estado === "PAGADA") return NextResponse.json({ error: "No se puede modificar una factura ya pagada." }, { status: 409 });
@@ -89,6 +92,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     pct = ePrev ? undefined : pctRetencion((prev as { retencionPct?: number | null } | null)?.retencionPct);
   }
   if (pct !== undefined) { patch.retencionPct = pct; patch.retencion = pct ? retencionDe(baseImponible, pct) : null; }
+  // Una SIMPLIFICADA sigue siéndolo: hasta 400 € IVA incluido y sin retención.
+  const simplificada = f.simplificada === true;
+  if (simplificada) {
+    const motivo = motivoNoSimplificada(total, pct ?? null);
+    if (motivo) return NextResponse.json({ error: motivo }, { status: 400 });
+  }
   // Una factura retocada por el gestor deja de ser AUTOMATICA: si no, el próximo paso
   // del cliente por /api/pagos la REALINEA a la tarifa y pisa la edición en silencio
   // (auditoría 25/08). MANUAL = la palabra del gestor es definitiva.
@@ -112,7 +121,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const { data: e } = await admin.from("Empresa").select("id, razonSocial, nif, domicilio, codigoPostal, municipio, provincia").eq("id", body.empresaId.slice(0, 64)).eq("workspaceId", wsId).maybeSingle();
       if (e) { empresaId = body.empresaId; deFicha = datosFiscalesDeEmpresa(e as Record<string, string | null>); }
     }
-    patch.clienteDatos = datosFiscalesManuales(body.documento, body.direccion) ?? deFicha;
+    // Una simplificada no imprime datos fiscales del cliente, ni escritos ni de su ficha.
+    patch.clienteDatos = simplificada ? null : datosFiscalesManuales(body.documento, body.direccion) ?? deFicha;
     // Una factura de expediente conserva su vínculo; una manual queda ligada a lo elegido.
     if (!f.expedienteId) { patch.clienteId = clienteId; patch.empresaId = empresaId; }
   }

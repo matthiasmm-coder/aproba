@@ -1,5 +1,5 @@
 import "server-only";
-import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, type ClienteDatosFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, motivoNoSimplificada, prefijoSimplificada, type ClienteDatosFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { emisorParaFijar } from "@/lib/facturacion-oficina";
 import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/factura-numero";
@@ -24,6 +24,9 @@ export type CuerpoDocumento = {
   documento?: string; direccion?: string; clienteId?: string | null; empresaId?: string | null;
   // Retención de IRPF (28/09/2026, Asenjo): tipo en % sobre la base de honorarios.
   retencionPct?: number | string | null;
+  // Factura SIMPLIFICADA (01/10/2026, Juan): hasta 400 € IVA incluido, serie S, sin datos
+  // fiscales del cliente (el nombre es opcional) y sin retención.
+  simplificada?: boolean;
 };
 export type Fallo = { ok: false; status: number; error: string };
 
@@ -73,9 +76,10 @@ export async function receptorDeCuerpo(admin: Admin, workspaceId: string, body: 
 
 // La factura manual completa. Devuelve lo mismo que respondía la ruta antes de extraerla.
 export async function crearFacturaManual(admin: Admin, workspaceId: string, body: CuerpoDocumento): Promise<{ ok: true; id: string; numero: string; respuesta: Record<string, unknown> } | Fallo> {
+  const simplificada = body.simplificada === true;
   const cliente = String(body.cliente ?? "").trim();
   const concepto = String(body.concepto ?? "").trim();
-  if (!cliente || !concepto) return { ok: false, status: 400, error: "Faltan el cliente o el concepto." };
+  if ((!cliente && !simplificada) || !concepto) return { ok: false, status: 400, error: simplificada ? "Falta el concepto." : "Faltan el cliente o el concepto." };
 
   const ofi = await oficinaDeCuerpo(admin, workspaceId, body.oficinaId);
   if (!ofi.ok) return ofi;
@@ -84,13 +88,21 @@ export async function crearFacturaManual(admin: Admin, workspaceId: string, body
   const imp = importesDeCuerpo(body);
   if (!imp.ok) return imp;
   const { lineas: ls, suplidos: ss, baseImponible, iva, total, retencionPct, retencion } = imp;
+  if (simplificada) {
+    const motivo = motivoNoSimplificada(total, retencionPct);
+    if (motivo) return { ok: false, status: 400, error: motivo };
+  }
 
-  const { clienteId, empresaId, clienteDatos } = await receptorDeCuerpo(admin, workspaceId, body);
+  // Simplificada: el vínculo con la ficha se conserva (historial, cobros), pero sus datos
+  // fiscales NO se imprimen: es lo que la distingue de una factura completa.
+  const receptor = await receptorDeCuerpo(admin, workspaceId, body);
+  const { clienteId, empresaId } = receptor;
+  const clienteDatos = simplificada ? null : receptor.clienteDatos;
 
   const hoy = new Date();
   const vence = new Date(hoy.getTime() + 30 * 24 * 3600 * 1000);
   // Avanzada: respeta el nº editado. Simple: numera secuencialmente (legal).
-  const numero = String(body.numero ?? "").trim() || (await siguienteNumero(admin, workspaceId, hoy.getFullYear(), prefijo));
+  const numero = String(body.numero ?? "").trim() || (await siguienteNumero(admin, workspaceId, hoy.getFullYear(), simplificada ? prefijoSimplificada(prefijo) : prefijo));
   const id = crypto.randomUUID();
   const row: Record<string, unknown> = {
     id, workspaceId, numero, ...(oficinaId ? { oficinaId } : {}),
@@ -101,10 +113,15 @@ export async function crearFacturaManual(admin: Admin, workspaceId: string, body
     ...(clienteId ? { clienteId } : {}),
     ...(empresaId ? { empresaId } : {}),
     ...(retencionPct ? { retencionPct, retencion } : {}),
+    ...(simplificada ? { simplificada: true } : {}),
     // Emisor congelado: la identidad fiscal de la oficina elegida (o del despacho) tal como es hoy.
     emisorDatos: await emisorParaFijar(admin, workspaceId, oficinaId),
   };
   let { error } = await admin.from("Factura").insert(row);
+  // Sin la columna, una simplificada NO nace como completa: se avisa de la migración.
+  if (error && simplificada && /simplificada/i.test(error.message)) {
+    return { ok: false, status: 500, error: "Falta la migración de facturas simplificadas: ejecuta supabase/factura-simplificada.sql." };
+  }
   if (error && row.oficinaId && /oficinaId/i.test(error.message)) { delete row.oficinaId; ({ error } = await admin.from("Factura").insert(row)); }
   // Repli si falta alguna columna opcional (clienteDatos, clienteId, empresaId): la factura nace igual.
   if (error && /clienteDatos|clienteId|empresaId/i.test(error.message)) {
@@ -122,6 +139,6 @@ export async function crearFacturaManual(admin: Admin, workspaceId: string, body
   const verifactu = await registrarAltaSiActivo(admin, id);
   return {
     ok: true, id, numero,
-    respuesta: { ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), clienteDatos: row.clienteDatos ?? null, emisor: row.emisorDatos, retencionPct: retencionPct ?? null, retencion: retencion || null, aCobrar: aCobrar({ total, retencion }), ...(verifactu ? { verifactu } : {}) },
+    respuesta: { ok: true, id, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", vence: fmtFechaCorta(vence.toISOString()), clienteDatos: row.clienteDatos ?? null, emisor: row.emisorDatos, retencionPct: retencionPct ?? null, retencion: retencion || null, aCobrar: aCobrar({ total, retencion }), simplificada, ...(verifactu ? { verifactu } : {}) },
   };
 }

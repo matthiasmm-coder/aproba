@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { eur, ivaDe, totalDe, totalesFactura, IVA, TIPOS_RETENCION, pctRetencion, retencionDe, r2, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { eur, ivaDe, totalDe, totalesFactura, IVA, LIMITE_SIMPLIFICADA, TIPOS_RETENCION, pctRetencion, retencionDe, r2, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 import { buscarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 
@@ -53,6 +53,7 @@ export type FacturaPayload = {
   clienteId?: string | null;
   empresaId?: string | null;
   retencionPct?: number | null; // solo con `conRetencion`
+  simplificada?: boolean; // factura simplificada (solo la factura manual)
 };
 
 export function FacturaEditor({
@@ -68,7 +69,14 @@ export function FacturaEditor({
   conRetencion = false,
   numeroEtiqueta,
   numeroFijo = false,
+  simplificada = false,
+  onSimplificada,
 }: {
+  // Factura SIMPLIFICADA (01/10/2026, Juan): hasta 400 € IVA incluido, sin datos fiscales
+  // del cliente (el nombre pasa a opcional) y sin retención. Con `onSimplificada` el editor
+  // muestra la casilla (nueva factura); sin él, solo lo recuerda (editar una simplificada).
+  simplificada?: boolean;
+  onSimplificada?: (v: boolean) => void;
   // Proforma (29/09/2026): «Nº de proforma», numerado solo por el servidor (serie PRO).
   numeroEtiqueta?: string;
   numeroFijo?: boolean;
@@ -109,8 +117,9 @@ export function FacturaEditor({
     setCliente(o.nombre); setDocumento(o.documento); setDireccion(o.direccion);
     setVinculo({ tipo: o.tipo, id: o.id, nombre: o.nombre }); setSugerir(false);
   }
+  // Una simplificada no lleva datos fiscales del cliente: aunque estén escritos, no se mandan.
   const extraFiscal = () => (fiscal ? {
-    documento: documento.trim(), direccion: direccion.trim(),
+    documento: simplificada ? "" : documento.trim(), direccion: simplificada ? "" : direccion.trim(),
     clienteId: vinculo?.tipo === "cliente" ? vinculo.id : null, empresaId: vinculo?.tipo === "empresa" ? vinculo.id : null,
   } : {});
 
@@ -130,13 +139,16 @@ export function FacturaEditor({
   const pctInicial = inicial?.retencionPct ?? null;
   const [retTipo, setRetTipo] = useState<string>(pctInicial == null ? "0" : (TIPOS_RETENCION as readonly number[]).includes(pctInicial) ? String(pctInicial) : "otro");
   const [retOtro, setRetOtro] = useState(pctInicial != null && !(TIPOS_RETENCION as readonly number[]).includes(pctInicial) ? String(pctInicial) : "");
-  const retPct = conRetencion ? (retTipo === "otro" ? pctRetencion(retOtro) : pctRetencion(retTipo)) : null;
+  const retPct = conRetencion && !simplificada ? (retTipo === "otro" ? pctRetencion(retOtro) : pctRetencion(retTipo)) : null;
 
   const baseNum = Number(base) || 0;
   const tot = totalesFactura(lineas, suplidos);
-  const canSubmit = avanzada
-    ? Boolean(cliente.trim()) && tot.base > 0 && Boolean(numero.trim()) && !busy
-    : Boolean(cliente.trim()) && baseNum > 0 && !busy;
+  const totalActual = avanzada ? tot.total : totalDe(baseNum);
+  const excedeSimplificada = simplificada && totalActual > LIMITE_SIMPLIFICADA;
+  const conCliente = simplificada || Boolean(cliente.trim());
+  const canSubmit = !excedeSimplificada && (avanzada
+    ? conCliente && tot.base > 0 && Boolean(numero.trim()) && !busy
+    : conCliente && baseNum > 0 && !busy);
 
   function elegirConcepto(label: string) {
     setConcepto(label);
@@ -157,10 +169,10 @@ export function FacturaEditor({
         avanzada: true, cliente: cliente.trim(), numero: numero.trim(),
         concepto: limpiasL.map((l) => l.concepto).join(" · ").slice(0, 200),
         baseImponible: b, iva, total, lineas: limpiasL, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
-        ...(conRetencion ? { retencionPct: retPct } : {}),
+        ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}),
       });
     } else {
-      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal(), ...(conRetencion ? { retencionPct: retPct } : {}) });
+      onSubmit({ avanzada: false, cliente: cliente.trim(), concepto, baseImponible: baseNum, iva: ivaDe(baseNum), total: totalDe(baseNum), ...extraFiscal(), ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}) });
     }
   }
 
@@ -169,7 +181,7 @@ export function FacturaEditor({
   const inp = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[16px] outline-none focus:border-aproba-600 focus:ring-2 focus:ring-aproba-100 sm:text-sm";
 
   // Retención de IRPF: sin / 15 % / 7 % / otro tipo.
-  const campoRetencion = conRetencion ? (
+  const campoRetencion = conRetencion && !simplificada ? (
     <div>
       <label className="text-sm font-medium text-slate-700">{t("Retención IRPF")}</label>
       <div className="mt-1.5 flex gap-2">
@@ -191,7 +203,7 @@ export function FacturaEditor({
   const campoCliente = (
     <div className="relative">
       <input value={cliente} onChange={(e) => escribirCliente(e.target.value)} onFocus={() => setSugerir(true)} onBlur={() => setTimeout(() => setSugerir(false), 150)}
-        placeholder={t("Nombre del cliente")} autoComplete="off" className={`mt-1.5 ${inp}`} />
+        placeholder={simplificada ? t("Nombre del cliente (opcional)") : t("Nombre del cliente")} autoComplete="off" className={`mt-1.5 ${inp}`} />
       {sugerencias.length > 0 && (
         <div role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
           {sugerencias.map((o) => (
@@ -206,7 +218,7 @@ export function FacturaEditor({
     </div>
   );
   // NIF/CIF y domicilio: van impresos en la factura y en el CSV de emitidas.
-  const camposFiscales = fiscal ? (
+  const camposFiscales = fiscal && !simplificada ? (
     <div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
@@ -222,8 +234,21 @@ export function FacturaEditor({
     </div>
   ) : null;
 
+  const campoSimplificada = onSimplificada ? (
+    <label className={`mb-5 flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-3 text-sm transition ${simplificada ? "border-aproba-300 bg-aproba-50/60" : "border-slate-200 bg-white hover:bg-cream-50"}`}>
+      <input type="checkbox" checked={simplificada} onChange={(e) => onSimplificada(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-aproba-600 focus:ring-aproba-500" />
+      <span>
+        <span className="font-medium text-slate-800">{t("Factura simplificada")}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{t("Hasta 400 € IVA incluido, sin los datos fiscales del cliente (su nombre es opcional). Lleva su propia serie, S.")}</span>
+      </span>
+    </label>
+  ) : simplificada ? (
+    <p className="mb-5 rounded-lg border border-aproba-200 bg-aproba-50/60 px-3 py-2 text-xs text-aproba-800">{t("Factura simplificada: hasta 400 € IVA incluido, sin los datos fiscales del cliente.")}</p>
+  ) : null;
+
   return (
     <div>
+      {campoSimplificada}
       {!avanzada ? (
         <div className="space-y-4">
           <div>
@@ -248,7 +273,7 @@ export function FacturaEditor({
           <div className="rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm">
             <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(baseNum)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(ivaDe(baseNum))}</span></div>
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : t("Total")}</span><span>{eur(totalDe(baseNum))}</span></div>
+            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : simplificada ? t("Total (IVA incluido)") : t("Total")}</span><span>{eur(totalDe(baseNum))}</span></div>
             {retPct ? <FilasRetencion base={baseNum} total={totalDe(baseNum)} pct={retPct} t={t} /> : null}
           </div>
           {campoRetencion}
@@ -326,13 +351,16 @@ export function FacturaEditor({
             <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(tot.base)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(tot.iva)}</span></div>
             {tot.suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(tot.suplidosTotal)}</span></div>}
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : t("Total")}</span><span>{eur(tot.total)}</span></div>
+            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : simplificada ? t("Total (IVA incluido)") : t("Total")}</span><span>{eur(tot.total)}</span></div>
             {retPct ? <FilasRetencion base={tot.base} total={tot.total} pct={retPct} t={t} /> : null}
           </div>
           {campoRetencion}
         </div>
       )}
 
+      {excedeSimplificada && (
+        <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{t("Una factura simplificada no puede superar 400 € IVA incluido: para más, emite una factura completa.")}</p>
+      )}
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {extra}
       <button onClick={validar} disabled={!canSubmit} className="mt-5 w-full rounded-lg bg-aproba-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">

@@ -109,11 +109,13 @@ type FacturaFila = {
   id: string; workspaceId: string; numero: string; clienteNombre: string; concepto: string; baseImponible: number | string; total: number | string;
   estado: string; fechaEmision: string | null; lineas?: { concepto: string; base: number }[] | null; suplidos?: { concepto: string; importe: number }[] | null;
   clienteDatos?: { documento?: string } | null; clienteId?: string | null; empresaId?: string | null; oficinaId?: string | null; expedienteId?: string | null;
-  emisorDatos?: { nif?: string | null } | null; rectificaId?: string | null;
+  emisorDatos?: { nif?: string | null } | null; rectificaId?: string | null; simplificada?: boolean | null;
 };
 async function cargarFactura(admin: Cli, facturaId: string): Promise<FacturaFila | null> {
   const sel = (cols: string) => admin.from("Factura").select(cols).eq("id", facturaId).maybeSingle();
-  let res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId, emisorDatos, rectificaId");
+  // simplificada: supabase/factura-simplificada.sql (01/10/2026); sin ella, factura completa.
+  let res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId, emisorDatos, rectificaId, simplificada");
+  if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId, emisorDatos, rectificaId");
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId, emisorDatos");
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, empresaId, oficinaId, expedienteId");
   if (res.error && FALTA_COLUMNA.test(res.error.message)) res = await sel("id, workspaceId, numero, clienteNombre, concepto, baseImponible, total, estado, fechaEmision, lineas, suplidos, clienteDatos, clienteId, oficinaId, expedienteId");
@@ -149,14 +151,16 @@ async function rectificadaDe(admin: Cli, f: FacturaFila): Promise<FacturaRegistr
   if (alta && (ESTADOS_ENVIADOS as string[]).includes(alta.estado)) {
     return { numero: alta.numero, fechaExpedicion: String(alta.fechaExpedicion).slice(0, 10), simplificada: alta.payload?.tipo_factura === "F2" };
   }
-  const { data: o } = await admin.from("Factura").select("numero, fechaEmision").eq("id", f.rectificaId).maybeSingle();
-  const orig = o as { numero?: string; fechaEmision?: string | null } | null;
+  let q = await admin.from("Factura").select("numero, fechaEmision, simplificada").eq("id", f.rectificaId).maybeSingle();
+  if (q.error && FALTA_COLUMNA.test(q.error.message)) q = await admin.from("Factura").select("numero, fechaEmision").eq("id", f.rectificaId).maybeSingle();
+  const orig = q.data as { numero?: string; fechaEmision?: string | null; simplificada?: boolean | null } | null;
   if (!orig?.numero) return null;
-  return { numero: orig.numero, fechaExpedicion: fechaMadrid(orig.fechaEmision ? new Date(orig.fechaEmision) : new Date()), simplificada: null };
+  // Una simplificada declarada como tal (columna) es R5 aunque no pasara por VERI*FACTU.
+  return { numero: orig.numero, fechaExpedicion: fechaMadrid(orig.fechaEmision ? new Date(orig.fechaEmision) : new Date()), simplificada: orig.simplificada === true ? true : null };
 }
 const registrable = async (admin: Cli, f: FacturaFila, fechaEmision: string | null): Promise<FacturaRegistrable> => ({
   numero: f.numero, fechaEmision, concepto: f.concepto, base: Number(f.baseImponible), lineas: f.lineas ?? null, suplidos: f.suplidos ?? null,
-  clienteDatos: f.clienteDatos ?? null, rectifica: await rectificadaDe(admin, f),
+  clienteDatos: f.clienteDatos ?? null, simplificada: f.simplificada === true, rectifica: await rectificadaDe(admin, f),
 });
 
 const ahoraIso = () => new Date().toISOString();
