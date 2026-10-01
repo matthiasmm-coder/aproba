@@ -17,7 +17,6 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 const SERVICIO = {
   nombre: "Aproba Despegue",
   desde: "590",
-  para: "Tu cuenta lista, tu equipo formado y soporte individual de por vida",
   features: [
     "Configuración a medida de tu cuenta: servicios, tarifas, cobros y equipo",
     "Formación práctica para ti o tu equipo, sobre tu propia cuenta y tus casos reales",
@@ -45,7 +44,6 @@ export function ServiciosImplantacion() {
         <div className="relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
           <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-aproba-600 px-3 py-1 text-xs font-semibold text-white">Recomendado</span>
           <h4 className="text-center text-lg font-semibold text-slate-900">{SERVICIO.nombre}</h4>
-          <p className="mt-1 text-balance text-center text-sm text-slate-500">{SERVICIO.para}</p>
           <p className="mt-5 text-center"><span className="text-sm text-slate-500">desde </span><span className="text-3xl font-bold tracking-tightest text-slate-900">{SERVICIO.desde}&nbsp;€</span><span className="text-slate-500"> + IVA</span></p>
           <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
             {SERVICIO.features.map((f) => (<li key={f} className="flex items-start gap-2"><Tick />{f}</li>))}
