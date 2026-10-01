@@ -6,9 +6,11 @@ import { confirmar } from "@/components/confirm-dialog";
 
 // Ajustes › Facturación › VERI*FACTU (17/09/2026). Por cada NIF que emite facturas (el del
 // despacho y las oficinas con NIF propio): estado del envío a la AEAT, clave de empresa
-// Verifacti (se guarda cifrada, nunca vuelve al navegador), pausa y retirada. Quien no
-// quiera tocar nada pulsa «Quiero activarlo» y Aproba se encarga del alta y del modelo de
-// representación. El recuento de registros dice si la AEAT está aceptando las facturas.
+// Verifacti (se guarda cifrada, nunca vuelve al navegador), pausa y retirada. El recuento de
+// registros dice si la AEAT está aceptando las facturas.
+// 01/10/2026 (Matthias): VERI*FACTU NO va incluido en Aproba. Cada despacho abre SU cuenta de
+// Verifacti, paga allí su suscripción y pega aquí su clave (los pasos se enseñan mientras no
+// está activo). Se acabó «Quiero activarlo» («Aproba lo deja funcionando, sin coste en 2026»).
 
 type Nif = { nif: string; nombre: string; origen: "despacho" | "oficina" };
 type Config = { nif: string; entorno: "test" | "prod"; activo: boolean; configurado: boolean; ultimaComprobacion: string | null; ultimoError: string | null };
@@ -23,7 +25,6 @@ export function VerifactuConfig() {
   const [clave, setClave] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [solicitado, setSolicitado] = useState(false);
 
   useEffect(() => {
     fetch("/api/ajustes/verifactu").then((r) => r.json()).then((d) => setEstado(d.error ? null : d)).catch(() => setEstado(null));
@@ -54,10 +55,6 @@ export function VerifactuConfig() {
   async function quitar(c: Config) {
     if (!(await confirmar(t("¿Retirar la clave de Verifacti de este NIF? Los registros ya enviados se conservan.")))) return;
     await llamar("DELETE", undefined, `?nif=${encodeURIComponent(c.nif)}`);
-  }
-  async function solicitar() {
-    const d = await llamar("POST", { accion: "solicitar" });
-    if (d?.solicitado) setSolicitado(true);
   }
 
   const total = Object.values(estado?.resumen ?? {}).reduce((a, b) => a + b, 0);
@@ -156,16 +153,16 @@ export function VerifactuConfig() {
           )}
           {!algunoActivo && (
             <div className="rounded-lg border border-dashed border-aproba-200 bg-aproba-50/40 p-3">
-              <p className="text-xs leading-relaxed text-slate-600">
-                {t("¿Prefieres no tocar nada? Aproba da de alta tu NIF, te envía el modelo de representación para firmarlo y lo deja funcionando. Sin coste adicional durante 2026.")}
-              </p>
-              {solicitado ? (
-                <p className="mt-2 text-xs font-semibold text-aproba-700">{t("Solicitud enviada: te escribimos en 1-2 días laborables.")}</p>
-              ) : (
-                <button type="button" onClick={solicitar} disabled={busy} className="mt-2 rounded-md border border-aproba-300 bg-white px-3 py-1.5 text-xs font-semibold text-aproba-700 transition hover:bg-aproba-50 disabled:opacity-50">
-                  {t("Quiero activarlo")}
-                </button>
-              )}
+              <p className="text-xs font-semibold text-slate-700">{t("Cómo activarlo")}</p>
+              <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-slate-600">
+                <li>
+                  {t("Crea tu cuenta en Verifacti, el sistema que envía tus registros a la AEAT (opción «Necesito emitir mis propias facturas»). Su suscripción la pagas directamente a Verifacti.")}{" "}
+                  <a href="https://www.verifacti.com" target="_blank" rel="noreferrer" className="font-semibold text-aproba-700 underline hover:text-aproba-800">verifacti.com</a>
+                </li>
+                <li>{t("Da de alta tu empresa, con tu NIF, en el entorno de producción y firma online el modelo de representación.")}</li>
+                <li>{t("Copia la clave de API de tu empresa (en «Configuración»).")}</li>
+                <li>{t("Aquí, pulsa «Pegar clave» junto a tu NIF, pégala y pulsa «Guardar y comprobar».")}</li>
+              </ol>
             </div>
           )}
         </div>

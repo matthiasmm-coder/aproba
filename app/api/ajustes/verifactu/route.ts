@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { puedeGestionarEquipo } from "@/lib/planes";
@@ -13,7 +12,8 @@ import { claveDeConfig, fetchConfigsVerifactu, resumenRegistros, type ConfigVeri
 // La clave se comprueba contra /verifactu/health (debe pertenecer a ESE NIF), se cifra y se
 // guarda con service_role; el navegador nunca la recibe de vuelta.
 //   GET    → NIFs emisores, configuración por NIF (sin claves) y recuento de registros.
-//   POST   → { nif, apiKey }  guarda y activa · { accion: "solicitar" } avisa a Aproba.
+//   POST   → { nif, apiKey }  guarda y activa (01/10/2026: sin «Quiero activarlo»: cada despacho
+//            abre su cuenta de Verifacti y paga allí su suscripción).
 //   PATCH  → { nif, activo }  pausa / reanuda el envío.
 //   DELETE → ?nif=            retira la clave (los registros ya hechos se conservan).
 export const dynamic = "force-dynamic";
@@ -76,33 +76,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const r = await adminYWorkspace();
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
-  let body: { nif?: string; apiKey?: string; accion?: string; mensaje?: string };
+  let body: { nif?: string; apiKey?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Petición inválida." }, { status: 400 }); }
-
-  if (body.accion === "solicitar") {
-    // «Quiero activarlo»: Aproba da de alta el NIF en Verifacti, gestiona el modelo de
-    // representación y configura la clave — el gestor no tiene que abrir ninguna cuenta.
-    const nifs = await nifsEmisores(r.admin, r.workspaceId);
-    const { data: ws } = await r.admin.from("Workspace").select("nombre").eq("id", r.workspaceId).maybeSingle();
-    if (process.env.RESEND_API_KEY) {
-      try {
-        await new Resend(process.env.RESEND_API_KEY).emails.send({
-          from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
-          to: process.env.VEILLE_ALERT_EMAIL || "matthias.merlemounier@gmail.com",
-          subject: `🧾 VERI*FACTU: ${(ws as { nombre?: string } | null)?.nombre ?? r.workspaceId} pide la activación`,
-          text: [
-            `Despacho: ${(ws as { nombre?: string } | null)?.nombre ?? "—"} (${r.workspaceId})`,
-            `Solicitante: ${r.email}`,
-            `NIF emisores: ${nifs.map((n) => `${n.nif} (${n.nombre})`).join(", ") || "sin NIF en Ajustes"}`,
-            body.mensaje?.trim() ? `Mensaje: ${body.mensaje.trim().slice(0, 1000)}` : "",
-            "",
-            "Pasos: alta del NIF en Verifacti → modelo de representación firmado → scripts/verifactu-config.mjs con la clave de empresa.",
-          ].filter(Boolean).join("\n"),
-        });
-      } catch (e) { console.error("[verifactu solicitar]", e instanceof Error ? e.message : e); }
-    }
-    return NextResponse.json({ ok: true, solicitado: true });
-  }
 
   const nif = normalizarNif(body.nif);
   const apiKey = String(body.apiKey ?? "").trim();

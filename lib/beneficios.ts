@@ -318,7 +318,7 @@ export const BENEFICIOS: Beneficio[] = [
     descripcion: "Facturación de extranjería desde el expediente: anticipo y resto, tasas como suplidos sin IVA, VeriFactu, clientes con NIE o pasaporte, empresas y familias.",
     h1: "Facturación para despachos de extranjería: la factura sale del expediente",
     entradilla: "Un trámite de extranjería se cobra de una manera concreta: anticipo al encargar, resto después, tasas aparte, y un cliente que a menudo solo tiene pasaporte. Aproba factura así, desde el expediente, con VeriFactu y sin copiar datos a otro programa.",
-    actualizado: "2026-09-28",
+    actualizado: "2026-10-01",
     captura: { w: 1600, h: 577, alt: "Bloque «Cobro del expediente»: pago inicial al firmar, pago final al terminar y el botón para solicitar el pago", pie: "El cobro dentro del expediente: anticipo al firmar, resto al terminar, descuento y suplidos a un clic; cada pago genera su factura." },
     significa: [
       { t: "ul", items: [
@@ -343,7 +343,7 @@ export const BENEFICIOS: Beneficio[] = [
     limites: [
       { t: "ul", items: [
         "**No es un programa de contabilidad.** Emite y exporta; los asientos siguen en A3, Holded o el que uses.",
-        "**VeriFactu se activa por despacho,** con el NIF del despacho, en Ajustes › Facturación. La obligación empieza el 1 de enero de 2027 para sociedades y el 1 de julio de 2027 para autónomos ([qué cambia y cuándo](/articulos/verifactu-despachos-extranjeria-fechas-2027)).",
+        "**VeriFactu se activa por despacho,** con el NIF del despacho y su propia cuenta de Verifacti (la suscripción se contrata directamente con Verifacti), en Ajustes › Facturación. La obligación empieza el 1 de enero de 2027 para sociedades y el 1 de julio de 2027 para autónomos ([qué cambia y cuándo](/articulos/verifactu-despachos-extranjeria-fechas-2027)).",
         "**Planes Pro y Business.** Starter no incluye la facturación integrada.",
       ] },
     ],
@@ -351,7 +351,7 @@ export const BENEFICIOS: Beneficio[] = [
       { q: "¿Puedo emitir una factura a mano?", a: "Sí, y se integra en la misma numeración; las automáticas no la pisan." },
       { q: "¿Qué pasa si la familia cambia después de emitir?", a: "Una factura emitida no cambia. Si el expediente cambia de composición antes del pago, Aproba la realinea con una nueva y deja la anterior anulada, con rastro." },
       { q: "¿El cliente ve la factura en el portal?", a: "Sí: la ve, la descarga y, si el despacho lo ha activado, la paga con tarjeta desde ahí." },
-      { q: "¿La facturación de Aproba cumple VeriFactu?", a: "Sí. Con VeriFactu activado, cada factura se registra en la AEAT al emitirse, lleva su QR tributario y ya no se puede modificar: se anula con su registro o se corrige con una rectificativa. Se activa por despacho en Ajustes › Facturación." },
+      { q: "¿La facturación de Aproba cumple VeriFactu?", a: "Sí. Con VeriFactu activado, cada factura se registra en la AEAT al emitirse, lleva su QR tributario y ya no se puede modificar: se anula con su registro o se corrige con una rectificativa. Se activa por despacho en Ajustes › Facturación, con la cuenta de Verifacti del despacho (su suscripción se contrata aparte, con Verifacti)." },
       { q: "¿Cómo se factura a un cliente que solo tiene pasaporte?", a: "A su nombre y con su pasaporte: Aproba lo registra en VeriFactu como identificador de otro país, con su país. Sin ningún documento, la factura solo puede ser simplificada, hasta 400 €." },
     ],
   },
