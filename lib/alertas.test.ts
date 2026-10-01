@@ -74,3 +74,19 @@ describe("campana · qué es una alerta", () => {
     expect(plazoCaducidad(40)).toEqual({ clave: "Caduca en {n} días", n: 40 });
   });
 });
+
+describe("campana — VERI*FACTU (01/10/2026)", () => {
+  it("rechazada = crítico, falta un dato = urgente; enlace a la factura; la anulación se nombra", () => {
+    const a = construirAlertas([], [], new Date("2026-10-01T10:00:00Z"), [], [
+      { id: "r1", facturaId: "f1", numero: "2026-0056", clienteNombre: "Oksana Koval", tipo: "ALTA", estado: "INCORRECTO" },
+      { id: "r2", facturaId: "f2", numero: "2026-0060", clienteNombre: "Li Wei", tipo: "ALTA", estado: "BLOQUEADO" },
+      { id: "r3", facturaId: "f3", numero: "2026-0057", clienteNombre: "", tipo: "ANULACION", estado: "NO_REGISTRADO" },
+      { id: "r4", facturaId: "f4", numero: "2026-0058", clienteNombre: "X", tipo: "ALTA", estado: "RARO" },
+    ]);
+    expect(a.map((x) => x.id)).toEqual(["vf-r1", "vf-r3", "vf-r2"]);
+    expect(a[0]).toMatchObject({ clase: "verifactu", href: "/app/facturas/f1", cliente: "Oksana Koval", detalle: "Factura 2026-0056", nivel: "critico", plazo: { clave: "Rechazada por la AEAT" } });
+    expect(a[1]).toMatchObject({ cliente: "2026-0057", detalle: "Anulación de la factura 2026-0057", nivel: "critico" });
+    expect(a[2]).toMatchObject({ nivel: "urgente", plazo: { clave: "Falta un dato del cliente" } });
+  });
+});
+

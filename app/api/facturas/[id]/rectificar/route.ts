@@ -5,7 +5,7 @@ import { conceptoRectificativa, importesRectificativa, prefijoRectificativa } fr
 import { siguienteNumero } from "@/lib/factura-numero";
 import { fmtFechaCorta } from "@/lib/tramites";
 import { emisorParaFijar, fiscalDeOficina, oficinaDeFacturaFila } from "@/lib/facturacion-oficina";
-import { configParaFactura } from "@/lib/verifactu-envio";
+import { registrarAltaSiActivo } from "@/lib/verifactu-envio";
 
 // FACTURA RECTIFICATIVA (RD 1619/2012, art. 15) — petición de Luis, Asenjo Global, 21/09/2026.
 //
@@ -113,12 +113,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
   }
 
-  // VERI*FACTU: una rectificativa lleva importes negativos y su registro tiene un tipo
-  // propio que Verifacti aún no acepta por esta vía (lib/verifactu.ts). NO se envía en
-  // silencio: se avisa para que el gestor sepa que ese registro queda pendiente.
-  let verifactuPendiente = false;
-  try { verifactuPendiente = Boolean(await configParaFactura(admin, { workspaceId: f.workspaceId, oficinaId: (f.oficinaId as string | null) ?? null, expedienteId: (f.expedienteId as string | null) ?? null, emisorDatos: (fila.emisorDatos as { nif?: string | null } | null) ?? null })); }
-  catch { /* sin VERI*FACTU configurado */ }
+  // VERI*FACTU (01/10/2026): la rectificativa se registra en la AEAT como R1 «por diferencias»
+  // que cita la factura que abona (R5 si aquella era simplificada). Nunca frena la emisión.
+  const verifactu = await registrarAltaSiActivo(admin, nuevoId);
 
-  return NextResponse.json({ ok: true, id: nuevoId, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", total: imp.total, verifactuPendiente });
+  return NextResponse.json({ ok: true, id: nuevoId, numero, fecha: fmtFechaCorta(hoy.toISOString()) ?? "", total: imp.total, ...(verifactu ? { verifactu } : {}) });
 }

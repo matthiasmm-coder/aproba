@@ -15,6 +15,13 @@ import { paisIsoDeNacionalidad } from "@/lib/verifactu-paises";
 //     sujeta) para que `importe_total` cuadre con el total impreso.
 //   · La fecha de expedición es la de emisión de la factura (hora de Madrid); si el envío
 //     se hace otro día, va marcado con `incidencia: "S"` como manda la Orden HAC/1177/2024.
+//   · El NIF del destinatario se valida contra el censo ANTES de enviar, también en pruebas
+//     (01/10/2026: con la validación apagada en test, un NIE fuera del censo llegaba a la AEAT
+//     y volvía rechazado, 1239). Fuera del censo → IDOtro 07 «No censado».
+//   · Rectificativa (abono de Aproba, importes en negativo) → R1 por diferencias (`I`) con la
+//     factura rectificada; si la rectificada era simplificada (F2), R5 sin destinatario.
+//   · Un registro rechazado o aceptado con errores se corrige con una SUBSANACIÓN
+//     (construirSubsanacion → PUT /verifactu/modify), nunca con un alta nueva del mismo número.
 
 export type TipoRegistro = "ALTA" | "ANULACION";
 export type EstadoRegistro =
@@ -89,11 +96,14 @@ export const ddmmyyyy = (iso: string) => { const [y, m, d] = iso.split("-"); ret
 // ── Registro de alta ─────────────────────────────────────────────────────────
 export type LineaVerifacti = { base_imponible: string; tipo_impositivo?: string; cuota_repercutida?: string; calificacion_operacion?: "S1" | "N1"; impuesto?: "01" };
 export type IdOtro = { codigo_pais: string; id_type: "03" | "07"; id: string };
+export type FacturaRectificada = { serie: string; numero: string; fecha_expedicion: string };
 export type PayloadAlta = {
   serie: string; numero: string; fecha_expedicion: string; fecha_operacion?: string;
-  tipo_factura: "F1" | "F2"; descripcion: string; lineas: LineaVerifacti[]; importe_total: string;
+  tipo_factura: "F1" | "F2" | "R1" | "R5"; descripcion: string; lineas: LineaVerifacti[]; importe_total: string;
   nif?: string; id_otro?: IdOtro; nombre?: string; validar_destinatario?: boolean; incidencia?: "S";
   especial?: { factura_sin_identif_destinatario_art_61d: "S" };
+  tipo_rectificativa?: "I"; facturas_rectificadas?: FacturaRectificada[];
+  rechazo_previo?: "N" | "S" | "X"; // solo en una subsanación (PUT /verifactu/modify)
 };
 export type IdentidadDestinatario = {
   nombre: string;
@@ -105,6 +115,9 @@ export type FacturaRegistrable = {
   numero: string; fechaEmision: string | null; concepto: string; base: number;
   lineas?: LineaFactura[] | null; suplidos?: Suplido[] | null;
   clienteDatos?: { documento?: string } | null;
+  // Rectificativa: la factura que abona, tal como quedó registrada (número y fecha de
+  // expedición yyyy-mm-dd) y si era simplificada (F2); null = no pasó por VERI*FACTU.
+  rectifica?: { numero: string; fechaExpedicion: string; simplificada: boolean | null } | null;
 };
 export type CodigoBloqueo = "SIN_IDENTIFICACION" | "PAIS_DESCONOCIDO" | "IMPORTE" | "NUMERO";
 export type ResultadoAlta =
@@ -139,11 +152,17 @@ export function construirAlta(
 
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, f.suplidos ?? []);
-  if (base < 0 || suplidosTotal < 0) return { ok: false, codigo: "IMPORTE", motivo: "Importe negativo: una factura rectificativa se registra aparte (pendiente en Aproba)." };
-  if (total <= 0) return { ok: false, codigo: "IMPORTE", motivo: "La factura no tiene importe." };
+  const rect = f.rectifica ?? null;
+  if (rect) {
+    // Rectificativa por diferencias: el abono de la original, con TODO en negativo.
+    if (base > 0 || suplidosTotal > 0 || total >= 0) return { ok: false, codigo: "IMPORTE", motivo: "Una rectificativa lleva los importes en negativo (el abono de la factura original)." };
+  } else {
+    if (base < 0 || suplidosTotal < 0) return { ok: false, codigo: "IMPORTE", motivo: "Importe negativo: solo una factura rectificativa lleva importes en negativo." };
+    if (total <= 0) return { ok: false, codigo: "IMPORTE", motivo: "La factura no tiene importe." };
+  }
   const lineasV: LineaVerifacti[] = [];
-  if (base > 0) lineasV.push({ base_imponible: fmt(base), tipo_impositivo: String(Math.round(IVA * 100)), cuota_repercutida: fmt(iva) });
-  if (suplidosTotal > 0) lineasV.push({ base_imponible: fmt(suplidosTotal), calificacion_operacion: "N1" });
+  if (base !== 0) lineasV.push({ base_imponible: fmt(base), tipo_impositivo: String(Math.round(IVA * 100)), cuota_repercutida: fmt(iva) });
+  if (suplidosTotal !== 0) lineasV.push({ base_imponible: fmt(suplidosTotal), calificacion_operacion: "N1" });
 
   // Identificación: NIF de la ficha → pasaporte de la ficha → snapshot impreso.
   const snap = identidadDesdeSnapshot(f.clienteDatos?.documento);
@@ -164,11 +183,15 @@ export function construirAlta(
     descripcion: compacta(f.concepto ?? "", 500) || "Servicios profesionales",
     lineas: lineasV, importe_total: fmt(total),
     ...(incidencia ? { incidencia: "S" as const } : {}),
+    ...(rect ? { tipo_rectificativa: "I" as const, facturas_rectificadas: [{ serie: "", numero: rect.numero, fecha_expedicion: ddmmyyyy(rect.fechaExpedicion.slice(0, 10)) }] } : {}),
   };
   const okBase = { ok: true as const, fechaExpedicion: hoyIso, reexpedida };
+  const completa = rect ? "R1" as const : "F1" as const;
 
+  // La rectificativa de una simplificada es R5, sin destinatario (como la original).
+  if (rect?.simplificada === true) return { ...okBase, identificacion: "simplificada", payload: { ...comun, tipo_factura: "R5" } };
   if (nif) {
-    return { ...okBase, identificacion: "nif", payload: { ...comun, tipo_factura: "F1", nif, nombre, validar_destinatario: opts.entorno === "prod" } };
+    return { ...okBase, identificacion: "nif", payload: { ...comun, tipo_factura: completa, nif, nombre, validar_destinatario: true } };
   }
   if (pasaporte) {
     const pais = paisIsoDeNacionalidad(dest.nacionalidad);
@@ -181,9 +204,19 @@ export function construirAlta(
           : "El cliente se identifica con pasaporte y su ficha no tiene nacionalidad. Rellénala para poder registrar la factura.",
       };
     }
-    return { ...okBase, identificacion: "pasaporte", payload: { ...comun, tipo_factura: "F1", id_otro: { codigo_pais: pais, id_type: "03", id: pasaporte }, nombre } };
+    return { ...okBase, identificacion: "pasaporte", payload: { ...comun, tipo_factura: completa, id_otro: { codigo_pais: pais, id_type: "03", id: pasaporte }, nombre } };
   }
   const malformado = normalizarNif(dest.nif ?? snap.nif);
+  if (rect) {
+    // Original fuera de VERI*FACTU y sin identificar: era una simplificada → R5.
+    if (rect.simplificada === null && -total <= LIMITE_SIMPLIFICADA) return { ...okBase, identificacion: "simplificada", payload: { ...comun, tipo_factura: "R5" } };
+    return {
+      ok: false, codigo: "SIN_IDENTIFICACION",
+      motivo: malformado
+        ? `El documento del cliente («${malformado}») no es un NIE, DNI o CIF válido. Corrígelo en su ficha para registrar la rectificativa.`
+        : "La rectificativa tiene que identificar al cliente como la factura original: añade su NIE/DNI, o su pasaporte y nacionalidad, en su ficha.",
+    };
+  }
   if (total <= LIMITE_SIMPLIFICADA) {
     return { ...okBase, identificacion: "simplificada", payload: { ...comun, tipo_factura: "F2", especial: { factura_sin_identif_destinatario_art_61d: "S" } } };
   }
@@ -195,9 +228,58 @@ export function construirAlta(
   };
 }
 
-// Registro de anulación: referencia al alta tal y como se registró.
-export function construirAnulacion(reg: { serie: string; numero: string; fechaExpedicion: string }): { serie: string; numero: string; fecha_expedicion: string } {
-  return { serie: reg.serie ?? "", numero: reg.numero, fecha_expedicion: ddmmyyyy(reg.fechaExpedicion.slice(0, 10)) };
+// Registro de anulación: referencia al alta tal y como se registró. Si el alta nunca quedó
+// registrada (la AEAT la rechazó) va con `sin_registro_previo: S`; si lo rechazado fue una
+// anulación anterior, con `rechazo_previo: S`.
+export function construirAnulacion(
+  reg: { serie: string; numero: string; fechaExpedicion: string },
+  opts: { sinRegistroPrevio?: boolean; rechazoPrevio?: boolean } = {},
+): { serie: string; numero: string; fecha_expedicion: string; sin_registro_previo?: "S"; rechazo_previo?: "S" } {
+  return {
+    serie: reg.serie ?? "", numero: reg.numero, fecha_expedicion: ddmmyyyy(reg.fechaExpedicion.slice(0, 10)),
+    ...(opts.sinRegistroPrevio ? { sin_registro_previo: "S" as const } : {}),
+    ...(opts.rechazoPrevio ? { rechazo_previo: "S" as const } : {}),
+  };
+}
+
+// ── Subsanación ──────────────────────────────────────────────────────────────
+// Estados que se corrigen con una subsanación (el número ya consta en la AEAT o fue rechazado).
+export const ESTADOS_SUBSANABLES: EstadoRegistro[] = ["INCORRECTO", "NO_REGISTRADO", "ACEPTADO_CON_ERRORES"];
+// Lo que pide un gesto del despacho (campana y aviso por email).
+export const ESTADOS_PROBLEMA: EstadoRegistro[] = ["INCORRECTO", "ACEPTADO_CON_ERRORES", "NO_REGISTRADO", "DUPLICADO", "BLOQUEADO"];
+
+// `rechazo_previo`: N si el alta se aceptó con errores; X si la AEAT rechazó el alta; S si lo
+// rechazado fue ya una subsanación (su payload guardado lleva `rechazo_previo`).
+export function rechazoPrevioDe(estado: EstadoRegistro, payloadAnterior: { rechazo_previo?: string } | null | undefined): "N" | "S" | "X" {
+  if (estado === "ACEPTADO_CON_ERRORES") return "N";
+  return payloadAnterior?.rechazo_previo ? "S" : "X";
+}
+
+// Cliente fuera del censo de la AEAT: el mismo documento como IDOtro 07 «No censado».
+export function aNoCensado(p: PayloadAlta): PayloadAlta {
+  if (!p.nif) return p;
+  const { nif, validar_destinatario: _v, ...resto } = p;
+  return { ...resto, id_otro: { codigo_pais: "ES", id_type: "07", id: nif } };
+}
+
+// El registro corregido: contenido de hoy (ficha del cliente incluida) con la fecha de
+// expedición REGISTRADA, que identifica el registro, y la fecha de operación / incidencia que
+// llevaba el envío original.
+export function construirSubsanacion(
+  nuevo: PayloadAlta,
+  registrado: { fechaExpedicion: string; payload?: Partial<PayloadAlta> | null },
+  rechazo: "N" | "S" | "X",
+  opts: { noCensado?: boolean } = {},
+): PayloadAlta {
+  const { fecha_operacion: _fo, incidencia: _inc, rechazo_previo: _rp, ...resto } = nuevo;
+  const p: PayloadAlta = {
+    ...resto,
+    fecha_expedicion: ddmmyyyy(registrado.fechaExpedicion.slice(0, 10)),
+    ...(registrado.payload?.fecha_operacion ? { fecha_operacion: registrado.payload.fecha_operacion } : {}),
+    ...(registrado.payload?.incidencia ? { incidencia: registrado.payload.incidencia } : {}),
+    rechazo_previo: rechazo,
+  };
+  return opts.noCensado ? aNoCensado(p) : p;
 }
 
 // Clave de idempotencia por (factura, operación, intento): un reintento tras fallo de red

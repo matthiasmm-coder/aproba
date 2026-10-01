@@ -8,7 +8,7 @@ import { FacturaView, type Emisor, type VerifactuVista } from "@/components/fact
 import { fetchEntregasDeFacturas } from "@/lib/entregas";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchRegistrosDeFacturas, refrescarRegistro } from "@/lib/verifactu-envio";
-import { ESTADO_REGISTRO_META, registroBloqueaEdicion, type EstadoRegistro } from "@/lib/verifactu";
+import { ESTADOS_SUBSANABLES, ESTADO_REGISTRO_META, registroBloqueaEdicion, type EstadoRegistro } from "@/lib/verifactu";
 import { qrDataUrl } from "@/lib/verifactu-qr";
 
 async function esAdminActual(): Promise<boolean> {
@@ -91,7 +91,8 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         motivo: visible.motivo ?? visible.mensajeError ?? null, url: alta.url,
         qr: conQr && alta.url ? await qrDataUrl(alta.url) : null,
         congelada: registroBloqueaEdicion(alta),
-        reintentable: f.estado !== "ANULADA" && (alta.estado === "BLOQUEADO" || alta.estado === "ERROR_ENVIO"),
+        // También un alta rechazada o aceptada con errores: «Reenviar» la SUBSANA (mismo registro).
+        reintentable: f.estado !== "ANULADA" && (alta.estado === "BLOQUEADO" || alta.estado === "ERROR_ENVIO" || (ESTADOS_SUBSANABLES as string[]).includes(alta.estado)),
       };
     }
   } catch { verifactu = null; }

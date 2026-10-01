@@ -1428,6 +1428,33 @@ async function enviarAlDespacho(admin: SupabaseClient, o: { workspaceId: string;
   } catch (e) { console.error("[enviarAlDespacho]", e instanceof Error ? e.message : e); }
 }
 
+// VERI*FACTU (01/10/2026): la AEAT rechazó o aceptó con errores el registro de una factura (o
+// su anulación). La campana lo enseña; este email llega aunque no se abra la app, porque la
+// respuesta de la AEAT llega minutos después de emitir. Un aviso por transición de estado.
+export async function avisarProblemaVerifactu(admin: SupabaseClient, o: {
+  workspaceId: string; facturaId: string; numero: string; clienteNombre: string; tipo: string; estado: string; detalle: string | null; baseUrl: string;
+}): Promise<void> {
+  const que = o.tipo === "ANULACION" ? `la anulación de la factura ${o.numero}` : `la factura ${o.numero}`;
+  const titulo = ({
+    INCORRECTO: `La AEAT ha rechazado ${que}`,
+    NO_REGISTRADO: `La AEAT no ha registrado ${que}`,
+    ACEPTADO_CON_ERRORES: `La AEAT ha aceptado con errores ${que}`,
+    DUPLICADO: `La AEAT ya tenía registrada ${que}`,
+  } as Record<string, string>)[o.estado] ?? `Revisa el registro VERI*FACTU de ${que}`;
+  const pasos = o.estado === "DUPLICADO"
+    ? "La AEAT ya tenía un registro con este número y fecha: no hace falta reenviarla. Si no sabes de dónde viene, responde a este email."
+    : "Corrige lo que indica la AEAT (casi siempre, los datos del cliente en su ficha) y pulsa «Reenviar a la AEAT» en la factura: Aproba subsana el mismo registro, sin emitir otra factura.";
+  await enviarAlDespacho(admin, {
+    workspaceId: o.workspaceId,
+    titulo,
+    cuerpoHtml: `<p style="margin:0 0 10px">${o.clienteNombre ? `Cliente: <b>${escapeHtml(o.clienteNombre)}</b>. ` : ""}Sistema VERI*FACTU.</p>`
+      + (o.detalle ? `<p style="margin:0 0 10px;color:#475569">Respuesta de la AEAT: «${escapeHtml(o.detalle)}»</p>` : "")
+      + `<p style="margin:0">${pasos}</p>`,
+    texto: `${titulo}.${o.detalle ? ` Respuesta de la AEAT: ${o.detalle}.` : ""} ${pasos}`,
+    cta: { url: `${o.baseUrl}/app/facturas/${o.facturaId}`, label: "Ver la factura" },
+  });
+}
+
 // El cliente respondió a la propuesta: el gestor lo ve en Vencimientos y, además, en su buzón.
 export async function avisarRespuestaRenovacion(admin: SupabaseClient, o: { workspaceId: string; expedienteId: string; referencia: string; clienteNombre: string; respuesta: "ACEPTADA" | "RECHAZADA"; baseUrl: string }): Promise<void> {
   const acepta = o.respuesta === "ACEPTADA";

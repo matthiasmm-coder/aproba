@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { fetchRegistrosDeFacturas, refrescarRegistro, registrarAlta, registrarAnulacion, type FilaRegistro } from "@/lib/verifactu-envio";
-import { registroBloqueaEdicion } from "@/lib/verifactu";
+import { fetchRegistroAlta, fetchRegistrosDeFacturas, refrescarRegistro, registrarAlta, registrarAnulacion, subsanarAlta, type FilaRegistro } from "@/lib/verifactu-envio";
+import { ESTADOS_SUBSANABLES, registroBloqueaEdicion } from "@/lib/verifactu";
 
 // VERI*FACTU de UNA factura. GET: sus registros (alta/anulación), refrescando el estado si
 // lleva un rato «Pendiente». POST: reintentar el envío (tras completar la ficha del cliente
-// o un fallo de red). La factura se resuelve bajo RLS; las escrituras van con service_role.
+// o un fallo de red); si la AEAT rechazó el alta o la aceptó con errores, SUBSANAR el mismo
+// registro (01/10/2026). La factura se resuelve bajo RLS; las escrituras van con service_role.
 export const dynamic = "force-dynamic";
 
 async function facturaDelUsuario(id: string) {
@@ -48,9 +49,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try { body = await req.json(); } catch { body = {}; }
   const admin = createSupabaseAdmin();
   try {
+    const alta = body.accion === "anular" ? null : await fetchRegistroAlta(admin, id);
     const res = body.accion === "anular"
       ? await registrarAnulacion(admin, id)
-      : await registrarAlta(admin, id, { reintento: true });
+      : alta && (ESTADOS_SUBSANABLES as string[]).includes(alta.estado)
+        ? await subsanarAlta(admin, id)
+        : await registrarAlta(admin, id, { reintento: true });
     const regs = (await fetchRegistrosDeFacturas(admin, [id]))[id] ?? [];
     return NextResponse.json({ ...res, ...serializar(regs) });
   } catch (e) {

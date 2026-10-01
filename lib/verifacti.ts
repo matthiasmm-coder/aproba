@@ -53,15 +53,22 @@ export const verifacti = {
     llamar<CreadoVerifacti>(apiKey, "POST", "/verifactu/create", payload, { "Idempotency-Key": idempotencia }),
   anular: (apiKey: string, payload: unknown, idempotencia: string) =>
     llamar<CreadoVerifacti>(apiKey, "POST", "/verifactu/cancel", payload, { "Idempotency-Key": idempotencia }),
+  // Subsanación (01/10/2026): corrige un registro ya enviado sin emitir otra factura. Mismo
+  // serie/número/fecha de expedición; `rechazo_previo` dice si el alta (X) o una subsanación
+  // anterior (S) fueron rechazadas por la AEAT, o N si el alta se aceptó con errores.
+  modificar: (apiKey: string, payload: unknown, idempotencia: string) =>
+    llamar<CreadoVerifacti>(apiKey, "PUT", "/verifactu/modify", payload, { "Idempotency-Key": idempotencia }),
   estado: (apiKey: string, uuid: string) =>
     llamar<EstadoVerifacti>(apiKey, "GET", `/verifactu/status?uuid=${encodeURIComponent(uuid)}`),
   salud: (apiKey: string) => llamar<SaludVerifacti>(apiKey, "GET", "/verifactu/health"),
   declaracion: (apiKey: string) => llamar<DeclaracionVerifacti>(apiKey, "GET", "/verifactu/declaracion"),
 };
 
-// ¿El 400 de Verifacti es «destinatario no censado / nombre no coincide»? → se reintenta
-// identificando al cliente como IDOtro tipo 07 (No censado), que la AEAT sí admite.
-export function esErrorCenso(r: { error?: string; codigo?: string }): boolean {
+// ¿«Destinatario no censado / nombre no coincide»? Sirve para el 400 de Verifacti al crear
+// y para el rechazo de la AEAT que llega después (código 1239, «El NIF no está identificado en
+// el censo de la AEAT»): en los dos casos se identifica al cliente como IDOtro tipo 07 (No
+// censado), que la AEAT sí admite. Un extranjero con NIE puede no figurar en el censo fiscal.
+export function esErrorCenso(r: { error?: string | null; codigo?: string | null }): boolean {
   const t = `${r.codigo ?? ""} ${r.error ?? ""}`.toLowerCase();
-  return /cens|no identificado|nombre.*(coincid|parecid)|vies/.test(t);
+  return /\b1239\b|cens|no identificado|nombre.*(coincid|parecid)|vies/.test(t);
 }

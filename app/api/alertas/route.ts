@@ -7,6 +7,7 @@ import { bovedaDisponible } from "@/lib/dehu/boveda";
 import { fetchRequerimientosPendientes } from "@/lib/data/requerimientos";
 import { fetchVencimientos } from "@/lib/data/vencimientos";
 import { fetchNotificacionesParaAlertas } from "@/lib/data/notificaciones-dehu";
+import { fetchVerifactuParaAlertas } from "@/lib/data/verifactu-alertas";
 import { construirAlertas } from "@/lib/alertas";
 
 // La campana del encabezado (components/campana-alertas.tsx). Lectura BAJO SESIÓN: la RLS
@@ -24,10 +25,11 @@ export async function GET() {
   // ce même JWT : vérifier sa signature en local suffit (même rafraîchissement de session).
   const userId = (await reclamosDeSesion(supabase))?.sub;
   if (!userId) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  const [reqs, vencs, notifs] = await Promise.all([
+  const [reqs, vencs, notifs, vfs] = await Promise.all([
     fetchRequerimientosPendientes().catch(() => []),
     fetchVencimientos().catch(() => []),
     fetchNotificacionesParaAlertas().catch(() => []),
+    fetchVerifactuParaAlertas().catch(() => []),
   ]);
   // Sans la clé de la bóveda, aucun certificat ne peut être branché (conectarDehu chiffre avec
   // elle) : rien à synchroniser — on s'épargne Membership + DehuConexion à chaque relevé.
@@ -38,5 +40,5 @@ export async function GET() {
       if (mem) await sincronizarDehu(admin, mem.workspaceId as string);
     } catch (e) { console.error("[alertas] DEHú automática:", e instanceof Error ? e.message : e); }
   });
-  return NextResponse.json({ alertas: construirAlertas(reqs, vencs, new Date(), notifs) }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ alertas: construirAlertas(reqs, vencs, new Date(), notifs, vfs) }, { headers: { "Cache-Control": "no-store" } });
 }

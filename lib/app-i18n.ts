@@ -2011,6 +2011,9 @@ export const CA: Record<string, string> = {
   "Equipo formado": "Equip format",
   "sobre tus propios casos": "sobre els teus propis casos",
   "Soporte individual": "Suport individual",
+  // Campana: sección VERI*FACTU (01/10/2026)
+  "VERI*FACTU": "VERI*FACTU",
+  "Ver facturas": "Veure factures",
   "de por vida, en menos de 24 h": "de per vida, en menys de 24 h",
   "Funciones a tu medida": "Funcions a la teva mida",
   "de por vida": "de per vida",

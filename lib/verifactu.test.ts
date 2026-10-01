@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  construirAlta, construirAnulacion, claveIdempotencia, ddmmyyyy, esDniValido, esNieValido, fechaMadrid,
-  identidadDesdeSnapshot, mapEstadoVerifacti, nifEspanolValido, registroBloqueaEdicion, resumenRegistro,
+  aNoCensado, construirAlta, construirAnulacion, construirSubsanacion, claveIdempotencia, ddmmyyyy, esDniValido, esNieValido, fechaMadrid,
+  identidadDesdeSnapshot, mapEstadoVerifacti, nifEspanolValido, rechazoPrevioDe, registroBloqueaEdicion, resumenRegistro,
 } from "./verifactu";
+import { esErrorCenso } from "./verifacti";
 import { paisIsoDeNacionalidad } from "./verifactu-paises";
 
 const HOY = new Date("2026-09-17T10:00:00+02:00");
@@ -23,9 +24,9 @@ describe("VERI*FACTU — registro de alta", () => {
     expect(r.payload.id_otro).toBeUndefined();
   });
 
-  it("en test no se valida el censo (los NIF de prueba no existen)", () => {
+  it("el censo se valida también en pruebas (01/10/2026: apagada, un NIE fuera del censo volvía rechazado)", () => {
     const r = construirAlta(base, { nombre: "Amadou Diallo", nif: "X1234567L" }, { hoy: HOY, entorno: "test" });
-    expect(r.ok && r.payload.validar_destinatario).toBe(false);
+    expect(r.ok && r.payload.validar_destinatario).toBe(true);
   });
 
   it("pasaporte + nacionalidad libre → id_otro tipo 03 con país ISO", () => {
@@ -183,3 +184,88 @@ describe("VERI*FACTU — utilidades", () => {
     for (const [entrada, iso] of casos) expect(paisIsoDeNacionalidad(entrada), entrada).toBe(iso);
   });
 });
+
+// 01/10/2026 — fase B: rectificativas, subsanación y anulación de lo que la AEAT rechazó.
+const rect = { numero: "R-2026-0001", fechaEmision: "2026-09-17T08:00:00.000Z", concepto: "Rectificativa de la factura 2026-0012", base: -300 };
+
+describe("VERI*FACTU — rectificativas", () => {
+  it("abono de una factura completa → R1 por diferencias, importes en negativo y la rectificada citada", () => {
+    const r = construirAlta({ ...rect, rectifica: { numero: "2026-0012", fechaExpedicion: "2026-09-15", simplificada: false } }, { nombre: "Amadou Diallo", nif: "X1234567L" }, { hoy: HOY, entorno: "test" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.payload).toMatchObject({
+      numero: "R-2026-0001", tipo_factura: "R1", tipo_rectificativa: "I", nif: "X1234567L", importe_total: "-363.00",
+      facturas_rectificadas: [{ serie: "", numero: "2026-0012", fecha_expedicion: "15-09-2026" }],
+      lineas: [{ base_imponible: "-300.00", tipo_impositivo: "21", cuota_repercutida: "-63.00" }],
+    });
+  });
+
+  it("la tasa (suplido) también va en negativo, como importe no sujeto", () => {
+    const r = construirAlta({ ...rect, base: 0, lineas: [{ concepto: "Honorarios", base: -200 }], suplidos: [{ concepto: "Tasa 790-012", importe: -16.08 }], rectifica: { numero: "2026-0012", fechaExpedicion: "2026-09-15", simplificada: false } }, { nombre: "Valentina Rojas", pasaporte: "AV123456", nacionalidad: "Colombia" }, { hoy: HOY, entorno: "test" });
+    expect(r.ok && r.payload.lineas).toEqual([
+      { base_imponible: "-200.00", tipo_impositivo: "21", cuota_repercutida: "-42.00" },
+      { base_imponible: "-16.08", calificacion_operacion: "N1" },
+    ]);
+    expect(r.ok && r.payload.id_otro).toEqual({ codigo_pais: "CO", id_type: "03", id: "AV123456" });
+  });
+
+  it("si la rectificada era simplificada (F2) → R5, sin destinatario", () => {
+    const r = construirAlta({ ...rect, rectifica: { numero: "2026-0012", fechaExpedicion: "2026-09-15", simplificada: true } }, { nombre: "Amadou Diallo", nif: "X1234567L" }, { hoy: HOY, entorno: "test" });
+    expect(r.ok && r.payload.tipo_factura).toBe("R5");
+    expect(r.ok && r.payload.nif).toBeUndefined();
+  });
+
+  it("rectificada fuera de VERI*FACTU y sin cliente identificado: R5 hasta 400 €, por encima se bloquea", () => {
+    const sin = { numero: "2026-0003", fechaExpedicion: "2026-06-02", simplificada: null };
+    const ok = construirAlta({ ...rect, rectifica: sin }, { nombre: "Cliente" }, { hoy: HOY, entorno: "test" });
+    expect(ok.ok && ok.payload).toMatchObject({ tipo_factura: "R5", facturas_rectificadas: [{ numero: "2026-0003", fecha_expedicion: "02-06-2026" }] });
+    const grande = construirAlta({ ...rect, base: -900, rectifica: sin }, { nombre: "Cliente" }, { hoy: HOY, entorno: "test" });
+    expect(grande).toMatchObject({ ok: false, codigo: "SIN_IDENTIFICACION" });
+    const f1 = construirAlta({ ...rect, rectifica: { ...sin, simplificada: false } }, { nombre: "Cliente" }, { hoy: HOY, entorno: "test" });
+    expect(f1).toMatchObject({ ok: false, codigo: "SIN_IDENTIFICACION" });
+  });
+
+  it("una rectificativa con importes positivos no se registra", () => {
+    expect(construirAlta({ ...rect, base: 300, rectifica: { numero: "2026-0012", fechaExpedicion: "2026-09-15", simplificada: false } }, { nombre: "A", nif: "X1234567L" }, { hoy: HOY, entorno: "test" })).toMatchObject({ ok: false, codigo: "IMPORTE" });
+  });
+});
+
+describe("VERI*FACTU — subsanación y anulación de lo rechazado", () => {
+  const alta = construirAlta({ ...base, fechaEmision: "2026-10-01T09:00:00.000Z" }, { nombre: "Oksana Koval", nif: "X4241199E" }, { hoy: new Date("2026-10-03T10:00:00+02:00"), entorno: "test" });
+
+  it("rechazo_previo: X si se rechazó el alta, S si se rechazó una subsanación, N si se aceptó con errores", () => {
+    expect(rechazoPrevioDe("INCORRECTO", { tipo_factura: "F1" } as never)).toBe("X");
+    expect(rechazoPrevioDe("INCORRECTO", { rechazo_previo: "X" })).toBe("S");
+    expect(rechazoPrevioDe("ACEPTADO_CON_ERRORES", null)).toBe("N");
+  });
+
+  it("mismo registro: la fecha de expedición REGISTRADA, y la de operación / incidencia del envío original", () => {
+    if (!alta.ok) throw new Error("alta");
+    const p = construirSubsanacion(alta.payload, { fechaExpedicion: "2026-10-01", payload: { fecha_operacion: "30-09-2026", incidencia: "S" } }, "X");
+    expect(p).toMatchObject({ numero: "2026-0012", fecha_expedicion: "01-10-2026", fecha_operacion: "30-09-2026", incidencia: "S", rechazo_previo: "X", nif: "X4241199E" });
+  });
+
+  it("cliente fuera del censo → IDOtro 07 «No censado», sin pedir otra validación", () => {
+    if (!alta.ok) throw new Error("alta");
+    const p = construirSubsanacion(alta.payload, { fechaExpedicion: "2026-10-01" }, "X", { noCensado: true });
+    expect(p.id_otro).toEqual({ codigo_pais: "ES", id_type: "07", id: "X4241199E" });
+    expect(p.nif).toBeUndefined();
+    expect(p.validar_destinatario).toBeUndefined();
+    expect(p.fecha_operacion).toBeUndefined();
+    expect(aNoCensado({ ...p })).toEqual(p); // sin nif, nada que cambiar
+  });
+
+  it("el rechazo de la AEAT por censo (1239) se reconoce, como el 400 de Verifacti", () => {
+    expect(esErrorCenso({ codigo: "1239", error: "Error en el bloque Destinatario.. El NIF no está identificado en el censo de la AEAT.." })).toBe(true);
+    expect(esErrorCenso({ codigo: "vf-verifactu-destinatario_no_censado_aeat" })).toBe(true);
+    expect(esErrorCenso({ codigo: "1100", error: "Valor o tipo incorrecto del campo" })).toBe(false);
+  });
+
+  it("anular una factura cuyo alta rechazó la AEAT → sin_registro_previo S; anulación rechazada → rechazo_previo S", () => {
+    const reg = { serie: "", numero: "2026-0056", fechaExpedicion: "2026-10-01" };
+    expect(construirAnulacion(reg)).toEqual({ serie: "", numero: "2026-0056", fecha_expedicion: "01-10-2026" });
+    expect(construirAnulacion(reg, { sinRegistroPrevio: true })).toMatchObject({ sin_registro_previo: "S" });
+    expect(construirAnulacion(reg, { rechazoPrevio: true })).toMatchObject({ rechazo_previo: "S" });
+  });
+});
+
