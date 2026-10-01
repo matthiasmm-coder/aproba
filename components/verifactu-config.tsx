@@ -71,7 +71,7 @@ export function VerifactuConfig() {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-slate-800">VERI*FACTU</h3>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-            {t("Cada factura que emites se registra en la AEAT al momento y sale con su QR tributario. Obligatorio para sociedades desde el 1 de enero de 2027 y para autónomos desde el 1 de julio de 2027.")}
+            {t("Cada factura queda registrada en la AEAT, con su QR. Obligatorio en 2027: sociedades el 1 de enero, autónomos el 1 de julio.")}
           </p>
         </div>
         {estado && (

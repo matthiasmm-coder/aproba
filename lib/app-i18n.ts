@@ -2398,7 +2398,7 @@ export const CA: Record<string, string> = {
   // VERI*FACTU (17/09/2026)
   "AEAT": "AEAT",
   "Activo": "Actiu",
-  "Cada factura que emites se registra en la AEAT al momento y sale con su QR tributario. Obligatorio para sociedades desde el 1 de enero de 2027 y para autónomos desde el 1 de julio de 2027.": "Cada factura que emets es registra a l'AEAT a l'instant i surt amb el seu QR tributari. Obligatori per a societats des de l'1 de gener de 2027 i per a autònoms des de l'1 de juliol de 2027.",
+  "Cada factura queda registrada en la AEAT, con su QR. Obligatorio en 2027: sociedades el 1 de enero, autónomos el 1 de julio.": "Cada factura queda registrada a l'AEAT, amb el seu QR. Obligatori el 2027: societats l'1 de gener, autònoms l'1 de juliol.",
   "Clave de empresa de Verifacti para este NIF": "Clau d'empresa de Verifacti per a aquest NIF",
   "Comprobando…": "Comprovant…",
   "Declaración responsable del sistema de facturación": "Declaració responsable del sistema de facturació",
