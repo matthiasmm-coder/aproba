@@ -32,7 +32,7 @@ console.log(`Stripe en mode ${modo}\n`);
 const PLANES = [
   { lookup: "aproba_starter_mensual", anualLookup: "aproba_starter_anual", nombre: "Aproba Starter", importe: 7900, importeAnual: 79000 },
   { lookup: "aproba_pro_mensual", anualLookup: "aproba_pro_anual", nombre: "Aproba Pro", importe: 14900, importeAnual: 149000 },
-  { lookup: "aproba_business_mensual", anualLookup: "aproba_business_anual", nombre: "Aproba Business", importe: 29900, importeAnual: 299000 },
+  { lookup: "aproba_business_mensual", anualLookup: "aproba_business_anual", nombre: "Aproba Business", importe: 24900, importeAnual: 249000 },
 ];
 
 const todosLookups = PLANES.flatMap((p) => [p.lookup, p.anualLookup]);

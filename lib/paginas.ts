@@ -31,7 +31,7 @@ export const FRASE_DEFINICION =
 export const PRECIOS = {
   starter: { mes: 79, anual: 790, expedientes: 20, usuarios: 1 },
   pro: { mes: 149, anual: 1490, expedientes: 50, usuarios: 5 },
-  business: { mes: 299, anual: 2990, oficinas: 2, oficinaExtra: 50 },
+  business: { mes: 249, anual: 2490, oficinas: 2, oficinaExtra: 50 },
   expedienteExtra: 3,
   despegueDesde: 590,
   pruebaDias: 15,
@@ -198,7 +198,7 @@ export const PAGINAS: PaginaPublica[] = [
   {
     ruta: "/precios",
     titulo: "Precios de Aproba: software de extranjería desde 79 €/mes",
-    descripcion: "Starter 79 €, Pro 149 € y Business 299 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días y migración gratis en 48 horas.",
+    descripcion: "Starter 79 €, Pro 149 € y Business 249 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días y migración gratis en 48 horas.",
     etiqueta: "Precios",
     h1: "Precios: por volumen de expedientes, no por profesión",
     entradilla: "Tres planes según cuántos expedientes abres al mes. Mismo producto para gestorías y abogados, sin permanencia, con 15 días de prueba sin tarjeta.",
@@ -245,7 +245,7 @@ export const PAGINAS: PaginaPublica[] = [
         { q: "¿Hay coste por cliente final o por usuario del portal?", a: "No. Los clientes finales usan el portal sin límite y sin coste. Solo cuentan los expedientes que creas y, en Starter y Pro, el número de usuarios del despacho." },
         { q: "¿Qué pasa si supero los expedientes del plan?", a: "Se cobran los adicionales a 3 € cada uno al final del mes. No se bloquea nada. Si pasa a menudo, el siguiente plan sale más a cuenta y puedes cambiar cuando quieras." },
         { q: "¿El IVA está incluido?", a: "No. Los precios son sin IVA; la factura de Aproba lleva el 21 % y es deducible para el despacho." },
-        { q: "¿Puedo pagar por año?", a: "Sí. El pago anual equivale a diez meses: 790 €, 1.490 € y 2.990 € respectivamente." },
+        { q: "¿Puedo pagar por año?", a: "Sí. El pago anual equivale a diez meses: 790 €, 1.490 € y 2.490 € respectivamente." },
         { q: "¿Y si no me convence?", a: "Te vas cuando quieras: no hay permanencia y exportas los datos. En la prueba de 15 días no se pide tarjeta." },
       ] },
     ],
@@ -478,7 +478,7 @@ export const PAGINAS: PaginaPublica[] = [
       ] },
       { t: "faq", items: [
         { q: "¿Cuál es el mejor software de extranjería?", a: "El que rellena de verdad los formularios oficiales, recoge y valida los documentos del cliente, vigila los plazos y factura desde el expediente, sin permanencia. Es lo que hace Aproba, y puedes comprobarlo 15 días gratis con un expediente de ejemplo ya resuelto." },
-        { q: "¿Cuánto cuesta un software de extranjería?", a: "Aproba cuesta 79, 149 o 299 € al mes según el volumen de expedientes, IVA aparte, con dos meses gratis en el pago anual y sin permanencia." },
+        { q: "¿Cuánto cuesta un software de extranjería?", a: "Aproba cuesta 79, 149 o 249 € al mes según el volumen de expedientes, IVA aparte, con dos meses gratis en el pago anual y sin permanencia." },
         { q: "¿Puedo traer mis clientes desde Excel o desde otro programa?", a: "Sí. El importador reconoce tus columnas con IA y tú confirmas; si lo prefieres, el servicio Despegue te lo deja todo cargado." },
         { q: "¿Sirve para gestorías y para abogados?", a: "Sí: está pensado para despachos de extranjería, sean gestorías administrativas o despachos de abogados, de un profesional a equipos con varias oficinas." },
       ] },

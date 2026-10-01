@@ -1,7 +1,7 @@
 // MULTI-OFICINA — règles commerciales, partagées par l'API, l'UI et la landing.
 //
 // Le multi-oficina est inclus dans le plan Business : 2 oficinas comprises dans les
-// 299 €/mois (Business), puis 50 €/mois par oficina supplémentaire. Cette facturation
+// 249 €/mois (Business, 299 € jusqu'au 01/10/2026), puis 50 €/mois par oficina supplémentaire. Cette facturation
 // supplémentaire est AJOUTÉE À LA MAIN dans Stripe (volume nul aujourd'hui) —
 // automatiser une ligne de facturation récurrente pour zéro client serait du code
 // de paiement risqué sans contrepartie. L'app se contente de prévenir.

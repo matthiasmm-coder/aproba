@@ -9,7 +9,7 @@ describe("muro de pago · precios que se enseñan", () => {
     const p = preciosPantalla(false);
     expect(p.STARTER).toEqual({ mensual: 79, anual: 790 });
     expect(p.PRO).toEqual({ mensual: 149, anual: 1490 });
-    expect(p.BUSINESS).toEqual({ mensual: 299, anual: 2990 });
+    expect(p.BUSINESS).toEqual({ mensual: 249, anual: 2490 });
     expect(p.PRO.mensual).toBe(PLANES.PRO.precio);
   });
 
@@ -30,7 +30,7 @@ describe("muro de pago · precios que se enseñan", () => {
     const p = preciosPantalla(false, { PRO: { mensual: 0, anual: NaN }, STARTER: { mensual: -5 }, BUSINESS: { mensual: undefined } });
     expect(p.PRO).toEqual({ mensual: 149, anual: 1490 });
     expect(p.STARTER.mensual).toBe(79);
-    expect(p.BUSINESS.mensual).toBe(299);
+    expect(p.BUSINESS.mensual).toBe(249);
   });
 
   it("sin datos de Stripe (null) se comporta como la tabla", () => {

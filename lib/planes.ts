@@ -34,7 +34,8 @@ export const PLANES: Record<PlanId, {
   },
   BUSINESS: {
     label: "Business",
-    precio: 299,
+    // 299 → 249 €/mes el 01/10/2026 (decisión de Matthias); anual = 10 × mensual.
+    precio: 249,
     maxUsuarios: Infinity,
     // Ilimitado (decisión 2026-07-20): creadosMes > Infinity nunca es cierto → el
     // cobro de overage (lib/overage) no aplica jamás a BUSINESS, sin tocar su código.

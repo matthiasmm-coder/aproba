@@ -1,4 +1,9 @@
-// SUBIDA DE TARIFAS con precio heredado (04/09/2026).
+// CAMBIO DE TARIFAS con precio heredado.
+//   · 04/09/2026: subida 49/99/199 → 79/149/299 (los antiguos pasaron a «…_v1»).
+//   · 01/10/2026: Business 299 → 249 €/mes (2.990 → 2.490 €/año). Las etiquetas «_v1»
+//     YA existen (Juan, Jennifer): el precio de 299 € NO se reetiqueta —le quitaría la
+//     suya a Jennifer—; solo pierde la canónica, que pasa al precio nuevo. Nadie cobra a
+//     299 € (comprobado el 01/10: Business = Jennifer, heredada, y dos pruebas sin pago).
 //
 // Regla que hay que respetar: **una suscripción viva NUNCA se reprecia sola**. En Stripe
 // un abono apunta a un objeto Price concreto; crear otro precio no lo toca. Lo único que
@@ -53,7 +58,7 @@ const SUFIJO = "_v1";
 const PLANES = [
   { lookup: "aproba_starter_mensual", anualLookup: "aproba_starter_anual", nombre: "Starter", importe: 7900, importeAnual: 79000 },
   { lookup: "aproba_pro_mensual", anualLookup: "aproba_pro_anual", nombre: "Pro", importe: 14900, importeAnual: 149000 },
-  { lookup: "aproba_business_mensual", anualLookup: "aproba_business_anual", nombre: "Business", importe: 29900, importeAnual: 299000 },
+  { lookup: "aproba_business_mensual", anualLookup: "aproba_business_anual", nombre: "Business", importe: 24900, importeAnual: 249000 },
 ];
 
 console.log(`Stripe en modo ${MODO} · ${APLICAR ? "APLICANDO" : "simulacro (--aplicar para ejecutar)"}\n`);
@@ -70,6 +75,8 @@ async function buscarPrecios(claves) {
   return out;
 }
 const porLookup = new Map((await buscarPrecios([...canonicas, ...heredadas])).map((p) => [p.lookup_key, p]));
+// Foto de las heredadas ANTES: al final se comprueba que ninguna se ha movido.
+const heredadasAntes = new Map(heredadas.filter((lk) => porLookup.has(lk)).map((lk) => [lk, `${porLookup.get(lk).id}:${porLookup.get(lk).unit_amount}`]));
 
 let cambios = 0;
 for (const plan of PLANES) {
@@ -80,22 +87,33 @@ for (const plan of PLANES) {
 
     if (!actual) { console.log(`⚠ ${etiqueta} no existe la etiqueta «${lk}» — ejecuta antes scripts/stripe-setup.mjs`); continue; }
     if (actual.unit_amount === importe) { console.log(`· ${etiqueta} ya está a ${importe / 100} € (${actual.id})`); continue; }
-    if (yaHeredado) { console.log(`⚠ ${etiqueta} ya existe «${lk + SUFIJO}» (${yaHeredado.id}, ${yaHeredado.unit_amount / 100} €) — se conserva y NO se sobrescribe`); }
-
     console.log(`→ ${etiqueta} ${actual.unit_amount / 100} € → ${importe / 100} €`);
-    console.log(`    heredado : ${actual.id} conserva ${actual.unit_amount / 100} € y pasa a «${lk + SUFIJO}»`);
+    // El precio heredado solo tiene sentido en una SUBIDA (el cliente antiguo conserva el
+    // suyo, más barato). En una bajada nadie quiere quedarse en el caro: no se etiqueta.
+    const subida = importe > actual.unit_amount;
+    if (yaHeredado) {
+      // La heredada ya existe: es la de otros clientes y NO se toca. El precio actual solo
+      // pierde la etiqueta canónica (sigue activo para quien colgara de él).
+      console.log(`    heredado : «${lk + SUFIJO}» (${yaHeredado.id}, ${yaHeredado.unit_amount / 100} €) se conserva intacto`);
+      console.log(`    antiguo  : ${actual.id} (${actual.unit_amount / 100} €) se queda sin etiqueta, activo`);
+    } else if (subida) {
+      console.log(`    heredado : ${actual.id} conserva ${actual.unit_amount / 100} € y pasa a «${lk + SUFIJO}»`);
+    } else {
+      console.log(`    antiguo  : ${actual.id} (${actual.unit_amount / 100} €) se queda sin etiqueta, activo (bajada: sin heredado)`);
+    }
     console.log(`    nuevo    : precio a ${importe / 100} € con la etiqueta «${lk}»`);
     cambios++;
     if (!APLICAR) continue;
 
     // 1) el precio actual (el de los clientes existentes) solo cambia de etiqueta
-    if (!yaHeredado) await stripe.prices.update(actual.id, { lookup_key: lk + SUFIJO, transfer_lookup_key: true });
+    if (!yaHeredado && subida) await stripe.prices.update(actual.id, { lookup_key: lk + SUFIJO, transfer_lookup_key: true });
     // 2) el precio nuevo se queda la etiqueta canónica, en el MISMO producto
     const creado = await stripe.prices.create({
       product: typeof actual.product === "string" ? actual.product : actual.product.id,
       unit_amount: importe,
       currency: "eur",
       recurring: { interval: ciclo === "anual" ? "year" : "month" },
+      ...(actual.tax_behavior && actual.tax_behavior !== "unspecified" ? { tax_behavior: actual.tax_behavior } : {}),
       lookup_key: lk,
       transfer_lookup_key: true,
     });
@@ -112,5 +130,8 @@ console.log("\nEstado final:");
 for (const p of final.sort((a, b) => (a.lookup_key ?? "").localeCompare(b.lookup_key ?? ""))) {
   console.log(`  ${String(p.lookup_key).padEnd(30)} ${String(p.unit_amount / 100).padStart(7)} €  ${p.id}`);
 }
-console.log("\nLas suscripciones vivas NO se han tocado: siguen apuntando a su objeto Price.");
+const movidas = [...heredadasAntes].filter(([lk, firma]) => { const p = final.find((x) => x.lookup_key === lk); return !p || `${p.id}:${p.unit_amount}` !== firma; });
+if (movidas.length) { console.error(`\n✗ ¡Etiquetas heredadas cambiadas!: ${movidas.map(([lk]) => lk).join(", ")} — revisar en el dashboard YA.`); process.exit(1); }
+console.log(`\n✓ Las ${heredadasAntes.size} etiquetas heredadas («${SUFIJO}») siguen en su precio y su importe.`);
+console.log("Las suscripciones vivas NO se han tocado: siguen apuntando a su objeto Price.");
 console.log("Siguiente paso: desplegar los precios mostrados (lib/planes.ts y app/page.tsx).");
