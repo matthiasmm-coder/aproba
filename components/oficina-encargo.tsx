@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
+import { VistaPrevia } from "@/components/encargo-config";
 
 // Hoja de encargo/mandato de UNA sede — modelo COPIA (Matthias 15/08): se copia un
 // bloque como base (de la gestoría o de otra sede), aparece AQUÍ editable, y se
@@ -25,6 +26,22 @@ export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuen
   const [error, setError] = useState<string | null>(null);
 
   const propio = d.hojaEncargoActiva !== null;
+  // Vista previa de los documentos de ESTA sede (01/10/2026): lo guardado; si hay cambios, se
+  // guardan antes de abrirla (la pestaña se abre en el mismo clic para que no la bloqueen).
+  const guardado = useRef(JSON.stringify(inicial));
+  async function verPrevia(qs: string) {
+    const url = `/api/ajustes/encargo/vista-previa?${qs}&oficina=${encodeURIComponent(oficinaId)}`;
+    if (JSON.stringify(d) === guardado.current) { window.open(url, "_blank", "noopener"); return; }
+    const w = window.open("", "_blank");
+    try {
+      await api({ action: "encargo", oficinaId, ...d });
+      guardado.current = JSON.stringify(d);
+      if (w) w.location.href = url;
+    } catch (e) {
+      w?.close();
+      setError(e instanceof Error ? e.message : t("No se pudo guardar."));
+    }
+  }
 
   async function api(body: Record<string, unknown>) {
     const r = await fetch("/api/oficinas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -130,6 +147,7 @@ export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuen
           <div className="sm:col-span-2"><label className={lbl}>{t("Formas de pago (una por línea)")}</label>
             <textarea value={d.encargoFormasPago} onChange={(e) => setD({ ...d, encargoFormasPago: e.target.value })} rows={3} className={inp} /></div>
         </div>
+        <VistaPrevia onVer={verPrevia} documentos={[{ label: t("Hoja de encargo"), qs: "doc=hoja" }, { label: t("Presupuesto"), qs: "doc=presupuesto" }, { label: t("Mandato"), qs: "doc=mandato" }]} />
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" disabled={busy} onClick={() => correr(() => api({ action: "encargo", oficinaId, ...d }), true)}
             className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:opacity-60">

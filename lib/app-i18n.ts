@@ -2323,6 +2323,10 @@ export const CA: Record<string, string> = {
   "copiar su enlace": "copiar el seu enllaç",
   "copiar su enlace (sin enviar)": "copiar el seu enllaç (sense enviar)",
   "Factura rectificativa": "Factura rectificativa",
+  // Vista previa de la hoja de encargo y los mandatos (01/10/2026)
+  "Ver con un cliente de ejemplo": "Veure amb un client d'exemple",
+  "Con tus datos y un cliente inventado. Si cambiaste algo, se guarda antes de abrirlo.": "Amb les teves dades i un client inventat. Si has canviat alguna cosa, es desa abans d'obrir-lo.",
+  "Mandato": "Mandat",
   // Ley 14/2013 · presentar en la UGE-CE (01/10/2026)
   "Genera los modelos MI": "Genera els models MI",
   "MI-T del titular y MI-F de cada familiar. Los firma quien solicita: la empresa en un traslado o un profesional cualificado, el propio interesado en el resto. Tú figuras como persona autorizada a presentar.": "MI-T del titular i MI-F de cada familiar. Els signa qui sol·licita: l'empresa en un trasllat o un professional qualificat, el mateix interessat en la resta. Tu hi figures com a persona autoritzada a presentar.",
