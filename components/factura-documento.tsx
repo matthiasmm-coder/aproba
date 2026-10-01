@@ -1,6 +1,6 @@
 "use client";
 
-import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, type Factura } from "@/lib/facturas";
+import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, desgloseConDescuento, type Factura } from "@/lib/facturas";
 import { formaDePago } from "@/lib/forma-de-pago";
 import { useT } from "@/components/lang-provider";
 import type { Emisor } from "@/components/factura-view";
@@ -25,6 +25,9 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
   const suplidos = f.suplidos ?? [];
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
+  // DESCUENTO (Luis, 01/10/2026): fuera de la tabla, entre el subtotal y la base imponible.
+  const desc = desgloseConDescuento(lineas, esRect);
+  const filas = desc ? desc.honorarios : lineas;
   // Retención de IRPF: la guardada al emitir; si solo hay tipo, se calcula sobre la base.
   const retencion = f.retencion != null ? r2(Number(f.retencion)) : retencionDe(base, f.retencionPct);
   const aPagar = r2(total - retencion);
@@ -93,7 +96,7 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
           </tr>
         </thead>
         <tbody>
-          {lineas.map((l, i) => (
+          {filas.map((l, i) => (
             <tr key={`l${i}`} className="border-b border-slate-100">
               <td className="py-3 text-slate-700">{l.concepto}</td>
               <td className="py-3 text-right text-slate-700">{eur(l.base)}</td>
@@ -120,7 +123,15 @@ export function FacturaDocumento({ f, emisor, qr = null, titulo, etiquetaVence, 
       {/* Totales */}
       <div className="mt-4 flex justify-end">
         <div className="w-60 space-y-1.5 text-sm">
-          <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(base)}</span></div>
+          {desc && (
+            <>
+              <div className="flex justify-between text-slate-500"><span>{t("Subtotal sin IVA")}</span><span>{eur(desc.subtotal)}</span></div>
+              {desc.descuentos.map((d, i) => (
+                <div key={`d${i}`} className="flex justify-between gap-3 text-slate-500"><span className="min-w-0 break-words">{d.concepto}</span><span className="shrink-0">−{eur(Math.abs(d.base))}</span></div>
+              ))}
+            </>
+          )}
+          <div className={`flex justify-between ${desc ? "font-medium text-slate-700" : "text-slate-500"}`}><span>{t("Base imponible")}</span><span>{eur(base)}</span></div>
           <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(iva)}</span></div>
           {suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(suplidosTotal)}</span></div>}
           <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retencion ? t("Total factura") : f.simplificada ? t("Total (IVA incluido)") : t("Total")}</span><span>{eur(total)}</span></div>

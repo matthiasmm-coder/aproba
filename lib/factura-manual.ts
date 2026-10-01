@@ -1,5 +1,5 @@
 import "server-only";
-import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, motivoNoSimplificada, prefijoSimplificada, type ClienteDatosFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, pctRetencion, retencionDe, aCobrar, motivoNoSimplificada, prefijoSimplificada, lineasDeCuerpo, type ClienteDatosFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { emisorParaFijar } from "@/lib/facturacion-oficina";
 import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/factura-numero";
@@ -44,7 +44,8 @@ export type Importes = { lineas: LineaFactura[]; suplidos: Suplido[]; baseImponi
 
 // Totales recalculados en el servidor (los suplidos van sin IVA), como en la edición.
 export function importesDeCuerpo(body: CuerpoDocumento): ({ ok: true } & Importes) | Fallo {
-  const lineas = body.avanzada && Array.isArray(body.lineas) ? body.lineas.filter((l) => l?.concepto?.trim() && Number(l.base) > 0).map((l) => ({ concepto: l.concepto.trim(), base: Number(l.base) })) : [];
+  // Las líneas admiten un DESCUENTO (línea negativa) sobre honorarios: lib/facturas lineasDeCuerpo.
+  const lineas = body.avanzada ? lineasDeCuerpo(body.lineas) : [];
   const suplidos = body.avanzada && Array.isArray(body.suplidos) ? body.suplidos.filter((s) => s?.concepto?.trim() && Number(s.importe) > 0).map((s) => ({ concepto: s.concepto.trim(), importe: Number(s.importe) })) : [];
   let baseImponible: number, iva: number, total: number;
   if (lineas.length) { const tt = totalesFactura(lineas, suplidos); baseImponible = tt.base; iva = tt.iva; total = tt.total; }

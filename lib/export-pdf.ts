@@ -1,6 +1,6 @@
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, type Factura } from "@/lib/facturas";
+import { eur, IVA, totalesFactura, retencionDe, r2, tituloFactura, desgloseConDescuento, type Factura } from "@/lib/facturas";
 import { embeberLogo, medidasLogo } from "@/lib/pdf-logo";
 import { LEYENDA_VERIFACTU, TITULO_QR, qrPng } from "@/lib/verifactu-qr";
 
@@ -123,12 +123,15 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
   const lineas = f.lineas?.length ? f.lineas : [{ concepto: f.concepto, base: f.base }];
   const suplidos = f.suplidos ?? [];
   const { base, iva, suplidosTotal, total } = totalesFactura(lineas, suplidos);
+  // DESCUENTO (Luis, 01/10/2026): fuera de la tabla, entre el subtotal y la base imponible.
+  const desc = desgloseConDescuento(lineas, Boolean(f.rectificaId ?? f.rectificaNumero));
+  const filas = desc ? desc.honorarios : lineas;
   const xBase = 360, xIva = 445, xImp = W - M;
   text("CONCEPTO", M, 8, bold, grey); right("BASE", xBase, y, 8, bold, grey); right("IVA", xIva, y, 8, bold, grey); right("IMPORTE", xImp, y, 8, bold, grey);
   y -= 6; line(M, W - M, y, 1, slate); y -= 16;
   // Columna CONCEPTO: hasta 8 pt antes del importe más ancho de BASE (alineado a la derecha).
-  const anchoConcepto = xBase - 8 - M - Math.max(...lineas.map((l) => font.widthOfTextAtSize(safe(eur(l.base)), 10)));
-  for (const l of lineas) {
+  const anchoConcepto = xBase - 8 - M - Math.max(...filas.map((l) => font.widthOfTextAtSize(safe(eur(l.base)), 10)));
+  for (const l of filas) {
     for (const [i, ln] of partir(l.concepto, font, 10, anchoConcepto).entries()) { saltoSi(); text(ln, M, 10); if (i === 0) { right(eur(l.base), xBase, y, 10); right(`${Math.round(IVA * 100)} %`, xIva, y, 10, font, slate); right(eur(l.base), xImp, y, 10); } y -= 15; }
   }
   if (suplidos.length) {
@@ -141,10 +144,16 @@ export async function facturaToPdf(f: Factura, emisorVivo: EmisorPdf, extras: Ex
   }
 
   // Totales (juntos en la misma página)
-  saltoSi(140);
+  saltoSi(140 + (desc ? 16 * (1 + desc.descuentos.length) : 0));
   y -= 6; line(xBase - 10, W - M, y, 0.5); y -= 16;
   const totLine = (label: string, val: string, b = false) => { right(label, xIva - 8, y, 10, b ? bold : font, b ? dark : slate); right(val, xImp, y, 10, b ? bold : font, b ? dark : slate); y -= 16; };
-  totLine("Base imponible", eur(base));
+  if (desc) {
+    totLine("Subtotal sin IVA", eur(desc.subtotal));
+    // El concepto del descuento lo escribe el gestor: recortado a lo que cabe a la izquierda.
+    const cabe = (s: string) => { const ls = partir(s, font, 10, xIva - 8 - M); return ls.length > 1 ? `${ls[0].replace(/\s+\S*$/, "")}…` : s; };
+    for (const d of desc.descuentos) totLine(cabe(d.concepto), `-${eur(Math.abs(d.base))}`);
+  }
+  totLine("Base imponible", eur(base), Boolean(desc));
   totLine(`IVA (${Math.round(IVA * 100)} %)`, eur(iva));
   if (suplidosTotal > 0) totLine("Suplidos (sin IVA)", eur(suplidosTotal));
   // La raya va en el hueco entre la línea anterior y TOTAL (a y + 6 cruzaba las mayúsculas

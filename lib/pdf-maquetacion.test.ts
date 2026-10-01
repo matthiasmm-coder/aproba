@@ -32,6 +32,37 @@ async function geometria(bytes: Uint8Array, pagina = 0) {
 // Helvetica (AFM): mayúsculas hasta 0,718 em; paréntesis/descendentes hasta −0,207 em.
 const ALTURA_MAYUS = 0.718, DESCENDENTE = 0.207;
 
+describe("factura PDF · descuento (Luis, 01/10/2026)", () => {
+  const f = (concepto = "Descuento 15 %") => ({
+    id: "f", numero: "AGC0273.2026", cliente: "Cliente de prueba", concepto: "Certificado de registro de ciudadano de la UE", base: 437.75,
+    estado: "EMITIDA", fecha: "01/10/2026",
+    lineas: [{ concepto: "Certificado de registro de ciudadano de la UE", base: 515 }, { concepto, base: -77.25 }], suplidos: [],
+  }) as unknown as Factura;
+
+  it("Subtotal sin IVA → Descuento → Base imponible → IVA → TOTAL, y el descuento fuera de la tabla", async () => {
+    const { textos } = await geometria(await facturaToPdf(f(), { nombre: "Gestoría de Carmen", nif: "B12345678" }));
+    const y = (s: string) => textos.find((t) => t.s === s)!.y;
+    const orden = ["Subtotal sin IVA", "Descuento 15 %", "Base imponible", "IVA (21 %)", "TOTAL"].map(y);
+    expect([...orden].sort((a, b) => b - a)).toEqual(orden);
+    expect(textos.filter((t) => t.s === "Descuento 15 %")).toHaveLength(1); // no se repite en la tabla
+    const importe = (fila: string) => textos.find((t) => t.y === y(fila) && t.x > 445)!.s;
+    expect(importe("Subtotal sin IVA").startsWith("515,00")).toBe(true);
+    expect(importe("Descuento 15 %").startsWith("-77,25")).toBe(true);
+    expect(importe("Base imponible").startsWith("437,75")).toBe(true);
+    expect(importe("IVA (21 %)").startsWith("91,93")).toBe(true);
+    expect(importe("TOTAL").startsWith("529,68")).toBe(true);
+  });
+
+  it("un concepto de descuento largo se recorta sin salirse del margen", async () => {
+    // 60 caracteres en mayúsculas (el máximo que guarda lineaDescuento) no caben en 387 pt.
+    const largo = "DESCUENTO POR CLIENTE HABITUAL Y PRONTO PAGO ACORDADO EN REUNIÓN";
+    const { textos } = await geometria(await facturaToPdf(f(largo), { nombre: "Gestoría de Carmen", nif: "B12345678" }));
+    const fila = textos.find((t) => t.s.startsWith("DESCUENTO POR CLIENTE"))!;
+    expect(fila.s.endsWith("\x85")).toBe(true); // «…» en WinAnsi
+    expect(fila.x).toBeGreaterThanOrEqual(50);
+  });
+});
+
 describe("factura PDF · raya del TOTAL", () => {
   const factura = (suplidos: { concepto: string; importe: number }[]) => ({
     id: "f", numero: "F-2026-0042", cliente: "Aicha Diallo Díaz", concepto: "Residencia por arraigo", base: 450,

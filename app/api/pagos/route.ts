@@ -6,7 +6,7 @@ import { fetchServiciosDeWorkspace } from "@/lib/data/config";
 import { leerPresupuestoExp } from "@/lib/data/tarifas-propias";
 import { TIPO_LABEL } from "@/lib/tramites";
 import { serviciosDeExpediente, labelServicios, aplicarDescuento, asignacionValida, descuentoValido, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
-import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2 } from "@/lib/facturas";
+import { anticipoPagado, datosFiscalesDeCliente, ivaDe, totalDe, totalesFactura, r2, lineasDeCuerpo } from "@/lib/facturas";
 import { datosFiscalesDeEmpresa, nombreEmpresa, type EmpresaFiscal } from "@/lib/empresa";
 import { enviarSeguimiento, enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -142,7 +142,8 @@ export async function POST(req: Request) {
   let notas: string | null = typeof body.notas === "string" ? body.notas.trim() || null : null;
 
   if (fac) {
-    const ls = Array.isArray(fac.lineas) ? fac.lineas.filter((l) => l?.concepto?.trim() && Number(l.base) > 0) : [];
+    // Con su DESCUENTO, si lo lleva (línea negativa sobre honorarios, 01/10/2026).
+    const ls = lineasDeCuerpo(fac.lineas);
     if (ls.length) {
       const ss = Array.isArray(fac.suplidos) ? fac.suplidos.filter((s) => s?.concepto?.trim() && Number(s.importe) > 0) : [];
       const tt = totalesFactura(ls, ss);

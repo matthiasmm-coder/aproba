@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { esNumeroRectificativa, motivoNoSimplificada, pctRetencion, retencionDe } from "@/lib/facturas";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, type ClienteDatosFactura } from "@/lib/facturas";
+import { ivaDe, totalDe, totalesFactura, datosFiscalesManuales, datosFiscalesDeCliente, lineasDeCuerpo, type ClienteDatosFactura } from "@/lib/facturas";
 import { datosFiscalesDeEmpresa } from "@/lib/empresa";
 import { enviarSolicitudPago } from "@/lib/notificaciones";
 import { baseUrlFromRequest } from "@/lib/base-url";
@@ -69,7 +69,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Totales recalculados en el servidor (suplidos sin IVA).
   let baseImponible: number, iva: number, total: number;
   const patch: Record<string, unknown> = {};
-  const ls = Array.isArray(body.lineas) ? body.lineas.filter((l) => l?.concepto?.trim() && Number(l.base) > 0) : [];
+  // Con su DESCUENTO, si lo lleva (línea negativa sobre honorarios, 01/10/2026).
+  const ls = lineasDeCuerpo(body.lineas);
   if (ls.length) {
     const ss = Array.isArray(body.suplidos) ? body.suplidos.filter((s) => s?.concepto?.trim() && Number(s.importe) > 0) : [];
     const tt = totalesFactura(ls, ss);

@@ -149,6 +149,64 @@ export function nifDeDocumento(documento: string | null | undefined): string {
   return d.replace(/^(NIE\/DNI|CIF\/NIF|NIF\/CIF|NIE|DNI|NIF|CIF)\s+/i, "");
 }
 
+// ── DESCUENTO EN LA FACTURA (01/10/2026, Luis) ──────────────────────────────────────
+// Una línea de honorarios en NEGATIVO («Descuento 15 %», −77,25): rebaja la base imponible
+// —el IVA se calcula sobre la base ya rebajada— y nunca toca los suplidos. El papel la pone
+// bajo el subtotal: Subtotal sin IVA → Descuento → Base imponible → IVA → Total.
+export type DescuentoFactura = { concepto: string; modo: "PORCENTAJE" | "IMPORTE"; valor: number };
+export const esLineaDescuento = (l: LineaFactura) => Number(l.base) < 0;
+const fmtPct = (n: number) => String(r2(n)).replace(".", ",");
+
+// La línea del descuento sobre el SUBTOTAL de honorarios (líneas positivas); null si no
+// rebaja nada. Nunca por encima del subtotal.
+export function lineaDescuento(d: DescuentoFactura | null | undefined, subtotal: number): LineaFactura | null {
+  const v = Number(d?.valor);
+  if (!d || !(v > 0) || !(subtotal > 0)) return null;
+  const importe = d.modo === "PORCENTAJE" ? r2((subtotal * Math.min(v, 100)) / 100) : r2(Math.min(v, subtotal));
+  if (!(importe > 0)) return null;
+  const nombre = (d.concepto || "").trim().slice(0, 60) || "Descuento";
+  return { concepto: d.modo === "PORCENTAJE" ? `${nombre} ${fmtPct(v)} %` : nombre, base: -importe };
+}
+
+// Al editar, la línea negativa vuelve a ser un descuento: «Descuento 15 %» (o el «Descuento
+// familiar (15%)» de la factura familiar) → 15 %, solo si ese % da el importe guardado; si
+// no, el importe tal cual. Editar una factura nunca cambia su descuento por sí solo.
+export function descuentoDeLineas(lineas: LineaFactura[]): { lineas: LineaFactura[]; descuento: DescuentoFactura | null } {
+  const i = lineas.findIndex(esLineaDescuento);
+  if (i < 0) return { lineas, descuento: null };
+  const l = lineas[i];
+  const resto = lineas.filter((_, j) => j !== i);
+  const importe = r2(Math.abs(Number(l.base)));
+  const subtotal = r2(resto.reduce((a, x) => a + (Number(x.base) > 0 ? Number(x.base) : 0), 0));
+  const m = /^(.*?)\s*\(?\s*(\d+(?:[.,]\d+)?)\s*%\s*\)?\s*$/.exec(l.concepto ?? "");
+  const pct = m ? Number(m[2].replace(",", ".")) : NaN;
+  const descuento: DescuentoFactura = m && pct > 0 && pct <= 100 && Math.abs(r2((subtotal * pct) / 100) - importe) < 0.005
+    ? { concepto: m[1].trim() || "Descuento", modo: "PORCENTAJE", valor: pct }
+    : { concepto: (l.concepto ?? "").trim() || "Descuento", modo: "IMPORTE", valor: importe };
+  return { lineas: resto, descuento };
+}
+
+// El PAPEL (pantalla y PDF): los honorarios en la tabla; los descuentos, entre el subtotal
+// y la base imponible. null = se imprime como siempre (sin descuento, o una rectificativa,
+// que es el abono de la original con los signos cambiados y va tal cual).
+export function desgloseConDescuento(lineas: LineaFactura[], esRectificativa = false): { honorarios: LineaFactura[]; descuentos: LineaFactura[]; subtotal: number } | null {
+  if (esRectificativa) return null;
+  const descuentos = lineas.filter(esLineaDescuento);
+  const honorarios = lineas.filter((l) => !esLineaDescuento(l));
+  if (!descuentos.length || !honorarios.some((l) => Number(l.base) > 0)) return null;
+  return { honorarios, descuentos, subtotal: r2(honorarios.reduce((a, l) => a + (Number(l.base) || 0), 0)) };
+}
+
+// Líneas de honorarios que llegan del navegador: con concepto e importe distinto de 0. Un
+// descuento (línea negativa) solo existe sobre honorarios: sin ninguna positiva, no hay líneas.
+// El llamante sigue exigiendo un total > 0.
+export function lineasDeCuerpo(raw: unknown): LineaFactura[] {
+  const ls = (Array.isArray(raw) ? raw : [])
+    .filter((l): l is LineaFactura => Boolean(l && typeof l === "object" && String((l as LineaFactura).concepto ?? "").trim() && Number.isFinite(Number((l as LineaFactura).base)) && Number((l as LineaFactura).base) !== 0))
+    .map((l) => ({ concepto: String(l.concepto).trim(), base: r2(Number(l.base)) }));
+  return ls.some((l) => l.base > 0) ? ls : [];
+}
+
 // Totales de una factura con líneas + suplidos. base e iva solo sobre honorarios; los
 // suplidos se suman al total pero NO llevan IVA ni entran en la base imponible.
 export function totalesFactura(lineas: LineaFactura[], suplidos: Suplido[] = []) {
@@ -230,7 +288,9 @@ export function importesRectificativa(f: {
   return {
     baseImponible: neg(f.baseImponible), iva: neg(f.iva), total: neg(f.total),
     retencion: Number(f.retencion) ? neg(f.retencion) : null,
-    lineas: ls.length ? ls.map((l) => ({ concepto: l.concepto, base: neg(l.base) })) : null,
+    // Cambio de signo, no −|x|: el DESCUENTO de la original (negativo) vuelve en positivo,
+    // y las líneas siguen sumando la base de la rectificativa (01/10/2026).
+    lineas: ls.length ? ls.map((l) => ({ concepto: l.concepto, base: r2(-(Number(l.base) || 0)) })) : null,
     suplidos: ss.length ? ss.map((s) => ({ concepto: s.concepto, importe: neg(s.importe) })) : null,
   };
 }

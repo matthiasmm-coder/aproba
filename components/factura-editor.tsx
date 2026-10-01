@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { eur, ivaDe, totalDe, totalesFactura, IVA, LIMITE_SIMPLIFICADA, TIPOS_RETENCION, pctRetencion, retencionDe, r2, type LineaFactura, type Suplido } from "@/lib/facturas";
+import { eur, ivaDe, totalDe, totalesFactura, IVA, LIMITE_SIMPLIFICADA, TIPOS_RETENCION, pctRetencion, retencionDe, r2, lineaDescuento, descuentoDeLineas, type DescuentoFactura, type LineaFactura, type Suplido } from "@/lib/facturas";
 import { useT } from "@/components/lang-provider";
 import { buscarClientesFiscales, type ClienteFiscalOpcion } from "@/lib/clientes-fiscales";
 
@@ -133,7 +133,11 @@ export function FacturaEditor({
   // Si el consumidor repropone un número (p. ej. al elegir otra oficina en «Creando
   // en», cuya serie es distinta), el campo se realinea: la serie DEBE ser la de la sede.
   useEffect(() => { if (inicial?.numero !== undefined) setNumero(inicial.numero); }, [inicial?.numero]);
-  const [lineas, setLineas] = useState<LineaFactura[]>(inicial?.lineas?.length ? inicial.lineas : [{ concepto: inicial?.concepto || servicios[0]?.label || "", base: inicial?.base ?? servicios[0]?.precio ?? 0 }]);
+  // DESCUENTO (01/10/2026, Luis): la línea negativa de una factura ya emitida vuelve a ser
+  // «Descuento 15 %» al editarla; las demás líneas, tal cual.
+  const [inicialDesc] = useState(() => descuentoDeLineas(inicial?.lineas ?? []));
+  const [lineas, setLineas] = useState<LineaFactura[]>(inicialDesc.lineas.length ? inicialDesc.lineas : [{ concepto: inicial?.concepto || servicios[0]?.label || "", base: inicial?.base ?? servicios[0]?.precio ?? 0 }]);
+  const [descuento, setDescuento] = useState<DescuentoFactura | null>(inicialDesc.descuento);
   const [suplidos, setSuplidos] = useState<Suplido[]>(inicial?.suplidos ?? []);
   const [notas, setNotas] = useState(inicial?.notas ?? "");
   const pctInicial = inicial?.retencionPct ?? null;
@@ -142,7 +146,10 @@ export function FacturaEditor({
   const retPct = conRetencion && !simplificada ? (retTipo === "otro" ? pctRetencion(retOtro) : pctRetencion(retTipo)) : null;
 
   const baseNum = Number(base) || 0;
-  const tot = totalesFactura(lineas, suplidos);
+  // Subtotal de honorarios (líneas positivas) → línea del descuento → totales con él.
+  const subtotalHon = r2(lineas.reduce((a, l) => a + (Number(l.base) > 0 ? Number(l.base) : 0), 0));
+  const lineaDesc = avanzada ? lineaDescuento(descuento, subtotalHon) : null;
+  const tot = totalesFactura(lineaDesc ? [...lineas, lineaDesc] : lineas, suplidos);
   const totalActual = avanzada ? tot.total : totalDe(baseNum);
   const excedeSimplificada = simplificada && totalActual > LIMITE_SIMPLIFICADA;
   const conCliente = simplificada || Boolean(cliente.trim());
@@ -164,11 +171,13 @@ export function FacturaEditor({
       const limpiasL = lineas.filter((l) => l.concepto.trim() && Number(l.base) > 0);
       const limpiasS = suplidos.filter((s) => s.concepto.trim() && Number(s.importe) > 0);
       if (!limpiasL.length) return;
-      const { base: b, iva, total } = totalesFactura(limpiasL, limpiasS);
+      const dl = lineaDescuento(descuento, r2(limpiasL.reduce((a, l) => a + Number(l.base), 0)));
+      const conDesc = dl ? [...limpiasL, dl] : limpiasL;
+      const { base: b, iva, total } = totalesFactura(conDesc, limpiasS);
       onSubmit({
         avanzada: true, cliente: cliente.trim(), numero: numero.trim(),
         concepto: limpiasL.map((l) => l.concepto).join(" · ").slice(0, 200),
-        baseImponible: b, iva, total, lineas: limpiasL, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
+        baseImponible: b, iva, total, lineas: conDesc, suplidos: limpiasS, notas: notas.trim() || null, ...extraFiscal(),
         ...(conRetencion ? { retencionPct: retPct } : {}), ...(simplificada ? { simplificada: true } : {}),
       });
     } else {
@@ -313,7 +322,31 @@ export function FacturaEditor({
               ))}
             </div>
             <datalist id="conceptos-srv">{servicios.map((s) => <option key={s.id} value={s.label} />)}</datalist>
-            <button onClick={() => setLineas((x) => [...x, { concepto: "", base: 0 }])} className="mt-2 text-xs font-semibold text-aproba-700 hover:underline">+ {t("Añadir línea")}</button>
+            {/* Descuento sobre los honorarios: % o importe; rebaja la base imponible. */}
+            {descuento && (
+              <div className="mt-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-2">
+                <div className="flex gap-2">
+                  <input value={descuento.concepto} onChange={(e) => setDescuento({ ...descuento, concepto: e.target.value })} placeholder={t("Descuento")} aria-label={t("Concepto del descuento")} className={`${inp} min-w-0 flex-1 bg-white`} />
+                  <div className="w-20 shrink-0">
+                    <input type="number" inputMode="decimal" min={0} step={0.01} value={descuento.valor || ""} onChange={(e) => setDescuento({ ...descuento, valor: Number(e.target.value) || 0 })} placeholder="0" aria-label={t("Valor del descuento")} className={`${inp} bg-white px-2 text-right tabular-nums`} />
+                  </div>
+                  <div className="w-[4.25rem] shrink-0">
+                    <select value={descuento.modo} onChange={(e) => setDescuento({ ...descuento, modo: e.target.value as DescuentoFactura["modo"] })} aria-label={t("Tipo de descuento")} className={`${inp} bg-white px-2`}>
+                      <option value="PORCENTAJE">%</option>
+                      <option value="IMPORTE">€</option>
+                    </select>
+                  </div>
+                  <button onClick={() => setDescuento(null)} aria-label={t("Quitar el descuento")} className="shrink-0 rounded-md p-2 text-slate-300 transition hover:bg-red-50 hover:text-red-500">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <p className="mt-1.5 pr-10 text-right text-xs text-slate-500">{t("Se resta de la base imponible:")} <span className="font-semibold tabular-nums text-slate-700">−{eur(Math.abs(lineaDesc?.base ?? 0))}</span></p>
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap gap-x-4">
+              <button onClick={() => setLineas((x) => [...x, { concepto: "", base: 0 }])} className="text-xs font-semibold text-aproba-700 hover:underline">+ {t("Añadir línea")}</button>
+              {!descuento && <button onClick={() => setDescuento({ concepto: t("Descuento"), modo: "PORCENTAJE", valor: 0 })} className="text-xs font-semibold text-aproba-700 hover:underline">+ {t("Añadir descuento")}</button>}
+            </div>
           </div>
 
           <div>
@@ -343,12 +376,19 @@ export function FacturaEditor({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700">{t("Notas (opcional)")}</label>
+            <label className="text-sm font-medium text-slate-700">{t("Notas o texto libre (opcional)")}</label>
             <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder={t("Condiciones, forma de pago, observaciones…")} className={`mt-1.5 ${inp} resize-none`} />
+            <p className="mt-1 text-xs text-slate-400">{t("Sale impreso en la factura, debajo de los importes.")}</p>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-cream-50 p-4 text-sm">
-            <div className="flex justify-between text-slate-500"><span>{t("Base imponible")}</span><span>{eur(tot.base)}</span></div>
+            {lineaDesc && (
+              <>
+                <div className="flex justify-between text-slate-500"><span>{t("Subtotal sin IVA")}</span><span>{eur(subtotalHon)}</span></div>
+                <div className="flex justify-between text-slate-500"><span>{lineaDesc.concepto}</span><span>−{eur(Math.abs(lineaDesc.base))}</span></div>
+              </>
+            )}
+            <div className={`flex justify-between ${lineaDesc ? "font-medium text-slate-700" : "text-slate-500"}`}><span>{t("Base imponible")}</span><span>{eur(tot.base)}</span></div>
             <div className="flex justify-between text-slate-500"><span>{t("IVA")} ({Math.round(IVA * 100)} %)</span><span>{eur(tot.iva)}</span></div>
             {tot.suplidosTotal > 0 && <div className="flex justify-between text-slate-500"><span>{t("Suplidos (sin IVA)")}</span><span>{eur(tot.suplidosTotal)}</span></div>}
             <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><span>{retPct ? t("Total factura") : simplificada ? t("Total (IVA incluido)") : t("Total")}</span><span>{eur(tot.total)}</span></div>
