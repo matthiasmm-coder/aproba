@@ -37,6 +37,10 @@ export const PRECIOS = {
   pruebaDias: 15,
 } as const;
 
+// Miles con punto también en 4 cifras («1.490 €», como en la portada): toLocaleString("es-ES")
+// no agrupa por debajo de 10.000 y la tabla de /precios salía «1490 €» junto a «1.490 €».
+const miles = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
 const faqComun: { q: string; a: string }[] = [
   { q: "¿Aproba presenta el expediente por mí?", a: "No. Aproba prepara el expediente completo (documentos validados, formularios EX y tasas rellenados, hoja de encargo y mandato firmados) y tú lo presentas en Mercurio o en la sede electrónica como siempre, con tu certificado. La presentación sigue siendo un acto del profesional." },
   { q: "¿Sirve para un despacho de una sola persona?", a: "Sí. El plan Starter (79 €/mes, 20 expedientes al mes) está pensado para autónomos. La cuenta se configura en diez minutos y no hace falta ningún informático." },
@@ -198,7 +202,7 @@ export const PAGINAS: PaginaPublica[] = [
   {
     ruta: "/precios",
     titulo: "Precios de Aproba: software de extranjería desde 79 €/mes",
-    descripcion: "Starter 79 €, Pro 149 € y Business 249 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días y migración gratis en 48 horas.",
+    descripcion: "Starter 79 €, Pro 149 € y Business desde 249 € al mes, por volumen de expedientes y sin permanencia. Prueba gratis 15 días y migración gratis en 48 horas.",
     etiqueta: "Precios",
     h1: "Precios: por volumen de expedientes, no por profesión",
     entradilla: "Tres planes según cuántos expedientes abres al mes. Mismo producto para gestorías y abogados, sin permanencia, con 15 días de prueba sin tarjeta.",
@@ -206,8 +210,9 @@ export const PAGINAS: PaginaPublica[] = [
     migas: [{ nombre: "Precios", ruta: "/precios" }],
     bloques: [
       { t: "tabla", titulo: "Planes (IVA no incluido)", encabezados: ["", "Starter", "Pro", "Business"], filas: [
-        ["Precio mensual", `**${PRECIOS.starter.mes} €**`, `**${PRECIOS.pro.mes} €**`, `**${PRECIOS.business.mes} €**`],
-        ["Precio anual (2 meses gratis)", `${PRECIOS.starter.anual.toLocaleString("es-ES")} €`, `${PRECIOS.pro.anual.toLocaleString("es-ES")} €`, `${PRECIOS.business.anual.toLocaleString("es-ES")} €`],
+        // Business «desde»: sube con cada oficina por encima de las incluidas (fila Oficinas).
+        ["Precio mensual", `**${PRECIOS.starter.mes} €**`, `**${PRECIOS.pro.mes} €**`, `desde **${PRECIOS.business.mes} €**`],
+        ["Precio anual (2 meses gratis)", `${miles(PRECIOS.starter.anual)} €`, `${miles(PRECIOS.pro.anual)} €`, `desde ${miles(PRECIOS.business.anual)} €`],
         ["Expedientes al mes", `${PRECIOS.starter.expedientes}`, `${PRECIOS.pro.expedientes}`, "Ilimitados"],
         ["Expediente adicional", `${PRECIOS.expedienteExtra} €`, `${PRECIOS.expedienteExtra} €`, "—"],
         ["Usuarios", `${PRECIOS.starter.usuarios}`, `Hasta ${PRECIOS.pro.usuarios}`, "Ilimitados"],
@@ -218,7 +223,7 @@ export const PAGINAS: PaginaPublica[] = [
         ["Vigía (renovaciones)", "Sí", "Sí", "Sí"],
         ["Facturación, suplidos y cobro por tarjeta", "—", "Sí", "Sí"],
         ["Soporte", "Email", "Email", "Prioritario"],
-      ], nota: "Los precios se aplican desde el 4 de septiembre de 2026. Los despachos que se dieron de alta antes conservan su tarifa." },
+      ], nota: "Precios vigentes desde el 1 de octubre de 2026. Los despachos que se dieron de alta antes del 4 de septiembre conservan su tarifa." },
       { t: "p", texto: "Un expediente cuenta cuando se crea. Si un mes abres más de los incluidos, se cobran los adicionales a 3 € cada uno al final del mes; nunca se bloquea el trabajo. El plan se puede cambiar en cualquier momento desde Ajustes." },
 
       { t: "h2", texto: "Qué incluye cada plan" },
@@ -245,7 +250,7 @@ export const PAGINAS: PaginaPublica[] = [
         { q: "¿Hay coste por cliente final o por usuario del portal?", a: "No. Los clientes finales usan el portal sin límite y sin coste. Solo cuentan los expedientes que creas y, en Starter y Pro, el número de usuarios del despacho." },
         { q: "¿Qué pasa si supero los expedientes del plan?", a: "Se cobran los adicionales a 3 € cada uno al final del mes. No se bloquea nada. Si pasa a menudo, el siguiente plan sale más a cuenta y puedes cambiar cuando quieras." },
         { q: "¿El IVA está incluido?", a: "No. Los precios son sin IVA; la factura de Aproba lleva el 21 % y es deducible para el despacho." },
-        { q: "¿Puedo pagar por año?", a: "Sí. El pago anual equivale a diez meses: 790 €, 1.490 € y 2.490 € respectivamente." },
+        { q: "¿Puedo pagar por año?", a: "Sí. El pago anual equivale a diez meses: 790 € en Starter, 1.490 € en Pro y desde 2.490 € en Business." },
         { q: "¿Y si no me convence?", a: "Te vas cuando quieras: no hay permanencia y exportas los datos. En la prueba de 15 días no se pide tarjeta." },
       ] },
     ],
