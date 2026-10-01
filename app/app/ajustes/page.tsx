@@ -522,7 +522,7 @@ export default async function Ajustes() {
                   inicial={oficinas}
                   plan={equipo.plan}
                   puedeEditar={puedeEditar}
-                  excepcion={Boolean(equipo.oficinasExcepcion)}
+                  oficinasExtra={equipo.oficinasExtra ?? 0}
                 />
               </div>
             )}

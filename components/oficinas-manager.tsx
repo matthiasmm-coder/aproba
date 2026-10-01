@@ -28,13 +28,14 @@ export function OficinasManager({
   inicial,
   plan,
   puedeEditar,
-  excepcion = false,
+  oficinasExtra = 0,
 }: {
   inicial: Oficina[];
   plan: string;
   puedeEditar: boolean;
-  // Excepción comercial (lib/oficinas.ts): una oficina más sin Business (Asenjo, 28/09/2026).
-  excepcion?: boolean;
+  // Excepción comercial (lib/oficinas.ts): oficinas emisoras extra sin Business, aparte de la
+  // propia de la gestoría (Asenjo: 1 el 28/09/2026, 2 desde el 01/10/2026).
+  oficinasExtra?: number;
 }) {
   const t = useT();
   const router = useRouter();
@@ -45,8 +46,10 @@ export function OficinasManager({
   const esBusiness = plan === "BUSINESS";
   // «multi»: el despacho gestiona oficinas (Business, o su excepción). Los textos de PRECIO
   // siguen atados a Business: una excepción no tiene cupo ni recargo.
+  const excepcion = oficinasExtra > 0;
   const multi = esBusiness || excepcion;
-  const puedeCrear = esBusiness || (excepcion && oficinas.length < 2);
+  const libres = 1 + oficinasExtra - oficinas.length; // las que aún caben en la excepción
+  const puedeCrear = esBusiness || (excepcion && libres > 0);
 
   // Création
   const [nombre, setNombre] = useState("");
@@ -114,8 +117,15 @@ export function OficinasManager({
       {excepcion && !esBusiness && (
         <p className="rounded-lg border border-aproba-200 bg-aproba-50 px-3 py-2.5 text-sm text-aproba-800">
           {puedeCrear
-            ? t("Tu plan incluye una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.")
-            : <>{t("Tu plan incluye una oficina más para facturar con otro NIF y ya la usas:")} <b>{oficinas.find((o) => o.orden !== -1)?.nombre ?? oficinas[oficinas.length - 1]?.nombre}</b>. {t("Si necesitas otra, escríbenos.")}</>}
+            ? (libres === 1
+              ? t("Puedes crear una oficina más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.")
+              : t("Puedes crear {n} oficinas más para facturar con otro NIF (por ejemplo, un profesional del despacho con su propia serie). Rellena sus datos de facturación en su tarjeta.").replace("{n}", String(libres)))
+            : <>
+                {oficinasExtra === 1
+                  ? t("Tu plan incluye una oficina más para facturar con otro NIF y ya la usas:")
+                  : t("Tu plan incluye {n} oficinas más para facturar con otro NIF y ya las usas:").replace("{n}", String(oficinasExtra))}{" "}
+                <b>{oficinas.filter((o) => o.orden !== -1).map((o) => o.nombre).join(", ")}</b>. {t("Si necesitas otra, escríbenos.")}
+              </>}
         </p>
       )}
 

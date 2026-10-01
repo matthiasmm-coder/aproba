@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { tieneExcepcionOficinas } from "@/lib/oficinas";
+import { oficinasExtraDe, tieneExcepcionOficinas } from "@/lib/oficinas";
 import { createSupabaseServer, usuarioActual } from "@/lib/supabase/server";
 import { getStripe, stripeDisponible, tienePrecioHeredado, importesDeStripe } from "@/lib/billing";
 import { preciosPantalla, type RolId, type PreciosPlan } from "@/lib/planes";
@@ -26,6 +26,7 @@ export type Equipo = {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   oficinasExcepcion?: boolean; // excepción comercial: oficina(s) extra sin Business (lib/oficinas)
+  oficinasExtra?: number;       // cuántas (la propia de la gestoría aparte)
   suscripcionStripe: boolean; // un abonnement Stripe est rattaché
   suscripcionId: string | null; // id de l'abonnement Stripe vivant (pour résilier)
   cancelAtPeriodEnd: boolean; // résiliation programmée à la fin de période
@@ -153,6 +154,7 @@ export async function fetchEquipo(): Promise<Equipo | null> {
     precioHeredado,
     miembros,
     oficinasExcepcion: tieneExcepcionOficinas(ws),
+    oficinasExtra: oficinasExtraDe(ws),
   };
 }
 

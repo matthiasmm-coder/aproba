@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aCobrar, importesRectificativa, pctRetencion, retencionDe } from "./facturas";
 import { importeTarjetaCuadra, saldoTarjeta } from "./entregas";
 import { resumir, type MovEmitida } from "./estadisticas-facturacion";
-import { puedeCrearOficina, tieneExcepcionOficinas } from "./oficinas";
+import { oficinasExtraDe, puedeCrearOficina, tieneExcepcionOficinas } from "./oficinas";
 import { conEmisorFijado } from "./facturacion-oficina";
 
 // 28/09/2026 — Asenjo: Marta Asenjo (abogada, autónoma) emite desde el despacho con su NIF, sobre
@@ -61,10 +61,12 @@ describe("estadísticas: la retención nunca queda «pendiente»", () => {
 
 describe("excepción comercial de oficinas (sin Business)", () => {
   const ASENJO = "367a2240-8c86-40ed-82a0-52e8d9c96011";
-  it("Asenjo: una oficina emisora más en Pro, y no dos", () => {
+  it("Asenjo: dos oficinas emisoras más en Pro desde el 01/10/2026 (Marta y, en 2027, Luis), y no tres", () => {
     expect(tieneExcepcionOficinas(ASENJO)).toBe(true);
+    expect(oficinasExtraDe(ASENJO)).toBe(2);
     expect(puedeCrearOficina("PRO", ASENJO, 1)).toBe(true);
-    expect(puedeCrearOficina("PRO", ASENJO, 2)).toBe(false);
+    expect(puedeCrearOficina("PRO", ASENJO, 2)).toBe(true);
+    expect(puedeCrearOficina("PRO", ASENJO, 3)).toBe(false);
   });
   it("cualquier otro despacho en Pro: no; en Business: sí", () => {
     expect(puedeCrearOficina("PRO", "otro-ws", 1)).toBe(false);
