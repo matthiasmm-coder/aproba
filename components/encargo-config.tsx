@@ -121,7 +121,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
         abierta={abiertaHoja}
         onAbierta={setAbiertaHoja}
       >
-        <label className={lbl}>{t("Formas de pago en la hoja de encargo (una por línea)")}</label>
+        <label className={lbl}>{t("Formas de pago en la hoja de encargo y el presupuesto (una por línea)")}</label>
         <textarea
           value={formasPago}
           onChange={(e) => setFormasPago(e.target.value)}
@@ -130,7 +130,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
           className={inp}
           placeholder={t("Transferencia bancaria — IBAN ES00 0000 0000 0000 0000 0000\nBizum: 600 000 000\nPago con tarjeta mediante enlace seguro")}
         />
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se imprimen tal cual en el apartado de pago de la hoja. Vacío = lista automática (IBAN activo + tarjeta si está configurada).")}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Se imprimen tal cual en el apartado de pago de la hoja y del presupuesto. Vacío = lista automática (IBAN activo + tarjeta si está configurada).")}</p>
         <VistaPrevia onVer={verPrevia} documentos={[{ label: t("Hoja de encargo"), qs: "doc=hoja" }, { label: t("Presupuesto"), qs: "doc=presupuesto" }]} />
       </SubTarjeta>
 
