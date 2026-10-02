@@ -1,5 +1,6 @@
 import "server-only";
 import forge from "node-forge";
+import { CONTACTO } from "@/lib/contacto";
 import { normalizarNif } from "@/lib/notificaciones-dehu";
 
 // DEHú AUTOMÁTICA — el certificado del despacho (.p12 / .pfx) (29/09/2026).
@@ -48,27 +49,129 @@ export function nifDeAtributo(v: string | null | undefined): string | null {
 const nifEnCn = (cn: string | null) => nifDeAtributo(/\b([0-9XYZ]\d{7}[A-Z]|[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J])\b/.exec(cn?.toUpperCase() ?? "")?.[1]);
 const nombreSinNif = (cn: string | null) => cn?.replace(/\s*-\s*(NIF\s*:?\s*)?[0-9A-Z]{9}\s*(\(R:[^)]*\))?$/i, "").replace(/\s*\(R:[^)]*\)\s*$/i, "").trim() || null;
 
-export function leerCertificado(p12: Buffer, clave: string, ahora: Date = new Date()): CertificadoLeido {
-  let pkcs12: forge.pkcs12.Pkcs12Pfx;
-  try {
-    const asn1 = forge.asn1.fromDer(forge.util.createBuffer(p12.toString("binary")));
-    try { pkcs12 = forge.pkcs12.pkcs12FromAsn1(asn1, false, clave); }
-    catch { throw new CertificadoInvalido("La contraseña no es correcta."); }
-  } catch (e) {
-    if (e instanceof CertificadoInvalido) throw e;
-    throw new CertificadoInvalido("El archivo no es un certificado .p12 o .pfx válido.");
+// ── Lo que node-forge no abre solo ──────────────────────────────────────────────────────
+// 02/10/2026: el .pfx de idCAT de una gestora daba «La contraseña no es correcta» con la
+// contraseña buena: cualquier fallo de forge se leía como contraseña mala. Ahora abrirP12
+// dice qué pasa de verdad, y forge se completa, una sola vez, con lo que le falta:
+//  · los cifrados «PKCS#12 PBE» de la RFC 7292 (apéndice C) que no trae: RC2 de 128 bits,
+//    3DES de dos claves, RC4 de 128 y de 40 bits (misma derivación de clave, con SHA-1);
+//  · PBES2 (AES) con ñ, tildes o € en la contraseña: Windows y OpenSSL la cifran en UTF-8 y
+//    forge la pasaba tal cual (la MAC va en UTF-16, y esa forge ya la hacía bien).
+type Descifrador = { update(d: forge.util.ByteStringBuffer): void; finish(): boolean; output: forge.util.ByteStringBuffer };
+type Pbe = {
+  getCipher: ((oid: string, params: forge.asn1.Asn1, password: string) => Descifrador) & { deAproba?: true };
+  generatePkcs12Key(password: string, salt: forge.util.ByteStringBuffer, id: number, iter: number, n: number): forge.util.ByteStringBuffer;
+};
+
+function rc4(clave: string): Descifrador {
+  const s = Array.from({ length: 256 }, (_, n) => n);
+  for (let n = 0, j = 0; n < 256; n++) { j = (j + s[n] + clave.charCodeAt(n % clave.length)) & 255; [s[n], s[j]] = [s[j], s[n]]; }
+  let i = 0, j = 0;
+  const output = forge.util.createBuffer();
+  return {
+    output,
+    update(d) {
+      const bytes = d.getBytes();
+      for (let n = 0; n < bytes.length; n++) {
+        i = (i + 1) & 255; j = (j + s[i]) & 255; [s[i], s[j]] = [s[j], s[i]];
+        output.putByte(bytes.charCodeAt(n) ^ s[(s[i] + s[j]) & 255]);
+      }
+    },
+    finish: () => true,
+  };
+}
+
+const PBE_PKCS12: Record<string, { bytes: number; descifrador: (clave: string, iv: string) => Descifrador }> = {
+  "1.2.840.113549.1.12.1.1": { bytes: 16, descifrador: (k) => rc4(k) }, // RC4 de 128 bits
+  "1.2.840.113549.1.12.1.2": { bytes: 5, descifrador: (k) => rc4(k) },  // RC4 de 40 bits
+  "1.2.840.113549.1.12.1.4": { bytes: 16, descifrador: (k, iv) => {     // 3DES de dos claves: K1 K2 K1
+    const c = forge.cipher.createDecipher("3DES-CBC", k + k.slice(0, 8)); c.start({ iv }); return c;
+  } },
+  "1.2.840.113549.1.12.1.5": { bytes: 16, descifrador: (k, iv) => {     // RC2 de 128 bits
+    const c = forge.rc2.createDecryptionCipher(k, 128); c.start(iv); return c;
+  } },
+};
+
+const pbe = (forge.pki as unknown as { pbe: Pbe }).pbe;
+if (!pbe.getCipher.deAproba) { // una sola vez, aunque el módulo se cargue de nuevo
+  const deForge = pbe.getCipher;
+  const getCipher: Pbe["getCipher"] = (oid, params, password) => {
+    if (oid === forge.pki.oids.pkcs5PBES2) return deForge(oid, params, forge.util.encodeUtf8(password));
+    const esquema = PBE_PKCS12[oid];
+    if (!esquema) return deForge(oid, params, password);
+    const [sal, vueltas] = params.value as forge.asn1.Asn1[]; // pkcs-12PbeParams: salt, iterations
+    const salt = forge.util.createBuffer(sal.value as string);
+    const n = forge.util.createBuffer(vueltas.value as string);
+    const iteraciones = n.getInt(n.length() << 3);
+    return esquema.descifrador(
+      pbe.generatePkcs12Key(password, salt, 1, iteraciones, esquema.bytes).getBytes(),
+      pbe.generatePkcs12Key(password, salt, 2, iteraciones, 8).getBytes());
+  };
+  getCipher.deAproba = true;
+  pbe.getCipher = getCipher;
+}
+
+// forge comprueba la MAC (es decir, la contraseña) ANTES de descifrar nada. Si la MAC no
+// cuadra, es la contraseña; si cuadra y luego algo no se sabe leer, es el archivo, no ella.
+function abrirP12(asn1: forge.asn1.Asn1, clave: string): forge.pkcs12.Pkcs12Pfx {
+  const conMac = Array.isArray(asn1.value) && asn1.value.length > 2;
+  const deContraseña = (e: Error) => /MAC could not be verified/i.test(e.message) || (!conMac && !/unsupported/i.test(e.message));
+  let fallo: Error | null = null;
+  // Tal cual y, si no, sin espacios en los extremos: al copiar un código se cuela alguno.
+  for (const intento of clave.trim() && clave.trim() !== clave ? [clave, clave.trim()] : [clave]) {
+    try { return forge.pkcs12.pkcs12FromAsn1(asn1, false, intento); }
+    catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      if (!fallo || deContraseña(fallo)) fallo = error; // se queda el que más dice
+    }
   }
+  const e = fallo as Error & { oid?: unknown };
+  if (/not an PKCS#12 PFX/i.test(e.message)) {
+    // Confusión habitual: el .cer (la parte pública, la que pide el alta en la DEHú).
+    const v = asn1.value;
+    const esCer = Array.isArray(v) && v.length === 3 && v[2].type === forge.asn1.Type.BITSTRING;
+    throw new CertificadoInvalido(esCer
+      ? "Este archivo es solo la parte pública del certificado (.cer), sin la clave privada: sube el .p12 o el .pfx."
+      : "El archivo no es un certificado .p12 o .pfx válido.");
+  }
+  if (deContraseña(e)) throw new CertificadoInvalido("La contraseña no es correcta.");
+  const oid = typeof e.oid === "string" && /^\d+(\.\d+)+$/.test(e.oid) ? e.oid : /\b\d+(?:\.\d+){3,}\b/.exec(e.message)?.[0];
+  const nombre = oid && (forge.pki.oids as Record<string, string>)[oid];
+  const detalle = oid ? (nombre ? `${nombre}, ${oid}` : oid) : e.message;
+  const antesDeLaMac = /PFX|password integrity|authSafe content data|MAC/i.test(e.message);
+  throw new CertificadoInvalido(conMac && !antesDeLaMac
+    ? `La contraseña es correcta, pero el archivo usa un cifrado que Aproba aún no sabe abrir (${detalle}). Escríbenos a ${CONTACTO.email} y lo resolvemos.`
+    : `Aproba aún no sabe abrir este tipo de archivo (${detalle}). Escríbenos a ${CONTACTO.email} y lo resolvemos.`);
+}
+
+export function leerCertificado(p12: Buffer, clave: string, ahora: Date = new Date()): CertificadoLeido {
+  let asn1: forge.asn1.Asn1;
+  try { asn1 = forge.asn1.fromDer(forge.util.createBuffer(p12.toString("binary"))); }
+  catch { throw new CertificadoInvalido("El archivo no es un certificado .p12 o .pfx válido."); }
+  const pkcs12 = abrirP12(asn1, clave);
 
   const bolsas = (tipo: string) => (pkcs12.getBags({ bagType: tipo })[tipo] ?? []) as forge.pkcs12.Bag[];
-  const claves = [...bolsas(forge.pki.oids.pkcs8ShroudedKeyBag), ...bolsas(forge.pki.oids.keyBag)].map((b) => b.key).filter(Boolean) as forge.pki.rsa.PrivateKey[];
-  const certs = bolsas(forge.pki.oids.certBag).map((b) => b.cert).filter(Boolean) as forge.pki.Certificate[];
-  if (!claves.length) throw new CertificadoInvalido("El archivo no contiene la clave privada: expórtalo «con clave privada» (.p12 o .pfx).");
-  if (!certs.length) throw new CertificadoInvalido("El archivo no contiene ningún certificado.");
+  const bolsasClave = [...bolsas(forge.pki.oids.pkcs8ShroudedKeyBag), ...bolsas(forge.pki.oids.keyBag)];
+  const claves = bolsasClave.map((b) => b.key).filter(Boolean) as forge.pki.rsa.PrivateKey[];
+  // forge descarta (cert null) un certificado RSA si su emisor firma con curva elíptica: se
+  // lee sin calcular su huella y se guarda su DER original, el que se registró en la DEHú.
+  const certs = bolsas(forge.pki.oids.certBag).flatMap((b) => {
+    try {
+      if (b.cert) return [{ c: b.cert, der: forge.asn1.toDer(forge.pki.certificateToAsn1(b.cert)).getBytes() }];
+      return b.asn1 ? [{ c: forge.pki.certificateFromAsn1(b.asn1, false), der: forge.asn1.toDer(b.asn1).getBytes() }] : [];
+    } catch { return []; } // un certificado de la cadena con clave de curva elíptica: no hace falta
+  });
+  if (!claves.length) {
+    throw new CertificadoInvalido(bolsasClave.length
+      ? "La clave privada de este certificado no es RSA (es de curva elíptica u otro tipo): Aproba aún no la admite."
+      : "El archivo no contiene la clave privada: expórtalo «con clave privada» (.p12 o .pfx).");
+  }
+  if (!certs.length) throw new CertificadoInvalido("El archivo no contiene ningún certificado que Aproba sepa leer.");
   // El certificado del firmante es el que casa con la clave privada (el resto es la cadena).
-  const par = claves.flatMap((k) => certs.map((c) => ({ k, c })))
+  const par = claves.flatMap((k) => certs.map(({ c, der }) => ({ k, c, der })))
     .find(({ k, c }) => { const pub = c.publicKey as forge.pki.rsa.PublicKey; return Boolean(pub?.n && k.n && pub.n.equals(k.n)); });
   if (!par) throw new CertificadoInvalido("La clave privada no corresponde a ningún certificado del archivo (¿es una clave RSA?).");
-  const { k, c } = par;
+  const { k, c, der } = par;
 
   if (c.validity.notAfter.getTime() < ahora.getTime()) {
     throw new CertificadoInvalido(`El certificado caducó el ${c.validity.notAfter.toLocaleDateString("es-ES", { timeZone: "Europe/Madrid" })}.`);
@@ -94,10 +197,9 @@ export function leerCertificado(p12: Buffer, clave: string, ahora: Date = new Da
   if (!titular.nif || !receptor.nif) throw new CertificadoInvalido("No se encuentra el NIF en el certificado: ¿es un certificado español de persona física, de representante o de sello?");
 
   const emisorAttrs = c.issuer.attributes as Atributo[];
-  const der = forge.asn1.toDer(forge.pki.certificateToAsn1(c)).getBytes();
   return {
     clavePrivadaPem: forge.pki.privateKeyToPem(k),
-    certificadoPem: forge.pki.certificateToPem(c),
+    certificadoPem: forge.pem.encode({ type: "CERTIFICATE", body: der }),
     certificadoDerB64: forge.util.encode64(der),
     tipo, persona, entidad,
     titular: { nombre: titular.nombre ?? titular.nif, nif: titular.nif },
@@ -107,4 +209,11 @@ export function leerCertificado(p12: Buffer, clave: string, ahora: Date = new Da
     emitidoAt: c.validity.notBefore,
     caducaAt: c.validity.notAfter,
   };
+}
+
+// Lo que pide la DEHú en «Configuración Gran Destinatario › Parte pública (formato PEM)»:
+// el base64 del certificado en líneas de 64, SIN las líneas BEGIN/END (así lo aceptó el
+// alta real del 02/10/2026). Aproba lo da hecho: el gestor ya no exporta ningún .cer.
+export function partePublicaPem(certificadoDerB64: string): string {
+  return (certificadoDerB64.replace(/\s+/g, "").match(/.{1,64}/g) ?? []).join("\n");
 }
