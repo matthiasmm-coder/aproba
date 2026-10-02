@@ -18,6 +18,10 @@ export const CONTACTO = {
   whatsappTexto: "Hola Matthias, nos hemos conocido y me gustaría saber más de Aproba.",
 } as const;
 
+// Página de empresa de Aproba en LinkedIn: el pie de todas las páginas públicas y el
+// `sameAs` del JSON-LD de la portada (señal de entidad para Google) salen de aquí.
+export const LINKEDIN_EMPRESA = "https://www.linkedin.com/company/aproba-software";
+
 export function whatsappUrl(texto: string = CONTACTO.whatsappTexto): string {
   return `https://wa.me/${CONTACTO.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`;
 }

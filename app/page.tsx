@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import localFont from "next/font/local";
 import { AprobaLogo, AprobaMark } from "@/components/logo";
+import { EnlaceLinkedIn } from "@/components/enlace-linkedin";
+import { LINKEDIN_EMPRESA } from "@/lib/contacto";
 import { rutaDeTarjeta } from "@/lib/beneficios";
 import { HeroAnimation } from "@/components/hero-animation";
 import { MenuMovil } from "@/components/menu-movil";
@@ -34,7 +36,7 @@ const JSON_LD = {
       url: BASE,
       logo: `${BASE}/icon-512.png`,
       description: FRASE_DEFINICION,
-      sameAs: ["https://www.linkedin.com/company/aproba-software"],
+      sameAs: [LINKEDIN_EMPRESA],
     },
     {
       "@type": "WebSite",
@@ -466,6 +468,7 @@ export default function Landing() {
             <Link href="/legal/cookies" className="hover:text-slate-700">Cookies</Link>
             <Link href="/legal/terminos" className="hover:text-slate-700">Términos</Link>
             <a href="mailto:aproba.software@gmail.com" className="hover:text-slate-700">Contacto</a>
+            <EnlaceLinkedIn />
           </div>
         </div>
       </footer>

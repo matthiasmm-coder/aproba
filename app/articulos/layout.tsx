@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
+import { EnlaceLinkedIn } from "@/components/enlace-linkedin";
 import { MenuMovil } from "@/components/menu-movil";
 
 // Chrome de la sección de artículos: mismo esqueleto que las páginas legales (cabecera
@@ -52,6 +53,7 @@ export default function ArticulosLayout({ children }: { children: React.ReactNod
             <Link href="/legal/aviso-legal" className="hover:text-slate-700">Aviso legal</Link>
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <a href="mailto:aproba.software@gmail.com" className="hover:text-slate-700">Contacto</a>
+            <EnlaceLinkedIn />
           </div>
           <p className="mt-4">© {new Date().getFullYear()} Aproba. Todos los derechos reservados.</p>
         </div>

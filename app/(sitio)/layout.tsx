@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
+import { EnlaceLinkedIn } from "@/components/enlace-linkedin";
 import { MenuMovil } from "@/components/menu-movil";
 
 // Chrome de las páginas «beneficio explicado» (/funciones, /cifras, /garantias): el mismo
@@ -56,6 +57,7 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
             <Link href="/legal/privacidad" className="hover:text-slate-700">Privacidad</Link>
             <Link href="/legal/dpa" className="hover:text-slate-700">DPA</Link>
             <a href="mailto:aproba.software@gmail.com" className="hover:text-slate-700">Contacto</a>
+            <EnlaceLinkedIn />
           </div>
           <p className="mt-4">© {new Date().getFullYear()} Aproba. Todos los derechos reservados.</p>
         </div>

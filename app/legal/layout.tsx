@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AprobaLogo } from "@/components/logo";
+import { EnlaceLinkedIn } from "@/components/enlace-linkedin";
 import { LegalNav } from "@/components/legal-nav";
 import { TITULAR } from "@/lib/legal";
 
@@ -28,8 +29,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
 
       {/* Pie */}
       <footer className="border-t border-slate-200">
-        <div className="mx-auto max-w-3xl px-6 py-8 text-xs text-slate-400">
-          © {new Date().getFullYear()} {TITULAR.nombreComercial}. Todos los derechos reservados.
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-8 text-xs text-slate-400">
+          <span>© {new Date().getFullYear()} {TITULAR.nombreComercial}. Todos los derechos reservados.</span>
+          <EnlaceLinkedIn />
         </div>
       </footer>
     </div>
