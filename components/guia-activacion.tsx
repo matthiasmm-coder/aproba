@@ -193,7 +193,7 @@ export function GuiaActivacion() {
     const flechaX = rect.left + Math.min(rect.width / 2, 140) - 14;
     const flechaY = encima ? rect.top - 46 : rect.top + altoFoco + 6;
     const Flecha = (
-      <div aria-hidden className="pointer-events-none fixed z-[45] animate-bounce text-aproba-600" style={{ left: flechaX, top: flechaY }}>
+      <div aria-hidden className="pointer-events-none fixed z-[45] animate-bounce text-aproba-600 print:hidden" style={{ left: flechaX, top: flechaY }}>
         <svg width="28" height="38" viewBox="0 0 28 38" className={encima ? "" : "rotate-180"} fill="none" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 3v26M4 19l10 12 10-12" stroke="#fff" strokeWidth="8" />
           <path d="M14 3v26M4 19l10 12 10-12" stroke="currentColor" strokeWidth="3.5" />
@@ -213,19 +213,19 @@ export function GuiaActivacion() {
       const ancho = Math.min(ANCHO, hueco - 12);
       const left = hueco >= ancho + 32 ? barraDerecha + (hueco - ancho) / 2 : barraDerecha + 8;
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
-      return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top }}>{tarjeta(ancho)}</div></>);
+      return (<>{ventana}{Flecha}<div className="fixed z-[45] print:hidden" style={{ left, top }}>{tarjeta(ancho)}</div></>);
     }
     // 2) Debajo del bloque indicado por el paso (p. ej. los formularios): nunca tapa sus botones.
     const bloque = paso.debajoDe ? [...document.querySelectorAll<HTMLElement>(`[data-guia="${paso.debajoDe}"]`)].find((x) => x.getClientRects().length > 0) ?? null : null;
     if (bloque) {
       const b = bloque.getBoundingClientRect();
-      if (b.bottom + 14 + ALTO <= window.innerHeight) return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left: Math.max(12, b.left), top: b.bottom + 14 }}>{Tarjeta}</div></>);
+      if (b.bottom + 14 + ALTO <= window.innerHeight) return (<>{ventana}{Flecha}<div className="fixed z-[45] print:hidden" style={{ left: Math.max(12, b.left), top: b.bottom + 14 }}>{Tarjeta}</div></>);
     }
     // 3) Al lado del elemento si es pequeño y cabe a su derecha.
     const aLaDerecha = altoFoco < 220 && rect.right + 16 + ANCHO + 12 <= window.innerWidth;
     if (aLaDerecha) {
       const top = Math.max(12, Math.min(rect.top, window.innerHeight - ALTO - 12));
-      return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left: rect.right + 16, top }}>{Tarjeta}</div></>);
+      return (<>{ventana}{Flecha}<div className="fixed z-[45] print:hidden" style={{ left: rect.right + 16, top }}>{Tarjeta}</div></>);
     }
     // 4) Debajo (dejando hueco a la flecha si esta va debajo) o, si no cabe, encima (dejando hueco a la flecha).
     const huecoFlecha = encima ? 0 : 44;
@@ -234,9 +234,9 @@ export function GuiaActivacion() {
     const bordeInferior = abajo ? rect.top + altoFoco + 14 + huecoFlecha + ALTO : rect.top - 14;
     const esquinaAyuda = bordeInferior > window.innerHeight - 100;
     const left = Math.max(12, Math.min(rect.left, window.innerWidth - ANCHO - 12 - (esquinaAyuda ? 140 : 0)));
-    return (<>{ventana}{Flecha}<div className="fixed z-[45]" style={{ left, top: abajo ? rect.top + altoFoco + 14 + huecoFlecha : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 58 }}>{Tarjeta}</div></>);
+    return (<>{ventana}{Flecha}<div className="fixed z-[45] print:hidden" style={{ left, top: abajo ? rect.top + altoFoco + 14 + huecoFlecha : undefined, bottom: abajo ? undefined : window.innerHeight - rect.top + 58 }}>{Tarjeta}</div></>);
   }
-  return (<>{ventana}<div className="fixed bottom-24 right-4 z-[45] md:bottom-6 md:right-28">{Tarjeta}</div></>);
+  return (<>{ventana}<div className="fixed bottom-24 right-4 z-[45] md:bottom-6 md:right-28 print:hidden">{Tarjeta}</div></>);
 }
 
 // Para que las acciones avisen a la guía sin acoplarse a ella.
