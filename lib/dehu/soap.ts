@@ -52,23 +52,32 @@ export const servicioDe = (op: Operacion): "lema" | "realizadas" => (op === "Loc
 
 // ── Cuerpos ────────────────────────────────────────────────────────────────
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const fechaXsd = (d: Date) => d.toISOString();
+// 02/10/2026: con el primer certificado de verdad, la DEHú (PHP) contestó «2001 Error interno»
+// a Localiza: «SOAP-ERROR: Encoding: Error calling from_xml callback», es decir, al
+// descodificar las fechas (los únicos xsd:dateTime de la petición). Su descodificador recibe
+// cada fecha suelta, sin las declaraciones de espacio de nombres del padre, y tal vez la lee
+// con un formato estricto. Por eso, en las peticiones con fechas: espacio de nombres POR
+// DEFECTO (sin prefijo que quede sin declarar) y fecha sin milisegundos, con su desfase
+// («2026-09-20T18:07:20+00:00», el DATE_ATOM de PHP).
+const fechaXsd = (d: Date) => `${d.toISOString().slice(0, 19)}+00:00`;
 const el = (p: string, nombre: string, v: string | number | null | undefined) =>
   v === null || v === undefined || v === "" ? "" : `<${p}:${nombre}>${esc(String(v))}</${p}:${nombre}>`;
+const elDef = (nombre: string, v: string | number | null | undefined) => // espacio de nombres por defecto
+  v === null || v === undefined || v === "" ? "" : `<${nombre}>${esc(String(v))}</${nombre}>`;
 
 export type FiltroLocaliza = { nifTitular?: string | null; nifDestinatario?: string | null; fechaDesde?: Date | null; fechaHasta?: Date | null; tipoEnvio?: 1 | 2 | null };
 
 // El orden de los elementos es el de la secuencia del WSDL: no cambiarlo.
 export function cuerpoLocaliza(f: FiltroLocaliza): string {
-  return `<loc:Localiza xmlns:loc="${NS.localiza}">${el("loc", "nifTitular", f.nifTitular)}${el("loc", "nifDestinatario", f.nifDestinatario)}`
-    + `${f.fechaDesde ? el("loc", "fechaDesde", fechaXsd(f.fechaDesde)) : ""}${f.fechaHasta ? el("loc", "fechaHasta", fechaXsd(f.fechaHasta)) : ""}`
-    + `${el("loc", "tipoEnvio", f.tipoEnvio)}</loc:Localiza>`;
+  return `<Localiza xmlns="${NS.localiza}">${elDef("nifTitular", f.nifTitular)}${elDef("nifDestinatario", f.nifDestinatario)}`
+    + `${f.fechaDesde ? elDef("fechaDesde", fechaXsd(f.fechaDesde)) : ""}${f.fechaHasta ? elDef("fechaHasta", fechaXsd(f.fechaHasta)) : ""}`
+    + `${elDef("tipoEnvio", f.tipoEnvio)}</Localiza>`;
 }
 
 export function cuerpoLocalizaRealizadas(f: FiltroLocaliza & { pagina?: number | null }): string {
-  return `<lre:LocalizaRealizadas xmlns:lre="${NS.localizaRealizadas}">${el("lre", "nifTitular", f.nifTitular)}${el("lre", "nifDestinatario", f.nifDestinatario)}`
-    + `${f.fechaDesde ? el("lre", "fechaDesde", fechaXsd(f.fechaDesde)) : ""}${f.fechaHasta ? el("lre", "fechaHasta", fechaXsd(f.fechaHasta)) : ""}`
-    + `${el("lre", "tipoEnvio", f.tipoEnvio)}${el("lre", "pagina", f.pagina)}</lre:LocalizaRealizadas>`;
+  return `<LocalizaRealizadas xmlns="${NS.localizaRealizadas}">${elDef("nifTitular", f.nifTitular)}${elDef("nifDestinatario", f.nifDestinatario)}`
+    + `${f.fechaDesde ? elDef("fechaDesde", fechaXsd(f.fechaDesde)) : ""}${f.fechaHasta ? elDef("fechaHasta", fechaXsd(f.fechaHasta)) : ""}`
+    + `${elDef("tipoEnvio", f.tipoEnvio)}${elDef("pagina", f.pagina)}</LocalizaRealizadas>`;
 }
 
 export type RefEnvio = { identificador: string; codigoOrigen: string; concepto: string };

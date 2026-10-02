@@ -4,7 +4,7 @@ import { SignedXml } from "xml-crypto";
 import { leerCertificado } from "@/lib/dehu/certificado";
 import { PERSONA_FISICA, p12DePrueba } from "@/lib/dehu/certificados-prueba";
 import {
-  ErrorDehu, NS, cuerpoLocaliza, cuerpoPeticionAcceso, elementoRespuesta, esCertificadoSinAlta, leerDocumento, leerLocaliza, leerLocalizaRealizadas,
+  ErrorDehu, NS, cuerpoLocaliza, cuerpoLocalizaRealizadas, cuerpoPeticionAcceso, elementoRespuesta, esCertificadoSinAlta, leerDocumento, leerLocaliza, leerLocalizaRealizadas,
   separarMultipart, sobreFirmado,
 } from "@/lib/dehu/soap";
 
@@ -42,11 +42,16 @@ describe("sobre SOAP firmado (WS-Security)", () => {
   });
 
   it("si alguien toca el cuerpo después de firmar, la firma ya no vale", () => {
-    expect(verificar(xml.replace("2026-09-18T00:00:00.000Z", "2026-01-01T00:00:00.000Z"))).toBe(false);
+    expect(verificar(xml.replace("2026-09-18T00:00:00+00:00", "2026-01-01T00:00:00+00:00"))).toBe(false);
   });
 
   it("los elementos van en el orden del WSDL y los textos escapados", () => {
-    expect(cuerpo).toBe(`<loc:Localiza xmlns:loc="${NS.localiza}"><loc:fechaDesde>2026-09-18T00:00:00.000Z</loc:fechaDesde><loc:fechaHasta>2026-09-30T00:00:00.000Z</loc:fechaHasta></loc:Localiza>`);
+    // Espacio de nombres por defecto y fechas sin milisegundos: lo que la DEHú sabe descodificar (02/10/2026).
+    expect(cuerpo).toBe(`<Localiza xmlns="${NS.localiza}"><fechaDesde>2026-09-18T00:00:00+00:00</fechaDesde><fechaHasta>2026-09-30T00:00:00+00:00</fechaHasta></Localiza>`);
+    expect(cuerpoLocaliza({ nifTitular: "X1234567L", fechaDesde: new Date("2026-09-20T18:07:20.483Z") }))
+      .toBe(`<Localiza xmlns="${NS.localiza}"><nifTitular>X1234567L</nifTitular><fechaDesde>2026-09-20T18:07:20+00:00</fechaDesde></Localiza>`);
+    expect(cuerpoLocalizaRealizadas({ nifDestinatario: "12345678Z", fechaHasta: new Date("2026-09-30T00:00:00Z"), pagina: 2 }))
+      .toBe(`<LocalizaRealizadas xmlns="${NS.localizaRealizadas}"><nifDestinatario>12345678Z</nifDestinatario><fechaHasta>2026-09-30T00:00:00+00:00</fechaHasta><pagina>2</pagina></LocalizaRealizadas>`);
     const pa = cuerpoPeticionAcceso({ identificador: "N-1", codigoOrigen: "7", concepto: "Requerimiento <urgente> & más" }, cert.receptor);
     expect(pa).toContain("<pac:identificador>N-1</pac:identificador><pac:codigoOrigen>7</pac:codigoOrigen><pac:nifReceptor>12345678Z</pac:nifReceptor>");
     expect(pa).toContain("<pac:evento>1</pac:evento><pac:concepto>Requerimiento &lt;urgente&gt; &amp; más</pac:concepto>");
