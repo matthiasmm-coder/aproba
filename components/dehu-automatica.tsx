@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { URL_DEHU } from "@/lib/notificaciones-dehu";
+import { copiarTexto } from "@/lib/copiar";
 
 // DEHú AUTOMÁTICA (29/09/2026) — la tarjeta de arriba de la pestaña DEHú. El despacho
 // conecta su certificado (el mismo que dio de alta como «Gran Destinatario» en la DEHú) y
@@ -19,6 +20,7 @@ type Estado = {
   titularNombre?: string | null; titularNif?: string | null; receptorNombre?: string | null;
   certTipo?: string | null; certCaducaAt?: string | null;
   ultimaConsultaAt?: string | null; ultimoExitoAt?: string | null; ultimoError?: string | null;
+  pendienteAlta?: boolean; partePublica?: string | null;
 };
 
 const fechaHora = (iso: string | null | undefined) => {
@@ -45,7 +47,9 @@ export function DehuAutomatica() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pemRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     // El entorno de pruebas de la DEHú solo se ofrece con ?entorno=pruebas (alta en pruebas).
@@ -83,6 +87,7 @@ export function DehuAutomatica() {
       const d = await r.json().catch(() => ({}));
       if (d.estado) setE((prev) => ({ ...(prev as Estado), ...(d.estado as Estado) }));
       if (!r.ok) throw new Error(d.resultado?.error ?? d.error ?? t("No se pudo consultar la DEHú."));
+      if (d.estado?.pendienteAlta) { setAviso(t("La DEHú aún no acepta el certificado. Si ya firmaste la declaración, vuelve a comprobarlo en unos minutos.")); return; }
       const n = Number(d.resultado?.nuevas ?? 0), docs = Number(d.resultado?.importadas ?? 0);
       setAviso(n || docs
         ? [n ? (n === 1 ? t("1 notificación nueva") : t("{n} notificaciones nuevas").replace("{n}", String(n))) : "",
@@ -91,6 +96,12 @@ export function DehuAutomatica() {
       router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : t("No se pudo consultar la DEHú.")); }
     finally { setOcupado(null); }
+  }
+
+  async function copiarParte() {
+    if (!e?.partePublica) return;
+    if (await copiarTexto(e.partePublica)) { setCopiado(true); window.setTimeout(() => setCopiado(false), 1800); }
+    else { pemRef.current?.select(); setAviso(t("Selecciónalo y cópialo con Ctrl+C.")); }
   }
 
   async function desconectar() {
@@ -108,6 +119,53 @@ export function DehuAutomatica() {
   const btn = "rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:opacity-50";
   const btnPrim = `${btn} bg-aproba-600 text-white hover:bg-aproba-700`;
   const btnSec = `${btn} border border-slate-300 bg-white text-slate-700 hover:border-slate-400`;
+
+  // Certificado guardado que la DEHú aún no acepta: falta su alta de «Gran Destinatario».
+  // Aproba da hecha la parte pública (antes: exportar un .cer y abrirlo en el Bloc de notas).
+  if (e.conectada && e.pendienteAlta) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-amber-500" aria-hidden />
+          <p className="text-sm font-semibold text-slate-900">{t("DEHú automática")}</p>
+          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{t("Falta el alta en la DEHú")}</span>
+          {e.entorno === "PRUEBAS" && <span className="rounded bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700">{t("Entorno de pruebas")}</span>}
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <button type="button" onClick={consultar} disabled={ocupado !== null} className={btnSec}>{ocupado === "consultar" ? t("Comprobando con la DEHú…") : t("Comprobar ahora")}</button>
+            {e.puedeGestionar && <button type="button" onClick={desconectar} disabled={ocupado !== null} className="text-xs font-semibold text-slate-500 transition hover:text-red-600 disabled:opacity-50">{t("Retirar el certificado")}</button>}
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-slate-600">
+          {t("Aproba ya tiene el certificado de")} <b className="font-semibold text-slate-800">{e.receptorNombre}</b>. {t("Falta darlo de alta en la DEHú como «Gran Destinatario»: en cuanto la DEHú lo acepte, Aproba se conecta solo.")}
+        </p>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+          <li>
+            {t("Entra en la DEHú con este mismo certificado (DNIe / Certificado electrónico).")}{" "}
+            <a href={URL_DEHU} target="_blank" rel="noopener noreferrer" className="font-semibold text-aproba-700 hover:underline">dehu.redsara.es</a>
+          </li>
+          <li>{t("Pulsa tu nombre, arriba a la derecha, y abre «Configuración Gran Destinatario».")}</li>
+          <li>
+            {t("Rellena tus datos de contacto. En «Certificado», escribe Aproba como alias y pega este texto en «Parte pública»:")}
+            {e.partePublica ? (
+              <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <textarea ref={pemRef} readOnly value={e.partePublica} rows={4} onFocus={(ev) => ev.currentTarget.select()} aria-label={t("Parte pública del certificado")}
+                  className="block w-full resize-none bg-transparent px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-700 outline-none" />
+                <div className="flex justify-end border-t border-slate-100 px-2 py-1.5">
+                  <button type="button" onClick={copiarParte} className={btnPrim}>{copiado ? t("Copiado") : t("Copiar el texto")}</button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{t("No se puede leer el certificado guardado: retíralo y vuelve a subirlo.")}</p>
+            )}
+          </li>
+          <li>{t("Pulsa «Guardar» y firma la declaración responsable con AutoFirma, con este mismo certificado.")}</li>
+        </ol>
+        {aviso && <p className="mt-3 text-xs font-semibold text-amber-800">{aviso}</p>}
+        {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+        <p className="mt-3 text-xs text-slate-400">{t("Aproba lo comprueba cada 20 minutos mientras alguien usa la app, y cada mañana. Hasta que la DEHú lo acepte no consulta nada.")}</p>
+      </section>
+    );
+  }
 
   if (e.conectada) {
     const conError = e.estado === "ERROR" || Boolean(e.ultimoError);
@@ -153,11 +211,8 @@ export function DehuAutomatica() {
       {abierto && (
         <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
           <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-            <li>
-              {t("En la DEHú, entra con el certificado del despacho y abre «Configuración Gran destinatario»: añade la parte pública del certificado y firma la declaración responsable con AutoFirma.")}{" "}
-              <a href={URL_DEHU} target="_blank" rel="noopener noreferrer" className="font-semibold text-aproba-700 hover:underline">dehu.redsara.es</a>
-            </li>
-            <li>{t("Sube aquí ese mismo certificado (.p12 o .pfx) con su contraseña. Aproba comprueba con la DEHú que funciona antes de guardarlo.")}</li>
+            <li>{t("Sube aquí el certificado del despacho (.p12 o .pfx) con su contraseña: el del NIF al que llegan las notificaciones.")}</li>
+            <li>{t("Si aún no está dado de alta en la DEHú como «Gran Destinatario», Aproba te dirá qué pegar allí y se conectará solo en cuanto la DEHú lo acepte.")}</li>
           </ol>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block text-xs font-semibold text-slate-600">{t("Certificado (.p12 o .pfx)")}

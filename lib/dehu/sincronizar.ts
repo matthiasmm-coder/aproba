@@ -4,9 +4,9 @@ import type { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { IaNoDisponible } from "@/lib/extraction";
 import { bovedaDisponible, cifrarParaDespacho, descifrarDelDespacho } from "@/lib/dehu/boveda";
 import { dehuAutomaticaPermitida } from "@/lib/dehu/piloto";
-import { CertificadoInvalido, leerCertificado, type CertificadoLeido } from "@/lib/dehu/certificado";
+import { CertificadoInvalido, leerCertificado, partePublicaPem, type CertificadoLeido } from "@/lib/dehu/certificado";
 import { ClienteDehu, type UsoDehu } from "@/lib/dehu/cliente";
-import { ErrorDehu, esCodigoExito, type EnvioDehu, type Entorno, type RefEnvio } from "@/lib/dehu/soap";
+import { ErrorDehu, esCertificadoSinAlta, esCodigoExito, type EnvioDehu, type Entorno, type RefEnvio } from "@/lib/dehu/soap";
 import { REALIZADA_CON_DOCUMENTO, REALIZADA_SIN_ABRIR, avisoDeEnvio, desdeRealizadas, diaMadrid, esDeExtranjeria, huellaLema, numeroOficialEnTexto } from "@/lib/dehu/envios";
 import { COLS_NOTIFICACION, avisoQueCierra, mapFilaNotificacion, sugerirExpediente, type NotificacionDehu } from "@/lib/notificaciones-dehu";
 import { candidatosDeWorkspace, faltaMigracionDehu, importarNotificacion } from "@/lib/notificaciones-dehu-guardar";
@@ -47,6 +47,9 @@ export type EstadoDehuAutomatica = {
   titularNombre?: string | null; titularNif?: string | null; receptorNombre?: string | null;
   certTipo?: string | null; certEmisor?: string | null; certCaducaAt?: string | null;
   ultimaConsultaAt?: string | null; ultimoExitoAt?: string | null; ultimoError?: string | null; createdAt?: string;
+  // Certificado guardado que la DEHú aún no acepta (02/10/2026): falta su alta como «Gran
+  // Destinatario». `partePublica` es lo que el gestor pega en la DEHú (es pública, no secreta).
+  pendienteAlta?: boolean; partePublica?: string | null;
 };
 
 export async function leerConexion(admin: Admin, workspaceId: string): Promise<{ conexion: ConexionDehu | null; migracion: boolean }> {
@@ -63,8 +66,12 @@ export async function estadoDehuAutomatica(admin: Admin, workspaceId: string): P
   // Fase piloto (lib/dehu/piloto.ts): fuera de los despachos piloto, la tarjeta no se ve.
   const base = { disponible: bovedaDisponible() && dehuAutomaticaPermitida(workspaceId), migracion };
   if (!c) return { ...base, conectada: false };
+  // Nunca ha respondido la DEHú con este certificado: está a la espera de su alta.
+  const pendienteAlta = !c.ultimoExitoAt;
+  let partePublica: string | null = null;
+  if (pendienteAlta) { try { partePublica = partePublicaPem(certificadoDe(c).certificadoDerB64); } catch { /* se pide volver a subirlo */ } }
   return {
-    ...base, conectada: true, estado: c.estado, entorno: c.entorno,
+    ...base, conectada: true, estado: c.estado, entorno: c.entorno, pendienteAlta, partePublica,
     titularNombre: c.titularNombre, titularNif: c.titularNif, receptorNombre: c.receptorNombre,
     certTipo: c.certTipo, certEmisor: c.certEmisor, certCaducaAt: c.certCaducaAt,
     ultimaConsultaAt: c.ultimaConsultaAt, ultimoExitoAt: c.ultimoExitoAt, ultimoError: c.ultimoError, createdAt: c.createdAt,
@@ -254,6 +261,11 @@ export async function sincronizarDehu(admin: Admin, workspaceId: string, o: { fo
     });
     return { hecha: true, ...r };
   } catch (e) {
+    // Aún sin alta en la DEHú (nunca ha entrado): no cuenta como error; se reintenta solo.
+    if (!c.ultimoExitoAt && esCertificadoSinAlta(e)) {
+      await anotar(admin, c, { ultimoError: null, erroresSeguidos: 0 });
+      return { hecha: false, motivo: "pendiente del alta", ...r };
+    }
     const msg = e instanceof CertificadoInvalido || e instanceof ErrorDehu ? e.message : "Error inesperado al consultar la DEHú.";
     if (!(e instanceof CertificadoInvalido || e instanceof ErrorDehu)) console.error("[dehu auto]", e);
     const errores = (c.erroresSeguidos ?? 0) + 1;
@@ -269,7 +281,12 @@ export class ConexionRechazada extends Error {
   constructor(message: string) { super(message); this.name = "ConexionRechazada"; }
 }
 
-// Guarda el certificado SOLO si la DEHú lo acepta: una primera consulta real lo prueba.
+// Una primera consulta real prueba el certificado. Si la DEHú lo acepta, queda conectada.
+// Si responde que aún no lo conoce (4102 en producción, 4103 en pruebas: falta el alta de
+// «Gran Destinatario»), se guarda IGUAL, pendiente: la pantalla da al gestor la parte
+// pública para pegarla en la DEHú y Aproba se conecta solo en cuanto la DEHú la acepte
+// (02/10/2026: el gestor ya no exporta ningún .cer). Cualquier otro rechazo (contraseña,
+// certificado, red) no guarda nada.
 export async function conectarDehu(admin: Admin, o: { workspaceId: string; p12: Buffer; clave: string; entorno: Entorno; userId: string }): Promise<EstadoDehuAutomatica> {
   if (!bovedaDisponible()) throw new ConexionRechazada("La DEHú automática aún no está disponible en este servidor.");
   if (!dehuAutomaticaPermitida(o.workspaceId)) throw new ConexionRechazada("La DEHú automática aún no está disponible para tu despacho.");
@@ -281,13 +298,17 @@ export async function conectarDehu(admin: Admin, o: { workspaceId: string; p12: 
 
   const usos: UsoDehu[] = [];
   const ahora = new Date();
-  let envios: EnvioDehu[];
+  let envios: EnvioDehu[] = [];
+  let sinAlta = false;
   try {
     envios = await pendientes(new ClienteDehu(cert, o.entorno, (u) => usos.push(u)), cert.titular.nif, new Date(ahora.getTime() - DIAS_PENDIENTES * 86_400_000), ahora);
   } catch (e) {
-    await registrarUsos(admin, o.workspaceId, usos, o.userId);
-    const motivo = e instanceof Error ? e.message : String(e);
-    throw new ConexionRechazada(`La DEHú no acepta este certificado todavía (${motivo}). Comprueba que lo diste de alta como «Gran Destinatario» en la DEHú.`);
+    if (esCertificadoSinAlta(e)) sinAlta = true;
+    else {
+      await registrarUsos(admin, o.workspaceId, usos, o.userId);
+      const motivo = e instanceof Error ? e.message : String(e);
+      throw new ConexionRechazada(`La DEHú no ha podido comprobar este certificado (${motivo}). Inténtalo de nuevo en unos minutos.`);
+    }
   }
 
   const fila = {
@@ -296,7 +317,7 @@ export async function conectarDehu(admin: Admin, o: { workspaceId: string; p12: 
     claveCifrada: cifrarParaDespacho(Buffer.from(o.clave, "utf8"), o.workspaceId, "clave"),
     titularNombre: cert.titular.nombre, titularNif: cert.titular.nif, receptorNombre: cert.receptor.nombre, receptorNif: cert.receptor.nif,
     certTipo: cert.tipo, certEmisor: cert.emisor, certSerie: cert.serie, certCaducaAt: cert.caducaAt.toISOString(),
-    ultimaConsultaAt: ahora.toISOString(), ultimoExitoAt: ahora.toISOString(), ultimoError: null, erroresSeguidos: 0,
+    ultimaConsultaAt: ahora.toISOString(), ultimoExitoAt: sinAlta ? null : ahora.toISOString(), ultimoError: null, erroresSeguidos: 0,
     creadoPorId: o.userId, updatedAt: ahora.toISOString(),
   };
   const { conexion: previa } = await leerConexion(admin, o.workspaceId);
@@ -304,11 +325,11 @@ export async function conectarDehu(admin: Admin, o: { workspaceId: string; p12: 
     ? await admin.from("DehuConexion").update(fila).eq("id", previa.id)
     : await admin.from("DehuConexion").insert({ id: uuid(), ...fila });
   if (up.error) throw new Error(faltaTabla(up.error.message) ? ERROR_MIGRACION_DEHU_AUTO : up.error.message);
-  await registrarUsos(admin, o.workspaceId, [...usos, { operacion: "Conexion", identificador: null, ok: true, codigo: null, detalle: `Certificado ${cert.tipo} de ${cert.receptor.nombre}, caduca el ${cert.caducaAt.toISOString().slice(0, 10)}`, ms: 0 }], o.userId);
+  await registrarUsos(admin, o.workspaceId, [...usos, { operacion: "Conexion", identificador: null, ok: true, codigo: null, detalle: `Certificado ${cert.tipo} de ${cert.receptor.nombre}, caduca el ${cert.caducaAt.toISOString().slice(0, 10)}${sinAlta ? " · pendiente del alta de Gran Destinatario en la DEHú" : ""}`, ms: 0 }], o.userId);
 
   // Lo pendiente que ya ha visto la prueba entra enseguida en la bandeja.
   const { conexion } = await leerConexion(admin, o.workspaceId);
-  if (conexion) await guardarPendientes(admin, conexion, envios, { nuevas: 0, importadas: 0, otras: 0, cerradas: 0 }).catch((e) => console.error("[dehu auto] primeros avisos:", e));
+  if (conexion && !sinAlta) await guardarPendientes(admin, conexion, envios, { nuevas: 0, importadas: 0, otras: 0, cerradas: 0 }).catch((e) => console.error("[dehu auto] primeros avisos:", e));
   return estadoDehuAutomatica(admin, o.workspaceId);
 }
 

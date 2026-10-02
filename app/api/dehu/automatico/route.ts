@@ -10,9 +10,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60; // conectar hace una primera consulta real a la DEHú
 
 // DEHú AUTOMÁTICA — conexión del despacho (lib/dehu/sincronizar.ts).
-//   GET    → estado (cualquier miembro; nunca el certificado).
+//   GET    → estado (cualquier miembro; nunca el certificado ni su clave: solo su parte
+//            pública, mientras falta el alta en la DEHú).
 //   POST   → multipart: certificado (.p12/.pfx) + clave (+ entorno). Solo administradores.
-//            Se guarda SOLO si la DEHú lo acepta en una primera consulta.
+//            Si la DEHú aún no lo tiene de «Gran Destinatario» (4102 en producción, 4103
+//            en pruebas) se guarda pendiente de esa alta y la pantalla da la parte
+//            pública; cualquier otro rechazo, nada.
 //   DELETE → retira y borra el certificado. Solo administradores.
 const MAX_P12 = 64 * 1024;
 
