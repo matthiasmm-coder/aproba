@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conTarifasPropias, presupuestoOpcionesValidas, tarifasPropiasValidas, VALIDEZ_PRESUPUESTO_DIAS } from "@/lib/tarifas-propias";
+import { conTarifasPropias, fusionarOpciones, presupuestoOpcionesValidas, tarifasPropiasValidas, VALIDEZ_PRESUPUESTO_DIAS } from "@/lib/tarifas-propias";
 import { aplicarDescuento, serviciosDeExpediente, tarifaAsignada, tarifaDeServicios } from "@/lib/multi-servicio";
 import type { Servicio } from "@/lib/servicios";
 
@@ -16,10 +16,24 @@ describe("honorarios propios del expediente · lectura", () => {
   });
 
   it("opciones del presupuesto: validez 1-365 días (si no, 30) y nota recortada", () => {
-    expect(presupuestoOpcionesValidas({ validezDias: 15, nota: "  Precio para los dos cónyuges  " })).toEqual({ validezDias: 15, nota: "Precio para los dos cónyuges" });
-    expect(presupuestoOpcionesValidas({ validezDias: 0 })).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "" });
+    expect(presupuestoOpcionesValidas({ validezDias: 15, nota: "  Precio para los dos cónyuges  " })).toEqual({ validezDias: 15, nota: "Precio para los dos cónyuges", condiciones: "" });
+    expect(presupuestoOpcionesValidas({ validezDias: 0 })).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" });
     expect(presupuestoOpcionesValidas({ validezDias: 999, nota: "x".repeat(900) })!.nota).toHaveLength(600);
     expect(presupuestoOpcionesValidas("nada")).toBeNull();
+  });
+
+  it("cada ventana guarda lo suyo: el presupuesto no borra las condiciones de la hoja, ni al revés", () => {
+    const guardado = { validezDias: 15, nota: "Para los dos cónyuges", condiciones: "" };
+    // La hoja de encargo añade sus condiciones: la validez y la nota del presupuesto siguen.
+    const conHoja = fusionarOpciones(guardado, { condiciones: "  Incluye la cita de huellas  " });
+    expect(conHoja).toEqual({ validezDias: 15, nota: "Para los dos cónyuges", condiciones: "Incluye la cita de huellas" });
+    // El presupuesto cambia su nota: las condiciones de la hoja siguen.
+    expect(fusionarOpciones(conHoja, { validezDias: 30, nota: "" })).toEqual({ validezDias: 30, nota: "", condiciones: "Incluye la cita de huellas" });
+    // null (presupuesto por defecto, como mandaban los clientes anteriores) conserva las condiciones.
+    expect(fusionarOpciones(conHoja, null)).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "Incluye la cita de huellas" });
+    // Todo por defecto → la columna vuelve a null.
+    expect(fusionarOpciones({ validezDias: 30, nota: "", condiciones: "x" }, { condiciones: "" })).toBeNull();
+    expect(fusionarOpciones(null, { validezDias: 30, nota: "" })).toBeNull();
   });
 });
 

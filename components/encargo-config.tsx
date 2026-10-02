@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useT } from "@/components/lang-provider";
 import { modeloPorDefecto, type MandatoConsejoConfig, type ModeloMandato } from "@/lib/mandato-modelos";
+import { FirmaDespacho } from "@/components/firma-despacho";
 
 // Ajustes → «Hoja de encargo y mandato» (Matthias, 27/09/2026): DOS sub-tarjetas plegables,
 // cada una con SU interruptor — la hoja de encargo y los mandatos ya no se encienden juntos.
@@ -110,6 +111,7 @@ export function EncargoConfig({ inicial, servicios = [] }: { inicial: EncargoCon
             <input value={colegio} onChange={(e) => setColegio(e.target.value)} maxLength={120} className={inp} placeholder={t("Colegio Oficial de Gestores Administrativos de…")} />
           </div>
         </div>
+        <FirmaDespacho />
       </div>
 
       <SubTarjeta

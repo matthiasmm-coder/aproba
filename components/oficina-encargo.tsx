@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { VistaPrevia } from "@/components/encargo-config";
+import { FirmaDespacho } from "@/components/firma-despacho";
 
 // Hoja de encargo/mandato de UNA sede — modelo COPIA (Matthias 15/08): se copia un
 // bloque como base (de la gestoría o de otra sede), aparece AQUÍ editable, y se
@@ -147,6 +148,7 @@ export function OficinaEncargo({ oficinaId, nombre, inicial, comoOficinaId, fuen
           <div className="sm:col-span-2"><label className={lbl}>{t("Formas de pago (una por línea)")}</label>
             <textarea value={d.encargoFormasPago} onChange={(e) => setD({ ...d, encargoFormasPago: e.target.value })} rows={3} className={inp} /></div>
         </div>
+        <FirmaDespacho oficinaId={oficinaId} />
         <VistaPrevia onVer={verPrevia} documentos={[{ label: t("Hoja de encargo"), qs: "doc=hoja" }, { label: t("Presupuesto"), qs: "doc=presupuesto" }, { label: t("Mandato"), qs: "doc=mandato" }]} />
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" disabled={busy} onClick={() => correr(() => api({ action: "encargo", oficinaId, ...d }), true)}

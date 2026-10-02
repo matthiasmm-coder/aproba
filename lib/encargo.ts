@@ -9,6 +9,7 @@ import { fetchServiciosDeWorkspace } from "./data/config";
 import { TIPO_A_SERVICIO } from "./tramites";
 import { conTarifasPropias, VALIDEZ_PRESUPUESTO_DIAS, type PresupuestoOpciones } from "./tarifas-propias";
 import { leerPresupuestoExp } from "./data/tarifas-propias";
+import { leerFirma } from "./firma-despacho";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOJA DE ENCARGO + MANDATO DE REPRESENTACIÓN (petición del 1er cliente real).
@@ -48,8 +49,12 @@ export type DatosEncargo = {
   // representado ante la Administración (la persona extranjera), no la empresa que paga.
   persona?: DatosEncargo["cliente"];
   medios: string[]; // medios de pago disponibles (transferencia con IBAN, tarjeta…)
-  // Solo el PRESUPUESTO: validez y observaciones que el gestor fijó al generarlo (26/09/2026).
+  // Validez y observaciones del PRESUPUESTO (26/09/2026) y condiciones particulares de la
+  // HOJA DE ENCARGO (02/10/2026): lo que el gestor fijó para este expediente antes del PDF.
   presupuesto: PresupuestoOpciones;
+  // Imagen (PNG) de la firma y sello del profesional, la del ámbito cuyo bloque de encargo
+  // manda (sede con bloque propio o despacho) — lib/firma-despacho. null = línea en blanco.
+  firma?: Uint8Array | null;
 };
 
 const s = (v: unknown) => String(v ?? "").trim();
@@ -123,20 +128,24 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
   // (o la que apunta con «usar los mismos que X», un salto) tiene decisión propia
   // (hojaEncargoActiva no null), SU bloque manda: activa + mandatario + formas de pago.
   // Si no, el del despacho. El emisor fiscal ya se resuelve más abajo por su cuenta.
+  // La FIRMA sigue al mismo bloque: la del profesional de esa sede, o la del despacho.
+  let ambitoFirma: string | null = null;
   if (exp.oficinaId) {
     try {
       const { data: of } = await admin.from("Oficina")
         .select("hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago, encargoComoOficinaId")
         .eq("id", exp.oficinaId).maybeSingle();
       let bloque = of as Record<string, unknown> | null;
+      let duenoBloque: string = exp.oficinaId;
       const ref = (bloque?.encargoComoOficinaId as string | null) ?? null;
       if (ref) {
         const { data: dest } = await admin.from("Oficina")
           .select("hojaEncargoActiva, mandatarioNombre, mandatarioDni, mandatarioColegiado, mandatarioColegio, encargoFormasPago")
           .eq("id", ref).maybeSingle();
-        if (dest) bloque = dest as Record<string, unknown>;
+        if (dest) { bloque = dest as Record<string, unknown>; duenoBloque = ref; }
       }
       if (bloque && bloque.hojaEncargoActiva !== null && bloque.hojaEncargoActiva !== undefined) {
+        ambitoFirma = duenoBloque;
         ws.hojaEncargoActiva = bloque.hojaEncargoActiva;
         ws.mandatarioNombre = bloque.mandatarioNombre ?? null;
         ws.mandatarioDni = bloque.mandatarioDni ?? null;
@@ -287,7 +296,8 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
       : null,
     medios,
-    presupuesto: presu.opciones ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "" },
+    presupuesto: presu.opciones ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" },
+    firma: await leerFirma(admin, exp.workspaceId, ambitoFirma),
   };
 }
 
@@ -388,17 +398,25 @@ class Maqueta {
     lns.forEach((ln, i) => this.page.drawText(ln, { x: MARGEN + 150, y: this.y - size - i * lh, size, font: this.bold, color: TINTA }));
     this.y -= alto;
   }
-  firmas(izq: string, der: string) {
-    this.necesita(86);
+  // Dos firmas en paralelo. Con la imagen de la firma del profesional (Luis, 02/10/2026) el
+  // hueco sobre la línea crece (52 → 74 pt) para que la firma se lea; sin imagen, como siempre.
+  firmas(izq: string, der: string, imgs: { izq?: PDFImage | null; der?: PDFImage | null } = {}) {
+    const hueco = imgs.izq || imgs.der ? 74 : 52;
+    this.necesita(hueco + 34);
     const mitad = MARGEN + ANCHO / 2;
     const yTop = this.y - 8;
-    this.page.drawText(limpiar(izq), { x: MARGEN, y: yTop, size: 9, font: this.bold, color: TINTA });
-    this.page.drawText(limpiar(der), { x: mitad + 20, y: yTop, size: 9, font: this.bold, color: TINTA });
-    const yLinea = yTop - 52;
-    this.page.drawLine({ start: { x: MARGEN, y: yLinea }, end: { x: MARGEN + 190, y: yLinea }, thickness: 0.7, color: GRIS });
-    this.page.drawLine({ start: { x: mitad + 20, y: yLinea }, end: { x: mitad + 210, y: yLinea }, thickness: 0.7, color: GRIS });
-    this.page.drawText("Firma", { x: MARGEN, y: yLinea - 11, size: 7.5, font: this.font, color: GRIS });
-    this.page.drawText("Firma", { x: mitad + 20, y: yLinea - 11, size: 7.5, font: this.font, color: GRIS });
+    const yLinea = yTop - hueco;
+    for (const [texto, x, img] of [[izq, MARGEN, imgs.izq], [der, mitad + 20, imgs.der]] as const) {
+      if (!texto) continue;
+      this.page.drawText(limpiar(texto), { x, y: yTop, size: 9, font: this.bold, color: TINTA });
+      this.page.drawLine({ start: { x, y: yLinea }, end: { x: x + 190, y: yLinea }, thickness: 0.7, color: GRIS });
+      this.page.drawText("Firma", { x, y: yLinea - 11, size: 7.5, font: this.font, color: GRIS });
+      if (img) {
+        // Encajada entre la etiqueta y la línea, apoyada en la línea (como una firma a mano).
+        const { ancho, alto } = medidasLogo(img, 190, hueco - 14);
+        this.page.drawImage(img, { x, y: yLinea + 2, width: ancho, height: alto });
+      }
+    }
     this.y = yLinea - 26;
   }
   cabecera(despacho: string, referencia: string) {
@@ -428,10 +446,18 @@ class Maqueta {
 // (encargo, protección de datos y firmas). Pedido por un despacho el 08/09/2026.
 export type ModoEncargo = "encargo" | "presupuesto";
 
+// La firma del profesional, si el despacho la subió (PNG normalizado al subirla). Un PNG
+// que no se pueda embeber deja la línea en blanco: el documento sale igual.
+async function embeberFirma(m: Maqueta, png?: Uint8Array | null): Promise<PDFImage | null> {
+  if (!png?.length) return null;
+  try { return await m.doc.embedPng(png); } catch { return null; }
+}
+
 export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "encargo"): Promise<Uint8Array> {
   const esPres = modo === "presupuesto";
   const alInicio = esPres ? "Al inicio" : "Al inicio (a la firma)";
   const m = await Maqueta.crear(d.despacho.logo);
+  const firma = await embeberFirma(m, d.firma);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo(esPres ? "PRESUPUESTO" : "HOJA DE ENCARGO PROFESIONAL");
   m.parrafo(`Fecha: ${fechaLarga(d.fecha)}`, { size: 8.5, color: GRIS });
@@ -593,10 +619,21 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
     }
     m.espacio(8);
     m.parrafo("Este presupuesto es informativo y no supone encargo. Al aceptarlo se emite la hoja de encargo profesional, que recoge estas mismas condiciones.", { size: 9 });
+    // Con firma del despacho, el presupuesto va firmado por él (sin línea para el cliente:
+    // no es un contrato). Sin firma, como siempre.
+    if (firma) { m.espacio(14); m.firmas("POR EL DESPACHO", "", { izq: firma }); }
     return m.bytes();
   }
 
-  m.seccion("7. PROTECCIÓN DE DATOS");
+  // Condiciones particulares de ESTE expediente (Luis, 02/10/2026: «dejar campos editables
+  // […] y luego que lo saque en PDF»): las escribe el gestor en «Hoja de encargo y mandato».
+  const condiciones = (d.presupuesto.condiciones ?? "").trim();
+  if (condiciones) {
+    m.seccion("7. CONDICIONES PARTICULARES");
+    m.parrafo(condiciones);
+  }
+
+  m.seccion(`${condiciones ? 8 : 7}. PROTECCIÓN DE DATOS`);
   m.parrafo(`Los datos personales del cliente serán tratados por ${d.despacho.nombre} como responsable del tratamiento, con la única finalidad de prestar los servicios objeto de este encargo y cumplir las obligaciones legales derivadas. El cliente puede ejercer sus derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad dirigiéndose al despacho en los datos de contacto indicados. Conforme al RGPD (UE) 2016/679 y la LO 3/2018.`, { size: 8.5, color: GRIS });
 
   m.espacio(10);
@@ -605,7 +642,7 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   // Cliente-EMPRESA: quien firma el encargo es la EMPRESA (es quien contrata y paga), no
   // el trabajador — él solo firma el mandato, que es lo que se le representa. Se nombra
   // bajo la línea para que nadie firme por error (verificación pedida el 18/09/2026).
-  m.firmas("EL PROFESIONAL", d.trabajador !== undefined ? "EL CLIENTE (LA EMPRESA)" : "EL CLIENTE");
+  m.firmas("EL PROFESIONAL", d.trabajador !== undefined ? "EL CLIENTE (LA EMPRESA)" : "EL CLIENTE", { izq: firma });
   if (d.trabajador !== undefined && !d.trabajador.trim()) {
     // Expediente DE EMPRESA que aún no tiene trabajadores: el contrato lo dice sin dejar
     // un hueco punteado con nombre de nadie.
@@ -624,6 +661,7 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
 // de su propia representación); sin ella, la persona del expediente o el cliente.
 export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo): Promise<Uint8Array> {
   const m = await Maqueta.crear(d.despacho.logo);
+  const firma = await embeberFirma(m, d.firma);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo("MANDATO CON REPRESENTACIÓN");
   m.espacio(2);
@@ -654,6 +692,6 @@ export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo):
   m.espacio(6);
   m.parrafo("El mandatario acepta el mandato conferido y se obliga a cumplirlo de conformidad con las instrucciones del mandante, y declara bajo su responsabilidad que los documentos recibidos del mandante han sido verificados en cuanto a la corrección formal de los datos contenidos en los mismos.", { size: 8.5, color: GRIS });
   m.espacio(10);
-  m.firmas("EL MANDANTE", "EL MANDATARIO");
+  m.firmas("EL MANDANTE", "EL MANDATARIO", { der: firma });
   return m.bytes();
 }

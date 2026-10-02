@@ -13,8 +13,9 @@
 export type TarifaPropia = { anticipo: number; resto: number };
 export type TarifasPropias = Record<string, TarifaPropia>; // clave del servicio → tarifa
 
-// Opciones que solo imprime el PRESUPUESTO (no la hoja de encargo ni la factura).
-export type PresupuestoOpciones = { validezDias: number; nota: string };
+// Opciones de los documentos de ESTE expediente: validez y observaciones del PRESUPUESTO, y
+// condiciones particulares de la HOJA DE ENCARGO (Luis, 02/10/2026). Ninguna va a la factura.
+export type PresupuestoOpciones = { validezDias: number; nota: string; condiciones: string };
 
 export const VALIDEZ_PRESUPUESTO_DIAS = 30; // la que se imprimía fija hasta el 26/09
 export const MAX_TARIFA = 100_000;
@@ -52,11 +53,28 @@ export function conTarifasPropias<T extends { id: string; anticipo: number; rest
 
 export function presupuestoOpcionesValidas(x: unknown): PresupuestoOpciones | null {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
-  const v = x as { validezDias?: unknown; nota?: unknown };
+  const v = x as { validezDias?: unknown; nota?: unknown; condiciones?: unknown };
   const dias = Math.round(Number(v.validezDias));
-  const nota = typeof v.nota === "string" ? v.nota.trim().slice(0, MAX_NOTA) : "";
+  const texto = (t: unknown) => (typeof t === "string" ? t.trim().slice(0, MAX_NOTA) : "");
   return {
     validezDias: Number.isFinite(dias) && dias >= 1 && dias <= 365 ? dias : VALIDEZ_PRESUPUESTO_DIAS,
-    nota,
+    nota: texto(v.nota),
+    condiciones: texto(v.condiciones),
   };
+}
+
+// Cada ventana guarda SUS campos: el presupuesto la validez y la nota, la hoja de encargo sus
+// condiciones. Se funden con lo guardado para que una no borre lo de la otra. `parcial` null
+// (clientes anteriores) = presupuesto por defecto, conservando las condiciones. Todo por
+// defecto → null (la columna vacía, como antes).
+export function fusionarOpciones(actual: unknown, parcial: unknown): PresupuestoOpciones | null {
+  const a = presupuestoOpcionesValidas(actual) ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" };
+  const p = parcial && typeof parcial === "object" && !Array.isArray(parcial) ? (parcial as Record<string, unknown>) : null;
+  const tiene = (k: string) => Boolean(p && Object.prototype.hasOwnProperty.call(p, k));
+  const nuevo = presupuestoOpcionesValidas({
+    validezDias: p ? (tiene("validezDias") ? p.validezDias : a.validezDias) : VALIDEZ_PRESUPUESTO_DIAS,
+    nota: p ? (tiene("nota") ? p.nota : a.nota) : "",
+    condiciones: tiene("condiciones") ? p!.condiciones : a.condiciones,
+  })!;
+  return nuevo.validezDias === VALIDEZ_PRESUPUESTO_DIAS && !nuevo.nota && !nuevo.condiciones ? null : nuevo;
 }

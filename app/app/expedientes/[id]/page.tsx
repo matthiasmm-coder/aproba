@@ -26,7 +26,7 @@ import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { EnviarDocButton } from "@/components/enviar-doc-button";
-import { PresupuestoBoton } from "@/components/presupuesto-modal";
+import { EncargoBoton, PresupuestoBoton } from "@/components/presupuesto-modal";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
 import { EliminarExpedienteButton } from "@/components/eliminar-expediente-button";
@@ -242,6 +242,19 @@ export default async function ExpedienteDetail({
   // ya multiplicados (override global ×N; los del servicio ×miembros de SU servicio).
   const suplidosBase = suplidosDeExpediente(e.suplidosOverride, serviciosExp);
   const suplidosExp = suplidosAsignados(e.suplidosOverride, serviciosExp, e.serviciosAsignacion, nMiembrosExp);
+  // El precio de ESTE expediente, para las dos ventanas que lo ajustan antes del PDF: el
+  // presupuesto y la hoja de encargo (+ mandato).
+  const precioExp = {
+    expedienteId: e.id,
+    referencia: e.referencia,
+    servicios: serviciosCatalogoExp.map((s) => ({ id: s.id, label: s.label, anticipo: s.anticipo, resto: s.resto, precioOculto: s.precioOculto, porcentaje: s.porcentaje })),
+    tarifasPropias: e.tarifasPropias,
+    asignacion: e.serviciosAsignacion,
+    nMiembros: nMiembrosExp,
+    descuento: e.descuento,
+    opciones: e.presupuestoOpciones,
+    suplidosTotal: suplidosExp.reduce((a, x) => a + x.importe, 0),
+  };
 
   // Documentos del cliente que aún faltan (no VALIDADO/PROCESANDO). El aviso persiste
   // mientras falten, en cualquier estado — el gestor puede haber avanzado igualmente.
@@ -497,28 +510,23 @@ export default async function ExpedienteDetail({
               {/* «Generar presupuesto» abre una ventana para personalizarlo (precio de ESTE
                   expediente, descuento, validez, observaciones) y descargarlo o enviarlo —
                   pedido por Juan, 26/09/2026. */}
-              <PresupuestoBoton
-                expedienteId={e.id}
-                referencia={e.referencia}
-                servicios={serviciosCatalogoExp.map((s) => ({ id: s.id, label: s.label, anticipo: s.anticipo, resto: s.resto, precioOculto: s.precioOculto, porcentaje: s.porcentaje }))}
-                tarifasPropias={e.tarifasPropias}
-                asignacion={e.serviciosAsignacion}
-                nMiembros={nMiembrosExp}
-                descuento={e.descuento}
-                opciones={e.presupuestoOpciones}
-                suplidosTotal={suplidosExp.reduce((a, x) => a + x.importe, 0)}
-              />
+              <PresupuestoBoton {...precioExp} />
               {" · "}
               {t("Para firmar:")}{" "}
-              {despachoEncargo.hoja && (
-                <a href={`/api/expedientes/${e.id}/encargo?doc=hoja`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("hoja de encargo (PDF)")}</a>
+              {/* Con la hoja activa, una ventana para ajustar el precio y las condiciones
+                  particulares antes de descargar o enviar la hoja y el mandato (Luis, 02/10/2026).
+                  Solo el mandato (sin precio que ajustar): su descarga directa, como siempre. */}
+              {despachoEncargo.hoja ? (
+                <EncargoBoton {...precioExp} docs={{ hoja: true, mandato: despachoEncargo.mandato }} />
+              ) : (
+                <>
+                  {despachoEncargo.mandato && (
+                    <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
+                  )}
+                  {" · "}
+                  <EnviarDocButton expedienteId={e.id} doc="encargo" />
+                </>
               )}
-              {despachoEncargo.hoja && despachoEncargo.mandato && " · "}
-              {despachoEncargo.mandato && (
-                <a href={`/api/expedientes/${e.id}/encargo?doc=mandato`} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">{t("mandato (PDF)")}</a>
-              )}
-              {" · "}
-              <EnviarDocButton expedienteId={e.id} doc="encargo" />
             </p>
           )}
           {/* Las casillas del trámite SIEMPRE a la vista, en su orden, tenga o no el

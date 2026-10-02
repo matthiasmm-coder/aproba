@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { eur, totalDe, r2 } from "@/lib/facturas";
 import { aplicarDescuento, tarifaAsignada, type Descuento, type ServiciosAsignacion } from "@/lib/multi-servicio";
@@ -16,6 +17,11 @@ import { useScrollBloqueado } from "@/lib/scroll-bloqueado";
 //
 // NO calcula dinero por su cuenta: la vista previa usa los mismos helpers que el servidor
 // (conTarifasPropias → tarifaAsignada → aplicarDescuento), y guarda por las rutas de siempre.
+//
+// La MISMA ventana prepara la HOJA DE ENCARGO Y EL MANDATO (Luis, 02/10/2026: «dejar campos
+// editables, modificar lo que queramos —precio, por ejemplo— y luego que lo saque en PDF»):
+// el mismo precio del expediente y, en vez de validez y observaciones, unas condiciones
+// particulares que la hoja imprime en su propio apartado. Nada de editar un PDF a mano.
 
 export type ServicioPresupuesto = { id: string; label: string; anticipo: number; resto: number; precioOculto?: boolean; porcentaje?: number };
 
@@ -29,6 +35,8 @@ type Props = {
   descuento: Descuento | null;
   opciones: PresupuestoOpciones | null;
   suplidosTotal: number; // tasas previstas (sin IVA), solo informativo
+  modo?: "presupuesto" | "encargo";
+  docs?: { hoja: boolean; mandato: boolean }; // modo encargo: qué documentos tiene activos el despacho
 };
 
 const num = (s: string) => { const n = Number(s.replace(",", ".")); return Number.isFinite(n) && n >= 0 ? r2(n) : NaN; };
@@ -42,13 +50,32 @@ export function PresupuestoBoton(props: Props) {
       <button type="button" onClick={() => setAbierto(true)} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">
         {t("generar presupuesto")}
       </button>
-      {abierto && <PresupuestoModal {...props} onClose={() => setAbierto(false)} />}
+      {/* En <body>: el enlace vive dentro de un <p> de la ficha, y una ventana (div, h2, p)
+          dentro de un <p> es HTML inválido (React lo avisa en cada apertura). */}
+      {abierto && createPortal(<PresupuestoModal {...props} onClose={() => setAbierto(false)} />, document.body)}
     </>
   );
 }
 
-function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias, asignacion, nMiembros, descuento, opciones, suplidosTotal, onClose }: Props & { onClose: () => void }) {
+// «Para firmar: hoja de encargo y mandato» en la ficha: la misma ventana en modo encargo.
+export function EncargoBoton(props: Omit<Props, "modo">) {
   const t = useT();
+  const [abierto, setAbierto] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setAbierto(true)} className="inline-block py-2 font-medium text-aproba-700 underline underline-offset-2 hover:text-aproba-600 sm:py-0">
+        {props.docs?.mandato ? t("hoja de encargo y mandato") : t("hoja de encargo")}
+      </button>
+      {abierto && createPortal(<PresupuestoModal {...props} modo="encargo" onClose={() => setAbierto(false)} />, document.body)}
+    </>
+  );
+}
+
+function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias, asignacion, nMiembros, descuento, opciones, suplidosTotal, modo = "presupuesto", docs, onClose }: Props & { onClose: () => void }) {
+  const t = useT();
+  const esEncargo = modo === "encargo";
+  const conMandato = esEncargo && Boolean(docs?.mandato);
+  const titulo = !esEncargo ? t("Presupuesto") : conMandato ? t("Hoja de encargo y mandato") : t("Hoja de encargo");
   const router = useRouter();
   useScrollBloqueado();
 
@@ -64,7 +91,8 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
   const [motivo, setMotivo] = useState(descuento?.motivo ?? "");
   const [validez, setValidez] = useState(String(opciones?.validezDias ?? VALIDEZ_PRESUPUESTO_DIAS));
   const [nota, setNota] = useState(opciones?.nota ?? "");
-  const [busy, setBusy] = useState<"" | "pdf" | "email">("");
+  const [condiciones, setCondiciones] = useState(opciones?.condiciones ?? "");
+  const [busy, setBusy] = useState<"" | "pdf" | "mandato" | "email">("");
   const [error, setError] = useState<string | null>(null);
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
 
@@ -96,7 +124,8 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
   async function guardar(): Promise<boolean> {
     setError(null);
     try {
-      const opcionesNuevas = dias === VALIDEZ_PRESUPUESTO_DIAS && !nota.trim() ? null : { validezDias: dias, nota: nota.trim() };
+      // Cada modo manda SOLO sus campos: el servidor los funde con lo guardado.
+      const opcionesNuevas = esEncargo ? { condiciones: condiciones.trim() } : { validezDias: dias, nota: nota.trim() };
       const r = await fetch(`/api/expedientes/${expedienteId}/presupuesto`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tarifas, opciones: opcionesNuevas }),
@@ -120,14 +149,15 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
     }
   }
 
-  async function descargar() {
-    setBusy("pdf");
+  async function descargar(doc: "presupuesto" | "hoja" | "mandato") {
+    setBusy(doc === "mandato" ? "mandato" : "pdf");
     if (await guardar()) {
       // Descarga (Content-Disposition: attachment): no abre pestaña ni sale de la ficha.
       const a = document.createElement("a");
-      a.href = `/api/expedientes/${expedienteId}/encargo?doc=presupuesto`;
+      a.href = `/api/expedientes/${expedienteId}/encargo?doc=${doc}`;
       document.body.appendChild(a); a.click(); a.remove();
-      onClose();
+      // La hoja y el mandato se suelen bajar los dos: la ventana sigue abierta en modo encargo.
+      if (!esEncargo) onClose();
     }
     setBusy("");
   }
@@ -136,7 +166,7 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
     setBusy("email");
     if (await guardar()) {
       try {
-        const r = await fetch(`/api/expedientes/${expedienteId}/enviar-doc?doc=presupuesto`, { method: "POST" });
+        const r = await fetch(`/api/expedientes/${expedienteId}/enviar-doc?doc=${esEncargo ? "encargo" : "presupuesto"}`, { method: "POST" });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error ?? t("No se pudo enviar el documento."));
         setEnviadoA(typeof j.para === "string" && j.para ? j.para : t("el cliente"));
@@ -152,19 +182,21 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm sm:p-4" onClick={() => !busy && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={t("Presupuesto")} className="mt-4 w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-xl sm:my-8 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={titulo} className="mt-4 w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-left shadow-xl sm:my-8 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-bold text-slate-900">{t("Presupuesto")} <span className="font-normal text-slate-400">· {referencia}</span></h2>
+          <h2 className="text-lg font-bold text-slate-900">{titulo} <span className="font-normal text-slate-400">· {referencia}</span></h2>
           <button onClick={onClose} disabled={Boolean(busy)} className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100" aria-label={t("Cerrar")}>
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
-        <p className="mb-5 text-sm text-slate-500">{t("Ajusta el precio de este expediente antes de generar el presupuesto. El precio del servicio en Ajustes no cambia.")}</p>
+        <p className="mb-5 text-sm text-slate-500">{esEncargo
+          ? t("Ajusta el precio de este expediente y, si hace falta, añade condiciones particulares antes de generar la hoja de encargo. El precio del servicio en Ajustes no cambia.")
+          : t("Ajusta el precio de este expediente antes de generar el presupuesto. El precio del servicio en Ajustes no cambia.")}</p>
 
         {enviadoA ? (
           <div className="rounded-xl border border-aproba-200 bg-aproba-50/60 p-4 text-sm text-slate-700">
-            <p className="font-semibold text-aproba-800">{t("Presupuesto enviado ✓")}</p>
-            <p className="mt-1">{t("Lo ha recibido {email} con el PDF adjunto.").replace("{email}", enviadoA)}</p>
+            <p className="font-semibold text-aproba-800">{esEncargo ? t("Documentos enviados ✓") : t("Presupuesto enviado ✓")}</p>
+            <p className="mt-1">{(esEncargo ? t("Los ha recibido {email} con los PDF adjuntos, para firmarlos.") : t("Lo ha recibido {email} con el PDF adjunto.")).replace("{email}", enviadoA)}</p>
             <div className="mt-4 text-right">
               <button onClick={onClose} className="rounded-lg bg-aproba-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-aproba-700">{t("Cerrar")}</button>
             </div>
@@ -235,6 +267,13 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
               </div>
             </div>
 
+            {esEncargo ? (
+              <label className="mt-4 block">
+                <span className={lbl}>{t("Condiciones particulares")} <span className="font-normal normal-case tracking-normal text-slate-400">— {t("opcional")}</span></span>
+                <textarea value={condiciones} maxLength={MAX_NOTA} rows={3} onChange={(e) => setCondiciones(e.target.value)} placeholder={t("P. ej.: incluye la cita para la toma de huellas; las traducciones juradas corren a cargo del cliente")} className={`mt-1.5 w-full resize-y ${inp}`} />
+                <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">{t("Salen en la hoja de encargo, en su propio apartado. El presupuesto y la factura no las llevan.")}</span>
+              </label>
+            ) : (
             <div className="mt-4 grid gap-3 sm:grid-cols-[7rem_1fr]">
               <label className="block">
                 <span className={lbl}>{t("Validez")}</span>
@@ -248,6 +287,7 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
                 <textarea value={nota} maxLength={MAX_NOTA} rows={2} onChange={(e) => setNota(e.target.value)} placeholder={t("P. ej.: precio para los dos cónyuges; no incluye traducciones")} className={`mt-1.5 w-full resize-y ${inp}`} />
               </label>
             </div>
+            )}
 
             {/* Lo que verá el cliente — con IVA, como en su enlace y en su factura. */}
             <div className="mt-5 rounded-xl border border-slate-200 bg-cream-50/60 p-4">
@@ -270,9 +310,13 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
                   {suplidosTotal > 0 && <p className="mt-1 text-right text-xs text-slate-400">+ {eur(r2(suplidosTotal))} {t("de tasas previstas (sin IVA)")}</p>}
                 </>
               ) : (
-                <p className="text-sm text-slate-500">{t("Sin honorarios: el presupuesto dirá «según presupuesto». Indica un importe para que lo muestre.")}</p>
+                <p className="text-sm text-slate-500">{esEncargo
+                  ? t("Sin honorarios: la hoja de encargo dirá «según presupuesto». Indica un importe para que lo muestre.")
+                  : t("Sin honorarios: el presupuesto dirá «según presupuesto». Indica un importe para que lo muestre.")}</p>
               )}
-              <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] leading-relaxed text-slate-400">{t("Este precio vale también para la hoja de encargo, el enlace del cliente y las facturas de este expediente.")}</p>
+              <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] leading-relaxed text-slate-400">{esEncargo
+                ? t("Este precio vale también para el presupuesto, el enlace del cliente y las facturas de este expediente.")
+                : t("Este precio vale también para la hoja de encargo, el enlace del cliente y las facturas de este expediente.")}</p>
             </div>
 
             {error && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -283,8 +327,13 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
               <button type="button" onClick={enviar} disabled={!puede} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
                 {busy === "email" ? t("enviando…") : t("Enviar por email")}
               </button>
-              <button type="button" onClick={descargar} disabled={!puede} className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
-                {busy === "pdf" ? "…" : t("Descargar PDF")}
+              {conMandato && (
+                <button type="button" onClick={() => descargar("mandato")} disabled={!puede} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-50">
+                  {busy === "mandato" ? "…" : t("Descargar el mandato")}
+                </button>
+              )}
+              <button type="button" onClick={() => descargar(esEncargo ? "hoja" : "presupuesto")} disabled={!puede} className="rounded-lg bg-aproba-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-aproba-700 disabled:bg-slate-200 disabled:text-slate-400">
+                {busy === "pdf" ? "…" : esEncargo ? t("Descargar la hoja") : t("Descargar PDF")}
               </button>
             </div>
           </>

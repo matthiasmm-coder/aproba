@@ -4,13 +4,15 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { honorariosCobrados, tieneCuotas } from "@/lib/facturas";
 import { aplicarDescuento, asignacionValida, catalogoDeSede, clavesDeExpediente, descuentoValido, serviciosDeExpediente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
-import { presupuestoOpcionesValidas, tarifasPropiasValidas, type TarifasPropias } from "@/lib/tarifas-propias";
+import { fusionarOpciones, tarifasPropiasValidas, type TarifasPropias } from "@/lib/tarifas-propias";
 
 // PRESUPUESTO A MEDIDA (pedido por Juan, 26/09/2026): al generar el presupuesto, el gestor
 // fija los honorarios de ESTE expediente —por servicio, al inicio y al finalizar— sin tocar
 // el precio del servicio en Ajustes, y opcionalmente la validez y unas observaciones.
 //   body.tarifas  = { [clave]: { anticipo, resto } } → precio propio · null → precio del catálogo
-//   body.opciones = { validezDias, nota }            → solo el presupuesto · null → 30 días, sin nota
+//   body.opciones = { validezDias, nota }            → el presupuesto · null → 30 días, sin nota
+//                 | { condiciones }                  → la hoja de encargo (Luis, 02/10/2026)
+//   Las opciones se FUNDEN con las guardadas (fusionarOpciones): cada ventana toca solo lo suyo.
 // El precio propio manda después en la hoja de encargo, el enlace del cliente y las facturas
 // (serviciosDeExpediente). Sesión + RLS (anti-IDOR), como la ruta del descuento.
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
@@ -32,7 +34,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const admin = createSupabaseAdmin();
   const resExp = await admin.from("Expediente")
-    .select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId, serviciosAsignacion, descuento, oficinaId, tarifasPropias")
+    .select("tipo, servicioClave, serviciosExtra, suplidosOverride, familiaId, serviciosAsignacion, descuento, oficinaId, tarifasPropias, presupuestoOpciones")
     .eq("id", id).maybeSingle();
   if (resExp.error) {
     const falta = /tarifasPropias|presupuestoOpciones/i.test(resExp.error.message);
@@ -41,6 +43,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const exp = resExp.data as {
     tipo: string; servicioClave: string | null; serviciosExtra?: string[] | null; suplidosOverride?: { concepto: string; importe: number }[] | null;
     familiaId: string | null; serviciosAsignacion?: unknown; descuento?: unknown; oficinaId?: string | null; tarifasPropias?: unknown;
+    presupuestoOpciones?: unknown;
   } | null;
   if (!exp) return NextResponse.json({ error: "Expediente no encontrado." }, { status: 404 });
 
@@ -55,7 +58,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Importe inválido: usa euros sin IVA, de 0 a 100.000." }, { status: 400 });
     }
   }
-  const opciones = body.opciones === null || body.opciones === undefined ? null : presupuestoOpcionesValidas(body.opciones);
+  const opciones = body.opciones === undefined ? (exp.presupuestoOpciones ?? null) : fusionarOpciones(exp.presupuestoOpciones, body.opciones);
 
   // Contexto de tarifa, ANTES y DESPUÉS, con la misma regla que factura /api/pagos: tarifa del
   // catálogo de la sede → precio propio → ×miembros → descuento.
