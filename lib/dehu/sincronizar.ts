@@ -7,7 +7,7 @@ import { dehuAutomaticaPermitida } from "@/lib/dehu/piloto";
 import { CertificadoInvalido, leerCertificado, type CertificadoLeido } from "@/lib/dehu/certificado";
 import { ClienteDehu, type UsoDehu } from "@/lib/dehu/cliente";
 import { ErrorDehu, esCodigoExito, type EnvioDehu, type Entorno, type RefEnvio } from "@/lib/dehu/soap";
-import { REALIZADA_CON_DOCUMENTO, REALIZADA_SIN_ABRIR, avisoDeEnvio, diaMadrid, esDeExtranjeria, huellaLema, numeroOficialEnTexto } from "@/lib/dehu/envios";
+import { REALIZADA_CON_DOCUMENTO, REALIZADA_SIN_ABRIR, avisoDeEnvio, desdeRealizadas, diaMadrid, esDeExtranjeria, huellaLema, numeroOficialEnTexto } from "@/lib/dehu/envios";
 import { COLS_NOTIFICACION, avisoQueCierra, mapFilaNotificacion, sugerirExpediente, type NotificacionDehu } from "@/lib/notificaciones-dehu";
 import { candidatosDeWorkspace, faltaMigracionDehu, importarNotificacion } from "@/lib/notificaciones-dehu-guardar";
 
@@ -28,7 +28,6 @@ const faltaTabla = (msg: string) => /DehuConexion|DehuUsoCertificado|relation|sc
 
 const CADA_MIN = 20;                 // consulta automática como mucho cada 20 minutos
 const DIAS_PENDIENTES = 12;          // los pendientes caducan a los 10 días naturales
-const DIAS_REALIZADAS_PRIMERA = 30;  // primera revisión de las ya abiertas
 const MAX_DOCUMENTOS_POR_CONSULTA = 3; // cada uno es una lectura IA de varios segundos
 const MAX_PAGINAS_REALIZADAS = 5;
 
@@ -183,7 +182,7 @@ async function traerDocumento(admin: Admin, c: ConexionDehu, cliente: ClienteDeh
 // Las ya abiertas, rechazadas o expiradas desde la última revisión.
 async function revisarRealizadas(admin: Admin, c: ConexionDehu, cliente: ClienteDehu, r: Resumen) {
   const hasta = new Date();
-  const desde = c.realizadasDesde ? new Date(c.realizadasDesde) : new Date(hasta.getTime() - DIAS_REALIZADAS_PRIMERA * 86_400_000);
+  const desde = desdeRealizadas(c.realizadasDesde, hasta); // 29 días como mucho (límite de la DEHú)
   const envios: EnvioDehu[] = [];
   for (const f of filtrosDe(c.titularNif ?? "")) {
     for (let pagina = 1; pagina <= MAX_PAGINAS_REALIZADAS; pagina++) {

@@ -15,6 +15,16 @@ const EMISOR_EXTRANJERIA = /extranjer|delegaci[oó]n del gobierno|subdelegaci[o�
 const EMISOR_AJENO = /seguridad social|tesorer[ií]a|tributari|hacienda|aduanas|tr[aá]fico|catastro|empleo|\bsepe\b|mutua|inspecci[oó]n de trabajo|ayuntamiento|diputaci[oó]n|juzgado|tribunal/i;
 const ASUNTO_EXTRANJERIA = /extranjer|residencia|arraigo|reagrupaci|nacionalidad|\bTIE\b|\bNIE\b|autorizaci[oó]n de (residencia|estancia|trabajo)|protecci[oó]n internacional|visado/i;
 
+// La DEHú no deja buscar las ya abiertas más atrás de 30 días: «4224 La "Fecha Desde" no
+// puede ser anterior a "30" días» (02/10/2026, primera consulta real). Se piden 29 como
+// mucho, con un día de margen por la hora de su servidor. Lo abierto antes queda fuera.
+export const DIAS_REALIZADAS_MAX = 29;
+export function desdeRealizadas(realizadasDesde: string | null, hasta: Date): Date {
+  const minimo = hasta.getTime() - DIAS_REALIZADAS_MAX * 86_400_000;
+  const pedido = realizadasDesde ? new Date(realizadasDesde).getTime() : minimo;
+  return new Date(Number.isFinite(pedido) ? Math.max(pedido, minimo) : minimo);
+}
+
 export function esDeExtranjeria(e: Pick<EnvioDehu, "organismo" | "organismoRaiz" | "concepto" | "descripcion">): boolean {
   const emisor = e.organismo.nombre ?? "";
   const suyo = EMISOR_EXTRANJERIA.test(emisor), ajeno = EMISOR_AJENO.test(emisor);

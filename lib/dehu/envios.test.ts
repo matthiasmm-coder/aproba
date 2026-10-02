@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoDeEnvio, diaMadrid, esDeExtranjeria, huellaLema, numeroOficialEnTexto } from "@/lib/dehu/envios";
+import { avisoDeEnvio, desdeRealizadas, diaMadrid, esDeExtranjeria, huellaLema, numeroOficialEnTexto } from "@/lib/dehu/envios";
 import type { EnvioDehu } from "@/lib/dehu/soap";
 
 const envio = (o: Partial<EnvioDehu> & { emisor?: string; raiz?: string } = {}): EnvioDehu => ({
@@ -71,5 +71,17 @@ describe("el aviso que se guarda", () => {
   it("día de Madrid de una fecha de la DEHú", () => {
     expect(diaMadrid("2026-09-29T23:30:00Z")).toBe("2026-09-30");
     expect(diaMadrid("no es fecha")).toBeNull();
+  });
+});
+
+describe("ventana de las ya abiertas (LocalizaRealizadas)", () => {
+  const hasta = new Date("2026-10-02T18:21:30Z");
+  it("la primera vez, 29 días: la DEHú rechaza más de 30 («4224»)", () => {
+    expect(desdeRealizadas(null, hasta).toISOString()).toBe("2026-09-03T18:21:30.000Z");
+  });
+  it("después, desde la última revisión completa, pero nunca más atrás de 29 días", () => {
+    expect(desdeRealizadas("2026-09-30T10:00:00Z", hasta).toISOString()).toBe("2026-09-30T10:00:00.000Z");
+    expect(desdeRealizadas("2026-08-01T00:00:00Z", hasta).toISOString()).toBe("2026-09-03T18:21:30.000Z");
+    expect(desdeRealizadas("no es una fecha", hasta).toISOString()).toBe("2026-09-03T18:21:30.000Z");
   });
 });
