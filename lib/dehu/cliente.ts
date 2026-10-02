@@ -56,7 +56,9 @@ export class ClienteDehu {
       return { respuesta, adjuntos, t0 };
     } catch (e) {
       const err = e instanceof ErrorDehu ? e : new ErrorDehu(e instanceof Error ? e.message : String(e));
-      this.alUsar({ operacion: op, identificador, ok: false, codigo: err.codigo ?? (err.http ? String(err.http) : null), detalle: err.message.slice(0, 300), ms: Date.now() - t0 });
+      // Con la traza de la DEHú, si la manda: «2001 Error interno» no dice nada más (02/10/2026).
+      const detalle = err.traza ? `${err.message.slice(0, 300)} · traza: ${err.traza.slice(0, 3000)}` : err.message.slice(0, 300);
+      this.alUsar({ operacion: op, identificador, ok: false, codigo: err.codigo ?? (err.http ? String(err.http) : null), detalle, ms: Date.now() - t0 });
       throw err;
     }
   }

@@ -123,9 +123,17 @@ export function sobreFirmado(cuerpo: string, f: Firmante, ahora: Date = new Date
 }
 
 // ── Respuestas ─────────────────────────────────────────────────────────────
+// `traza`: lo que la DEHú pone en el <detail> del SOAP Fault (en pruebas, la traza de su
+// servidor). Va al registro de usos para diagnosticar; nunca a la pantalla.
 export class ErrorDehu extends Error {
-  constructor(message: string, readonly codigo: string | null = null, readonly http: number | null = null) { super(message); this.name = "ErrorDehu"; }
+  constructor(message: string, readonly codigo: string | null = null, readonly http: number | null = null, readonly traza: string | null = null) { super(message); this.name = "ErrorDehu"; }
 }
+
+// La DEHú aún no conoce el certificado como «Gran Destinatario». Pruebas: «4103 Error en el
+// control de acceso, el certificado utilizado no está autorizado» (29/09/2026). Producción:
+// «4102 No está dado de alta en nuestro sistema» (02/10/2026). No es un fallo del despacho.
+export const esCertificadoSinAlta = (e: unknown): boolean =>
+  e instanceof ErrorDehu && /\b410[23]\b|no est[aá] autorizado|no est[aá] dado de alta/i.test(e.message);
 
 // Cuerpo HTTP → XML raíz + adjuntos por Content-ID (sin < >). Admite respuestas simples y
 // multipart/related (SwA y MTOM/XOP).
@@ -194,7 +202,8 @@ export function elementoRespuesta(xml: string): Nodo {
   if (!primero) throw new ErrorDehu("La respuesta de la DEHú viene vacía.");
   if (primero.localName === "Fault") {
     const motivo = texto(primero, "faultstring") ?? texto(hijo(primero, "Reason"), "Text") ?? "error desconocido";
-    throw new ErrorDehu(`La DEHú rechazó la petición: ${motivo}`, texto(primero, "faultcode"));
+    const traza = texto(primero, "detail") ?? texto(primero, "Detail");
+    throw new ErrorDehu(`La DEHú rechazó la petición: ${motivo}`, texto(primero, "faultcode"), null, traza ? traza.replace(/\s+/g, " ").trim() : null);
   }
   return primero;
 }

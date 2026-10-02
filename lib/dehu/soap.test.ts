@@ -4,7 +4,7 @@ import { SignedXml } from "xml-crypto";
 import { leerCertificado } from "@/lib/dehu/certificado";
 import { PERSONA_FISICA, p12DePrueba } from "@/lib/dehu/certificados-prueba";
 import {
-  ErrorDehu, NS, cuerpoLocaliza, cuerpoPeticionAcceso, elementoRespuesta, leerDocumento, leerLocaliza, leerLocalizaRealizadas,
+  ErrorDehu, NS, cuerpoLocaliza, cuerpoPeticionAcceso, elementoRespuesta, esCertificadoSinAlta, leerDocumento, leerLocaliza, leerLocalizaRealizadas,
   separarMultipart, sobreFirmado,
 } from "@/lib/dehu/soap";
 
@@ -95,6 +95,29 @@ describe("respuestas de la DEHú", () => {
     const xml = sobre(`<soap:Fault><faultcode>soap:Client</faultcode><faultstring>Certificado no autorizado como Gran Destinatario</faultstring></soap:Fault>`);
     expect(() => elementoRespuesta(xml)).toThrow(ErrorDehu);
     expect(() => elementoRespuesta(xml)).toThrow(/Gran Destinatario/);
+  });
+
+  it("el 4103 de la DEHú es un certificado sin alta de Gran Destinatario; los demás errores no", () => {
+    const xml = sobre(`<soap:Fault><faultcode>soap:Server</faultcode><faultstring>4103 Error en el control de acceso, el certificado utilizado no está autorizado</faultstring></soap:Fault>`);
+    let err: unknown = null;
+    try { elementoRespuesta(xml); } catch (e) { err = e; }
+    expect(esCertificadoSinAlta(err)).toBe(true);
+    expect(esCertificadoSinAlta(new ErrorDehu("La DEHú rechazó la petición: 4202 Debe consignarse nifTitular y/o nifDestinatario"))).toBe(false);
+    expect(esCertificadoSinAlta(new ErrorDehu("La DEHú no responde (tiempo agotado)."))).toBe(false);
+    expect(esCertificadoSinAlta(new Error("4103 no está autorizado"))).toBe(false); // solo un error de la DEHú
+    // Producción responde así a un certificado que no conoce (02/10/2026).
+    expect(esCertificadoSinAlta(new ErrorDehu("La DEHú rechazó la petición: 4102 No está dado de alta en nuestro sistema"))).toBe(true);
+    expect(esCertificadoSinAlta(new ErrorDehu("La DEHú rechazó la petición: 2001 Error interno"))).toBe(false);
+  });
+
+  it("la traza del <detail> del Fault se conserva (para el registro de usos), en una línea", () => {
+    const xml = sobre(`<soap:Fault><faultcode>Receiver</faultcode><faultstring>2001 Error interno</faultstring><detail>[exception] 0 | Internal Server Error
+  at src/Security/AbstractAuthenticate.php:89</detail></soap:Fault>`);
+    let err: unknown = null;
+    try { elementoRespuesta(xml); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(ErrorDehu);
+    expect((err as ErrorDehu).message).toBe("La DEHú rechazó la petición: 2001 Error interno");
+    expect((err as ErrorDehu).traza).toBe("[exception] 0 | Internal Server Error at src/Security/AbstractAuthenticate.php:89");
   });
 
   // Un PDF con bytes que parecen saltos de línea y guiones: el troceo va por bytes.
