@@ -30,8 +30,17 @@ export async function guardarServicios(servicios: Servicio[], removedClaves: str
     if (error) throw new Error(error.message);
   }
 
+  // Id YA en base para cada clave del ámbito (02/10/2026) : une fila écrite hors de cet
+  // éditeur (SQL, p. ej. servicios-ley14.sql avec ids md5) a un autre id → l'upsert par PK
+  // tentait un INSERT, refusé par l'índice único (workspaceId, [oficinaId,] clave), et TOUT
+  // le catálogo dejaba de guardarse. On met à jour la fila existante, quel que soit son id.
+  let existentes = supabase.from("ServicioConfig").select("id, clave").eq("workspaceId", ws);
+  existentes = oficinaId ? existentes.eq("oficinaId", oficinaId) : existentes.is("oficinaId", null);
+  const { data: enBase } = await existentes;
+  const idPorClave = new Map((enBase ?? []).map((r) => [r.clave as string, r.id as string]));
+
   const rows: Record<string, unknown>[] = servicios.map((s, i) => ({
-    id: oficinaId ? `svc_${ws}_${oficinaId}_${s.id}` : `svc_${ws}_${s.id}`, // déterministe par ámbito
+    id: idPorClave.get(s.id) ?? (oficinaId ? `svc_${ws}_${oficinaId}_${s.id}` : `svc_${ws}_${s.id}`), // déterministe par ámbito
     ...(oficinaId ? { oficinaId } : {}),
     workspaceId: ws,
     clave: s.id,

@@ -27,7 +27,9 @@ insert into public."ServicioConfig" (
   "anticipo", "resto", "citaPresencial", "citaQuien", "suplidos", "categoria", "temaId", "orden", "updatedAt"
 )
 select
-  'svc_' || md5(a."workspaceId" || '|' || coalesce(a."oficinaId", '') || '|' || n.clave),
+  -- El MISMO id que escribe Ajustes (lib/config-browser): con un md5, el editor no
+  -- encontraba la fila y su guardado chocaba con el índice único por clave (02/10/2026).
+  'svc_' || a."workspaceId" || '_' || coalesce(a."oficinaId" || '_', '') || n.clave,
   a."workspaceId", a."oficinaId", n.clave, n.label, n.descripcion, n.docs, false,
   n.anticipo, n.resto, n.cita, n.quien, n.suplidos, 'Movilidad internacional',
   -- Carpeta solo donde hay árbol (el update de abajo la crea); sin árbol, manda «categoria».
