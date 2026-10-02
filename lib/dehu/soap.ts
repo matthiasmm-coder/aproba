@@ -58,8 +58,17 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 // cada fecha suelta, sin las declaraciones de espacio de nombres del padre, y tal vez la lee
 // con un formato estricto. Por eso, en las peticiones con fechas: espacio de nombres POR
 // DEFECTO (sin prefijo que quede sin declarar) y fecha sin milisegundos, con su desfase
-// («2026-09-20T18:07:20+00:00», el DATE_ATOM de PHP).
-const fechaXsd = (d: Date) => `${d.toISOString().slice(0, 19)}+00:00`;
+// (el DATE_ATOM de PHP). Y en HORA DE MADRID: la DEHú compara con su hora local sin mirar
+// el desfase («+00:00» → «4207 La fecha actual enviada se encuentra fuera del margen
+// permitido», 2 h de diferencia). Con la hora de Madrid, lea o no el desfase, es la misma.
+export function fechaXsd(d: Date): string {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(d).map((x) => [x.type, x.value]));
+  const desfase = Math.round((Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(d.getTime() / 1000) * 1000) / 60_000);
+  const hh = String(Math.floor(Math.abs(desfase) / 60)).padStart(2, "0"), mm = String(Math.abs(desfase) % 60).padStart(2, "0");
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}${desfase < 0 ? "-" : "+"}${hh}:${mm}`;
+}
 const el = (p: string, nombre: string, v: string | number | null | undefined) =>
   v === null || v === undefined || v === "" ? "" : `<${p}:${nombre}>${esc(String(v))}</${p}:${nombre}>`;
 const elDef = (nombre: string, v: string | number | null | undefined) => // espacio de nombres por defecto

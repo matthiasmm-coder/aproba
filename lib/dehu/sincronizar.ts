@@ -186,7 +186,8 @@ async function revisarRealizadas(admin: Admin, c: ConexionDehu, cliente: Cliente
   const envios: EnvioDehu[] = [];
   for (const f of filtrosDe(c.titularNif ?? "")) {
     for (let pagina = 1; pagina <= MAX_PAGINAS_REALIZADAS; pagina++) {
-      const res = await cliente.localizaRealizadas({ ...f, fechaDesde: desde, fechaHasta: hasta, pagina });
+      // Sin fechaHasta: la DEHú usa su «ahora» (y no se arriesga el 4207 de la fecha actual).
+      const res = await cliente.localizaRealizadas({ ...f, fechaDesde: desde, pagina });
       envios.push(...res.envios);
       if (res.paginaActual >= res.totalPaginas || !res.envios.length) break;
     }
