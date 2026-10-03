@@ -17,7 +17,7 @@ const IconDescarga = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
 );
 
-export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [], presentaInicial = false, tasasIniciales = [] }: {
+export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {}, todos = [], applicants = [], p2Opciones = {}, p2Inicial = {}, faltanPorPersona = [], faltaDespacho = [], presentaInicial = false, tasasIniciales = [], dgt = false }: {
   exp: Expediente; oficiales?: string[]; oficialesPorMiembro?: Record<string, string[]>; todos?: { code: string; label: string }[];
   faltanPorPersona?: { id: string; nombre: string; campos: string[] }[]; // datos de la ficha que el PDF dejará en blanco
   faltaDespacho?: string[]; // datos del despacho que faltan para el bloque «representante a efectos de presentación»
@@ -26,6 +26,7 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
   applicants?: { id: string; nombre: string }[]; // expediente familiar: un juego por solicitante
   p2Opciones?: Record<string, { value: string; label: string }[]>; // casilla p.2 forzable por modelo
   p2Inicial?: Record<string, string>; // casilla p.2 ya persistida en el expediente
+  dgt?: boolean; // expediente de canje: los impresos de la DGT (Mod. 03 y Mod. 24, lib/dgt-forms.ts)
 }) {
   const t = useT();
   const router = useRouter();
@@ -178,6 +179,19 @@ export function FormulariosView({ exp, oficiales = [], oficialesPorMiembro = {},
         <h1 className="text-2xl font-bold tracking-tightest text-slate-900">{t("Formularios oficiales")}</h1>
         <p className="text-sm text-slate-500">{exp.clienteNombre} · {exp.tipoLabel}</p>
       </div>
+
+      {/* Canje del permiso: los impresos oficiales de la DGT, rellenados con la ficha y los
+          datos del permiso guardados en la carta del canje (03/10/2026). */}
+      {dgt && (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-slate-900">{t("Impresos oficiales de la DGT (canje)")}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t("Salen rellenados con la ficha del cliente y los datos del permiso del expediente.")}</p>
+          <div className="mt-2.5 flex flex-wrap justify-center gap-2">
+            <a href={`/api/expedientes/${exp.id}/dgt?modelo=03`} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("Mod. 03 · Solicitud de canje")} ↓</a>
+            <a href={`/api/expedientes/${exp.id}/dgt?modelo=24`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">{t("Mod. 24 · Representación")} ↓</a>
+          </div>
+        </div>
+      )}
 
       {/* Lo que el PDF va a dejar EN BLANCO. Antes se generaba incompleto sin decir nada
           y el gestor lo tomaba por un fallo del formulario (caso real 17/08). Se dice QUE

@@ -28,6 +28,8 @@ const nextConfig = {
     "/j/[token]/opengraph-image": ["./lib/og/*.ttf"],
     "/s/[token]/opengraph-image": ["./lib/og/*.ttf"],
     "/c/[token]/opengraph-image": ["./lib/og/*.ttf"],
+    // Impresos de la DGT del canje (lib/dgt-forms.ts): se leen con fs, que el trazado puede no ver.
+    "/api/expedientes/[id]/dgt": ["./forms/dgt/*.pdf"],
   },
   // La bandeja de entrada vive en Ajustes → Integraciones desde el 06/09/2026; la ruta
   // antigua (emails ya enviados, marcadores) redirige a la sección abierta. Redirección

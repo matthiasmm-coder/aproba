@@ -10,9 +10,11 @@ import {
 } from "@/lib/canje";
 
 // CANJE DEL PERMISO DE CONDUCIR (DGT) — ficha del expediente (Jennifer y Samara, 03/10/2026).
-// La DGT solo admite el canje en línea (sin impreso): aquí se guardan los datos del permiso
-// para copiarlos en su sede, se avisa de lo que impide el canje y de sus dos plazos, y se
-// anota la entrega del permiso original en la Jefatura. Reglas: lib/canje.ts.
+// El canje se pide en la sede de la DGT (en línea) o en la Jefatura con cita, con la solicitud
+// en impreso oficial (Mod. 03) y, si lo presenta el despacho, la representación (Mod. 24):
+// aquí se guardan los datos del permiso, se sacan los dos impresos rellenados
+// (/api/expedientes/[id]/dgt), se avisa de lo que impide el canje y de sus plazos, y se anota
+// la entrega del permiso original en la Jefatura. Reglas: lib/canje.ts; impresos: lib/dgt-forms.ts.
 const ddmmaaaa = (iso: string) => { const [a, m, d] = iso.slice(0, 10).split("-"); return a && m && d ? `${d}/${m}/${a}` : ""; };
 const COLOR: Record<AvisoCanje["nivel"], string> = {
   bloqueo: "border-red-200 bg-red-50 text-red-700",
@@ -69,7 +71,7 @@ export function CanjePermiso({ expedienteId, inicial, persona, presentado, activ
         </a>
       </div>
       <p className="mt-1 text-xs leading-relaxed text-slate-500">
-        {t("La DGT solo admite el canje en línea, en su sede (con Cl@ve, certificado digital o como representante). Aquí guardas los datos del permiso para copiarlos allí, y Aproba vigila los plazos.")}{" "}
+        {t("El canje se pide en la sede de la DGT (en línea, con Cl@ve, certificado o como representante) o en la Jefatura, con cita. Aquí guardas los datos del permiso, sacas los impresos oficiales rellenados y Aproba vigila los plazos.")}{" "}
         <a href={URL_INFO_CANJE} target="_blank" rel="noopener noreferrer" className="font-semibold text-aproba-700 hover:underline">{t("Requisitos en dgt.es")}</a>
       </p>
 
@@ -130,6 +132,24 @@ export function CanjePermiso({ expedienteId, inicial, persona, presentado, activ
         </button>
         {!activo && <span className="text-[11px] text-slate-400">{t("El canje aún no está activado en tu despacho: escríbenos y lo activamos.")}</span>}
         {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-slate-100 p-3">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t("Impresos oficiales de la DGT")}</p>
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          {/* El Mod. 03 sale con los datos GUARDADOS del permiso: con cambios sin guardar, primero Guardar. */}
+          {cambiado ? (
+            <span aria-disabled="true" className="cursor-not-allowed rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white opacity-40">{t("Mod. 03 · Solicitud de canje")} ↓</span>
+          ) : (
+            <a href={`/api/expedientes/${expedienteId}/dgt?modelo=03`} className="rounded-lg bg-aproba-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aproba-700">{t("Mod. 03 · Solicitud de canje")} ↓</a>
+          )}
+          <a href={`/api/expedientes/${expedienteId}/dgt?modelo=24`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">{t("Mod. 24 · Representación")} ↓</a>
+        </div>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+          {cambiado
+            ? t("Guarda los cambios antes de sacar el Mod. 03: sale con los datos guardados.")
+            : t("Salen rellenados con la ficha del cliente y los datos del permiso, y se pueden corregir en el PDF. El Mod. 24 autoriza al despacho a presentar el canje por el cliente: lo firman los dos.")}
+        </p>
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/60 p-3">

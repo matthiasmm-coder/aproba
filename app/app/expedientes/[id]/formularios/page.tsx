@@ -11,6 +11,7 @@ import { fetchPresentador, fetchPresentaGestor, fetchTasasCuradas } from "@/lib/
 import { tasasDelTramite } from "@/lib/tasas";
 import { fetchTasasGeneradas } from "@/lib/data/tasas";
 import { claveDelCatalogo } from "@/lib/servicios";
+import { esServicioCanje } from "@/lib/canje";
 
 // Nombre del servicio PROPIO del despacho (srv_…): con él, claveDelCatalogo reconoce un
 // trámite del catálogo («Familiar Español» → familiar_espanol → EX-24). Nunca rompe la
@@ -105,5 +106,7 @@ export default async function FormulariosPage({ params }: { params: Promise<{ id
     !presentador?.repDoc && "Su DNI/NIE",
   ].filter(Boolean) as string[];
 
-  return <FormulariosView faltanPorPersona={faltanPorPersona} faltaDespacho={faltaDespacho} presentaInicial={presentaGestor} tasasIniciales={tasasIniciales} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
+  // Canje del permiso (servicio del catálogo o propio con ese nombre): los impresos de la DGT.
+  const dgt = [principal, ...exp.serviciosExtra].some((c) => esServicioCanje(c ?? null)) || esServicioCanje(null, exp.tipoLabel);
+  return <FormulariosView dgt={dgt} faltanPorPersona={faltanPorPersona} faltaDespacho={faltaDespacho} presentaInicial={presentaGestor} tasasIniciales={tasasIniciales} exp={exp} oficiales={iniciales} oficialesPorMiembro={oficialesPorMiembro} todos={formulariosDisponibles()} applicants={applicants} p2Opciones={P2_OPCIONES} p2Inicial={p2Inicial} />;
 }

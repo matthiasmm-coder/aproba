@@ -1,10 +1,13 @@
 // CANJE DEL PERMISO DE CONDUCIR EXTRANJERO (DGT) — Jennifer y Samara, 03/10/2026.
 //
-// Desde mayo de 2025 el canje se pide SOLO en línea, en la sede de la DGT (Cl@ve, certificado
-// o un representante): ya no hay impreso que rellenar. Lo que hace Aproba: guardar los datos
-// del permiso para copiarlos en la sede, avisar de lo que impide el canje y de sus dos plazos,
-// y seguir el trámite (solicitud presentada → permiso original entregado en la Jefatura, con
-// autorización provisional → permiso español recibido = resolución favorable).
+// El canje se pide en la sede de la DGT (en línea: Cl@ve, certificado o un representante del
+// Registro de apoderamientos) o en la Jefatura con cita, con la solicitud en IMPRESO OFICIAL
+// (Mod. 03) y, si lo presenta otro, la representación (Mod. 24). (Corregido el 03/10/2026: la
+// primera versión decía «solo en línea, sin impreso», y no es así.) Lo que hace Aproba: guardar
+// los datos del permiso, sacar los dos impresos rellenados (lib/dgt-forms.ts), dar los datos
+// para copiarlos en la sede, avisar de lo que impide el canje y de sus plazos, y seguir el
+// trámite (solicitud presentada → permiso original entregado en la Jefatura, con autorización
+// provisional → permiso español recibido = resolución favorable).
 // Fuente de los países y reglas: dgt.es, «Países con convenio de canjes», consultado el
 // 03/10/2026. Tasas DGT 2026: 2.3 (canje sin pruebas) y 2.1 (con pruebas). Revisar cada enero.
 
