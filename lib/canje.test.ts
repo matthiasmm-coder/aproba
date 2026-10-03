@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CANJE_VACIO, PAISES_CONVENIO, avisosCanje, avisosCanjeEnviados, claveAvisoCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, fraseAvisoCanje, hitoCanje, plazosCanje, situacionCanje, tieneConvenio } from "@/lib/canje";
 import { DEFAULT_SERVICIOS, claveDelCatalogo } from "@/lib/servicios";
-import { LANGS, SERVICIO_I18N, temaLabel } from "@/lib/portal-i18n";
+import { LANGS, SERVICIO_I18N, docLabel, temaLabel } from "@/lib/portal-i18n";
 
 // Canje del permiso de conducir (Jennifer y Samara, 03/10/2026). Fuente: dgt.es, 03/10/2026.
 const HOY = new Date("2026-10-03T10:00:00Z");
@@ -144,5 +144,17 @@ describe("servicio propio de canje", () => {
     expect(tarde.find((a) => a.clave.startsWith("Expedido el"))).toMatchObject({ nivel: "atencion", fecha: "2026-06-01" });
     const antes = avisosCanje({ ...base, residenciaDesde: "2026-04-10" }, { hoy: HOY }); // expedido en 2018
     expect(antes.some((a) => a.clave.startsWith("Expedido el"))).toBe(false);
+  });
+  it("el portal traduce las dos piezas propias del canje en sus 8 idiomas (Pasaporte y TIE, por su tipo)", () => {
+    const s = DEFAULT_SERVICIOS.find((x) => x.id === "canje_permiso")!;
+    // («TIE actual» en rumano se dice igual: por eso solo se exige que cambien las dos propias.)
+    const propias = s.docs.filter((d) => /conducir|psicof/i.test(d));
+    expect(propias).toHaveLength(2);
+    for (const doc of propias) for (const { code } of LANGS) {
+      if (code === "es") continue;
+      expect(docLabel(doc, code), `${doc} · ${code}`).not.toBe(doc);
+    }
+    expect(docLabel("Permiso de conducir extranjero (anverso y reverso)", "fr")).toBe("Permis de conduire étranger (recto et verso)");
+    expect(docLabel("Informe de aptitud psicofísica (centro de reconocimiento)", "en")).toBe("Driver fitness medical report (approved test centre)");
   });
 });
