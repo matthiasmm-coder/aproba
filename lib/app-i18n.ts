@@ -2932,6 +2932,10 @@ export const CA: Record<string, string> = {
   "Descargar la hoja": "Descarregar el full",
   // Canje del permiso de conducir (DGT, 03/10/2026)
   "Canje del permiso de conducir (DGT)": "Bescanvi del permís de conduir (DGT)",
+  "Canjes de permiso": "Bescanvis de permís",
+  "Permiso válido para conducir (6 meses)": "Permís vàlid per conduir (6 mesos)",
+  "Informe médico del canje (90 días)": "Informe mèdic del bescanvi (90 dies)",
+  "Permiso extranjero en vigor": "Permís estranger en vigor",
   "Abrir el canje en la sede de la DGT": "Obrir el bescanvi a la seu de la DGT",
   "La DGT solo admite el canje en línea, en su sede (con Cl@ve, certificado digital o como representante). Aquí guardas los datos del permiso para copiarlos allí, y Aproba vigila los plazos.": "La DGT només admet el bescanvi en línia, a la seva seu (amb Cl@ve, certificat digital o com a representant). Aquí deses les dades del permís per copiar-les allà, i Aproba vigila els terminis.",
   "Requisitos en dgt.es": "Requisits a dgt.es",

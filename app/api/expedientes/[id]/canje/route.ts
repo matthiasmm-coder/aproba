@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { datosCanjeValidos } from "@/lib/canje";
+import { avisosCanjeEnviados, datosCanjeValidos } from "@/lib/canje";
 
 // CANJE DEL PERMISO DE CONDUCIR (Jennifer y Samara, 03/10/2026): guarda los datos del permiso
 // extranjero de ESTE expediente (lib/canje.ts). Cualquier miembro del despacho.
@@ -27,7 +27,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: falta ? "El canje aún no está activado en tu despacho. Escríbenos y lo activamos." : eLeer.message }, { status: 500 });
   }
   const previo = datosCanjeValidos((antes as { canje?: unknown } | null)?.canje);
-  const { error } = await admin.from("Expediente").update({ canje: datos, updatedAt: new Date().toISOString() }).eq("id", id);
+  // Los avisos de plazo ya enviados (lib/canje-escaner.ts) se conservan: no son del formulario.
+  const avisos = avisosCanjeEnviados((antes as { canje?: unknown } | null)?.canje);
+  const { error } = await admin.from("Expediente").update({ canje: avisos.length ? { ...datos, avisos } : datos, updatedAt: new Date().toISOString() }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Al historial, lo que cuenta en el trámite: los datos del permiso y la entrega en la Jefatura.

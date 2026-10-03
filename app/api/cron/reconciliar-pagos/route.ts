@@ -5,6 +5,7 @@ import { fetchStripeKeyDeWorkspace, stripeConClave, marcarFacturaPagada } from "
 import { enviarConfirmacionPago } from "@/lib/notificaciones";
 import { escanearVencimientos } from "@/lib/vencimientos";
 import { escanearRequerimientos } from "@/lib/requerimientos-escaner";
+import { escanearCanjes } from "@/lib/canje-escaner";
 import { barrerVerifactu } from "@/lib/verifactu-envio";
 import { fetchEntregasDeFacturas, importeTarjetaCuadra, saldoTarjeta } from "@/lib/entregas";
 
@@ -72,7 +73,7 @@ export async function GET(req: Request) {
 
   const admin = createSupabaseAdmin();
   // Respuesta MINIMALISTA (contadores): nada de ids de workspace/factura en el JSON.
-  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0, vigia: { avisados: 0, workspaces: 0 }, requerimientos: { avisados: 0, workspaces: 0 }, verifactu: { revisados: 0, cambiados: 0, reintentados: 0, enviados: 0 } };
+  const resumen = { workspaces: 0, pendientes: 0, reconciliadas: 0, alertas: 0, errores: 0, vigia: { avisados: 0, workspaces: 0 }, requerimientos: { avisados: 0, workspaces: 0 }, canjes: { avisados: 0, workspaces: 0 }, verifactu: { revisados: 0, cambiados: 0, reintentados: 0, enviados: 0 } };
 
   // Workspaces con cobro con tarjeta activado. Si la tabla no está migrada → nada que hacer.
   let cuentas: { workspaceId: string }[] = [];
@@ -199,6 +200,14 @@ export async function GET(req: Request) {
     resumen.requerimientos = await escanearRequerimientos(admin);
   } catch (e) {
     console.error("[cron requerimientos]", e instanceof Error ? e.message : e);
+  }
+
+  // ── CANJE DEL PERMISO: mismo tick → los plazos del canje (6 meses, informe médico,
+  //    caducidad del permiso) al DESPACHO por hitos (lib/canje-escaner.ts). try/catch PROPIO. ──
+  try {
+    resumen.canjes = await escanearCanjes(admin);
+  } catch (e) {
+    console.error("[cron canjes]", e instanceof Error ? e.message : e);
   }
 
   // ── VERI*FACTU: mismo tick → consultar los registros pendientes y reintentar los

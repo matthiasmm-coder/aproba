@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CANJE_VACIO, PAISES_CONVENIO, avisosCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, tieneConvenio } from "@/lib/canje";
+import { CANJE_VACIO, PAISES_CONVENIO, avisosCanje, avisosCanjeEnviados, claveAvisoCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, fraseAvisoCanje, hitoCanje, plazosCanje, situacionCanje, tieneConvenio } from "@/lib/canje";
 import { DEFAULT_SERVICIOS, claveDelCatalogo } from "@/lib/servicios";
 import { LANGS, SERVICIO_I18N, temaLabel } from "@/lib/portal-i18n";
 
@@ -91,5 +91,52 @@ describe("servicio propio de canje", () => {
     expect(temaLabel(s.categoria!, "fr")).toBe("Permis et véhicules");
     expect(temaLabel("trafico", "en")).toBe("Driving & vehicles");
     expect(temaLabel("Tráfico", "es")).toBe("Tráfico");
+  });
+  it("plazos vigilados: 6 meses hasta la entrega en la Jefatura; informe y caducidad hasta presentar", () => {
+    const d = { ...base, residenciaDesde: "2026-05-01", informeMedicoEl: "2026-09-01", caducidad: "2026-10-20" };
+    expect(plazosCanje(d, { presentado: false, hoy: HOY })).toEqual([
+      { tipo: "seis_meses", fecha: "2026-11-01", dias: 29 },
+      { tipo: "informe", fecha: "2026-11-30", dias: 58 },
+      { tipo: "caducidad", fecha: "2026-10-20", dias: 17 },
+    ]);
+    // Presentada la solicitud: solo quedan los 6 meses; entregado el permiso: nada.
+    expect(plazosCanje(d, { presentado: true, hoy: HOY }).map((p) => p.tipo)).toEqual(["seis_meses"]);
+    expect(plazosCanje({ ...d, entregadoEl: "2026-10-01" }, { presentado: true, hoy: HOY })).toEqual([]);
+  });
+
+  it("hitos: cada plazo avisa en sus umbrales (30/7/0, 15/0, 30/0) y la clave lleva la fecha", () => {
+    const p = (tipo: "seis_meses" | "informe" | "caducidad", dias: number) => ({ tipo, fecha: "2026-11-01", dias });
+    expect(hitoCanje(p("seis_meses", 31))).toBeNull();
+    expect(hitoCanje(p("seis_meses", 30))).toBe(30);
+    expect(hitoCanje(p("seis_meses", 8))).toBe(30);
+    expect(hitoCanje(p("seis_meses", 7))).toBe(7);
+    expect(hitoCanje(p("seis_meses", 0))).toBe(0);
+    expect(hitoCanje(p("seis_meses", -40))).toBe(0);
+    expect(hitoCanje(p("informe", 16))).toBeNull();
+    expect(hitoCanje(p("informe", 15))).toBe(15);
+    expect(hitoCanje(p("caducidad", 12))).toBe(30);
+    expect(claveAvisoCanje(p("informe", 3), 15)).toBe("informe|2026-11-01|15");
+  });
+
+  it("los avisos enviados se leen del jsonb sin tocar los datos del formulario", () => {
+    const guardado = { ...base, avisos: ["seis_meses|2026-11-01|30", 7, "x".repeat(80)] };
+    expect(avisosCanjeEnviados(guardado)).toEqual(["seis_meses|2026-11-01|30"]);
+    expect(avisosCanjeEnviados(null)).toEqual([]);
+    expect(datosCanjeValidos(guardado)).not.toHaveProperty("avisos");
+  });
+
+  it("situación: presentado por fecha o por estado; resuelto, rechazado o finalizado = terminado", () => {
+    expect(situacionCanje("EN_PREPARACION", null)).toEqual({ presentado: false, terminado: false });
+    expect(situacionCanje("EN_PREPARACION", "2026-10-01T12:00:00Z")).toEqual({ presentado: true, terminado: false });
+    expect(situacionCanje("PRESENTADO", null)).toEqual({ presentado: true, terminado: false });
+    expect(situacionCanje("RESUELTO", null).terminado).toBe(true);
+    expect(situacionCanje("FINALIZADO", null).terminado).toBe(true);
+  });
+
+  it("la frase del aviso dice la fecha, cuánto falta y qué hacer", () => {
+    expect(fraseAvisoCanje({ tipo: "seis_meses", fecha: "2026-11-01", dias: 7 })).toBe("su permiso deja de valer para conducir en España el 01/11/2026 (en 7 días; 6 meses desde la residencia)");
+    expect(fraseAvisoCanje({ tipo: "seis_meses", fecha: "2026-09-01", dias: -32 })).toContain("ya no vale para conducir en España desde el 01/09/2026 (hace 32 días)");
+    expect(fraseAvisoCanje({ tipo: "informe", fecha: "2026-10-03", dias: 0 })).toBe("el informe médico caduca el 03/10/2026 (hoy): pide el canje antes");
+    expect(fraseAvisoCanje({ tipo: "caducidad", fecha: "2026-10-04", dias: 1 })).toBe("el permiso extranjero caduca el 04/10/2026 (mañana): para canjearlo tiene que estar en vigor");
   });
 });

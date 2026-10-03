@@ -2,6 +2,7 @@ import { diasRestantes, plazoClave, urgenciaDe } from "@/lib/requerimientos";
 import { TIPO_VENCIMIENTO_LABEL } from "@/lib/renovacion-servicio";
 import { DIAS_PARA_ABRIR, type NotificacionDehu } from "@/lib/notificaciones-dehu";
 import { ESTADO_REGISTRO_META, type EstadoRegistro } from "@/lib/verifactu";
+import { HITOS_CANJE, type TipoPlazoCanje } from "@/lib/canje";
 
 // LA CAMPANA (26/09/2026, Matthias): lo que el despacho no puede dejar pasar, en un solo
 // sitio del encabezado, a la izquierda de «+ Nuevo expediente». Ninguna tabla nueva: dos
@@ -17,7 +18,8 @@ import { ESTADO_REGISTRO_META, type EstadoRegistro } from "@/lib/verifactu";
 // que no se pudo enviar por un dato del cliente y la anulación rechazada (se corrigen desde
 // la factura con «Reenviar a la AEAT»).
 // Desde el 03/10 también el trámite que un cliente pidió desde su espacio y que nadie del
-// despacho ha cogido aún (Jennifer: «una alerta cuando un cliente crea un expediente»).
+// despacho ha cogido aún (Jennifer: «una alerta cuando un cliente crea un expediente»), y los
+// plazos del canje del permiso de conducir (lib/canje.ts: 6 meses, informe médico, caducidad).
 
 export const DIAS_RENOVACION = 60;
 export const DIAS_SIN_RESPUESTA = 7;
@@ -29,10 +31,12 @@ export type NotifFuente = Pick<NotificacionDehu, "id" | "origen" | "estado" | "t
 export type VfFuente = { id: string; facturaId: string; numero: string; clienteNombre: string; tipo: string; estado: string };
 // Un trámite pedido por el cliente desde su espacio (lib/data/solicitudes-cliente.ts).
 export type SolFuente = { expedienteId: string; clienteNombre: string; servicios: string; creadoAt: string };
+// Un plazo del canje que ya entró en su ventana de aviso (lib/data/canjes-alertas.ts).
+export type CanjeFuente = { expedienteId: string; clienteNombre: string; tipo: TipoPlazoCanje; dias: number };
 
 export type NivelAlerta = "critico" | "urgente" | "aviso";
 export type Alerta = {
-  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu" | "solicitud";
+  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu" | "solicitud" | "canje";
   id: string;
   href: string;
   cliente: string;
@@ -43,7 +47,7 @@ export type Alerta = {
 };
 
 const RANGO: Record<NivelAlerta, number> = { critico: 0, urgente: 1, aviso: 2 };
-const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4, solicitud: 5 };
+const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4, solicitud: 5, canje: 6 };
 // Lo crítico arriba (y, dentro de cada nivel, requerimientos antes que renovaciones); luego
 // lo que antes vence. Los días se desplazan para que un vencido (negativo) ordene bien.
 const orden = (nivel: NivelAlerta, clase: Alerta["clase"], dias: number) =>
@@ -58,8 +62,27 @@ export function plazoCaducidad(dias: number): { clave: string; n: number } {
   return { clave: "Caduca en {n} días", n: dias };
 }
 
-export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = [], sols: SolFuente[] = []): Alerta[] {
+// Qué es cada plazo del canje, en la campana (texto traducible; la caducidad, con plazoCaducidad).
+export const DETALLE_CANJE: Record<TipoPlazoCanje, string> = {
+  seis_meses: "Permiso válido para conducir (6 meses)",
+  informe: "Informe médico del canje (90 días)",
+  caducidad: "Permiso extranjero en vigor",
+};
+
+export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = [], sols: SolFuente[] = [], canjes: CanjeFuente[] = []): Alerta[] {
   const out: Alerta[] = [];
+
+  // Canje: desde el primer hito de cada plazo (30 días; 15 el informe médico) hasta que el
+  // plazo deja de contar (permiso entregado, solicitud presentada, expediente resuelto).
+  for (const c of canjes) {
+    if (c.dias > Math.max(...HITOS_CANJE[c.tipo])) continue;
+    const nivel: NivelAlerta = c.dias <= 0 ? "critico" : c.dias <= 7 ? "urgente" : "aviso";
+    out.push({
+      clase: "canje", id: `canje-${c.expedienteId}-${c.tipo}`, href: `/app/expedientes/${c.expedienteId}#canje`,
+      cliente: c.clienteNombre, detalle: DETALLE_CANJE[c.tipo], plazo: plazoCaducidad(c.dias), nivel,
+      orden: orden(nivel, "canje", c.dias),
+    });
+  }
 
   // Trámite pedido por el cliente: un aviso (no vence nada), hasta que alguien lo coge.
   for (const s of sols) {

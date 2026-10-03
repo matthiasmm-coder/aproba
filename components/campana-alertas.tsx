@@ -66,6 +66,7 @@ export function CampanaAlertas() {
   const vf = lista.filter((a) => a.clase === "verifactu");
   const rens = lista.filter((a) => a.clase === "renovacion" || a.clase === "sin_respuesta");
   const sols = lista.filter((a) => a.clase === "solicitud");
+  const canjes = lista.filter((a) => a.clase === "canje");
   const plazo = (a: Alerta) => t(a.plazo.clave).replace("{n}", String(a.plazo.n));
 
   const seccion = (titulo: string, filas: Alerta[], verTodo: { href: string; label: string }) => filas.length > 0 && (
@@ -128,6 +129,7 @@ export function CampanaAlertas() {
               {seccion(t("VERI*FACTU"), vf, { href: "/app/facturas", label: t("Ver facturas") })}
               {seccion(t("Renovaciones"), rens, { href: "/app/vencimientos", label: t("Ver renovaciones") })}
               {seccion(t("Trámites pedidos por clientes"), sols, { href: "/app/expedientes", label: t("Ver expedientes") })}
+              {seccion(t("Canjes de permiso"), canjes, { href: "/app/expedientes", label: t("Ver expedientes") })}
             </>
           )}
         </div>

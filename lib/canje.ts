@@ -110,6 +110,72 @@ export function avisosCanje(d: DatosCanje, o: { presentado?: boolean; hoy?: Date
   return out.sort((a, b) => peso[a.nivel] - peso[b.nivel]);
 }
 
+// LOS PLAZOS QUE APROBA VIGILA (03/10/2026, Matthias: «Aproba vigila los plazos» tiene que ser
+// verdad, no solo una carta que hay que abrir):
+//  · seis_meses: el permiso extranjero vale para conducir 6 meses desde la residencia; cuenta
+//    hasta que el permiso original se entrega en la Jefatura (autorización provisional);
+//  · informe: el informe de aptitud psicofísica vale 90 días; cuenta hasta presentar la solicitud;
+//  · caducidad: para canjearlo, el permiso tiene que estar en vigor; cuenta hasta presentarla.
+// Se avisa por HITOS, como los requerimientos, cada uno una sola vez: en la campana mientras
+// dura la ventana, y por correo a los administradores el día que se entra en un hito
+// (lib/canje-escaner.ts, cron diario). Un expediente resuelto o archivado ya no avisa.
+export type TipoPlazoCanje = "seis_meses" | "informe" | "caducidad";
+export type PlazoCanje = { tipo: TipoPlazoCanje; fecha: string; dias: number };
+export const HITOS_CANJE: Record<TipoPlazoCanje, readonly number[]> = { seis_meses: [30, 7, 0], informe: [15, 0], caducidad: [30, 0] };
+
+export function plazosCanje(d: DatosCanje, o: { presentado: boolean; hoy?: Date }): PlazoCanje[] {
+  const hoy = o.hoy ?? new Date();
+  const out: PlazoCanje[] = [];
+  if (d.residenciaDesde && !d.entregadoEl) {
+    const fecha = sumarMeses(d.residenciaDesde, MESES_PERMISO_EXTRANJERO);
+    out.push({ tipo: "seis_meses", fecha, dias: diasHasta(fecha, hoy) });
+  }
+  if (!o.presentado && d.informeMedicoEl) {
+    const fecha = sumarDias(d.informeMedicoEl, DIAS_INFORME_MEDICO);
+    out.push({ tipo: "informe", fecha, dias: diasHasta(fecha, hoy) });
+  }
+  if (!o.presentado && d.caducidad) out.push({ tipo: "caducidad", fecha: d.caducidad, dias: diasHasta(d.caducidad, hoy) });
+  return out;
+}
+
+// El hito en el que está hoy un plazo (el menor ya alcanzado), o null si aún queda lejos.
+export function hitoCanje(p: PlazoCanje): number | null {
+  const alcanzados = HITOS_CANJE[p.tipo].filter((h) => p.dias <= h);
+  return alcanzados.length ? Math.min(...alcanzados) : null;
+}
+// Con la fecha dentro: si el despacho corrige una fecha, los avisos vuelven a salir.
+export const claveAvisoCanje = (p: PlazoCanje, hito: number) => `${p.tipo}|${p.fecha}|${hito}`;
+
+// Los avisos ya enviados viven en el mismo jsonb (canje.avisos), fuera del formulario.
+export function avisosCanjeEnviados(x: unknown): string[] {
+  const v = x && typeof x === "object" && !Array.isArray(x) ? (x as { avisos?: unknown }).avisos : null;
+  return Array.isArray(v) ? v.filter((s): s is string => typeof s === "string" && s.length <= 60).slice(-30) : [];
+}
+
+// En qué punto del trámite está el expediente, para saber qué plazos cuentan todavía.
+export function situacionCanje(estado5: string, fechaPresentacion: string | null | undefined): { presentado: boolean; terminado: boolean } {
+  return {
+    presentado: Boolean(fechaPresentacion) || estado5 !== "EN_PREPARACION",
+    terminado: estado5 === "RESUELTO" || estado5 === "RECHAZADO" || estado5 === "FINALIZADO",
+  };
+}
+
+// La frase del aviso (correo e historial del expediente), en español: la lee el despacho.
+const fechaEs = (iso: string) => { const [a, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${a}`; };
+export function fraseAvisoCanje(p: PlazoCanje): string {
+  const f = fechaEs(p.fecha);
+  const cuando = p.dias === 0 ? "hoy" : p.dias === 1 ? "mañana" : p.dias > 1 ? `en ${p.dias} días` : p.dias === -1 ? "ayer" : `hace ${-p.dias} días`;
+  if (p.tipo === "seis_meses") return p.dias >= 0
+    ? `su permiso deja de valer para conducir en España el ${f} (${cuando}; 6 meses desde la residencia)`
+    : `su permiso ya no vale para conducir en España desde el ${f} (${cuando}), hasta la autorización provisional de la Jefatura`;
+  if (p.tipo === "informe") return p.dias >= 0
+    ? `el informe médico caduca el ${f} (${cuando}): pide el canje antes`
+    : `el informe médico caducó el ${f} (${cuando}): hace falta uno nuevo antes de pedir el canje`;
+  return p.dias >= 0
+    ? `el permiso extranjero caduca el ${f} (${cuando}): para canjearlo tiene que estar en vigor`
+    : `el permiso extranjero caducó el ${f} (${cuando}): para canjearlo tiene que estar en vigor`;
+}
+
 // Los datos tal como los pide el formulario de la sede, para copiarlos uno a uno.
 export function datosParaSede(d: DatosCanje, persona: { nombre?: string | null; documento?: string | null; fechaNacimiento?: string | null }): [string, string][] {
   const f = (iso: string | null | undefined) => { const [a, m, dd] = (iso ?? "").slice(0, 10).split("-"); return a && m && dd ? `${dd}/${m}/${a}` : ""; };

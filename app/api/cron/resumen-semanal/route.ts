@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { emailLayout } from "@/lib/notificaciones";
+import { normalizarEstado } from "@/lib/progreso";
+import { datosCanjeValidos, fraseAvisoCanje, plazosCanje, situacionCanje } from "@/lib/canje";
 
 // RESUMEN SEMANAL — cron de los viernes (vercel.json, 15:00 UTC).
 //
@@ -54,7 +56,19 @@ export async function GET(req: Request) {
     const { count: pendientes } = await admin.from("BandejaEntrada").select("id", { count: "exact", head: true }).eq("workspaceId", ws.id).eq("estado", "PENDIENTE");
     const citas = (exps ?? []).filter((e) => !e.archivadoAt && e.fechaCita && String(e.fechaCita).slice(0, 10) >= iso(ahora) && String(e.fechaCita).slice(0, 10) <= iso(hasta7));
     const { data: venc } = await admin.from("Vencimiento").select("id, fecha, clienteId").eq("workspaceId", ws.id).eq("estado", "PENDIENTE").lte("fecha", hasta60.toISOString()).order("fecha").limit(10);
-    const resumen = { documentos: docs, formularios, facturas: facturas ?? 0, expedientes: creados, citas: citas.length, renovaciones: (venc ?? []).length, pendientes: pendientes ?? 0 };
+    // Canjes del permiso con un plazo en los próximos 30 días (o ya pasado y aún pendiente):
+    // consulta aparte y tolerante — sin la columna canje, el resumen sale igual.
+    let canjes: { referencia: string; frase: string; dias: number }[] = [];
+    try {
+      const { data: cj } = await admin.from("Expediente").select("referencia, estado, fechaPresentacion, canje").eq("workspaceId", ws.id).not("canje", "is", null).is("archivadoAt", null);
+      canjes = ((cj ?? []) as { referencia: string; estado: string; fechaPresentacion: string | null; canje: unknown }[]).flatMap((e) => {
+        const sit = situacionCanje(normalizarEstado(e.estado), e.fechaPresentacion);
+        if (sit.terminado) return [];
+        return plazosCanje(datosCanjeValidos(e.canje), { presentado: sit.presentado, hoy: ahora })
+          .filter((p) => p.dias <= 30).map((p) => ({ referencia: e.referencia, frase: fraseAvisoCanje(p), dias: p.dias }));
+      }).sort((a, b) => a.dias - b.dias);
+    } catch { /* sin la columna: nada que contar */ }
+    const resumen = { documentos: docs, formularios, facturas: facturas ?? 0, expedientes: creados, citas: citas.length, renovaciones: (venc ?? []).length, pendientes: pendientes ?? 0, canjes: canjes.length };
     if (!Object.values(resumen).some((n) => n > 0)) continue; // nada que contar: silencio
 
     const fila = (k: string, v: number | string) => `<tr><td style="padding:6px 0;color:#475569">${k}</td><td style="padding:6px 0;text-align:right;font-weight:600">${v}</td></tr>`;
@@ -62,6 +76,7 @@ export async function GET(req: Request) {
       + `<table style="width:100%;border-collapse:collapse;font-size:14px">${fila("Documentos recibidos y colocados", docs)}${fila("Formularios rellenados", formularios)}${fila("Facturas emitidas", resumen.facturas)}${fila("Expedientes nuevos", creados)}</table>`
       + (citas.length ? `<p><b>Citas de la semana que viene:</b> ${citas.map((c) => `${String(c.fechaCita).slice(0, 10).split("-").reverse().slice(0, 2).join("/")} · ${c.referencia}`).join(" · ")}.</p>` : "")
       + ((venc ?? []).length ? `<p><b>Renovaciones en los próximos 60 días:</b> ${(venc ?? []).length}. Cada una se lanza en un clic desde Vencimientos.</p>` : "")
+      + (canjes.length ? `<p><b>Canjes del permiso con plazo cerca:</b><br>${canjes.slice(0, 8).map((c) => `${c.referencia} · ${c.frase}`.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br>")}${canjes.length > 8 ? `<br>y ${canjes.length - 8} más.` : ""}</p>` : "")
       + ((pendientes ?? 0) > 0 ? `<p><b>${pendientes} email(s) en la bandeja sin asignar</b>: responde a cada uno con el nombre del cliente, o asígnalos desde la app.</p>` : "");
     const html = emailLayout({ gestoria: ws.nombre as string, titulo: "Tu semana en Aproba", cuerpoHtml: cuerpo, cta: { url: `${baseUrl}/app`, label: "Abrir Aproba" }, footerNota: "Recibes este resumen los viernes porque Aproba trabaja con tus emails; si algo no cuadra, responde a este correo." });
     const from = `"${String(ws.nombre).replace(/["\\\r\n]/g, " ").trim()}" <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`;

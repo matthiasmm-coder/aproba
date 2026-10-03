@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { construirAlertas, plazoCaducidad, type NotifFuente, type ReqFuente, type SolFuente, type VencFuente } from "@/lib/alertas";
+import { construirAlertas, plazoCaducidad, type CanjeFuente, type NotifFuente, type ReqFuente, type SolFuente, type VencFuente } from "@/lib/alertas";
 
 const HOY = new Date(2026, 8, 26, 10, 0, 0);
 const dia = (n: number) => new Date(2026, 8, 26 + n).toISOString();
@@ -107,5 +107,12 @@ describe("campana · trámites pedidos por clientes", () => {
   it("un requerimiento urgente sale antes que un trámite pedido", () => {
     const a = construirAlertas([req("umbral", 3)], [], HOY, [], [], [sol("x1", 0)]);
     expect(a.map((x) => x.clase)).toEqual(["requerimiento", "solicitud"]);
+  });
+  it("canje: cada plazo entra en la campana desde su primer hito (30 días; 15 el informe), vencido en rojo", () => {
+    const cj = (id: string, tipo: CanjeFuente["tipo"], dias: number): CanjeFuente => ({ expedienteId: id, clienteNombre: `Cliente ${id}`, tipo, dias });
+    const a = construirAlertas([], [], HOY, [], [], [], [cj("lejos", "seis_meses", 31), cj("mes", "seis_meses", 20), cj("semana", "seis_meses", 5), cj("pasado", "seis_meses", -3), cj("inf16", "informe", 16), cj("inf15", "informe", 15), cj("cad", "caducidad", 30)]);
+    expect(a.map((x) => x.id)).toEqual(["canje-pasado-seis_meses", "canje-semana-seis_meses", "canje-inf15-informe", "canje-mes-seis_meses", "canje-cad-caducidad"]);
+    expect(a.map((x) => x.nivel)).toEqual(["critico", "urgente", "aviso", "aviso", "aviso"]);
+    expect(a[0]).toMatchObject({ clase: "canje", href: "/app/expedientes/pasado#canje", detalle: "Permiso válido para conducir (6 meses)", plazo: { clave: "Caducó hace {n} días", n: 3 } });
   });
 });
