@@ -26,6 +26,7 @@ import { DescuentoExpediente } from "@/components/descuento-expediente";
 import { AsignarExpediente } from "@/components/asignar-expediente";
 import { r2, eur, anticipoPagado } from "@/lib/facturas";
 import { EnviarDocButton } from "@/components/enviar-doc-button";
+import { FirmaExpediente } from "@/components/firma/firma-expediente";
 import { EncargoBoton, PresupuestoBoton } from "@/components/presupuesto-modal";
 import { RecordarDocsButton } from "@/components/recordar-docs-button";
 import { ArchivarButton } from "@/components/archivar-button";
@@ -555,6 +556,9 @@ export default async function ExpedienteDetail({
               )}
             </p>
           )}
+          {/* Firma EN LÍNEA de esos mismos documentos (lib/firma, 03/10/2026): el cliente firma
+              desde el móvil y el documento firmado entra solo en esta lista. */}
+          {algunoActivo(despachoEncargo) && <FirmaExpediente expedienteId={e.id} />}
           {/* Las casillas del trámite SIEMPRE a la vista, en su orden, tenga o no el
               cliente su enlace: el gestor ve de un vistazo lo que falta y sube el
               archivo en su hueco (le llega por email o en mano). Cada documento

@@ -20,6 +20,7 @@ import { DatosEmpresa, type EmpresaPortal } from "@/components/datos-empresa";
 import { DocumentosFamiliaPortal } from "@/components/documentos-familia-portal";
 import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import { ENCARGO_APAGADO, docsFirma, type EncargoActivo } from "@/lib/encargo-activo";
+import { BotonFirmaPortal } from "@/components/firma/boton-firma-portal";
 
 // Portail client — ce que voit le client du gestor depuis le lien WhatsApp.
 // Wizard : trámite → datos → documentos (validación IA) → pago (si anticipo) → enviado.
@@ -1286,6 +1287,8 @@ export function ClientPortal({
             {token && (firmas.hoja || firmas.mandato) && (
               <div className="mt-6 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
                 <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
+                {/* Firma EN LÍNEA primero (lib/firma); la descarga para firmar a mano, debajo. */}
+                <BotonFirmaPortal token={token} t={t} />
                 <p className="mt-1 text-xs leading-relaxed text-aproba-700">
                   {!(firmas.hoja && firmas.mandato) ? t("firma.introUno") : empresaNombre ? t("firma.introEmpresa", { empresa: empresaNombre }) : t("firma.intro")}
                 </p>

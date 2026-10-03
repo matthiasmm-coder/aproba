@@ -332,3 +332,8 @@ details[open] > .faq-body {
 @media (prefers-reduced-motion: reduce) {
   .dn-arrow svg, .dn-con .dn-item::after { animation: none; }
 }
+
+/* Firma en línea (components/firma): el visto de «firmado» entra con un rebote suave. */
+@keyframes firma-ok { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.firma-ok { animation: firma-ok 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@media (prefers-reduced-motion: reduce) { .firma-ok { animation: none; } }

@@ -33,10 +33,13 @@ export type VfFuente = { id: string; facturaId: string; numero: string; clienteN
 export type SolFuente = { expedienteId: string; clienteNombre: string; servicios: string; creadoAt: string };
 // Un plazo del canje que ya entró en su ventana de aviso (lib/data/canjes-alertas.ts).
 export type CanjeFuente = { expedienteId: string; clienteNombre: string; tipo: TipoPlazoCanje; dias: number };
+// Un envío de firma en línea sin firmar (lib/data/firmas-alertas.ts).
+export type FirmaFuente = { sobreId: string; expedienteId: string; clienteNombre: string; documentos: string; enviadoAt: string; abierto: boolean };
+export const DIAS_FIRMA_PENDIENTE = 7;
 
 export type NivelAlerta = "critico" | "urgente" | "aviso";
 export type Alerta = {
-  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu" | "solicitud" | "canje";
+  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu" | "solicitud" | "canje" | "firma";
   id: string;
   href: string;
   cliente: string;
@@ -47,7 +50,7 @@ export type Alerta = {
 };
 
 const RANGO: Record<NivelAlerta, number> = { critico: 0, urgente: 1, aviso: 2 };
-const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4, solicitud: 5, canje: 6 };
+const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4, solicitud: 5, canje: 6, firma: 7 };
 // Lo crítico arriba (y, dentro de cada nivel, requerimientos antes que renovaciones); luego
 // lo que antes vence. Los días se desplazan para que un vencido (negativo) ordene bien.
 const orden = (nivel: NivelAlerta, clase: Alerta["clase"], dias: number) =>
@@ -69,8 +72,21 @@ export const DETALLE_CANJE: Record<TipoPlazoCanje, string> = {
   caducidad: "Permiso extranjero en vigor",
 };
 
-export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = [], sols: SolFuente[] = [], canjes: CanjeFuente[] = []): Alerta[] {
+export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = [], sols: SolFuente[] = [], canjes: CanjeFuente[] = [], firmas: FirmaFuente[] = []): Alerta[] {
   const out: Alerta[] = [];
+
+  // Firma en línea enviada hace una semana o más y aún sin firmar: ya hubo dos recordatorios
+  // automáticos; toca una llamada del despacho.
+  for (const f of firmas) {
+    const dias = Math.max(0, -diasRestantes(f.enviadoAt, hoy));
+    if (dias < DIAS_FIRMA_PENDIENTE) continue;
+    out.push({
+      clase: "firma", id: `firma-${f.sobreId}`, href: `/app/expedientes/${f.expedienteId}`,
+      cliente: f.clienteNombre, detalle: f.documentos,
+      plazo: { clave: f.abierto ? "Abierto sin firmar · {n} días" : "Sin abrir · {n} días", n: dias },
+      nivel: "aviso", orden: orden("aviso", "firma", -dias),
+    });
+  }
 
   // Canje: desde el primer hito de cada plazo (30 días; 15 el informe médico) hasta que el
   // plazo deja de contar (permiso entregado, solicitud presentada, expediente resuelto).

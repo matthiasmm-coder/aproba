@@ -13,7 +13,10 @@ export function CookieNotice() {
   const pathname = usePathname();
   // En el portal del migrante el aviso habla SU idioma (guardado o del navegador);
   // en el resto de la app queda en español (idioma del gestor).
-  const enPortal = pathname?.startsWith("/j/") || pathname?.startsWith("/s/");
+  // La página de firma (/firma/…) también es del cliente: su idioma, y el aviso ARRIBA para no
+  // tapar el botón de firmar de la barra inferior.
+  const enFirma = Boolean(pathname?.startsWith("/firma/"));
+  const enPortal = pathname?.startsWith("/j/") || pathname?.startsWith("/s/") || enFirma;
   const [lang, setLang] = useState<LangCookie>("es");
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export function CookieNotice() {
 
   // print:hidden: sin él, el aviso salía impreso al pie de una factura (30/09/2026).
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 print:hidden">
+    <div className={`fixed inset-x-0 z-50 px-4 print:hidden ${enFirma ? "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]" : "bottom-0 pb-4"}`}>
       <div className="mx-auto flex max-w-3xl flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white/95 px-5 py-4 shadow-card backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">
           {t.texto}{" "}

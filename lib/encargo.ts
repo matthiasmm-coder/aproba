@@ -113,6 +113,8 @@ const limpiar = (t: string) => t
   .replace(/[\u00A0\t\r]/g, " ")            // nbsp, tab, CR → espacio (conserva \n)
   .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "") // controles
   .replace(/[^\x00-\xFF]/g, "");            // resto no-WinAnsi (árabe/chino…)
+// El mismo saneado para los PDF de la firma electrónica (lib/firma/pdf.ts).
+export const limpiarTextoPdf = limpiar;
 // Hueco a rellenar a mano cuando el dato falta O cuando tras limpiar queda vacío
 // (p. ej. un nombre en árabe/chino que Helvetica no puede pintar): en un documento
 // legal el nombre NUNCA debe desaparecer en silencio — se deja subrayado.
@@ -350,8 +352,14 @@ const TINTA = rgb(0.08, 0.11, 0.18);
 const GRIS = rgb(0.42, 0.47, 0.55);
 const VERDE = rgb(0.055, 0.55, 0.37);
 
+// Dónde va cada firma (página 0-based, rectángulo en puntos PDF): la firma electrónica del
+// cliente se estampa en SU casilla, la que lleva su etiqueta (lib/firma/pdf.ts).
+export type CajaFirma = { etiqueta: string; pagina: number; x: number; y: number; w: number; h: number };
+export type SalidaDocumento = { cajas: CajaFirma[] };
+
 class Maqueta {
   doc!: PDFDocument; page!: PDFPage; y = 0;
+  cajas: CajaFirma[] = []; // las casillas de firma dibujadas, para firmar en línea
   font!: PDFFont; bold!: PDFFont;
   logo: PDFImage | null = null;
   static async crear(logoUrl?: string | null): Promise<Maqueta> {
@@ -451,6 +459,8 @@ class Maqueta {
       this.page.drawText(limpiar(texto), { x, y: yTop, size: 9, font: this.bold, color: TINTA });
       this.page.drawLine({ start: { x, y: yLinea }, end: { x: x + 190, y: yLinea }, thickness: 0.7, color: GRIS });
       this.page.drawText("Firma", { x, y: yLinea - 11, size: 7.5, font: this.font, color: GRIS });
+      // El hueco entre la etiqueta y la línea: ahí se apoya una firma (a mano o en línea).
+      this.cajas.push({ etiqueta: texto, pagina: this.doc.getPageCount() - 1, x, y: yLinea + 2, w: 190, h: hueco - 14 });
       if (img) {
         // Encajada entre la etiqueta y la línea, apoyada en la línea (como una firma a mano).
         const { ancho, alto } = medidasLogo(img, 190, hueco - 14);
@@ -493,7 +503,9 @@ async function embeberFirma(m: Maqueta, png?: Uint8Array | null): Promise<PDFIma
   try { return await m.doc.embedPng(png); } catch { return null; }
 }
 
-export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "encargo"): Promise<Uint8Array> {
+// `aceptacion` (presupuesto que se FIRMA en línea): añade la casilla «ACEPTADO POR EL CLIENTE».
+// `salida`: recibe las casillas de firma dibujadas (página y rectángulo).
+export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "encargo", opts: { aceptacion?: boolean; salida?: SalidaDocumento } = {}): Promise<Uint8Array> {
   const esPres = modo === "presupuesto";
   const alInicio = esPres ? "Al inicio" : "Al inicio (a la firma)";
   const m = await Maqueta.crear(d.despacho.logo);
@@ -661,14 +673,16 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
     m.espacio(8);
     m.parrafo("Este presupuesto es informativo y no supone encargo. Al aceptarlo se emite la hoja de encargo profesional, que recoge estas mismas condiciones.", { size: 9 });
     // Con firma del despacho, el presupuesto va firmado por él (sin línea para el cliente:
-    // no es un contrato). Sin firma, como siempre.
-    if (firma) {
+    // no es un contrato). Sin firma, como siempre. Si el cliente lo ACEPTA firmando en línea
+    // (Jennifer, 03/10/2026), lleva además su casilla «ACEPTADO POR EL CLIENTE».
+    if (firma || opts.aceptacion) {
       m.espacio(12);
-      m.necesita(18 + altoFirmas(true));
+      m.necesita(18 + altoFirmas(Boolean(firma)));
       m.parrafo(lineaLugarFecha(d.lugar, fecha), { size: 9.5 });
       m.espacio(8);
-      m.firmas("POR EL DESPACHO", "", { izq: firma });
+      m.firmas(firma ? "POR EL DESPACHO" : "", opts.aceptacion ? "ACEPTADO POR EL CLIENTE" : "", { izq: firma });
     }
+    if (opts.salida) opts.salida.cajas = m.cajas;
     return m.bytes();
   }
 
@@ -700,6 +714,7 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   } else if (d.trabajador !== undefined) {
     m.parrafo(`Firma por el cliente la persona con poder de representación de ${o(d.cliente.nombre, 40)}${d.cliente.nie ? `, CIF ${d.cliente.nie}` : ""}. El trabajador ${o(d.trabajador, 30)} no es parte de este contrato: firma únicamente el mandato de representación.`, { size: 8, color: GRIS });
   }
+  if (opts.salida) opts.salida.cajas = m.cajas;
   return m.bytes();
 }
 
@@ -707,7 +722,7 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
 
 // `persona`: expediente DE EMPRESA → un mandato POR TRABAJADOR (cada uno es el mandante
 // de su propia representación); sin ella, la persona del expediente o el cliente.
-export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo): Promise<Uint8Array> {
+export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo, opts: { salida?: SalidaDocumento } = {}): Promise<Uint8Array> {
   const m = await Maqueta.crear(d.despacho.logo);
   const firma = await embeberFirma(m, d.firma);
   m.cabecera(d.despacho.nombre, d.referencia);
@@ -742,5 +757,6 @@ export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo):
   m.parrafo("El mandatario acepta el mandato conferido y se obliga a cumplirlo de conformidad con las instrucciones del mandante, y declara bajo su responsabilidad que los documentos recibidos del mandante han sido verificados en cuanto a la corrección formal de los datos contenidos en los mismos.", { size: 8.5, color: GRIS });
   m.espacio(10);
   m.firmas("EL MANDANTE", "EL MANDATARIO", { der: firma });
+  if (opts.salida) opts.salida.cajas = m.cajas;
   return m.bytes();
 }

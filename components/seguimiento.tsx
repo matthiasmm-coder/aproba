@@ -6,6 +6,7 @@ import { LANGS, makeT, detectarLang, docLabel, docHelp, parentescoI18n, type Lan
 import { subirConProgreso } from "@/lib/subir-con-progreso";
 import { normalizarEstado } from "@/lib/progreso";
 import { ConsultaEstadoCliente } from "@/components/consulta-estado-cliente";
+import { BotonFirmaPortal } from "@/components/firma/boton-firma-portal";
 import type { DatosConsulta } from "@/lib/consulta-estado";
 
 export type SegDoc = { label: string; status: "ok" | "procesando" | "rechazado" | "pendiente"; docId?: string; motivo?: string; errorRed?: boolean; clienteId?: string; grupo?: string };
@@ -328,6 +329,8 @@ export function Seguimiento({
           {docs.some((d) => DOCS_FIRMA.includes(d.label) && d.status !== "ok") && (
             <div className="mb-3 rounded-xl border border-aproba-200 bg-aproba-50 p-4">
               <p className="text-sm font-semibold text-aproba-800">{t("firma.titulo")}</p>
+              {/* Firma EN LÍNEA primero (lib/firma); la descarga para firmar a mano, debajo. */}
+              {token && <BotonFirmaPortal token={token} t={t} />}
               <p className="mt-1 text-xs leading-relaxed text-aproba-700">{t(conHoja && conMandato ? "firma.intro" : "firma.introUno")}</p>
               <div className={`mt-3 grid gap-2 ${conHoja && conMandato ? "sm:grid-cols-2" : ""}`}>
                 {conHoja && (
