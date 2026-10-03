@@ -40,7 +40,7 @@ function Icon({ name }: { name: string }) {
   return <svg className={c} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, bandejaPendientes = 0, esperandoPago = 0, cobrosVencidos = 0, hoy, avatares = {} }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; bandejaPendientes?: number; esperandoPago?: number; cobrosVencidos?: number; hoy: string; avatares?: Avatares }) {
+export function DashboardClient({ items, usuario, citas, clientes, equipo = [], sedesVista = null, caducanPronto = 0, caducadas = 0, bandejaPendientes = 0, esperandoPago = 0, cobrosVencidos = 0, hoy, avatares = {}, miembrosAgenda = [], yo = null }: { items: DashItem[]; usuario?: string; citas: ItemAgenda[]; clientes: ClienteMin[]; equipo?: { nombre: string; esAdmin: boolean; sedes: string[] }[]; sedesVista?: string[] | null; caducanPronto?: number; caducadas?: number; bandejaPendientes?: number; esperandoPago?: number; cobrosVencidos?: number; hoy: string; avatares?: Avatares; miembrosAgenda?: { id: string; nombre: string }[]; yo?: string | null }) {
   const t = useT();
   const router = useRouter();
   // El servidor ya no manda archivados (fetchExpedientesResumen soloVivos). La caché
@@ -127,7 +127,7 @@ export function DashboardClient({ items, usuario, citas, clientes, equipo = [], 
       {/* La lista «Requieren tu acción» se retiró (pedido de Matthias, 07/08/2026):
           duplicaba el KPI de arriba, que ya enlaza al tablero con el detalle. */}
       <div className="mt-6">
-        <AgendaCitas citas={citas} clientes={clientes} hoy={hoy} />
+        <AgendaCitas citas={citas} clientes={clientes} hoy={hoy} miembros={miembrosAgenda} yo={yo} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

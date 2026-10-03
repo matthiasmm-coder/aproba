@@ -2930,6 +2930,10 @@ export const CA: Record<string, string> = {
   "Este precio vale también para el presupuesto, el enlace del cliente y las facturas de este expediente.": "Aquest preu també val per al pressupost, l'enllaç del client i les factures d'aquest expedient.",
   "Descargar el mandato": "Descarregar el mandat",
   "Descargar la hoja": "Descarregar el full",
+  // Agenda por miembro (Jennifer, 03/10/2026)
+  "Atiende": "Atén",
+  "tú": "tu",
+  "Agenda de": "Agenda de",
   // Tabla editable (Jennifer, 03/10/2026)
   "Entidad o subcontrata": "Entitat o subcontracta",
   "Añadir el colaborador": "Afegir el col·laborador",

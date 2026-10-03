@@ -7,6 +7,7 @@ import { useT } from "@/components/lang-provider";
 import { confirmar } from "@/components/confirm-dialog";
 import { NuevaCitaModal } from "@/components/nueva-cita-modal";
 import type { ItemAgenda, ClienteMin } from "@/lib/data/citas";
+import { SIN_ASIGNAR, colorDeMiembro, filtrarPorMiembro, nombreCorto, type MiembroAgenda } from "@/lib/agenda-miembros";
 
 // Agenda SEMANAL del Inicio — sustituye a la lista «Próximas citas» conservando TODO
 // su ciclo: crear (modal con aviso por email al cliente), editar, eliminar, y las citas
@@ -25,9 +26,24 @@ const aDate = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const addDias = (iso: string, n: number) => { const d = aDate(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const lunesDe = (iso: string) => addDias(iso, -((aDate(iso).getUTCDay() + 6) % 7));
 
-export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; clientes: ClienteMin[]; hoy: string }) {
+// Por miembro (03/10/2026, Jennifer): cada cita con el color de quien la atiende y, si el
+// equipo tiene más de una persona, un filtro «Todo el equipo / cada miembro / Sin asignar».
+// Cada navegador recuerda el último elegido.
+const FILTRO_KEY = "aproba.agenda.miembro";
+
+export function AgendaCitas({ citas: todas, clientes, hoy, miembros = [], yo = null }: { citas: ItemAgenda[]; clientes: ClienteMin[]; hoy: string; miembros?: MiembroAgenda[]; yo?: string | null }) {
   const t = useT();
   const router = useRouter();
+  const [filtro, setFiltro] = useState("");
+  useEffect(() => { try { setFiltro(window.localStorage.getItem(FILTRO_KEY) ?? ""); } catch { /* sin storage */ } }, []);
+  const elegir = (f: string) => { setFiltro(f); try { window.localStorage.setItem(FILTRO_KEY, f); } catch { /* sin storage */ } };
+  const conFiltro = miembros.length > 1;
+  // Un filtro recordado de alguien que ya no está en el equipo no debe vaciar la agenda.
+  const filtroVigente = conFiltro && (filtro === SIN_ASIGNAR || miembros.some((m) => m.id === filtro)) ? filtro : "";
+  const citas = useMemo(() => filtrarPorMiembro(todas, filtroVigente), [todas, filtroVigente]);
+  const haySinAsignar = useMemo(() => todas.some((c) => !c.asignadoAId), [todas]);
+  const color = (c: ItemAgenda) => colorDeMiembro(miembros, c.asignadoAId);
+  const quien = (c: ItemAgenda) => miembros.find((m) => m.id === c.asignadoAId)?.nombre ?? null;
   const [offset, setOffset] = useState(0); // semanas respecto a la actual
   const [diaSel, setDiaSel] = useState<string | null>(null); // móvil: día elegido en la tira
   const [abierto, setAbierto] = useState(false);
@@ -91,10 +107,10 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
     const tot = (h * 60 + m + c.duracion) % 1440;
     return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
   };
-  const tooltip = (c: ItemAgenda) => (c.tipo === "administracion"
+  const tooltip = (c: ItemAgenda) => [...(c.tipo === "administracion"
     ? [t("Cita administración"), c.referencia, c.conCliente ? t("con el cliente") : t("acudes tú solo"), c.hora, c.lugar]
     : [c.clienteNombre, c.motivo || t("Consulta"), c.hora, c.lugar]
-  ).filter(Boolean).join(" · ");
+  ), conFiltro ? `${t("Atiende")}: ${quien(c) ?? t("Sin asignar")}` : null].filter(Boolean).join(" · ");
 
   // Tarjeta de cita, 3 líneas: franja horaria (14:00 – 14:30) / nombre / motivo, lugar.
   // Un solo color (verde) para ambos tipos — pedido de Matthias: sin leyenda ni índigo.
@@ -118,6 +134,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <Link
           href={`/app/expedientes/${c.expedienteId}`}
           title={tooltip(c)}
+          style={conFiltro ? { borderLeftColor: color(c), borderLeftWidth: 3 } : undefined}
           className={`block rounded-md border border-aproba-100 bg-aproba-50 px-1.5 py-1 text-center text-aproba-900 transition hover:border-aproba-300 ${pasada(c) ? "opacity-45" : ""}`}
         >
           {inner}
@@ -129,6 +146,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <button
           onClick={() => setEditId(c.id)}
           title={`${tooltip(c)} — ${t("Editar")}`}
+          style={conFiltro ? { borderLeftColor: color(c), borderLeftWidth: 3 } : undefined}
           className="w-full rounded-md border border-aproba-100 bg-aproba-50 px-7 py-1 text-center text-aproba-900 transition hover:border-aproba-300 md:px-1.5"
         >
           {inner}
@@ -174,6 +192,23 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
 
       <p className="mb-2 text-center text-sm font-medium text-slate-600 lg:hidden">{etiqueta(dias[0], dias[6])}</p>
 
+      {/* Quién: un chip por miembro con su color (también es la leyenda de la agenda). */}
+      {conFiltro && (
+        <div role="group" aria-label={t("Agenda de")} className="mb-3 flex flex-wrap items-center gap-1.5">
+          {[{ id: "", nombre: t("Todo el equipo") }, ...miembros, ...(haySinAsignar ? [{ id: SIN_ASIGNAR, nombre: t("Sin asignar") }] : [])].map((m) => {
+            const activo = filtroVigente === m.id;
+            const punto = m.id && m.id !== SIN_ASIGNAR ? colorDeMiembro(miembros, m.id) : m.id === SIN_ASIGNAR ? colorDeMiembro(miembros, null) : null;
+            return (
+              <button key={m.id || "todos"} type="button" onClick={() => elegir(m.id)} aria-pressed={activo} title={m.id && m.id !== SIN_ASIGNAR ? m.nombre : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${activo ? "border-aproba-500 bg-aproba-50 text-aproba-800" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                {punto && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: punto }} aria-hidden />}
+                {m.id && m.id !== SIN_ASIGNAR ? `${nombreCorto(m.nombre)}${m.id === yo ? ` (${t("tú")})` : ""}` : m.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Móvil: tira de 7 días (puntos = citas) + lista del día elegido ──
           Apilar las 7 columnas hacía scrollear seis filas vacías para ver una cita;
           la tira es el patrón de los calendarios móviles: todo el contexto en una
@@ -196,7 +231,7 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
                 <span className={`text-sm font-bold ${sel ? "text-white" : esHoy ? "text-aproba-700" : "text-slate-700"}`}>{aDate(d).getUTCDate()}</span>
                 <span className="mt-1 flex h-1.5 items-center gap-0.5">
                   {del.slice(0, 3).map((c) => (
-                    <span key={c.id} className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white/80" : "bg-aproba-500"}`} />
+                    <span key={c.id} className={`h-1.5 w-1.5 rounded-full ${sel ? "bg-white/80" : "bg-aproba-500"}`} style={!sel && conFiltro ? { backgroundColor: color(c) } : undefined} />
                   ))}
                 </span>
               </button>
@@ -236,8 +271,8 @@ export function AgendaCitas({ citas, clientes, hoy }: { citas: ItemAgenda[]; cli
         <p className="mt-3 hidden text-center text-sm text-slate-400 md:block">{t("Sin citas esta semana. Crea una para empezar tu agenda.")}</p>
       )}
 
-      {abierto && <NuevaCitaModal clientes={clientes} onClose={() => setAbierto(false)} />}
-      {editId && <NuevaCitaModal clientes={clientes} citaId={editId} onClose={() => setEditId(null)} />}
+      {abierto && <NuevaCitaModal clientes={clientes} miembros={miembros} yo={yo} onClose={() => setAbierto(false)} />}
+      {editId && <NuevaCitaModal clientes={clientes} miembros={miembros} yo={yo} citaId={editId} onClose={() => setEditId(null)} />}
     </div>
   );
 }

@@ -56,12 +56,14 @@ function LogoTeams({ className = "h-5 w-5" }: { className?: string }) {
 // coincide con un cliente existente puede seleccionarlo (rellena email/teléfono y la
 // vincula), o deja un nombre libre (prospecto). Fecha obligatoria; aviso por email opcional.
 // Con `citaId` entra en modo edición (carga la cita y hace PUT en vez de POST).
-export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: ClienteMin[]; onClose: () => void; citaId?: string }) {
+export function NuevaCitaModal({ clientes, onClose, citaId, miembros = [], yo = null }: { clientes: ClienteMin[]; onClose: () => void; citaId?: string; miembros?: { id: string; nombre: string }[]; yo?: string | null }) {
   const t = useT();
   const router = useRouter();
   useScrollBloqueado(); // el padre solo lo monta cuando está abierto
   const edicion = Boolean(citaId);
   const [nombre, setNombre] = useState("");
+  // Quién la atiende (03/10/2026, agenda por miembro): por defecto, quien la crea.
+  const [atiende, setAtiende] = useState<string>(yo ?? "");
   const [clienteId, setClienteId] = useState<string | null>(null);
   // «Todas» = lectura: una cita SIN cliente necesita sede (serie/cuenta/tarjeta de su
   // factura). Con cliente vinculado manda la sede del cliente y el selector se oculta.
@@ -112,6 +114,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
         if (!vivo) return;
         if (!r.ok) throw new Error(c.error);
         setNombre(c.nombre ?? ""); setClienteId(c.clienteId ?? null);
+        if (c.asignadoAId) setAtiende(c.asignadoAId);
         setEmail(c.email ?? ""); setTelefono(c.telefono ?? "");
         setFecha(c.fecha ?? ""); setHora(c.hora ?? "");
         setDuracion(typeof c.duracion === "number" ? c.duracion : 30);
@@ -191,6 +194,7 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
       }
       const notif = notificar && Boolean(email.trim());
       const datos = {
+        ...(miembros.length > 1 && atiende ? { asignadoAId: atiende } : {}),
         clienteId, nombre, email, telefono, fecha, hora, duracion,
         oficinaId: !edicion && !clienteId && sedeCreacion.requerida ? sedeCreacion.sede : undefined,
         precio: precio.trim() ? Number(precio) : undefined,
@@ -441,6 +445,15 @@ export function NuevaCitaModal({ clientes, onClose, citaId }: { clientes: Client
             )}
           </div>
 
+          {miembros.length > 1 && (
+            <div className="sm:col-span-2">
+              <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Atiende")}</label>
+              <select value={atiende} onChange={(e) => setAtiende(e.target.value)} className={`${fld} bg-white`}>
+                {!miembros.some((m) => m.id === atiende) && <option value={atiende}>—</option>}
+                {miembros.map((m) => <option key={m.id} value={m.id}>{m.nombre}{m.id === yo ? ` (${t("tú")})` : ""}</option>)}
+              </select>
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{t("Motivo")}</label>
             <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={t("Consulta inicial, revisión de documentación…")} className={fld} />

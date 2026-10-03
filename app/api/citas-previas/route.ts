@@ -27,7 +27,7 @@ const ESTADOS = ["pendiente", "confirmada", "realizada", "cancelada"];
 //                del host para etiquetar el email.
 // En ambos: email del cliente, hora y duración OBLIGATORIOS (la invitación que
 // recibe el cliente debe poder abrirse). El lugar se fuerza a «Videollamada».
-type CuerpoCita = { clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string; cobrar?: boolean; cobroTransferencia?: boolean; cobroTarjeta?: boolean; oficinaId?: string };
+type CuerpoCita = { asignadoAId?: string | null; clienteId?: string; nombre?: string; email?: string; telefono?: string; fecha?: string; hora?: string; duracion?: number; precio?: number; lugar?: string; motivo?: string; notas?: string; notificar?: boolean; videoModo?: string; videoProveedor?: string; videoEnlace?: string; cobrar?: boolean; cobroTransferencia?: boolean; cobroTarjeta?: boolean; oficinaId?: string };
 
 // ─── Cobro de la cita ────────────────────────────────────────────────────────
 // Marcar «cobrar» emite una FACTURA de verdad (numeración del año, IVA, listado de
@@ -142,6 +142,15 @@ async function emitirFacturaCita(
 
 // Foto del gestor que lleva la cita (la creó o la edita): el cliente reconoce a su
 // persona de contacto en vez de unas iniciales. Best-effort: sin foto, iniciales.
+// Quién atiende la cita (03/10/2026, agenda por miembro): el miembro elegido, que tiene que
+// ser del MISMO despacho (bajo RLS: un id ajeno no aparece). Sin elegir: quien la crea.
+async function atiendeValido(supabase: Awaited<ReturnType<typeof createSupabaseServer>>, workspaceId: string, elegido: unknown, porDefecto: string): Promise<string | null> {
+  const id = typeof elegido === "string" ? elegido.trim() : "";
+  if (!id) return porDefecto;
+  const { data } = await supabase.from("Membership").select("userId").eq("userId", id).eq("workspaceId", workspaceId).maybeSingle();
+  return data ? id : null;
+}
+
 async function fotoDeUsuario(admin: ReturnType<typeof createSupabaseAdmin>, userId: string): Promise<string | null> {
   try {
     const { data } = await admin.from("User").select("avatarUrl").eq("id", userId).maybeSingle();
@@ -233,6 +242,8 @@ export async function POST(req: Request) {
   const { data: mem } = await supabase.from("Membership").select("workspaceId, Workspace(nombre)").eq("userId", user.id).limit(1).maybeSingle();
   if (!mem) return NextResponse.json({ error: "No perteneces a ningún despacho." }, { status: 403 });
   const gestoria = (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace)?.nombre ?? "Tu gestoría";
+  const atiende = await atiendeValido(supabase, mem.workspaceId as string, body.asignadoAId, user.id);
+  if (!atiende) return NextResponse.json({ error: "Esa persona no está en tu equipo." }, { status: 400 });
 
   // «Todas» es una vista de LECTURA también aquí: una cita SIN cliente creada desde
   // «Todas» (≥2 oficinas) exige elegir sede en el modal — de ella dependen la serie,
@@ -281,7 +292,7 @@ export async function POST(req: Request) {
     motivo: body.motivo?.trim() || null,
     notas: body.notas?.trim() || null,
     estado: "confirmada",
-    asignadoAId: user.id,
+    asignadoAId: atiende,
     videoProveedor: video.prov,
     videoEnlace: video.enlace,
     googleEventoId,
@@ -318,7 +329,7 @@ export async function POST(req: Request) {
 
   let avisado = false;
   if (body.notificar && fila.email) {
-    const avatarUrl = await fotoDeUsuario(createSupabaseAdmin(), user.id);
+    const avatarUrl = await fotoDeUsuario(createSupabaseAdmin(), atiende); // la persona que atiende, no quien la anota
     const logoUrl = await logoDelWorkspace(createSupabaseAdmin(), String(mem.workspaceId), sedeExplicita);
     avisado = await enviarConfirmacionCitaPrevia({ logoUrl, nombre, email: fila.email, gestoria, fecha, hora: fila.hora, duracion: fila.duracion, precio: fila.precio, lugar: fila.lugar, motivo: fila.motivo, videoProveedor: video.prov, videoEnlace: video.enlace, citaId: fila.id, cobro, avatarUrl });
   }
@@ -349,9 +360,9 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id")?.trim() ?? "";
   if (!id) return NextResponse.json({ error: "Falta el id." }, { status: 400 });
   const sel = (cols: string) => supabase.from("CitaPrevia").select(cols).eq("id", id).maybeSingle();
-  let res = await sel("id, clienteId, nombre, email, telefono, fecha, hora, duracion, precio, lugar, motivo, notas, videoProveedor, videoEnlace");
-  if (res.error) res = await sel("id, clienteId, nombre, email, telefono, fecha, hora, duracion, precio, lugar, motivo, notas");
-  if (res.error) res = await sel("id, clienteId, nombre, email, telefono, fecha, hora, lugar, motivo, notas");
+  let res = await sel("id, clienteId, asignadoAId, nombre, email, telefono, fecha, hora, duracion, precio, lugar, motivo, notas, videoProveedor, videoEnlace");
+  if (res.error) res = await sel("id, clienteId, asignadoAId, nombre, email, telefono, fecha, hora, duracion, precio, lugar, motivo, notas");
+  if (res.error) res = await sel("id, clienteId, asignadoAId, nombre, email, telefono, fecha, hora, lugar, motivo, notas");
   if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
   if (!res.data) return NextResponse.json({ error: "Cita no encontrada." }, { status: 404 });
   return NextResponse.json(res.data);
@@ -378,6 +389,9 @@ export async function PUT(req: Request) {
   if (!mem) return NextResponse.json({ error: "No perteneces a ningún despacho." }, { status: 403 });
   const gestoria = (Array.isArray(mem.Workspace) ? mem.Workspace[0] : mem.Workspace)?.nombre ?? "Tu gestoría";
   const wsId = mem.workspaceId as string;
+  // Cambiar quién la atiende (solo si el formulario lo manda: un cliente antiguo no lo toca).
+  const atiende = body.asignadoAId !== undefined ? await atiendeValido(supabase, wsId, body.asignadoAId, user.id) : undefined;
+  if (atiende === null) return NextResponse.json({ error: "Esa persona no está en tu equipo." }, { status: 400 });
 
   // Fila anterior (bajo RLS): necesaria para el ciclo de vida del evento de Google.
   const selPrev = (cols: string) => supabase.from("CitaPrevia").select(cols).eq("id", id).maybeSingle();
@@ -437,6 +451,7 @@ export async function PUT(req: Request) {
     videoProveedor: video.prov,
     videoEnlace: video.enlace,
     googleEventoId,
+    ...(atiende ? { asignadoAId: atiende } : {}),
   };
   let { error } = await supabase.from("CitaPrevia").update(patch).eq("id", id); // RLS
   if (error && faltaColumnaGoogle(error.message)) ({ error } = await supabase.from("CitaPrevia").update(sinGoogleEvento(patch)).eq("id", id));

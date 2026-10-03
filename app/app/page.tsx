@@ -56,10 +56,17 @@ export default async function Dashboard() {
   let equipo: { nombre: string; avatarUrl?: string | null; esAdmin: boolean; sedes: string[] }[] = [];
   // Mi rol: la memoria de actividad (documento institucional) solo se enseña a la administración.
   let miRol: string | null = null;
+  // Agenda por miembro (03/10/2026): el equipo con su id, para colorear y filtrar la agenda.
+  let miembrosAgenda: { id: string; nombre: string }[] = [];
   try {
     let res = await supabase.from("Membership").select("userId, role, oficinaId, oficinaIds, user:User(nombre, avatarUrl)");
     if (res.error) res = await supabase.from("Membership").select("userId, role, oficinaId, user:User(nombre, avatarUrl)") as typeof res;
     miRol = ((res.data ?? []) as { userId?: string; role?: string }[]).find((m) => m.userId === user?.id)?.role ?? null;
+    miembrosAgenda = (res.data ?? []).flatMap((m) => {
+      const fila = m as { userId?: string; user?: { nombre: string | null } | { nombre: string | null }[] | null };
+      const u = Array.isArray(fila.user) ? fila.user[0] : fila.user;
+      return fila.userId ? [{ id: fila.userId, nombre: u?.nombre?.trim() || "Miembro" }] : [];
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     equipo = (res.data ?? []).flatMap((m) => {
       const fila = m as { role?: string; oficinaId?: string | null; oficinaIds?: string[] | null; user?: { nombre: string | null; avatarUrl?: string | null } | { nombre: string | null; avatarUrl?: string | null }[] | null };
       const u = Array.isArray(fila.user) ? fila.user[0] : fila.user;
@@ -121,7 +128,7 @@ export default async function Dashboard() {
           gouvernent que les KPI et listes en dessous. */}
       <OnboardingChecklist items={checklist.items} />
       <PastillasOficina oficinas={filtroSede.oficinas} activa={filtroSede.activa} />
-      <DashboardClient esperandoPago={esperandoPago} cobrosVencidos={cobrosVencidos} avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} />
+      <DashboardClient esperandoPago={esperandoPago} cobrosVencidos={cobrosVencidos} avatares={Object.fromEntries(equipo.map((m) => [m.nombre, m.avatarUrl ?? null]))} items={items} usuario={usuario} citas={citas} clientes={clientes} equipo={equipo} sedesVista={sedesVista} caducanPronto={caducanPronto} caducadas={caducadas} bandejaPendientes={bandejaPendientes} hoy={new Date().toISOString().slice(0, 10)} miembrosAgenda={miembrosAgenda} yo={user?.id ?? null} />
       {/* Memoria de actividad (art. 8.1.f): cierra el Inicio de los administradores. */}
       {esAdmin && <MemoriaActividadCard />}
     </>

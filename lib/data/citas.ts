@@ -24,6 +24,9 @@ export type ItemAgenda = {
   expedienteId?: string; // administracion (link)
   referencia?: string; // administracion
   conCliente?: boolean; // administracion: el gestor acude CON el cliente (citaQuien="ambos")
+  // Quién la atiende (03/10/2026, agenda por miembro): previa = el miembro elegido al
+  // crearla; administración = el responsable del expediente. null = nadie.
+  asignadoAId?: string | null;
 };
 
 export type ClienteMin = { id: string; nombre: string; apellidos: string | null; email: string | null; telefono: string | null };
@@ -46,10 +49,10 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
   // columnas nuevas: si la migración no se aplicó, se reintenta sin ellas.
   try {
     const sel = (cols: string) => supabase.from("CitaPrevia").select(cols).gte("fecha", today).not("estado", "in", "(cancelada,realizada)").order("fecha", { ascending: true }).limit(limite);
-    let res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId, duracion, precio");
-    if (res.error) res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId");
+    let res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId, asignadoAId, duracion, precio");
+    if (res.error) res = await sel("id, nombre, fecha, hora, lugar, motivo, estado, clienteId, asignadoAId");
     for (const c of (res.data ?? []) as unknown as Record<string, unknown>[]) {
-      items.push({ id: c.id as string, tipo: "previa", fecha: c.fecha as string, hora: (c.hora as string) ?? null, lugar: (c.lugar as string) ?? null, clienteNombre: c.nombre as string, motivo: (c.motivo as string) ?? null, estado: (c.estado as string) ?? null, clienteId: (c.clienteId as string) ?? null, duracion: typeof c.duracion === "number" ? c.duracion : null, precio: c.precio != null ? Number(c.precio) : null });
+      items.push({ id: c.id as string, tipo: "previa", fecha: c.fecha as string, hora: (c.hora as string) ?? null, lugar: (c.lugar as string) ?? null, clienteNombre: c.nombre as string, motivo: (c.motivo as string) ?? null, estado: (c.estado as string) ?? null, clienteId: (c.clienteId as string) ?? null, duracion: typeof c.duracion === "number" ? c.duracion : null, precio: c.precio != null ? Number(c.precio) : null, asignadoAId: (c.asignadoAId as string) ?? null });
     }
   } catch { /* tabla CitaPrevia no migrada → sin previas */ }
 
@@ -68,10 +71,10 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
       .order("fechaCita", { ascending: true })
       .limit(limite);
     // Con la empresa (expediente DE EMPRESA: la cita se nombra por ella); repli sin ella.
-    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos), empresa:Empresa(razonSocial)");
-    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)") as typeof resC;
-    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, cliente:Cliente(nombre, apellidos)") as typeof resC;
-    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, cliente:Cliente(nombre, apellidos)") as typeof resC;
+    let resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, asignadoAId, cliente:Cliente(nombre, apellidos), empresa:Empresa(razonSocial)");
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, citaQuien, tipo, servicioClave, serviciosExtra, asignadoAId, cliente:Cliente(nombre, apellidos)") as typeof resC;
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, serviciosExtra, asignadoAId, cliente:Cliente(nombre, apellidos)") as typeof resC;
+    if (resC.error) resC = await selCitas("id, referencia, fechaCita, citaHora, citaLugar, tipo, servicioClave, asignadoAId, cliente:Cliente(nombre, apellidos)") as typeof resC;
     const data = resC.data as unknown as Record<string, unknown>[] | null;
     for (const e of data ?? []) {
       // Multi-servicio: la cita entra en la agenda si ALGÚN servicio del expediente
@@ -88,7 +91,7 @@ export async function fetchProximasCitas(opts?: { desdeDias?: number; max?: numb
       if (!acudeGestor) continue;
       const cli = uno(e.cliente as { nombre: string | null; apellidos: string | null }[] | null);
       const emp = uno((e.empresa ?? null) as { razonSocial?: string | null }[] | null);
-      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || emp?.razonSocial || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string, conCliente: quienCita === "ambos" });
+      items.push({ id: e.id as string, tipo: "administracion", fecha: e.fechaCita as string, hora: (e.citaHora as string) ?? null, lugar: (e.citaLugar as string) ?? null, clienteNombre: `${cli?.nombre ?? ""} ${cli?.apellidos ?? ""}`.trim() || emp?.razonSocial || "Cliente", expedienteId: e.id as string, referencia: e.referencia as string, conCliente: quienCita === "ambos", asignadoAId: (e.asignadoAId as string) ?? null });
     }
   } catch { /* sin citas de administración */ }
 
