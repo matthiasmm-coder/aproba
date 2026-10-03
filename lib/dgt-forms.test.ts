@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { CODIGO_CANJE_DGT, partirPiso, partirVia, provinciaDgt, rellenarMod03, rellenarMod24 } from "@/lib/dgt-forms";
+import { CODIGO_CANJE_DGT, partirPiso, partirVia, provinciaDgt, rellenarMod03, rellenarMod24, telefonoDgt } from "@/lib/dgt-forms";
 import { CANJE_VACIO } from "@/lib/canje";
 import type { DatosForm } from "@/lib/formularios";
 
@@ -11,7 +11,7 @@ const DATOS: DatosForm = {
   apellido1: "Ríos", apellido2: "Quispe", nombre: "Valentina", sexo: "M", estadoCivil: "S",
   fechaD: "14", fechaM: "02", fechaA: "1991", lugarNac: "Lima", paisNac: "Perú", nacionalidad: "Peruana",
   nombrePadre: "", nombreMadre: "", domicilio: "Calle Mayor", numero: "12", piso: "3º 2ª",
-  localidad: "Madrid", cp: "28013", provincia: "Madrid", telefono: "600000000", email: "valentina@example.com",
+  localidad: "Madrid", cp: "28013", provincia: "Madrid", telefono: "+34 600 000 000", email: "valentina@example.com",
 };
 const leer = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getForm();
 
@@ -36,6 +36,17 @@ describe("impresos de la DGT · datos", () => {
     expect(partirPiso("3º 2ª")).toEqual({ planta: "3º", puerta: "2ª" });
     expect(partirPiso("1-B")).toEqual({ planta: "1", puerta: "B" });
     expect(partirPiso("Bajo")).toEqual({ planta: "Bajo", puerta: "" });
+  });
+
+  it("teléfono en las 9 cifras que admite el impreso", () => {
+    expect(telefonoDgt("+34 611 205 874")).toBe("611205874");
+    expect(telefonoDgt("+34611205874")).toBe("611205874");
+    expect(telefonoDgt("0034 611-20-58-74")).toBe("611205874");
+    expect(telefonoDgt("34611205874")).toBe("611205874");
+    expect(telefonoDgt("912 345 678")).toBe("912345678");
+    expect(telefonoDgt("+57 300 123 4567")).toBe("");
+    expect(telefonoDgt("12345")).toBe("");
+    expect(telefonoDgt(null)).toBe("");
   });
 });
 

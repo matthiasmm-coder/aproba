@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CANJE_VACIO, PAISES_CONVENIO, avisosCanje, avisosCanjeEnviados, claveAvisoCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, fraseAvisoCanje, hitoCanje, plazosCanje, situacionCanje, tieneConvenio } from "@/lib/canje";
+import { CANJE_VACIO, PAISES_CONVENIO, PRUEBAS_CD, avisosCanje, avisosCanjeEnviados, claveAvisoCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, fraseAvisoCanje, hitoCanje, paisConvenio, plazosCanje, situacionCanje, tieneConvenio } from "@/lib/canje";
 import { DEFAULT_SERVICIOS, claveDelCatalogo } from "@/lib/servicios";
 import { LANGS, SERVICIO_I18N, docLabel, temaLabel } from "@/lib/portal-i18n";
 
@@ -56,6 +56,32 @@ describe("canje del permiso de conducir", () => {
   it("presentado: el informe médico ya no importa; entregado en la Jefatura: autorización provisional", () => {
     const a = avisosCanje({ ...base, informeMedicoEl: "2026-01-01", residenciaDesde: "2026-01-01", entregadoEl: "2026-09-30" }, { presentado: true, hoy: HOY });
     expect(a.map((x) => x.nivel)).toEqual(["ok"]);
+  });
+
+  it("país por su nombre oficial largo o corto", () => {
+    for (const p of ["Reino Unido e Irlanda del Norte", "República de El Salvador", "Reino de Marruecos", "Principado de Andorra", "República Dominicana", "Corea", "colombia", "UK"]) expect(tieneConvenio(p), p).toBe(true);
+    for (const p of ["Estados Unidos", "Rusia", "Venezuela", "República Checa"]) expect(tieneConvenio(p), p).toBe(false);
+    expect(paisConvenio("República de El Salvador")).toBe("El Salvador");
+    expect(paisConvenio("Reino Unido e Irlanda del Norte")).toBe("Reino Unido");
+  });
+
+  it("camión y autobús (C, D) según el convenio de cada país (tabla DGT del 26/06/2026)", () => {
+    const de = (pais: string, clases: string[]) => avisosCanje({ ...base, pais, clases }, { hoy: HOY });
+    expect(Object.keys(PRUEBAS_CD)).toHaveLength(PAISES_CONVENIO.length);
+    const uk = de("Reino Unido", ["B", "C"]);
+    expect(uk[0]).toMatchObject({ nivel: "bloqueo", pais: "Reino Unido" });
+    expect(uk[0].clave).toContain("no se canjean");
+    expect(de("Japón", ["B"])[0]).toMatchObject({ nivel: "info", clave: "{pais}: solo se canjean moto y coche (A, B).", pais: "Japón" });
+    expect(de("Andorra", ["C"]).map((a) => a.clave)).toContain("{pais}: camión y autobús (C, D) también se canjean sin pruebas.");
+    expect(de("Andorra", ["C"]).some((a) => a.n === 94.05)).toBe(false);
+    expect(de("Marruecos", ["C"]).find((a) => a.n === 94.05)?.clave).toContain("prueba de circulación");
+    expect(de("Uruguay", ["D"]).find((a) => a.n === 94.05)?.clave).toContain("prueba de circulación");
+    expect(de("Uruguay", ["C", "D"]).find((a) => a.n === 94.05)?.clave).toContain("conocimientos específicos");
+    expect(de("Serbia", ["D"]).find((a) => a.n === 94.05)?.clave).toContain("teórica y de circulación");
+    expect(de("Argelia", ["C"]).find((a) => a.n === 94.05)?.clave).toContain("teórica específica");
+    expect(de("Moldavia", ["C"]).find((a) => a.n === 94.05)?.clave).toContain("circuito cerrado");
+    expect(de("Perú", ["B"]).some((a) => a.n === 94.05)).toBe(false);
+    expect(de("", ["C"]).some((a) => a.n === 94.05)).toBe(true); // sin país: el aviso general
   });
 
   it("camión o autobús: pruebas posibles y tasa 2.1; Argentina y Nueva Zelanda, su nota", () => {

@@ -70,9 +70,45 @@ export function datosCanjeValidos(x: unknown): DatosCanje {
 }
 
 const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-const enLista = (lista: readonly string[], pais: string) => lista.some((p) => sinTildes(p) === sinTildes(pais) || (sinTildes(pais).length > 3 && sinTildes(p).startsWith(sinTildes(pais))));
-export const tieneConvenio = (pais: string) => enLista(PAISES_CONVENIO, pais) || /^(gran bretana|inglaterra|uk)$/i.test(sinTildes(pais));
+// El nombre oficial largo también vale: «República de El Salvador», «Reino de Marruecos»,
+// «Principado de Andorra» (sin el prefijo) y «Reino Unido e Irlanda del Norte» (empieza por el
+// corto), como los escribe la DGT. Antes daban «Sin convenio» (03/10/2026). Y lo corto, «Corea».
+const nombrePais = (s: string) => sinTildes(s).replace(/^(republica|reino|principado|estado) del? /, "");
+const coincide = (dePais: string, pais: string) => {
+  const a = sinTildes(dePais), b = nombrePais(pais);
+  return a === b || (b.length > 3 && a.startsWith(b)) || (a.length > 3 && b.startsWith(`${a} `));
+};
+const enLista = (lista: readonly string[], pais: string) => lista.some((p) => coincide(p, pais));
+type PaisConvenio = (typeof PAISES_CONVENIO)[number];
+export function paisConvenio(pais: string): PaisConvenio | null {
+  if (/^(gran bretana|inglaterra|uk)$/i.test(sinTildes(pais))) return "Reino Unido";
+  return PAISES_CONVENIO.find((p) => coincide(p, pais)) ?? null;
+}
+export const tieneConvenio = (pais: string) => paisConvenio(pais) !== null;
 export const esUeEee = (pais: string) => enLista(PAISES_UE_EEE, pais);
+
+// CAMIÓN Y AUTOBÚS (C, D) en cada convenio, tal cual la tabla de la DGT («Países con convenio de
+// canjes», actualizada el 26/06/2026; leída el 03/10/2026). Moto y coche (A, B): sin pruebas en
+// los 33. Uruguay: C con prueba específica y de circulación, D solo de circulación.
+type PruebasCD = "sin" | "circulacion" | "especifico" | "teorico_especifico" | "teorica" | "circuito" | "no_canjeable";
+export const PRUEBAS_CD: Record<PaisConvenio, PruebasCD> = {
+  "Andorra": "sin",
+  "Argentina": "circulacion", "Chile": "circulacion", "Costa Rica": "circulacion", "Georgia": "circulacion", "Honduras": "circulacion",
+  "Marruecos": "circulacion", "Perú": "circulacion", "Ucrania": "circulacion",
+  "Bolivia": "especifico", "Brasil": "especifico", "Colombia": "especifico", "Ecuador": "especifico", "El Salvador": "especifico",
+  "Filipinas": "especifico", "Guatemala": "especifico", "Macedonia del Norte": "especifico", "Nicaragua": "especifico", "Panamá": "especifico",
+  "Paraguay": "especifico", "República Dominicana": "especifico", "Túnez": "especifico", "Turquía": "especifico", "Uruguay": "especifico",
+  "Argelia": "teorico_especifico", "Serbia": "teorica", "Moldavia": "circuito",
+  "Corea del Sur": "no_canjeable", "Japón": "no_canjeable", "Mónaco": "no_canjeable", "Nueva Zelanda": "no_canjeable",
+  "Reino Unido": "no_canjeable", "Suiza": "no_canjeable",
+};
+const CLAVE_PRUEBAS_CD: Record<Exclude<PruebasCD, "sin" | "no_canjeable">, string> = {
+  circulacion: "Camión o autobús (C, D) de {pais}: la DGT exige prueba de circulación. Tasa 2.1 ({n} €).",
+  especifico: "Camión o autobús (C, D) de {pais}: la DGT exige prueba de conocimientos específicos y de circulación. Tasa 2.1 ({n} €).",
+  teorico_especifico: "Camión o autobús (C, D) de {pais}: la DGT exige prueba teórica específica y de circulación. Tasa 2.1 ({n} €).",
+  teorica: "Camión o autobús (C, D) de {pais}: la DGT exige prueba teórica y de circulación. Tasa 2.1 ({n} €).",
+  circuito: "Camión o autobús (C, D) de {pais}: la DGT exige pruebas en circuito cerrado y de circulación. Tasa 2.1 ({n} €).",
+};
 
 const sumarMeses = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 const sumarDias = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -81,7 +117,7 @@ const conPruebas = (clases: string[]) => clases.some((c) => /^[CD]/.test(c));
 
 // Lo que hay que saber antes de pedir el canje, en orden de gravedad. `clave` es el texto
 // (traducible) con {fecha} o {n}; `fecha` va en AAAA-MM-DD.
-export type AvisoCanje = { nivel: "bloqueo" | "atencion" | "info" | "ok"; clave: string; fecha?: string; n?: number };
+export type AvisoCanje = { nivel: "bloqueo" | "atencion" | "info" | "ok"; clave: string; fecha?: string; n?: number; pais?: string };
 export function avisosCanje(d: DatosCanje, o: { presentado?: boolean; hoy?: Date } = {}): AvisoCanje[] {
   const hoy = o.hoy ?? new Date();
   const out: AvisoCanje[] = [];
@@ -89,8 +125,19 @@ export function avisosCanje(d: DatosCanje, o: { presentado?: boolean; hoy?: Date
     if (esUeEee(d.pais)) out.push({ nivel: "info", clave: "Permiso de la UE o del EEE: vale en España tal cual. Su canje es voluntario y es otro trámite." });
     else if (!tieneConvenio(d.pais)) out.push({ nivel: "bloqueo", clave: "Sin convenio de canje con España: este permiso no se puede canjear; hay que sacar el permiso español." });
     else {
-      if (sinTildes(d.pais).startsWith("nueva zelanda")) out.push({ nivel: "info", clave: "Nueva Zelanda: solo se canjean moto y coche (A y B)." });
-      if (sinTildes(d.pais) === "argentina") out.push({ nivel: "info", clave: "Argentina: la DGT pide el «Certificado de legalidad y antigüedad» del permiso." });
+      const pais = paisConvenio(d.pais) as PaisConvenio;
+      if (pais === "Argentina") out.push({ nivel: "info", clave: "Argentina: la DGT pide el «Certificado de legalidad y antigüedad» del permiso." });
+      const regla = PRUEBAS_CD[pais];
+      if (regla === "no_canjeable") out.push(conPruebas(d.clases)
+        ? { nivel: "bloqueo", clave: "{pais}: el camión y el autobús (C, D) no se canjean; solo moto y coche (A, B).", pais }
+        : { nivel: "info", clave: "{pais}: solo se canjean moto y coche (A, B).", pais });
+      else if (conPruebas(d.clases)) {
+        if (regla === "sin") out.push({ nivel: "info", clave: "{pais}: camión y autobús (C, D) también se canjean sin pruebas.", pais });
+        else {
+          const soloD = pais === "Uruguay" && !d.clases.some((c) => c.startsWith("C"));
+          out.push({ nivel: "atencion", clave: CLAVE_PRUEBAS_CD[soloD ? "circulacion" : regla], n: TASA_CANJE_CON_PRUEBAS.importe, pais });
+        }
+      }
     }
   }
   if (d.caducidad && diasHasta(d.caducidad, hoy) < 0) out.push({ nivel: "bloqueo", clave: "El permiso caducó el {fecha}: para canjearlo tiene que estar en vigor.", fecha: d.caducidad });
@@ -98,7 +145,8 @@ export function avisosCanje(d: DatosCanje, o: { presentado?: boolean; hoy?: Date
   // (sede, 03/10/2026). Aviso y no bloqueo: un permiso RENOVADO lleva una fecha de expedición
   // reciente aunque se obtuviera mucho antes.
   if (d.expedicion && d.residenciaDesde && d.expedicion > d.residenciaDesde) out.push({ nivel: "atencion", clave: "Expedido el {fecha}, después de empezar a residir en España: la DGT pide acreditar que se obtuvo cuando aún no residía aquí. Si es una renovación, prepara la prueba de la fecha en que se obtuvo.", fecha: d.expedicion });
-  if (conPruebas(d.clases)) out.push({ nivel: "atencion", clave: "Camión o autobús (C, D): la DGT puede exigir prueba práctica y, según el país, teórica. Tasa 2.1 ({n} €).", n: TASA_CANJE_CON_PRUEBAS.importe });
+  // Sin país todavía: el aviso general (con país, el de su convenio, arriba).
+  if (conPruebas(d.clases) && !d.pais) out.push({ nivel: "atencion", clave: "Camión o autobús (C, D): la DGT puede exigir prueba práctica y, según el país, teórica. Tasa 2.1 ({n} €).", n: TASA_CANJE_CON_PRUEBAS.importe });
   if (d.residenciaDesde && !d.entregadoEl) {
     const limite = sumarMeses(d.residenciaDesde, MESES_PERMISO_EXTRANJERO);
     const dias = diasHasta(limite, hoy);

@@ -68,8 +68,13 @@ const primerNombre = (n: string) => (n || "").trim().split(/\s+/)[0] || (n || "c
 const render = (tpl: string, vars: Record<string, string>) =>
   tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
 
-const inicialesDe = (s: string) =>
-  ((s || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2)) || "?";
+// Sin las palabras de enlace: «Gestoría de Carmen» → «GC» (no «GD»).
+const ENLACES_NOMBRE = new Set(["de", "del", "la", "las", "los", "el", "y", "i", "e", "&"]);
+const inicialesDe = (s: string) => {
+  const palabras = (s || "?").trim().split(/\s+/);
+  const llenas = palabras.filter((w) => !ENLACES_NOMBRE.has(w.toLowerCase()));
+  return ((llenas.length ? llenas : palabras).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2)) || "?";
+};
 
 const FUENTE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 

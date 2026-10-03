@@ -72,6 +72,14 @@ export function partirPiso(piso: string | null | undefined): { planta: string; p
   const p = limpiar(piso).split(/[\s\-,]+/).filter(Boolean);
   return { planta: p[0] ?? "", puerta: p.slice(1).join(" ") };
 }
+// «Teléfono» del Mod. 03 admite 9 caracteres: el número español sin prefijo ni espacios
+// («+34 611 205 874» → «611205874»; antes, todo número con +34 dejaba la casilla vacía).
+// Uno extranjero no cabe: mejor el hueco que un número cortado.
+export function telefonoDgt(tel: string | null | undefined): string {
+  const t = String(tel ?? "").replace(/[\s.\-()]/g, "");
+  const d = t.startsWith("+34") ? t.slice(3) : t.startsWith("0034") ? t.slice(4) : t.startsWith("+") ? "" : /^34[6789]\d{8}$/.test(t) ? t.slice(2) : t;
+  return /^[6789]\d{8}$/.test(d) ? d : "";
+}
 
 // El cuerpo de letra va en el /DA del CAMPO y de cada WIDGET, en una sola línea: varios campos
 // del impreso de la DGT llevan su /DA solo en el widget, con tamaño automático («0 Tf»), y el
@@ -136,7 +144,7 @@ export async function rellenarMod03(o: { datos: DatosForm; canje: DatosCanje; lu
   poner(form, "Apellido 1", d.apellido1);
   poner(form, "Apellido 2", d.apellido2);
   poner(form, "Correo electrónico", d.email);
-  poner(form, "Teléfono", d.telefono);
+  poner(form, "Teléfono", telefonoDgt(d.telefono));
   // Domicilio del TITULAR a efectos de notificaciones: el suyo, nunca el del despacho.
   const via = partirVia(d.domicilio);
   poner(form, "Tipo Vía", via.tipo);

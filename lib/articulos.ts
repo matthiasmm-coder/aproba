@@ -69,6 +69,167 @@ export const imagenDe = (a: Articulo): string => `/articulos/${a.slug}.jpg`;
 // El texto admite **negrita** (se convierte en <strong> al pintar; ver components/articulo-cuerpo).
 export const ARTICULOS: Articulo[] = [
   {
+    // 03/10/2026 — el canje del permiso de conducir (Matthias, tras construir el canje en Aproba
+    // para Jennifer y Samara). Fuentes leídas el 03/10/2026: dgt.es «Canje de permisos de países
+    // extracomunitarios» (actualizada 28/04/2025: «solo válido durante el plazo de seis meses,
+    // como máximo, contados desde que hayas adquirido la residencia normal», «canjeable si lo
+    // obtuviste antes de ser residente legal», informe de aptitud psicofísica de 90 días,
+    // autorización provisional, definitivo en mes y medio, pruebas C/D, Argentina: certificado
+    // legalizado); dgt.es «Países con convenio de canjes» (actualizada 26/06/2026: 33 países, la
+    // tabla moto-coche / camión-autobús reproducida tal cual, la misma que PRUEBAS_CD de
+    // lib/canje.ts); sede.dgt.gob.es «Canje de permisos de países extracomunitarios» (actualizada
+    // 02/10/2026: documentación, «solicitud de canje cumplimentada en impreso oficial», en línea
+    // con Cl@ve o certificado, presencial con cita previa, representante por el Registro de
+    // apoderamientos, sin talón-foto desde el 06/11/2024, tasa 2.3 28,87 € / 2.1 94,05 €, se
+    // retira el permiso original); nota de prensa DGT del 20/05/2025 (canje digital, sin cita
+    // previa, una visita a la Jefatura para entregar el original). Lo que se dice de Aproba sale
+    // del código (lib/canje.ts, lib/canje-escaner.ts, lib/dgt-forms.ts, components/canje-permiso.tsx).
+    slug: "canje-permiso-conducir-extranjero-paises-plazos-2026",
+    titulo: "Canje del permiso de conducir extranjero: países, plazos y pasos",
+    tituloSeo: "Canje del permiso de conducir extranjero en España (2026)",
+    descripcion:
+      "Canje del permiso de conducir extranjero en 2026: los 33 países con convenio, el plazo de 6 meses, los documentos, la tasa de 28,87 € y cómo se pide.",
+    fecha: "2026-10-03",
+    tema: "Tráfico",
+    entradilla:
+      "Un permiso de conducir extranjero sirve en España, como máximo, seis meses desde que su titular adquiere la residencia. Después hay que canjearlo, y solo se puede si el país tiene convenio con España: son 33. Qué países, qué plazos, qué documentos, qué cuesta y cómo se pide desde que el canje se hace en línea.",
+    imagenAlt:
+      "Vista aérea de una carretera en curva entre olivos y campos dorados; la recorre un coche blanco y, sobre el asfalto, una línea verde esmeralda de circuito con nodos sigue su trazado.",
+    bloques: [
+      {
+        t: "p",
+        texto:
+          "Para un despacho de extranjería, el canje llega justo después de la tarjeta: el cliente ya tiene su residencia y, con ella, empieza a correr un plazo que casi nadie le ha explicado. La DGT lo resume así: el permiso extranjero **«es solo válido durante el plazo de seis meses, como máximo, contados desde que hayas adquirido la residencia normal en España»**. Para seguir conduciendo con él hay que canjearlo por el español, y eso solo es posible si el país que lo expidió tiene convenio con España.",
+      },
+      {
+        t: "datos",
+        items: [
+          { valor: "33", etiqueta: "países con convenio de canje" },
+          { valor: "6 meses", etiqueta: "con el permiso extranjero desde la residencia" },
+          { valor: "90 días", etiqueta: "de validez del informe médico" },
+          { valor: "28,87 €", etiqueta: "tasa 2.3, moto y coche" },
+        ],
+      },
+      { t: "h2", texto: "Los 33 países con convenio" },
+      {
+        t: "p",
+        texto:
+          "Con un permiso de **moto o de coche** (A, B), los 33 convenios permiten el canje **sin pruebas**. Con uno de **camión o autobús** (C, D) depende del país: casi todos piden una prueba de circulación, a veces también una teórica, y seis no lo canjean.",
+      },
+      {
+        t: "tabla",
+        titulo: "Camión y autobús (C, D): lo que pide cada convenio",
+        encabezados: ["Pruebas", "Países"],
+        filas: [
+          ["Sin pruebas", "Andorra"],
+          ["Circulación", "Argentina, Chile, Costa Rica, Georgia, Honduras, Marruecos, Perú y Ucrania"],
+          ["Específica y circulación", "Bolivia, Brasil, Colombia, Ecuador, El Salvador, Filipinas, Guatemala, Macedonia del Norte, Nicaragua, Panamá, Paraguay, República Dominicana, Túnez, Turquía y Uruguay (en Uruguay, el D solo con la de circulación)"],
+          ["Teórica específica y circulación", "Argelia"],
+          ["Teórica y circulación", "Serbia"],
+          ["Circuito cerrado y circulación", "Moldavia"],
+          ["**No se canjea**", "Corea del Sur, Japón, Mónaco, Nueva Zelanda, Reino Unido e Irlanda del Norte, y Suiza"],
+        ],
+        nota: "Fuente: DGT, «Países con convenio de canjes», actualizada el 26/06/2026. Moto y coche (A, B): sin pruebas en los 33.",
+      },
+      {
+        t: "p",
+        texto:
+          "Dos casos quedan fuera. Los permisos de la **Unión Europea y del Espacio Económico Europeo** (Islandia, Liechtenstein y Noruega) valen en España tal cual: su canje es voluntario y es otro trámite. Y un permiso de un país **sin convenio** no se canjea: hay que sacar el permiso español, con sus exámenes.",
+      },
+      { t: "h2", texto: "Los plazos que mandan" },
+      {
+        t: "hitos",
+        items: [
+          { fecha: "Día 0", titulo: "Residencia en España", texto: "Empieza a contar el plazo del permiso extranjero." },
+          { fecha: "Mes 6", titulo: "El permiso extranjero deja de valer", texto: "Pasados seis meses desde la residencia, ya no sirve para conducir en España.", destacado: true },
+          { fecha: "En la Jefatura", titulo: "Autorización provisional", texto: "Al entregar el permiso original, la DGT da un justificante para conducir mientras llega el español." },
+          { fecha: "Mes y medio después", titulo: "Permiso español por correo", texto: "El definitivo llega al domicilio en alrededor de mes y medio, según la DGT." },
+        ],
+      },
+      {
+        t: "p",
+        texto:
+          "Dos condiciones pesan desde el primer día: el permiso tiene que estar **en vigor** cuando se pide el canje, y tiene que haberse obtenido **antes** de residir en España; la DGT pide acreditarlo. Y el informe médico vale **90 días**: conviene sacarlo cuando todo lo demás ya está listo.",
+      },
+      { t: "h2", texto: "Qué documentos pide la DGT" },
+      {
+        t: "checklist",
+        titulo: "Para pedir el canje",
+        items: [
+          "**La solicitud** en impreso oficial: el **Mod. 03**, «Trámites de conductores».",
+          "**El documento de identidad**, original y en vigor.",
+          "**La acreditación de la residencia** en España.",
+          "**La acreditación de que no residía en España** cuando obtuvo el permiso.",
+          "**El permiso a canjear**: original, válido y en vigor.",
+          "**El informe de aptitud psicofísica** de un centro de reconocimiento de conductores, de menos de 90 días.",
+          "**La tasa**: 2.3 (28,87 €) para A1, A, B y B+E; 2.1 (94,05 €) cuando hay pruebas.",
+        ],
+        nota: "Desde el 6 de noviembre de 2024 ya no hace falta el talón-foto. Con un permiso argentino, la DGT pide además un certificado legalizado o apostillado de su autenticidad y antigüedad.",
+      },
+      { t: "h2", texto: "Cómo se pide: en línea o en la Jefatura" },
+      {
+        t: "pasos",
+        items: [
+          { titulo: "Reunir los documentos y pagar la tasa", texto: "Con el informe médico de menos de 90 días y la tasa 2.3, o la 2.1 si hay pruebas." },
+          {
+            titulo: "Presentar la solicitud",
+            texto: "En la sede electrónica de la DGT, con Cl@ve o certificado digital y **sin cita previa** desde el 20 de mayo de 2025; o en la Jefatura de Tráfico, **con cita**.",
+            falla: "Si la presenta un gestor, necesita la representación del cliente: inscrita en el Registro de apoderamientos de la DGT con el Mod. 24, que firman los dos.",
+          },
+          { titulo: "Esperar la verificación", texto: "En la mayoría de los convenios, la DGT consulta con el país que expidió el permiso antes de resolver, y la sede informa del estado en línea." },
+          { titulo: "Entregar el permiso original", texto: "Queda una sola visita a la Jefatura: se retira el permiso extranjero y se recibe el justificante para conducir mientras llega el español." },
+          { titulo: "Recibir el permiso español", texto: "Por correo, en el domicilio, en alrededor de mes y medio según la DGT." },
+        ],
+      },
+      { t: "h2", texto: "Lo que para un canje" },
+      {
+        t: "ul",
+        items: [
+          "**El permiso caducado.** Para canjearlo tiene que estar en vigor.",
+          "**El informe médico de más de 90 días.** Hay que sacar otro.",
+          "**Un permiso expedido después de llegar a España.** La DGT pide acreditar que se obtuvo antes; si es una renovación, conviene tener a mano la prueba de la fecha en que se obtuvo.",
+          "**Un país sin convenio**, o un permiso de camión o autobús de uno de los seis convenios que solo canjean moto y coche.",
+          "**Conducir pasados los seis meses** con el permiso extranjero, sin la autorización provisional.",
+        ],
+      },
+      {
+        t: "nota",
+        titulo: "Cómo lo lleva Aproba",
+        texto:
+          "En Aproba el canje es un servicio más del catálogo, con su ficha en el expediente: país, número, clases y fechas del permiso. Con esos datos, Aproba comprueba el convenio y lo que pide para cada clase, avisa de lo que impide el canje y vigila los plazos (los seis meses desde la residencia, los 90 días del informe médico y la caducidad del permiso) por email y en la campana. Saca el **Mod. 03** y el **Mod. 24** ya rellenados y deja los datos listos para copiar en la sede de la DGT. El cliente sube su permiso y el informe médico desde su enlace, [en su idioma](/cifras/8-idiomas).",
+      },
+      {
+        t: "faq",
+        items: [
+          {
+            q: "¿Cuánto tiempo puedo conducir en España con un permiso extranjero?",
+            a: "Como máximo seis meses desde que adquieres la residencia normal en España. Después, para seguir conduciendo, hay que canjearlo, si el país tiene convenio, o sacar el permiso español.",
+          },
+          {
+            q: "¿Qué países tienen convenio de canje con España?",
+            a: "Treinta y tres: Andorra, Argelia, Argentina, Bolivia, Brasil, Chile, Colombia, Corea del Sur, Costa Rica, Ecuador, El Salvador, Filipinas, Georgia, Guatemala, Honduras, Japón, Macedonia del Norte, Marruecos, Moldavia, Mónaco, Nicaragua, Nueva Zelanda, Panamá, Paraguay, Perú, Reino Unido, República Dominicana, Serbia, Suiza, Túnez, Turquía, Ucrania y Uruguay. Los permisos de la UE y del EEE no necesitan canje.",
+          },
+          {
+            q: "¿Cuánto cuesta canjear el permiso de conducir?",
+            a: "La tasa de la DGT es de 28,87 € (tasa 2.3) para moto y coche, y de 94,05 € (tasa 2.1) cuando hay pruebas, como en camión y autobús. Aparte va el informe médico, que cobra el centro de reconocimiento.",
+          },
+          {
+            q: "¿Hay que hacer examen para canjear el permiso?",
+            a: "Para moto y coche, no: los 33 convenios lo canjean sin pruebas. Para camión y autobús depende del país, y seis convenios no lo canjean.",
+          },
+          {
+            q: "¿Se puede pedir el canje por internet?",
+            a: "Sí. Desde el 20 de mayo de 2025, en la sede electrónica de la DGT con Cl@ve o certificado digital, sin cita previa. Queda una visita a la Jefatura para entregar el permiso original.",
+          },
+          {
+            q: "¿Puede tramitarlo un gestor?",
+            a: "Sí, como representante: con la representación inscrita en el Registro de apoderamientos de la DGT mediante el Mod. 24, firmado por el titular y por el representante.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     // 28/09/2026 — «automatización extranjería» (Matthias: palabras clave donde no aparecíamos).
     // Fuentes leídas el 28/09: Tribuna de Segovia, 14/08/2024 (Ministerio de Justicia, robots
     // en la nacionalidad por residencia, «de 3 o 4 años» al plazo legal de un año, Ester Pérez,

@@ -20,6 +20,11 @@ if (!KEY) { console.error("✗ Falta OPENAI_API_KEY (entorno o .env.local)"); pr
 // bodegón fotográfico, luz de estudio, fondo verde muy oscuro, latón y papel crema, un
 // acento de luz verde. Nada de texto ni banderas.
 const PROMPTS = {
+  // 03/10/2026 — variante B (vista aérea) elegida entre dos; la A (desde el asiento, tarjeta en el
+  // salpicadero) salía más oscura y con la línea verde enredada. Primera cabecera FUERA de un
+  // bureau (Matthias: «une image un peu différente des autres»). Luminancia 153 → sin retoque.
+  "canje-permiso-conducir-extranjero-paises-plazos-2026":
+    "Ultra-premium editorial aerial photograph for a legal-tech article about exchanging a foreign driving licence in Spain. Bright, airy, high-key morning light. A high drone view looking down at an elegant S-shaped country road crossing a luminous inland Spanish landscape: neat rows of silver-green olive trees, pale golden fields and soft ochre earth, a few cypress trees, gentle shadows. One single small white car drives on the road, seen from above, tiny in the frame. Following the road exactly, from the bottom edge of the frame to the car and beyond to the top edge, a crisp, high-contrast, VIVID EMERALD-GREEN holographic route line hovers just above the asphalt, with sharp vector-like edges and solid saturated colour, drawn like a printed-circuit-board trace with small round solder-pad nodes at regular intervals; behind the car the trace is solid emerald, ahead of the car it continues as a thinner dotted emerald guide line. Think data visualisation and printed-circuit artwork: fine traces, node dots, wireframe geometry. NO soft smoke, NO magic sparkle, NO silk ribbon, NO confetti, NO particle spray. Palette: silver-green olive, pale gold, warm ochre, cream asphalt, one vivid emerald accent. Clean, minimal, calm, magazine quality, photorealistic. STRICT RULE: the image contains ZERO typography: no letters, no digits, no numbers, no symbols, no logos, no road signs, no road markings with writing, no licence plates, no buildings with signs, no maps with labels. No people. 3:2 landscape composition with breathing room.",
   // 28/09/2026 — variante A elegida entre dos (abedul claro, primera vez; la B, fichas en fila
   // con pluma, contaba la misma idea con menos claridad). Luminancia 210 → sin retoque.
   "automatizar-despacho-extranjeria-que-si-que-no":

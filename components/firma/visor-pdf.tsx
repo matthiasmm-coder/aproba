@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // VISOR DEL DOCUMENTO (lib/firma): el PDF exacto que se firma, página a página, a lo ancho de la
 // pantalla y nítido (densidad de píxeles real), dibujado con pdf.js en el propio navegador — un
@@ -24,7 +24,7 @@ async function cargarPdfjs() {
   return pdfjs;
 }
 
-function Pagina({ pdf, n, ancho, onVisible }: { pdf: Pdf; n: number; ancho: number; onVisible: (n: number) => void }) {
+function Pagina({ pdf, n, ancho, onVisible }: { pdf: Pdf; n: number; ancho: number; onVisible: (n: number, proporcion: number) => void }) {
   const cont = useRef<HTMLDivElement>(null);
   const lienzo = useRef<HTMLCanvasElement>(null);
   const [proporcion, setProporcion] = useState(842 / 595);
@@ -32,14 +32,16 @@ function Pagina({ pdf, n, ancho, onVisible }: { pdf: Pdf; n: number; ancho: numb
 
   useEffect(() => {
     const el = cont.current; if (!el) return;
-    const io = new IntersectionObserver((es) => {
-      for (const e of es) {
-        if (e.isIntersecting) setCerca(true);
-        if (e.intersectionRatio > 0.4) onVisible(n);
-      }
-    }, { rootMargin: "600px 0px", threshold: [0, 0.4, 0.8] });
+    // Dos observadores: el margen de 600 px adelanta el PINTADO de las páginas cercanas, pero
+    // no cuenta para el contador, que sigue a la página MÁS visible (antes, al abrir un
+    // documento de 2 páginas decía «Página 2 de 2» con la página 1 en pantalla).
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setCerca(true); }, { rootMargin: "600px 0px" });
+    const vista = new IntersectionObserver((es) => {
+      for (const e of es) onVisible(n, e.intersectionRatio);
+    }, { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] });
     io.observe(el);
-    return () => io.disconnect();
+    vista.observe(el);
+    return () => { io.disconnect(); vista.disconnect(); };
   }, [n, onVisible]);
 
   useEffect(() => {
@@ -80,6 +82,14 @@ export function VisorPdf({ url, titulo, t, descargarUrl, onCerrar, onListo, text
   const [anchoZona, setAnchoZona] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [actual, setActual] = useState(1);
+  // Página del contador: la más visible en pantalla (empate → la de arriba).
+  const visibles = useRef(new Map<number, number>());
+  const alVer = useCallback((n: number, proporcion: number) => {
+    visibles.current.set(n, proporcion);
+    let mejor = 1, max = -1;
+    for (const [k, v] of [...visibles.current].sort((a, b) => a[0] - b[0])) if (v > max + 0.001) { max = v; mejor = k; }
+    setActual(mejor);
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -153,7 +163,7 @@ export function VisorPdf({ url, titulo, t, descargarUrl, onCerrar, onListo, text
           </div>
         ) : (
           <div className="flex flex-col gap-4 px-3" style={{ width: zoom > 1 ? anchoPagina + 24 : undefined }}>
-            {Array.from({ length: total }, (_, i) => <Pagina key={i} pdf={pdf} n={i + 1} ancho={anchoPagina} onVisible={setActual} />)}
+            {Array.from({ length: total }, (_, i) => <Pagina key={i} pdf={pdf} n={i + 1} ancho={anchoPagina} onVisible={alVer} />)}
           </div>
         )}
       </div>

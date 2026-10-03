@@ -60,7 +60,7 @@ export function CanjePermiso({ expedienteId, inicial, persona, presentado, activ
 
   const lbl = "mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400";
   const inp = "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[16px] outline-none focus:border-aproba-600 sm:text-sm";
-  const texto = (a: AvisoCanje) => t(a.clave).replace("{fecha}", a.fecha ? ddmmaaaa(a.fecha) : "").replace("{n}", String(a.n ?? "").replace(".", ","));
+  const texto = (a: AvisoCanje) => t(a.clave).replace("{fecha}", a.fecha ? ddmmaaaa(a.fecha) : "").replace("{n}", String(a.n ?? "").replace(".", ",")).replace("{pais}", a.pais ?? "");
 
   return (
     <section id="canje" className="mt-4 scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
