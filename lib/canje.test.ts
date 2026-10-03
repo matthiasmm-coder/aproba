@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CANJE_VACIO, PAISES_CONVENIO, avisosCanje, datosCanjeValidos, datosParaSede, esServicioCanje, esUeEee, tieneConvenio } from "@/lib/canje";
-import { claveDelCatalogo } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, claveDelCatalogo } from "@/lib/servicios";
+import { LANGS, SERVICIO_I18N, temaLabel } from "@/lib/portal-i18n";
 
 // Canje del permiso de conducir (Jennifer y Samara, 03/10/2026). Fuente: dgt.es, 03/10/2026.
 const HOY = new Date("2026-10-03T10:00:00Z");
@@ -77,5 +78,18 @@ describe("servicio propio de canje", () => {
     expect(claveDelCatalogo("srv_hh5sssg", "Canje de licencia de conducir extranjera")).toBe("canje_permiso");
     expect(claveDelCatalogo("srv_x1", "Canje carnet de conducir")).toBe("canje_permiso");
     expect(claveDelCatalogo("srv_x2", "Arraigo social")).toBe("srv_x2");
+  });
+  it("el portal del cliente lo enseña en sus 8 idiomas (servicio y carpeta «Tráfico»)", () => {
+    const s = DEFAULT_SERVICIOS.find((x) => x.id === "canje_permiso")!;
+    expect(s.active).toBe(true);
+    expect(SERVICIO_I18N.canje_permiso.label.es).toBe(s.label);
+    expect(SERVICIO_I18N.canje_permiso.desc.es).toBe(s.desc);
+    for (const { code } of LANGS) {
+      expect(SERVICIO_I18N.canje_permiso.label[code], code).toBeTruthy();
+      expect(SERVICIO_I18N.canje_permiso.desc[code], code).toBeTruthy();
+    }
+    expect(temaLabel(s.categoria!, "fr")).toBe("Permis et véhicules");
+    expect(temaLabel("trafico", "en")).toBe("Driving & vehicles");
+    expect(temaLabel("Tráfico", "es")).toBe("Tráfico");
   });
 });

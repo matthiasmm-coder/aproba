@@ -763,6 +763,11 @@ export const SERVICIO_I18N: Record<string, { label: Tr; desc: Tr }> = {
     label: { es: "Asignación de NIE", en: "NIE assignment", fr: "Attribution du NIE", it: "Assegnazione del NIE", de: "NIE-Zuteilung" },
     desc: { es: "Obtener tu número de identidad", en: "Get your identity number", fr: "Obtenir votre numéro d'identité", it: "Ottieni il tuo numero d'identità", de: "Erhalte deine Identitätsnummer" },
   },
+  // Canje del permiso de conducir (DGT), activo para todos los despachos desde el 03/10/2026.
+  canje_permiso: {
+    label: { es: "Canje de permiso de conducir", en: "Driving licence exchange", fr: "Échange de permis de conduire", it: "Conversione della patente di guida", de: "Umschreibung des Führerscheins", ar: "استبدال رخصة القيادة", ro: "Preschimbarea permisului de conducere", zh: "驾照换领" },
+    desc: { es: "Canjear un permiso de conducir extranjero por el español (DGT)", en: "Exchange a foreign driving licence for a Spanish one (DGT)", fr: "Échanger un permis de conduire étranger contre le permis espagnol (DGT)", it: "Convertire una patente di guida straniera in quella spagnola (DGT)", de: "Einen ausländischen Führerschein in den spanischen umschreiben lassen (DGT)", ar: "استبدال رخصة قيادة أجنبية برخصة إسبانية (DGT)", ro: "Preschimbarea unui permis de conducere străin cu cel spaniol (DGT)", zh: "将外国驾照换领为西班牙驾照（DGT）" },
+  },
 };
 
 // Documents (par enum DocumentoTipo) : label affiché + infobulle « ce qui est attendu » (#5).
@@ -866,6 +871,7 @@ const TEMA_I18N: Record<string, { es: string } & Partial<Record<Lang, string>>> 
   documentacion: { es: "Documentación", en: "Documents", fr: "Documents", it: "Documenti", de: "Dokumente", ar: "الوثائق", ro: "Documente", zh: "文件" },
   otros: { es: "Otros", en: "Other", fr: "Autres", it: "Altri", de: "Sonstige", ar: "أخرى", ro: "Altele", zh: "其他" },
   "movilidad internacional": { es: "Movilidad internacional", en: "International mobility", fr: "Mobilité internationale", it: "Mobilità internazionale", de: "Internationale Mobilität", ar: "التنقل الدولي", ro: "Mobilitate internațională", zh: "国际流动" },
+  trafico: { es: "Tráfico", en: "Driving & vehicles", fr: "Permis et véhicules", it: "Patenti e veicoli", de: "Führerschein & Kfz", ar: "رخص القيادة والمركبات", ro: "Permise și vehicule", zh: "驾照与车辆" },
 };
 // «Renovación», «Renovaciones», «renovacion» → misma entrada.
 const TEMA_ALIAS: Record<string, string> = {
