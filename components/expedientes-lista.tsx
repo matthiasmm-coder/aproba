@@ -8,7 +8,7 @@ import { CerrarExpedienteDialog } from "@/components/cerrar-expediente-dialog";
 import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/components/avatar-gestor";
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, RequerimientosIcon, TablaIcon, VistasExpedientes } from "@/components/vistas-expedientes";
-import { ExpedientesTabla } from "@/components/expedientes-tabla";
+import { ExpedientesTabla, type MiembroTabla } from "@/components/expedientes-tabla";
 import { ESTADO_TRAMITE, FILTRO_ESTADO, claveFiltroEstado, estadoVisibleDe, type FilaTabla, type FiltroEstado } from "@/lib/expedientes-tabla";
 import { MODO_EXPEDIENTES_KEY, EVENTO_MODO_EXPEDIENTES } from "@/components/ancho-expedientes";
 import { NumeroOficial } from "@/components/numero-oficial";
@@ -472,13 +472,20 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   };
   // Filas de la tabla: una petición por vista (curso / historial), guardada mientras se navega.
   const [filasTabla, setFilasTabla] = useState<Partial<Record<"curso" | "historial", FilaTabla[]>>>({});
+  // Para editar en la tabla (03/10/2026): el equipo («Tramitado por») y si la base ya guarda
+  // colaborador y tasa pagada (supabase/expediente-tabla.sql).
+  const [edicionTabla, setEdicionTabla] = useState<{ miembros: MiembroTabla[]; migracion: boolean }>({ miembros: [], migracion: false });
   const [errorTabla, setErrorTabla] = useState(false);
   useEffect(() => {
     if (modo !== "tabla" || filasTabla[view]) return;
     let vivo = true; setErrorTabla(false);
     fetch(`/api/expedientes/tabla${view === "historial" ? "?archivados=1" : ""}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((j) => { if (vivo) setFilasTabla((m) => ({ ...m, [view]: (j.filas ?? []) as FilaTabla[] })); })
+      .then((j) => {
+        if (!vivo) return;
+        setFilasTabla((m) => ({ ...m, [view]: (j.filas ?? []) as FilaTabla[] }));
+        setEdicionTabla({ miembros: (j.miembros ?? []) as MiembroTabla[], migracion: Boolean(j.migracion) });
+      })
       .catch(() => { if (vivo) setErrorTabla(true); });
     return () => { vivo = false; };
   }, [modo, view, filasTabla]);
@@ -900,6 +907,12 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
           <p className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">{t("Cargando…")}</p>
         ) : (
           <ExpedientesTabla filas={filasTablaVisibles} conBuscador={false} nombreExport={view === "curso" ? "expedientes-en-curso" : "expedientes-historial"}
+            miembros={edicionTabla.miembros} migracion={edicionTabla.migracion}
+            onCambio={(id, cambios) => {
+              setFilasTabla((m) => ({ ...m, [view]: (m[view] ?? []).map((f) => (f.id === id ? { ...f, ...cambios } : f)) }));
+              // Estado, responsable o resolución cambian también la vista «Por servicio».
+              if ("estado" in cambios || "asignadoAId" in cambios || "salida" in cambios) router.refresh();
+            }}
             onNumeroOficial={(id, numero) => { guardarNumero(id, numero); setFilasTabla((m) => ({ ...m, [view]: (m[view] ?? []).map((f) => (f.id === id ? { ...f, numeroOficial: numero } : f)) })); }} />
         )
       ) : archivo && view === "historial" ? (

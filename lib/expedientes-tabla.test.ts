@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filaTabla, csvTabla, claveFiltroEstado, estadoVisible, estadoVisibleDe, ESTADO_TRAMITE, type FilaTabla } from "./expedientes-tabla";
+import { filaTabla, csvTabla, cambiosTablaValidos, claveFiltroEstado, estadoVisible, estadoVisibleDe, ESTADO_TRAMITE, resolucionDe, salidaDeResolucion, type FilaTabla } from "./expedientes-tabla";
 
 // Vista Tabla restaurada el 28/09/2026 (Jennifer). El nº oficial se prueba en numero-oficial.test.ts.
 
@@ -21,7 +21,7 @@ describe("exportar la tabla a Excel", () => {
   const fila = (p: Partial<FilaTabla>): FilaTabla => ({
     id: "e1", referencia: "EXP-2026-0031", numeroOficial: "08/123456/2026", nombre: "Oksana Koval", nie: "X4241199E", pasaporte: "",
     anio: "2026", fechaNacimiento: "1993-10-27", estado: "PRESENTADO", fechaPresentacion: "2026-08-22T09:00:00Z",
-    tramitadoPor: "Marta Ribas", tasaGenerada: true, archivado: false, ...p,
+    tramitadoPor: "Marta Ribas", asignadoAId: null, colaborador: "", tasaGenerada: true, tasaPagadaEl: "", salida: null, archivado: false, ...p,
   });
   it("BOM + «;» + cabecera en el orden de la pantalla", () => {
     const csv = csvTabla([fila({})]);
@@ -55,8 +55,43 @@ describe("estado visible: «Preparado» es la fase del tablero", () => {
     expect(claveFiltroEstado("PREPARADO")).toBe("PREPARADO");
   });
   it("el Excel exportado dice «Preparado» cuando la fila lo es", () => {
-    const f: FilaTabla = { id: "e9", referencia: "EXP-2026-0099", numeroOficial: "", nombre: "Ana Ruiz", nie: "X1", pasaporte: "", anio: "2026", fechaNacimiento: "", estado: "EN_PREPARACION", fechaPresentacion: "", tramitadoPor: "", tasaGenerada: true, archivado: false, preparado: true };
+    const f: FilaTabla = { id: "e9", referencia: "EXP-2026-0099", numeroOficial: "", nombre: "Ana Ruiz", nie: "X1", pasaporte: "", anio: "2026", fechaNacimiento: "", estado: "EN_PREPARACION", fechaPresentacion: "", tramitadoPor: "", asignadoAId: null, colaborador: "", tasaGenerada: true, tasaPagadaEl: "", salida: null, archivado: false, preparado: true };
     expect(csvTabla([f]).split("\n")[1]).toContain(";Preparado;");
     expect(estadoVisible({ estado: "EN_PREPARACION" })).toBe("EN_PREPARACION");
+  });
+});
+
+// Tabla editable (Jennifer, 03/10/2026): colaborador, fecha de presentación, tasa pagada,
+// tramitado por y resolución se escriben desde la celda.
+describe("tabla editable", () => {
+  const HOY = new Date("2026-10-03T10:00:00Z");
+  it("valida lo que se guarda: texto limpio, fechas reales y no futuras, vacío = borrar", () => {
+    expect(cambiosTablaValidos({ colaborador: "  Gestoría   Martí  " }, HOY)).toEqual({ colaborador: "Gestoría Martí" });
+    expect(cambiosTablaValidos({ colaborador: "" }, HOY)).toEqual({ colaborador: null });
+    expect(cambiosTablaValidos({ fechaPresentacion: "2026-09-28", tasaPagadaEl: null }, HOY)).toEqual({ fechaPresentacion: "2026-09-28", tasaPagadaEl: null });
+    expect(cambiosTablaValidos({ fechaPresentacion: "2026-02-31" }, HOY)).toEqual({ error: "Fecha no válida." });
+    expect(cambiosTablaValidos({ tasaPagadaEl: "2026-10-20" }, HOY)).toEqual({ error: "La fecha no puede ser futura." });
+    expect(cambiosTablaValidos({ colaborador: "x".repeat(121) }, HOY)).toHaveProperty("error");
+    expect(cambiosTablaValidos({ otra: 1 }, HOY)).toEqual({ error: "Nada que guardar." });
+  });
+  it("la resolución sale de la salida registrada (Favorable deja el estado en Finalizado)", () => {
+    expect(resolucionDe({ estado: "FINALIZADO", salida: "concedido" })).toBe("Favorable");
+    expect(resolucionDe({ estado: "RECHAZADO", salida: "denegado" })).toBe("No favorable");
+    expect(resolucionDe({ estado: "EN_PREPARACION", salida: "desistido" })).toBe("Desistido");
+    expect(resolucionDe({ estado: "RESUELTO", salida: null })).toBe("Favorable"); // estado antiguo
+    expect(resolucionDe({ estado: "PRESENTADO", salida: "en_tramite" })).toBe("");
+    expect(salidaDeResolucion({ estado: "RECHAZADO", salida: null })).toBe("denegado");
+  });
+  it("la fila lleva colaborador, tasa pagada, responsable y la fecha del evento si la columna está vacía", () => {
+    const f = filaTabla({ id: "e3", referencia: "EXP-2026-0003", estado: "PRESENTADO", fechaPresentacion: null, createdAt: "2026-01-02T00:00:00Z", archivadoAt: null, tasaPath: "x.pdf",
+      asignadoAId: "u1", colaborador: " Abogados Puig ", tasaPagadaEl: "2026-09-15", salida: null,
+      cliente: { nombre: "Ana", apellidos: "Ruiz", numeroDocumento: "X1", pasaporte: null, fechaNacimiento: null }, empresa: null, asignadoA: { nombre: "Alexandra" } }, "2025-12-11T09:00:00Z");
+    expect(f.fechaPresentacion).toBe("2025-12-11T09:00:00Z");
+    expect(f.anio).toBe("2025");
+    expect([f.colaborador, f.tasaPagadaEl, f.asignadoAId]).toEqual(["Abogados Puig", "2026-09-15", "u1"]);
+  });
+  it("el Excel lleva el colaborador y la tasa pagada con su fecha", () => {
+    const f: FilaTabla = { id: "e4", referencia: "EXP-2026-0004", numeroOficial: "", nombre: "Ana Ruiz", nie: "X1", pasaporte: "", anio: "2026", fechaNacimiento: "", estado: "FINALIZADO", fechaPresentacion: "2026-08-01", tramitadoPor: "Alexandra", asignadoAId: "u1", colaborador: "Abogados Puig", tasaGenerada: true, tasaPagadaEl: "2026-07-30", salida: "concedido", archivado: true };
+    expect(csvTabla([f]).split("\n")[1]).toBe("Ana Ruiz;X1;;2026;;Finalizado;01/08/2026;Alexandra;Abogados Puig;Favorable;Pagada 30/07/2026;EXP-2026-0004");
   });
 });

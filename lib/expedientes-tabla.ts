@@ -17,7 +17,11 @@ export type FilaTabla = {
   estado: Estado5;
   fechaPresentacion: string;  // ISO o ""
   tramitadoPor: string;
+  asignadoAId: string | null; // «Tramitado por», editable en la celda
+  colaborador: string;        // entidad externa / subcontrata ("" = ninguna) — Jennifer, 03/10/2026
   tasaGenerada: boolean;
+  tasaPagadaEl: string;       // AAAA-MM-DD o "" (sin pagar o sin anotar)
+  salida: string | null;      // flujo v4: concedido / denegado / desistido / en_tramite
   archivado: boolean;
   // Fase del tablero (en curso): formularios o tasa generados, o «Marcar como preparado».
   // La ruta no la calcula; la lista la añade cruzando por id con sus expedientes.
@@ -29,18 +33,25 @@ const uno = <T,>(v: Uno<T>): T | null => (Array.isArray(v) ? v[0] ?? null : v ??
 
 export type RowTabla = {
   id: string; referencia: string; numeroOficial?: string | null; estado: string; fechaPresentacion: string | null; createdAt: string; archivadoAt: string | null; tasaPath: string | null;
+  asignadoAId?: string | null; colaborador?: string | null; tasaPagadaEl?: string | null; salida?: string | null;
   cliente: Uno<{ nombre: string | null; apellidos: string | null; numeroDocumento: string | null; pasaporte: string | null; fechaNacimiento: string | null }>;
   empresa: Uno<{ razonSocial: string | null }>;
   asignadoA: Uno<{ nombre: string | null }>;
 };
 
-export const SELECT_TABLA = "id, referencia, numeroOficial, estado, fechaPresentacion, createdAt, archivadoAt, tasaPath, oficinaId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, fechaNacimiento), empresa:Empresa(razonSocial), asignadoA:User(nombre)";
+export const SELECT_TABLA = "id, referencia, numeroOficial, salida, colaborador, tasaPagadaEl, estado, fechaPresentacion, createdAt, archivadoAt, tasaPath, oficinaId, asignadoAId, cliente:Cliente(nombre, apellidos, numeroDocumento, pasaporte, fechaNacimiento), empresa:Empresa(razonSocial), asignadoA:User(nombre)";
+// Columnas que pueden faltar (migraciones): la ruta las quita una a una si la base no las
+// conoce. Las dos últimas son supabase/expediente-tabla.sql: sin ellas no se editan.
+export const COLUMNAS_OPCIONALES_TABLA = ["numeroOficial", "salida", "colaborador", "tasaPagadaEl"] as const;
 
 // El año que recuerda el gestor: el de PRESENTACIÓN («la nacionalidad de 2023»). Sin
 // presentación, el del cierre si está archivado; si no, el del alta.
-export function filaTabla(r: RowTabla): FilaTabla {
+// `fechaEvento`: la del evento PRESENTADO del historial, para los expedientes anteriores al
+// sellado de la columna (la misma reserva que la lista y la ficha).
+export function filaTabla(r: RowTabla, fechaEvento?: string | null): FilaTabla {
   const c = uno(r.cliente), em = uno(r.empresa), as = uno(r.asignadoA);
-  const fechaRef = r.fechaPresentacion ?? r.archivadoAt ?? r.createdAt ?? "";
+  const presentado = r.fechaPresentacion ?? fechaEvento ?? null;
+  const fechaRef = presentado ?? r.archivadoAt ?? r.createdAt ?? "";
   return {
     id: r.id,
     referencia: r.referencia,
@@ -52,9 +63,13 @@ export function filaTabla(r: RowTabla): FilaTabla {
     anio: fechaRef.slice(0, 4),
     fechaNacimiento: c?.fechaNacimiento ?? "",
     estado: normalizarEstado(r.estado),
-    fechaPresentacion: r.fechaPresentacion ?? "",
+    fechaPresentacion: presentado ?? "",
     tramitadoPor: as?.nombre ?? "",
+    asignadoAId: r.asignadoAId ?? null,
+    colaborador: (r.colaborador ?? "").trim(),
     tasaGenerada: Boolean(r.tasaPath),
+    tasaPagadaEl: (r.tasaPagadaEl ?? "").slice(0, 10),
+    salida: r.salida ?? null,
     archivado: Boolean(r.archivadoAt),
   };
 }
@@ -82,7 +97,51 @@ export const ESTADO_TRAMITE: Record<EstadoVisible, string> = {
 export const FILTRO_ESTADO = ["EN_PREPARACION", "PREPARADO", "PRESENTADO", "RESUELTO", "FINALIZADO"] as const;
 export type FiltroEstado = (typeof FILTRO_ESTADO)[number];
 export const claveFiltroEstado = (v: EstadoVisible): FiltroEstado => (v === "RECHAZADO" ? "RESUELTO" : v);
-export const resolucionDe = (e: Estado5): string => (e === "RESUELTO" ? "Favorable" : e === "RECHAZADO" ? "No favorable" : "");
+// La resolución: la salida registrada (flujo v4) manda; si no, el estado antiguo.
+// «Favorable» deja el estado en FINALIZADO: sin mirar la salida, la columna salía vacía.
+export const RESOLUCIONES = [
+  { salida: "concedido", label: "Favorable" },
+  { salida: "denegado", label: "No favorable" },
+  { salida: "desistido", label: "Desistido" },
+] as const;
+export function salidaDeResolucion(f: Pick<FilaTabla, "estado" | "salida">): string {
+  if (RESOLUCIONES.some((r) => r.salida === f.salida)) return f.salida as string;
+  return f.estado === "RESUELTO" ? "concedido" : f.estado === "RECHAZADO" ? "denegado" : "";
+}
+export const resolucionDe = (f: Pick<FilaTabla, "estado" | "salida">): string =>
+  RESOLUCIONES.find((r) => r.salida === salidaDeResolucion(f))?.label ?? "";
+
+// ── Lo que se puede escribir desde la Tabla (PATCH /api/expedientes/[id]/tabla) ───────
+export const MAX_COLABORADOR = 120;
+export type CambiosTabla = { colaborador?: string | null; fechaPresentacion?: string | null; tasaPagadaEl?: string | null };
+// «AAAA-MM-DD» de un día que existe y no futuro (se anota lo que ya pasó; un día de margen
+// por la hora). "" o null = borrar. Cualquier otra cosa: error.
+function fechaPasada(v: unknown, hoy: Date): string | null | { error: string } {
+  if (v === null || v === "") return null;
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: "Fecha no válida." };
+  const d = new Date(`${v}T12:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return { error: "Fecha no válida." };
+  if (d.getTime() > hoy.getTime() + 86_400_000) return { error: "La fecha no puede ser futura." };
+  return v;
+}
+export function cambiosTablaValidos(body: unknown, hoy: Date = new Date()): CambiosTabla | { error: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Petición inválida." };
+  const b = body as Record<string, unknown>;
+  const out: CambiosTabla = {};
+  if ("colaborador" in b) {
+    if (b.colaborador !== null && typeof b.colaborador !== "string") return { error: "Colaborador no válido." };
+    const t = String(b.colaborador ?? "").replace(/\s+/g, " ").trim();
+    if (t.length > MAX_COLABORADOR) return { error: `El colaborador admite ${MAX_COLABORADOR} caracteres como mucho.` };
+    out.colaborador = t || null;
+  }
+  for (const k of ["fechaPresentacion", "tasaPagadaEl"] as const) {
+    if (!(k in b)) continue;
+    const f = fechaPasada(b[k], hoy);
+    if (f && typeof f === "object") return f;
+    out[k] = f;
+  }
+  return Object.keys(out).length ? out : { error: "Nada que guardar." };
+}
 
 const fechaCsv = (iso: string): string => {
   const [a, m, d] = (iso ?? "").slice(0, 10).split("-");
@@ -98,7 +157,8 @@ export function csvTabla(filas: FilaTabla[]): string {
   const cabecera = ["Nombre completo", "NIE", "Nº expediente", "Año", "Fecha de nacimiento", "Estado de trámite", "Fecha de presentación", "Tramitado por", "Colaborador", "Resolución", "Tasa", "Referencia Aproba"];
   const lineas = filas.map((f) => [
     f.nombre, f.nie || f.pasaporte, f.numeroOficial, f.anio, fechaCsv(f.fechaNacimiento), ESTADO_TRAMITE[estadoVisible(f)],
-    fechaCsv(f.fechaPresentacion), f.tramitadoPor, "", resolucionDe(f.estado), f.tasaGenerada ? "Generada" : "", f.referencia,
+    fechaCsv(f.fechaPresentacion), f.tramitadoPor, f.colaborador, resolucionDe(f),
+    f.tasaPagadaEl ? `Pagada ${fechaCsv(f.tasaPagadaEl)}` : f.tasaGenerada ? "Generada" : "", f.referencia,
   ]);
   return "\uFEFF" + [cabecera, ...lineas].map((l) => l.map((v) => esc(String(v ?? ""))).join(";")).join("\n");
 }

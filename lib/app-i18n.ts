@@ -2930,6 +2930,12 @@ export const CA: Record<string, string> = {
   "Este precio vale también para el presupuesto, el enlace del cliente y las facturas de este expediente.": "Aquest preu també val per al pressupost, l'enllaç del client i les factures d'aquest expedient.",
   "Descargar el mandato": "Descarregar el mandat",
   "Descargar la hoja": "Descarregar el full",
+  // Tabla editable (Jennifer, 03/10/2026)
+  "Entidad o subcontrata": "Entitat o subcontracta",
+  "Añadir el colaborador": "Afegir el col·laborador",
+  "¿Marcar como presentado?": "Marcar com a presentat?",
+  "El expediente pasará a «Presentado», con fecha {fecha}.": "L'expedient passarà a «Presentat», amb data {fecha}.",
+  "Fecha de pago de la tasa": "Data de pagament de la taxa",
   // Caducidad de la TIE en la cabecera del expediente (Jennifer, 03/10/2026)
   "Caducidad TIE": "Caducitat TIE",
   "Caducidad de la TIE del titular: Vigía avisará cuando toque renovar.": "Caducitat de la TIE del titular: Vigía avisarà quan toqui renovar.",
