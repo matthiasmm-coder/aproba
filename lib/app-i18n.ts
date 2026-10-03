@@ -2930,6 +2930,16 @@ export const CA: Record<string, string> = {
   "Este precio vale también para el presupuesto, el enlace del cliente y las facturas de este expediente.": "Aquest preu també val per al pressupost, l'enllaç del client i les factures d'aquest expedient.",
   "Descargar el mandato": "Descarregar el mandat",
   "Descargar la hoja": "Descarregar el full",
+  // Caducidad de la TIE en la cabecera del expediente (Jennifer, 03/10/2026)
+  "Caducidad TIE": "Caducitat TIE",
+  "Caducidad de la TIE del titular: Vigía avisará cuando toque renovar.": "Caducitat de la TIE del titular: Vigía avisarà quan toqui renovar.",
+  // Campana: trámites pedidos por clientes desde su espacio (Jennifer, 03/10/2026)
+  "Trámites pedidos por clientes": "Tràmits demanats per clients",
+  "Pedido hoy por el cliente": "Demanat avui pel client",
+  "Pedido ayer por el cliente": "Demanat ahir pel client",
+  "Pedido por el cliente hace {n} días": "Demanat pel client fa {n} dies",
+  // Filtro por estado en la lista de expedientes (Jennifer, 03/10/2026)
+  "Todos los estados": "Tots els estats",
   // Lugar y fecha antes de las firmas (Luis, 03/10/2026)
   "Fecha del documento": "Data del document",
   "Sale antes de las firmas: «En [municipio del domicilio del despacho, en Ajustes], a [esta fecha]». Por defecto, la de hoy.": "Surt abans de les signatures: «En [municipi del domicili del despatx, a Ajustos], a [aquesta data]». Per defecte, la d'avui.",

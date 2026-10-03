@@ -65,6 +65,7 @@ export function CampanaAlertas() {
   const dehu = lista.filter((a) => a.clase === "notificacion");
   const vf = lista.filter((a) => a.clase === "verifactu");
   const rens = lista.filter((a) => a.clase === "renovacion" || a.clase === "sin_respuesta");
+  const sols = lista.filter((a) => a.clase === "solicitud");
   const plazo = (a: Alerta) => t(a.plazo.clave).replace("{n}", String(a.plazo.n));
 
   const seccion = (titulo: string, filas: Alerta[], verTodo: { href: string; label: string }) => filas.length > 0 && (
@@ -77,7 +78,7 @@ export function CampanaAlertas() {
               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${PUNTO[a.nivel]}`} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-slate-800">{a.cliente}</span>
-                <span className="block truncate text-xs text-slate-500" title={a.detalle}>{a.clase === "requerimiento" || a.clase === "notificacion" || a.clase === "verifactu" ? a.detalle : t(a.detalle)}</span>
+                <span className="block truncate text-xs text-slate-500" title={a.detalle}>{a.clase === "requerimiento" || a.clase === "notificacion" || a.clase === "verifactu" || a.clase === "solicitud" ? a.detalle : t(a.detalle)}</span>
               </span>
               <span className={`mt-0.5 shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ${CHIP[a.nivel]}`}>{plazo(a)}</span>
             </Link>
@@ -126,6 +127,7 @@ export function CampanaAlertas() {
               {seccion(t("DEHú"), dehu, { href: "/app/dehu", label: t("Ver la DEHú") })}
               {seccion(t("VERI*FACTU"), vf, { href: "/app/facturas", label: t("Ver facturas") })}
               {seccion(t("Renovaciones"), rens, { href: "/app/vencimientos", label: t("Ver renovaciones") })}
+              {seccion(t("Trámites pedidos por clientes"), sols, { href: "/app/expedientes", label: t("Ver expedientes") })}
             </>
           )}
         </div>

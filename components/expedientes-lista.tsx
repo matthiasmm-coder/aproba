@@ -9,7 +9,7 @@ import { AvatarGestor, AvataresProvider, useAvatar, type Avatares } from "@/comp
 import { useT } from "@/components/lang-provider";
 import { ArchiveIcon, RequerimientosIcon, TablaIcon, VistasExpedientes } from "@/components/vistas-expedientes";
 import { ExpedientesTabla } from "@/components/expedientes-tabla";
-import type { FilaTabla } from "@/lib/expedientes-tabla";
+import { ESTADO_TRAMITE, FILTRO_ESTADO, claveFiltroEstado, estadoVisibleDe, type FilaTabla, type FiltroEstado } from "@/lib/expedientes-tabla";
 import { MODO_EXPEDIENTES_KEY, EVENTO_MODO_EXPEDIENTES } from "@/components/ancho-expedientes";
 import { NumeroOficial } from "@/components/numero-oficial";
 import { SALIDAS, etiquetaSalida, salidaDeEstado, type Salida } from "@/lib/types";
@@ -497,8 +497,12 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const soloRequerimientos = filtroChip === "requerimientos";
   // Lo que se pliega a mano CON una pastilla puesta: no se recuerda (la próxima vez que
   // se pulse, vuelve a abrirse todo) y se olvida al cambiar de pastilla.
+  // Filtro por ESTADO (Jennifer, 03/10/2026: «en preparación» y «preparado» en las dos
+  // presentaciones). Se combina con lo demás; «Preparado» es la fase del tablero.
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado | "">("");
+  const claveEstado = (e: ItemLista) => claveFiltroEstado(estadoVisibleDe(e.estado, e.progreso?.fase));
   const [cerradosFiltro, setCerradosFiltro] = useState<Set<string>>(new Set());
-  useEffect(() => { setCerradosFiltro(new Set()); }, [filtroChip]);
+  useEffect(() => { setCerradosFiltro(new Set()); }, [filtroChip, filtroEstado]);
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   // El plegado se RECUERDA entre visitas (localStorage, por navegador): al volver, el
   // gestor encuentra sus carpetas como las dejó — como en su disco. Dos conjuntos porque
@@ -553,7 +557,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   // un solo servicio nace abierta con su tema, y aun así su flecha tiene que plegarla.
   // Antes su estado colgaba de la clave de la RAÍZ mientras el clic escribía la del
   // grupo: la flecha no hacía nada (reportado por Matthias el 19/09).
-  const conPastilla = view === "curso" && filtroChip !== null;
+  const conPastilla = view === "curso" && (filtroChip !== null || filtroEstado !== "");
   const estaAbierto = (k: string, porDefecto = abiertoPorDefecto) =>
     Boolean(q.trim()) || (conPastilla ? !cerradosFiltro.has(k) : porDefecto ? !cerrados.has(k) : abiertos.has(k));
   const toggle = (k: string, porDefecto = abiertoPorDefecto) => {
@@ -618,6 +622,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   const grupoDe = (e: ItemLista) => grupoArbol(e, packs);
 
   const pasaFiltros = (e: ItemLista) => {
+    if (view === "curso" && filtroEstado && claveEstado(e) !== filtroEstado) return false;
     if (soloEsperando && !esperandoCliente(e)) return false;
     if (soloRequerimientos && !(e.requerimientos?.length)) return false;
     if (asignado && e.asignadoA !== asignado) return false;
@@ -644,13 +649,15 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     const textoTabla = (f: FilaTabla) => [f.nombre, f.nie, f.pasaporte, f.referencia, f.numeroOficial].some((x) => norm(x).includes(nq));
     if (view === "curso") {
       const porId = new Map(activos.filter(pasaFiltros).map((e) => [e.id, e]));
-      return todas.filter((f) => { const e = porId.get(f.id); return Boolean(e) && (!nq || pasaTexto(e!) || textoTabla(f)); });
+      // La fase («Preparado») viene del expediente de la lista: la ruta de la tabla no la calcula.
+      return todas.filter((f) => { const e = porId.get(f.id); return Boolean(e) && (!nq || pasaTexto(e!) || textoTabla(f)); })
+        .map((f) => ({ ...f, preparado: porId.get(f.id)?.progreso?.fase === "preparado" }));
     }
     return todas.filter((f) =>
       (!asignado || (asignado === "Sin asignar" ? !f.tramitadoPor : f.tramitadoPor === asignado))
       && (!nq || textoTabla(f)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filasTabla, view, activos, q, asignado, soloEsperando, soloRequerimientos, numerosEditados]);
+  }, [filasTabla, view, activos, q, asignado, soloEsperando, soloRequerimientos, filtroEstado, numerosEditados]);
 
 
   const ordenPrioridad = (e: ItemLista) => e.progreso?.score ?? 50;
@@ -671,10 +678,10 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
       temas, packs, porAnios: view === "historial", ordenarFilas,
       etiquetaSinClasificar: t("Sin clasificar"), etiquetaSinFecha: t("Sin fecha"),
       // Solo en «En curso»: el archivo se recorre para buscar, no para ver la estructura.
-      carpetasVacias: view === "curso" && !q.trim() && !asignado && !filtroChip ? carpetasVacias : [],
+      carpetasVacias: view === "curso" && !q.trim() && !asignado && !filtroChip && !filtroEstado ? carpetasVacias : [],
     }) }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, activos, historial, q, asignado, catFiltro, temas, packs, filtroChip, carpetasVacias]);
+  }, [view, activos, historial, q, asignado, catFiltro, temas, packs, filtroChip, filtroEstado, carpetasVacias]);
 
   const total = bloques.reduce((a, b) => a + b.arbol.reduce((x, r) => x + r.n, 0), 0);
 
@@ -687,7 +694,7 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
     for (const e of activos.filter(pasa)) m.set(raizDe(e, packs), (m.get(raizDe(e, packs)) ?? 0) + 1);
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activos, packs, q, asignado, filtroChip, numerosEditados]);
+  }, [activos, packs, q, asignado, filtroChip, filtroEstado, numerosEditados]);
 
   // ── ARCHIVO SERVIDOR ───────────────────────────────────────────────────────
   const archivoSrv = useArchivoServidor();
@@ -788,6 +795,9 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
   })();
 
   const nEsperando = activos.filter(esperandoCliente).length;
+  // Cuántos hay en cada estado (con el resto de filtros fuera): solo se ofrecen los que tienen alguno.
+  const porEstado = new Map<FiltroEstado, number>();
+  for (const e of activos) porEstado.set(claveEstado(e), (porEstado.get(claveEstado(e)) ?? 0) + 1);
   const requerimientosUrgentes = [...activos.flatMap((e) => e.requerimientos ?? []), ...requerimientosFuera].some((r) => diasRestantes(r.fechaLimite) <= 0);
   const filtrosAsignado = asignados.filter((a) => a !== "Sin asignar");
   const chip = (activo: boolean) => `rounded-full border px-2.5 py-1 text-xs font-medium transition ${activo ? "border-aproba-500 bg-aproba-50 text-aproba-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`;
@@ -824,6 +834,14 @@ export function ExpedientesLista({ items, asignados, temas, packs = [], filtroIn
           <select value={asignado} onChange={(e) => setAsignado(e.target.value)} aria-label={t("Responsable")} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-600 outline-none focus:border-aproba-600">
             <option value="">{t("Todo el equipo")}</option>
             {filtrosAsignado.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+        {view === "curso" && activos.length > 0 && (
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado | "")} aria-label={t("Estado")} className={`rounded-lg border bg-white px-2.5 py-2 text-sm outline-none focus:border-aproba-600 ${filtroEstado ? "border-aproba-500 text-aproba-700" : "border-slate-300 text-slate-600"}`}>
+            <option value="">{t("Todos los estados")}</option>
+            {FILTRO_ESTADO.filter((k) => (porEstado.get(k) ?? 0) > 0 || k === filtroEstado).map((k) => (
+              <option key={k} value={k}>{t(ESTADO_TRAMITE[k])} ({porEstado.get(k) ?? 0})</option>
+            ))}
           </select>
         )}
         {/* «Esperando al cliente» a la DERECHA del equipo (21/09, Matthias): primero se

@@ -16,6 +16,8 @@ import { ESTADO_REGISTRO_META, type EstadoRegistro } from "@/lib/verifactu";
 // Desde el 01/10 también VERI*FACTU: la factura que la AEAT rechazó o aceptó con errores, la
 // que no se pudo enviar por un dato del cliente y la anulación rechazada (se corrigen desde
 // la factura con «Reenviar a la AEAT»).
+// Desde el 03/10 también el trámite que un cliente pidió desde su espacio y que nadie del
+// despacho ha cogido aún (Jennifer: «una alerta cuando un cliente crea un expediente»).
 
 export const DIAS_RENOVACION = 60;
 export const DIAS_SIN_RESPUESTA = 7;
@@ -25,10 +27,12 @@ export type VencFuente = { id: string; clienteNombre: string; tipo: string; dias
 export type NotifFuente = Pick<NotificacionDehu, "id" | "origen" | "estado" | "tipo" | "titularNombre" | "organismo" | "asunto" | "fechaLimite" | "requerimientoId">;
 // Un registro VERI*FACTU que pide un gesto (lib/data/verifactu-alertas.ts).
 export type VfFuente = { id: string; facturaId: string; numero: string; clienteNombre: string; tipo: string; estado: string };
+// Un trámite pedido por el cliente desde su espacio (lib/data/solicitudes-cliente.ts).
+export type SolFuente = { expedienteId: string; clienteNombre: string; servicios: string; creadoAt: string };
 
 export type NivelAlerta = "critico" | "urgente" | "aviso";
 export type Alerta = {
-  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu";
+  clase: "requerimiento" | "notificacion" | "renovacion" | "sin_respuesta" | "verifactu" | "solicitud";
   id: string;
   href: string;
   cliente: string;
@@ -39,7 +43,7 @@ export type Alerta = {
 };
 
 const RANGO: Record<NivelAlerta, number> = { critico: 0, urgente: 1, aviso: 2 };
-const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4 };
+const CLASE: Record<Alerta["clase"], number> = { requerimiento: 0, notificacion: 1, verifactu: 2, renovacion: 3, sin_respuesta: 4, solicitud: 5 };
 // Lo crítico arriba (y, dentro de cada nivel, requerimientos antes que renovaciones); luego
 // lo que antes vence. Los días se desplazan para que un vencido (negativo) ordene bien.
 const orden = (nivel: NivelAlerta, clase: Alerta["clase"], dias: number) =>
@@ -54,8 +58,19 @@ export function plazoCaducidad(dias: number): { clave: string; n: number } {
   return { clave: "Caduca en {n} días", n: dias };
 }
 
-export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = []): Alerta[] {
+export function construirAlertas(reqs: ReqFuente[], vencs: VencFuente[], hoy: Date = new Date(), notifs: NotifFuente[] = [], vfs: VfFuente[] = [], sols: SolFuente[] = []): Alerta[] {
   const out: Alerta[] = [];
+
+  // Trámite pedido por el cliente: un aviso (no vence nada), hasta que alguien lo coge.
+  for (const s of sols) {
+    const hace = Math.max(0, -diasRestantes(s.creadoAt, hoy));
+    out.push({
+      clase: "solicitud", id: `sol-${s.expedienteId}`, href: `/app/expedientes/${s.expedienteId}`,
+      cliente: s.clienteNombre, detalle: s.servicios,
+      plazo: hace === 0 ? { clave: "Pedido hoy por el cliente", n: 0 } : hace === 1 ? { clave: "Pedido ayer por el cliente", n: 1 } : { clave: "Pedido por el cliente hace {n} días", n: hace },
+      nivel: "aviso", orden: orden("aviso", "solicitud", -hace),
+    });
+  }
 
   // VERI*FACTU: rechazada o no registrada = crítico (la factura no consta en la AEAT); con
   // errores, sin un dato del cliente o con el envío parado = urgente.

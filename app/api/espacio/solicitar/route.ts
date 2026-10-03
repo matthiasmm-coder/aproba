@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { fetchServiciosDeWorkspace, parsePacks } from "@/lib/data/config";
-import { emailLayout, fotoDelOwner } from "@/lib/notificaciones";
+import { emailLayout, emailsAdministradores, fotoDelOwner } from "@/lib/notificaciones";
+import { descripcionSolicitud } from "@/lib/solicitudes-cliente";
 import { packPct } from "@/lib/servicios";
 import { SERVICIO_A_TIPO } from "@/lib/tramites";
 import { cobrarOverageSiProcede } from "@/lib/overage";
@@ -133,17 +134,19 @@ export async function POST(req: Request) {
 
   const etiquetas = servicios.map((s) => activos.get(s)?.label ?? s);
   await admin.from("ExpedienteEvento").insert([
-    { id: uuid(), expedienteId, tipo: "CREADO", descripcion: `🧑‍💻 Trámite solicitado por el cliente desde su espacio (${etiquetas.join(" + ")})` },
+    // La marca la busca la campana (lib/solicitudes-cliente.ts): no cambiar este texto a mano.
+    { id: uuid(), expedienteId, tipo: "CREADO", descripcion: descripcionSolicitud(etiquetas) },
   ]);
 
   // Cuota mensual: un expediente real cuenta como cualquier otro (best-effort).
   const extra = await cobrarOverageSiProcede(admin, { workspaceId, expedienteId, referencia });
 
-  // Email al despacho (OWNER) — mejor esfuerzo, nunca bloquea la respuesta al cliente.
+  // Email a los ADMINISTRADORES del despacho (propietario + administradores; Jennifer,
+  // 03/10/2026) — mejor esfuerzo, nunca bloquea la respuesta al cliente. La campana también lo
+  // enseña hasta que alguien se lo asigna (lib/data/solicitudes-cliente.ts).
   try {
-    const { data: owner } = await admin.from("Membership").select("userId").eq("workspaceId", workspaceId).eq("role", "OWNER").limit(1).maybeSingle();
-    const email = owner ? (await admin.auth.admin.getUserById(owner.userId as string)).data.user?.email ?? null : null;
-    if (email && process.env.RESEND_API_KEY) {
+    const destinatarios = await emailsAdministradores(admin, workspaceId);
+    if (destinatarios.length && process.env.RESEND_API_KEY) {
       const nombre = `${cliente.nombre ?? ""} ${cliente.apellidos ?? ""}`.trim() || "Un cliente";
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? baseUrlFromRequest(req)).replace(/\/$/, "");
       const cuerpo = `${nombre} ha solicitado un trámite desde su espacio:\n\n• ${etiquetas.join("\n• ")}\n\nEl expediente ${referencia} ya está en tus expedientes. El cliente está subiendo sus documentos.\n\nÁbrelo aquí:\n${appUrl}/app/expedientes/${expedienteId}`;
@@ -164,7 +167,7 @@ export async function POST(req: Request) {
       });
       await new Resend(process.env.RESEND_API_KEY).emails.send({
         from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
-        to: email,
+        to: destinatarios,
         subject: `🆕 ${nombre} solicita: ${etiquetas.join(" + ")} (${referencia})`,
         text: cuerpo,
         html,

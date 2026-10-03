@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filaTabla, csvTabla, type FilaTabla } from "./expedientes-tabla";
+import { filaTabla, csvTabla, claveFiltroEstado, estadoVisible, estadoVisibleDe, ESTADO_TRAMITE, type FilaTabla } from "./expedientes-tabla";
 
 // Vista Tabla restaurada el 28/09/2026 (Jennifer). El nº oficial se prueba en numero-oficial.test.ts.
 
@@ -38,5 +38,25 @@ describe("exportar la tabla a Excel", () => {
   });
   it("sin filas, solo la cabecera", () => {
     expect(csvTabla([]).split("\n")).toHaveLength(1);
+  });
+});
+
+// «Preparado» en la tabla y en el filtro de la lista (Jennifer, 03/10/2026).
+describe("estado visible: «Preparado» es la fase del tablero", () => {
+  it("en preparación con formularios o tasa (fase «preparado») sale «Preparado»; lo presentado no cambia", () => {
+    expect(estadoVisibleDe("EN_PREPARACION", "preparado")).toBe("PREPARADO");
+    expect(estadoVisibleDe("EN_PREPARACION", "preparacion")).toBe("EN_PREPARACION");
+    expect(estadoVisibleDe("DOCS_VALIDADOS", "preparado")).toBe("PREPARADO"); // estado antiguo → EN_PREPARACION
+    expect(estadoVisibleDe("PRESENTADO", "preparado")).toBe("PRESENTADO");
+    expect(ESTADO_TRAMITE[estadoVisibleDe("EN_PREPARACION", "preparado")]).toBe("Preparado");
+  });
+  it("el filtro junta «Resuelto» favorable y desfavorable, como la columna", () => {
+    expect(claveFiltroEstado("RECHAZADO")).toBe("RESUELTO");
+    expect(claveFiltroEstado("PREPARADO")).toBe("PREPARADO");
+  });
+  it("el Excel exportado dice «Preparado» cuando la fila lo es", () => {
+    const f: FilaTabla = { id: "e9", referencia: "EXP-2026-0099", numeroOficial: "", nombre: "Ana Ruiz", nie: "X1", pasaporte: "", anio: "2026", fechaNacimiento: "", estado: "EN_PREPARACION", fechaPresentacion: "", tramitadoPor: "", tasaGenerada: true, archivado: false, preparado: true };
+    expect(csvTabla([f]).split("\n")[1]).toContain(";Preparado;");
+    expect(estadoVisible({ estado: "EN_PREPARACION" })).toBe("EN_PREPARACION");
   });
 });

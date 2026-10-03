@@ -51,6 +51,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
 import { ENCARGO_APAGADO, algunoActivo, type EncargoActivo } from "@/lib/encargo-activo";
+import { CaducidadExpediente } from "@/components/caducidad-expediente";
 
 export const metadata = { title: "Expediente" };
 
@@ -102,6 +103,14 @@ export default async function ExpedienteDetail({
   if (!e) notFound();
 
   const despachoEncargo = await encargoActivado(e.oficinaId);
+  // Caducidad de la TIE del titular (Vigía), consulta aparte como las de arriba: se edita en
+  // la cabecera (Jennifer, 03/10/2026). Sin la columna, simplemente no se enseña.
+  const caducidadTitular = e.clienteId ? await (async () => {
+    try {
+      const { data, error } = await (await createSupabaseServer()).from("Cliente").select("fechaCaducidad").eq("id", e.clienteId as string).maybeSingle();
+      return error ? undefined : ((data as { fechaCaducidad?: string | null } | null)?.fechaCaducidad ?? null);
+    } catch { return undefined; }
+  })() : undefined;
 
   // Équipe, pour le sélecteur « Asignado a » du pied de fiche. Traspasar peut
   // n'importe quel membre — y compris l'asistente (voir components/asignar-expediente).
@@ -360,6 +369,7 @@ export default async function ExpedienteDetail({
           <div><span className="text-slate-400">{t("Creado")} </span><span className="font-medium text-slate-700">{e.creado}</span></div>
           {e.presentadoEl && <div><span className="text-slate-400">{t("Presentado")} </span><span className="font-medium text-slate-700">{e.presentadoEl}</span></div>}
           {e.fechaLimite && <div><span className="text-slate-400">{t("Fecha límite")} </span><span className="font-medium text-amber-700">{e.fechaLimite}</span></div>}
+          {e.clienteId && caducidadTitular !== undefined && <div><CaducidadExpediente clienteId={e.clienteId} fechaActual={caducidadTitular} /></div>}
         </div>
       </div>
 

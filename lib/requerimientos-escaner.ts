@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { emailLayout, fotoDeUsuario } from "@/lib/notificaciones";
+import { emailLayout, emailsAdministradores, fotoDeUsuario } from "@/lib/notificaciones";
 import { avisoPendiente, etiquetaPlazo, diasRestantes, type EstadoRequerimiento } from "@/lib/requerimientos";
 
 // RECORDATORIO DE REQUERIMIENTOS AL DESPACHO (petición de Jennifer, 21/09/2026).
@@ -82,9 +82,11 @@ export async function escanearRequerimientos(admin: SupabaseClient): Promise<{ a
     // Si el ENVÍO falla no se marca nada: mañana se reintenta entero, sin duplicar.
     let envioFallido = false;
     try {
+      // A TODOS los administradores (propietario + administradores), no solo al propietario
+      // (Jennifer, 03/10/2026). La foto de la cabecera sigue siendo la del propietario.
       const { data: owner } = await admin.from("Membership").select("userId").eq("workspaceId", workspaceId).eq("role", "OWNER").limit(1).maybeSingle();
-      const email = owner ? (await admin.auth.admin.getUserById(owner.userId as string)).data.user?.email ?? null : null;
-      if (email && process.env.RESEND_API_KEY) {
+      const destinatarios = await emailsAdministradores(admin, workspaceId);
+      if (destinatarios.length && process.env.RESEND_API_KEY) {
         const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://aproba-software.com").replace(/\/$/, "");
         const url = `${appUrl}/app/expedientes?filtro=requerimientos`;
         const { data: wsRow } = await admin.from("Workspace").select("nombre").eq("id", workspaceId).maybeSingle();
@@ -104,7 +106,7 @@ export async function escanearRequerimientos(admin: SupabaseClient): Promise<{ a
         });
         const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
           from: `Aproba <${process.env.AVISOS_EMAIL_FROM || "onboarding@resend.dev"}>`,
-          to: email,
+          to: destinatarios,
           subject: `${vencidos ? "🔴" : "⏰"} ${titulo}`,
           text: `${lineas.join("\n")}\n\nVer los requerimientos:\n${url}`,
           html,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { construirAlertas, plazoCaducidad, type NotifFuente, type ReqFuente, type VencFuente } from "@/lib/alertas";
+import { construirAlertas, plazoCaducidad, type NotifFuente, type ReqFuente, type SolFuente, type VencFuente } from "@/lib/alertas";
 
 const HOY = new Date(2026, 8, 26, 10, 0, 0);
 const dia = (n: number) => new Date(2026, 8, 26 + n).toISOString();
@@ -90,3 +90,22 @@ describe("campana — VERI*FACTU (01/10/2026)", () => {
   });
 });
 
+// Trámite pedido por el cliente desde su espacio (Jennifer, 03/10/2026): un aviso con su
+// antigüedad, que lleva a la ficha del expediente.
+describe("campana · trámites pedidos por clientes", () => {
+  const sol = (id: string, dias: number): SolFuente => ({ expedienteId: id, clienteNombre: `Cliente ${id}`, servicios: "Arraigo social", creadoAt: new Date(2026, 8, 26 + dias, 9).toISOString() });
+  it("un aviso por trámite, con «hoy», «ayer» o los días que lleva; el que más espera, arriba", () => {
+    const a = construirAlertas([], [], HOY, [], [], [sol("x1", 0), sol("x2", -1), sol("x3", -4)]);
+    expect(a.map((x) => [x.clase, x.nivel, x.plazo.clave, x.plazo.n])).toEqual([
+      ["solicitud", "aviso", "Pedido por el cliente hace {n} días", 4],
+      ["solicitud", "aviso", "Pedido ayer por el cliente", 1],
+      ["solicitud", "aviso", "Pedido hoy por el cliente", 0],
+    ]);
+    expect(a[2].href).toBe("/app/expedientes/x1");
+    expect(a[2].detalle).toBe("Arraigo social");
+  });
+  it("un requerimiento urgente sale antes que un trámite pedido", () => {
+    const a = construirAlertas([req("umbral", 3)], [], HOY, [], [], [sol("x1", 0)]);
+    expect(a.map((x) => x.clase)).toEqual(["requerimiento", "solicitud"]);
+  });
+});

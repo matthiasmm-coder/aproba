@@ -7,7 +7,7 @@
 // PRINCIPIO: la gestoría manda. La app no adivina la fecha ni avisa al cliente por su
 // cuenta; calcula días, ordena por urgencia y decide CUÁNDO tocar el hombro al despacho.
 
-export const AVISAR_DIAS_DEFECTO = 3;
+export const AVISAR_DIAS_DEFECTO = 4; // Jennifer, 03/10/2026: «avisar cuando queden menos de 4 días» (antes 3)
 export const PLAZO_HABITUAL_DIAS = 10; // «usualmente nos dan 10 días hábiles»
 
 export type EstadoRequerimiento = "PENDIENTE" | "APORTADO";

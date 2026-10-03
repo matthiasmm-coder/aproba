@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { copiarTexto } from "@/lib/copiar";
-import { csvTabla, ESTADO_TRAMITE, resolucionDe, type FilaTabla } from "@/lib/expedientes-tabla";
+import { csvTabla, ESTADO_TRAMITE, estadoVisible, resolucionDe, type EstadoVisible, type FilaTabla } from "@/lib/expedientes-tabla";
 import { faltaParaConsultar } from "@/lib/numero-oficial";
 import { NumeroOficial } from "@/components/numero-oficial";
 
@@ -27,6 +27,12 @@ const fechaCorta = (iso: string) => {
   if (!iso) return "";
   const [a, m, d] = iso.slice(0, 10).split("-");
   return a && m && d ? `${d}/${m}/${a}` : "";
+};
+
+const COLOR_ESTADO: Partial<Record<EstadoVisible, string>> = {
+  EN_PREPARACION: "bg-slate-100 text-slate-600",
+  PREPARADO: "bg-aproba-50 text-aproba-700",
+  PRESENTADO: "bg-sky-50 text-sky-700",
 };
 
 function Nueva({ t }: { t: (k: string) => string }) {
@@ -169,8 +175,8 @@ function FilasAnio({ anio, lista, t, td, onAbrir, onNumeroOficial }: { anio: str
           <td className={td}>{f.anio}</td>
           <td className={td}>{fechaCorta(f.fechaNacimiento) || <span className="text-slate-300">—</span>}</td>
           <td className={td}>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${f.estado === "EN_PREPARACION" ? "bg-slate-100 text-slate-600" : f.estado === "PRESENTADO" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-500"}`}>
-              {t(ESTADO_TRAMITE[f.estado])}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_ESTADO[estadoVisible(f)] ?? "bg-slate-100 text-slate-500"}`}>
+              {t(ESTADO_TRAMITE[estadoVisible(f)])}
             </span>
           </td>
           <td className={td}>{fechaCorta(f.fechaPresentacion) || <span className="text-slate-300">—</span>}</td>

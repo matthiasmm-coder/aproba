@@ -1415,6 +1415,20 @@ export async function emailDelOwner(admin: SupabaseClient, workspaceId: string):
   } catch { return null; }
 }
 
+// Los ADMINISTRADORES del despacho (propietario primero, luego administradores), sin
+// repetir: los avisos que debe ver quien gestiona, no solo el titular de la cuenta
+// (Jennifer, 03/10/2026: requerimientos urgentes y trámites pedidos por clientes).
+export async function emailsAdministradores(admin: SupabaseClient, workspaceId: string): Promise<string[]> {
+  try {
+    const { data } = await admin.from("Membership").select("role, user:User(email)").eq("workspaceId", workspaceId).in("role", ["OWNER", "ADMIN"]);
+    type U = { email?: string | null };
+    const filas = ((data ?? []) as { role: string; user: U | U[] | null }[])
+      .sort((a, b) => Number(b.role === "OWNER") - Number(a.role === "OWNER"));
+    const emails = filas.map((f) => (Array.isArray(f.user) ? f.user[0]?.email : f.user?.email) ?? "").map((e) => e.trim()).filter((e) => e.includes("@"));
+    return [...new Map(emails.map((e) => [e.toLowerCase(), e])).values()];
+  } catch { return []; }
+}
+
 async function enviarAlDespacho(admin: SupabaseClient, o: { workspaceId: string; titulo: string; cuerpoHtml: string; texto: string; cta: { url: string; label: string } }): Promise<void> {
   try {
     const para = await emailDelOwner(admin, o.workspaceId);
