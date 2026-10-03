@@ -94,6 +94,10 @@ export function avisosCanje(d: DatosCanje, o: { presentado?: boolean; hoy?: Date
     }
   }
   if (d.caducidad && diasHasta(d.caducidad, hoy) < 0) out.push({ nivel: "bloqueo", clave: "El permiso caducó el {fecha}: para canjearlo tiene que estar en vigor.", fecha: d.caducidad });
+  // La DGT exige «acreditación de que no se residía en España cuando se obtuvo el permiso»
+  // (sede, 03/10/2026). Aviso y no bloqueo: un permiso RENOVADO lleva una fecha de expedición
+  // reciente aunque se obtuviera mucho antes.
+  if (d.expedicion && d.residenciaDesde && d.expedicion > d.residenciaDesde) out.push({ nivel: "atencion", clave: "Expedido el {fecha}, después de empezar a residir en España: la DGT pide acreditar que se obtuvo cuando aún no residía aquí. Si es una renovación, prepara la prueba de la fecha en que se obtuvo.", fecha: d.expedicion });
   if (conPruebas(d.clases)) out.push({ nivel: "atencion", clave: "Camión o autobús (C, D): la DGT puede exigir prueba práctica y, según el país, teórica. Tasa 2.1 ({n} €).", n: TASA_CANJE_CON_PRUEBAS.importe });
   if (d.residenciaDesde && !d.entregadoEl) {
     const limite = sumarMeses(d.residenciaDesde, MESES_PERMISO_EXTRANJERO);

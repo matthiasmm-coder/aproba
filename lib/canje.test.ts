@@ -139,4 +139,10 @@ describe("servicio propio de canje", () => {
     expect(fraseAvisoCanje({ tipo: "informe", fecha: "2026-10-03", dias: 0 })).toBe("el informe médico caduca el 03/10/2026 (hoy): pide el canje antes");
     expect(fraseAvisoCanje({ tipo: "caducidad", fecha: "2026-10-04", dias: 1 })).toBe("el permiso extranjero caduca el 04/10/2026 (mañana): para canjearlo tiene que estar en vigor");
   });
+  it("permiso expedido después de empezar a residir en España: aviso (no bloqueo, por las renovaciones)", () => {
+    const tarde = avisosCanje({ ...base, expedicion: "2026-06-01", residenciaDesde: "2026-04-10" }, { hoy: HOY });
+    expect(tarde.find((a) => a.clave.startsWith("Expedido el"))).toMatchObject({ nivel: "atencion", fecha: "2026-06-01" });
+    const antes = avisosCanje({ ...base, residenciaDesde: "2026-04-10" }, { hoy: HOY }); // expedido en 2018
+    expect(antes.some((a) => a.clave.startsWith("Expedido el"))).toBe(false);
+  });
 });
