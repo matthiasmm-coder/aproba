@@ -22,9 +22,11 @@ insert into public."ServicioConfig" (
 )
 select
   -- El MISMO id que escribe Ajustes (lib/config-browser), como en servicios-ley14.sql.
+  -- Precio a consultar = 0 € por dentro (como el canje propio de Juan): ni la hoja de encargo
+  -- ni la factura llevan un importe que el despacho no ha elegido.
   'svc_' || a."workspaceId" || '_' || coalesce(a."oficinaId" || '_', '') || 'canje_permiso',
   a."workspaceId", a."oficinaId", 'canje_permiso', 'Canje de permiso de conducir', 'Canjear un permiso de conducir extranjero por el español (DGT)', array['Pasaporte', 'TIE actual', 'Permiso de conducir extranjero (anverso y reverso)', 'Informe de aptitud psicofísica (centro de reconocimiento)']::text[], true,
-  60, 60, true, true, 'cliente', '[{"concepto":"Tasa DGT 2.3 (canje de permiso)","importe":28.87}]'::jsonb, 'Tráfico',
+  0, 0, true, true, 'cliente', '[{"concepto":"Tasa DGT 2.3 (canje de permiso)","importe":28.87}]'::jsonb, 'Tráfico',
   case when w."temas" is not null and jsonb_array_length(w."temas") > 0
        then 'tema_' || md5(a."workspaceId" || '|' || 'Tráfico') end,
   a.orden_max + 1, now()

@@ -38,9 +38,11 @@ insert into public."ServicioConfig" (
 )
 select
   -- El MISMO id que escribe Ajustes (lib/config-browser), como en servicios-ley14.sql.
+  -- Precio a consultar = 0 € por dentro (como el canje propio de Juan): ni la hoja de encargo
+  -- ni la factura llevan un importe que el despacho no ha elegido.
   'svc_' || a."workspaceId" || '_' || coalesce(a."oficinaId" || '_', '') || ${q(s.id)},
   a."workspaceId", a."oficinaId", ${q(s.id)}, ${q(s.label)}, ${q(s.desc)}, ${arr(s.docs)}, true,
-  ${s.anticipo}, ${s.resto}, true, ${s.citaPresencial}, ${q(s.citaQuien)}, ${q(JSON.stringify(s.suplidos ?? []))}::jsonb, ${q(TEMA)},
+  0, 0, true, ${s.citaPresencial}, ${q(s.citaQuien)}, ${q(JSON.stringify(s.suplidos ?? []))}::jsonb, ${q(TEMA)},
   case when w."temas" is not null and jsonb_array_length(w."temas") > 0
        then 'tema_' || md5(a."workspaceId" || '|' || ${q(TEMA)}) end,
   a.orden_max + 1, now()
