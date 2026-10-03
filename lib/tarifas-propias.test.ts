@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conTarifasPropias, fusionarOpciones, presupuestoOpcionesValidas, tarifasPropiasValidas, VALIDEZ_PRESUPUESTO_DIAS } from "@/lib/tarifas-propias";
+import { conTarifasPropias, fechaDocumentoValida, fusionarOpciones, presupuestoOpcionesValidas, tarifasPropiasValidas, VALIDEZ_PRESUPUESTO_DIAS } from "@/lib/tarifas-propias";
 import { aplicarDescuento, serviciosDeExpediente, tarifaAsignada, tarifaDeServicios } from "@/lib/multi-servicio";
 import type { Servicio } from "@/lib/servicios";
 
@@ -16,24 +16,42 @@ describe("honorarios propios del expediente · lectura", () => {
   });
 
   it("opciones del presupuesto: validez 1-365 días (si no, 30) y nota recortada", () => {
-    expect(presupuestoOpcionesValidas({ validezDias: 15, nota: "  Precio para los dos cónyuges  " })).toEqual({ validezDias: 15, nota: "Precio para los dos cónyuges", condiciones: "" });
-    expect(presupuestoOpcionesValidas({ validezDias: 0 })).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" });
+    expect(presupuestoOpcionesValidas({ validezDias: 15, nota: "  Precio para los dos cónyuges  " })).toEqual({ validezDias: 15, nota: "Precio para los dos cónyuges", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" });
+    expect(presupuestoOpcionesValidas({ validezDias: 0 })).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" });
     expect(presupuestoOpcionesValidas({ validezDias: 999, nota: "x".repeat(900) })!.nota).toHaveLength(600);
     expect(presupuestoOpcionesValidas("nada")).toBeNull();
   });
 
   it("cada ventana guarda lo suyo: el presupuesto no borra las condiciones de la hoja, ni al revés", () => {
-    const guardado = { validezDias: 15, nota: "Para los dos cónyuges", condiciones: "" };
+    const guardado = { validezDias: 15, nota: "Para los dos cónyuges", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" };
     // La hoja de encargo añade sus condiciones: la validez y la nota del presupuesto siguen.
     const conHoja = fusionarOpciones(guardado, { condiciones: "  Incluye la cita de huellas  " });
-    expect(conHoja).toEqual({ validezDias: 15, nota: "Para los dos cónyuges", condiciones: "Incluye la cita de huellas" });
+    expect(conHoja).toEqual({ validezDias: 15, nota: "Para los dos cónyuges", condiciones: "Incluye la cita de huellas", fechaPresupuesto: "", fechaEncargo: "" });
     // El presupuesto cambia su nota: las condiciones de la hoja siguen.
-    expect(fusionarOpciones(conHoja, { validezDias: 30, nota: "" })).toEqual({ validezDias: 30, nota: "", condiciones: "Incluye la cita de huellas" });
+    expect(fusionarOpciones(conHoja, { validezDias: 30, nota: "" })).toEqual({ validezDias: 30, nota: "", condiciones: "Incluye la cita de huellas", fechaPresupuesto: "", fechaEncargo: "" });
     // null (presupuesto por defecto, como mandaban los clientes anteriores) conserva las condiciones.
-    expect(fusionarOpciones(conHoja, null)).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "Incluye la cita de huellas" });
+    expect(fusionarOpciones(conHoja, null)).toEqual({ validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "Incluye la cita de huellas", fechaPresupuesto: "", fechaEncargo: "" });
     // Todo por defecto → la columna vuelve a null.
     expect(fusionarOpciones({ validezDias: 30, nota: "", condiciones: "x" }, { condiciones: "" })).toBeNull();
     expect(fusionarOpciones(null, { validezDias: 30, nota: "" })).toBeNull();
+  });
+
+  it("fecha de cada documento (Luis, 03/10/2026): «AAAA-MM-DD» de un día que existe, o vacía = hoy", () => {
+    expect(fechaDocumentoValida("2026-09-28")).toBe("2026-09-28");
+    expect(fechaDocumentoValida("2026-02-31")).toBe("");
+    expect(fechaDocumentoValida("28/09/2026")).toBe("");
+    expect(fechaDocumentoValida(20260928)).toBe("");
+    expect(presupuestoOpcionesValidas({ fechaEncargo: "2026-09-28", fechaPresupuesto: "ayer" })).toMatchObject({ fechaEncargo: "2026-09-28", fechaPresupuesto: "" });
+  });
+
+  it("la fecha de la hoja y la del presupuesto se guardan cada una en su ventana", () => {
+    const hoja = fusionarOpciones(null, { condiciones: "", fechaEncargo: "2026-09-28" });
+    expect(hoja).toMatchObject({ fechaEncargo: "2026-09-28", fechaPresupuesto: "" });
+    const ambas = fusionarOpciones(hoja, { validezDias: 30, nota: "", fechaPresupuesto: "2026-09-20" });
+    expect(ambas).toMatchObject({ fechaEncargo: "2026-09-28", fechaPresupuesto: "2026-09-20" });
+    // Volver a «hoy» en la hoja: la del presupuesto sigue; sin ninguna, la columna vuelve a null.
+    expect(fusionarOpciones(ambas, { condiciones: "", fechaEncargo: "" })).toMatchObject({ fechaEncargo: "", fechaPresupuesto: "2026-09-20" });
+    expect(fusionarOpciones(hoja, { condiciones: "", fechaEncargo: "" })).toBeNull();
   });
 });
 

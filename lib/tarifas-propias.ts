@@ -15,9 +15,13 @@ export type TarifasPropias = Record<string, TarifaPropia>; // clave del servicio
 
 // Opciones de los documentos de ESTE expediente: validez y observaciones del PRESUPUESTO, y
 // condiciones particulares de la HOJA DE ENCARGO (Luis, 02/10/2026). Ninguna va a la factura.
-export type PresupuestoOpciones = { validezDias: number; nota: string; condiciones: string };
+// Y la FECHA que figura en cada uno (Luis, 03/10/2026: «En Madrid, a … de … de …» por
+// defecto, pero que se pueda cambiar): «AAAA-MM-DD», o "" = el día en que se genera.
+// `fechaEncargo` vale para la hoja de encargo y el mandato, que se firman juntos.
+export type PresupuestoOpciones = { validezDias: number; nota: string; condiciones: string; fechaPresupuesto: string; fechaEncargo: string };
 
 export const VALIDEZ_PRESUPUESTO_DIAS = 30; // la que se imprimía fija hasta el 26/09
+export const OPCIONES_POR_DEFECTO: PresupuestoOpciones = { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" };
 export const MAX_TARIFA = 100_000;
 export const MAX_NOTA = 600;
 
@@ -51,30 +55,42 @@ export function conTarifasPropias<T extends { id: string; anticipo: number; rest
   });
 }
 
+// «AAAA-MM-DD» de un día que existe (no el 31/02); cualquier otra cosa → "" (el día en curso).
+export function fechaDocumentoValida(t: unknown): string {
+  if (typeof t !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return "";
+  const d = new Date(`${t}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t ? t : "";
+}
+
 export function presupuestoOpcionesValidas(x: unknown): PresupuestoOpciones | null {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
-  const v = x as { validezDias?: unknown; nota?: unknown; condiciones?: unknown };
+  const v = x as { validezDias?: unknown; nota?: unknown; condiciones?: unknown; fechaPresupuesto?: unknown; fechaEncargo?: unknown };
   const dias = Math.round(Number(v.validezDias));
   const texto = (t: unknown) => (typeof t === "string" ? t.trim().slice(0, MAX_NOTA) : "");
   return {
     validezDias: Number.isFinite(dias) && dias >= 1 && dias <= 365 ? dias : VALIDEZ_PRESUPUESTO_DIAS,
     nota: texto(v.nota),
     condiciones: texto(v.condiciones),
+    fechaPresupuesto: fechaDocumentoValida(v.fechaPresupuesto),
+    fechaEncargo: fechaDocumentoValida(v.fechaEncargo),
   };
 }
 
-// Cada ventana guarda SUS campos: el presupuesto la validez y la nota, la hoja de encargo sus
-// condiciones. Se funden con lo guardado para que una no borre lo de la otra. `parcial` null
-// (clientes anteriores) = presupuesto por defecto, conservando las condiciones. Todo por
-// defecto → null (la columna vacía, como antes).
+// Cada ventana guarda SUS campos: el presupuesto la validez, la nota y su fecha; la hoja de
+// encargo sus condiciones y su fecha. Se funden con lo guardado para que una no borre lo de
+// la otra. `parcial` null (clientes anteriores) = presupuesto por defecto, conservando lo de
+// la hoja. Todo por defecto → null (la columna vacía, como antes).
 export function fusionarOpciones(actual: unknown, parcial: unknown): PresupuestoOpciones | null {
-  const a = presupuestoOpcionesValidas(actual) ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" };
+  const a = presupuestoOpcionesValidas(actual) ?? OPCIONES_POR_DEFECTO;
   const p = parcial && typeof parcial === "object" && !Array.isArray(parcial) ? (parcial as Record<string, unknown>) : null;
   const tiene = (k: string) => Boolean(p && Object.prototype.hasOwnProperty.call(p, k));
   const nuevo = presupuestoOpcionesValidas({
     validezDias: p ? (tiene("validezDias") ? p.validezDias : a.validezDias) : VALIDEZ_PRESUPUESTO_DIAS,
     nota: p ? (tiene("nota") ? p.nota : a.nota) : "",
+    fechaPresupuesto: p ? (tiene("fechaPresupuesto") ? p.fechaPresupuesto : a.fechaPresupuesto) : "",
     condiciones: tiene("condiciones") ? p!.condiciones : a.condiciones,
+    fechaEncargo: tiene("fechaEncargo") ? p!.fechaEncargo : a.fechaEncargo,
   })!;
-  return nuevo.validezDias === VALIDEZ_PRESUPUESTO_DIAS && !nuevo.nota && !nuevo.condiciones ? null : nuevo;
+  const porDefecto = nuevo.validezDias === VALIDEZ_PRESUPUESTO_DIAS && !nuevo.nota && !nuevo.condiciones && !nuevo.fechaPresupuesto && !nuevo.fechaEncargo;
+  return porDefecto ? null : nuevo;
 }

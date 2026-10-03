@@ -2930,6 +2930,9 @@ export const CA: Record<string, string> = {
   "Este precio vale también para el presupuesto, el enlace del cliente y las facturas de este expediente.": "Aquest preu també val per al pressupost, l'enllaç del client i les factures d'aquest expedient.",
   "Descargar el mandato": "Descarregar el mandat",
   "Descargar la hoja": "Descarregar el full",
+  // Lugar y fecha antes de las firmas (Luis, 03/10/2026)
+  "Fecha del documento": "Data del document",
+  "Sale antes de las firmas: «En [municipio del domicilio del despacho, en Ajustes], a [esta fecha]». Por defecto, la de hoy.": "Surt abans de les signatures: «En [municipi del domicili del despatx, a Ajustos], a [aquesta data]». Per defecte, la d'avui.",
   // DEHú automática: el certificado primero, el alta en la DEHú después (02/10/2026)
   "La DEHú aún no acepta el certificado. Si ya firmaste la declaración, vuelve a comprobarlo en unos minutos.": "La DEHú encara no accepta el certificat. Si ja has signat la declaració, torna-ho a comprovar d'aquí a uns minuts.",
   "Selecciónalo y cópialo con Ctrl+C.": "Selecciona'l i copia'l amb Ctrl+C.",

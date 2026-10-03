@@ -170,7 +170,7 @@ describe("hoja de encargo / presupuesto · etiquetas de §5", () => {
     cliente: { nombre: "Aicha", apellidos: "Diallo Díaz", nie: "Y1234567X", pasaporte: "", nacionalidad: "Senegal", domicilio: "C/ Mallorca 101", municipio: "Barcelona", cp: "08029", provincia: "Barcelona", telefono: "", email: "" },
     servicios: [{ label: "Residencia por arraigo", desc: "", anticipo: 225, resto: 225, noIncluye: "", suplidos: [{ concepto, importe: 38.28 }] }],
     suplidosOverride: null, descuento: null, esFamiliar: false, medios: [],
-    presupuesto: { validezDias: 30, nota: "", condiciones: "" },
+    presupuesto: { validezDias: 30, nota: "", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" },
   };
 
   it.each(["encargo", "presupuesto"] as const)("%s: el concepto largo se parte en su columna y no pisa el importe", async (modo) => {

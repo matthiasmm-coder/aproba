@@ -92,6 +92,10 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
   const [validez, setValidez] = useState(String(opciones?.validezDias ?? VALIDEZ_PRESUPUESTO_DIAS));
   const [nota, setNota] = useState(opciones?.nota ?? "");
   const [condiciones, setCondiciones] = useState(opciones?.condiciones ?? "");
+  // Fecha que figura en el documento (Luis, 03/10/2026): hoy por defecto, se puede cambiar.
+  // Se guarda vacía si es la de hoy, para que mañana vuelva a salir la del día.
+  const [hoy] = useState(() => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }));
+  const [fecha, setFecha] = useState(() => (esEncargo ? opciones?.fechaEncargo : opciones?.fechaPresupuesto) || hoy);
   const [busy, setBusy] = useState<"" | "pdf" | "mandato" | "email">("");
   const [error, setError] = useState<string | null>(null);
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
@@ -119,13 +123,17 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
   const dias = Math.round(Number(validez));
   const diasOk = Number.isFinite(dias) && dias >= 1 && dias <= 365;
   const descuentoCambio = JSON.stringify(descuentoNuevo) !== JSON.stringify(descuento ?? null);
-  const puede = !busy && !invalido && diasOk && !(tipo === "PORCENTAJE" && valor > 100);
+  const fechaOk = /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+  const puede = !busy && !invalido && diasOk && fechaOk && !(tipo === "PORCENTAJE" && valor > 100);
 
   async function guardar(): Promise<boolean> {
     setError(null);
     try {
       // Cada modo manda SOLO sus campos: el servidor los funde con lo guardado.
-      const opcionesNuevas = esEncargo ? { condiciones: condiciones.trim() } : { validezDias: dias, nota: nota.trim() };
+      const fechaGuardada = fecha === hoy ? "" : fecha;
+      const opcionesNuevas = esEncargo
+        ? { condiciones: condiciones.trim(), fechaEncargo: fechaGuardada }
+        : { validezDias: dias, nota: nota.trim(), fechaPresupuesto: fechaGuardada };
       const r = await fetch(`/api/expedientes/${expedienteId}/presupuesto`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tarifas, opciones: opcionesNuevas }),
@@ -288,6 +296,11 @@ function PresupuestoModal({ expedienteId, referencia, servicios, tarifasPropias,
               </label>
             </div>
             )}
+            <label className="mt-3 block">
+              <span className={lbl}>{t("Fecha del documento")}</span>
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={`mt-1.5 block w-44 tabular-nums ${inp}`} />
+            </label>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{t("Sale antes de las firmas: «En [municipio del domicilio del despacho, en Ajustes], a [esta fecha]». Por defecto, la de hoy.")}</p>
 
             {/* Lo que verá el cliente — con IVA, como en su enlace y en su factura. */}
             <div className="mt-5 rounded-xl border border-slate-200 bg-cream-50/60 p-4">

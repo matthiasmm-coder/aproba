@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFArray, PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
-import { generarHojaEncargo, generarMandato, type DatosEncargo } from "@/lib/encargo";
+import { generarHojaEncargo, generarMandato, lugarDeDomicilio, type DatosEncargo } from "@/lib/encargo";
 
 // Firma (y sello) del profesional y condiciones particulares de la hoja de encargo
 // (Luis, Asenjo Global Consulting, 02/10/2026).
@@ -15,7 +15,7 @@ const base: DatosEncargo = {
   cliente: { nombre: "Marcos", apellidos: "Quispe Huamán", nie: "Y1234567X", pasaporte: "", nacionalidad: "Perú", domicilio: "C/ de la Paz 8", municipio: "Valencia", cp: "46003", provincia: "Valencia", telefono: "", email: "" },
   servicios: [{ label: "Arraigo social", desc: "", anticipo: 250, resto: 250, noIncluye: "", suplidos: [] }],
   suplidosOverride: null, descuento: null, esFamiliar: false, medios: [],
-  presupuesto: { validezDias: 30, nota: "", condiciones: "" },
+  presupuesto: { validezDias: 30, nota: "", condiciones: "", fechaPresupuesto: "", fechaEncargo: "" },
 };
 
 async function imagenes(bytes: Uint8Array): Promise<number> {
@@ -72,5 +72,46 @@ describe("condiciones particulares de la hoja de encargo", () => {
     expect(await textos(await generarHojaEncargo(base))).toContain("7. PROTECCIÓN DE DATOS");
     const d = { ...base, presupuesto: { ...base.presupuesto, condiciones: "Solo para la hoja." } };
     expect(await textos(await generarHojaEncargo(d, "presupuesto"))).not.toContain("Solo para la hoja.");
+  });
+});
+
+// «En Madrid, a … de … de …» antes de las firmas (Luis, Asenjo Global Consulting, 03/10/2026).
+describe("lugar y fecha antes de las firmas", () => {
+  it("el lugar sale del domicilio del despacho: el municipio tras el código postal", () => {
+    expect(lugarDeDomicilio("C/ VELAZQUEZ, 109 7º IZDA. 28005 MADRID")).toBe("Madrid");
+    expect(lugarDeDomicilio("AV. DE LAS CORTES VALENCIANAS 46, 5 E, CP 46015 - VALENCIA")).toBe("Valencia");
+    expect(lugarDeDomicilio("Calle Mayor 3, 08901 L'HOSPITALET DE LLOBREGAT")).toBe("L'Hospitalet de Llobregat");
+    expect(lugarDeDomicilio("C/ Real 5, 28700 San Sebastián de los Reyes (Madrid)")).toBe("San Sebastián de los Reyes");
+    expect(lugarDeDomicilio("Calle Mayor 12, Valencia 46001")).toBe("Valencia");
+    expect(lugarDeDomicilio("C/Mayor 1, Madrid")).toBe("Madrid");
+    // Sin código postal ni municipio reconocible: la línea sale en blanco, como antes.
+    expect(lugarDeDomicilio("GRAN VIA LES CORTS CATALANES 164 LOCAL 18")).toBeNull();
+    expect(lugarDeDomicilio("")).toBeNull();
+  });
+
+  it("hoja de encargo y mandato: «En Madrid, a» la fecha del día, ya escrita", async () => {
+    const d = { ...base, lugar: "Madrid" };
+    expect(await textos(await generarHojaEncargo(d))).toContain("En Madrid, a 2 de octubre de 2026");
+    expect(await textos(await generarMandato(d))).toContain("En Madrid, a 2 de octubre de 2026");
+  });
+
+  it("la fecha elegida en la ventana manda en la hoja y el mandato (también en «Fecha:»)", async () => {
+    const d = { ...base, lugar: "Madrid", presupuesto: { ...base.presupuesto, fechaEncargo: "2026-09-28" } };
+    const hoja = await textos(await generarHojaEncargo(d));
+    expect(hoja).toContain("En Madrid, a 28 de septiembre de 2026");
+    expect(hoja).toContain("Fecha: 28 de septiembre de 2026");
+    expect(await textos(await generarMandato(d))).toContain("En Madrid, a 28 de septiembre de 2026");
+  });
+
+  it("presupuesto firmado: lugar y fecha sobre «POR EL DESPACHO», con su propia fecha y su validez", async () => {
+    const d = { ...base, lugar: "Madrid", firma: PNG, presupuesto: { ...base.presupuesto, fechaPresupuesto: "2026-09-30", fechaEncargo: "2026-09-28" } };
+    const t = await textos(await generarHojaEncargo(d, "presupuesto"));
+    expect(t).toContain("En Madrid, a 30 de septiembre de 2026");
+    expect(t).toContain("Válido hasta el 30 de octubre de 2026");
+    expect(t.indexOf("En Madrid, a 30 de septiembre de 2026")).toBeLessThan(t.indexOf("POR EL DESPACHO"));
+  });
+
+  it("sin lugar conocido, el hueco del lugar sigue en blanco pero la fecha sale escrita", async () => {
+    expect(await textos(await generarHojaEncargo(base))).toContain("En ____________________________, a 2 de octubre de 2026");
   });
 });

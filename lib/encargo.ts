@@ -7,7 +7,7 @@ import { aplicarDescuento, asignacionValida, descuentoValido, etiquetaDescuento,
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchServiciosDeWorkspace } from "./data/config";
 import { TIPO_A_SERVICIO } from "./tramites";
-import { conTarifasPropias, VALIDEZ_PRESUPUESTO_DIAS, type PresupuestoOpciones } from "./tarifas-propias";
+import { conTarifasPropias, OPCIONES_POR_DEFECTO, type PresupuestoOpciones } from "./tarifas-propias";
 import { leerPresupuestoExp } from "./data/tarifas-propias";
 import { leerFirma } from "./firma-despacho";
 
@@ -55,12 +55,51 @@ export type DatosEncargo = {
   // Imagen (PNG) de la firma y sello del profesional, la del ámbito cuyo bloque de encargo
   // manda (sede con bloque propio o despacho) — lib/firma-despacho. null = línea en blanco.
   firma?: Uint8Array | null;
+  // Lugar de «En …, a … de … de …» antes de las firmas: el municipio del domicilio del
+  // despacho (o de la sede cuyo bloque manda). null = línea en blanco, como antes.
+  lugar?: string | null;
 };
 
 const s = (v: unknown) => String(v ?? "").trim();
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} EUR`;
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-const fechaLarga = (d: Date) => `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
+// Día, mes y año EN MADRID: el servidor va en UTC (a las 0:30 del día 3, en UTC aún es el 2).
+function partesMadrid(d: Date) {
+  const [anio, mes, dia] = d.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }).split("-").map(Number);
+  return { dia, mes: mes - 1, anio };
+}
+const fechaLarga = (d: Date) => { const p = partesMadrid(d); return `${p.dia} de ${MESES[p.mes]} de ${p.anio}`; };
+
+// LUGAR Y FECHA antes de las firmas (Luis, Asenjo, 03/10/2026: «debería generarse por
+// defecto: En Madrid a [día, mes y año en curso]… que se pudiera cambiar la fecha»).
+// El lugar sale del domicilio: el municipio que sigue al código postal («C/ Velázquez, 109,
+// 28005 MADRID» → «Madrid»; «CP 46015 - VALENCIA» → «Valencia»), o, sin código postal, el
+// último tramo tras una coma («C/ Mayor 1, Madrid»). Sin nada reconocible → null.
+const MINUSCULAS = new Set(["de", "del", "la", "las", "los", "el", "y", "i", "d", "l"]);
+const nombrePropio = (t: string) => t.toLowerCase()
+  .replace(/(^|[\s\-'’(])([a-zà-ÿ])/g, (_m, sep: string, c: string) => sep + c.toUpperCase())
+  .split(" ").map((w, i) => (i > 0 && MINUSCULAS.has(w.toLowerCase()) ? w.toLowerCase() : w)).join(" ")
+  .replace(/\b([DL])['’]/g, (_m, c: string) => `${c.toLowerCase()}'`).replace(/^([dl])'/, (_m, c: string) => `${c.toUpperCase()}'`);
+export function lugarDeDomicilio(domicilio: string | null | undefined): string | null {
+  const t = (domicilio ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  const tras = /\b\d{5}\b\s*[-–,:.]?\s*([^,()\d]+)/.exec(t)?.[1]?.trim();
+  const antes = /,\s*([^,()\d]+?)\s+\d{5}\s*$/.exec(t)?.[1]?.trim();
+  const ultimo = t.includes(",") && !/\d/.test(t.split(",").pop() ?? "") ? t.split(",").pop()!.trim() : "";
+  const lugar = (tras || antes || ultimo).replace(/^(cp|c\.p\.)\s*/i, "").replace(/[.\s]+$/, "").trim();
+  if (!lugar || lugar.length < 2 || lugar.length > 40) return null;
+  return lugar === lugar.toUpperCase() ? nombrePropio(lugar) : lugar;
+}
+// La fecha que figura: la elegida en la ventana del expediente («AAAA-MM-DD», a mediodía
+// para que sea ese día en Madrid) o, si no hay, el momento en que se genera el documento.
+const fechaDelDocumento = (elegida: string | undefined, generada: Date) => (elegida ? new Date(`${elegida}T12:00:00Z`) : generada);
+// Alto de un bloque de firmas (como Maqueta.firmas): la línea de lugar y fecha no se queda
+// sola al pie de una página con las firmas en la siguiente.
+const altoFirmas = (conImagen: boolean) => (conImagen ? 74 : 52) + 34;
+function lineaLugarFecha(lugar: string | null | undefined, fecha: Date): string {
+  const p = partesMadrid(fecha);
+  return `En ${lugar || "____________________________"}, a ${p.dia} de ${MESES[p.mes]} de ${p.anio}`;
+}
 // Helvetica (WinAnsi): normaliza tipografía y ELIMINA controles (que si no
 // harían que pdf-lib lanzara «WinAnsi cannot encode» y rompiera todo el PDF con
 // un 500 persistente — vector: cualquier campo pegado desde Word/PDF). Conserva
@@ -296,7 +335,8 @@ export async function datosEncargo(admin: SupabaseClient, exp: ExpRow): Promise<
       ? exp.suplidosOverride.filter((x) => x.concepto && Number(x.importe) > 0).map((x) => ({ concepto: x.concepto, importe: Number(x.importe) }))
       : null,
     medios,
-    presupuesto: presu.opciones ?? { validezDias: VALIDEZ_PRESUPUESTO_DIAS, nota: "", condiciones: "" },
+    presupuesto: presu.opciones ?? OPCIONES_POR_DEFECTO,
+    lugar: lugarDeDomicilio(despachoDoc.domicilio),
     firma: await leerFirma(admin, exp.workspaceId, ambitoFirma),
   };
 }
@@ -460,9 +500,10 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   const firma = await embeberFirma(m, d.firma);
   m.cabecera(d.despacho.nombre, d.referencia);
   m.titulo(esPres ? "PRESUPUESTO" : "HOJA DE ENCARGO PROFESIONAL");
-  m.parrafo(`Fecha: ${fechaLarga(d.fecha)}`, { size: 8.5, color: GRIS });
+  const fecha = fechaDelDocumento(esPres ? d.presupuesto.fechaPresupuesto : d.presupuesto.fechaEncargo, d.fecha);
+  m.parrafo(`Fecha: ${fechaLarga(fecha)}`, { size: 8.5, color: GRIS });
   if (esPres) {
-    const hasta = new Date(d.fecha.getTime() + d.presupuesto.validezDias * 86400000);
+    const hasta = new Date(fecha.getTime() + d.presupuesto.validezDias * 86400000);
     m.parrafo(`Válido hasta el ${fechaLarga(hasta)}`, { size: 8.5, color: GRIS });
   }
   m.espacio(4);
@@ -621,7 +662,13 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
     m.parrafo("Este presupuesto es informativo y no supone encargo. Al aceptarlo se emite la hoja de encargo profesional, que recoge estas mismas condiciones.", { size: 9 });
     // Con firma del despacho, el presupuesto va firmado por él (sin línea para el cliente:
     // no es un contrato). Sin firma, como siempre.
-    if (firma) { m.espacio(14); m.firmas("POR EL DESPACHO", "", { izq: firma }); }
+    if (firma) {
+      m.espacio(12);
+      m.necesita(18 + altoFirmas(true));
+      m.parrafo(lineaLugarFecha(d.lugar, fecha), { size: 9.5 });
+      m.espacio(8);
+      m.firmas("POR EL DESPACHO", "", { izq: firma });
+    }
     return m.bytes();
   }
 
@@ -637,7 +684,8 @@ export async function generarHojaEncargo(d: DatosEncargo, modo: ModoEncargo = "e
   m.parrafo(`Los datos personales del cliente serán tratados por ${d.despacho.nombre} como responsable del tratamiento, con la única finalidad de prestar los servicios objeto de este encargo y cumplir las obligaciones legales derivadas. El cliente puede ejercer sus derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad dirigiéndose al despacho en los datos de contacto indicados. Conforme al RGPD (UE) 2016/679 y la LO 3/2018.`, { size: 8.5, color: GRIS });
 
   m.espacio(10);
-  m.parrafo("En ____________________________, a ______ de ______________________ de 20____", { size: 9.5 });
+  m.necesita(22 + altoFirmas(Boolean(firma)));
+  m.parrafo(lineaLugarFecha(d.lugar, fecha), { size: 9.5 });
   m.espacio(8);
   // Cliente-EMPRESA: quien firma el encargo es la EMPRESA (es quien contrata y paga), no
   // el trabajador — él solo firma el mandato, que es lo que se le representa. Se nombra
@@ -688,7 +736,8 @@ export async function generarMandato(d: DatosEncargo, persona?: PersonaEncargo):
   m.parrafo(`El mandante declara que conoce y consiente que los datos que suministra pueden incorporarse a ficheros de los que será responsable el mandatario y, en su caso, el Colegio Oficial de Gestores Administrativos correspondiente, con el único objeto de posibilitar la prestación de los servicios profesionales objeto del presente mandato y el cumplimiento de las obligaciones derivadas del trámite encomendado. El mandante tiene derecho de acceso, rectificación, supresión, limitación, oposición y portabilidad de sus datos, dirigiéndose al mandatario en su domicilio profesional, así como a interponer reclamación ante la Agencia Española de Protección de Datos, en los términos de la LO 3/2018 y el Reglamento (UE) 2016/679.`, { size: 8.5, color: GRIS });
 
   m.espacio(10);
-  m.parrafo("En ____________________________, a ______ de ______________________ de 20____");
+  m.necesita(90 + altoFirmas(Boolean(firma))); // línea + aceptación del mandatario + firmas
+  m.parrafo(lineaLugarFecha(d.lugar, fechaDelDocumento(d.presupuesto.fechaEncargo, d.fecha)));
   m.espacio(6);
   m.parrafo("El mandatario acepta el mandato conferido y se obliga a cumplirlo de conformidad con las instrucciones del mandante, y declara bajo su responsabilidad que los documentos recibidos del mandante han sido verificados en cuanto a la corrección formal de los datos contenidos en los mismos.", { size: 8.5, color: GRIS });
   m.espacio(10);
