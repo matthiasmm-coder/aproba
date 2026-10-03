@@ -1,7 +1,9 @@
 // Genera supabase/servicios-canje.sql a partir de lib/servicios.ts (DEFAULT_SERVICIOS): el
-// servicio «Canje de permiso de conducir» (03/10/2026, Jennifer y Samara) entra INACTIVO en
-// el catálogo de cada despacho que ya tiene el suyo (los nuevos lo reciben por defecto), en la
-// carpeta «Tráfico». Salvo donde ya hay un servicio propio de canje (Juan tiene el suyo).
+// servicio «Canje de permiso de conducir» (03/10/2026, Jennifer y Samara) entra ACTIVO, con
+// «precio a consultar», en el catálogo de cada despacho que ya tiene el suyo (los nuevos lo
+// reciben por defecto, con su precio), en la carpeta «Tráfico». Salvo donde ya hay un servicio
+// propio de canje (Juan tiene el suyo). Activo desde la decisión de Matthias del 03/10: «los
+// canjes, disponibles para todos»; precio a consultar porque ese despacho no lo ha elegido.
 // Mismo patrón que scripts/generar-sql-ley14.ts. Una sola fuente: se regenera si cambia.
 //   npx tsx scripts/generar-sql-canje.ts
 import { writeFileSync } from "node:fs";
@@ -17,9 +19,10 @@ const sql = `-- ─────────────────────�
 -- scripts/generar-sql-canje.ts desde lib/servicios.ts: no editar a mano.
 --
 -- Los despachos creados a partir de hoy lo reciben por defecto. Los que ya tienen catálogo
--- propio (filas en ServicioConfig) lo reciben aquí, INACTIVO: aparece en Ajustes › Servicios,
--- carpeta «${TEMA}», y cada despacho lo activa si lo lleva. En cada ámbito (gestoría y oficinas
--- con catálogo propio) que aún no lo tenga, y no donde ya hay un servicio propio de canje.
+-- propio (filas en ServicioConfig) lo reciben aquí, ACTIVO y con «precio a consultar» (sus
+-- clientes no ven un precio que el despacho no ha elegido), carpeta «${TEMA}». En cada ámbito
+-- (gestoría y oficinas con catálogo propio) que aún no lo tenga, y no donde ya hay un servicio
+-- propio de canje. (Las filas de la 1ª versión, inactivas: supabase/servicios-canje-activar.sql.)
 --
 -- Idempotente: se puede pegar varias veces.
 -- ────────────────────────────────────────────────────────────────────────────────────
@@ -31,13 +34,13 @@ with ambitos as (
 )
 insert into public."ServicioConfig" (
   "id", "workspaceId", "oficinaId", "clave", "label", "descripcion", "docs", "active",
-  "anticipo", "resto", "citaPresencial", "citaQuien", "suplidos", "categoria", "temaId", "orden", "updatedAt"
+  "anticipo", "resto", "precioOculto", "citaPresencial", "citaQuien", "suplidos", "categoria", "temaId", "orden", "updatedAt"
 )
 select
   -- El MISMO id que escribe Ajustes (lib/config-browser), como en servicios-ley14.sql.
   'svc_' || a."workspaceId" || '_' || coalesce(a."oficinaId" || '_', '') || ${q(s.id)},
-  a."workspaceId", a."oficinaId", ${q(s.id)}, ${q(s.label)}, ${q(s.desc)}, ${arr(s.docs)}, false,
-  ${s.anticipo}, ${s.resto}, ${s.citaPresencial}, ${q(s.citaQuien)}, ${q(JSON.stringify(s.suplidos ?? []))}::jsonb, ${q(TEMA)},
+  a."workspaceId", a."oficinaId", ${q(s.id)}, ${q(s.label)}, ${q(s.desc)}, ${arr(s.docs)}, true,
+  ${s.anticipo}, ${s.resto}, true, ${s.citaPresencial}, ${q(s.citaQuien)}, ${q(JSON.stringify(s.suplidos ?? []))}::jsonb, ${q(TEMA)},
   case when w."temas" is not null and jsonb_array_length(w."temas") > 0
        then 'tema_' || md5(a."workspaceId" || '|' || ${q(TEMA)}) end,
   a.orden_max + 1, now()
@@ -68,8 +71,9 @@ where w."temas" is not null and jsonb_array_length(w."temas") > 0
     where t->>'id' = 'tema_' || md5(w."id" || '|' || ${q(TEMA)})
   );
 
--- Comprobación:
--- select count(*) from public."ServicioConfig" where "clave" = ${q(s.id)};
+-- Comprobación: el editor de Supabase enseña el resultado de esta última consulta.
+select count(*) as servicios_canje, count("temaId") as en_carpeta
+from public."ServicioConfig" where "clave" = ${q(s.id)};
 `;
 writeFileSync("supabase/servicios-canje.sql", sql);
 console.log("supabase/servicios-canje.sql — 1 servicio, carpeta «" + TEMA + "»");
