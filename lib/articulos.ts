@@ -555,16 +555,19 @@ export const ARTICULOS: Articulo[] = [
     // procedimiento en sede.administracionespublicas.gob.es (/directorio/mercurio2), Ley
     // 39/2015 consolidada (BOE, últ. mod. 06/11/2024: arts. 14.2.c, 30.2, 31.2, 32.4, 68,
     // 73.1), ICAM 13/03/2024 (recursos por Mercurio) y la ficha pública de la extensión en
-    // Chrome Web Store (v0.2.1).
+    // Chrome Web Store (v0.2.1). 03/10/2026: sección «Mercurio Iniciales» (Search Console: «mercurio
+    // iniciales» en página 1-2), con la lista de la ficha oficial del procedimiento leída el 03/10
+    // (sede.administracionespublicas.gob.es/pagina/index/directorio/mercurio2: 13 modelos de
+    // solicitud inicial y 13 renovaciones, prórrogas y modificaciones).
     slug: "mercurio-extranjeria-presentar-paso-a-paso",
     titulo: "Mercurio paso a paso: cómo presenta un despacho de extranjería",
     // 28/09/2026 — se busca «extranjería mercurio» / «mercurio extranjería» (página 2 en Search
     // Console): el título del resultado empieza por lo que se escribe.
     tituloSeo: "Mercurio Extranjería: cómo presentar paso a paso (2026)",
     descripcion:
-      "Mercurio extranjería paso a paso: quién puede presentar, adjuntos de 6 MB, AutoFirma, cómo aportar documentación, el resguardo y el número de expediente.",
+      "Mercurio extranjería paso a paso: las solicitudes iniciales y renovaciones que admite, quién presenta, adjuntos de 6 MB, AutoFirma y el resguardo.",
     fecha: "2026-09-25",
-    actualizado: "2026-09-28",
+    actualizado: "2026-10-03",
     tema: "Presentación telemática",
     entradilla:
       "Mercurio no es difícil: es estricto, y casi todos sus rechazos llegan al final. Un «nº» en el nombre de un archivo, un PDF de 7 MB o un certificado distinto del que abrió la sesión bloquean la presentación en los últimos pasos. Esta guía recorre los seis, con el punto exacto donde se atasca cada uno.",
@@ -580,6 +583,38 @@ export const ARTICULOS: Articulo[] = [
         t: "p",
         texto:
           "Para un profesional colegiado no es una opción: quien ejerce una profesión de colegiación obligatoria debe relacionarse por medios electrónicos en los trámites de esa profesión (art. 14.2.c de la Ley 39/2015). Si presenta en papel, se le requiere que subsane por vía electrónica y **la fecha de presentación pasa a ser la de la subsanación** (art. 68.4). En una renovación al límite de plazo, eso no es un detalle.",
+      },
+      { t: "h2", texto: "Mercurio Iniciales: qué solicitudes admite" },
+      {
+        t: "p",
+        texto:
+          "«Mercurio Iniciales» es el módulo de las solicitudes **nuevas**. La ficha oficial del procedimiento, con los accesos de cada colectivo, está en la sede de Administraciones Públicas (sede.administracionespublicas.gob.es) con un nombre largo: «Solicitudes telemáticas de autorizaciones nuevas y renovaciones de extranjería. Aportación de documentación a expedientes de extranjería». Para las iniciales enumera trece modelos:",
+      },
+      {
+        t: "tabla",
+        titulo: "Solicitudes iniciales por Mercurio",
+        encabezados: ["Modelo", "Solicitud"],
+        filas: [
+          ["[EX-00](/formularios/ex-00)", "Autorización de estancia y prórrogas"],
+          ["[EX-01](/formularios/ex-01)", "Residencia temporal no lucrativa"],
+          ["[EX-02](/formularios/ex-02)", "Residencia temporal por reagrupación familiar"],
+          ["[EX-03](/formularios/ex-03)", "Residencia temporal y trabajo por cuenta ajena"],
+          ["[EX-04](/formularios/ex-04)", "Residencia para prácticas"],
+          ["[EX-07](/formularios/ex-07)", "Residencia temporal y trabajo por cuenta propia"],
+          ["[EX-10](/formularios/ex-10)", "Residencia, o residencia y trabajo, por circunstancias excepcionales (los arraigos, entre otras)"],
+          ["[EX-11](/formularios/ex-11)", "Residencia de larga duración o de larga duración-UE"],
+          ["EX-12", "Autorización para trabajar"],
+          ["[EX-19](/formularios/ex-19)", "Tarjeta de residencia de familiar de ciudadano de la UE"],
+          ["[EX-20](/formularios/ex-20)", "Documento de residencia del artículo 50 TUE para nacionales del Reino Unido"],
+          ["[EX-21](/formularios/ex-21)", "Documento de residencia del artículo 50 TUE para familiares de nacionales del Reino Unido"],
+          ["[EX-22](/formularios/ex-22)", "Permiso del artículo 50 TUE para trabajador fronterizo del Reino Unido"],
+        ],
+        nota: "Fuente: ficha oficial del procedimiento en la sede de Administraciones Públicas, consultada el 03/10/2026.",
+      },
+      {
+        t: "p",
+        texto:
+          "Fuera de las iniciales, la misma ficha recoge las [renovaciones](/tramites/renovacion-tie) de residencia y trabajo por cuenta ajena y por cuenta propia, de la residencia no lucrativa, de la reagrupación familiar, de la tarjeta azul, de investigadores y de la residencia con excepción de la autorización de trabajo; la [residencia de larga duración](/tramites/residencia-larga-duracion) tras cinco años de residencia continuada; las prórrogas de estancia por estudios, movilidad de alumnos, prácticas no laborales o voluntariado, y las de sus familiares; dos modificaciones (de circunstancias excepcionales a residencia y trabajo, y de estancia de familiares a reagrupación familiar), y la tarjeta de residencia permanente de familiar de ciudadano de la UE. Un trámite que no figura en estas listas no va por Mercurio: hay que mirar en la ficha de ese procedimiento cómo se presenta.",
       },
       { t: "h2", texto: "Seis pasos, y dónde se atasca cada uno" },
       {
@@ -702,6 +737,14 @@ export const ARTICULOS: Articulo[] = [
       {
         t: "faq",
         items: [
+          {
+            q: "¿Qué es Mercurio Iniciales?",
+            a: "El módulo de Mercurio para las solicitudes nuevas de extranjería: estancia (EX-00), residencia no lucrativa (EX-01), reagrupación familiar (EX-02), cuenta ajena (EX-03), prácticas (EX-04), cuenta propia (EX-07), circunstancias excepcionales (EX-10), larga duración (EX-11), autorización para trabajar (EX-12), tarjeta de familiar de ciudadano de la UE (EX-19) y los documentos del artículo 50 TUE para británicos (EX-20, EX-21 y EX-22).",
+          },
+          {
+            q: "¿Se pueden presentar renovaciones por Mercurio?",
+            a: "Sí. La ficha oficial recoge, entre otras, las renovaciones de residencia y trabajo por cuenta ajena y por cuenta propia, de la residencia no lucrativa, de la reagrupación familiar, de la tarjeta azul y de investigadores, además de la larga duración tras cinco años y las prórrogas de estancia por estudios.",
+          },
           {
             q: "¿Quién puede presentar por Mercurio?",
             a: "El propio interesado, con certificado digital o DNI electrónico, y tres colectivos con acceso propio, dados de alta en su Consejo General: graduados sociales, gestores administrativos y abogacía (esta, además, adherida al convenio del CGAE con la Administración General del Estado).",
