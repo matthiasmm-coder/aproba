@@ -122,6 +122,12 @@ export const DEFAULT_SERVICIOS: Servicio[] = [
   { id: "ley14_renovacion", label: "Renovación Ley 14/2013", desc: "Renovar una autorización de movilidad internacional (2 años más)", active: false, precio: 450, anticipo: 225, resto: 225, docs: ["Pasaporte completo (todas las páginas)", "TIE actual", "Documentación que acredite que se mantienen los requisitos", "Seguro médico"], suplidos: [{ ...TASA_038.ley14_renovacion }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
   // El genérico de septiembre: investigadores y los demás supuestos (los inversores, solo en
   // renovación desde el 03/04/2025, LO 1/2025).
+  // ── TRÁFICO · CANJE DEL PERMISO DE CONDUCIR (03/10/2026, Jennifer y Samara) ──────────────
+  // Desde mayo de 2025 se pide SOLO en línea en la sede de la DGT (sin impreso): la ficha del
+  // expediente guarda los datos del permiso para copiarlos allí y vigila sus plazos (lib/canje.ts).
+  // Tasa DGT 2.3 (canje sin pruebas, moto y coche) como suplido; con pruebas (camión/autobús)
+  // es la 2.1. Una visita a la Jefatura para entregar el permiso original. Inactivo por defecto.
+  { id: "canje_permiso", label: "Canje de permiso de conducir", desc: "Canjear un permiso de conducir extranjero por el español (DGT)", active: false, precio: 120, anticipo: 60, resto: 60, docs: ["Pasaporte", "TIE actual", "Permiso de conducir extranjero (anverso y reverso)", "Informe de aptitud psicofísica (centro de reconocimiento)"], suplidos: [{ concepto: "Tasa DGT 2.3 (canje de permiso)", importe: 28.87 }], citaPresencial: true, citaQuien: "cliente", categoria: "Tráfico" },
   { id: "movilidad_internacional", label: "Movilidad internacional (Ley 14/2013)", desc: "Investigadores y otros supuestos de la Ley 14/2013", active: false, precio: 900, anticipo: 450, resto: 450, docs: ["Pasaporte completo (todas las páginas)", "Título o acreditación de experiencia", "Contrato, convenio de acogida o proyecto", "Seguro médico", "Antecedentes penales (últimos 2 años)"], suplidos: [{ ...TASA_038.movilidad_internacional }], citaPresencial: true, citaQuien: "cliente", categoria: "Movilidad internacional" },
 ];
 
@@ -139,6 +145,9 @@ export function claveDelCatalogo(clave?: string | null, label?: string | null): 
   const n = label.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
   if (/\bfamiliar(es)?\b/.test(n) && /\bespanol(a|es|as)?\b/.test(n)
     && !/comunitari|\bue\b|\bunion\b|europe|modificacion|reagrupacion|arraigo|^nacionalidad/.test(n)) return "familiar_espanol";
+  // Canje del permiso de conducir (03/10/2026): Juan tenía el suyo («Canje de licencia de
+  // conducir extranjera»): sin modelos EX que proponer, como el del catálogo.
+  if (/\bcanje\b/.test(n) && /conduc|carne|carnet|permiso|licencia/.test(n)) return "canje_permiso";
   return clave;
 }
 

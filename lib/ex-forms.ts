@@ -688,6 +688,8 @@ const SERVICIO_FORMS: Record<string, string[]> = {
   ley14_teletrabajo: ["MI-T", "MI-TIE", "MI-F"], ley14_emprendedor: ["MI-T", "MI-TIE", "MI-F"],
   ley14_renovacion: ["MI-T", "MI-TIE", "MI-F"],
   arraigo_social: ["EX-10"], arraigo_laboral: ["EX-10"],
+  // Canje del permiso de conducir (DGT, en línea): ningún modelo EX (lib/canje.ts).
+  canje_permiso: [],
 };
 
 export function formulariosParaTramite(tipoEnum: string, servicioClave?: string | null): string[] {

@@ -18,7 +18,7 @@ import { fetchEmpresaDetalle } from "@/lib/data/empresas";
 import { EmpresaExpedienteSection } from "@/components/empresa-expediente-section";
 import { fetchServiciosConfig } from "@/lib/data/config";
 import { fmtFechaCorta, docsFaltantes, labelADocTipo, emparejarDocs, TIPO_A_SERVICIO, DOC_LABEL } from "@/lib/tramites";
-import { DEFAULT_SERVICIOS } from "@/lib/servicios";
+import { DEFAULT_SERVICIOS, claveDelCatalogo } from "@/lib/servicios";
 import { docsFamiliaPorServicios, docsEmpresaPorTrabajador, docsExtraPlanos, sinQuitados } from "@/lib/familia";
 import { etiquetaTrabajadores } from "@/lib/trabajadores";
 import { catalogoDeSede, serviciosDeExpediente, docsDeExpediente, tarifaDeServicios, citaDeServicios, labelServicios, suplidosDeExpediente, aplicarDescuento, restoPendiente, suplidosAsignados, tarifaAsignada } from "@/lib/multi-servicio";
@@ -52,6 +52,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { getT } from "@/lib/app-lang";
 import { ENCARGO_APAGADO, algunoActivo, type EncargoActivo } from "@/lib/encargo-activo";
 import { CaducidadExpediente } from "@/components/caducidad-expediente";
+import { CanjePermiso } from "@/components/canje-permiso";
+import { CANJE_VACIO, datosCanjeValidos, esServicioCanje } from "@/lib/canje";
 
 export const metadata = { title: "Expediente" };
 
@@ -164,6 +166,15 @@ export default async function ExpedienteDetail({
   // Ley 14/2013 (01/10/2026): se presenta ante la UGE-CE, no en Mercurio (lib/ley14.ts).
   const servicioPrincipal = serviciosExp.find((s) => s.id === e.servicioClave) ?? null;
   const circuitoUGE = esLey14(e.servicioClave, servicioPrincipal?.label);
+  // Canje del permiso de conducir (DGT, 03/10/2026): su carta con los datos del permiso. Consulta
+  // aparte y tolerante: sin supabase/canje-permiso.sql la carta sale, pero sin guardar.
+  const esCanje = serviciosExp.some((s) => esServicioCanje(claveDelCatalogo(s.id, s.label), s.label));
+  const canjeGuardado = esCanje ? await (async () => {
+    try {
+      const { data, error } = await (await createSupabaseServer()).from("Expediente").select("canje").eq("id", e.id).maybeSingle();
+      return error ? null : datosCanjeValidos((data as { canje?: unknown } | null)?.canje);
+    } catch { return null; }
+  })() : null;
   // Tasas y suplidos del servicio — MISMO cálculo que /api/pagos (el popup de cobro
   // debe emitir exactamente lo que emitiría el portal). Familia heterogénea: cada
   // servicio × SUS miembros asignados (tarifaAsignada); sin asignación, ×N clásico.
@@ -417,6 +428,11 @@ export default async function ExpedienteDetail({
           }}
         />
       </div>
+
+      {esCanje && (
+        <CanjePermiso expedienteId={e.id} inicial={canjeGuardado ?? CANJE_VACIO} activo={canjeGuardado !== null} presentado={Boolean(e.presentadoEl)}
+          persona={{ nombre: e.clienteNombre === "—" ? "" : e.clienteNombre, documento: e.clienteFicha?.numeroDocumento || e.clienteFicha?.pasaporte || "", fechaNacimiento: e.clienteFicha?.fechaNacimiento ?? "" }} />
+      )}
 
       {/* Documentos del cliente pendientes — SOLO en la columna «1. Preparación»
           (pedido de Matthias): en «Preparado» y archivado el gestor ya

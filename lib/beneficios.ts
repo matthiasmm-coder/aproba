@@ -508,7 +508,7 @@ export const BENEFICIOS: Beneficio[] = [
     ],
     faq: [
       { q: "¿Se generan en un solo clic de verdad?", a: "Sí: «Generar formularios» produce todos los del trámite a la vez, con la tasa; cada uno se abre y se edita por separado." },
-      { q: "¿Y los formularios de otros organismos (DGT, Educación)?", a: "No están: Aproba se limita a extranjería y nacionalidad. Los documentos de otros organismos se adjuntan al expediente como cualquier archivo." },
+      { q: "¿Y los formularios de otros organismos (DGT, Educación)?", a: "El canje del permiso de conducir, sí: la DGT ya no usa impreso (se pide en línea en su sede), así que Aproba guarda los datos del permiso para copiarlos allí, avisa si el país no tiene convenio y vigila los plazos. El resto de formularios de otros organismos no están: sus documentos se adjuntan al expediente como cualquier archivo." },
     ],
   },
   {
